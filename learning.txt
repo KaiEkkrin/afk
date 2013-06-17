@@ -1,0 +1,7 @@
+Useful example sites
+--------------------
+
+http://www.opengl.org/sdk/docs/tutorials/ (obvious)
+www.codecolony.de (basic OpenGL)
+www.sdltutorials.com (for SDL if I want it)
+

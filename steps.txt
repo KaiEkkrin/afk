@@ -1,0 +1,10 @@
+ - basic shape with keyboard input example. OK
+ - tessellation example.
+ - basic core of afk with single tessellated flat grid of points.
+ - keyboard flyaround.
+ - opencl example.
+ - compute location of points-grid with opencl and feed back.
+ - random number generator.
+ - opencl random number generator.
+ - randomly distributed point heights on grid.
+
