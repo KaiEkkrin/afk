@@ -1,0 +1,8 @@
+Import('extra_ccflags')
+
+afk_sources = Glob('*.cpp')
+afk_libs = ['GL', 'GLU', 'glut']
+afk_ccflags = ['-Wall', '-Werror']
+
+Program('afk', afk_sources, LIBS=afk_libs, CCFLAGS=afk_ccflags + extra_ccflags)
+
