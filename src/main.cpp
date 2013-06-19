@@ -39,7 +39,6 @@ int main(int argc, char **argv)
     
     /* These functions from the `display' module. */
     glutDisplayFunc(afk_display);
-    glutReshapeFunc(afk_reshape);
 
     /* These functions from the `event' module.
      * TODO Mouse support. */

@@ -7,9 +7,20 @@
 
 #include "config.h"
 
+#define REQUIRE_ARGUMENT(option) \
+    ++argi;\
+    if (argi == *argcp)\
+    {\
+        fprintf(stderr, "%s without argument\n", option);\
+        exit(1);\
+    }
+
 AFK_Config::AFK_Config(int *argcp, char **argv)
 {
-    shadersDir = NULL;
+    shadersDir  = NULL;
+    fov         = 90.0f;
+    zNear       = 0.5f;
+    zFar        = 16.0f;
 
     /* Some hand rolled command line parsing, because it's not very
      * hard, and there's no good cross platform one by default */
@@ -17,14 +28,23 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     {
         if (strcmp(argv[argi], "--shaders-dir") == 0)
         {
-            ++argi;
-            if (argi == *argcp)
-            {
-                fprintf(stderr, "--shaders-dir without argument\n");
-                exit(1);
-            }
-
+            REQUIRE_ARGUMENT("--shaders-dir")
             shadersDir = strdup(argv[argi]);
+        }
+        else if (strcmp(argv[argi], "--fov") == 0)
+        {
+            REQUIRE_ARGUMENT("--fov")
+            fov = strtof(argv[argi], NULL);
+        }
+        else if (strcmp(argv[argi], "--zNear") == 0)
+        {
+            REQUIRE_ARGUMENT("--zNear")
+            zNear = strtof(argv[argi], NULL);
+        }
+        else if (strcmp(argv[argi], "--zFar") == 0)
+        {
+            REQUIRE_ARGUMENT("--zFar")
+            zFar = strtof(argv[argi], NULL);
         }
 
         /* Ignore other arguments. */

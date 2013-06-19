@@ -6,7 +6,12 @@
 class AFK_Config
 {
 public:
-    char *shadersDir;
+    char    *shadersDir;
+
+    /* The viewing frustum. */
+    float   fov;
+    float   zNear;
+    float   zFar;
 
     /* Initialises AFK configuration, based on command line
      * arguments. */
