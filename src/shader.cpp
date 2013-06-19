@@ -164,7 +164,8 @@ int afk_compileShaders(const char *shadersDir, GLuint *o_shaderProgram)
     success = 1;
 
 finished:
-    chdir(savedDir);
+    if (chdir(savedDir) == -1)
+        fprintf(stderr, "Couldn\'t return to saved directory %s; ignoring\n", savedDir);
     free(savedDir);
 
     return success;

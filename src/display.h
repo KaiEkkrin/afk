@@ -5,8 +5,9 @@
 
 void afk_displayInit(void);
 
-/* Display function for GLUT. */
+/* GLUT callback functions. */
 void afk_display(void);
+void afk_reshape(int width, int height);
 
 /* Calculates the intended contents of the next frame. */
 void afk_nextFrame(void);

@@ -5,24 +5,40 @@
 #include <GL/glew.h>
 #include <GL/glut.h>
 
-#include "def.h"
+#include "camera.h"
 #include "display.h"
+#include "object.h"
 #include "state.h"
 
 /* TODO Rather naughty: for now I'm going to use some statics
  * to describe the stuff I'm drawing. */
 static GLuint vObj;
 
-/* TODO REMOVEME For the uniform variable test. */
+/* TODO REMOVEME For the uniform variable test.
+ * Want to move these things somewhere.  `state'?  Not sure yet. */
 static GLuint transformLocation;
-static float translate;
-static float rotate;
+static AFK_Object testObject;
+static AFK_Camera camera;
 
 /* TODO To test, splicing in some example code from the Web.
  * Remove this and replace with real stuff :P */
 
 void afk_displayInit(void)
 {
+    /* Setup the camera. */
+    camera.fov      = afk_state.config->fov;
+    camera.zNear    = afk_state.config->zNear;
+    camera.zFar     = afk_state.config->zFar;
+
+    camera.windowWidth  = glutGet(GLUT_WINDOW_WIDTH);
+    camera.windowHeight = glutGet(GLUT_WINDOW_HEIGHT);
+
+    /* Move that camera back so I can see.
+     * (The camera moves in inverse, because it's effectively
+     * moving the world.) */
+    camera.translate = Vec3<float>(0.0f, 0.0f, 5.0f);
+
+    /* Setup the test object's data. */
     float vertices[] = {
         -1.0f,  -1.0f,  0.0f,
         1.0f,   -1.0f,  0.0f,
@@ -34,59 +50,18 @@ void afk_displayInit(void)
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     transformLocation = glGetUniformLocation(afk_state.shaderProgram, "transform");
-    translate = 0.0f;
-    rotate = 0.0f;
 }
 
 void afk_display(void)
 {
-    /* TODO compute the concatenation of these.  With OpenCL.  Because,
-     * after all, for each scene I'm going to be updating the positions
-     * of a large number of moving objects. */
-    /*
-    Mat4<float> rotateMatrix(
-        cosf(rotate),   -sinf(rotate),  0.0f,   0.0f,
-        sinf(rotate),   cosf(rotate),   0.0f,   0.0f,
-        0.0f,           0.0f,           1.0f,   0.0f,
-        0.0f,           0.0f,           0.0f,   1.0f
-    );
-    */
-    Mat4<float> rotateMatrix(
-        1.0f,           0.0f,           0.0f,           0.0f,
-        0.0f,           cosf(rotate),   sinf(rotate),   0.0f,
-        0.0f,           -sinf(rotate),  cosf(rotate),   0.0f,
-        0.0f,           0.0f,           0.0f,           1.0f
-    );
+    Mat4<float> projection = camera.getProjection();
 
-    /* TODO Using a static camera position.  Sort out. */
-    Mat4<float> translateMatrix(
-        1.0f,   0.0f,   0.0f,   0.0f,
-        0.0f,   1.0f,   0.0f,   0.0f,
-        0.0f,   0.0f,   1.0f,   5.0f,
-        0.0f,   0.0f,   0.0f,   1.0f
-    );
-
-    /* Magic perspective projection. */
-    int windowWidth = glutGet(GLUT_WINDOW_WIDTH);
-    int windowHeight = glutGet(GLUT_WINDOW_HEIGHT);
-    float ar = ((float)windowWidth) / ((float)windowHeight);
-    float zNear = afk_state.config->zNear;
-    float zFar = afk_state.config->zFar;
-    float zRange = zNear - zFar;
-    float tanHalfFov = tanf((afk_state.config->fov / 2.0f) * M_PI / 180.0f);
-
-    Mat4<float> projectMatrix(
-        1.0f / (tanHalfFov * ar),   0.0f,                   0.0f,                       0.0f,
-        0.0f,                       1.0f / tanHalfFov,      0.0f,                       0.0f,
-        0.0f,                       0.0f,                   (-zNear - zFar) / zRange,   2.0f * zFar * zNear / zRange,
-        0.0f,                       0.0f,                   1.0f,                       0.0f
-    );
-
-    Mat4<float> transformMatrix = projectMatrix * translateMatrix * rotateMatrix;
+    /* Some day, I'll have more than one object here. */
+    Mat4<float> objectTransform = projection * testObject.getTranslation() * testObject.getRotation() * testObject.getScaling();
 
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glUniformMatrix4fv(transformLocation, 1, GL_TRUE, &transformMatrix.m[0][0]);
+    glUniformMatrix4fv(transformLocation, 1, GL_TRUE, &objectTransform.m[0][0]);
 
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, vObj);
@@ -100,9 +75,21 @@ void afk_display(void)
     glutSwapBuffers();
 }
 
+void afk_reshape(int width, int height)
+{
+    camera.windowWidth  = width;
+    camera.windowHeight = height;
+    glViewport(0, 0, width, height);
+}
+
 void afk_nextFrame(void)
 {
-    translate += 0.01f;
-    rotate += 0.02f;
+    /* Oscillate my test object about in a silly way */
+    static float transPoint = 0.0f;
+
+    transPoint += 0.01f;
+    testObject.translate.v[0] = sinf(transPoint);
+
+    testObject.adjustAttitude(AXIS_YAW, 0.02f); 
 }
 

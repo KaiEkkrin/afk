@@ -4,6 +4,44 @@
 #define _AFK_DEF_H_
 
 template<class F>
+class Vec3
+{
+public:
+    F v[3];
+
+    Vec3() {}
+    Vec3(F e0, F e1, F e2)
+    {
+        v[0] = e0; v[1] = e1; v[2] = e2;
+    }
+
+    Vec3<F>& operator=(const Vec3<F>& p)
+    {
+        v[0] = p.v[0]; v[1] = p.v[1]; v[2] = p.v[2];
+        return *this;
+    }
+};
+
+template<class F>
+class Vec4
+{
+public:
+    F v[4];
+
+    Vec4() {}
+    Vec4(F e0, F e1, F e2, F e3)
+    {
+        v[0] = e0; v[1] = e1; v[2] = e2; v[3] = e3;
+    }
+
+    Vec4<F>& operator=(const Vec4<F>& p)
+    {
+        v[0] = p.v[0]; v[1] = p.v[1]; v[2] = p.v[2]; v[3] = p.v[3];
+        return *this;
+    }
+};
+
+template<class F>
 class Mat4
 {
 public:
@@ -21,7 +59,32 @@ public:
         m[3][0] = v30; m[3][1] = v31; m[3][2] = v32; m[3][3] = v33;
     }
 
-    Mat4<F> operator*(Mat4<F> p)
+    Mat4<F>& operator=(const Mat4<F>& p)
+    {
+        m[0][0] = p.m[0][0]; m[0][1] = p.m[0][1]; m[0][2] = p.m[0][2]; m[0][3] = p.m[0][3];   
+        m[1][0] = p.m[1][0]; m[1][1] = p.m[1][1]; m[1][2] = p.m[1][2]; m[1][3] = p.m[1][3];   
+        m[2][0] = p.m[2][0]; m[2][1] = p.m[2][1]; m[2][2] = p.m[2][2]; m[2][3] = p.m[2][3];   
+        m[3][0] = p.m[3][0]; m[3][1] = p.m[3][1]; m[3][2] = p.m[3][2]; m[3][3] = p.m[3][3];   
+        return *this;
+    }
+
+    /* Assume we intend to convert that vector to homogeneous co-ordinates :) */
+    Vec4<F> operator*(const Vec3<F>& p) const
+    {
+        return *this * Vec4<F>(p.v[0], p.v[1], p.v[2], 1.0f);
+    }
+
+    Vec4<F> operator*(const Vec4<F>& p) const
+    {
+        return Vec4<F>(
+            m[0][0] * p.v[0] + m[0][1] * p.v[1] + m[0][2] * p.v[2] + m[0][3] * p.v[3],
+            m[1][0] * p.v[1] + m[1][1] * p.v[1] + m[1][2] * p.v[2] + m[1][3] * p.v[3],
+            m[2][0] * p.v[2] + m[2][1] * p.v[1] + m[2][2] * p.v[2] + m[2][3] * p.v[3],
+            m[3][0] * p.v[3] + m[3][1] * p.v[1] + m[3][2] * p.v[2] + m[3][3] * p.v[3]
+        );
+    }
+
+    Mat4<F> operator*(const Mat4<F>& p) const
     {
         return Mat4<F>(
             m[0][0] * p.m[0][0] + m[0][1] * p.m[1][0] + m[0][2] * p.m[2][0] + m[0][3] * p.m[3][0],
