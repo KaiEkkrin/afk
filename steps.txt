@@ -1,10 +1,14 @@
  - basic shape with keyboard input example. OK
- - tessellation example.
- - basic core of afk with single tessellated flat grid of points.
+ - basic core of afk. OK
+ - space filling grid of tetrahedra.  (how expensive?  try to make the bottom plane parallel to the xz plane...)
  - keyboard flyaround.
+ - identify which tetrahedron I'm in.
+ - generate only visible tetrahedra.  (maths for intersections?  progress along planes, intersect vertices with the viewing frustum?)
  - opencl example.
  - compute location of points-grid with opencl and feed back.
  - random number generator.
  - opencl random number generator.
- - randomly distributed point heights on grid.
+ - randomly distributed landscape in grid.
+ - tetrahedral subdivision (more subdivision == more detail).
+ - tessellation example.
 

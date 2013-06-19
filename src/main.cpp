@@ -10,19 +10,26 @@
 #include "display.h"
 #include "event.h"
 #include "shader.h"
+#include "state.h"
+
+/* This is the AFK global state declared in state.h */
+struct AFK_State afk_state;
 
 /* AFK main and related stuff. */
 
 static void afk_idle(void)
 {
+    /* TODO For now I'm calculating the intended contents of the next frame in
+     * series with drawing it.  In future, I want to move this so that it's
+     * calculated in a separate thread while drawing the previous frame.
+     */
+    afk_nextFrame();
     afk_display();
 }
 
 int main(int argc, char **argv)
 {
     GLenum res;
-    GLuint shaderProgram;
-    AFK_Config *config;
 
     glutInit(&argc, argv); // TODO check what exactly this does
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
@@ -42,7 +49,7 @@ int main(int argc, char **argv)
     glutIdleFunc(afk_idle);
 
     /* Local configuration. */
-    config = new AFK_Config(&argc, argv);
+    afk_state.config = new AFK_Config(&argc, argv);
 
     /* Extension detection. */
     res = glewInit();
@@ -53,7 +60,7 @@ int main(int argc, char **argv)
     }
 
     /* Shader setup. */
-    if (!afk_compileShaders(config->shadersDir, &shaderProgram)) exit(1);
+    if (!afk_compileShaders(afk_state.config->shadersDir, &afk_state.shaderProgram)) exit(1);
 
     /* Display setup. */
     afk_displayInit();

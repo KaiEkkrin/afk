@@ -4,6 +4,7 @@ What I may be depending on
 a C++ compiler
 opengl (-lGL -lGLU)
 glew (-lGLEW)
+boost: TODO.
 scons to build
 
 freeglut3 ? (-lglut)
