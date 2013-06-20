@@ -17,7 +17,6 @@ struct AFK_State
 {
     /* General things. */
     struct AFK_Config   *config;
-    GLuint              shaderProgram; /* Well that's certainly going to change */
 
     /* The camera. */
     AFK_Camera          camera;

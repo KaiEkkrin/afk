@@ -20,7 +20,24 @@ AFK_Object::AFK_Object()
         0.0f,   0.0f,   0.0f,   1.0f
     );
 
-    translate = Vec3<float>(1.0f, 1.0f, 1.0f);
+    /* TODO get rid of this thing that I blindly added.  I'm sure it's
+     * wildly, insanely wrong. */
+    inverseRotateMatrix = Mat4<float>(
+        1.0f,   0.0f,   0.0f,   0.0f,
+        0.0f,   1.0f,   0.0f,   0.0f,
+        0.0f,   0.0f,   1.0f,   0.0f,
+        0.0f,   0.0f,   0.0f,   1.0f
+    );
+
+/*
+    translateMatrix = Mat4<float>(
+        1.0f,   0.0f,   0.0f,   0.0f,
+        0.0f,   1.0f,   0.0f,   0.0f,
+        0.0f,   0.0f,   1.0f,   0.0f,
+        0.0f,   0.0f,   0.0f,   1.0f
+    );
+*/
+    translate = Vec3<float>(0.0f, 0.0f, 0.0f);
 
 #ifdef ARBITRARY_AXIS_DOODAH
     initAxes();
@@ -78,6 +95,11 @@ void AFK_Object::adjustAttitude(enum AFK_Axes axis, float c)
             0.0f,   cosf(c),    sinf(c),    0.0f,
             0.0f,   -sinf(c),   cosf(c),    0.0f,
             0.0f,   0.0f,       0.0f,       1.0f) * rotateMatrix;
+        inverseRotateMatrix = Mat4<float>(
+            1.0f,   0.0f,       0.0f,         0.0f,
+            0.0f,   cosf(-c),    sinf(-c),    0.0f,
+            0.0f,   -sinf(-c),   cosf(-c),    0.0f,
+            0.0f,   0.0f,       0.0f,         1.0f) * inverseRotateMatrix;
         break;
 
     case AXIS_YAW:
@@ -86,6 +108,11 @@ void AFK_Object::adjustAttitude(enum AFK_Axes axis, float c)
             0.0f,       1.0f,   0.0f,       0.0f,
             sinf(c),    0.0f,   cosf(c),    0.0f,
             0.0f,       0.0f,   0.0f,       1.0f) * rotateMatrix;
+        inverseRotateMatrix = Mat4<float>(
+            cosf(-c),    0.0f,   -sinf(-c),   0.0f,
+            0.0f,       1.0f,   0.0f,         0.0f,
+            sinf(-c),    0.0f,   cosf(-c),    0.0f,
+            0.0f,       0.0f,   0.0f,         1.0f) * inverseRotateMatrix;
         break;
 
     case AXIS_ROLL:
@@ -94,6 +121,11 @@ void AFK_Object::adjustAttitude(enum AFK_Axes axis, float c)
             -sinf(c),   cosf(c),    0.0f,   0.0f,
             0.0f,       0.0f,       1.0f,   0.0f,
             0.0f,       0.0f,       0.0f,   1.0f) * rotateMatrix;
+        inverseRotateMatrix = Mat4<float>(
+            cosf(-c),    sinf(-c),    0.0f,   0.0f,
+            -sinf(-c),   cosf(-c),    0.0f,   0.0f,
+            0.0f,       0.0f,         1.0f,   0.0f,
+            0.0f,       0.0f,         0.0f,   1.0f) * inverseRotateMatrix;
         break;
     }
 #endif /* ARBITRARY_AXIS_DOODAH */
@@ -107,6 +139,42 @@ void AFK_Object::displace(enum AFK_Axes axis, float change)
         axes[axis].v[1] / axes[axis].v[3],
         axes[axis].v[2] / axes[axis].v[3]) * change;
 #else
+    /* TODO The displacement is going wrong.  Experiment with what
+     * seems intuitively correct.
+     * - Obviously, applying it to the origin axes displaces along
+     * those, not along those axes modified by the current attitude
+     * of the object.
+     * - Let's try maintaining a displacement matrix.
+     */
+#if 0
+    /* Identify the axis to displace along, and rotate it by the
+     * current rotation matrix. */
+    Vec4<float> axisVec;
+
+    switch (axis)
+    {
+    case AXIS_PITCH:
+        axisVec = Vec4<float>(1.0f, 0.0f, 0.0f, 1.0f);
+        break;
+
+    case AXIS_YAW:
+        axisVec = Vec4<float>(0.0f, 1.0f, 0.0f, 1.0f);
+        break;
+
+    case AXIS_ROLL:
+        axisVec = Vec4<float>(0.0f, 0.0f, 1.0f, 0.0f);
+        break;
+    }
+
+    axisVec = rotateMatrix * axisVec;
+
+    translateMatrix = Mat4<float>(
+        1.0f,   0.0f,   0.0f,   axisVec.v[0] / axisVec.v[3],
+        0.0f,   1.0f,   0.0f,   axisVec.v[1] / axisVec.v[3],
+        0.0f,   0.0f,   1.0f,   axisVec.v[2] / axisVec.v[3],
+        0.0f,   0.0f,   0.0f,   1.0f) * translateMatrix;
+    
+#else
     /* This is not a displacement along one of the three basic
      * axes!  I need to apply the object's current rotation
      * to them to work out the actual desired direction of
@@ -117,15 +185,15 @@ void AFK_Object::displace(enum AFK_Axes axis, float change)
     switch (axis)
     {
     case AXIS_PITCH:
-        axisVec4 = rotateMatrix * Vec4<float>(1.0f, 0.0f, 0.0f, 1.0f);
+        axisVec4 = inverseRotateMatrix * Vec4<float>(1.0f, 0.0f, 0.0f, 1.0f);
         break;
 
     case AXIS_YAW:
-        axisVec4 = rotateMatrix * Vec4<float>(0.0f, 1.0f, 0.0f, 1.0f);
+        axisVec4 = inverseRotateMatrix * Vec4<float>(0.0f, 1.0f, 0.0f, 1.0f);
         break;
 
     case AXIS_ROLL:
-        axisVec4 = rotateMatrix * Vec4<float>(0.0f, 0.0f, 1.0f, 1.0f);
+        axisVec4 = inverseRotateMatrix * Vec4<float>(0.0f, 0.0f, 1.0f, 1.0f);
         break;
     }
 
@@ -133,17 +201,22 @@ void AFK_Object::displace(enum AFK_Axes axis, float change)
         axisVec4.v[0] / axisVec4.v[3],
         axisVec4.v[1] / axisVec4.v[3],
         axisVec4.v[2] / axisVec4.v[3]) * change;
+#endif
 #endif /* ARBITRARY_AXIS_DOODAH */
 }
 
 Mat4<float> AFK_Object::getTranslation() const
 {
+#if 0
+    return translateMatrix;
+#else
     return Mat4<float>(
         1.0f,       0.0f,       0.0f,       translate.v[0],
         0.0f,       1.0f,       0.0f,       translate.v[1],
         0.0f,       0.0f,       1.0f,       translate.v[2],
         0.0f,       0.0f,       0.0f,       1.0
     );
+#endif
 }
 
 Mat4<float> AFK_Object::getRotation() const

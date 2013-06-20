@@ -2,6 +2,8 @@
 
 #include <math.h>
 
+#include <vector>
+
 #include <GL/glew.h>
 #include <GL/glut.h>
 
@@ -10,59 +12,131 @@
 #include "object.h"
 #include "state.h"
 
-/* TODO Rather naughty: for now I'm going to use some statics
- * to describe the stuff I'm drawing. */
-static GLuint vObj;
+/* TODO Clear the below, and fill this stuff out. */
 
-/* TODO REMOVEME For the uniform variable test.
- * Want to move these things somewhere.  `state'?  Not sure yet. */
-static GLuint transformLocation;
-static AFK_Object testObject;
-
-/* TODO To test, splicing in some example code from the Web.
- * Remove this and replace with real stuff :P */
-
-void afk_displayInit(void)
+void AFK_DisplayedObject::updateTransform(const Mat4<float>& projection)
 {
-    /* Setup the camera with respect to the window. */
-    afk_state.camera.setWindowDimensions(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
+    Mat4<float> objectTransform = projection * object.getTranslation() * object.getRotation() * object.getScaling();
+    glUniformMatrix4fv(transformLocation, 1, GL_TRUE, &objectTransform.m[0][0]);
+}
+
+void AFK_DisplayedTestObject::init(void)
+{
+    /* Link up the shader program I want. */
+    shaderProgram << "test_fragment" << "test_vertex";
+    shaderProgram.Link();
+
+    transformLocation = glGetUniformLocation(shaderProgram.program, "transform");
 
     /* Setup the test object's data. */
-    float vertices[] = {
+    float rawVertices[] = {
         -1.0f,  -1.0f,  0.0f,
         1.0f,   -1.0f,  0.0f,
         0.0f,   1.0f,   0.0f
     };
 
-    glGenBuffers(1, &vObj);
-    glBindBuffer(GL_ARRAY_BUFFER, vObj);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glGenBuffers(1, &vertices);
+    glBindBuffer(GL_ARRAY_BUFFER, vertices);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(rawVertices), rawVertices, GL_STATIC_DRAW);
+}
 
-    transformLocation = glGetUniformLocation(afk_state.shaderProgram, "transform");
+void AFK_DisplayedTestObject::display(void)
+{
+    glUseProgram(shaderProgram.program);
+
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, vertices);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    glDisableVertexAttribArray(0);
+}
+
+void AFK_DisplayedLandscapeObject::init(void)
+{
+    /* Link up the shader program I want. */
+    shaderProgram << "landscape_fragment" << "test_vertex";
+    shaderProgram.Link();
+
+    transformLocation = glGetUniformLocation(shaderProgram.program, "transform");
+
+    /* This one will just be a massive field of points for now,
+     * so that I can visualise the flight nicely, etc. */
+    float *rawVertices = NULL;
+    const int points_x = 100;
+    const int points_z = 100;
+    const float point_separation = 1.0f;
+    vertCount = points_x * points_z;
+    int rawVerticesSize = sizeof(float) * vertCount * 3;
+    rawVertices = (float *)malloc(rawVerticesSize);
+    for (int i = 0; i < points_x; ++i)
+    {
+        for (int j = 0; j < points_z; ++j)
+        {
+            float *x = rawVertices + 300 * i + 3 * j;
+            float *y = rawVertices + 300 * i + 3 * j + 1;
+            float *z = rawVertices + 300 * i + 3 * j + 2;
+
+            *x = (float)(i - points_x / 2) * point_separation;
+            *y = -1.0f;
+            *z = (float)(j - points_z / 2) * point_separation;
+        }
+    }
+
+    glGenBuffers(1, &vertices);
+    glBindBuffer(GL_ARRAY_BUFFER, vertices);
+    glBufferData(GL_ARRAY_BUFFER, rawVerticesSize, rawVertices, GL_STATIC_DRAW);
+}
+
+void AFK_DisplayedLandscapeObject::display(void)
+{
+    glUseProgram(shaderProgram.program);
+
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, vertices);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+    glDrawArrays(GL_POINTS, 0, vertCount);
+
+    glDisableVertexAttribArray(0);
+}
+
+
+/* For now, I shall have a little static list of objects
+ * here.
+ * TODO: A proper one of these, in an AFK in which objects are
+ * created and destroyed, really should probably use auto_ptr /
+ * unique_ptr or some similar reference counting mechanism :/ */
+
+static std::vector<AFK_DisplayedObject *> dos;
+
+static AFK_DisplayedTestObject *dTO;
+static AFK_DisplayedLandscapeObject *dLO;
+
+void afk_displayInit(void)
+{
+    dTO = new AFK_DisplayedTestObject();
+    dLO = new AFK_DisplayedLandscapeObject();
+
+    dTO->init();
+    dLO->init();
+
+    dos.push_back(dTO);
+    dos.push_back(dLO);
 }
 
 void afk_display(void)
 {
     Mat4<float> projection = afk_state.camera.getProjection();
 
-    /* Some day, I'll have more than one object here. */
-    /* TODO I'm pretty sure my projection or something to do with my
-     * camera is wrong but it's very hard to tell with a single,
-     * untextured, constantly moving triangle.  Replace this with a
-     * proper nice lit shape (so I CAN tell) and try again. */
-    Mat4<float> objectTransform = projection * testObject.getTranslation() * testObject.getRotation() * testObject.getScaling();
-
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glUniformMatrix4fv(transformLocation, 1, GL_TRUE, &objectTransform.m[0][0]);
-
-    glEnableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, vObj);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-
-    glDisableVertexAttribArray(0);
+    for (std::vector<AFK_DisplayedObject *>::iterator do_it = dos.begin(); do_it != dos.end(); ++do_it)
+    {
+        (*do_it)->updateTransform(projection);
+        (*do_it)->display();
+    }
 
     glFlush();
     glutSwapBuffers();
@@ -77,7 +151,9 @@ void afk_reshape(int width, int height)
 void afk_nextFrame(void)
 {
     /* Oscillate my test object about in a silly way */
-    testObject.adjustAttitude(AXIS_YAW, 0.02f); 
-    testObject.displace(AXIS_PITCH, 0.02f);
+    /* TODO Why is this...  displacing...  the OTHER OBJECT...  is it
+     * something to do with sharing shader programs? */
+    dLO->object.adjustAttitude(AXIS_ROLL, 0.02f); 
+    dLO->object.displace(AXIS_PITCH, 0.06f);
 }
 

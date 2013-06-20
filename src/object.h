@@ -43,8 +43,14 @@ public:
     /* The current accumulated rotation matrix. */
     Mat4<float> rotateMatrix;
 
+    /* The inverse rotation... */
+    Mat4<float> inverseRotateMatrix;
+
     /* Translation */
     Vec3<float> translate;
+
+    /* The current accumulated translation matrix. */
+    //Mat4<float> translateMatrix;
     
     AFK_Object();
 

@@ -9,6 +9,7 @@
 AFK_Camera::AFK_Camera(): AFK_Object()
 {
     /* Start it a bit back so that I can see the origin */
+    //displace(AXIS_ROLL, 5.0f);
     translate = Vec3<float>(0.0f, 0.0f, 5.0f);
 }
 
@@ -20,6 +21,12 @@ void AFK_Camera::setWindowDimensions(int width, int height)
 
 void AFK_Camera::drive(void)
 {
+    /* TODO I'm still driving in the damn wrong directions when
+     * I do this. :-(
+     * Object is probably wrong too.
+     * Argggggggghhhhh
+     */
+
     /* In all cases I'm going to treat the axes individually.
      * This means theoretically doing lots more matrix multiplies,
      * but in practice if I tried to combine them I'd get a

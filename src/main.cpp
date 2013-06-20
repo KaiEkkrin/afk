@@ -1,5 +1,12 @@
 /* AFK (c) Alex Holloway 2013 */
 
+/* TODO Convert this stuff to C++11.  It's genuinely better and I'm already
+ * noticing places where I would benefit from using it instead:
+ * - use unique_ptr instead of auto_ptr
+ * - use unordered_map instead of map
+ * - use { ... } initialisation assignments instead of cumbersome messes
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -30,7 +37,7 @@ static void afk_idle(void)
         afk_state.velocity.v[0] -= afk_state.config->thrustButtonSensitivity;
     if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_THRUST_UP))
         afk_state.velocity.v[1] += afk_state.config->thrustButtonSensitivity;
-    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_THRUST_UP))
+    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_THRUST_DOWN))
         afk_state.velocity.v[1] -= afk_state.config->thrustButtonSensitivity;
     if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_THRUST_FORWARD))
         afk_state.velocity.v[2] += afk_state.config->thrustButtonSensitivity;
@@ -83,11 +90,11 @@ int main(int argc, char **argv)
     glutIdleFunc(afk_idle);
 
     /* Local configuration. */
+    afk_state.camera.setWindowDimensions(glutGet(GLUT_WINDOW_HEIGHT), glutGet(GLUT_WINDOW_WIDTH));
     afk_state.config            = new AFK_Config(&argc, argv);
     afk_state.velocity          = Vec3<float>(0.0f, 0.0f, 0.0f);
     afk_state.axisDisplacement  = Vec3<float>(0.0f, 0.0f, 0.0f);
     afk_state.controlsEnabled   = 0uLL;
-    AFK_SET_BIT(afk_state.controlsEnabled, CTRL_MOUSE_CAPTURE);
 
     /* Extension detection. */
     res = glewInit();
@@ -98,7 +105,7 @@ int main(int argc, char **argv)
     }
 
     /* Shader setup. */
-    if (!afk_compileShaders(afk_state.config->shadersDir, &afk_state.shaderProgram)) exit(1);
+    if (!afk_loadShaders(afk_state.config->shadersDir)) exit(1);
 
     /* Display setup. */
     afk_displayInit();
