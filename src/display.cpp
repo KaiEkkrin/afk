@@ -70,8 +70,8 @@ void afk_display(void)
 
 void afk_reshape(int width, int height)
 {
-    afk_state.camera.setWindowDimensions(width, height);
     glViewport(0, 0, width, height);
+    afk_state.camera.setWindowDimensions(width, height);
 }
 
 void afk_nextFrame(void)
