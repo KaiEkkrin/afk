@@ -11,13 +11,16 @@ class AFK_Camera: public AFK_Object
 {
 public:
     /* Basic parameters. */
-    float   fov;
-    float   zNear;
-    float   zFar;
     int     windowWidth;
     int     windowHeight;
 
-    AFK_Camera(): AFK_Object() {}
+    AFK_Camera();
+
+    /* Need to call this before the camera is properly set up */
+    void setWindowDimensions(int width, int height);
+
+    /* Drives the camera about, based on current input state. */
+    void drive();
 
     Mat4<float> getProjection() const;
 };

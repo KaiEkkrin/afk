@@ -18,25 +18,14 @@ static GLuint vObj;
  * Want to move these things somewhere.  `state'?  Not sure yet. */
 static GLuint transformLocation;
 static AFK_Object testObject;
-static AFK_Camera camera;
 
 /* TODO To test, splicing in some example code from the Web.
  * Remove this and replace with real stuff :P */
 
 void afk_displayInit(void)
 {
-    /* Setup the camera. */
-    camera.fov      = afk_state.config->fov;
-    camera.zNear    = afk_state.config->zNear;
-    camera.zFar     = afk_state.config->zFar;
-
-    camera.windowWidth  = glutGet(GLUT_WINDOW_WIDTH);
-    camera.windowHeight = glutGet(GLUT_WINDOW_HEIGHT);
-
-    /* Move that camera back so I can see.
-     * (The camera moves in inverse, because it's effectively
-     * moving the world.) */
-    camera.translate = Vec3<float>(0.0f, 0.0f, 5.0f);
+    /* Setup the camera with respect to the window. */
+    afk_state.camera.setWindowDimensions(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
 
     /* Setup the test object's data. */
     float vertices[] = {
@@ -54,9 +43,13 @@ void afk_displayInit(void)
 
 void afk_display(void)
 {
-    Mat4<float> projection = camera.getProjection();
+    Mat4<float> projection = afk_state.camera.getProjection();
 
     /* Some day, I'll have more than one object here. */
+    /* TODO I'm pretty sure my projection or something to do with my
+     * camera is wrong but it's very hard to tell with a single,
+     * untextured, constantly moving triangle.  Replace this with a
+     * proper nice lit shape (so I CAN tell) and try again. */
     Mat4<float> objectTransform = projection * testObject.getTranslation() * testObject.getRotation() * testObject.getScaling();
 
     glClear(GL_COLOR_BUFFER_BIT);
@@ -77,19 +70,14 @@ void afk_display(void)
 
 void afk_reshape(int width, int height)
 {
-    camera.windowWidth  = width;
-    camera.windowHeight = height;
+    afk_state.camera.setWindowDimensions(width, height);
     glViewport(0, 0, width, height);
 }
 
 void afk_nextFrame(void)
 {
     /* Oscillate my test object about in a silly way */
-    static float transPoint = 0.0f;
-
-    transPoint += 0.01f;
-    testObject.translate.v[0] = sinf(transPoint);
-
     testObject.adjustAttitude(AXIS_YAW, 0.02f); 
+    testObject.displace(AXIS_PITCH, 0.02f);
 }
 

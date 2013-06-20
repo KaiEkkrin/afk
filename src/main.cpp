@@ -23,6 +23,15 @@ static void afk_idle(void)
      * series with drawing it.  In future, I want to move this so that it's
      * calculated in a separate thread while drawing the previous frame.
      */
+
+    /* Move the camera in accordance with the controls */
+    if (afk_state.controlsEnabled & CTRL_OPEN_THROTTLE)
+        afk_state.throttle += afk_state.config->keyboardThrottleSensitivity;
+    if (afk_state.controlsEnabled & CTRL_CLOSE_THROTTLE)
+        afk_state.throttle -= afk_state.config->keyboardThrottleSensitivity;
+    
+    afk_state.camera.drive();
+
     afk_nextFrame();
     afk_display();
 }
@@ -48,7 +57,9 @@ int main(int argc, char **argv)
     glutIdleFunc(afk_idle);
 
     /* Local configuration. */
-    afk_state.config = new AFK_Config(&argc, argv);
+    afk_state.config            = new AFK_Config(&argc, argv);
+    afk_state.throttle          = 0.0f;
+    afk_state.controlsEnabled   = 0uLL;
 
     /* Extension detection. */
     res = glewInit();

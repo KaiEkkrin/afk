@@ -20,6 +20,22 @@ public:
         v[0] = p.v[0]; v[1] = p.v[1]; v[2] = p.v[2];
         return *this;
     }
+
+    Vec3<F> operator+(const Vec3<F>& p) const
+    {
+        return Vec3<F>(v[0] + p.v[0], v[1] + p.v[1], v[2] + p.v[2]);
+    }
+
+    Vec3<F>& operator+=(const Vec3<F>& p)
+    {
+        v[0] += p.v[0]; v[1] += p.v[1]; v[2] += p.v[2];
+        return *this;
+    }
+
+    Vec3<F> operator*(float f) const
+    {
+        return Vec3<F>(v[0] * f, v[1] * f, v[2] * f);
+    }
 };
 
 template<class F>
