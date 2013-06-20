@@ -3,12 +3,14 @@ What I may be depending on
 
 a C++ compiler
 opengl (-lGL -lGLU)
+freeglut3 (-lglut)
 glew (-lGLEW)
 boost: TODO.
 scons to build
 
 freeglut3 ? (-lglut)
  - glutKeyboardFunc() and glutKeyboardUpFunc() seem to be fine to handle the keyboard; I'm sure the mouse will be similar.  Is this really all I need for input?  Maybe.
+ - definitely want freeglut3 rather than a generic glut so that I get glutWarpPointer()
 
 libsdl1.2 ? (-lSDL)
  - note that the SDL sample pegs the CPU while drawing a simple blank screen.  I don't think I want to be using that :(

@@ -6,7 +6,6 @@
 #include <GL/glew.h>
 #include <GL/glut.h>
 
-#include "config.h"
 #include "display.h"
 #include "event.h"
 #include "shader.h"
@@ -24,13 +23,36 @@ static void afk_idle(void)
      * calculated in a separate thread while drawing the previous frame.
      */
 
-    /* Move the camera in accordance with the controls */
-    if (afk_state.controlsEnabled & CTRL_OPEN_THROTTLE)
-        afk_state.throttle += afk_state.config->keyboardThrottleSensitivity;
-    if (afk_state.controlsEnabled & CTRL_CLOSE_THROTTLE)
-        afk_state.throttle -= afk_state.config->keyboardThrottleSensitivity;
+    /* Apply the current controls */
+    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_THRUST_RIGHT))
+        afk_state.velocity.v[0] += afk_state.config->thrustButtonSensitivity;
+    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_THRUST_LEFT))
+        afk_state.velocity.v[0] -= afk_state.config->thrustButtonSensitivity;
+    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_THRUST_UP))
+        afk_state.velocity.v[1] += afk_state.config->thrustButtonSensitivity;
+    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_THRUST_UP))
+        afk_state.velocity.v[1] -= afk_state.config->thrustButtonSensitivity;
+    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_THRUST_FORWARD))
+        afk_state.velocity.v[2] += afk_state.config->thrustButtonSensitivity;
+    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_THRUST_BACKWARD))
+        afk_state.velocity.v[2] -= afk_state.config->thrustButtonSensitivity;
+
+    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_PITCH_UP))
+        afk_state.axisDisplacement.v[0] += afk_state.config->rotateButtonSensitivity;
+    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_PITCH_DOWN))
+        afk_state.axisDisplacement.v[0] -= afk_state.config->rotateButtonSensitivity;
+    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_YAW_RIGHT))
+        afk_state.axisDisplacement.v[1] += afk_state.config->rotateButtonSensitivity;
+    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_YAW_LEFT))
+        afk_state.axisDisplacement.v[1] -= afk_state.config->rotateButtonSensitivity;
+    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_ROLL_RIGHT))
+        afk_state.axisDisplacement.v[2] += afk_state.config->rotateButtonSensitivity;
+    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_ROLL_LEFT))
+        afk_state.axisDisplacement.v[2] -= afk_state.config->rotateButtonSensitivity;
     
     afk_state.camera.drive();
+
+    afk_state.axisDisplacement = Vec3<float>(0.0f, 0.0f, 0.0f);
 
     afk_nextFrame();
     afk_display();
@@ -50,17 +72,22 @@ int main(int argc, char **argv)
     glutDisplayFunc(afk_display);
     glutReshapeFunc(afk_reshape);
 
-    /* These functions from the `event' module.
-     * TODO Mouse support. */
+    /* These functions from the `event' module. */
     glutKeyboardFunc(afk_keyboard);
     glutKeyboardUpFunc(afk_keyboardUp);
+    glutMouseFunc(afk_mouse);
+    glutMotionFunc(afk_motion);
+    glutPassiveMotionFunc(afk_motion);
+    glutEntryFunc(afk_entry);
 
     glutIdleFunc(afk_idle);
 
     /* Local configuration. */
     afk_state.config            = new AFK_Config(&argc, argv);
-    afk_state.throttle          = 0.0f;
+    afk_state.velocity          = Vec3<float>(0.0f, 0.0f, 0.0f);
+    afk_state.axisDisplacement  = Vec3<float>(0.0f, 0.0f, 0.0f);
     afk_state.controlsEnabled   = 0uLL;
+    AFK_SET_BIT(afk_state.controlsEnabled, CTRL_MOUSE_CAPTURE);
 
     /* Extension detection. */
     res = glewInit();
@@ -75,6 +102,11 @@ int main(int argc, char **argv)
 
     /* Display setup. */
     afk_displayInit();
+
+    /* Pull the pointer into the middle before I begin so that
+     * I don't start with a massive mouse axis movement right
+     * away and confuse the user. */
+    glutWarpPointer(afk_state.camera.windowWidth / 2, afk_state.camera.windowHeight / 2);
 
     glutMainLoop();
     return 0;

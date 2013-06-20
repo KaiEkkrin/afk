@@ -112,7 +112,7 @@ void AFK_Object::displace(enum AFK_Axes axis, float change)
      * to them to work out the actual desired direction of
      * displacement.
      */
-    Vec4<float> axisVec4;
+    Vec4<float> axisVec4(0.0f, 0.0f, 0.0f, 0.0f);
 
     switch (axis)
     {

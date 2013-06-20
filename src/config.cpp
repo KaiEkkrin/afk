@@ -8,6 +8,8 @@
 
 #include <utility>
 
+#include <GL/glut.h>
+
 #include "config.h"
 
 #define REQUIRE_ARGUMENT(option) \
@@ -18,9 +20,15 @@
         exit(1);\
     }
 
-#define DEFAULT_CONTROL(chr, ctrl) \
-    controlMapping.insert(std::pair<char, enum AFK_Controls>((chr), (ctrl)));\
-    controlMapping.insert(std::pair<char, enum AFK_Controls>(toupper((chr)), (ctrl)));
+#define DEFAULT_KEYBOARD_CONTROL(chr, ctrl) \
+    keyboardMapping.insert(std::pair<const char, enum AFK_Controls>((chr), (ctrl)));\
+    keyboardMapping.insert(std::pair<const char, enum AFK_Controls>(toupper((chr)), (ctrl)));
+
+#define DEFAULT_MOUSE_CONTROL(button, ctrl) \
+    mouseMapping.insert(std::pair<const int, enum AFK_Controls>((button), (ctrl)));
+
+#define DEFAULT_MOUSE_AXIS_CONTROL(axis, ctrl) \
+    mouseAxisMapping.insert(std::pair<const enum AFK_Mouse_Axes, enum AFK_Control_Axes>((axis), (ctrl)));
 
 AFK_Config::AFK_Config(int *argcp, char **argv)
 {
@@ -29,8 +37,11 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     zNear       = 0.5f;
     zFar        = 128.0f;
 
-    keyboardRotateSensitivity   = 0.01f;
-    keyboardThrottleSensitivity = 0.01f;
+    rotateButtonSensitivity     = 0.01f;
+    thrustButtonSensitivity     = 0.01f;
+    mouseAxisSensitivity        = 0.01f;
+    axisInversionMap = 0uLL;
+    AFK_SET_BIT(axisInversionMap, CTRL_AXIS_PITCH);
 
     /* Some hand rolled command line parsing, because it's not very
      * hard, and there's no good cross platform one by default */
@@ -77,19 +88,33 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     /* TODO: Come up with a way of inputting the control mapping.
      * (and editing it within AFK and saving it later!)
      */
-    if (controlMapping.empty())
+    if (keyboardMapping.empty())
     {
         /* TODO Swap wsad to mouse controls by default, so I can put
          * the others somewhere more sensible!
          */
-        DEFAULT_CONTROL('s', CTRL_PITCH_UP)
-        DEFAULT_CONTROL('w', CTRL_PITCH_DOWN)
-        DEFAULT_CONTROL('e', CTRL_YAW_RIGHT)
-        DEFAULT_CONTROL('q', CTRL_YAW_LEFT)
-        DEFAULT_CONTROL('d', CTRL_ROLL_RIGHT)
-        DEFAULT_CONTROL('a', CTRL_ROLL_LEFT)
-        DEFAULT_CONTROL(' ', CTRL_OPEN_THROTTLE)
-        DEFAULT_CONTROL('z', CTRL_CLOSE_THROTTLE)
+        DEFAULT_KEYBOARD_CONTROL('w', CTRL_THRUST_FORWARD)
+        DEFAULT_KEYBOARD_CONTROL('s', CTRL_THRUST_BACKWARD)
+        DEFAULT_KEYBOARD_CONTROL('d', CTRL_THRUST_RIGHT)
+        DEFAULT_KEYBOARD_CONTROL('a', CTRL_THRUST_LEFT)
+        DEFAULT_KEYBOARD_CONTROL('r', CTRL_THRUST_UP)
+        DEFAULT_KEYBOARD_CONTROL('f', CTRL_THRUST_DOWN)
+        DEFAULT_KEYBOARD_CONTROL('e', CTRL_YAW_RIGHT)
+        DEFAULT_KEYBOARD_CONTROL('q', CTRL_YAW_LEFT)
+        DEFAULT_KEYBOARD_CONTROL('m', CTRL_MOUSE_CAPTURE)
+    }
+
+    if (mouseMapping.empty())
+    {
+        DEFAULT_MOUSE_CONTROL(GLUT_LEFT_BUTTON,     CTRL_PRIMARY_FIRE)
+        DEFAULT_MOUSE_CONTROL(GLUT_RIGHT_BUTTON,    CTRL_SECONDARY_FIRE)
+        DEFAULT_MOUSE_CONTROL(GLUT_MIDDLE_BUTTON,   CTRL_MOUSE_CAPTURE)
+    }
+
+    if (mouseAxisMapping.empty())
+    {
+        DEFAULT_MOUSE_AXIS_CONTROL(MOUSE_AXIS_X, CTRL_AXIS_ROLL)
+        DEFAULT_MOUSE_AXIS_CONTROL(MOUSE_AXIS_Y, CTRL_AXIS_PITCH)
     }
 
     /* Print a little dump. */

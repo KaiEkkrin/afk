@@ -7,6 +7,7 @@
 
 #include "camera.h"
 #include "config.h"
+#include "def.h"
 
 /* This is where I record AFK's global state.  I've got to do it like this,
  * because glut expects program state to be global (its callbacks give me
@@ -22,8 +23,14 @@ struct AFK_State
     AFK_Camera          camera;
 
     /* Input state. */
-    float               throttle;
-    unsigned long long  controlsEnabled; /* Bits set/cleared based on AFK_Controls */
+    /* This vector is (right thrusters, up thrusters, throttle). */
+    Vec3<float>         velocity;
+
+    /* This vector is control axis displacement: (pitch, yaw, roll). */
+    Vec3<float>         axisDisplacement;
+
+    /* Bits set/cleared based on AFK_Controls */
+    unsigned long long  controlsEnabled;
 };
 
 extern struct AFK_State afk_state;

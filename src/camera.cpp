@@ -20,25 +20,19 @@ void AFK_Camera::setWindowDimensions(int width, int height)
 
 void AFK_Camera::drive(void)
 {
-    if (afk_state.controlsEnabled & CTRL_PITCH_UP)
-        adjustAttitude(AXIS_PITCH,  afk_state.config->keyboardRotateSensitivity);
-    if (afk_state.controlsEnabled & CTRL_PITCH_DOWN)
-        adjustAttitude(AXIS_PITCH,  -afk_state.config->keyboardRotateSensitivity);
-    if (afk_state.controlsEnabled & CTRL_YAW_RIGHT)
-        adjustAttitude(AXIS_YAW,    afk_state.config->keyboardRotateSensitivity);
-    if (afk_state.controlsEnabled & CTRL_YAW_LEFT)
-        adjustAttitude(AXIS_YAW,    -afk_state.config->keyboardRotateSensitivity);
-    if (afk_state.controlsEnabled & CTRL_ROLL_RIGHT)
-        adjustAttitude(AXIS_ROLL,   afk_state.config->keyboardRotateSensitivity);
-    if (afk_state.controlsEnabled & CTRL_ROLL_LEFT)
-        adjustAttitude(AXIS_ROLL,   -afk_state.config->keyboardRotateSensitivity);
-
-    /* The roll axis also happens to be the axis along which the
-     * camera is pointing :) .
-     * Remember that camera displacement's inverted (it's effectively
-     * world displacement!)
+    /* In all cases I'm going to treat the axes individually.
+     * This means theoretically doing lots more matrix multiplies,
+     * but in practice if I tried to combine them I'd get a
+     * headache and probably also have to do square roots, which
+     * are no doubt more expensive.
      */
-    displace(AXIS_ROLL, -afk_state.throttle);
+    adjustAttitude(AXIS_PITCH,  afk_state.axisDisplacement.v[0]);
+    adjustAttitude(AXIS_YAW,    afk_state.axisDisplacement.v[1]);
+    adjustAttitude(AXIS_ROLL,   afk_state.axisDisplacement.v[2]);
+
+    displace(AXIS_PITCH,        -afk_state.velocity.v[0]);
+    displace(AXIS_YAW,          -afk_state.velocity.v[1]);
+    displace(AXIS_ROLL,         -afk_state.velocity.v[2]);
 }
 
 Mat4<float> AFK_Camera::getProjection() const
