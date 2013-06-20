@@ -1,7 +1,8 @@
  - basic shape with keyboard input example. OK
  - basic core of afk. OK
+ - keyboard flyaround. OK
+ - keyboard control of 3D object, making sure it behaves correctly.  (maybe make a simple camera-follow object...)
  - space filling grid of tetrahedra.  (how expensive?  try to make the bottom plane parallel to the xz plane...)
- - keyboard flyaround.
  - identify which tetrahedron I'm in.
  - generate only visible tetrahedra.  (maths for intersections?  progress along planes, intersect vertices with the viewing frustum?)
  - opencl example.

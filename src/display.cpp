@@ -154,6 +154,6 @@ void afk_nextFrame(void)
     /* TODO Why is this...  displacing...  the OTHER OBJECT...  is it
      * something to do with sharing shader programs? */
     dLO->object.adjustAttitude(AXIS_ROLL, 0.02f); 
-    dLO->object.displace(AXIS_PITCH, 0.06f);
+    dLO->object.displace(AXIS_YAW, 0.06f);
 }
 

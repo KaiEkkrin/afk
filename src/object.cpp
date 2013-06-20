@@ -95,11 +95,11 @@ void AFK_Object::adjustAttitude(enum AFK_Axes axis, float c)
             0.0f,   cosf(c),    sinf(c),    0.0f,
             0.0f,   -sinf(c),   cosf(c),    0.0f,
             0.0f,   0.0f,       0.0f,       1.0f) * rotateMatrix;
-        inverseRotateMatrix = Mat4<float>(
+        inverseRotateMatrix = inverseRotateMatrix * Mat4<float>(
             1.0f,   0.0f,       0.0f,         0.0f,
             0.0f,   cosf(-c),    sinf(-c),    0.0f,
             0.0f,   -sinf(-c),   cosf(-c),    0.0f,
-            0.0f,   0.0f,       0.0f,         1.0f) * inverseRotateMatrix;
+            0.0f,   0.0f,       0.0f,         1.0f);
         break;
 
     case AXIS_YAW:
@@ -108,11 +108,11 @@ void AFK_Object::adjustAttitude(enum AFK_Axes axis, float c)
             0.0f,       1.0f,   0.0f,       0.0f,
             sinf(c),    0.0f,   cosf(c),    0.0f,
             0.0f,       0.0f,   0.0f,       1.0f) * rotateMatrix;
-        inverseRotateMatrix = Mat4<float>(
+        inverseRotateMatrix = inverseRotateMatrix * Mat4<float>(
             cosf(-c),    0.0f,   -sinf(-c),   0.0f,
             0.0f,       1.0f,   0.0f,         0.0f,
             sinf(-c),    0.0f,   cosf(-c),    0.0f,
-            0.0f,       0.0f,   0.0f,         1.0f) * inverseRotateMatrix;
+            0.0f,       0.0f,   0.0f,         1.0f);
         break;
 
     case AXIS_ROLL:
@@ -121,11 +121,11 @@ void AFK_Object::adjustAttitude(enum AFK_Axes axis, float c)
             -sinf(c),   cosf(c),    0.0f,   0.0f,
             0.0f,       0.0f,       1.0f,   0.0f,
             0.0f,       0.0f,       0.0f,   1.0f) * rotateMatrix;
-        inverseRotateMatrix = Mat4<float>(
+        inverseRotateMatrix = inverseRotateMatrix * Mat4<float>(
             cosf(-c),    sinf(-c),    0.0f,   0.0f,
             -sinf(-c),   cosf(-c),    0.0f,   0.0f,
             0.0f,       0.0f,         1.0f,   0.0f,
-            0.0f,       0.0f,         0.0f,   1.0f) * inverseRotateMatrix;
+            0.0f,       0.0f,         0.0f,   1.0f);
         break;
     }
 #endif /* ARBITRARY_AXIS_DOODAH */
