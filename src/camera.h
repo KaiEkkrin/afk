@@ -14,13 +14,19 @@ public:
     int     windowWidth;
     int     windowHeight;
 
+    /* The vector that separates the lens from the drive point.
+     * (0,0,0) gives first person perspective.  Something with
+     * negative z gives third person. */
+    Vec3<float> separation;
+
     AFK_Camera();
 
     /* Need to call this before the camera is properly set up */
     void setWindowDimensions(int width, int height);
 
-    /* Drives the camera about, based on current input state. */
-    void drive();
+    /* Camera displacement is inverted */
+    void adjustAttitude(enum AFK_Axes axis, float c);
+    void displace(enum AFK_Axes axis, float c);
 
     Mat4<float> getProjection() const;
 };

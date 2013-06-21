@@ -21,6 +21,9 @@ struct AFK_State
     /* The camera. */
     AFK_Camera          camera;
 
+    /* The protagonist object. */
+    AFK_Object          *protagonist;
+
     /* Input state. */
     /* This vector is (right thrusters, up thrusters, throttle). */
     Vec3<float>         velocity;

@@ -8,9 +8,7 @@
 
 AFK_Camera::AFK_Camera(): AFK_Object()
 {
-    /* Start it a bit back so that I can see the origin */
-    //displace(AXIS_ROLL, 5.0f);
-    translate = Vec3<float>(0.0f, 0.0f, 5.0f);
+    separation = Vec3<float>(0.0f, 0.0f, 0.0f);
 }
 
 void AFK_Camera::setWindowDimensions(int width, int height)
@@ -19,27 +17,45 @@ void AFK_Camera::setWindowDimensions(int width, int height)
     windowHeight = height;
 }
 
-void AFK_Camera::drive(void)
+/* The camera's transformations need to be inverted and to be
+ * composed the opposite way round. */
+void AFK_Camera::adjustAttitude(enum AFK_Axes axis, float c)
 {
-    /* TODO I'm still driving in the damn wrong directions when
-     * I do this. :-(
-     * Object is probably wrong too.
-     * Argggggggghhhhh
-     */
+    switch (axis)
+    {
+    case AXIS_PITCH:
+        movement = Mat4<float>(
+            1.0f,   0.0f,       0.0f,       0.0f,
+            0.0f,   cosf(-c),   sinf(-c),   0.0f,
+            0.0f,   -sinf(-c),  cosf(-c),   0.0f,
+            0.0f,   0.0f,       0.0f,       1.0f) * movement;
+        break;
 
-    /* In all cases I'm going to treat the axes individually.
-     * This means theoretically doing lots more matrix multiplies,
-     * but in practice if I tried to combine them I'd get a
-     * headache and probably also have to do square roots, which
-     * are no doubt more expensive.
-     */
-    adjustAttitude(AXIS_PITCH,  afk_state.axisDisplacement.v[0]);
-    adjustAttitude(AXIS_YAW,    afk_state.axisDisplacement.v[1]);
-    adjustAttitude(AXIS_ROLL,   afk_state.axisDisplacement.v[2]);
+    case AXIS_YAW:
+        movement = Mat4<float>(
+            cosf(-c),   0.0f,   -sinf(-c),  0.0f,
+            0.0f,       1.0f,   0.0f,       0.0f,
+            sinf(-c),   0.0f,   cosf(-c),   0.0f,
+            0.0f,       0.0f,   0.0f,       1.0f) * movement;
+        break;
 
-    displace(AXIS_PITCH,        -afk_state.velocity.v[0]);
-    displace(AXIS_YAW,          -afk_state.velocity.v[1]);
-    displace(AXIS_ROLL,         -afk_state.velocity.v[2]);
+    case AXIS_ROLL:
+        movement = Mat4<float>(
+            cosf(-c),   sinf(-c),   0.0f,   0.0f,
+            -sinf(-c),  cosf(-c),   0.0f,   0.0f,
+            0.0f,       0.0f,       1.0f,   0.0f,
+            0.0f,       0.0f,       0.0f,   1.0f) * movement;
+        break;
+    }
+}
+
+void AFK_Camera::displace(enum AFK_Axes axis, float c)
+{
+    movement = Mat4<float>(
+        1.0f,   0.0f,   0.0f,   axis == AXIS_PITCH ? -c: 0.0f,
+        0.0f,   1.0f,   0.0f,   axis == AXIS_YAW ? -c: 0.0f,
+        0.0f,   0.0f,   1.0f,   axis == AXIS_ROLL ? -c: 0.0f,
+        0.0f,   0.0f,   0.0f,   1.0f) * movement;
 }
 
 Mat4<float> AFK_Camera::getProjection() const
@@ -63,10 +79,13 @@ Mat4<float> AFK_Camera::getProjection() const
         0.0f,                       0.0f,                   1.0f,                       0.0f
     );
 
-    /* Camera rotation and scaling mean rotating and scaling the world
-     * _around the place the camera is_, not around the origin,
-     * hence the inversion of the multiplication order here!
-     */
-    return projectMatrix * getScaling() * getRotation() * getTranslation();
+    /* The separation transform for 3rd person perspective. */
+    Mat4<float> separationMatrix(
+        1.0f,   0.0f,   0.0f,   separation.v[0],
+        0.0f,   1.0f,   0.0f,   separation.v[1],
+        0.0f,   0.0f,   1.0f,   separation.v[2],
+        0.0f,   0.0f,   0.0f,   1.0f);
+
+    return projectMatrix * separationMatrix * getTransformation();
 }
 

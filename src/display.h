@@ -24,6 +24,9 @@ public:
      * rendered. */
     GLuint transformLocation;
 
+    /* The location of the `fixed color' variable. */
+    GLuint fixedColorLocation;
+
     /* The "Object" describes how this object is scaled,
      * rotated and transformed, etc.
      * TODO: With instancing, I'm no doubt going to end
@@ -64,6 +67,18 @@ public:
     int vertCount;
 
     AFK_DisplayedLandscapeObject() {}
+
+    void init(void);
+    void display(const Mat4<float>& projection);
+};
+
+class AFK_DisplayedProtagonist: public AFK_DisplayedObject
+{
+public:
+    /* Vertices and indices. */
+    GLuint bufs[2];
+
+    AFK_DisplayedProtagonist() {}
 
     void init(void);
     void display(const Mat4<float>& projection);

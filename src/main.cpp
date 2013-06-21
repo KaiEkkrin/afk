@@ -31,6 +31,10 @@ static void afk_idle(void)
      */
 
     /* Apply the current controls */
+    /* TODO At some point, it may be possible to have concurrent access to
+     * these and I'll need to guard against that.  But right now that doesn't
+     * seem to happen :p
+     */
     if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_THRUST_RIGHT))
         afk_state.velocity.v[0] += afk_state.config->thrustButtonSensitivity;
     if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_THRUST_LEFT))
@@ -45,20 +49,28 @@ static void afk_idle(void)
         afk_state.velocity.v[2] -= afk_state.config->thrustButtonSensitivity;
 
     if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_PITCH_UP))
-        afk_state.axisDisplacement.v[0] += afk_state.config->rotateButtonSensitivity;
-    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_PITCH_DOWN))
         afk_state.axisDisplacement.v[0] -= afk_state.config->rotateButtonSensitivity;
+    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_PITCH_DOWN))
+        afk_state.axisDisplacement.v[0] += afk_state.config->rotateButtonSensitivity;
     if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_YAW_RIGHT))
-        afk_state.axisDisplacement.v[1] += afk_state.config->rotateButtonSensitivity;
-    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_YAW_LEFT))
         afk_state.axisDisplacement.v[1] -= afk_state.config->rotateButtonSensitivity;
+    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_YAW_LEFT))
+        afk_state.axisDisplacement.v[1] += afk_state.config->rotateButtonSensitivity;
     if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_ROLL_RIGHT))
-        afk_state.axisDisplacement.v[2] += afk_state.config->rotateButtonSensitivity;
-    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_ROLL_LEFT))
         afk_state.axisDisplacement.v[2] -= afk_state.config->rotateButtonSensitivity;
-    
-    afk_state.camera.drive();
+    if (AFK_TEST_BIT(afk_state.controlsEnabled, CTRL_ROLL_LEFT))
+        afk_state.axisDisplacement.v[2] += afk_state.config->rotateButtonSensitivity;
 
+    afk_state.camera.drive(afk_state.velocity, afk_state.axisDisplacement);
+
+    /* Protagonist follow camera.  (To make it look more
+     * natural, at some point I want a stretchy leash)
+     */
+    afk_state.protagonist->drive(afk_state.velocity, afk_state.axisDisplacement);
+
+    /* Swallow the axis displacement after it's been applied
+     * so that I don't get a strange mouse acceleration effect
+     */
     afk_state.axisDisplacement = Vec3<float>(0.0f, 0.0f, 0.0f);
 
     afk_nextFrame();
@@ -95,6 +107,9 @@ int main(int argc, char **argv)
     afk_state.velocity          = Vec3<float>(0.0f, 0.0f, 0.0f);
     afk_state.axisDisplacement  = Vec3<float>(0.0f, 0.0f, 0.0f);
     afk_state.controlsEnabled   = 0uLL;
+
+    /* TODO Make the viewpoint configurable? */
+    afk_state.camera.separation = Vec3<float>(0.0f, -1.5f, 3.0f);
 
     /* Extension detection. */
     res = glewInit();

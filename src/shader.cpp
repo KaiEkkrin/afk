@@ -9,9 +9,8 @@
 #include "shader.h"
 
 struct shaderSpec shaders[] = {
-    {   GL_FRAGMENT_SHADER, 0,  "landscape_fragment.glsl"   },
-    {   GL_FRAGMENT_SHADER, 0,  "test_fragment.glsl"        },
-    {   GL_VERTEX_SHADER,   0,  "test_vertex.glsl"          },
+    {   GL_FRAGMENT_SHADER, 0,  "basic_fragment.glsl"       },
+    {   GL_VERTEX_SHADER,   0,  "basic_vertex.glsl"         },
     {   0,                  0,  ""                          }
 };
 
