@@ -33,9 +33,8 @@ public:
      * attitude was. */
     virtual void adjustAttitude(enum AFK_Axes axis, float c);
 
-    /* Moves the object in space along a given axis.
-     * TODO Can I change this into a velocity vector? */
-    virtual void displace(enum AFK_Axes axis, float c);
+    /* Moves the object in space */
+    virtual void displace(const Vec3<float>& v);
 
     /* Drives the object, with a velocity and changes in the 3
      * axes of rotation. */

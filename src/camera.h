@@ -26,7 +26,7 @@ public:
 
     /* Camera displacement is inverted */
     void adjustAttitude(enum AFK_Axes axis, float c);
-    void displace(enum AFK_Axes axis, float c);
+    void displace(const Vec3<float>& v);
 
     Mat4<float> getProjection() const;
 };

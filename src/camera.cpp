@@ -49,12 +49,12 @@ void AFK_Camera::adjustAttitude(enum AFK_Axes axis, float c)
     }
 }
 
-void AFK_Camera::displace(enum AFK_Axes axis, float c)
+void AFK_Camera::displace(const Vec3<float>& v)
 {
     movement = Mat4<float>(
-        1.0f,   0.0f,   0.0f,   axis == AXIS_PITCH ? -c: 0.0f,
-        0.0f,   1.0f,   0.0f,   axis == AXIS_YAW ? -c: 0.0f,
-        0.0f,   0.0f,   1.0f,   axis == AXIS_ROLL ? -c: 0.0f,
+        1.0f,   0.0f,   0.0f,   -v.v[0],
+        0.0f,   1.0f,   0.0f,   -v.v[1],
+        0.0f,   0.0f,   1.0f,   -v.v[2],
         0.0f,   0.0f,   0.0f,   1.0f) * movement;
 }
 

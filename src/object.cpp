@@ -54,12 +54,12 @@ void AFK_Object::adjustAttitude(enum AFK_Axes axis, float c)
     }
 }
 
-void AFK_Object::displace(enum AFK_Axes axis, float c)
+void AFK_Object::displace(const Vec3<float>& v)
 {
     movement = movement * Mat4<float>(
-        1.0f,   0.0f,   0.0f,   axis == AXIS_PITCH ? c: 0.0f,
-        0.0f,   1.0f,   0.0f,   axis == AXIS_YAW ? c: 0.0f,
-        0.0f,   0.0f,   1.0f,   axis == AXIS_ROLL ? c: 0.0f,
+        1.0f,   0.0f,   0.0f,   v.v[0],
+        0.0f,   1.0f,   0.0f,   v.v[1],
+        0.0f,   0.0f,   1.0f,   v.v[2],
         0.0f,   0.0f,   0.0f,   1.0f);
 }
 
@@ -75,9 +75,7 @@ void AFK_Object::drive(const Vec3<float>& velocity, const Vec3<float>& axisDispl
     adjustAttitude(AXIS_YAW,    axisDisplacement.v[1]);
     adjustAttitude(AXIS_ROLL,   axisDisplacement.v[2]);
 
-    displace(AXIS_PITCH,        velocity.v[0]);
-    displace(AXIS_YAW,          velocity.v[1]);
-    displace(AXIS_ROLL,         velocity.v[2]);
+    displace(velocity);
 }
 
 

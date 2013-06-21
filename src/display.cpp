@@ -234,6 +234,6 @@ void afk_nextFrame(void)
 {
     /* Oscillate my test object about in a silly way */
     dTO->object.adjustAttitude(AXIS_ROLL, 0.02f); 
-    dTO->object.displace(AXIS_YAW, 0.06f);
+    dTO->object.displace(Vec3<float>(0.0f, 0.03f, 0.0f));
 }
 
