@@ -1,4 +1,4 @@
-// Test vertex shader.
+// Pretty much the simplest possible vertex shader.
 
 #version 330
 
