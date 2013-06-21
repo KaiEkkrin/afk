@@ -12,7 +12,6 @@
 #include "object.h"
 #include "state.h"
 
-/* TODO Clear the below, and fill this stuff out. */
 
 void AFK_DisplayedObject::updateTransform(const Mat4<float>& projection)
 {
@@ -40,9 +39,11 @@ void AFK_DisplayedTestObject::init(void)
     glBufferData(GL_ARRAY_BUFFER, sizeof(rawVertices), rawVertices, GL_STATIC_DRAW);
 }
 
-void AFK_DisplayedTestObject::display(void)
+void AFK_DisplayedTestObject::display(const Mat4<float>& projection)
 {
     glUseProgram(shaderProgram.program);
+
+    updateTransform(projection);
 
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, vertices);
@@ -89,9 +90,11 @@ void AFK_DisplayedLandscapeObject::init(void)
     glBufferData(GL_ARRAY_BUFFER, rawVerticesSize, rawVertices, GL_STATIC_DRAW);
 }
 
-void AFK_DisplayedLandscapeObject::display(void)
+void AFK_DisplayedLandscapeObject::display(const Mat4<float>& projection)
 {
     glUseProgram(shaderProgram.program);
+
+    updateTransform(projection);
 
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, vertices);
@@ -133,10 +136,7 @@ void afk_display(void)
     glClear(GL_COLOR_BUFFER_BIT);
 
     for (std::vector<AFK_DisplayedObject *>::iterator do_it = dos.begin(); do_it != dos.end(); ++do_it)
-    {
-        (*do_it)->updateTransform(projection);
-        (*do_it)->display();
-    }
+        (*do_it)->display(projection);
 
     glFlush();
     glutSwapBuffers();
@@ -151,9 +151,7 @@ void afk_reshape(int width, int height)
 void afk_nextFrame(void)
 {
     /* Oscillate my test object about in a silly way */
-    /* TODO Why is this...  displacing...  the OTHER OBJECT...  is it
-     * something to do with sharing shader programs? */
-    dLO->object.adjustAttitude(AXIS_ROLL, 0.02f); 
-    dLO->object.displace(AXIS_YAW, 0.06f);
+    dTO->object.adjustAttitude(AXIS_ROLL, 0.02f); 
+    dTO->object.displace(AXIS_YAW, 0.06f);
 }
 

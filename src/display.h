@@ -10,6 +10,11 @@
 
 class AFK_DisplayedObject
 {
+protected:
+    /* Call this to write the correct transform to the
+     * `transform' uniform variable. */
+    void updateTransform(const Mat4<float>& projection);
+
 public:
     /* The shader program this object uses. */
     AFK_ShaderProgram shaderProgram;
@@ -32,8 +37,7 @@ public:
      * OpenGL related resources, and so forth. */
 
     virtual void init(void) = 0;
-    virtual void updateTransform(const Mat4<float>& projection);
-    virtual void display(void) = 0;
+    virtual void display(const Mat4<float>& projection) = 0;
 };
 
 /* TODO Now follow declarations of some things I'm
@@ -47,7 +51,7 @@ public:
     AFK_DisplayedTestObject() {}
 
     void init(void);
-    void display(void);
+    void display(const Mat4<float>& projection);
 };
 
 class AFK_DisplayedLandscapeObject: public AFK_DisplayedObject
@@ -62,7 +66,7 @@ public:
     AFK_DisplayedLandscapeObject() {}
 
     void init(void);
-    void display(void);
+    void display(const Mat4<float>& projection);
 };
 
 void afk_displayInit(void);
