@@ -3,8 +3,7 @@
 #ifndef _AFK_DISPLAY_H_
 #define _AFK_DISPLAY_H_
 
-#include <GL/gl.h>
-
+#include "afk.h"
 #include "object.h"
 #include "shader.h"
 
@@ -35,11 +34,11 @@ public:
     AFK_Object object;
 
     AFK_DisplayedObject() {}
+    virtual ~AFK_DisplayedObject() {}
 
     /* TODO This class needs a destructor that frees the
      * OpenGL related resources, and so forth. */
 
-    virtual void init(void) = 0;
     virtual void display(const Mat4<float>& projection) = 0;
 };
 
@@ -51,10 +50,10 @@ public:
     /* The vertex set. */
     GLuint vertices;
 
-    AFK_DisplayedTestObject() {}
+    AFK_DisplayedTestObject();
+    virtual ~AFK_DisplayedTestObject();
 
-    void init(void);
-    void display(const Mat4<float>& projection);
+    virtual void display(const Mat4<float>& projection);
 };
 
 class AFK_DisplayedLandscapeObject: public AFK_DisplayedObject
@@ -66,10 +65,10 @@ public:
     /* The size of the vertex set. */
     int vertCount;
 
-    AFK_DisplayedLandscapeObject() {}
+    AFK_DisplayedLandscapeObject();
+    virtual ~AFK_DisplayedLandscapeObject();
 
-    void init(void);
-    void display(const Mat4<float>& projection);
+    virtual void display(const Mat4<float>& projection);
 };
 
 class AFK_DisplayedProtagonist: public AFK_DisplayedObject
@@ -78,20 +77,15 @@ public:
     /* Vertices and indices. */
     GLuint bufs[2];
 
-    AFK_DisplayedProtagonist() {}
+    AFK_DisplayedProtagonist();
+    virtual ~AFK_DisplayedProtagonist();
 
-    void init(void);
-    void display(const Mat4<float>& projection);
+    virtual void display(const Mat4<float>& projection);
 };
-
-void afk_displayInit(void);
 
 /* GLUT callback functions. */
 void afk_display(void);
 void afk_reshape(int width, int height);
-
-/* Calculates the intended contents of the next frame. */
-void afk_nextFrame(void);
 
 #endif /* _AFK_DISPLAY_H_ */
 

@@ -1,5 +1,7 @@
 /* AFK (c) Alex Holloway 2013 */
 
+#include "afk.h"
+
 #include <math.h>
 
 #include "object.h"

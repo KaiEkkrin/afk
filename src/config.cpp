@@ -1,24 +1,23 @@
 /* AFK (c) Alex Holloway 2013 */
 
+#include "afk.h"
+
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
+#include <iostream>
 #include <utility>
 
-#include <GL/glut.h>
-
 #include "config.h"
+#include "exception.h"
 
 #define REQUIRE_ARGUMENT(option) \
     ++argi;\
     if (argi == *argcp)\
-    {\
-        fprintf(stderr, "%s without argument\n", option);\
-        exit(1);\
-    }
+        throw AFK_Exception(std::string("AFK_Config: ") + option + " without argument");
 
 #define DEFAULT_KEYBOARD_CONTROL(chr, ctrl) \
     keyboardMapping.insert(std::pair<const char, enum AFK_Controls>((chr), (ctrl)));\
@@ -118,8 +117,8 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     }
 
     /* Print a little dump. */
-    printf("AFK: Loaded configuration:\n");
-    printf("  shadersDir:   %s\n", shadersDir);
+    std::cout << "AFK:Loaded configuration:" << std::endl;
+    std::cout << "  shadersDir:     " << shadersDir << std::endl;
 }
 
 AFK_Config::~AFK_Config()

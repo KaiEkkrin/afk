@@ -1,10 +1,12 @@
 /* AFK (c) Alex Holloway 2013 */
 
+#include "afk.h"
+
 #include <math.h>
 
 #include "camera.h"
 #include "config.h"
-#include "state.h"
+#include "core.h"
 
 AFK_Camera::AFK_Camera(): AFK_Object()
 {
@@ -60,15 +62,11 @@ void AFK_Camera::displace(const Vec3<float>& v)
 
 Mat4<float> AFK_Camera::getProjection() const
 {
-    /* Magic perspective projection.
-     * TODO This magic is giving me a rather squeezed projection with a
-     * widescreen window!  Can I change it so that the X scaling == the
-     * Y scaling always, so that the X and Y fov's are only equal when
-     * the window is square? */
+    /* Magic perspective projection. */
     float ar = ((float)windowWidth) / ((float)windowHeight);
-    float fov = afk_state.config->fov;
-    float zNear = afk_state.config->zNear;
-    float zFar = afk_state.config->zFar;
+    float fov = afk_core.config->fov;
+    float zNear = afk_core.config->zNear;
+    float zFar = afk_core.config->zFar;
     float zRange = zNear - zFar;
     float tanHalfFov = tanf((fov / 2.0f) * M_PI / 180.0f);
     

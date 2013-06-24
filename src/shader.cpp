@@ -1,11 +1,17 @@
 /* AFK (c) Alex Holloway 2013 */
 
+#include "afk.h"
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
+#include <iostream>
+#include <sstream>
+
+#include "exception.h"
 #include "shader.h"
 
 struct shaderSpec shaders[] = {
@@ -16,48 +22,36 @@ struct shaderSpec shaders[] = {
 
 
 /* Loads a shader from the given file. */
-static int loadShaderFromFile(struct shaderSpec *s)
+static void loadShaderFromFile(struct shaderSpec *s)
 {
     FILE *f = NULL;
     GLchar *data[1] = { 0 };
     GLint lengths[1] = { 0 };
     int success = 0;
 
-    printf("AFK: Loading shader: %s\n", s->filename.c_str());
+    std::cout << "AFK: Loading shader: " << s->filename << std::endl;
 
     /* Load the shader text from the file */
 
     f = fopen(s->filename.c_str(), "rb");
-    if (!f)
-    {
-        fprintf(stderr, "Failed to open %s: %s\n", s->filename.c_str(), strerror(errno));
-        goto finished;
-    }
+    if (!f) throw AFK_Exception("AFK_Shader: Failed to open " + s->filename + ": " + strerror(errno));
 
     if (fseek(f, 0, SEEK_END) != 0)
-    {
-        fprintf(stderr, "Failed to seek to end of %s: %s\n", s->filename.c_str(), strerror(errno));
-        goto finished;
-    }
+        throw AFK_Exception("AFK_Shader: Failed to seek to end of " + s->filename + ": " + strerror(errno));
 
     lengths[0] = ftell(f);
     if (lengths[0] < 0)
-    {
-        fprintf(stderr, "Failed to find size of %s: %s\n", s->filename.c_str(), strerror(errno));
-        goto finished;
-    }
+        throw AFK_Exception("AFK_Shader: Failed to find size of " + s->filename + ": " + strerror(errno));
 
     if (fseek(f, 0, SEEK_SET) != 0)
-    {
-        fprintf(stderr, "Failed to seek to beginning of %s: %s\n", s->filename.c_str(), strerror(errno));
-        goto finished;
-    }
+        throw AFK_Exception("AFK_Shader: Failed to seek to beginning of " + s->filename + ": " + strerror(errno));
 
     data[0] = (char *) malloc(sizeof(char) * lengths[0]);
     if (!data[0])
     {
-        fprintf(stderr, "Failed to allocate %d bytes for file %s\n", lengths[0], s->filename.c_str());
-        goto finished;
+        std::ostringstream errmess;
+        errmess << "AFK_Shader: Failed to allocate " << lengths[0] << "bytes for file " << s->filename;
+        throw AFK_Exception(errmess.str());
     }
 
     {
@@ -69,10 +63,7 @@ static int loadShaderFromFile(struct shaderSpec *s)
         {
             length_read = fread(read_pos, 1, length_left, f);
             if (length_read == 0 && ferror(f))
-            {
-                fprintf(stderr, "Failed to read from %s: %s\n", s->filename.c_str(), strerror(errno));
-                goto finished;
-            }
+                throw AFK_Exception("AFK_Shader: Failed to read from " + s->filename + ": " + strerror(errno));
 
             read_pos += length_read;
             length_left -= length_read;
@@ -82,11 +73,7 @@ static int loadShaderFromFile(struct shaderSpec *s)
     /* Compile the shader */
 
     s->obj = glCreateShader(s->shaderType);
-    if (!s->obj)
-    {
-        fprintf(stderr, "Failed to create shader\n");
-        goto finished;
-    }
+    if (!s->obj) throw AFK_Exception("Failed to create shader");
 
     glShaderSource(s->obj, 1, (const GLchar **)data, lengths);
     glCompileShader(s->obj);
@@ -95,53 +82,54 @@ static int loadShaderFromFile(struct shaderSpec *s)
     {
         GLchar infoLog[1024];
         glGetShaderInfoLog(s->obj, 1024, NULL, infoLog);
-        fprintf(stderr, "Error compiling shader %s: %s\n", s->filename.c_str(), infoLog);
-        goto finished;
+        throw AFK_Exception("Error compiling shader " + s->filename + ": " + infoLog);
     }
 
-    //glAttachShader(shaderProgram, s->obj);
-    success = 1;
-
-finished:
-    if (data[0]) free(data[0]);
-    if (f) fclose(f);
-    return success;
+    free(data[0]);
 }
 
-int afk_loadShaders(const char *shadersDir)
+void afk_loadShaders(const char *shadersDir)
 {
     int shIdx;
-    int success = 0;
     char *savedDir = NULL;
 
     /* We chdir() into the shaders directory to load this stuff, so save
      * out the previous directory to go back to afterwards. */
     savedDir = get_current_dir_name();
     if (chdir(shadersDir) == -1)
-    {
-        fprintf(stderr, "Unable to switch to shaders dir %s: %s\n", shadersDir, strerror(errno));
-        goto finished;
-    }
+        throw AFK_Exception(std::string("AFK_Shader: Unable to switch to shaders dir ") + shadersDir + ": " + strerror(errno));
 
     for (shIdx = 0; !shaders[shIdx].filename.empty(); ++shIdx)
-    {
-        if (!loadShaderFromFile(&shaders[shIdx])) goto finished;
-    }
+        loadShaderFromFile(&shaders[shIdx]);
 
-    success = 1;
-
-finished:
     if (chdir(savedDir) == -1)
-        fprintf(stderr, "Couldn\'t return to saved directory %s; ignoring\n", savedDir);
-    free(savedDir);
+        std::cerr << "Couldn\'t return to saved directory " << savedDir << "; ignoring" << std::endl;
 
-    return success;
+    free(savedDir);
 }
 
 
 AFK_ShaderProgram::AFK_ShaderProgram()
 {
     program = glCreateProgram();
+}
+
+AFK_ShaderProgram::~AFK_ShaderProgram()
+{
+    GLuint shaders[10];
+    GLsizei shaderCount = 0;
+
+    glGetAttachedShaders(program, 10, &shaderCount, shaders);
+    /* TODO I'm not sure why this is always producing 0, but
+     * right now, it's not really a problem if I don't clean
+     * up loaded shaders neatly (not going to be repeatedly
+     * loading and unloading them as I go)
+     */
+    std::cout << "Tearing down shader program with " << shaderCount << " shaders" << std::endl;
+    for (int i = 0; i < shaderCount; ++i)
+        glDeleteShader(shaders[i]);
+
+    glDeleteProgram(program);
 }
 
 AFK_ShaderProgram& AFK_ShaderProgram::operator<<(const std::string& shaderName)
@@ -157,13 +145,7 @@ AFK_ShaderProgram& AFK_ShaderProgram::operator<<(const std::string& shaderName)
         }
     }
 
-    if (!foundIt)
-    {
-        /* Well this is bad. */
-        fprintf(stderr, "Couldn't find shader %s\n", shaderName.c_str());
-        exit(1);
-    }
-
+    if (!foundIt) throw AFK_Exception("AFK_Shader: Couldn\'t find shader " + shaderName);
     return *this;
 }
 
@@ -176,16 +158,14 @@ void AFK_ShaderProgram::Link(void)
     glGetProgramiv(program, GL_LINK_STATUS, &success);
     if (success == 0) {
         glGetProgramInfoLog(program, sizeof(errorLog), NULL, errorLog);
-        fprintf(stderr, "Error linking shader program: '%s'\n", errorLog);
-        exit(1);
+        throw AFK_Exception(std::string("AFK_Shader: Error linking program: ") + errorLog);
     }
 
     glValidateProgram(program);
     glGetProgramiv(program, GL_VALIDATE_STATUS, &success);
     if (!success) {
         glGetProgramInfoLog(program, sizeof(errorLog), NULL, errorLog);
-        fprintf(stderr, "Invalid shader program: '%s'\n", errorLog);
-        exit(1);
+        throw AFK_Exception(std::string("AFK_Shader: Invalid shader program: ") + errorLog);
     }
 }
 

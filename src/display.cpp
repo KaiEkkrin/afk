@@ -1,16 +1,15 @@
 /* AFK (c) Alex Holloway 2013 */
 
+#include "afk.h"
+
 #include <math.h>
 
 #include <vector>
 
-#include <GL/glew.h>
-#include <GL/glut.h>
-
 #include "camera.h"
+#include "core.h"
 #include "display.h"
 #include "object.h"
-#include "state.h"
 
 
 void AFK_DisplayedObject::updateTransform(const Mat4<float>& projection)
@@ -19,7 +18,7 @@ void AFK_DisplayedObject::updateTransform(const Mat4<float>& projection)
     glUniformMatrix4fv(transformLocation, 1, GL_TRUE, &objectTransform.m[0][0]);
 }
 
-void AFK_DisplayedTestObject::init(void)
+AFK_DisplayedTestObject::AFK_DisplayedTestObject()
 {
     /* Link up the shader program I want. */
     shaderProgram << "basic_fragment" << "basic_vertex";
@@ -40,6 +39,11 @@ void AFK_DisplayedTestObject::init(void)
     glBufferData(GL_ARRAY_BUFFER, sizeof(rawVertices), rawVertices, GL_STATIC_DRAW);
 }
 
+AFK_DisplayedTestObject::~AFK_DisplayedTestObject()
+{
+    glDeleteBuffers(1, &vertices);
+}
+
 void AFK_DisplayedTestObject::display(const Mat4<float>& projection)
 {
     glUseProgram(shaderProgram.program);
@@ -56,7 +60,7 @@ void AFK_DisplayedTestObject::display(const Mat4<float>& projection)
     glDisableVertexAttribArray(0);
 }
 
-void AFK_DisplayedLandscapeObject::init(void)
+AFK_DisplayedLandscapeObject::AFK_DisplayedLandscapeObject()
 {
     /* Link up the shader program I want. */
     shaderProgram << "basic_fragment" << "basic_vertex";
@@ -93,6 +97,11 @@ void AFK_DisplayedLandscapeObject::init(void)
     glBufferData(GL_ARRAY_BUFFER, rawVerticesSize, rawVertices, GL_STATIC_DRAW);
 }
 
+AFK_DisplayedLandscapeObject::~AFK_DisplayedLandscapeObject()
+{
+    glDeleteBuffers(1, &vertices);
+}
+
 void AFK_DisplayedLandscapeObject::display(const Mat4<float>& projection)
 {
     glUseProgram(shaderProgram.program);
@@ -109,7 +118,7 @@ void AFK_DisplayedLandscapeObject::display(const Mat4<float>& projection)
     glDisableVertexAttribArray(0);
 }
 
-void AFK_DisplayedProtagonist::init(void)
+AFK_DisplayedProtagonist::AFK_DisplayedProtagonist()
 {
     /* Link up the shader program I want. */
     shaderProgram << "basic_fragment" << "basic_vertex";
@@ -164,6 +173,11 @@ void AFK_DisplayedProtagonist::init(void)
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(rawIndices), rawIndices, GL_STATIC_DRAW);
 }
 
+AFK_DisplayedProtagonist::~AFK_DisplayedProtagonist()
+{
+    glDeleteBuffers(2, &bufs[0]);
+}
+
 void AFK_DisplayedProtagonist::display(const Mat4<float>& projection)
 {
     glUseProgram(shaderProgram.program);
@@ -182,42 +196,13 @@ void AFK_DisplayedProtagonist::display(const Mat4<float>& projection)
 }
 
 
-/* For now, I shall have a little static list of objects
- * here.
- * TODO: A proper one of these, in an AFK in which objects are
- * created and destroyed, really should probably use auto_ptr /
- * unique_ptr or some similar reference counting mechanism :/ */
-
-static std::vector<AFK_DisplayedObject *> dos;
-
-static AFK_DisplayedTestObject *dTO;
-static AFK_DisplayedLandscapeObject *dLO;
-static AFK_DisplayedProtagonist *dP;
-
-void afk_displayInit(void)
-{
-    dTO = new AFK_DisplayedTestObject();
-    dLO = new AFK_DisplayedLandscapeObject();
-    dP = new AFK_DisplayedProtagonist();
-
-    dTO->init();
-    dLO->init();
-    dP->init();
-
-    dos.push_back(dTO);
-    dos.push_back(dLO);
-    dos.push_back(dP);
-
-    afk_state.protagonist = &dP->object;
-}
-
 void afk_display(void)
 {
-    Mat4<float> projection = afk_state.camera.getProjection();
+    Mat4<float> projection = afk_core.camera.getProjection();
 
     glClear(GL_COLOR_BUFFER_BIT);
 
-    for (std::vector<AFK_DisplayedObject *>::iterator do_it = dos.begin(); do_it != dos.end(); ++do_it)
+    for (std::vector<AFK_DisplayedObject *>::iterator do_it = afk_core.dos.begin(); do_it != afk_core.dos.end(); ++do_it)
         (*do_it)->display(projection);
 
     glFlush();
@@ -227,13 +212,6 @@ void afk_display(void)
 void afk_reshape(int width, int height)
 {
     glViewport(0, 0, width, height);
-    afk_state.camera.setWindowDimensions(width, height);
-}
-
-void afk_nextFrame(void)
-{
-    /* Oscillate my test object about in a silly way */
-    dTO->object.adjustAttitude(AXIS_ROLL, 0.02f); 
-    dTO->object.displace(Vec3<float>(0.0f, 0.03f, 0.0f));
+    afk_core.camera.setWindowDimensions(width, height);
 }
 

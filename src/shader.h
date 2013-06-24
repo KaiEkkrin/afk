@@ -3,9 +3,9 @@
 #ifndef _AFK_SHADER_H_
 #define _AFK_SHADER_H_
 
-#include <string>
+#include "afk.h"
 
-#include <GL/glew.h>
+#include <string>
 
 /* TODO Sort out detecting support for required OpenGL features / extensions ... */
 
@@ -25,8 +25,8 @@ struct shaderSpec
 
 /* Loads all the known shaders from disk and compiles them
  * individually.
- * Returns 1 on success, 0 on error. */
-int afk_loadShaders(const char *shadersDir);
+ */
+void afk_loadShaders(const char *shadersDir);
 
 class AFK_ShaderProgram
 {
@@ -34,10 +34,7 @@ public:
     GLuint program;
 
     AFK_ShaderProgram();
-
-    /* TODO Make a destructor that frees up the program?
-     * (will want it if I repeatedly link up new shader
-     * programs; that said, that's probably unlikely) */
+    ~AFK_ShaderProgram();
 
     AFK_ShaderProgram& operator<<(const std::string& shaderName);
     void Link(void);
