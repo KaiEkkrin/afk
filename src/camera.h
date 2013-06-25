@@ -14,6 +14,10 @@ public:
     int     windowWidth;
     int     windowHeight;
 
+    /* Intermediate results I keep around. */
+    float   ar;
+    float   tanHalfFov;
+
     /* The vector that separates the lens from the drive point.
      * (0,0,0) gives first person perspective.  Something with
      * negative z gives third person. */

@@ -17,6 +17,12 @@ void AFK_Camera::setWindowDimensions(int width, int height)
 {
     windowWidth  = width;
     windowHeight = height;
+
+    /* If we're setting up a window, this stuff must be
+     * valid by now
+     */
+    tanHalfFov = tanf((afk_core.config->fov / 2.0f) * M_PI / 180.0f);
+    ar = ((float)windowWidth) / ((float)windowHeight);
 }
 
 /* The camera's transformations need to be inverted and to be
@@ -63,12 +69,9 @@ void AFK_Camera::displace(const Vec3<float>& v)
 Mat4<float> AFK_Camera::getProjection() const
 {
     /* Magic perspective projection. */
-    float ar = ((float)windowWidth) / ((float)windowHeight);
-    float fov = afk_core.config->fov;
     float zNear = afk_core.config->zNear;
     float zFar = afk_core.config->zFar;
     float zRange = zNear - zFar;
-    float tanHalfFov = tanf((fov / 2.0f) * M_PI / 180.0f);
     
     Mat4<float> projectMatrix(
         1.0f / (tanHalfFov * ar),   0.0f,                   0.0f,                       0.0f,

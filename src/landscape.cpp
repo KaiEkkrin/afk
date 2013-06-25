@@ -51,6 +51,15 @@ bool AFK_Cell::operator!=(const AFK_Cell& _cell) const
     return coord != _cell.coord;
 }
 
+Vec4<float> AFK_Cell::realCoord() const
+{
+    return Vec4<float>(
+        (float)coord.v[0] * afk_core.landscape->minCellSize,
+        (float)coord.v[1] * afk_core.landscape->minCellSize,
+        (float)coord.v[2] * afk_core.landscape->minCellSize,
+        (float)coord.v[3] * afk_core.landscape->minCellSize);
+}
+
 unsigned int AFK_Cell::subdivide(AFK_Cell *subCells, const size_t subCellsSize) const
 {
     std::ostringstream ss;
@@ -156,7 +165,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_Cell& cell)
 
 /* AFK_LandscapeCell implementation */
 
-AFK_LandscapeCell::AFK_LandscapeCell(const AFK_Cell& cell)
+AFK_LandscapeCell::AFK_LandscapeCell(const AFK_Cell& cell, const Vec4<float>& _coord)
 {
     /* Sort out the shader program.
      * TODO This is highly inefficient.  Once I've made sure
@@ -169,14 +178,7 @@ AFK_LandscapeCell::AFK_LandscapeCell(const AFK_Cell& cell)
     transformLocation = glGetUniformLocation(shaderProgram.program, "transform");
     fixedColorLocation = glGetUniformLocation(shaderProgram.program, "fixedColor");
 
-    /* The real co-ordinates of a cell are the co-ordinates in the
-     * integer cell space, multiplied by the minCellSize.
-     */
-    coord = Vec4<float>(
-        (float)cell.coord.v[0] * afk_core.landscape->minCellSize,
-        (float)cell.coord.v[1] * afk_core.landscape->minCellSize,
-        (float)cell.coord.v[2] * afk_core.landscape->minCellSize,
-        (float)cell.coord.v[3] * afk_core.landscape->minCellSize);
+    coord = _coord;
 
     object.displace(Vec3<float>(coord.v[0], coord.v[1], coord.v[2]));
 
@@ -194,7 +196,7 @@ AFK_LandscapeCell::AFK_LandscapeCell(const AFK_Cell& cell)
     if (!rawVertices)
     {
         std::ostringstream ss;
-        ss << "Unable to allocate vertex array for cell " << cell;
+        ss << "Unable to allocate vertex array for landscape cell " << cell;
         throw AFK_Exception(ss.str());
     }
 
@@ -291,18 +293,33 @@ AFK_Landscape::AFK_Landscape(size_t _cacheSize, float _maxDistance, unsigned int
     subdivisionFactor   = _subdivisionFactor;
     detailPitch         = _detailPitch;
 
-    /* TODO: For now, in order to get things working, I'm
-     * going to use some fixed values rather than doing the
-     * complicated maths.  I want to do the maths later.  :P
-     * And I certainly want to get rid of the literal "4.0f"
-     * below
+    /* TODO Make this a parameter. */
+    pointSubdivisionFactor = 8;
+
+    /* Guess at the minimum point separation.
+     * Explanation on a piece of paper I'll lose quickly
+     * TODO: This changes with window dimensions.  Move
+     * this calculation elsewhere so that it can be
+     * changed as we go too :/
+     */
+    float tanHalfFov = tanf((afk_core.config->fov / 2.0f) * M_PI / 180.0f);
+    float minPointSeparation = ((float)_detailPitch * afk_core.config->zNear * tanHalfFov) / (float)glutGet(GLUT_WINDOW_HEIGHT);
+
+    /* The target minimum cell size is that multiplied by
+     * the point subdivision factor.
+     */
+    float targetMinCellSize = minPointSeparation * pointSubdivisionFactor;
+
+    /* Now, start with the obvious max cell size and subdivide
+     * until I've got a minimum cell size that roughly matches
+     * the intended detail pitch.
      */
     maxSubdivisions = 1;
 
-    for (minCellSize = maxDistance; minCellSize > 4.0f; minCellSize = minCellSize / subdivisionFactor)
+    for (minCellSize = maxDistance; minCellSize > targetMinCellSize; minCellSize = minCellSize / subdivisionFactor)
         ++maxSubdivisions;
 
-    pointSubdivisionFactor = 8;
+    std::cout << "AFK: Landscape using minCellSize " << minCellSize;
 
     /* TODO I'm using this, albeit right now only for the
      * test colours.  Sort out the RNG system; this is almost
@@ -320,10 +337,10 @@ AFK_Landscape::~AFK_Landscape()
     displayQueue.clear();
 }
 
-void AFK_Landscape::enqueueCellForDrawing(const AFK_Cell& cell)
+void AFK_Landscape::enqueueCellForDrawing(const AFK_Cell& cell, const Vec4<float>& realCoord)
 {
     AFK_LandscapeCell*& landscapeCell = landMap[cell];
-    if (!landscapeCell) landscapeCell = new AFK_LandscapeCell(cell);
+    if (!landscapeCell) landscapeCell = new AFK_LandscapeCell(cell, realCoord);
 
     /* Don't enqueue empty landscape cells */
     if (landscapeCell->vertices != 0)
@@ -338,12 +355,13 @@ void AFK_Landscape::updateLandMap(void)
      * This cell is pretty large.
      */
 
-    /* First, transform the protagonist location into integer
-     * cell-space.
+    /* First, transform the protagonist location and its facing
+     * into integer cell-space.
      * TODO: This is *really* going to want arbitrary
-     * precision arithmetic.
+     * precision arithmetic, eventually.
      */
-    Vec4<float> hgProtagonistLocation = afk_core.protagonist->object.getTransformation() *
+    Mat4<float> protagonistTransformation = afk_core.protagonist->object.getTransformation();
+    Vec4<float> hgProtagonistLocation = protagonistTransformation *
         Vec4<float>(0.0f, 0.0f, 0.0f, 1.0f);
     Vec3<float> protagonistLocation = Vec3<float>(
         hgProtagonistLocation.v[0] / hgProtagonistLocation.v[3],
@@ -357,16 +375,27 @@ void AFK_Landscape::updateLandMap(void)
 
     AFK_Cell protagonistCell(csProtagonistLocation);
 
+    Vec4<float> hgProtagonistNose = protagonistTransformation *
+        Vec4<float>(0.0f, 0.0f, 1.0f, 1.0f);
+    Vec3<float> protagonistFacing = Vec3<float>(
+        hgProtagonistNose.v[0] * hgProtagonistNose.v[3],
+        hgProtagonistNose.v[1] * hgProtagonistNose.v[3],
+        hgProtagonistNose.v[2] * hgProtagonistNose.v[3]) - protagonistLocation;
+
 #ifdef PROTAGONIST_CELL_DEBUG
     {
         std::ostringstream ss;
-        ss << "Protagonist in cell: " << protagonistCell;
+        ss << "Protagonist in cell: " << protagonistCell << std::endl;
+        ss << "Protagonist facing direction: (" <<
+            protagonistFacing.v[0] << ", " <<
+            protagonistFacing.v[1] << ", " <<
+            protagonistFacing.v[2] << ")";
         afk_core.occasionallyPrint(ss.str());
     }
 #endif
         
     /* I definitely want to draw that cell. */
-    enqueueCellForDrawing(protagonistCell);
+    enqueueCellForDrawing(protagonistCell, protagonistCell.realCoord());
 
     /*
      * Now, wander up through the cell's family tree
@@ -405,12 +434,55 @@ void AFK_Landscape::updateLandMap(void)
 
         /* For now, just add everything and keep hopping up. */
         for (unsigned int i = 0; i < siblingCellsSize; ++i)
+        {
             if (siblingCells[i] != protagonistCell)
-                enqueueCellForDrawing(siblingCells[i]);
+            {
+                Vec4<float> siblingRealCoord = siblingCells[i].realCoord();
+
+                /* I want to show this cell if it's on the side
+                 * the protagonist is looking at, otherwise not.
+                 * TODO I'm checking only one vertex here; I
+                 * should be checking the other seven too!
+                 * Change this thing to check vertices, not cells.
+                 */
+                Vec3<float> siblingCellFacing = Vec3<float>(
+                    siblingRealCoord.v[0],
+                    siblingRealCoord.v[1],
+                    siblingRealCoord.v[2]) - protagonistLocation;
+
+                /* TODO Move this logic into the recursive-descent
+                 * cell finder that I should write.
+                 * And finesse it to take into account fov
+                 * (right now it's 180 degrees).
+                 */
+                if (protagonistFacing.dot(siblingCellFacing) > 0.0f)
+                    enqueueCellForDrawing(siblingCells[i], siblingRealCoord);
+            }
+        }
 
         protagonistCell = parentCell;
     }
-    while ((float)protagonistCell.coord.v[3] < maxDistance);
+    while (protagonistCell.coord.v[3] < maxDistance);
+
+    /* TODO: The protagonist cell is now the largest cell.
+     * Go through its vertices; if any of them is close
+     * enough to render (and is in front of the camera),
+     * recurse through it enqueueing it.
+     * This is inevitably going to result in trying to
+     * re-enqueue the same cell a few times (after picking
+     * a new largest cell I want to sub-divide it, and there
+     * may be more sub-cells than are reasonable to pick
+     * through with static logic).
+     * Therefore, what I want to do is to replace the queue
+     * (it doesn't need to be a queue anyway) with another
+     * unordered_map, so that I can uniquely add each one.
+     * As a finesse, I should replace the above code that
+     * actually queues sibling cells, with code that simply
+     * finds the biggest cell right away, and then calls the
+     * recursive-descent cell finder on the protagonist
+     * super-cell too.
+     */
+    
 
     delete[] siblingCells;
 }

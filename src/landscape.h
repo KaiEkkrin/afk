@@ -75,6 +75,11 @@ public:
     bool operator==(const AFK_Cell& _cell) const;
     bool operator!=(const AFK_Cell& _cell) const;
 
+    /* Gives the cell's co-ordinates in world space, along
+     * with its converted cell size.
+     */
+    Vec4<float> realCoord() const;
+
     /* Fills out the supplied array of uninitialised
      * AFK_Cells with the next level of subdivision of
      * the current cell.
@@ -110,7 +115,7 @@ public:
     /* The vertex set. */
     GLuint vertices;
 
-    AFK_LandscapeCell(const AFK_Cell& cell);
+    AFK_LandscapeCell(const AFK_Cell& cell, const Vec4<float>& _coord); /* from AFK_Cell::realCoord() */
     virtual ~AFK_LandscapeCell();
 
     virtual void display(const Mat4<float>& projection);
@@ -213,7 +218,7 @@ public:
     /* Enqueues a cell for drawing, creating it in the map
      * if it's not there already.
      */
-    void enqueueCellForDrawing(const AFK_Cell& cell);
+    void enqueueCellForDrawing(const AFK_Cell& cell, const Vec4<float>& _coord);
 
     /* Given the current position of the camera, this
      * function works out which cells to draw and fills
