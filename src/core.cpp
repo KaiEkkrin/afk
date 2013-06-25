@@ -1,9 +1,7 @@
 /* AFK (c) Alex Holloway 2013 */
 
 #include "afk.h"
-
-#include <iostream>
-
+#include "computer.h"
 #include "core.h"
 #include "def.h"
 #include "display.h"
@@ -14,6 +12,9 @@
 /* Static, context-less functions needed to drive GLUT, etc. */
 static void afk_idle(void)
 {
+    ++afk_core.frameCounter;
+    afk_core.printOccasionals(false);
+
     /* TODO For now I'm calculating the intended contents of the next frame in
      * series with drawing it.  In future, I want to move this so that it's
      * calculated in a separate thread while drawing the previous frame.
@@ -69,6 +70,14 @@ static void afk_idle(void)
      */
     afk_core.testObject->object.adjustAttitude(AXIS_ROLL, 0.02f);
     afk_core.testObject->object.displace(Vec3<float>(0.0f, 0.03f, 0.0f));
+
+    /* Update the landscape, deciding which bits of it I'm going
+     * to draw.
+     * TODO Which dynamic objects to draw (except for the protagonist ;) )
+     * should be tied into which cells get selected here.
+     */
+    afk_core.landscape->updateLandMap();
+
     afk_display();
 }
 
@@ -78,16 +87,20 @@ static void afk_idle(void)
 AFK_Core::AFK_Core()
 {
     config          = NULL;
+    computer        = NULL;
     testObject      = NULL;
-    landscapeObject = NULL;
+    landscape       = NULL;
     protagonist     = NULL;
+    frameCounter    = 0;
 }
 
 AFK_Core::~AFK_Core()
 {
     if (config) delete config;
-    for (std::vector<AFK_DisplayedObject *>::iterator do_it = dos.begin(); do_it != dos.end(); ++do_it)
-        delete *do_it;
+    if (computer) delete computer;
+    if (landscape) delete landscape;
+    if (testObject) delete testObject;  
+    if (protagonist) delete protagonist;
 
     std::cout << "AFK: Core destroyed" << std::endl;
 }
@@ -127,11 +140,10 @@ void AFK_Core::initGraphics(int *argcp, char **argv)
     if (res != GLEW_OK) throw AFK_Exception(std::string("Failed to initialise GLEW: "), glewGetErrorString(res));
 }
 
-/* TODO.
 void AFK_Core::initCompute(void)
 {
+    computer = new AFK_Computer();
 }
-*/
 
 void AFK_Core::configure(int *argcp, char **argv)
 {
@@ -155,12 +167,13 @@ void AFK_Core::loop(void)
 
     /* Initialise the starting objects. */
     testObject = new AFK_DisplayedTestObject();
-    landscapeObject = new AFK_DisplayedLandscapeObject();
+    landscape = new AFK_Landscape( /* TODO tweak this initialisation...  extensively, and make it configurable */
+        1000000,            /* cacheSize */
+        config->zFar,       /* maxDistance */
+        4,                  /* subdivisionFactor */
+        4                   /* detailPitch */
+        );
     protagonist = new AFK_DisplayedProtagonist();
-
-    dos.push_back(testObject);
-    dos.push_back(landscapeObject);
-    dos.push_back(protagonist);
 
     /* Make sure that camera is configured to match the window. */
     int windowWidth = glutGet(GLUT_WINDOW_WIDTH);
@@ -173,5 +186,18 @@ void AFK_Core::loop(void)
     glutWarpPointer(windowWidth / 2, windowHeight / 2);
 
     glutMainLoop();
+}
+
+void AFK_Core::occasionallyPrint(const std::string& message)
+{
+    occasionalPrints << "AFK Frame " << frameCounter << ": " << message << std::endl;
+}
+
+void AFK_Core::printOccasionals(bool definitely)
+{
+    if (definitely || (frameCounter % 60) == 0)
+        std::cout << occasionalPrints.str();
+
+    occasionalPrints.str(std::string());
 }
 

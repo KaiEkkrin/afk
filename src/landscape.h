@@ -5,6 +5,7 @@
 
 #include "afk.h"
 
+#include <deque>
 #include <iostream>
 
 /* TODO: If I'm going to switch to C++11, I no longer need to
@@ -72,7 +73,7 @@ public:
     /* Obligatory thingies. */
     AFK_Cell& operator=(const AFK_Cell& _cell);
     bool operator==(const AFK_Cell& _cell) const;
-    size_t hash_value() const;
+    bool operator!=(const AFK_Cell& _cell) const;
 
     /* Fills out the supplied array of uninitialised
      * AFK_Cells with the next level of subdivision of
@@ -89,6 +90,9 @@ public:
     AFK_Cell parent(void) const;
 };
 
+/* For insertion into an unordered_map. */
+size_t hash_value(const AFK_Cell& cell);
+
 /* For printing an AFK_Cell. */
 std::ostream& operator<<(std::ostream& os, const AFK_Cell& cell);
 
@@ -102,6 +106,9 @@ class AFK_LandscapeCell: public AFK_DisplayedObject
 public:
     /* The cell location and scale in world space. */
     Vec4<float> coord;
+
+    /* The vertex set. */
+    GLuint vertices;
 
     AFK_LandscapeCell(const AFK_Cell& cell);
     virtual ~AFK_LandscapeCell();

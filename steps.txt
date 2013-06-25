@@ -3,7 +3,9 @@
  - keyboard flyaround. OK
  - keyboard control of 3D object, making sure it behaves correctly.  (maybe make a simple camera-follow object...) OK
  - very basic points-grid landscape. OK
- - opencl example.
+ - opencl example. OK
+ - basic cubic cell landscape. OK
+ - determine which cells to draw by camera facing
  - compute location of points-grid with opencl and feed back.
  - random number generator.
  - opencl random number generator.

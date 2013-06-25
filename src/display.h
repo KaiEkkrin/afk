@@ -33,11 +33,11 @@ public:
      */
     AFK_Object object;
 
+    /* This object's base colour. */
+    Vec3<float> colour;
+
     AFK_DisplayedObject() {}
     virtual ~AFK_DisplayedObject() {}
-
-    /* TODO This class needs a destructor that frees the
-     * OpenGL related resources, and so forth. */
 
     virtual void display(const Mat4<float>& projection) = 0;
 };
@@ -52,21 +52,6 @@ public:
 
     AFK_DisplayedTestObject();
     virtual ~AFK_DisplayedTestObject();
-
-    virtual void display(const Mat4<float>& projection);
-};
-
-class AFK_DisplayedLandscapeObject: public AFK_DisplayedObject
-{
-public:
-    /* The vertex set. */
-    GLuint vertices;
-
-    /* The size of the vertex set. */
-    int vertCount;
-
-    AFK_DisplayedLandscapeObject();
-    virtual ~AFK_DisplayedLandscapeObject();
 
     virtual void display(const Mat4<float>& projection);
 };

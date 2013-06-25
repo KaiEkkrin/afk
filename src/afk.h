@@ -8,6 +8,9 @@
 #ifndef _AFK_AFK_H_
 #define _AFK_AFK_H_
 
+/* TODO Include OpenCL/cl.h instead on Mac (if I ever do a port) */
+#include <CL/cl.h>
+
 #include <GL/glew.h>
 #include <GL/freeglut.h>
 

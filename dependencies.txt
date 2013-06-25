@@ -2,9 +2,10 @@ What I may be depending on
 --------------------------
 
 a C++ compiler
-opengl (-lGL -lGLU)
+OpenGL (-lGL -lGLU)
 freeglut3 (-lglut)
-glew (-lGLEW)
+GLEW (-lGLEW)
+OpenCL (-lOpenCL)
 boost: TODO.
 scons to build
 

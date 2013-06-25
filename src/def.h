@@ -3,6 +3,9 @@
 #ifndef _AFK_DEF_H_
 #define _AFK_DEF_H_
 
+#define SQUARE(x) ((x) * (x))
+#define CUBE(x) ((x) * (x) * (x))
+
 template<class F>
 class Vec3
 {
@@ -54,6 +57,16 @@ public:
     {
         v[0] = p.v[0]; v[1] = p.v[1]; v[2] = p.v[2]; v[3] = p.v[3];
         return *this;
+    }
+
+    bool operator==(const Vec4<F>& p) const
+    {
+        return v[0] == p.v[0] && v[1] == p.v[1] && v[2] == p.v[2] && v[3] == p.v[3];
+    }
+
+    bool operator!=(const Vec4<F>& p) const
+    {
+        return v[0] != p.v[0] || v[1] != p.v[1] || v[2] != p.v[2] || v[3] != p.v[3];
     }
 };
 

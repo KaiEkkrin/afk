@@ -28,7 +28,7 @@ int main(int argc, char **argv)
         afk_core.initGraphics(&argc, argv);
 
         //std::cout << "AFK initialising compute" << std::endl;
-        //afk_core.initCompute();
+        afk_core.initCompute();
 
         std::cout << "AFK configuring" << std::endl;
         afk_core.configure(&argc, argv);
@@ -43,6 +43,7 @@ int main(int argc, char **argv)
     }
 
     std::cout << "AFK exiting" << std::endl;
+    afk_core.printOccasionals(true);
     return retcode;
 }
 

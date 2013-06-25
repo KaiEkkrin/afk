@@ -120,12 +120,6 @@ AFK_ShaderProgram::~AFK_ShaderProgram()
     GLsizei shaderCount = 0;
 
     glGetAttachedShaders(program, 10, &shaderCount, shaders);
-    /* TODO I'm not sure why this is always producing 0, but
-     * right now, it's not really a problem if I don't clean
-     * up loaded shaders neatly (not going to be repeatedly
-     * loading and unloading them as I go)
-     */
-    std::cout << "Tearing down shader program with " << shaderCount << " shaders" << std::endl;
     for (int i = 0; i < shaderCount; ++i)
         glDeleteShader(shaders[i]);
 

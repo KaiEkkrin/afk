@@ -4,11 +4,10 @@
 
 #include <math.h>
 
-#include <vector>
-
 #include "camera.h"
 #include "core.h"
 #include "display.h"
+#include "exception.h"
 #include "object.h"
 
 
@@ -37,6 +36,8 @@ AFK_DisplayedTestObject::AFK_DisplayedTestObject()
     glGenBuffers(1, &vertices);
     glBindBuffer(GL_ARRAY_BUFFER, vertices);
     glBufferData(GL_ARRAY_BUFFER, sizeof(rawVertices), rawVertices, GL_STATIC_DRAW);
+
+    colour = Vec3<float>(1.0f, 0.0f, 0.0f);
 }
 
 AFK_DisplayedTestObject::~AFK_DisplayedTestObject()
@@ -47,7 +48,7 @@ AFK_DisplayedTestObject::~AFK_DisplayedTestObject()
 void AFK_DisplayedTestObject::display(const Mat4<float>& projection)
 {
     glUseProgram(shaderProgram.program);
-    glUniform3f(fixedColorLocation, 1.0f, 0.0f, 0.0f);
+    glUniform3f(fixedColorLocation, colour.v[0], colour.v[1], colour.v[2]);
 
     updateTransform(projection);
 
@@ -56,64 +57,6 @@ void AFK_DisplayedTestObject::display(const Mat4<float>& projection)
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
 
     glDrawArrays(GL_TRIANGLES, 0, 3);
-
-    glDisableVertexAttribArray(0);
-}
-
-AFK_DisplayedLandscapeObject::AFK_DisplayedLandscapeObject()
-{
-    /* Link up the shader program I want. */
-    shaderProgram << "basic_fragment" << "basic_vertex";
-    shaderProgram.Link();
-
-    transformLocation = glGetUniformLocation(shaderProgram.program, "transform");
-    fixedColorLocation = glGetUniformLocation(shaderProgram.program, "fixedColor");
-
-    /* This one will just be a massive field of points for now,
-     * so that I can visualise the flight nicely, etc. */
-    float *rawVertices = NULL;
-    const int points_x = 100;
-    const int points_z = 100;
-    const float point_separation = 1.0f;
-    vertCount = points_x * points_z;
-    int rawVerticesSize = sizeof(float) * vertCount * 3;
-    rawVertices = (float *)malloc(rawVerticesSize);
-    for (int i = 0; i < points_x; ++i)
-    {
-        for (int j = 0; j < points_z; ++j)
-        {
-            float *x = rawVertices + 300 * i + 3 * j;
-            float *y = rawVertices + 300 * i + 3 * j + 1;
-            float *z = rawVertices + 300 * i + 3 * j + 2;
-
-            *x = (float)(i - points_x / 2) * point_separation;
-            *y = -1.0f;
-            *z = (float)(j - points_z / 2) * point_separation;
-        }
-    }
-
-    glGenBuffers(1, &vertices);
-    glBindBuffer(GL_ARRAY_BUFFER, vertices);
-    glBufferData(GL_ARRAY_BUFFER, rawVerticesSize, rawVertices, GL_STATIC_DRAW);
-}
-
-AFK_DisplayedLandscapeObject::~AFK_DisplayedLandscapeObject()
-{
-    glDeleteBuffers(1, &vertices);
-}
-
-void AFK_DisplayedLandscapeObject::display(const Mat4<float>& projection)
-{
-    glUseProgram(shaderProgram.program);
-    glUniform3f(fixedColorLocation, 0.0f, 0.7f, 0.0f);
-
-    updateTransform(projection);
-
-    glEnableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, vertices);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-
-    glDrawArrays(GL_POINTS, 0, vertCount);
 
     glDisableVertexAttribArray(0);
 }
@@ -171,6 +114,8 @@ AFK_DisplayedProtagonist::AFK_DisplayedProtagonist()
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bufs[1]);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(rawIndices), rawIndices, GL_STATIC_DRAW);
+
+    colour = Vec3<float>(0.2f, 1.0f, 1.0f);
 }
 
 AFK_DisplayedProtagonist::~AFK_DisplayedProtagonist()
@@ -181,7 +126,7 @@ AFK_DisplayedProtagonist::~AFK_DisplayedProtagonist()
 void AFK_DisplayedProtagonist::display(const Mat4<float>& projection)
 {
     glUseProgram(shaderProgram.program);
-    glUniform3f(fixedColorLocation, 0.2f, 1.0f, 1.0f);
+    glUniform3f(fixedColorLocation, colour.v[0], colour.v[1], colour.v[2]);
 
     updateTransform(projection);
 
@@ -202,10 +147,21 @@ void afk_display(void)
 
     glClear(GL_COLOR_BUFFER_BIT);
 
-    for (std::vector<AFK_DisplayedObject *>::iterator do_it = afk_core.dos.begin(); do_it != afk_core.dos.end(); ++do_it)
-        (*do_it)->display(projection);
+    afk_core.landscape->display(projection);
+    afk_core.testObject->display(projection);
+    afk_core.protagonist->display(projection);
 
     glFlush();
+
+    GLenum glErr = glGetError();
+    if (glErr != GL_NO_ERROR)
+    {
+        /* TODO Non-fatal errors? (How should I handle out-of-memory?) */
+        std::ostringstream ss;
+        ss << "AFK: Got GL error: " << gluErrorString(glErr);
+        throw AFK_Exception(ss.str());
+    }
+
     glutSwapBuffers();
 }
 

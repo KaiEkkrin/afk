@@ -5,12 +5,14 @@
 
 #include "afk.h"
 
-#include <vector>
+#include <iostream>
+#include <string>
 
 #include "camera.h"
 #include "config.h"
 #include "def.h"
 #include "display.h"
+#include "landscape.h"
 
 class AFK_Core
 {
@@ -18,19 +20,17 @@ public:
     /* General things. */
     struct AFK_Config   *config;
 
-    /* A list of all displayed objects.
-     * TODO These should probably use a reference counting
-     * pointer wrapper or something to simplify creating and
-     * deleting lots of objects
-     */
-    std::vector<AFK_DisplayedObject *> dos;
+    /* A wrapper around the compute engine. */
+    struct AFK_Computer *computer;
 
     /* The camera. */
     AFK_Camera          camera;
 
+    /* The landscape. */
+    AFK_Landscape       *landscape;
+
     /* To track various special objects. */
     AFK_DisplayedTestObject         *testObject;
-    AFK_DisplayedLandscapeObject    *landscapeObject;
     AFK_DisplayedProtagonist        *protagonist;
 
     /* Input state. */
@@ -43,6 +43,20 @@ public:
     /* Bits set/cleared based on AFK_Controls */
     unsigned long long  controlsEnabled;
 
+    /* This counter tracks which frame I'm displaying.
+     * I'm going to want it.
+     * Don't really need to worry about what happens
+     * when it wraps.
+     */
+    unsigned int frameCounter;
+
+    /* This buffer holds the last frame's worth of occasional
+     * prints, so that I can dump them if we quit.
+     * TODO Make the entire mechanism contingent on some
+     * preprocessor variable?  It will slow AFK down.
+     */
+    std::ostringstream occasionalPrints;
+
     AFK_Core();
     ~AFK_Core();
 
@@ -51,10 +65,19 @@ public:
      * An AFK_Exception is thrown if stuff goes wrong.
      */
     void initGraphics(int *argcp, char **argv);
-    //void initCompute(void);
+    void initCompute(void);
     void configure(int *argcp, char **argv);
     
     void loop(void);
+
+    /* This utility function prints a message once every certain
+     * number of frames, so that I can usefully debug-print
+     * engine state without spamming stdout.
+     */
+    void occasionallyPrint(const std::string& message);
+
+    /* ...and the internal thing. */
+    void printOccasionals(bool definitely);
 };
 
 extern AFK_Core afk_core;
