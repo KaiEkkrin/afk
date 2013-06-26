@@ -271,17 +271,37 @@ public:
      */
     bool testCellDetailPitch(const AFK_Cell& cell, const Vec3<float>& viewerLocation) const;
 
+    /* Utility function.  Tests whether a point is visible.
+     * Cumulatively ANDs visibility to `allVisible', and ORs
+     * visibility to `someVisible'.
+     */
+    void testPointVisible(
+        const Vec3<float>& point,
+        const Vec3<float>& viewerLocation,
+        const Vec3<float>& viewerFacing,
+        bool& io_someVisible,
+        bool& io_allVisible) const;
+
     /* Enqueues this cell for drawing so long as its parent
      * is as supplied.  If it's less fine than the target
      * detail level, instead splits it recursively.
      */
-    void enqueueSubcells(const AFK_Cell& cell, const AFK_Cell& parent, const Vec3<float>& viewerLocation, const Vec3<float>& viewerFacing);
+    void enqueueSubcells(
+        const AFK_Cell& cell,
+        const AFK_Cell& parent,
+        const Vec3<float>& viewerLocation,
+        const Vec3<float>& viewerFacing,
+        bool entirelyVisible);
 
     /* The same, but with a vector modifier from the base
      * cell that should be multiplied up by the base cell's
      * scale.  Figures the parent out itself.
      */
-    void enqueueSubcells(const AFK_Cell& cell, const Vec3<int>& modifier, const Vec3<float>& viewerLocation, const Vec3<float>& viewerFacing);
+    void enqueueSubcells(
+        const AFK_Cell& cell,
+        const Vec3<int>& modifier,
+        const Vec3<float>& viewerLocation,
+        const Vec3<float>& viewerFacing);
 
     /* Given the current position of the camera, this
      * function works out which cells to draw and fills

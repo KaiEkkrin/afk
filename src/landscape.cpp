@@ -403,11 +403,31 @@ bool AFK_Landscape::testCellDetailPitch(const AFK_Cell& cell, const Vec3<float>&
 #endif
 }
 
+void AFK_Landscape::testPointVisible(
+        const Vec3<float>& point,
+        const Vec3<float>& viewerLocation,
+        const Vec3<float>& viewerFacing,
+        bool& io_someVisible,
+        bool& io_allVisible) const
+{
+    /* TODO Right now I'm just checking whether the
+     * point is in the correct hemisphere.
+     * Ideally, I should project the point with the
+     * camera transform, and check using that.
+     */
+    Vec3<float> viewerToPoint = point - viewerLocation;
+    bool visible = viewerToPoint.dot(viewerFacing) > 0.0f;
+
+    io_someVisible |= visible;
+    io_allVisible &= visible;
+}
+
 void AFK_Landscape::enqueueSubcells(
     const AFK_Cell& cell,
     const AFK_Cell& parent,
     const Vec3<float>& viewerLocation,
-    const Vec3<float>& viewerFacing)
+    const Vec3<float>& viewerFacing,
+    bool parentEntirelyVisible)
 {
     /* If this cell is outside the given parent, stop right
      * away.
@@ -427,17 +447,63 @@ void AFK_Landscape::enqueueSubcells(
     enqueued.first = true;
     enqueued.second = NULL;
 
-    /* If it's behind the viewer, reject it.
-     * TODO In order to figure this correctly, I need to test all eight
-     * points.  That's going to be very slow for cells that are
-     * definitely in front of the viewer.
-     * Can I come up with a cunning way to optimise that?
-     * Perhaps, I could have a downwards-propagating flag of
-     * "definitely within the viewer's fov" so that one I've
-     * tested a supercell, I don't need to go through the
-     * expensive business of re-testing the subcells?
-     */
-    //if (viewerFacing.dot(realFacing) < 0.0f) return;
+    bool entirelyVisible = parentEntirelyVisible;
+
+    if (!parentEntirelyVisible)
+    {
+        /* Check whether this cell is actually visible, by
+         * testing all 8 vertices.
+         */
+        bool someVisible = false;
+        entirelyVisible = true;
+        Vec4<float> realCoord = cell.realCoord();
+
+        testPointVisible(Vec3<float>(
+            realCoord.v[0],
+            realCoord.v[1],
+            realCoord.v[2]),
+            viewerLocation, viewerFacing, someVisible, entirelyVisible);
+        testPointVisible(Vec3<float>(
+            realCoord.v[0] + realCoord.v[3],
+            realCoord.v[1],
+            realCoord.v[2]),
+            viewerLocation, viewerFacing, someVisible, entirelyVisible);
+        testPointVisible(Vec3<float>(
+            realCoord.v[0],
+            realCoord.v[1] + realCoord.v[3],
+            realCoord.v[2]),
+            viewerLocation, viewerFacing, someVisible, entirelyVisible);
+        testPointVisible(Vec3<float>(
+            realCoord.v[0] + realCoord.v[3],
+            realCoord.v[1] + realCoord.v[3],
+            realCoord.v[2]),
+            viewerLocation, viewerFacing, someVisible, entirelyVisible);
+        testPointVisible(Vec3<float>(
+            realCoord.v[0],
+            realCoord.v[1],
+            realCoord.v[2] + realCoord.v[3]),
+            viewerLocation, viewerFacing, someVisible, entirelyVisible);
+        testPointVisible(Vec3<float>(
+            realCoord.v[0] + realCoord.v[3],
+            realCoord.v[1],
+            realCoord.v[2] + realCoord.v[3]),
+            viewerLocation, viewerFacing, someVisible, entirelyVisible);
+        testPointVisible(Vec3<float>(
+            realCoord.v[0],
+            realCoord.v[1] + realCoord.v[3],
+            realCoord.v[2] + realCoord.v[3]),
+            viewerLocation, viewerFacing, someVisible, entirelyVisible);
+        testPointVisible(Vec3<float>(
+            realCoord.v[0] + realCoord.v[3],
+            realCoord.v[1] + realCoord.v[3],
+            realCoord.v[2] + realCoord.v[3]),
+            viewerLocation, viewerFacing, someVisible, entirelyVisible);
+
+        /* If it can't be seen at all, we can
+         * drop out now.
+         */
+        if (!someVisible) return;
+    }
 
     /* If it's the smallest possible cell, or its detail pitch
      * is at the target detail pitch, include it as-is
@@ -469,69 +535,45 @@ void AFK_Landscape::enqueueSubcells(
     {
         for (unsigned int i = 0; i < augmentedSubcellsCount; ++i)
         {
-            /* TODO Put the cell facing business back after I've
-             * verified everything else is OK.
+            /* Recurse down the subcells that fall strictly
+             * within the parent cell.
              */
-#if 0
-            Vec4<float> subcellRealCoord = augmentedSubcells[i].realCoord();
-
-            /* Calculate this cell's facing.  I want to include it if
-             * the protagonist is looking at it, otherwise not.
-             */
-            Vec3<float> subcellFacing = Vec3<float>(
-                subcellRealCoord.v[0],
-                subcellRealCoord.v[1],
-                subcellRealCoord.v[2]) - viewerLocation;
-
-            /* TODO: Replace this comparison with 0.0f with something
-             * cunning involving normalised facings (probably) and
-             * the tanHalfFov result in order to decide whether it's
-             * within the fov cone, as opposed to merely within the
-             * correct hemisphere.
-             */
-            if (viewerFacing.dot(subcellFacing) > 0.0f)
-            {
-#endif
-                /* Recurse down the subcells that fall strictly
-                 * within the parent cell.
-                 */
-                enqueueSubcells(AFK_Cell(Vec4<int>(
-                    augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
-                    augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
-                    augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
-                    augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing);
-                enqueueSubcells(AFK_Cell(Vec4<int>(
-                    augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
-                    augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
-                    augmentedSubcells[i].coord.v[2],
-                    augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing);
-                enqueueSubcells(AFK_Cell(Vec4<int>(
-                    augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
-                    augmentedSubcells[i].coord.v[1],
-                    augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
-                    augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing);
-                enqueueSubcells(AFK_Cell(Vec4<int>(
-                    augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
-                    augmentedSubcells[i].coord.v[1],
-                    augmentedSubcells[i].coord.v[2],
-                    augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing);
-                enqueueSubcells(AFK_Cell(Vec4<int>(
-                    augmentedSubcells[i].coord.v[0],
-                    augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
-                    augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
-                    augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing);
-                enqueueSubcells(AFK_Cell(Vec4<int>(
-                    augmentedSubcells[i].coord.v[0],
-                    augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
-                    augmentedSubcells[i].coord.v[2],
-                    augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing);
-                enqueueSubcells(AFK_Cell(Vec4<int>(
-                    augmentedSubcells[i].coord.v[0],
-                    augmentedSubcells[i].coord.v[1],
-                    augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
-                    augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing);
-                enqueueSubcells(augmentedSubcells[i], cell, viewerLocation, viewerFacing);
-            //}
+            enqueueSubcells(AFK_Cell(Vec4<int>(
+                augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
+                augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
+                augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
+                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing, entirelyVisible);
+            enqueueSubcells(AFK_Cell(Vec4<int>(
+                augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
+                augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
+                augmentedSubcells[i].coord.v[2],
+                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing, entirelyVisible);
+            enqueueSubcells(AFK_Cell(Vec4<int>(
+                augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
+                augmentedSubcells[i].coord.v[1],
+                augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
+                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing, entirelyVisible);
+            enqueueSubcells(AFK_Cell(Vec4<int>(
+                augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
+                augmentedSubcells[i].coord.v[1],
+                augmentedSubcells[i].coord.v[2],
+                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing, entirelyVisible);
+            enqueueSubcells(AFK_Cell(Vec4<int>(
+                augmentedSubcells[i].coord.v[0],
+                augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
+                augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
+                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing, entirelyVisible);
+            enqueueSubcells(AFK_Cell(Vec4<int>(
+                augmentedSubcells[i].coord.v[0],
+                augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
+                augmentedSubcells[i].coord.v[2],
+                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing, entirelyVisible);
+            enqueueSubcells(AFK_Cell(Vec4<int>(
+                augmentedSubcells[i].coord.v[0],
+                augmentedSubcells[i].coord.v[1],
+                augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
+                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing, entirelyVisible);
+            enqueueSubcells(augmentedSubcells[i], cell, viewerLocation, viewerFacing, entirelyVisible);
         }
     }
     else
@@ -556,17 +598,11 @@ void AFK_Landscape::enqueueSubcells(
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[1],
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[2],
         cell.coord.v[3]));
-    enqueueSubcells(modifiedCell, modifiedCell.parent(), viewerLocation, viewerFacing);
+    enqueueSubcells(modifiedCell, modifiedCell.parent(), viewerLocation, viewerFacing, false);
 }
 
 void AFK_Landscape::updateLandMap(void)
 {
-    /* Make the largest cell that contains the protagonist.
-     * TODO: Maybe I should consider the ones around it,
-     * especially if we're near the edge.  In future.  Mhm.
-     * This cell is pretty large.
-     */
-
     /* First, transform the protagonist location and its facing
      * into integer cell-space.
      * TODO: This is *really* going to want arbitrary

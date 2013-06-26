@@ -5,7 +5,9 @@
  - very basic points-grid landscape. OK
  - opencl example. OK
  - basic cubic cell landscape. OK
- - determine which cells to draw by camera facing
+ - determine which cells to draw by camera facing. OK
+ - landscape subdivision and LoD. OK
+ - adjust detail pitch on the fly to maintain a framerate.
  - compute location of points-grid with opencl and feed back.
  - random number generator.
  - opencl random number generator.
@@ -13,5 +15,4 @@
  - apply lighting to protagonist object.
  - tessellation example.
  - tessellated landscape.
- - landscape subdivision and LoD...
 
