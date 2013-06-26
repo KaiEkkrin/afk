@@ -171,7 +171,7 @@ void AFK_Core::loop(void)
         1000000,            /* cacheSize */
         config->zFar,       /* maxDistance */
         2,                  /* subdivisionFactor */
-        512                 /* detailPitch.  TODO Currently this number is being interpreted as much smaller than spec'd */
+        256                 /* detailPitch.  TODO Currently this number is being interpreted as much smaller than spec'd */
         );
     protagonist = new AFK_DisplayedProtagonist();
 

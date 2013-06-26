@@ -502,7 +502,11 @@ void AFK_Landscape::enqueueSubcells(
         /* If it can't be seen at all, we can
          * drop out now.
          */
-        if (!someVisible) return;
+        if (!someVisible)
+        {
+            ++landscapeCellsInvisible;
+            return;
+        }
     }
 
     /* If it's the smallest possible cell, or its detail pitch
@@ -514,9 +518,12 @@ void AFK_Landscape::enqueueSubcells(
         AFK_LandscapeCell*& landscapeCell = landMap[cell];
         if (!landscapeCell)
             landscapeCell = new AFK_LandscapeCell(cell, cell.realCoord());
+        else
+            ++landscapeCellsCached;
 
         /* Now, push it into the queue as well */
         enqueued.second = landscapeCell;
+        ++landscapeCellsQueued;
         return;
     }
 
@@ -603,6 +610,11 @@ void AFK_Landscape::enqueueSubcells(
 
 void AFK_Landscape::updateLandMap(void)
 {
+    /* Do the statistics thing for this pass. */
+    landscapeCellsInvisible = 0;
+    landscapeCellsCached = 0;
+    landscapeCellsQueued = 0;
+
     /* First, transform the protagonist location and its facing
      * into integer cell-space.
      * TODO: This is *really* going to want arbitrary
@@ -657,6 +669,16 @@ void AFK_Landscape::updateLandMap(void)
         for (int j = -1; j <= 1; ++j)
             for (int k = -1; k <= 1; ++k)
                 enqueueSubcells(cell, Vec3<int>(i, j, k), protagonistLocation, protagonistFacing);
+
+#ifdef PROTAGONIST_CELL_DEBUG
+    {
+        std::ostringstream ss;
+        ss << "Queued " << landscapeCellsQueued << " cells (" <<
+            (100 * landscapeCellsCached / landscapeCellsQueued) << "\% cached, " <<
+            landscapeCellsInvisible << " rejected for invisibility)";
+        afk_core.occasionallyPrint(ss.str());
+    }
+#endif
 }
 
 void AFK_Landscape::display(const Mat4<float>& projection)

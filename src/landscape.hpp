@@ -240,10 +240,11 @@ public:
      */
     float minCellSize;
 
-    /* TODO Track the shader program and uniform variable
-     * locations for all the landscape cells here?  (they'll
-     * probably all be the same?)
+    /* Gather statistics.  (Useful.)
      */
+    unsigned int landscapeCellsInvisible;
+    unsigned int landscapeCellsCached;
+    unsigned int landscapeCellsQueued;
 
     /* The queue of landscape cells to display in the
      * next frame.
