@@ -3,7 +3,7 @@
 #ifndef _AFK_LANDSCAPE_H_
 #define _AFK_LANDSCAPE_H_
 
-#include "afk.h"
+#include "afk.hpp"
 
 #include <deque>
 #include <iostream>
@@ -13,10 +13,10 @@
  */
 #include <boost/unordered_map.hpp>
 
-#include "camera.h"
-#include "def.h"
-#include "display.h"
-#include "shader.h"
+#include "camera.hpp"
+#include "def.hpp"
+#include "display.hpp"
+#include "shader.hpp"
 
 /* To start out with, I'm going to define an essentially
  * flat landscape split into squares for calculation and

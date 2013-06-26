@@ -1,13 +1,13 @@
 /* AFK (c) Alex Holloway 2013 */
 
-#include "afk.h"
+#include "afk.hpp"
 
 #include <stdlib.h>
 #include <time.h>
 
-#include "core.h"
-#include "exception.h"
-#include "landscape.h"
+#include "core.hpp"
+#include "exception.hpp"
+#include "landscape.hpp"
 
 
 /* TODO remove debug?  (or something) */

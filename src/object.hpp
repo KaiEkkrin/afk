@@ -3,7 +3,7 @@
 #ifndef _AFK_OBJECT_H_
 #define _AFK_OBJECT_H_
 
-#include "def.h"
+#include "def.hpp"
 
 /* General way of defining objects.  I'm not sure if I'm
  * going to want to keep this, but, you know.

@@ -3,7 +3,7 @@
 #ifndef _AFK_SHADER_H_
 #define _AFK_SHADER_H_
 
-#include "afk.h"
+#include "afk.hpp"
 
 #include <string>
 

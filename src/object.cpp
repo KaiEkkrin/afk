@@ -1,10 +1,10 @@
 /* AFK (c) Alex Holloway 2013 */
 
-#include "afk.h"
+#include "afk.hpp"
 
 #include <math.h>
 
-#include "object.h"
+#include "object.hpp"
 
 /* TODO I'm going to end up with a lot of these transformations (if I
  * have lots of objects whizzing about, all controlled through aircraft

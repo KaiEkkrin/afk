@@ -1,10 +1,10 @@
 /* AFK (c) Alex Holloway 2013 */
 
-#include "afk.h"
+#include "afk.hpp"
 
-#include "config.h"
-#include "core.h"
-#include "event.h"
+#include "config.hpp"
+#include "core.hpp"
+#include "event.hpp"
 
 static void displaceAxis(enum AFK_Control_Axes axis, float displacement)
 {

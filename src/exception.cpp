@@ -1,11 +1,11 @@
 /* AFK (c) Alex Holloway 2013 */
 
-#include "afk.h"
+#include "afk.hpp"
 
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "exception.h"
+#include "exception.hpp"
 
 AFK_Exception::AFK_Exception(const std::string& _message)
 {

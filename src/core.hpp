@@ -3,16 +3,16 @@
 #ifndef _AFK_CORE_H_
 #define _AFK_CORE_H_
 
-#include "afk.h"
+#include "afk.hpp"
 
 #include <iostream>
 #include <string>
 
-#include "camera.h"
-#include "config.h"
-#include "def.h"
-#include "display.h"
-#include "landscape.h"
+#include "camera.hpp"
+#include "config.hpp"
+#include "def.hpp"
+#include "display.hpp"
+#include "landscape.hpp"
 
 class AFK_Core
 {

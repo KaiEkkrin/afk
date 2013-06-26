@@ -3,7 +3,7 @@
 #ifndef _AFK_CAMERA_H_
 #define _AFK_CAMERA_H_
 
-#include "object.h"
+#include "object.hpp"
 
 /* The Camera is a kind of Object.  It moves the same way. */
 

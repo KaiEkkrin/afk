@@ -3,9 +3,9 @@
 #ifndef _AFK_DISPLAY_H_
 #define _AFK_DISPLAY_H_
 
-#include "afk.h"
-#include "object.h"
-#include "shader.h"
+#include "afk.hpp"
+#include "object.hpp"
+#include "shader.hpp"
 
 class AFK_DisplayedObject
 {

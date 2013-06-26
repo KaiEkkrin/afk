@@ -1,14 +1,14 @@
 /* AFK (c) Alex Holloway 2013 */
 
-#include "afk.h"
+#include "afk.hpp"
 
 #include <math.h>
 
-#include "camera.h"
-#include "core.h"
-#include "display.h"
-#include "exception.h"
-#include "object.h"
+#include "camera.hpp"
+#include "core.hpp"
+#include "display.hpp"
+#include "exception.hpp"
+#include "object.hpp"
 
 
 void AFK_DisplayedObject::updateTransform(const Mat4<float>& projection)

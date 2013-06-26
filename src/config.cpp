@@ -1,6 +1,6 @@
 /* AFK (c) Alex Holloway 2013 */
 
-#include "afk.h"
+#include "afk.hpp"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -11,8 +11,8 @@
 #include <iostream>
 #include <utility>
 
-#include "config.h"
-#include "exception.h"
+#include "config.hpp"
+#include "exception.hpp"
 
 #define REQUIRE_ARGUMENT(option) \
     ++argi;\

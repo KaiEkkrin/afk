@@ -1,12 +1,12 @@
 /* AFK (c) Alex Holloway 2013 */
 
-#include "afk.h"
+#include "afk.hpp"
 
 #include <math.h>
 
-#include "camera.h"
-#include "config.h"
-#include "core.h"
+#include "camera.hpp"
+#include "config.hpp"
+#include "core.hpp"
 
 AFK_Camera::AFK_Camera(): AFK_Object()
 {

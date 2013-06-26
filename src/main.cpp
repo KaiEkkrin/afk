@@ -7,12 +7,12 @@
  * - use { ... } initialisation assignments instead of cumbersome messes
  */
 
-#include "afk.h"
+#include "afk.hpp"
 
 #include <iostream>
 
-#include "core.h"
-#include "exception.h"
+#include "core.hpp"
+#include "exception.hpp"
 
 /* This is the AFK global core declared in core.h */
 AFK_Core afk_core;

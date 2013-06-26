@@ -1,12 +1,12 @@
 /* AFK (c) Alex Holloway 2013 */
 
-#include "afk.h"
-#include "computer.h"
-#include "core.h"
-#include "def.h"
-#include "display.h"
-#include "event.h"
-#include "exception.h"
+#include "afk.hpp"
+#include "computer.hpp"
+#include "core.hpp"
+#include "def.hpp"
+#include "display.hpp"
+#include "event.hpp"
+#include "exception.hpp"
 
 
 /* Static, context-less functions needed to drive GLUT, etc. */

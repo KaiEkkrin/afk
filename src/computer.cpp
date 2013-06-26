@@ -3,8 +3,8 @@
 #include <iostream>
 #include <sstream>
 
-#include "computer.h"
-#include "exception.h"
+#include "computer.hpp"
+#include "exception.hpp"
 
 static void inspectDevices(cl_platform_id platform, cl_device_type deviceType)
 {

@@ -1,6 +1,6 @@
 /* AFK (c) Alex Holloway 2013 */
 
-#include "afk.h"
+#include "afk.hpp"
 
 #include <errno.h>
 #include <stdio.h>
@@ -11,8 +11,8 @@
 #include <iostream>
 #include <sstream>
 
-#include "exception.h"
-#include "shader.h"
+#include "exception.hpp"
+#include "shader.hpp"
 
 struct shaderSpec shaders[] = {
     {   GL_FRAGMENT_SHADER, 0,  "basic_fragment.glsl"       },

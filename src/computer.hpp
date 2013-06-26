@@ -3,7 +3,7 @@
 #ifndef _AFK_COMPUTER_H_
 #define _AFK_COMPUTER_H_
 
-#include "afk.h"
+#include "afk.hpp"
 
 /* A useful wrapper around the OpenCL stuff (I'm using the
  * C bindings, not the C++ ones, which caused mega-tastic
