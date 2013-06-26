@@ -11,6 +11,18 @@
 #include "object.hpp"
 
 
+AFK_DisplayedObject::AFK_DisplayedObject()
+{
+    shaderProgram = NULL;
+    transformLocation = 0;
+    fixedColorLocation = 0;
+}
+
+AFK_DisplayedObject::~AFK_DisplayedObject()
+{
+    if (shaderProgram) delete shaderProgram;
+}
+
 void AFK_DisplayedObject::updateTransform(const Mat4<float>& projection)
 {
     Mat4<float> objectTransform = projection * object.getTransformation();
@@ -20,11 +32,12 @@ void AFK_DisplayedObject::updateTransform(const Mat4<float>& projection)
 AFK_DisplayedTestObject::AFK_DisplayedTestObject()
 {
     /* Link up the shader program I want. */
-    shaderProgram << "basic_fragment" << "basic_vertex";
-    shaderProgram.Link();
+    shaderProgram = new AFK_ShaderProgram();
+    *shaderProgram << "basic_fragment" << "basic_vertex";
+    shaderProgram->Link();
 
-    transformLocation = glGetUniformLocation(shaderProgram.program, "transform");
-    fixedColorLocation = glGetUniformLocation(shaderProgram.program, "fixedColor");
+    transformLocation = glGetUniformLocation(shaderProgram->program, "transform");
+    fixedColorLocation = glGetUniformLocation(shaderProgram->program, "fixedColor");
 
     /* Setup the test object's data. */
     float rawVertices[] = {
@@ -47,7 +60,7 @@ AFK_DisplayedTestObject::~AFK_DisplayedTestObject()
 
 void AFK_DisplayedTestObject::display(const Mat4<float>& projection)
 {
-    glUseProgram(shaderProgram.program);
+    glUseProgram(shaderProgram->program);
     glUniform3f(fixedColorLocation, colour.v[0], colour.v[1], colour.v[2]);
 
     updateTransform(projection);
@@ -64,11 +77,12 @@ void AFK_DisplayedTestObject::display(const Mat4<float>& projection)
 AFK_DisplayedProtagonist::AFK_DisplayedProtagonist()
 {
     /* Link up the shader program I want. */
-    shaderProgram << "basic_fragment" << "basic_vertex";
-    shaderProgram.Link();
+    shaderProgram = new AFK_ShaderProgram();
+    *shaderProgram << "basic_fragment" << "basic_vertex";
+    shaderProgram->Link();
 
-    transformLocation = glGetUniformLocation(shaderProgram.program, "transform");
-    fixedColorLocation = glGetUniformLocation(shaderProgram.program, "fixedColor");
+    transformLocation = glGetUniformLocation(shaderProgram->program, "transform");
+    fixedColorLocation = glGetUniformLocation(shaderProgram->program, "fixedColor");
 
     /* For now, I'm going to make a simple flat chevron
      * facing in the travel direction, because I can't
@@ -125,7 +139,7 @@ AFK_DisplayedProtagonist::~AFK_DisplayedProtagonist()
 
 void AFK_DisplayedProtagonist::display(const Mat4<float>& projection)
 {
-    glUseProgram(shaderProgram.program);
+    glUseProgram(shaderProgram->program);
     glUniform3f(fixedColorLocation, colour.v[0], colour.v[1], colour.v[2]);
 
     updateTransform(projection);

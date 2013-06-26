@@ -170,8 +170,8 @@ void AFK_Core::loop(void)
     landscape = new AFK_Landscape( /* TODO tweak this initialisation...  extensively, and make it configurable */
         1000000,            /* cacheSize */
         config->zFar,       /* maxDistance */
-        4,                  /* subdivisionFactor */
-        4                   /* detailPitch */
+        2,                  /* subdivisionFactor */
+        1024                /* detailPitch.  TODO Currently this number is being interpreted as much smaller than spec'd */
         );
     protagonist = new AFK_DisplayedProtagonist();
 

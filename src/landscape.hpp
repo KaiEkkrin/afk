@@ -5,7 +5,6 @@
 
 #include "afk.hpp"
 
-#include <deque>
 #include <iostream>
 
 /* TODO: If I'm going to switch to C++11, I no longer need to
@@ -56,6 +55,9 @@ public:
      * from (0,0,0) at the origin.  The 4th number is the
      * cell size: 1 for smallest, then increasing in factors
      * of subdivisionFactor.
+     * TODO: These aren't homogeneous co-ordinates right now
+     * (nor is the float `realCoord' equivalent) and for sanity,
+     * I should probably make them homogeneous :P
      */
     Vec4<int> coord;
 
@@ -80,6 +82,22 @@ public:
      */
     Vec4<float> realCoord() const;
 
+    /* A more general subdivide to use internally.
+     * `factor' is the number to divide the scale by.
+     * `stride' is the gap to put between each subcell
+     * and the next.
+     * `points' is the number of subcells to put along
+     * each dimension (which may be different from `factor'
+     * if I want to run off the edge of the parent, see
+     * augmentedSubdivide() ! )
+     */
+    unsigned int subdivide(
+        AFK_Cell *subCells,
+        const size_t subCellsSize,
+        int factor,
+        int stride,
+        int points) const;
+
     /* Fills out the supplied array of uninitialised
      * AFK_Cells with the next level of subdivision of
      * the current cell.
@@ -91,8 +109,26 @@ public:
      */
     unsigned int subdivide(AFK_Cell *subCells, const size_t subCellsSize) const;
 
+    /* This does the same, except it also includes the
+     * nearest subcells of the adjacent cells + along
+     * each axis.  The idea is that each cell is described
+     * by its lowest vertex (along each axis) and like this,
+     * I'll enumerate all subcell vertices.
+     * This function will want to fill out
+     * ((subdivisionFactor+1)^3) cells.
+     * Returns 0 if we're at the smallest subdivision
+     * already, else the number of subcells made.
+     */
+    unsigned int augmentedSubdivide(AFK_Cell *augmentedSubcells, const size_t augmentedSubcellsSize) const;
+
     /* Returns the parent cell to this one. */
     AFK_Cell parent(void) const;
+
+    /* Checks whether the given cell could be a parent
+     * to this one.  (Quicker than generating the
+     * parent anew, doesn't require modulus)
+     */
+    bool isParent(const AFK_Cell& parent) const;
 };
 
 /* For insertion into an unordered_map. */
@@ -131,6 +167,11 @@ std::ostream& operator<<(std::ostream& os, const AFK_LandscapeCell& cell);
 class AFK_Landscape
 {
 public:
+    /* Landscape shader details. */
+    AFK_ShaderProgram *shaderProgram;
+    GLuint transformLocation;
+    GLuint fixedColorLocation;
+
     /* Maps a cell identifier to its displayed landscape
      * object.  For now, the displayed landscape object
      * actually contains all the data.  This may or may
@@ -206,19 +247,41 @@ public:
 
     /* The queue of landscape cells to display in the
      * next frame.
+     * This is actually implemented as a map just like the
+     * cache.  It doesn't matter what order they get picked
+     * in, but it does matter that I can quickly avoid
+     * re-adding a cell if it's in there already.
+     * The bool is used to flag a cell that's been analysed
+     * and subdivided; it means "no LandscapeCell to render
+     * here, but don't try to analyse it again"
      */
-    std::deque<AFK_LandscapeCell *> displayQueue;
-
-
+    boost::unordered_map<const AFK_Cell, std::pair<bool, AFK_LandscapeCell*> > landQueue;
 
 
     AFK_Landscape(size_t _cacheSize, float _maxDistance, unsigned int _subdivisionFactor, unsigned int _detailPitch);
     virtual ~AFK_Landscape();
 
-    /* Enqueues a cell for drawing, creating it in the map
-     * if it's not there already.
+    /* Utility function.  Calculates the apparent cell detail
+     * pitch at a cell vertex.
      */
-    void enqueueCellForDrawing(const AFK_Cell& cell, const Vec4<float>& _coord);
+    float getCellDetailPitch(const AFK_Cell& cell, const Vec3<float>& viewerLocation) const;
+
+    /* Utility function.  Tests whether a cell is within the
+     * intended detail pitch.
+     */
+    bool testCellDetailPitch(const AFK_Cell& cell, const Vec3<float>& viewerLocation) const;
+
+    /* Enqueues this cell for drawing so long as its parent
+     * is as supplied.  If it's less fine than the target
+     * detail level, instead splits it recursively.
+     */
+    void enqueueSubcells(const AFK_Cell& cell, const AFK_Cell& parent, const Vec3<float>& viewerLocation, const Vec3<float>& viewerFacing);
+
+    /* The same, but with a vector modifier from the base
+     * cell that should be multiplied up by the base cell's
+     * scale.  Figures the parent out itself.
+     */
+    void enqueueSubcells(const AFK_Cell& cell, const Vec3<int>& modifier, const Vec3<float>& viewerLocation, const Vec3<float>& viewerFacing);
 
     /* Given the current position of the camera, this
      * function works out which cells to draw and fills

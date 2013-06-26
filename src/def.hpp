@@ -3,6 +3,8 @@
 #ifndef _AFK_DEF_H_
 #define _AFK_DEF_H_
 
+#include <math.h>
+
 #define SQUARE(x) ((x) * (x))
 #define CUBE(x) ((x) * (x) * (x))
 
@@ -43,6 +45,16 @@ public:
     Vec3<F> operator*(float f) const
     {
         return Vec3<F>(v[0] * f, v[1] * f, v[2] * f);
+    }
+
+    F magnitudeSquared(void) const
+    {
+        return SQUARE(v[0]) + SQUARE(v[1]) + SQUARE(v[2]);
+    }
+
+    F magnitude(void) const
+    {
+        return sqrt(magnitudeSquared());
     }
 
     F dot(const Vec3<F>& p) const

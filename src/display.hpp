@@ -15,8 +15,10 @@ protected:
     void updateTransform(const Mat4<float>& projection);
 
 public:
-    /* The shader program this object uses. */
-    AFK_ShaderProgram shaderProgram;
+    /* The shader program this object uses (and manages).
+     * Use NULL if the shader program comes from elsewhere.
+     */
+    AFK_ShaderProgram *shaderProgram;
 
     /* The uniform variable in the shader program that
      * contains the transform to apply to this object when
@@ -36,8 +38,8 @@ public:
     /* This object's base colour. */
     Vec3<float> colour;
 
-    AFK_DisplayedObject() {}
-    virtual ~AFK_DisplayedObject() {}
+    AFK_DisplayedObject();
+    virtual ~AFK_DisplayedObject();
 
     virtual void display(const Mat4<float>& projection) = 0;
 };

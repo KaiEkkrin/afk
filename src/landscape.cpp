@@ -60,60 +60,59 @@ Vec4<float> AFK_Cell::realCoord() const
         (float)coord.v[3] * afk_core.landscape->minCellSize);
 }
 
-unsigned int AFK_Cell::subdivide(AFK_Cell *subCells, const size_t subCellsSize) const
+unsigned int AFK_Cell::subdivide(
+    AFK_Cell *subCells,
+    const size_t subCellsSize,
+    int factor,
+    int stride,
+    int points) const
 {
-    std::ostringstream ss;
-
     /* Check whether we're at smallest subdivision */
     if (coord.v[3] == 1) return 0;
 
     /* Check for programming error */
-    if (subCellsSize < CUBE(afk_core.landscape->subdivisionFactor))
+    if (subCellsSize != (size_t)CUBE(points))
     {
-        ss << "Supplied " << subCellsSize << " subcells on a landscape with subdivision factor " << afk_core.landscape->subdivisionFactor;
+        std::ostringstream ss;
+        ss << "Supplied " << subCellsSize << " subcells for " << points << " points";
         throw AFK_Exception(ss.str());
     }
 
-    /* Split things up. */
-    int subScale = coord.v[3] / afk_core.landscape->subdivisionFactor;
     AFK_Cell *subCellPos = subCells;
     unsigned int subCellCount = 0;
-    for (int i = coord.v[0]; i < coord.v[0] + coord.v[3]; i += subScale)
+    for (int i = coord.v[0]; i < coord.v[0] + stride * points; i += stride)
     {
-        for (int j = coord.v[1]; j < coord.v[1] + coord.v[3]; j += subScale)
+        for (int j = coord.v[1]; j < coord.v[1] + stride * points; j += stride)
         {
-            for (int k = coord.v[2]; k < coord.v[2] + coord.v[3]; k += subScale)
+            for (int k = coord.v[2]; k < coord.v[2] + stride * points; k += stride)
             {
-                /* TODO Remove paranoia? */
-                if (subCellPos >= subCells + subCellsSize)
-                {
-                    ss << "Ran off the end of the subcells array with i " << i << ", j " << j << ", k " << k << ", subScale " << subScale;
-                    throw AFK_Exception(ss.str());
-                }
-
-                *subCellPos = AFK_Cell(Vec4<int>(i, j, k, subScale));
-
-                /* TODO _DEFINITELY_ remove paranoia */
-                if (subCellPos->parent() != *this)
-                {
-                    ss << "Subdivided " << *this << " into " << *subCellPos << " (parent " << subCellPos->parent() << ")";
-                    throw AFK_Exception(ss.str());
-                }
-
-                ++subCellPos;
+                *(subCellPos++) = AFK_Cell(Vec4<int>(i, j, k, stride));
                 ++subCellCount;
             }
         }
     }
 
-    /* TODO Remove paranoia? */
-    if (subCellCount != CUBE(afk_core.landscape->subdivisionFactor))
-    {
-        ss << "Somehow made " << subCellCount << " subcells from a subdivision factor of " << afk_core.landscape->subdivisionFactor;
-        throw AFK_Exception(ss.str());
-    }
-
     return subCellCount;
+}
+
+unsigned int AFK_Cell::subdivide(AFK_Cell *subCells, const size_t subCellsSize) const
+{
+    return subdivide(
+        subCells,
+        subCellsSize,
+        (int)afk_core.landscape->subdivisionFactor,
+        coord.v[3] / afk_core.landscape->subdivisionFactor,
+        (int)afk_core.landscape->subdivisionFactor);
+}
+
+unsigned int AFK_Cell::augmentedSubdivide(AFK_Cell *augmentedSubcells, const size_t augmentedSubcellsSize) const
+{
+    return subdivide(
+        augmentedSubcells,
+        augmentedSubcellsSize,
+        (int)afk_core.landscape->subdivisionFactor,
+        coord.v[3] / afk_core.landscape->subdivisionFactor,
+        (int)afk_core.landscape->subdivisionFactor + 1);
 }
 
 /* The C++ integer modulus operator's behaviour with
@@ -134,6 +133,20 @@ AFK_Cell AFK_Cell::parent(void) const
         ROUND_TO_CELL_SCALE(coord.v[1], parentCellScale),
         ROUND_TO_CELL_SCALE(coord.v[2], parentCellScale),
         parentCellScale));
+}
+
+bool AFK_Cell::isParent(const AFK_Cell& parent) const
+{
+    /* The given cell could be parent if this cell falls
+     * within its boundaries and the scale is correct
+     */
+    return (
+        coord.v[0] >= parent.coord.v[0] &&
+        coord.v[0] < (parent.coord.v[0] + parent.coord.v[3]) &&
+        coord.v[1] >= parent.coord.v[1] &&
+        coord.v[1] < (parent.coord.v[1] + parent.coord.v[3]) &&
+        coord.v[2] >= parent.coord.v[2] &&
+        coord.v[2] < (parent.coord.v[2] + parent.coord.v[3]));
 }
 
 size_t hash_value(const AFK_Cell& cell)
@@ -167,16 +180,10 @@ std::ostream& operator<<(std::ostream& os, const AFK_Cell& cell)
 
 AFK_LandscapeCell::AFK_LandscapeCell(const AFK_Cell& cell, const Vec4<float>& _coord)
 {
-    /* Sort out the shader program.
-     * TODO This is highly inefficient.  Once I've made sure
-     * that things are working, try to share a single shader
-     * program between all landscape cells.
-     */
-    shaderProgram << "basic_fragment" << "basic_vertex";
-    shaderProgram.Link();
-
-    transformLocation = glGetUniformLocation(shaderProgram.program, "transform");
-    fixedColorLocation = glGetUniformLocation(shaderProgram.program, "fixedColor");
+    /* Using the overall landscape shader program. */
+    shaderProgram = NULL;
+    transformLocation = afk_core.landscape->transformLocation;
+    fixedColorLocation = afk_core.landscape->fixedColorLocation;
 
     coord = _coord;
 
@@ -258,7 +265,7 @@ void AFK_LandscapeCell::display(const Mat4<float>& projection)
 {
     if (vertices != 0)
     {
-        glUseProgram(shaderProgram.program);
+        glUseProgram(afk_core.landscape->shaderProgram->program);
         glUniform3f(fixedColorLocation, colour.v[0], colour.v[1], colour.v[2]);
 
         updateTransform(projection);
@@ -293,6 +300,14 @@ AFK_Landscape::AFK_Landscape(size_t _cacheSize, float _maxDistance, unsigned int
     subdivisionFactor   = _subdivisionFactor;
     detailPitch         = _detailPitch;
 
+    /* Set up the landscape shader. */
+    shaderProgram = new AFK_ShaderProgram();
+    *shaderProgram << "basic_fragment" << "basic_vertex";
+    shaderProgram->Link();
+
+    transformLocation = glGetUniformLocation(shaderProgram->program, "transform");
+    fixedColorLocation = glGetUniformLocation(shaderProgram->program, "fixedColor");
+
     /* TODO Make this a parameter. */
     pointSubdivisionFactor = 8;
 
@@ -319,7 +334,7 @@ AFK_Landscape::AFK_Landscape(size_t _cacheSize, float _maxDistance, unsigned int
     for (minCellSize = maxDistance; minCellSize > targetMinCellSize; minCellSize = minCellSize / subdivisionFactor)
         ++maxSubdivisions;
 
-    std::cout << "AFK: Landscape using minCellSize " << minCellSize;
+    std::cout << "AFK: Landscape using minCellSize " << minCellSize << std::endl;
 
     /* TODO I'm using this, albeit right now only for the
      * test colours.  Sort out the RNG system; this is almost
@@ -334,17 +349,214 @@ AFK_Landscape::~AFK_Landscape()
         delete lmIt->second;
 
     landMap.clear();    
-    displayQueue.clear();
+    landQueue.clear();
+
+    delete shaderProgram;
 }
 
-void AFK_Landscape::enqueueCellForDrawing(const AFK_Cell& cell, const Vec4<float>& realCoord)
+float AFK_Landscape::getCellDetailPitch(const AFK_Cell& cell, const Vec3<float>& viewerLocation) const
 {
-    AFK_LandscapeCell*& landscapeCell = landMap[cell];
-    if (!landscapeCell) landscapeCell = new AFK_LandscapeCell(cell, realCoord);
+    Vec4<float> realCoord = cell.realCoord();
+    Vec3<float> realLocation = Vec3<float>(realCoord.v[0], realCoord.v[1], realCoord.v[2]);
+    Vec3<float> realFacing = realLocation - viewerLocation;
 
-    /* Don't enqueue empty landscape cells */
-    if (landscapeCell->vertices != 0)
-        displayQueue.push_back(landscapeCell);
+    float distanceToViewer = realFacing.magnitude();
+    return (float)afk_core.camera.windowHeight * realCoord.v[3] /
+        (afk_core.camera.tanHalfFov * distanceToViewer);
+}
+
+bool AFK_Landscape::testCellDetailPitch(const AFK_Cell& cell, const Vec3<float>& viewerLocation) const
+{
+    /* At this point, it's sane to assume that I have a
+     * configured camera.  I'm going to sample the cell twice,
+     * at opposite vertices, and take the average distance from
+     * those vertices to the viewer in order to decide its LoD.
+     */
+#if 0
+    float cellDetailPitch1 = getCellDetailPitch(cell, viewerLocation);
+    float cellDetailPitch2 = getCellDetailPitch(AFK_Cell(Vec4<int>(
+        cell.coord.v[0] + cell.coord.v[3],
+        cell.coord.v[1] + cell.coord.v[3],
+        cell.coord.v[2] + cell.coord.v[3],
+        cell.coord.v[3])), viewerLocation);
+    float avgCellDetailPitch = (cellDetailPitch1 + cellDetailPitch2) / 2.0f;
+
+    return avgCellDetailPitch < (float)detailPitch;
+#else
+    /* TODO Different plan -- I bet this fails if the camera
+     * gets too close to the middle of a big cell (?!)
+     * Sample only once, in the centre
+     * TODO To fix it properly, I need to pick three points
+     * displaced along the 3 axes by the dot pitch from the
+     * centre of the cell, project them through the camera,
+     * and compare those distances to the detail pitch,
+     * no?
+     * (in fact I'd probably get away with just the x and
+     * z axes)
+     */
+    float cellDetailPitch = getCellDetailPitch(AFK_Cell(Vec4<int>(
+        cell.coord.v[0] + cell.coord.v[3] / 2,
+        cell.coord.v[1] + cell.coord.v[3] / 2,
+        cell.coord.v[2] + cell.coord.v[3] / 2,
+        cell.coord.v[3])), viewerLocation);
+    return cellDetailPitch < (float)detailPitch;
+#endif
+}
+
+void AFK_Landscape::enqueueSubcells(
+    const AFK_Cell& cell,
+    const AFK_Cell& parent,
+    const Vec3<float>& viewerLocation,
+    const Vec3<float>& viewerFacing)
+{
+    /* If this cell is outside the given parent, stop right
+     * away.
+     */
+    if (!cell.isParent(parent)) return;
+
+    /* Find out if it's enqueued already */
+    std::pair<bool, AFK_LandscapeCell*>& enqueued = landQueue[cell];
+    
+    /* If we've seen it already, stop */
+    if (enqueued.first) return;
+
+    /* Otherwise, flag this cell as having been looked at
+     * (regardless of whether we add a landscape, we don't
+     * want to come back here)
+     */
+    enqueued.first = true;
+    enqueued.second = NULL;
+
+    /* If it's behind the viewer, reject it.
+     * TODO In order to figure this correctly, I need to test all eight
+     * points.  That's going to be very slow for cells that are
+     * definitely in front of the viewer.
+     * Can I come up with a cunning way to optimise that?
+     * Perhaps, I could have a downwards-propagating flag of
+     * "definitely within the viewer's fov" so that one I've
+     * tested a supercell, I don't need to go through the
+     * expensive business of re-testing the subcells?
+     */
+    //if (viewerFacing.dot(realFacing) < 0.0f) return;
+
+    /* If it's the smallest possible cell, or its detail pitch
+     * is at the target detail pitch, include it as-is
+     */
+    if (cell.coord.v[3] == 1 || testCellDetailPitch(cell, viewerLocation))
+    {
+        /* Find out if it's already in the cache */
+        AFK_LandscapeCell*& landscapeCell = landMap[cell];
+        if (!landscapeCell)
+            landscapeCell = new AFK_LandscapeCell(cell, cell.realCoord());
+
+        /* Now, push it into the queue as well */
+        enqueued.second = landscapeCell;
+        return;
+    }
+
+    /* Pull out the augmented set of subcells.  This set
+     * includes all direct subcells and also the shell of
+     * subcells one step + along each axis; I've done this
+     * because I want to enqueue a cell if any of its
+     * vertices are within fov, and a cell is described
+     * by its lowest vertex (along each axis).
+     */
+    size_t augmentedSubcellsSize = CUBE(subdivisionFactor + 1);
+    AFK_Cell *augmentedSubcells = new AFK_Cell[augmentedSubcellsSize];
+    unsigned int augmentedSubcellsCount = cell.augmentedSubdivide(augmentedSubcells, augmentedSubcellsSize);
+
+    if (augmentedSubcellsCount == augmentedSubcellsSize)
+    {
+        for (unsigned int i = 0; i < augmentedSubcellsCount; ++i)
+        {
+            /* TODO Put the cell facing business back after I've
+             * verified everything else is OK.
+             */
+#if 0
+            Vec4<float> subcellRealCoord = augmentedSubcells[i].realCoord();
+
+            /* Calculate this cell's facing.  I want to include it if
+             * the protagonist is looking at it, otherwise not.
+             */
+            Vec3<float> subcellFacing = Vec3<float>(
+                subcellRealCoord.v[0],
+                subcellRealCoord.v[1],
+                subcellRealCoord.v[2]) - viewerLocation;
+
+            /* TODO: Replace this comparison with 0.0f with something
+             * cunning involving normalised facings (probably) and
+             * the tanHalfFov result in order to decide whether it's
+             * within the fov cone, as opposed to merely within the
+             * correct hemisphere.
+             */
+            if (viewerFacing.dot(subcellFacing) > 0.0f)
+            {
+#endif
+                /* Recurse down the subcells that fall strictly
+                 * within the parent cell.
+                 */
+                enqueueSubcells(AFK_Cell(Vec4<int>(
+                    augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
+                    augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
+                    augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
+                    augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing);
+                enqueueSubcells(AFK_Cell(Vec4<int>(
+                    augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
+                    augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
+                    augmentedSubcells[i].coord.v[2],
+                    augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing);
+                enqueueSubcells(AFK_Cell(Vec4<int>(
+                    augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
+                    augmentedSubcells[i].coord.v[1],
+                    augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
+                    augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing);
+                enqueueSubcells(AFK_Cell(Vec4<int>(
+                    augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
+                    augmentedSubcells[i].coord.v[1],
+                    augmentedSubcells[i].coord.v[2],
+                    augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing);
+                enqueueSubcells(AFK_Cell(Vec4<int>(
+                    augmentedSubcells[i].coord.v[0],
+                    augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
+                    augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
+                    augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing);
+                enqueueSubcells(AFK_Cell(Vec4<int>(
+                    augmentedSubcells[i].coord.v[0],
+                    augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
+                    augmentedSubcells[i].coord.v[2],
+                    augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing);
+                enqueueSubcells(AFK_Cell(Vec4<int>(
+                    augmentedSubcells[i].coord.v[0],
+                    augmentedSubcells[i].coord.v[1],
+                    augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
+                    augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing);
+                enqueueSubcells(augmentedSubcells[i], cell, viewerLocation, viewerFacing);
+            //}
+        }
+    }
+    else
+    {
+        /* That's clearly a bug :P */
+        std::ostringstream ss;
+        ss << "Cell " << cell << " subdivided into " << augmentedSubcellsCount << " not " << augmentedSubcellsSize;
+        throw AFK_Exception(ss.str());
+    }
+
+    delete[] augmentedSubcells;
+}
+
+void AFK_Landscape::enqueueSubcells(
+    const AFK_Cell& cell,
+    const Vec3<int>& modifier,
+    const Vec3<float>& viewerLocation,
+    const Vec3<float>& viewerFacing)
+{
+    AFK_Cell modifiedCell(Vec4<int>(
+        cell.coord.v[0] + cell.coord.v[3] * modifier.v[0],
+        cell.coord.v[0] + cell.coord.v[3] * modifier.v[1],
+        cell.coord.v[0] + cell.coord.v[3] * modifier.v[2],
+        cell.coord.v[3]));
+    enqueueSubcells(modifiedCell, modifiedCell.parent(), viewerLocation, viewerFacing);
 }
 
 void AFK_Landscape::updateLandMap(void)
@@ -393,107 +605,29 @@ void AFK_Landscape::updateLandMap(void)
         afk_core.occasionallyPrint(ss.str());
     }
 #endif
-        
-    /* I definitely want to draw that cell. */
-    enqueueCellForDrawing(protagonistCell, protagonistCell.realCoord());
 
-    /*
-     * Now, wander up through the cell's family tree
-     * deciding which other cells to draw.
+    /* Wind up the cell tree and find its largest parent. */
+    AFK_Cell cell;
+    for (cell = protagonistCell;
+        (float)cell.coord.v[3] < maxDistance;
+        cell = cell.parent());
+
+    /* Draw that cell and the other cells around it.
+     * TODO Can I optimise this?  It's going to attempt
+     * cells that are very very far away.  Mind you,
+     * that might be okay.
      */
-    size_t siblingCellsSize = CUBE(subdivisionFactor);
-    AFK_Cell *siblingCells = new AFK_Cell[siblingCellsSize];
-
-    do
-    {
-        AFK_Cell parentCell = protagonistCell.parent();
-
-#ifdef PROTAGONIST_CELL_DEBUG
-        {
-            std::ostringstream ss;
-            ss << "Considering parent cell: " << parentCell;
-            afk_core.occasionallyPrint(ss.str());
-        }
-#endif
-
-        parentCell.subdivide(siblingCells, siblingCellsSize);
-
-        /* TODO: I want to be a lot cleverer about this:
-         * - for each sibling cell, check whether there will
-         * be anything in it -- if not, discard it right away.
-         * - if not, check whether it will appear outside the
-         * camera fov -- discard it right away if so.
-         * - if not, check how close it will appear.  I might
-         * want to subdivide it further.
-         * - some day, I'll want to check for occlusion too
-         * maybe (although that could be quite hard).
-         * - once I've reached the biggest cell, maybe
-         * investigate its neighbours too, or will I definitely
-         * never need that?
-         */
-
-        /* For now, just add everything and keep hopping up. */
-        for (unsigned int i = 0; i < siblingCellsSize; ++i)
-        {
-            if (siblingCells[i] != protagonistCell)
-            {
-                Vec4<float> siblingRealCoord = siblingCells[i].realCoord();
-
-                /* I want to show this cell if it's on the side
-                 * the protagonist is looking at, otherwise not.
-                 * TODO I'm checking only one vertex here; I
-                 * should be checking the other seven too!
-                 * Change this thing to check vertices, not cells.
-                 */
-                Vec3<float> siblingCellFacing = Vec3<float>(
-                    siblingRealCoord.v[0],
-                    siblingRealCoord.v[1],
-                    siblingRealCoord.v[2]) - protagonistLocation;
-
-                /* TODO Move this logic into the recursive-descent
-                 * cell finder that I should write.
-                 * And finesse it to take into account fov
-                 * (right now it's 180 degrees).
-                 */
-                if (protagonistFacing.dot(siblingCellFacing) > 0.0f)
-                    enqueueCellForDrawing(siblingCells[i], siblingRealCoord);
-            }
-        }
-
-        protagonistCell = parentCell;
-    }
-    while (protagonistCell.coord.v[3] < maxDistance);
-
-    /* TODO: The protagonist cell is now the largest cell.
-     * Go through its vertices; if any of them is close
-     * enough to render (and is in front of the camera),
-     * recurse through it enqueueing it.
-     * This is inevitably going to result in trying to
-     * re-enqueue the same cell a few times (after picking
-     * a new largest cell I want to sub-divide it, and there
-     * may be more sub-cells than are reasonable to pick
-     * through with static logic).
-     * Therefore, what I want to do is to replace the queue
-     * (it doesn't need to be a queue anyway) with another
-     * unordered_map, so that I can uniquely add each one.
-     * As a finesse, I should replace the above code that
-     * actually queues sibling cells, with code that simply
-     * finds the biggest cell right away, and then calls the
-     * recursive-descent cell finder on the protagonist
-     * super-cell too.
-     */
-    
-
-    delete[] siblingCells;
+    for (int i = -1; i <= 1; ++i)
+        for (int j = -1; j <= 1; ++j)
+            for (int k = -1; k <= 1; ++k)
+                enqueueSubcells(cell, Vec3<int>(i, j, k), protagonistLocation, protagonistFacing);
 }
 
 void AFK_Landscape::display(const Mat4<float>& projection)
 {
-    while (!displayQueue.empty())
-    {
-        AFK_LandscapeCell *landscapeCell = displayQueue.front();
-        landscapeCell->display(projection);
-        displayQueue.pop_front();
-    }
+    for (boost::unordered_map<const AFK_Cell, std::pair<bool, AFK_LandscapeCell*> >::iterator lqIt = landQueue.begin(); lqIt != landQueue.end(); ++lqIt)
+        if (lqIt->second.second) lqIt->second.second->display(projection);
+
+    landQueue.clear();
 }
 
