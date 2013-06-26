@@ -169,7 +169,7 @@ void AFK_Core::loop(void)
     testObject = new AFK_DisplayedTestObject();
     landscape = new AFK_Landscape( /* TODO tweak this initialisation...  extensively, and make it configurable */
         1000000,            /* cacheSize */
-        config->zFar,       /* maxDistance */
+        config->zFar / 2.0f,/* maxDistance -- zFar must be a lot bigger or things will vanish */
         2,                  /* subdivisionFactor */
         256                 /* detailPitch.  TODO Currently this number is being interpreted as much smaller than spec'd */
         );

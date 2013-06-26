@@ -405,28 +405,45 @@ bool AFK_Landscape::testCellDetailPitch(const AFK_Cell& cell, const Vec3<float>&
 
 void AFK_Landscape::testPointVisible(
         const Vec3<float>& point,
-        const Vec3<float>& viewerLocation,
-        const Vec3<float>& viewerFacing,
+        const Mat4<float>& projection,
         bool& io_someVisible,
         bool& io_allVisible) const
 {
-    /* TODO Right now I'm just checking whether the
-     * point is in the correct hemisphere.
-     * Ideally, I should project the point with the
-     * camera transform, and check using that.
+    /* Project the point.  This perspective projection
+     * yields a viewport with the x co-ordinates
+     * (-ar, ar) and the y co-ordinates (-1.0, 1.0).
      */
-    Vec3<float> viewerToPoint = point - viewerLocation;
-    bool visible = viewerToPoint.dot(viewerFacing) > 0.0f;
+    Vec4<float> projectedPoint = projection * Vec4<float>(
+        point.v[0], point.v[1], point.v[2], 1.0f);
+    bool visible = (
+        (projectedPoint.v[0] / projectedPoint.v[2]) >= -afk_core.camera.ar &&
+        (projectedPoint.v[0] / projectedPoint.v[2]) <= afk_core.camera.ar &&
+        (projectedPoint.v[1] / projectedPoint.v[2]) >= -1.0f &&
+        (projectedPoint.v[1] / projectedPoint.v[2]) <= 1.0f);
 
     io_someVisible |= visible;
     io_allVisible &= visible;
+}
+
+bool AFK_Landscape::testCellEmpty(const AFK_Cell& cell) const
+{
+    /* TODO: For now, with the landscape being
+     * entirely flat, all cells with y != 0 are
+     * empty.
+     * In future I'll want to:
+     * - Put a limit on the rate of change of
+     * landscape, and take a single landscape
+     * sample here
+     * - Also, check for moving objects
+     */
+    return (cell.coord.v[1] != 0);
 }
 
 void AFK_Landscape::enqueueSubcells(
     const AFK_Cell& cell,
     const AFK_Cell& parent,
     const Vec3<float>& viewerLocation,
-    const Vec3<float>& viewerFacing,
+    const Mat4<float>& projection,
     bool parentEntirelyVisible)
 {
     /* If this cell is outside the given parent, stop right
@@ -447,12 +464,22 @@ void AFK_Landscape::enqueueSubcells(
     enqueued.first = true;
     enqueued.second = NULL;
 
+    /* Check whether this cell is empty (a quick operation,
+     * and we can reject it if it is)
+     */
+    if (testCellEmpty(cell))
+    {
+        ++landscapeCellsEmpty;
+        return;
+    }
+
     bool entirelyVisible = parentEntirelyVisible;
 
     if (!parentEntirelyVisible)
     {
         /* Check whether this cell is actually visible, by
-         * testing all 8 vertices.
+         * testing all 8 vertices and its midpoint.
+         * TODO Is that enough?
          */
         bool someVisible = false;
         entirelyVisible = true;
@@ -462,42 +489,47 @@ void AFK_Landscape::enqueueSubcells(
             realCoord.v[0],
             realCoord.v[1],
             realCoord.v[2]),
-            viewerLocation, viewerFacing, someVisible, entirelyVisible);
+            projection, someVisible, entirelyVisible);
         testPointVisible(Vec3<float>(
             realCoord.v[0] + realCoord.v[3],
             realCoord.v[1],
             realCoord.v[2]),
-            viewerLocation, viewerFacing, someVisible, entirelyVisible);
+            projection, someVisible, entirelyVisible);
         testPointVisible(Vec3<float>(
             realCoord.v[0],
             realCoord.v[1] + realCoord.v[3],
             realCoord.v[2]),
-            viewerLocation, viewerFacing, someVisible, entirelyVisible);
+            projection, someVisible, entirelyVisible);
         testPointVisible(Vec3<float>(
             realCoord.v[0] + realCoord.v[3],
             realCoord.v[1] + realCoord.v[3],
             realCoord.v[2]),
-            viewerLocation, viewerFacing, someVisible, entirelyVisible);
+            projection, someVisible, entirelyVisible);
         testPointVisible(Vec3<float>(
             realCoord.v[0],
             realCoord.v[1],
             realCoord.v[2] + realCoord.v[3]),
-            viewerLocation, viewerFacing, someVisible, entirelyVisible);
+            projection, someVisible, entirelyVisible);
         testPointVisible(Vec3<float>(
             realCoord.v[0] + realCoord.v[3],
             realCoord.v[1],
             realCoord.v[2] + realCoord.v[3]),
-            viewerLocation, viewerFacing, someVisible, entirelyVisible);
+            projection, someVisible, entirelyVisible);
         testPointVisible(Vec3<float>(
             realCoord.v[0],
             realCoord.v[1] + realCoord.v[3],
             realCoord.v[2] + realCoord.v[3]),
-            viewerLocation, viewerFacing, someVisible, entirelyVisible);
+            projection, someVisible, entirelyVisible);
         testPointVisible(Vec3<float>(
             realCoord.v[0] + realCoord.v[3],
             realCoord.v[1] + realCoord.v[3],
             realCoord.v[2] + realCoord.v[3]),
-            viewerLocation, viewerFacing, someVisible, entirelyVisible);
+            projection, someVisible, entirelyVisible);
+        testPointVisible(Vec3<float>(
+            realCoord.v[0] + realCoord.v[3] / 2.0f,
+            realCoord.v[1] + realCoord.v[3] / 2.0f,
+            realCoord.v[2] + realCoord.v[3] / 2.0f),
+            projection, someVisible, entirelyVisible);
 
         /* If it can't be seen at all, we can
          * drop out now.
@@ -549,38 +581,38 @@ void AFK_Landscape::enqueueSubcells(
                 augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
                 augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
                 augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
-                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing, entirelyVisible);
+                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, projection, entirelyVisible);
             enqueueSubcells(AFK_Cell(Vec4<int>(
                 augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
                 augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
                 augmentedSubcells[i].coord.v[2],
-                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing, entirelyVisible);
+                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, projection, entirelyVisible);
             enqueueSubcells(AFK_Cell(Vec4<int>(
                 augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
                 augmentedSubcells[i].coord.v[1],
                 augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
-                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing, entirelyVisible);
+                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, projection, entirelyVisible);
             enqueueSubcells(AFK_Cell(Vec4<int>(
                 augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
                 augmentedSubcells[i].coord.v[1],
                 augmentedSubcells[i].coord.v[2],
-                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing, entirelyVisible);
+                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, projection, entirelyVisible);
             enqueueSubcells(AFK_Cell(Vec4<int>(
                 augmentedSubcells[i].coord.v[0],
                 augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
                 augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
-                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing, entirelyVisible);
+                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, projection, entirelyVisible);
             enqueueSubcells(AFK_Cell(Vec4<int>(
                 augmentedSubcells[i].coord.v[0],
                 augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
                 augmentedSubcells[i].coord.v[2],
-                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing, entirelyVisible);
+                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, projection, entirelyVisible);
             enqueueSubcells(AFK_Cell(Vec4<int>(
                 augmentedSubcells[i].coord.v[0],
                 augmentedSubcells[i].coord.v[1],
                 augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
-                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, viewerFacing, entirelyVisible);
-            enqueueSubcells(augmentedSubcells[i], cell, viewerLocation, viewerFacing, entirelyVisible);
+                augmentedSubcells[i].coord.v[3])), cell, viewerLocation, projection, entirelyVisible);
+            enqueueSubcells(augmentedSubcells[i], cell, viewerLocation, projection, entirelyVisible);
         }
     }
     else
@@ -598,19 +630,20 @@ void AFK_Landscape::enqueueSubcells(
     const AFK_Cell& cell,
     const Vec3<int>& modifier,
     const Vec3<float>& viewerLocation,
-    const Vec3<float>& viewerFacing)
+    const Mat4<float>& projection)
 {
     AFK_Cell modifiedCell(Vec4<int>(
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[0],
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[1],
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[2],
         cell.coord.v[3]));
-    enqueueSubcells(modifiedCell, modifiedCell.parent(), viewerLocation, viewerFacing, false);
+    enqueueSubcells(modifiedCell, modifiedCell.parent(), viewerLocation, projection, false);
 }
 
 void AFK_Landscape::updateLandMap(void)
 {
     /* Do the statistics thing for this pass. */
+    landscapeCellsEmpty = 0;
     landscapeCellsInvisible = 0;
     landscapeCellsCached = 0;
     landscapeCellsQueued = 0;
@@ -635,30 +668,25 @@ void AFK_Landscape::updateLandMap(void)
 
     AFK_Cell protagonistCell(csProtagonistLocation);
 
-    Vec4<float> hgProtagonistNose = protagonistTransformation *
-        Vec4<float>(0.0f, 0.0f, 1.0f, 1.0f);
-    Vec3<float> protagonistFacing = Vec3<float>(
-        hgProtagonistNose.v[0] * hgProtagonistNose.v[3],
-        hgProtagonistNose.v[1] * hgProtagonistNose.v[3],
-        hgProtagonistNose.v[2] * hgProtagonistNose.v[3]) - protagonistLocation;
+    Mat4<float> projection = afk_core.camera.getProjection();
 
 #ifdef PROTAGONIST_CELL_DEBUG
     {
         std::ostringstream ss;
-        ss << "Protagonist in cell: " << protagonistCell << std::endl;
-        ss << "Protagonist facing direction: (" <<
-            protagonistFacing.v[0] << ", " <<
-            protagonistFacing.v[1] << ", " <<
-            protagonistFacing.v[2] << ")";
+        ss << "Protagonist in cell: " << protagonistCell;
         afk_core.occasionallyPrint(ss.str());
     }
 #endif
 
-    /* Wind up the cell tree and find its largest parent. */
-    AFK_Cell cell;
-    for (cell = protagonistCell;
+    /* Wind up the cell tree and find its largest parent,
+     * then go one step smaller -- because a too-big cell
+     * just won't be seen by the projection and will
+     * therefore be culled
+     */
+    AFK_Cell cell, parentCell;
+    for (parentCell = protagonistCell;
         (float)cell.coord.v[3] < maxDistance;
-        cell = cell.parent());
+        cell = parentCell, parentCell = cell.parent());
 
     /* Draw that cell and the other cells around it.
      * TODO Can I optimise this?  It's going to attempt
@@ -668,14 +696,17 @@ void AFK_Landscape::updateLandMap(void)
     for (int i = -1; i <= 1; ++i)
         for (int j = -1; j <= 1; ++j)
             for (int k = -1; k <= 1; ++k)
-                enqueueSubcells(cell, Vec3<int>(i, j, k), protagonistLocation, protagonistFacing);
+                enqueueSubcells(cell, Vec3<int>(i, j, k), protagonistLocation, projection);
 
 #ifdef PROTAGONIST_CELL_DEBUG
     {
         std::ostringstream ss;
-        ss << "Queued " << landscapeCellsQueued << " cells (" <<
-            (100 * landscapeCellsCached / landscapeCellsQueued) << "\% cached, " <<
-            landscapeCellsInvisible << " rejected for invisibility)";
+        ss << "Queued " << landscapeCellsQueued << " cells";
+    
+        if (landscapeCellsQueued > 0)
+            ss << " (" << (100 * landscapeCellsCached / landscapeCellsQueued) << "\% cached)";
+
+        ss << " (" << landscapeCellsInvisible << " invisible, " << landscapeCellsEmpty << " empty)";
         afk_core.occasionallyPrint(ss.str());
     }
 #endif

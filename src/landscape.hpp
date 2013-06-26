@@ -242,6 +242,7 @@ public:
 
     /* Gather statistics.  (Useful.)
      */
+    unsigned int landscapeCellsEmpty;
     unsigned int landscapeCellsInvisible;
     unsigned int landscapeCellsCached;
     unsigned int landscapeCellsQueued;
@@ -278,10 +279,14 @@ public:
      */
     void testPointVisible(
         const Vec3<float>& point,
-        const Vec3<float>& viewerLocation,
-        const Vec3<float>& viewerFacing,
+        const Mat4<float>& projection,
         bool& io_someVisible,
         bool& io_allVisible) const;
+
+    /* Utility function.  Tests whether there's anything to
+     * draw in a cell.
+     */
+    bool testCellEmpty(const AFK_Cell& cell) const;
 
     /* Enqueues this cell for drawing so long as its parent
      * is as supplied.  If it's less fine than the target
@@ -291,7 +296,7 @@ public:
         const AFK_Cell& cell,
         const AFK_Cell& parent,
         const Vec3<float>& viewerLocation,
-        const Vec3<float>& viewerFacing,
+        const Mat4<float>& projection,
         bool entirelyVisible);
 
     /* The same, but with a vector modifier from the base
@@ -302,7 +307,7 @@ public:
         const AFK_Cell& cell,
         const Vec3<int>& modifier,
         const Vec3<float>& viewerLocation,
-        const Vec3<float>& viewerFacing);
+        const Mat4<float>& projection);
 
     /* Given the current position of the camera, this
      * function works out which cells to draw and fills
