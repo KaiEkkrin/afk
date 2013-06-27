@@ -216,13 +216,13 @@ AFK_LandscapeCell::AFK_LandscapeCell(const AFK_Cell& cell, const Vec4<float>& _c
 
     object.displace(Vec3<float>(coord.v[0], coord.v[1], coord.v[2]));
 
-    /* TODO Maybe I can come up with something neater; OTOH, maybe
+    /* Seed the RNG for this cell. */
+    afk_core.rng->seed(long_hash_value(cell));
+
+    /* TODO For testing. Maybe I can come up with something neater; OTOH, maybe
      * I don't want to :P
      */
-    colour = Vec3<float>(
-        (float)rand() / (float)RAND_MAX,
-        (float)rand() / (float)RAND_MAX,
-        (float)rand() / (float)RAND_MAX);
+    colour = Vec3<float>(afk_core.rng->frand(), afk_core.rng->frand(), afk_core.rng->frand());
 
     float *rawVertices = NULL;
     size_t rawVerticesSize = sizeof(float) * 3 * SQUARE(afk_core.landscape->pointSubdivisionFactor);
@@ -264,9 +264,22 @@ AFK_LandscapeCell::AFK_LandscapeCell(const AFK_Cell& cell, const Vec4<float>& _c
                 float xf = (float)xi * coord.v[3] / (float)afk_core.landscape->pointSubdivisionFactor;
                 float zf = (float)zi * coord.v[3] / (float)afk_core.landscape->pointSubdivisionFactor;
 
-                *(rawVerticesPos++) = xf;
+                /* Here's a non-cumulative use of the RNG (unlike the
+                 * upwards displacement).  Jitter all the raw vertex
+                 * locations around a little bit, in order to avoid
+                 * aliasing along the axes.
+                 * Of course, sampling the vertices themselves may
+                 * require *one reseed per vertex*! (hence the fast-
+                 * reseeding RNG)
+                 * But this tweak makes the flat landscape look SO MUCH
+                 * BETTER that I might get away with a lower detailPitch
+                 */
+                float xdisp = afk_core.rng->frand() * coord.v[3] / (float)afk_core.landscape->pointSubdivisionFactor;
+                float zdisp = afk_core.rng->frand() * coord.v[3] / (float)afk_core.landscape->pointSubdivisionFactor;
+
+                *(rawVerticesPos++) = xf + xdisp;
                 *(rawVerticesPos++) = 0.0f;
-                *(rawVerticesPos++) = zf;
+                *(rawVerticesPos++) = zf + zdisp;
             }
         }
 
@@ -388,8 +401,8 @@ float AFK_Landscape::getCellDetailPitch(const AFK_Cell& cell, const Vec3<float>&
     Vec3<float> realFacing = realLocation - viewerLocation;
 
     float distanceToViewer = realFacing.magnitude();
-    return (float)afk_core.camera.windowHeight * realCoord.v[3] /
-        (afk_core.camera.tanHalfFov * distanceToViewer);
+    return (float)afk_core.camera->windowHeight * realCoord.v[3] /
+        (afk_core.camera->tanHalfFov * distanceToViewer);
 }
 
 bool AFK_Landscape::testCellDetailPitch(const AFK_Cell& cell, const Vec3<float>& viewerLocation) const
@@ -443,8 +456,8 @@ void AFK_Landscape::testPointVisible(
     Vec4<float> projectedPoint = projection * Vec4<float>(
         point.v[0], point.v[1], point.v[2], 1.0f);
     bool visible = (
-        (projectedPoint.v[0] / projectedPoint.v[2]) >= -afk_core.camera.ar &&
-        (projectedPoint.v[0] / projectedPoint.v[2]) <= afk_core.camera.ar &&
+        (projectedPoint.v[0] / projectedPoint.v[2]) >= -afk_core.camera->ar &&
+        (projectedPoint.v[0] / projectedPoint.v[2]) <= afk_core.camera->ar &&
         (projectedPoint.v[1] / projectedPoint.v[2]) >= -1.0f &&
         (projectedPoint.v[1] / projectedPoint.v[2]) <= 1.0f);
 
@@ -695,7 +708,7 @@ void AFK_Landscape::updateLandMap(void)
 
     AFK_Cell protagonistCell(csProtagonistLocation);
 
-    Mat4<float> projection = afk_core.camera.getProjection();
+    Mat4<float> projection = afk_core.camera->getProjection();
 
 #ifdef PROTAGONIST_CELL_DEBUG
     {

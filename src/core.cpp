@@ -7,6 +7,7 @@
 #include "display.hpp"
 #include "event.hpp"
 #include "exception.hpp"
+#include "rng/boost_taus88.hpp"
 
 
 /* Static, context-less functions needed to drive GLUT, etc. */
@@ -51,7 +52,7 @@ static void afk_idle(void)
     if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_ROLL_LEFT))
         afk_core.axisDisplacement.v[2] += afk_core.config->rotateButtonSensitivity;
 
-    afk_core.camera.drive(afk_core.velocity, afk_core.axisDisplacement);
+    afk_core.camera->drive(afk_core.velocity, afk_core.axisDisplacement);
 
     /* Protagonist follow camera.  (To make it look more
      * natural, at some point I want a stretchy leash)
@@ -88,8 +89,10 @@ AFK_Core::AFK_Core()
 {
     config          = NULL;
     computer        = NULL;
-    testObject      = NULL;
+    rng             = NULL;
+    camera          = NULL;
     landscape       = NULL;
+    testObject      = NULL;
     protagonist     = NULL;
     frameCounter    = 0;
 }
@@ -98,6 +101,8 @@ AFK_Core::~AFK_Core()
 {
     if (config) delete config;
     if (computer) delete computer;
+    if (rng) delete rng;
+    if (camera) delete camera;
     if (landscape) delete landscape;
     if (testObject) delete testObject;  
     if (protagonist) delete protagonist;
@@ -149,6 +154,8 @@ void AFK_Core::configure(int *argcp, char **argv)
 {
     config = new AFK_Config(argcp, argv);
 
+    rng = new AFK_Boost_Taus88_RNG();
+
     /* Startup state of the protagonist. */
     velocity            = Vec3<float>(0.0f, 0.0f, 0.0f);
     axisDisplacement    = Vec3<float>(0.0f, 0.0f, 0.0f);
@@ -157,7 +164,7 @@ void AFK_Core::configure(int *argcp, char **argv)
     /* TODO Make the viewpoint configurable?  Right now I have a
      * fixed 3rd person view here.
      */
-    camera.separation   = Vec3<float>(0.0f, -1.5f, 3.0f);
+    camera = new AFK_Camera(Vec3<float>(0.0f, -1.5f, 3.0f));
 }
 
 void AFK_Core::loop(void)
@@ -178,7 +185,7 @@ void AFK_Core::loop(void)
     /* Make sure that camera is configured to match the window. */
     int windowWidth = glutGet(GLUT_WINDOW_WIDTH);
     int windowHeight = glutGet(GLUT_WINDOW_HEIGHT);
-    camera.setWindowDimensions(windowWidth, windowHeight);
+    camera->setWindowDimensions(windowWidth, windowHeight);
 
     /* Pull the pointer into the middle before I begin so that
      * I don't start with a massive mouse axis movement right

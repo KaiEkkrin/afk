@@ -296,6 +296,9 @@ public:
     /* Enqueues this cell for drawing so long as its parent
      * is as supplied.  If it's less fine than the target
      * detail level, instead splits it recursively.
+     * TODO: In order to make a correct call to testCellEmpty(),
+     * I'm going to want to cumulate the single-vertex landscape
+     * sample here (which testCellEmpty() will want).
      */
     void enqueueSubcells(
         const AFK_Cell& cell,

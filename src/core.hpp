@@ -13,6 +13,7 @@
 #include "def.hpp"
 #include "display.hpp"
 #include "landscape.hpp"
+#include "rng/rng.hpp"
 
 class AFK_Core
 {
@@ -23,8 +24,17 @@ public:
     /* A wrapper around the compute engine. */
     struct AFK_Computer *computer;
 
+    /* The random number generator.
+     * TODO: The re-seeding process is serial, and I
+     * don't want to be making these on the fly.
+     * Therefore, if I shift to a threaded model (likely),
+     * I need to be making one of these per worker thread
+     * (in thread-local storage).
+     */
+    AFK_RNG             *rng;
+
     /* The camera. */
-    AFK_Camera          camera;
+    AFK_Camera          *camera;
 
     /* The landscape. */
     AFK_Landscape       *landscape;

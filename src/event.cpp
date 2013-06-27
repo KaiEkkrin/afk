@@ -40,7 +40,7 @@ static void enableControl(enum AFK_Controls control)
         AFK_SET_BIT(afk_core.controlsEnabled, control);
 
     if (control == CTRL_MOUSE_CAPTURE)
-        glutWarpPointer(afk_core.camera.windowWidth / 2, afk_core.camera.windowHeight / 2);
+        glutWarpPointer(afk_core.camera->windowWidth / 2, afk_core.camera->windowHeight / 2);
 }
 
 static void disableControl(enum AFK_Controls control)
@@ -80,8 +80,8 @@ void afk_mouse(int button, int state, int x, int y)
 
 void afk_motion(int x, int y)
 {
-    int x_midpoint = afk_core.camera.windowWidth / 2;
-    int y_midpoint = afk_core.camera.windowHeight / 2;
+    int x_midpoint = afk_core.camera->windowWidth / 2;
+    int y_midpoint = afk_core.camera->windowHeight / 2;
 
     if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_MOUSE_CAPTURE) &&
         (x != x_midpoint || y != y_midpoint))

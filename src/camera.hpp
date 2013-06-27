@@ -23,7 +23,8 @@ public:
      * negative z gives third person. */
     Vec3<float> separation;
 
-    AFK_Camera();
+    AFK_Camera(Vec3<float> _separation);
+    virtual ~AFK_Camera() {}
 
     /* Need to call this before the camera is properly set up */
     void setWindowDimensions(int width, int height);

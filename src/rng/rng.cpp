@@ -1,9 +1,22 @@
 /* AFK (c) Alex Holloway 2013 */
 
-#include <iostream>
 #include <stdlib.h>
 
 #include "rng.hpp"
+
+
+/* RNG_Value stuff. */
+
+AFK_RNG_Value::AFK_RNG_Value(const std::string& s1, const std::string& s2)
+{
+    v.ull[0] = strtoull(s1.c_str(), NULL, 0);
+    v.ull[1] = strtoull(s2.c_str(), NULL, 0);
+}
+
+std::ostream& operator<<(std::ostream& os, const AFK_RNG_Value& value)
+{
+    return os << "0x" << std::hex << value.v.ull[0] << " 0x" << std::hex << value.v.ull[1];
+}
 
 
 /* Actual RNG utilities. */

@@ -8,9 +8,9 @@
 #include "config.hpp"
 #include "core.hpp"
 
-AFK_Camera::AFK_Camera(): AFK_Object()
+AFK_Camera::AFK_Camera(Vec3<float> _separation): AFK_Object()
 {
-    separation = Vec3<float>(0.0f, 0.0f, 0.0f);
+    separation = _separation;
 }
 
 void AFK_Camera::setWindowDimensions(int width, int height)

@@ -27,6 +27,7 @@ public:
     Mat4<float> movement;
 
     AFK_Object();
+    virtual ~AFK_Object() {}
 
     /* Adjusts the attitude of the object (pitch, yaw or roll),
      * which changes its rotation depending on what its current

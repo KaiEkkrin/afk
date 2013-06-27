@@ -2,6 +2,8 @@
 #ifndef _AFK_RNG_RNG_H_
 #define _AFK_RNG_RNG_H_
 
+#include <iostream>
+
 /* An RNG abstraction that lets me get the same interface
  * onto all the algorithms I try.
  */
@@ -18,20 +20,46 @@ public:
         unsigned long long ull[2];
     } v;
 
-    AFK_RNG_Value() {}
+    AFK_RNG_Value()
+    {
+        v.ull[0] = v.ull[1] = 0uLL;
+    }
+
     AFK_RNG_Value(const AFK_RNG_Value& value)
     {
-        v.ll[0] = value.v.ll[0];
-        v.ll[1] = value.v.ll[1];
+        v.ull[0] = value.v.ull[0];
+        v.ull[1] = value.v.ull[1];
     }
+
+    /* Parsing constructor. */
+    AFK_RNG_Value(const std::string& s1, const std::string& s2);
 
     AFK_RNG_Value& operator=(const AFK_RNG_Value& value)
     {
-        v.ll[0] = value.v.ll[0];
-        v.ll[1] = value.v.ll[1];
+        v.ull[0] = value.v.ull[0];
+        v.ull[1] = value.v.ull[1];
+        return *this;
+    }
+
+    /* For combining a modifier with a base seed. */
+    AFK_RNG_Value operator^(const AFK_RNG_Value& value)
+    {
+        AFK_RNG_Value newValue(value);
+        newValue.v.ull[0] ^= v.ull[0];
+        newValue.v.ull[1] ^= v.ull[1];
+        return newValue;
+    }
+
+    AFK_RNG_Value& operator^=(const AFK_RNG_Value& value)
+    {
+        v.ull[0] ^= value.v.ull[0];
+        v.ull[1] ^= value.v.ull[1];
         return *this;
     }
 };
+
+/* For printing an AFK_RNG_Value. */
+std::ostream& operator<<(std::ostream& os, const AFK_RNG_Value& value);
 
 class AFK_RNG
 {
@@ -42,6 +70,7 @@ protected:
 
 public:
     AFK_RNG() { vForFField = 4; }
+    virtual ~AFK_RNG() {}
 
     virtual void seed(const AFK_RNG_Value& seed) = 0;
     virtual AFK_RNG_Value rand(void) = 0;

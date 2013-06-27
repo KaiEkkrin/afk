@@ -5,6 +5,8 @@
 
 #include <map>
 
+#include "rng/rng.hpp"
+
 /* TODO Wouldn't it be great to support gamepads?  And a
  * joystick?  Wow, joysticks.  I should get a modern one.
  */
@@ -53,6 +55,8 @@ class AFK_Config
 {
 public:
     char    *shadersDir;
+
+    AFK_RNG_Value   masterSeed;
 
     /* The viewing frustum. */
     float   fov;

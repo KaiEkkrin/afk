@@ -157,7 +157,7 @@ void AFK_DisplayedProtagonist::display(const Mat4<float>& projection)
 
 void afk_display(void)
 {
-    Mat4<float> projection = afk_core.camera.getProjection();
+    Mat4<float> projection = afk_core.camera->getProjection();
 
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -182,6 +182,6 @@ void afk_display(void)
 void afk_reshape(int width, int height)
 {
     glViewport(0, 0, width, height);
-    afk_core.camera.setWindowDimensions(width, height);
+    afk_core.camera->setWindowDimensions(width, height);
 }
 

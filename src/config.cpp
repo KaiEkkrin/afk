@@ -11,6 +11,8 @@
 #include <iostream>
 #include <utility>
 
+#include <boost/random/random_device.hpp>
+
 #include "config.hpp"
 #include "exception.hpp"
 
@@ -51,6 +53,13 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
             REQUIRE_ARGUMENT("--shaders-dir")
             shadersDir = strdup(argv[argi]);
         }
+        else if (strcmp(argv[argi], "--seed") == 0)
+        {
+            /* Require two arguments! */
+            REQUIRE_ARGUMENT("--seed (1)")
+            REQUIRE_ARGUMENT("--seed (2)")
+            masterSeed = AFK_RNG_Value(argv[argi-1], argv[argi]);
+        }
         else if (strcmp(argv[argi], "--fov") == 0)
         {
             REQUIRE_ARGUMENT("--fov")
@@ -82,6 +91,15 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         shadersDir = (char *) malloc(sizeof(char) * shadersDirLength);
         snprintf(shadersDir, shadersDirLength, "%s/%s", currentDir, shadersDirLeafName);
         free(currentDir);
+    }
+
+    if (!masterSeed.v.ull[0] && !masterSeed.v.ull[1])
+    {
+        boost::random::random_device rdev;
+        masterSeed.v.ui[0] = rdev();
+        masterSeed.v.ui[1] = rdev();
+        masterSeed.v.ui[2] = rdev();
+        masterSeed.v.ui[3] = rdev();
     }
 
     /* TODO: Come up with a way of inputting the control mapping.
