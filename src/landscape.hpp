@@ -15,6 +15,7 @@
 #include "camera.hpp"
 #include "def.hpp"
 #include "display.hpp"
+#include "rng/rng.hpp"
 #include "shader.hpp"
 
 /* To start out with, I'm going to define an essentially
@@ -133,6 +134,10 @@ public:
 
 /* For insertion into an unordered_map. */
 size_t hash_value(const AFK_Cell& cell);
+
+/* For randomness. */
+size_t hash_value2(const AFK_Cell& cell);
+AFK_RNG_Value long_hash_value(const AFK_Cell& cell);
 
 /* For printing an AFK_Cell. */
 std::ostream& operator<<(std::ostream& os, const AFK_Cell& cell);

@@ -151,17 +151,44 @@ bool AFK_Cell::isParent(const AFK_Cell& parent) const
 
 size_t hash_value(const AFK_Cell& cell)
 {
-    size_t yr, zr, sr;
+    size_t xr, yr, zr, sr;
 
-    yr = (size_t)cell.coord.v[1];
-    zr = (size_t)cell.coord.v[2];
-    sr = (size_t)cell.coord.v[3];
+    xr = (size_t)cell.coord.v[0] * 0x000000a000000050uLL;
+    yr = (size_t)cell.coord.v[1] * 0x000000050000000auLL;
+    zr = (size_t)cell.coord.v[2] * 0x0000000a00000005uLL;
+    sr = (size_t)cell.coord.v[3] * 0x00000050000000a0uLL;
 
-    asm("rol $7, %0\n" :"=r"(yr) :"0"(yr));
-    asm("rol $14, %0\n" :"=r"(zr) :"0"(zr));
-    asm("rol $21, %0\n" :"=r"(sr) :"0"(sr));
+    asm("rol $13, %0\n" :"=r"(yr) :"0"(yr));
+    asm("rol $26, %0\n" :"=r"(zr) :"0"(zr));
+    asm("rol $39, %0\n" :"=r"(sr) :"0"(sr));
 
-    return (size_t)cell.coord.v[0] ^ yr ^ zr ^ sr;
+    return xr ^ yr ^ zr ^ sr;
+}
+
+size_t hash_value2(const AFK_Cell& cell)
+{
+    size_t xr, yr, zr, sr;
+
+    xr = (size_t)cell.coord.v[0] * 0x000000c000000030uLL;
+    yr = (size_t)cell.coord.v[1] * 0x000000030000000cuLL;
+    zr = (size_t)cell.coord.v[2] * 0x0000000c00000003uLL;
+    sr = (size_t)cell.coord.v[3] * 0x00000030000000c0uLL;
+
+    asm("rol $17, %0\n" :"=r"(yr) :"0"(yr));
+    asm("rol $34, %0\n" :"=r"(zr) :"0"(zr));
+    asm("rol $51, %0\n" :"=r"(sr) :"0"(sr));
+
+    return xr ^ yr ^ zr ^ sr;
+}
+
+AFK_RNG_Value long_hash_value(const AFK_Cell& cell)
+{
+    AFK_RNG_Value h;
+
+    h.v.ull[0] = hash_value(cell);
+    h.v.ull[1] = hash_value2(cell);
+
+    return h;
 }
 
 

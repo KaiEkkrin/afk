@@ -1,6 +1,6 @@
 Import('extra_ccflags')
 
-afk_sources = Glob('*.cpp')
+afk_sources = Glob('*.cpp') + Glob('rng/*.cpp')
 afk_libs = ['GL', 'GLU', 'GLEW', 'glut', 'OpenCL']
 afk_ccflags = ['-Wall', '-Werror']
 
