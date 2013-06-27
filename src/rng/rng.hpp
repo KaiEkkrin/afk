@@ -11,7 +11,7 @@ class AFK_RNG_Value
 public:
     union
     {
-        unsigned char b[16];
+        unsigned char b[/* 16 */ 20]; /* TODO allowing room for 160 bit hash functions, dropping top bits */
         int i[4];
         unsigned int ui[4];
         long long ll[2];

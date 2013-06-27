@@ -6,7 +6,7 @@ OpenGL (-lGL -lGLU)
 freeglut3 (-lglut)
 GLEW (-lGLEW)
 OpenCL (-lOpenCL)
-boost: TODO.
+boost: various.  (-lboost_random)
 scons to build
 
 freeglut3 ? (-lglut)
