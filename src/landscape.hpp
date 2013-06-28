@@ -32,22 +32,16 @@
 
 
 /* Identifies a cell in the world.
- * TODO: Use of int here is not going to be sustainable if I
- * want an infinite world.  I am going to have to track the
- * position of the protagonist in infinite precision, and
- * conversion to an AFK_Cell will also want to input an infinite
- * precision number, otherwise the further you fly from the origin
- * the more aliased the world will get until it falls apart.
- * That means that I'm going to have to have a nasty thing by
- * which all the infinite-precision objects (there won't be that
- * many) track a local (single-precision float) co-ordinate too,
- * and every now and again I rebase the local co-ordinates and
- * run a task to update every single AFK_Object with the new
- * co-ordinates.
- * Blegh, hehe.
- * But in the first instance, I'll just use int, mapped from
- * AFK_Objects with single precision global co-ordinates, to
- * get something working.
+ * TODO: Use of `long long' here means that, in theory at
+ * least, the terrain will eventually loop.  I'm hoping that
+ * it won't for a suitably long while and I won't need
+ * infinite precision arithmetic (with all its associated
+ * issues).
+ * However, I *do* know that these don't fit into `float's
+ * which will eventually become aliased, so at some point I'll
+ * need to change the world render to eventually re-base its
+ * view of the world to a place other than (0ll,0ll,0ll) as its
+ * zero point.  Ngh.
  */
 class AFK_Cell
 {
@@ -60,11 +54,11 @@ public:
      * (nor is the float `realCoord' equivalent) and for sanity,
      * I should probably make them homogeneous :P
      */
-    Vec4<int> coord;
+    Vec4<long long> coord;
 
     AFK_Cell();
     AFK_Cell(const AFK_Cell& _cell);
-    AFK_Cell(const Vec4<int>& _coord);
+    AFK_Cell(const Vec4<long long>& _coord);
 
     /* TODO Somewhere, I'm going to need a way of making the
      * smallest AFK_Cell that can contain a particular object
@@ -77,6 +71,9 @@ public:
     AFK_Cell& operator=(const AFK_Cell& _cell);
     bool operator==(const AFK_Cell& _cell) const;
     bool operator!=(const AFK_Cell& _cell) const;
+
+    /* Gives the RNG seed value that matches this cell. */
+    AFK_RNG_Value rngSeed() const;
 
     /* Gives the cell's co-ordinates in world space, along
      * with its converted cell size.
@@ -95,9 +92,9 @@ public:
     unsigned int subdivide(
         AFK_Cell *subCells,
         const size_t subCellsSize,
-        int factor,
-        int stride,
-        int points) const;
+        long long factor,
+        long long stride,
+        long long points) const;
 
     /* Fills out the supplied array of uninitialised
      * AFK_Cells with the next level of subdivision of
@@ -134,10 +131,6 @@ public:
 
 /* For insertion into an unordered_map. */
 size_t hash_value(const AFK_Cell& cell);
-
-/* For randomness. */
-size_t hash_value2(const AFK_Cell& cell);
-AFK_RNG_Value long_hash_value(const AFK_Cell& cell);
 
 /* For printing an AFK_Cell. */
 std::ostream& operator<<(std::ostream& os, const AFK_Cell& cell);
@@ -313,7 +306,7 @@ public:
      */
     void enqueueSubcells(
         const AFK_Cell& cell,
-        const Vec3<int>& modifier,
+        const Vec3<long long>& modifier,
         const Vec3<float>& viewerLocation,
         const Mat4<float>& projection);
 

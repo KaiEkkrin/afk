@@ -7,6 +7,36 @@
 
 /* RNG_Value stuff. */
 
+static unsigned int squash_to_int(long long in)
+{
+    unsigned int out, mid;
+
+    out = (unsigned int)(in & 0x00000000ffffffff);
+    mid = (unsigned int)((in & 0xffffffff00000000) >> 32);
+
+    asm("rol $19, %0\n" :"=r"(mid) :"0"(mid));
+
+    return out ^ mid;
+}
+
+AFK_RNG_Value::AFK_RNG_Value(long long v0, long long v1, long long v2, long long v3)
+{
+    asm("rol $17, %0\n": "=r"(v1) :"0"(v1));
+    asm("rol $31, %0\n": "=r"(v2) :"0"(v2));
+    asm("rol $47, %0\n": "=r"(v3) :"0"(v3));
+
+    v.ui[0] = v.ui[1] = v.ui[2] = v.ui[3] =
+        squash_to_int(v0) ^
+        squash_to_int(v1) ^
+        squash_to_int(v2) ^
+        squash_to_int(v3);
+
+    asm("rol $7, %0\n": "=r"(v.ui[0]) :"0"(v.ui[0]));
+    asm("rol $13, %0\n": "=r"(v.ui[1]) :"0"(v.ui[1]));
+    asm("rol $23, %0\n": "=r"(v.ui[2]) :"0"(v.ui[2]));
+    asm("rol $29, %0\n": "=r"(v.ui[3]) :"0"(v.ui[3]));
+}
+
 AFK_RNG_Value::AFK_RNG_Value(const std::string& s1, const std::string& s2)
 {
     v.ull[0] = strtoull(s1.c_str(), NULL, 0);

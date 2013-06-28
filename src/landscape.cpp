@@ -22,7 +22,7 @@ AFK_Cell::AFK_Cell()
      * being able to express such an invalid value might be
      * useful.
      */
-    coord = Vec4<int>(0, 0, 0, 0);
+    coord = Vec4<long long>(0ll, 0ll, 0ll, 0ll);
 }
 
 AFK_Cell::AFK_Cell(const AFK_Cell& _cell)
@@ -30,7 +30,7 @@ AFK_Cell::AFK_Cell(const AFK_Cell& _cell)
     coord = _cell.coord;
 }
 
-AFK_Cell::AFK_Cell(const Vec4<int>& _coord)
+AFK_Cell::AFK_Cell(const Vec4<long long>& _coord)
 {
     coord = _coord;
 }
@@ -51,6 +51,11 @@ bool AFK_Cell::operator!=(const AFK_Cell& _cell) const
     return coord != _cell.coord;
 }
 
+AFK_RNG_Value AFK_Cell::rngSeed() const
+{
+    return AFK_RNG_Value(coord.v[0], coord.v[1], coord.v[2], coord.v[3]);
+}
+
 Vec4<float> AFK_Cell::realCoord() const
 {
     return Vec4<float>(
@@ -63,9 +68,9 @@ Vec4<float> AFK_Cell::realCoord() const
 unsigned int AFK_Cell::subdivide(
     AFK_Cell *subCells,
     const size_t subCellsSize,
-    int factor,
-    int stride,
-    int points) const
+    long long factor,
+    long long stride,
+    long long points) const
 {
     /* Check whether we're at smallest subdivision */
     if (coord.v[3] == 1) return 0;
@@ -80,13 +85,13 @@ unsigned int AFK_Cell::subdivide(
 
     AFK_Cell *subCellPos = subCells;
     unsigned int subCellCount = 0;
-    for (int i = coord.v[0]; i < coord.v[0] + stride * points; i += stride)
+    for (long long i = coord.v[0]; i < coord.v[0] + stride * points; i += stride)
     {
-        for (int j = coord.v[1]; j < coord.v[1] + stride * points; j += stride)
+        for (long long j = coord.v[1]; j < coord.v[1] + stride * points; j += stride)
         {
-            for (int k = coord.v[2]; k < coord.v[2] + stride * points; k += stride)
+            for (long long k = coord.v[2]; k < coord.v[2] + stride * points; k += stride)
             {
-                *(subCellPos++) = AFK_Cell(Vec4<int>(i, j, k, stride));
+                *(subCellPos++) = AFK_Cell(Vec4<long long>(i, j, k, stride));
                 ++subCellCount;
             }
         }
@@ -100,9 +105,9 @@ unsigned int AFK_Cell::subdivide(AFK_Cell *subCells, const size_t subCellsSize) 
     return subdivide(
         subCells,
         subCellsSize,
-        (int)afk_core.landscape->subdivisionFactor,
+        afk_core.landscape->subdivisionFactor,
         coord.v[3] / afk_core.landscape->subdivisionFactor,
-        (int)afk_core.landscape->subdivisionFactor);
+        afk_core.landscape->subdivisionFactor);
 }
 
 unsigned int AFK_Cell::augmentedSubdivide(AFK_Cell *augmentedSubcells, const size_t augmentedSubcellsSize) const
@@ -110,9 +115,9 @@ unsigned int AFK_Cell::augmentedSubdivide(AFK_Cell *augmentedSubcells, const siz
     return subdivide(
         augmentedSubcells,
         augmentedSubcellsSize,
-        (int)afk_core.landscape->subdivisionFactor,
+        afk_core.landscape->subdivisionFactor,
         coord.v[3] / afk_core.landscape->subdivisionFactor,
-        (int)afk_core.landscape->subdivisionFactor + 1);
+        afk_core.landscape->subdivisionFactor + 1);
 }
 
 /* The C++ integer modulus operator's behaviour with
@@ -127,8 +132,8 @@ unsigned int AFK_Cell::augmentedSubdivide(AFK_Cell *augmentedSubcells, const siz
 
 AFK_Cell AFK_Cell::parent(void) const
 {
-    int parentCellScale = coord.v[3] * afk_core.landscape->subdivisionFactor;
-    return AFK_Cell(Vec4<int>(
+    long long parentCellScale = coord.v[3] * afk_core.landscape->subdivisionFactor;
+    return AFK_Cell(Vec4<long long>(
         ROUND_TO_CELL_SCALE(coord.v[0], parentCellScale),
         ROUND_TO_CELL_SCALE(coord.v[1], parentCellScale),
         ROUND_TO_CELL_SCALE(coord.v[2], parentCellScale),
@@ -151,44 +156,25 @@ bool AFK_Cell::isParent(const AFK_Cell& parent) const
 
 size_t hash_value(const AFK_Cell& cell)
 {
-    size_t xr, yr, zr, sr;
+    /* TODO This is only valid on 64-bit.
+     * Hopefully declaring the local variables as type
+     * `unsigned long long' below will result in a
+     * compiler warning when I need reminding to fix
+     * this.
+     */
+    
+    unsigned long long xr, yr, zr, sr;
 
-    xr = (size_t)cell.coord.v[0] * 0x000000a000000050uLL;
-    yr = (size_t)cell.coord.v[1] * 0x000000050000000auLL;
-    zr = (size_t)cell.coord.v[2] * 0x0000000a00000005uLL;
-    sr = (size_t)cell.coord.v[3] * 0x00000050000000a0uLL;
+    xr = (unsigned long long)cell.coord.v[0];
+    yr = (unsigned long long)cell.coord.v[1];
+    zr = (unsigned long long)cell.coord.v[2];
+    sr = (unsigned long long)cell.coord.v[3];
 
     asm("rol $13, %0\n" :"=r"(yr) :"0"(yr));
-    asm("rol $26, %0\n" :"=r"(zr) :"0"(zr));
-    asm("rol $39, %0\n" :"=r"(sr) :"0"(sr));
+    asm("rol $29, %0\n" :"=r"(zr) :"0"(zr));
+    asm("rol $43, %0\n" :"=r"(sr) :"0"(sr));
 
     return xr ^ yr ^ zr ^ sr;
-}
-
-size_t hash_value2(const AFK_Cell& cell)
-{
-    size_t xr, yr, zr, sr;
-
-    xr = (size_t)cell.coord.v[0] * 0x000000c000000030uLL;
-    yr = (size_t)cell.coord.v[1] * 0x000000030000000cuLL;
-    zr = (size_t)cell.coord.v[2] * 0x0000000c00000003uLL;
-    sr = (size_t)cell.coord.v[3] * 0x00000030000000c0uLL;
-
-    asm("rol $17, %0\n" :"=r"(yr) :"0"(yr));
-    asm("rol $34, %0\n" :"=r"(zr) :"0"(zr));
-    asm("rol $51, %0\n" :"=r"(sr) :"0"(sr));
-
-    return xr ^ yr ^ zr ^ sr;
-}
-
-AFK_RNG_Value long_hash_value(const AFK_Cell& cell)
-{
-    AFK_RNG_Value h;
-
-    h.v.ull[0] = hash_value(cell);
-    h.v.ull[1] = hash_value2(cell);
-
-    return h;
 }
 
 
@@ -217,7 +203,7 @@ AFK_LandscapeCell::AFK_LandscapeCell(const AFK_Cell& cell, const Vec4<float>& _c
     object.displace(Vec3<float>(coord.v[0], coord.v[1], coord.v[2]));
 
     /* Seed the RNG for this cell. */
-    afk_core.rng->seed(long_hash_value(cell));
+    afk_core.rng->seed(cell.rngSeed());
 
     /* TODO For testing. Maybe I can come up with something neater; OTOH, maybe
      * I don't want to :P
@@ -407,25 +393,10 @@ float AFK_Landscape::getCellDetailPitch(const AFK_Cell& cell, const Vec3<float>&
 
 bool AFK_Landscape::testCellDetailPitch(const AFK_Cell& cell, const Vec3<float>& viewerLocation) const
 {
-    /* At this point, it's sane to assume that I have a
-     * configured camera.  I'm going to sample the cell twice,
-     * at opposite vertices, and take the average distance from
-     * those vertices to the viewer in order to decide its LoD.
-     */
-#if 0
-    float cellDetailPitch1 = getCellDetailPitch(cell, viewerLocation);
-    float cellDetailPitch2 = getCellDetailPitch(AFK_Cell(Vec4<int>(
-        cell.coord.v[0] + cell.coord.v[3],
-        cell.coord.v[1] + cell.coord.v[3],
-        cell.coord.v[2] + cell.coord.v[3],
-        cell.coord.v[3])), viewerLocation);
-    float avgCellDetailPitch = (cellDetailPitch1 + cellDetailPitch2) / 2.0f;
-
-    return avgCellDetailPitch < (float)detailPitch;
-#else
-    /* TODO Different plan -- I bet this fails if the camera
-     * gets too close to the middle of a big cell (?!)
-     * Sample only once, in the centre
+    /* Sample the centre of the cell.  This is wrong: it
+     * will cause artifacts if you manage to get to exactly
+     * the middle of a cell (I can probably test this with
+     * the start position (8192, 8192, 8192)
      * TODO To fix it properly, I need to pick three points
      * displaced along the 3 axes by the dot pitch from the
      * centre of the cell, project them through the camera,
@@ -434,13 +405,12 @@ bool AFK_Landscape::testCellDetailPitch(const AFK_Cell& cell, const Vec3<float>&
      * (in fact I'd probably get away with just the x and
      * z axes)
      */
-    float cellDetailPitch = getCellDetailPitch(AFK_Cell(Vec4<int>(
+    float cellDetailPitch = getCellDetailPitch(AFK_Cell(Vec4<long long>(
         cell.coord.v[0] + cell.coord.v[3] / 2,
         cell.coord.v[1] + cell.coord.v[3] / 2,
         cell.coord.v[2] + cell.coord.v[3] / 2,
         cell.coord.v[3])), viewerLocation);
     return cellDetailPitch < (float)detailPitch;
-#endif
 }
 
 void AFK_Landscape::testPointVisible(
@@ -617,37 +587,37 @@ void AFK_Landscape::enqueueSubcells(
             /* Recurse down the subcells that fall strictly
              * within the parent cell.
              */
-            enqueueSubcells(AFK_Cell(Vec4<int>(
+            enqueueSubcells(AFK_Cell(Vec4<long long>(
                 augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
                 augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
                 augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
                 augmentedSubcells[i].coord.v[3])), cell, viewerLocation, projection, entirelyVisible);
-            enqueueSubcells(AFK_Cell(Vec4<int>(
+            enqueueSubcells(AFK_Cell(Vec4<long long>(
                 augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
                 augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
                 augmentedSubcells[i].coord.v[2],
                 augmentedSubcells[i].coord.v[3])), cell, viewerLocation, projection, entirelyVisible);
-            enqueueSubcells(AFK_Cell(Vec4<int>(
+            enqueueSubcells(AFK_Cell(Vec4<long long>(
                 augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
                 augmentedSubcells[i].coord.v[1],
                 augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
                 augmentedSubcells[i].coord.v[3])), cell, viewerLocation, projection, entirelyVisible);
-            enqueueSubcells(AFK_Cell(Vec4<int>(
+            enqueueSubcells(AFK_Cell(Vec4<long long>(
                 augmentedSubcells[i].coord.v[0] - augmentedSubcells[i].coord.v[3],
                 augmentedSubcells[i].coord.v[1],
                 augmentedSubcells[i].coord.v[2],
                 augmentedSubcells[i].coord.v[3])), cell, viewerLocation, projection, entirelyVisible);
-            enqueueSubcells(AFK_Cell(Vec4<int>(
+            enqueueSubcells(AFK_Cell(Vec4<long long>(
                 augmentedSubcells[i].coord.v[0],
                 augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
                 augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
                 augmentedSubcells[i].coord.v[3])), cell, viewerLocation, projection, entirelyVisible);
-            enqueueSubcells(AFK_Cell(Vec4<int>(
+            enqueueSubcells(AFK_Cell(Vec4<long long>(
                 augmentedSubcells[i].coord.v[0],
                 augmentedSubcells[i].coord.v[1] - augmentedSubcells[i].coord.v[3],
                 augmentedSubcells[i].coord.v[2],
                 augmentedSubcells[i].coord.v[3])), cell, viewerLocation, projection, entirelyVisible);
-            enqueueSubcells(AFK_Cell(Vec4<int>(
+            enqueueSubcells(AFK_Cell(Vec4<long long>(
                 augmentedSubcells[i].coord.v[0],
                 augmentedSubcells[i].coord.v[1],
                 augmentedSubcells[i].coord.v[2] - augmentedSubcells[i].coord.v[3],
@@ -668,11 +638,11 @@ void AFK_Landscape::enqueueSubcells(
 
 void AFK_Landscape::enqueueSubcells(
     const AFK_Cell& cell,
-    const Vec3<int>& modifier,
+    const Vec3<long long>& modifier,
     const Vec3<float>& viewerLocation,
     const Mat4<float>& projection)
 {
-    AFK_Cell modifiedCell(Vec4<int>(
+    AFK_Cell modifiedCell(Vec4<long long>(
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[0],
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[1],
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[2],
@@ -700,10 +670,10 @@ void AFK_Landscape::updateLandMap(void)
         hgProtagonistLocation.v[0] / hgProtagonistLocation.v[3],
         hgProtagonistLocation.v[1] / hgProtagonistLocation.v[3],
         hgProtagonistLocation.v[2] / hgProtagonistLocation.v[3]);
-    Vec4<int> csProtagonistLocation = Vec4<int>(
-        (int)(protagonistLocation.v[0] / minCellSize),
-        (int)(protagonistLocation.v[1] / minCellSize),
-        (int)(protagonistLocation.v[2] / minCellSize),
+    Vec4<long long> csProtagonistLocation = Vec4<long long>(
+        (long long)(protagonistLocation.v[0] / minCellSize),
+        (long long)(protagonistLocation.v[1] / minCellSize),
+        (long long)(protagonistLocation.v[2] / minCellSize),
         1);
 
     AFK_Cell protagonistCell(csProtagonistLocation);
@@ -733,10 +703,10 @@ void AFK_Landscape::updateLandMap(void)
      * cells that are very very far away.  Mind you,
      * that might be okay.
      */
-    for (int i = -1; i <= 1; ++i)
-        for (int j = -1; j <= 1; ++j)
-            for (int k = -1; k <= 1; ++k)
-                enqueueSubcells(cell, Vec3<int>(i, j, k), protagonistLocation, projection);
+    for (long long i = -1; i <= 1; ++i)
+        for (long long j = -1; j <= 1; ++j)
+            for (long long k = -1; k <= 1; ++k)
+                enqueueSubcells(cell, Vec3<long long>(i, j, k), protagonistLocation, projection);
 
 #ifdef PROTAGONIST_CELL_DEBUG
     {

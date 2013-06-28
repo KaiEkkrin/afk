@@ -31,6 +31,13 @@ public:
         v.ull[1] = value.v.ull[1];
     }
 
+    /* Creates an AFK_RNG_Value out of four long longs,
+     * making sure to distribute bits of all four into
+     * all four words (necessary for the RNGs that are
+     * composed out of 4 32-bit RNGs)
+     */
+    AFK_RNG_Value(long long v0, long long v1, long long v2, long long v3);
+
     /* Parsing constructor. */
     AFK_RNG_Value(const std::string& s1, const std::string& s2);
 

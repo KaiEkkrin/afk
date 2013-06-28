@@ -19,6 +19,13 @@
 #include "../landscape.hpp"
 
 
+/* TODO Add a test that tweaks each coord in an AFK_Cell in
+ * turn, and checks that the RNG output changes entirely.
+ * (Important for RNGs composed out of several smaller ones,
+ * like the taus88 implementation.)
+ */
+
+
 static void evaluate_rng(AFK_RNG& rng, const std::string& name, const AFK_Cell* testCells, const size_t testCellCount, const size_t randsPerCell)
 {
     AFK_RNG_Test rng_test(&rng, 20, 1000);
@@ -28,7 +35,7 @@ static void evaluate_rng(AFK_RNG& rng, const std::string& name, const AFK_Cell* 
     /* The first 10 test cells are used for the contribution test. */   
     unsigned int i;
     for (i = 0; i < 10; ++i)
-        rng_test.contribute(long_hash_value(testCells[i]));
+        rng_test.contribute(testCells[i].rngSeed());
 
     rng_test.printResults();
 
@@ -45,7 +52,7 @@ static void evaluate_rng(AFK_RNG& rng, const std::string& name, const AFK_Cell* 
     boost::posix_time::ptime ptestStartTime = boost::posix_time::microsec_clock::local_time();
     for (; i < testCellCount / 2; ++i)
     {
-        rng.seed(long_hash_value(testCells[i]));
+        rng.seed(testCells[i].rngSeed());
         for (unsigned int j = 0; j < randsPerCell; ++j)
             manyFloats[j] = rng.frand();
 
@@ -75,7 +82,7 @@ static void evaluate_rng(AFK_RNG& rng, const std::string& name, const AFK_Cell* 
     ptestStartTime = boost::posix_time::microsec_clock::local_time();
     for (; i < testCellCount; ++i)
     {
-        rng.seed(long_hash_value(testCells[i]));
+        rng.seed(testCells[i].rngSeed());
         AFK_RNG_Value val = rng.rand();
 
         for (int j = 0; j < 16; j += 4)
@@ -150,14 +157,14 @@ void test_rngs(void)
 
 #define TEST_CELLS_SIZE 1004
     AFK_Cell testCells[TEST_CELLS_SIZE];
-    testCells[0] = AFK_Cell(Vec4<int>(0, 0, 0, 1));
+    testCells[0] = AFK_Cell(Vec4<long long>(0, 0, 0, 1));
     for (unsigned int i = 1; i < TEST_CELLS_SIZE; ++i)
     {
         unsigned int randomScale = rand();
         if (randomScale & 0x40000000)
             randomScale = 1 << (randomScale & 0x1f);
 
-        testCells[i] = AFK_Cell(Vec4<int>(rand(), rand(), rand(), randomScale));
+        testCells[i] = AFK_Cell(Vec4<long long>(rand(), rand(), rand(), randomScale));
     }
 
     AFK_C_RNG                   c_rng;
