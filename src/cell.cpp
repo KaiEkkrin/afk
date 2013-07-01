@@ -204,84 +204,20 @@ void AFK_RealCell::enumerateHalfCells(AFK_RealCell *halfCells, size_t halfCellsS
                 coord.v[1],
                 coord.v[2] + coord.v[3] * zd / 2.0f,
                 coord.v[3]);
-
-            halfCells[halfCellsIdx].featureCount = 0;
         }
     }
-}
-
-unsigned int AFK_RealCell::makeHalfCellTerrain(
-    float& io_terrainSample,
-    const Vec3<float>& sampleLocation,
-    std::vector<AFK_TerrainFeature>& terrain,
-    AFK_RNG& rng) const
-{
-    rng.seed(worldCell.rngSeed());
-
-    /* Draw a value that tells me how many features
-     * to put into this cell and what their
-     * characteristics are.
-     * TODO: This will want expanding a great deal!
-     * Many possibilities for different ways of
-     * combining features aside from simple addition
-     * too: replacement, addition to a single aliased
-     * value for the parent features (should look nice),
-     * etc.
-     */
-    unsigned int descriptor = rng.uirand();
-
-    /* TODO: Make these things configurable. */
-    const unsigned int maxFeaturesPerCell = 4;
-
-    /* So as not to run out of the cell, the maximum
-     * size for a feature is equal to 1 divided by
-     * the number of features that could appear there.
-     * The half cells mechanism means any point could
-     * have up to 2 features on it.
-     */
-    float featureScaleFactor = 1.0f / (2.0f * (float)maxFeaturesPerCell);
-
-    /* So that they don't run off the sides, each feature
-     * is confined to (featureScaleFactor, 1.0-featureScaleFactor)
-     * on the x, z co-ordinates.
-     * That means the x or z location is featureScaleFactor +
-     * (0.0-1.0)*featureLocationFactor in cell co-ordinates
-     */
-    float featureLocationFactor = 1.0f - (2.0f * featureScaleFactor);
-
-    unsigned int thisFeatureCount = descriptor % 4;
-    for (unsigned int i = 0; i < thisFeatureCount; ++i)
-    {
-        AFK_TerrainFeature feature(
-            AFK_TERRAIN_SQUARE_PYRAMID,
-            Vec3<float>( /* location */
-                coord.v[0] + coord.v[3] * (rng.frand() * featureLocationFactor + featureScaleFactor),
-                coord.v[1],
-                coord.v[2] + coord.v[3] * (rng.frand() * featureLocationFactor + featureScaleFactor)),
-            Vec3<float>( /* scale */
-                rng.frand() * coord.v[3] * featureScaleFactor,
-                rng.frand() * coord.v[3] * featureScaleFactor,
-                rng.frand() * coord.v[3] * featureScaleFactor));
-
-        terrain.push_back(feature);
-        io_terrainSample += feature.compute(sampleLocation);
-    }
-
-    return thisFeatureCount;
 }
 
 AFK_RealCell::AFK_RealCell()
 {
     worldCell       = AFK_Cell();
     coord           = Vec4<float>(0.0f, 0.0f, 0.0f, 1.0f);
-    featureCount    = 0;
 }
 
 AFK_RealCell::AFK_RealCell(const AFK_RealCell& realCell)
 {
     worldCell       = realCell.worldCell;
     coord           = realCell.coord;
-    featureCount    = realCell.featureCount;
 }
 
 AFK_RealCell::AFK_RealCell(const AFK_Cell& cell, float minCellSize)
@@ -292,14 +228,12 @@ AFK_RealCell::AFK_RealCell(const AFK_Cell& cell, float minCellSize)
         (float)cell.coord.v[1] * minCellSize,
         (float)cell.coord.v[2] * minCellSize,
         (float)cell.coord.v[3] * minCellSize);
-    featureCount    = 0;
 }
 
 AFK_RealCell& AFK_RealCell::operator=(const AFK_RealCell& realCell)
 {
     worldCell       = realCell.worldCell;
     coord           = realCell.coord;
-    featureCount    = realCell.featureCount;
     return *this;
 }
 
@@ -411,30 +345,41 @@ void AFK_RealCell::testVisibility(const AFK_Camera& camera, bool& io_someVisible
         camera, io_someVisible, io_allVisible);
 }
 
-void AFK_RealCell::makeTerrain(float& io_terrainAtZero, std::vector<AFK_TerrainFeature>& terrain, AFK_RNG& rng)
+/* Define this in order to enable half-cell terrain.
+ * (I do want to eventually do this.)
+ */
+#define HALFCELL_TERRAIN 0
+
+void AFK_RealCell::makeTerrain(AFK_Terrain& terrain, AFK_RNG& rng) const
 {
-    Vec3<float> sampleLocation(coord.v[0], coord.v[1], coord.v[2]);
+    /* Make the terrain cell for this actual cell. */
+    AFK_TerrainCell terrainCell(coord);
+    rng.seed(worldCell.rngSeed());
+    terrainCell.make(rng);
+    terrain.push(terrainCell);
+
+    /* TODO Re-enable this when the basics look OK */
+    /* Make the terrain cell for the four half-cells */
+#if HALFCELL_TERRAIN
     AFK_RealCell halfCells[4];
-
-    featureCount = 0;
     enumerateHalfCells(&halfCells[0], 4);
-    for (int i = 0; i < 4; ++i)
-        featureCount += halfCells[i].makeHalfCellTerrain(io_terrainAtZero, sampleLocation, terrain, rng);
-
-    featureCount += makeHalfCellTerrain(io_terrainAtZero, sampleLocation, terrain, rng);
+    for (unsigned int i = 0; i < 4; ++i)
+    {
+        AFK_TerrainCell terrainHalfCell(halfCells[i].coord);
+        rng.seed(halfCells[i].worldCell.rngSeed());
+        terrainHalfCell.make(rng);
+        terrain.push(terrainHalfCell);
+    }
+#endif /* HALFCELL_TERRAIN */ 
 }
 
-bool AFK_RealCell::testCellEmpty(float terrainAtZero) const
+void AFK_RealCell::removeTerrain(AFK_Terrain& terrain) const
 {
-    /* The terrain can't be displaced by more than
-     * +/- one whole cell.
-     */
-    return abs(coord.v[1] - terrainAtZero) > 1.0f;
-}
-
-void AFK_RealCell::removeTerrain(std::vector<AFK_TerrainFeature>& terrain)
-{
-    for (; featureCount > 0; --featureCount)
-        terrain.pop_back();
+#if HALFCELL_TERRAIN
+    for (unsigned int i = 0; i < 5; ++i)
+        terrain.pop();
+#else
+    terrain.pop();
+#endif
 }
 

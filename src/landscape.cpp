@@ -22,14 +22,12 @@ AFK_LandscapeCell::AFK_LandscapeCell(
     GLuint _fixedColorLocation,
     const AFK_RealCell& cell,
     unsigned int pointSubdivisionFactor,
-    const std::vector<AFK_TerrainFeature>& terrain,
+    const AFK_Terrain& terrain,
     AFK_RNG& rng)
 {
     program = _program;
     transformLocation = _transformLocation;
     fixedColorLocation = _fixedColorLocation;
-
-    object.displace(Vec3<float>(cell.coord.v[0], cell.coord.v[1], cell.coord.v[2]));
 
     /* Seed the RNG for this cell. */
     rng.seed(cell.worldCell.rngSeed());
@@ -49,11 +47,7 @@ AFK_LandscapeCell::AFK_LandscapeCell(
         throw AFK_Exception(ss.str());
     }
 
-    /* Populate the vertex array.
-     * TODO This is currently entirely flat for testing.  I need
-     * to replace this with code that calls through the
-     * terrain vector.
-     */
+    /* Populate the vertex array. */
     float *rawVerticesPos = rawVertices;
 
     for (unsigned int xi = 0; xi < pointSubdivisionFactor; ++xi)
@@ -80,44 +74,24 @@ AFK_LandscapeCell::AFK_LandscapeCell(
             float xdisp = rng.frand() * cell.coord.v[3] / (float)pointSubdivisionFactor;
             float zdisp = rng.frand() * cell.coord.v[3] / (float)pointSubdivisionFactor;
 
-            *(rawVerticesPos++) = xf + xdisp;
-            *(rawVerticesPos++) = 0.0f;
-            *(rawVerticesPos++) = zf + zdisp;
+            /* Having done this, shunt them into world space */
+            *(rawVerticesPos++) = xf + xdisp + cell.coord.v[0];
+            *(rawVerticesPos++) = cell.coord.v[1];
+            *(rawVerticesPos++) = zf + zdisp + cell.coord.v[2];
         }
     }
 
-    /* Now that I've populated the (x, z) co-ordinates of the
-     * vertex buffer with the locations I want to sample the
-     * terrain at, fill in the y co-ordinates with the actual
-     * terrain samples.
+    /* Now apply the terrain transform.
      * TODO This may be slow -- obvious candidate for OpenCL?
      * But, the cache may rescue me; profile first!
      */
-    for (std::vector<AFK_TerrainFeature>::const_iterator tIt = terrain.begin();
-        tIt != terrain.end(); ++tIt)
+    for (rawVerticesPos = rawVertices; rawVerticesPos < (rawVertices + vertexCount * 3); rawVerticesPos += 3)
     {
-        for (rawVerticesPos = rawVertices; rawVerticesPos < (rawVertices + vertexCount * 3); rawVerticesPos += 3)
-        {
-            float *xPos = rawVerticesPos;
-            float *yPos = rawVerticesPos + 1;
-            float *zPos = rawVerticesPos + 2;
-
-            /* Terrain is computed in world co-ordinates.
-             * TODO That's something I need to change: I'll get
-             * dreadful aliasing as I depart from the origin.
-             * Or can I get away with sometimes rebasing the
-             * whole terrain?
-             */
-#if 0
-            *yPos = tIt->compute(Vec3<float>(
-                *xPos + cell.coord.v[0],
-                *yPos,
-                *zPos + cell.coord.v[2]));
-#else
-            /* TODO Massive debugging */
-            *yPos = *xPos + *zPos / 2.0f;
-#endif
-        }
+        Vec3<float> rawSample(*rawVerticesPos, *(rawVerticesPos+1), *(rawVerticesPos+2));
+        terrain.compute(rawSample);
+        *rawVerticesPos = rawSample.v[0];
+        *(rawVerticesPos+1) = rawSample.v[1];
+        *(rawVerticesPos+2) = rawSample.v[2];
     }
 
     /* Turn this into an OpenGL vertex buffer */
@@ -224,13 +198,9 @@ AFK_Landscape::AFK_Landscape(size_t _cacheSize, float _maxDistance, unsigned int
     maxFeaturesPerCell = 4;
 
     /* Initialise the terrain vector with a size that ought to
-     * be large enough for all iterations
-     * Multiply by five because the terrain for each cell is
-     * determined by that cell itself plus the four 1/2-offset
-     * pseudo-cells at (-0.5, 0, -0.5), (-0.5, 0, 0.5),
-     * (0.5, 0, -0.5) and (0.5, 0, 0.5).
+     * be large enough for all iterations.
      */
-    terrain = std::vector<AFK_TerrainFeature>(maxSubdivisions * maxFeaturesPerCell * 5);
+    terrain.init(maxSubdivisions);
 }
 
 AFK_Landscape::~AFK_Landscape()
@@ -247,7 +217,6 @@ AFK_Landscape::~AFK_Landscape()
 void AFK_Landscape::enqueueSubcells(
     const AFK_Cell& cell,
     const AFK_Cell& parent,
-    float terrainAtZero,
     const Vec3<float>& viewerLocation,
     const AFK_Camera& camera,
     bool parentEntirelyVisible)
@@ -276,14 +245,30 @@ void AFK_Landscape::enqueueSubcells(
     AFK_RealCell realCell(cell, minCellSize);
 
     /* Add the terrain for this cell to the terrain vector. */
-    realCell.makeTerrain(terrainAtZero, terrain, *(afk_core.rng));
+    realCell.makeTerrain(terrain, *(afk_core.rng));
 
-    /* If this cell isn't empty ... */
-    if (realCell.testCellEmpty(terrainAtZero))
+    /* Test whether this cell actually has any landscape in it */
+    /* TODO This clause, right now, actually defines where the
+     * landscape is (at all).  I would like to change it so that
+     * the landscape automatically starts out as a flat plane at
+     * y=0; that is, with no other terrain applied, calling this
+     * with all 3 real co-ordinates causes cells that don't touch
+     * zero to be rejected.  I think that will involve always
+     * having a new "flat" terrain type applied at the front of
+     * the terrain vector.
+     * TODO *2: Also, either this sampling or the makeTerrain call
+     * is very slow.  I should work out how to profile the program
+     * to find out what, and perhaps consider caching one or the
+     * other (or maybe I'll just need multithreading :P )
+     */
+    Vec3<float> terrainSample(
+        realCell.coord.v[0],
+        0.0f,
+        realCell.coord.v[2]);
+    if (!terrain.compute(terrainSample))
     {
+        /* This cell is empty, nothing else to do with it. */
         ++landscapeCellsEmpty;
-
-        /* Nothing else to do with it. */
     }
     else
     {
@@ -308,9 +293,6 @@ void AFK_Landscape::enqueueSubcells(
                 /* Find out if it's already in the cache */
                 AFK_LandscapeCell*& landscapeCell = landMap[cell];
                 if (!landscapeCell)
-                    /* TODO Pass the terrain in here so it can be computed
-                     * across all of this cell
-                     */
                     landscapeCell = new AFK_LandscapeCell(
                         shaderProgram->program,
                         transformLocation,
@@ -343,7 +325,9 @@ void AFK_Landscape::enqueueSubcells(
                 {
                     for (unsigned int i = 0; i < augmentedSubcellsCount; ++i)
                     {
-                        enqueueSubcells(augmentedSubcells[i], cell, terrainAtZero, viewerLocation, camera, allVisible);
+                        /* TODO Should I put back the big complicated thing?
+                         * Am I about to be missing lots of cells? */
+                        enqueueSubcells(augmentedSubcells[i], cell, viewerLocation, camera, allVisible);
                     }
                 }
                 else
@@ -368,7 +352,6 @@ void AFK_Landscape::enqueueSubcells(
 void AFK_Landscape::enqueueSubcells(
     const AFK_Cell& cell,
     const Vec3<long long>& modifier,
-    float terrainAtZero,
     const Vec3<float>& viewerLocation,
     const AFK_Camera& camera)
 {
@@ -377,7 +360,7 @@ void AFK_Landscape::enqueueSubcells(
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[1],
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[2],
         cell.coord.v[3]));
-    enqueueSubcells(modifiedCell, modifiedCell.parent(), terrainAtZero, viewerLocation, camera, false);
+    enqueueSubcells(modifiedCell, modifiedCell.parent(), viewerLocation, camera, false);
 }
 
 void AFK_Landscape::updateLandMap(void)
@@ -434,7 +417,7 @@ void AFK_Landscape::updateLandMap(void)
     for (long long i = -1; i <= 1; ++i)
         for (long long j = -1; j <= 1; ++j)
             for (long long k = -1; k <= 1; ++k)
-                enqueueSubcells(cell, Vec3<long long>(i, j, k), 0.0f, protagonistLocation, *(afk_core.camera));
+                enqueueSubcells(cell, Vec3<long long>(i, j, k), protagonistLocation, *(afk_core.camera));
 
 #ifdef PROTAGONIST_CELL_DEBUG
     {

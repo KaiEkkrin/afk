@@ -6,7 +6,6 @@
 #include "afk.hpp"
 
 #include <iostream>
-#include <vector>
 
 /* TODO: If I'm going to switch to C++11, I no longer need to
  * pull this from Boost
@@ -54,15 +53,12 @@ public:
         GLuint _fixedColorLocation,
         const AFK_RealCell& cell,
         unsigned int pointSubdivisionFactor,
-        const std::vector<AFK_TerrainFeature>& terrain,
+        const AFK_Terrain& terrain,
         AFK_RNG& rng);
     virtual ~AFK_LandscapeCell();
 
     virtual void display(const Mat4<float>& projection);
 };
-
-/* For printing an AFK_LandscapeCell. */
-//std::ostream& operator<<(std::ostream& os, const AFK_LandscapeCell& cell);
 
 
 /* Encapsulates a whole landscape.  There will only be one of
@@ -152,10 +148,10 @@ public:
     /* A working variable: the current terrain.  It's scoped
      * here to avoid cluttering the function parameter lists.
      * TODO: Parallelisation gotcha -- would need to share
-     * the list with each thread as I went.  (Consider:
+     * the object with each thread as I went.  (Consider:
      * thread local storage; copying; etc.)
      */
-    std::vector<AFK_TerrainFeature> terrain;
+    AFK_Terrain terrain;
 
     /* Gather statistics.  (Useful.)
      */
@@ -187,7 +183,6 @@ public:
     void enqueueSubcells(
         const AFK_Cell& cell,
         const AFK_Cell& parent,
-        float terrainAtZero,                        /* The height of the parent cell's (0,0,0) point */
         const Vec3<float>& viewerLocation,
         const AFK_Camera& camera,
         bool entirelyVisible);
@@ -199,7 +194,6 @@ public:
     void enqueueSubcells(
         const AFK_Cell& cell,
         const Vec3<long long>& modifier,
-        float terrainAtZero,                        /* The height of this cell's (0,0,0) point */
         const Vec3<float>& viewerLocation,
         const AFK_Camera& camera);
 

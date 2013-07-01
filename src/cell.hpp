@@ -1,12 +1,9 @@
-/* AFK (c) Alex Holloway 2013 */
-
 #ifndef _AFK_CELL_H_
 #define _AFK_CELL_H_
 
 #include "afk.hpp"
 
 #include <iostream>
-#include <vector>
 
 #include "camera.hpp"
 #include "def.hpp"
@@ -145,21 +142,9 @@ protected:
      */
     void enumerateHalfCells(AFK_RealCell *halfCells, size_t halfCellsSize) const;
 
-    /* This is the makeTerrain worker, called on each half-cell plus
-     * the real one.
-     * Returns the feature count it made -- doesn't update the field.
-     * *Does* update the terrain sample, and the terrain vector.
-     */
-    unsigned int makeHalfCellTerrain(
-        float& io_terrainSample,
-        const Vec3<float>& sampleLocation,
-        std::vector<AFK_TerrainFeature>& terrain,
-        AFK_RNG& rng) const;
-
 public:
     AFK_Cell worldCell;
     Vec4<float> coord;
-    unsigned int featureCount; /* The number of terrain features this cell has */
 
     AFK_RealCell();
     AFK_RealCell(const AFK_RealCell& realCell);
@@ -177,25 +162,16 @@ public:
      */
     void testVisibility(const AFK_Camera& camera, bool& io_someVisible, bool& io_allVisible) const;
 
-    /* Makes this cell's terrain.  Pushes back the
-     * features onto the terrain vector, and returns
-     * the modified zero point sample.
-     * `io_terrainAtZero' is a sample at this cell's location
-     * of its ancestors' features, which this method updates.
+    /* Makes this cell's terrain.  Pushes back the terrain
+     * cells onto the terrain object.
      */
-    void makeTerrain(float& io_terrainAtZero, std::vector<AFK_TerrainFeature>& terrain, AFK_RNG& rng);
-
-    /* Tests whether there's anything in this cell.
-     * `terrainAtZero' should be the output of
-     * `makeTerrain'.
-     */
-    bool testCellEmpty(float terrainAtZero) const;
+    void makeTerrain(AFK_Terrain& terrain, AFK_RNG& rng) const;
 
     /* Removes this cell's terrain from the terrain
-     * vector.  Doesn't work unless you called
+     * object.  Doesn't work unless you called
      * makeTerrain() first.
      */
-    void removeTerrain(std::vector<AFK_TerrainFeature>& terrain);
+    void removeTerrain(AFK_Terrain& terrain) const;
 };
 
 

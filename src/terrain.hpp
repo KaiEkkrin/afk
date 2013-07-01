@@ -11,7 +11,10 @@
  * be computed, I guess.
  */
 
+#include <vector>
+
 #include "def.hpp"
+#include "rng/rng.hpp"
 
 /* The list of possible terrain features.
  * TODO: Include some better ones!
@@ -28,9 +31,11 @@ enum AFK_TerrainType
 
 /* The encapsulation of any terrain feature.
  * A feature is computed at a particular location
- * (in world co-ordinates) based on the (x,y,z)
+ * based on the (x,y,z)
  * position that I want to compute it at, and
  * returns a displaced y co-ordinate for that position.
+ * Terrain features are in cell co-ordinates (between
+ * 0.0 and 1.0).
  *
  * I'm doing it like this so that I can pre-allocate
  * a single vector for all landscape terrain in the
@@ -58,15 +63,6 @@ enum AFK_TerrainType
  * to bounce back and forth between the cell walls?
  * Anyway, sort out terrain feature space and make
  * the basic thing render properly first.
- *
- * TODO: To make it render properly, in the first
- * instance, disable y-checking for cell culling,
- * because I'm going to be throwing up wildly high
- * cells by accumulating pyramids.
- * Also, change the square pyramid so that it can be
- * down as well as up (I'll probably need to split
- * frand() into a ufrand() 0.0-1.0 and an frand()
- * -1.0-1.0).
  */
 class AFK_TerrainFeature
 {
@@ -78,7 +74,7 @@ protected:
     /* The methods for computing each individual
      * terrain type.
      */
-    float compute_squarePyramid(const Vec3<float>& c) const;
+    void compute_squarePyramid(Vec3<float>& c) const;
 
 public:
     AFK_TerrainFeature() {}
@@ -90,8 +86,69 @@ public:
 
     AFK_TerrainFeature& operator=(const AFK_TerrainFeature& f);
 
-    float compute(const Vec3<float>& c) const;
+    /* Computes in cell co-ordinates. and updates `c'.
+     */
+    void compute(Vec3<float>& c) const;
 };
+
+/* This describes a cell containing a collection of
+ * terrain features.  It provides a method for computing
+ * the total displacement applied by these features in
+ * world co-ordinates.
+ */
+
+#define TERRAIN_FEATURE_COUNT_PER_CELL 1
+
+class AFK_TerrainCell
+{
+protected:
+    Vec4<float>         cellCoord; /* Like an AFK_RealCell */
+    AFK_TerrainFeature  features[TERRAIN_FEATURE_COUNT_PER_CELL];
+    unsigned int        featureCount;
+
+public:
+    AFK_TerrainCell();
+    AFK_TerrainCell(const AFK_TerrainCell& c);
+    AFK_TerrainCell(const Vec4<float>& coord);
+
+    AFK_TerrainCell& operator=(const AFK_TerrainCell& c);
+
+    /* Assumes the RNG to have been seeded correctly for
+     * the cell.
+     */
+    void make(AFK_RNG& rng);
+
+    /* Computes in world co-ordinates each of the
+     * terrain features and puts them together.
+     * Updates `c' with the terrain modification if
+     * there is terrain here (otherwise leaves it alone),
+     * and returns true if there was terrain here, else
+     * false.
+     */
+    bool compute(Vec3<float>& c) const;
+};
+
+/* This describes an entire terrain. */
+
+class AFK_Terrain
+{
+protected:
+    std::vector<AFK_TerrainCell> t;
+
+public:
+    AFK_Terrain() {}
+
+    void init(unsigned int maxSubdivisions);
+
+    void push(const AFK_TerrainCell& cell);
+    void pop();
+
+    /* Like AFK_TerrainCell::compute(), but chains
+     * together the entire terrain.
+     */
+    bool compute(Vec3<float>& c) const;
+};
+
 
 #endif /* _AFK_TERRAIN_H_ */
 
