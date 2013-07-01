@@ -134,10 +134,32 @@ std::ostream& operator<<(std::ostream& os, const AFK_Cell& cell);
  */
 class AFK_RealCell
 {
+protected:
+    /* makeTerrain() helpers. */
+
+    /* Terrain is composed of the terrain of the real cell plus that
+     * of four make-believe cells displaced by 1/2 the distance from
+     * the real cell to its neighbour siblings in each +/-
+     * combination of the x and z axes.
+     * This is done to avoid gutters along all the cells!
+     */
+    void enumerateHalfCells(AFK_RealCell *halfCells, size_t halfCellsSize) const;
+
+    /* This is the makeTerrain worker, called on each half-cell plus
+     * the real one.
+     * Returns the feature count it made -- doesn't update the field.
+     * *Does* update the terrain sample, and the terrain vector.
+     */
+    unsigned int makeHalfCellTerrain(
+        float& io_terrainSample,
+        const Vec3<float>& sampleLocation,
+        std::vector<AFK_TerrainFeature>& terrain,
+        AFK_RNG& rng) const;
+
 public:
     AFK_Cell worldCell;
     Vec4<float> coord;
-    int featureCount; /* The number of terrain features this cell has */
+    unsigned int featureCount; /* The number of terrain features this cell has */
 
     AFK_RealCell();
     AFK_RealCell(const AFK_RealCell& realCell);
@@ -158,16 +180,16 @@ public:
     /* Makes this cell's terrain.  Pushes back the
      * features onto the terrain vector, and returns
      * the modified zero point sample.
-     * `terrainAtZero' is a sample at this cell's location
-     * of its ancestors' features.
+     * `io_terrainAtZero' is a sample at this cell's location
+     * of its ancestors' features, which this method updates.
      */
-    float makeTerrain(float terrainAtZero, std::vector<AFK_TerrainFeature>& terrain);
+    void makeTerrain(float& io_terrainAtZero, std::vector<AFK_TerrainFeature>& terrain, AFK_RNG& rng);
 
     /* Tests whether there's anything in this cell.
      * `terrainAtZero' should be the output of
      * `makeTerrain'.
      */
-    bool testCellEmpty(float terrainAtZero);
+    bool testCellEmpty(float terrainAtZero) const;
 
     /* Removes this cell's terrain from the terrain
      * vector.  Doesn't work unless you called

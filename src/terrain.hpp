@@ -48,6 +48,25 @@ enum AFK_TerrainType
  * Do I want a different system for moving objects
  * (not cell restricted in the same way)?
  * Have a think about this.
+ *
+ * Can I cunningly finesse a remain-within-cell-
+ * boundaries thing by means of "bouncing": compute
+ * the co-ordinate modulo the cell boundary, and if
+ * the co-ordinate divided by the cell boundary (to
+ * integer) is odd, make the co-ordinate (1 - co-ordinate
+ * modulo cell boundary), i.e. cause excess co-ordinates
+ * to bounce back and forth between the cell walls?
+ * Anyway, sort out terrain feature space and make
+ * the basic thing render properly first.
+ *
+ * TODO: To make it render properly, in the first
+ * instance, disable y-checking for cell culling,
+ * because I'm going to be throwing up wildly high
+ * cells by accumulating pyramids.
+ * Also, change the square pyramid so that it can be
+ * down as well as up (I'll probably need to split
+ * frand() into a ufrand() 0.0-1.0 and an frand()
+ * -1.0-1.0).
  */
 class AFK_TerrainFeature
 {

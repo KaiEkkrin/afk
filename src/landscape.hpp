@@ -54,6 +54,7 @@ public:
         GLuint _fixedColorLocation,
         const AFK_RealCell& cell,
         unsigned int pointSubdivisionFactor,
+        const std::vector<AFK_TerrainFeature>& terrain,
         AFK_RNG& rng);
     virtual ~AFK_LandscapeCell();
 

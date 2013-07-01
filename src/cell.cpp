@@ -179,6 +179,97 @@ std::ostream& operator<<(std::ostream& os, const AFK_Cell& cell)
 
 /* AFK_RealCell implementation */
 
+void AFK_RealCell::enumerateHalfCells(AFK_RealCell *halfCells, size_t halfCellsSize) const
+{
+    if (halfCellsSize != 4)
+    {
+        std::ostringstream ss;
+        ss << "Tried to enumerate half cells of count " << halfCellsSize;
+        throw AFK_Exception(ss.str());
+    }
+
+    unsigned int halfCellsIdx = 0;
+    for (long long xd = -1; xd <= 1; xd += 2)
+    {
+        for (long long zd = -1; zd <= 1; zd += 2)
+        {
+            halfCells[halfCellsIdx].worldCell = AFK_Cell(Vec4<long long>(
+                worldCell.coord.v[0] + worldCell.coord.v[3] * xd / 2,
+                worldCell.coord.v[1],
+                worldCell.coord.v[2] + worldCell.coord.v[3] * zd / 2,
+                worldCell.coord.v[3]));
+
+            halfCells[halfCellsIdx].coord = Vec4<float>(
+                coord.v[0] + coord.v[3] * xd / 2.0f,
+                coord.v[1],
+                coord.v[2] + coord.v[3] * zd / 2.0f,
+                coord.v[3]);
+
+            halfCells[halfCellsIdx].featureCount = 0;
+        }
+    }
+}
+
+unsigned int AFK_RealCell::makeHalfCellTerrain(
+    float& io_terrainSample,
+    const Vec3<float>& sampleLocation,
+    std::vector<AFK_TerrainFeature>& terrain,
+    AFK_RNG& rng) const
+{
+    rng.seed(worldCell.rngSeed());
+
+    /* Draw a value that tells me how many features
+     * to put into this cell and what their
+     * characteristics are.
+     * TODO: This will want expanding a great deal!
+     * Many possibilities for different ways of
+     * combining features aside from simple addition
+     * too: replacement, addition to a single aliased
+     * value for the parent features (should look nice),
+     * etc.
+     */
+    unsigned int descriptor = rng.uirand();
+
+    /* TODO: Make these things configurable. */
+    const unsigned int maxFeaturesPerCell = 4;
+
+    /* So as not to run out of the cell, the maximum
+     * size for a feature is equal to 1 divided by
+     * the number of features that could appear there.
+     * The half cells mechanism means any point could
+     * have up to 2 features on it.
+     */
+    float featureScaleFactor = 1.0f / (2.0f * (float)maxFeaturesPerCell);
+
+    /* So that they don't run off the sides, each feature
+     * is confined to (featureScaleFactor, 1.0-featureScaleFactor)
+     * on the x, z co-ordinates.
+     * That means the x or z location is featureScaleFactor +
+     * (0.0-1.0)*featureLocationFactor in cell co-ordinates
+     */
+    float featureLocationFactor = 1.0f - (2.0f * featureScaleFactor);
+
+    unsigned int thisFeatureCount = descriptor % 4;
+    for (unsigned int i = 0; i < thisFeatureCount; ++i)
+    {
+        AFK_TerrainFeature feature(
+            AFK_TERRAIN_SQUARE_PYRAMID,
+            Vec3<float>( /* location */
+                coord.v[0] + coord.v[3] * (rng.frand() * featureLocationFactor + featureScaleFactor),
+                coord.v[1],
+                coord.v[2] + coord.v[3] * (rng.frand() * featureLocationFactor + featureScaleFactor)),
+            Vec3<float>( /* scale */
+                rng.frand() * coord.v[3] * featureScaleFactor,
+                rng.frand() * coord.v[3] * featureScaleFactor,
+                rng.frand() * coord.v[3] * featureScaleFactor));
+
+        terrain.push_back(feature);
+        io_terrainSample += feature.compute(sampleLocation);
+    }
+
+    return thisFeatureCount;
+}
+
 AFK_RealCell::AFK_RealCell()
 {
     worldCell       = AFK_Cell();
@@ -320,17 +411,20 @@ void AFK_RealCell::testVisibility(const AFK_Camera& camera, bool& io_someVisible
         camera, io_someVisible, io_allVisible);
 }
 
-float AFK_RealCell::makeTerrain(float terrainAtZero, std::vector<AFK_TerrainFeature>& terrain)
+void AFK_RealCell::makeTerrain(float& io_terrainAtZero, std::vector<AFK_TerrainFeature>& terrain, AFK_RNG& rng)
 {
-    /* TODO.  For now, I'm going to use a null function,
-     * purely to verify that I correctly changed the minimum    
-     * cell scale to 2 (eww, scary)
-     */
+    Vec3<float> sampleLocation(coord.v[0], coord.v[1], coord.v[2]);
+    AFK_RealCell halfCells[4];
+
     featureCount = 0;
-    return terrainAtZero;
+    enumerateHalfCells(&halfCells[0], 4);
+    for (int i = 0; i < 4; ++i)
+        featureCount += halfCells[i].makeHalfCellTerrain(io_terrainAtZero, sampleLocation, terrain, rng);
+
+    featureCount += makeHalfCellTerrain(io_terrainAtZero, sampleLocation, terrain, rng);
 }
 
-bool AFK_RealCell::testCellEmpty(float terrainAtZero)
+bool AFK_RealCell::testCellEmpty(float terrainAtZero) const
 {
     /* The terrain can't be displaced by more than
      * +/- one whole cell.

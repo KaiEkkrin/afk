@@ -22,6 +22,7 @@ AFK_LandscapeCell::AFK_LandscapeCell(
     GLuint _fixedColorLocation,
     const AFK_RealCell& cell,
     unsigned int pointSubdivisionFactor,
+    const std::vector<AFK_TerrainFeature>& terrain,
     AFK_RNG& rng)
 {
     program = _program;
@@ -53,63 +54,83 @@ AFK_LandscapeCell::AFK_LandscapeCell(
      * to replace this with code that calls through the
      * terrain vector.
      */
-    if (cell.worldCell.coord.v[1] == 0)
-    {
-        float *rawVerticesPos = rawVertices;
+    float *rawVerticesPos = rawVertices;
 
-        for (unsigned int xi = 0; xi < pointSubdivisionFactor; ++xi)
+    for (unsigned int xi = 0; xi < pointSubdivisionFactor; ++xi)
+    {
+        for (unsigned int zi = 0; zi < pointSubdivisionFactor; ++zi)
         {
-            for (unsigned int zi = 0; zi < pointSubdivisionFactor; ++zi)
-            {
-                /* TODO REMOVEME Check for programming error */
-                if (rawVerticesPos >= (rawVertices + rawVerticesSize))
-                {
-                    std::ostringstream ss;
-                    ss << "Exceeded rawVertices array populating landscape cell at " << cell.worldCell;
-                    throw AFK_Exception(ss.str());
-                }
+            /* The geometry in a cell goes from its (0,0,0) point to
+             * just before its (coord.v[3], coord.v[3], coord.v[3]
+             * point (in cell space)
+             */
+            float xf = (float)xi * cell.coord.v[3] / (float)pointSubdivisionFactor;
+            float zf = (float)zi * cell.coord.v[3] / (float)pointSubdivisionFactor;
 
-                /* The geometry in a cell goes from its (0,0,0) point to
-                 * just before its (coord.v[3], coord.v[3], coord.v[3]
-                 * point (in cell space)
-                 */
-                float xf = (float)xi * cell.coord.v[3] / (float)pointSubdivisionFactor;
-                float zf = (float)zi * cell.coord.v[3] / (float)pointSubdivisionFactor;
+            /* Here's a non-cumulative use of the RNG (unlike the
+             * upwards displacement).  Jitter all the raw vertex
+             * locations around a little bit, in order to avoid
+             * aliasing along the axes.
+             * Of course, sampling the vertices themselves may
+             * require *one reseed per vertex*! (hence the fast-
+             * reseeding RNG)
+             * But this tweak makes the flat landscape look SO MUCH
+             * BETTER that I might get away with a lower detailPitch
+             */
+            float xdisp = rng.frand() * cell.coord.v[3] / (float)pointSubdivisionFactor;
+            float zdisp = rng.frand() * cell.coord.v[3] / (float)pointSubdivisionFactor;
 
-                /* Here's a non-cumulative use of the RNG (unlike the
-                 * upwards displacement).  Jitter all the raw vertex
-                 * locations around a little bit, in order to avoid
-                 * aliasing along the axes.
-                 * Of course, sampling the vertices themselves may
-                 * require *one reseed per vertex*! (hence the fast-
-                 * reseeding RNG)
-                 * But this tweak makes the flat landscape look SO MUCH
-                 * BETTER that I might get away with a lower detailPitch
-                 */
-                float xdisp = rng.frand() * cell.coord.v[3] / (float)pointSubdivisionFactor;
-                float zdisp = rng.frand() * cell.coord.v[3] / (float)pointSubdivisionFactor;
-
-                *(rawVerticesPos++) = xf + xdisp;
-                *(rawVerticesPos++) = 0.0f;
-                *(rawVerticesPos++) = zf + zdisp;
-            }
+            *(rawVerticesPos++) = xf + xdisp;
+            *(rawVerticesPos++) = 0.0f;
+            *(rawVerticesPos++) = zf + zdisp;
         }
-
-        /* Turn this into an OpenGL vertex buffer */
-        glGenBuffers(1, &vertices);
-        glBindBuffer(GL_ARRAY_BUFFER, vertices);
-        glBufferData(GL_ARRAY_BUFFER, rawVerticesSize, rawVertices, GL_STATIC_DRAW);
-
-        free(rawVertices);
     }
-    else
+
+    /* Now that I've populated the (x, z) co-ordinates of the
+     * vertex buffer with the locations I want to sample the
+     * terrain at, fill in the y co-ordinates with the actual
+     * terrain samples.
+     * TODO This may be slow -- obvious candidate for OpenCL?
+     * But, the cache may rescue me; profile first!
+     */
+    for (std::vector<AFK_TerrainFeature>::const_iterator tIt = terrain.begin();
+        tIt != terrain.end(); ++tIt)
     {
-        vertices = 0;
+        for (rawVerticesPos = rawVertices; rawVerticesPos < (rawVertices + vertexCount * 3); rawVerticesPos += 3)
+        {
+            float *xPos = rawVerticesPos;
+            float *yPos = rawVerticesPos + 1;
+            float *zPos = rawVerticesPos + 2;
+
+            /* Terrain is computed in world co-ordinates.
+             * TODO That's something I need to change: I'll get
+             * dreadful aliasing as I depart from the origin.
+             * Or can I get away with sometimes rebasing the
+             * whole terrain?
+             */
+#if 0
+            *yPos = tIt->compute(Vec3<float>(
+                *xPos + cell.coord.v[0],
+                *yPos,
+                *zPos + cell.coord.v[2]));
+#else
+            /* TODO Massive debugging */
+            *yPos = *xPos + *zPos / 2.0f;
+#endif
+        }
     }
+
+    /* Turn this into an OpenGL vertex buffer */
+    glGenBuffers(1, &vertices);
+    glBindBuffer(GL_ARRAY_BUFFER, vertices);
+    glBufferData(GL_ARRAY_BUFFER, rawVerticesSize, rawVertices, GL_STATIC_DRAW);
+
+    free(rawVertices);
 
     /* TODO For testing. Maybe I can come up with something neater; OTOH, maybe
      * I don't want to :P
      */
+    rng.seed(cell.worldCell.rngSeed());
     colour = Vec3<float>(rng.frand(), rng.frand(), rng.frand());
 }
 
@@ -255,7 +276,7 @@ void AFK_Landscape::enqueueSubcells(
     AFK_RealCell realCell(cell, minCellSize);
 
     /* Add the terrain for this cell to the terrain vector. */
-    terrainAtZero = realCell.makeTerrain(terrainAtZero, terrain);
+    realCell.makeTerrain(terrainAtZero, terrain, *(afk_core.rng));
 
     /* If this cell isn't empty ... */
     if (realCell.testCellEmpty(terrainAtZero))
@@ -296,6 +317,7 @@ void AFK_Landscape::enqueueSubcells(
                         fixedColorLocation,
                         realCell,
                         pointSubdivisionFactor,
+                        terrain,
                         *(afk_core.rng));
                 else
                     ++landscapeCellsCached;

@@ -82,6 +82,9 @@ public:
     virtual void seed(const AFK_RNG_Value& seed) = 0;
     virtual AFK_RNG_Value rand(void) = 0;
 
+    /* Returns a random unsigned int */
+    virtual unsigned int uirand(void);
+
     /* Returns a random float between 0 and 1 */
     virtual float frand(void);
 };

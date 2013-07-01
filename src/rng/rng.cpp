@@ -51,16 +51,20 @@ std::ostream& operator<<(std::ostream& os, const AFK_RNG_Value& value)
 
 /* Actual RNG utilities. */
 
-float AFK_RNG::frand(void)
+unsigned int AFK_RNG::uirand(void)
 {
     if (vForFField == 4)
     {
         lastVForF = rand();
         vForFField = 0;
     }
+    
+    return lastVForF.v.ui[vForFField++];
+}
 
-    unsigned int basis = lastVForF.v.ui[vForFField++];
-    return (float)basis / 0x1.0p32;
+float AFK_RNG::frand(void)
+{
+    return uirand() / 0x1.0p32;
 }
 
 
