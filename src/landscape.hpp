@@ -6,6 +6,7 @@
 #include "afk.hpp"
 
 #include <iostream>
+#include <vector>
 
 /* TODO: If I'm going to switch to C++11, I no longer need to
  * pull this from Boost
@@ -13,127 +14,22 @@
 #include <boost/unordered_map.hpp>
 
 #include "camera.hpp"
+#include "cell.hpp"
 #include "def.hpp"
 #include "display.hpp"
 #include "rng/rng.hpp"
 #include "shader.hpp"
+#include "terrain.hpp"
 
 /* To start out with, I'm going to define an essentially
  * flat landscape split into squares for calculation and
  * rendering purposes.
  *
- * This module is also defining a cubic cell for
- * subdividing the world.  I may want to change this
- * later, but for now...  it'll do.
  *
  * Add improvements to make to it here.  There will be
  * lots !
  */
 
-
-/* Identifies a cell in the world.
- * TODO: Use of `long long' here means that, in theory at
- * least, the terrain will eventually loop.  I'm hoping that
- * it won't for a suitably long while and I won't need
- * infinite precision arithmetic (with all its associated
- * issues).
- * However, I *do* know that these don't fit into `float's
- * which will eventually become aliased, so at some point I'll
- * need to change the world render to eventually re-base its
- * view of the world to a place other than (0ll,0ll,0ll) as its
- * zero point.  Ngh.
- */
-class AFK_Cell
-{
-public:
-    /* These co-ordinates are in smallest-cell steps, starting
-     * from (0,0,0) at the origin.  The 4th number is the
-     * cell size: 1 for smallest, then increasing in factors
-     * of subdivisionFactor.
-     * TODO: These aren't homogeneous co-ordinates right now
-     * (nor is the float `realCoord' equivalent) and for sanity,
-     * I should probably make them homogeneous :P
-     */
-    Vec4<long long> coord;
-
-    AFK_Cell();
-    AFK_Cell(const AFK_Cell& _cell);
-    AFK_Cell(const Vec4<long long>& _coord);
-
-    /* TODO Somewhere, I'm going to need a way of making the
-     * smallest AFK_Cell that can contain a particular object
-     * at the current LoD, so that I can assign moving objects
-     * to cells, decide what extra cells to draw or not etc etc.
-     * That'll probably end up in AFK_Landscape though ;)
-     */
-
-    /* Obligatory thingies. */
-    AFK_Cell& operator=(const AFK_Cell& _cell);
-    bool operator==(const AFK_Cell& _cell) const;
-    bool operator!=(const AFK_Cell& _cell) const;
-
-    /* Gives the RNG seed value that matches this cell. */
-    AFK_RNG_Value rngSeed() const;
-
-    /* Gives the cell's co-ordinates in world space, along
-     * with its converted cell size.
-     */
-    Vec4<float> realCoord() const;
-
-    /* A more general subdivide to use internally.
-     * `factor' is the number to divide the scale by.
-     * `stride' is the gap to put between each subcell
-     * and the next.
-     * `points' is the number of subcells to put along
-     * each dimension (which may be different from `factor'
-     * if I want to run off the edge of the parent, see
-     * augmentedSubdivide() ! )
-     */
-    unsigned int subdivide(
-        AFK_Cell *subCells,
-        const size_t subCellsSize,
-        long long factor,
-        long long stride,
-        long long points) const;
-
-    /* Fills out the supplied array of uninitialised
-     * AFK_Cells with the next level of subdivision of
-     * the current cell.
-     * This function will want to fill out
-     * (subdivisionFactor^3) cells.
-     * subCellsSize is in units of sizeof(AFK_Cell).
-     * Returns 0 if we're at the smallest subdivision
-     * already, else the number of subcells made.
-     */
-    unsigned int subdivide(AFK_Cell *subCells, const size_t subCellsSize) const;
-
-    /* This does the same, except it also includes the
-     * nearest subcells of the adjacent cells + along
-     * each axis.  The idea is that each cell is described
-     * by its lowest vertex (along each axis) and like this,
-     * I'll enumerate all subcell vertices.
-     * This function will want to fill out
-     * ((subdivisionFactor+1)^3) cells.
-     * Returns 0 if we're at the smallest subdivision
-     * already, else the number of subcells made.
-     */
-    unsigned int augmentedSubdivide(AFK_Cell *augmentedSubcells, const size_t augmentedSubcellsSize) const;
-
-    /* Returns the parent cell to this one. */
-    AFK_Cell parent(void) const;
-
-    /* Checks whether the given cell could be a parent
-     * to this one.  (Quicker than generating the
-     * parent anew, doesn't require modulus)
-     */
-    bool isParent(const AFK_Cell& parent) const;
-};
-
-/* For insertion into an unordered_map. */
-size_t hash_value(const AFK_Cell& cell);
-
-/* For printing an AFK_Cell. */
-std::ostream& operator<<(std::ostream& os, const AFK_Cell& cell);
 
 /* Describes the current state of one cell in the landscape.
  * TODO: Whilst AFK_DisplayedObject is the right abstraction,
@@ -143,20 +39,29 @@ std::ostream& operator<<(std::ostream& os, const AFK_Cell& cell);
 class AFK_LandscapeCell: public AFK_DisplayedObject
 {
 public:
-    /* The cell location and scale in world space. */
-    Vec4<float> coord;
+    /* This will be a reference to the overall landscape
+     * shader program.
+     */
+    GLuint program;
 
     /* The vertex set. */
     GLuint vertices;
+    unsigned int vertexCount;
 
-    AFK_LandscapeCell(const AFK_Cell& cell, const Vec4<float>& _coord); /* from AFK_Cell::realCoord() */
+    AFK_LandscapeCell(
+        GLuint _program,
+        GLuint _transformLocation,
+        GLuint _fixedColorLocation,
+        const AFK_RealCell& cell,
+        unsigned int pointSubdivisionFactor,
+        AFK_RNG& rng);
     virtual ~AFK_LandscapeCell();
 
     virtual void display(const Mat4<float>& projection);
 };
 
 /* For printing an AFK_LandscapeCell. */
-std::ostream& operator<<(std::ostream& os, const AFK_LandscapeCell& cell);
+//std::ostream& operator<<(std::ostream& os, const AFK_LandscapeCell& cell);
 
 
 /* Encapsulates a whole landscape.  There will only be one of
@@ -238,6 +143,19 @@ public:
      */
     float minCellSize;
 
+    /* The maximum number of features per cell.  This is
+     * another useful tweakable.
+     */
+    unsigned int maxFeaturesPerCell;
+
+    /* A working variable: the current terrain.  It's scoped
+     * here to avoid cluttering the function parameter lists.
+     * TODO: Parallelisation gotcha -- would need to share
+     * the list with each thread as I went.  (Consider:
+     * thread local storage; copying; etc.)
+     */
+    std::vector<AFK_TerrainFeature> terrain;
+
     /* Gather statistics.  (Useful.)
      */
     unsigned int landscapeCellsEmpty;
@@ -261,43 +179,16 @@ public:
     AFK_Landscape(size_t _cacheSize, float _maxDistance, unsigned int _subdivisionFactor, unsigned int _detailPitch);
     virtual ~AFK_Landscape();
 
-    /* Utility function.  Calculates the apparent cell detail
-     * pitch at a cell vertex.
-     */
-    float getCellDetailPitch(const AFK_Cell& cell, const Vec3<float>& viewerLocation) const;
-
-    /* Utility function.  Tests whether a cell is within the
-     * intended detail pitch.
-     */
-    bool testCellDetailPitch(const AFK_Cell& cell, const Vec3<float>& viewerLocation) const;
-
-    /* Utility function.  Tests whether a point is visible.
-     * Cumulatively ANDs visibility to `allVisible', and ORs
-     * visibility to `someVisible'.
-     */
-    void testPointVisible(
-        const Vec3<float>& point,
-        const Mat4<float>& projection,
-        bool& io_someVisible,
-        bool& io_allVisible) const;
-
-    /* Utility function.  Tests whether there's anything to
-     * draw in a cell.
-     */
-    bool testCellEmpty(const AFK_Cell& cell) const;
-
     /* Enqueues this cell for drawing so long as its parent
      * is as supplied.  If it's less fine than the target
      * detail level, instead splits it recursively.
-     * TODO: In order to make a correct call to testCellEmpty(),
-     * I'm going to want to cumulate the single-vertex landscape
-     * sample here (which testCellEmpty() will want).
      */
     void enqueueSubcells(
         const AFK_Cell& cell,
         const AFK_Cell& parent,
+        float terrainAtZero,                        /* The height of the parent cell's (0,0,0) point */
         const Vec3<float>& viewerLocation,
-        const Mat4<float>& projection,
+        const AFK_Camera& camera,
         bool entirelyVisible);
 
     /* The same, but with a vector modifier from the base
@@ -307,8 +198,9 @@ public:
     void enqueueSubcells(
         const AFK_Cell& cell,
         const Vec3<long long>& modifier,
+        float terrainAtZero,                        /* The height of this cell's (0,0,0) point */
         const Vec3<float>& viewerLocation,
-        const Mat4<float>& projection);
+        const AFK_Camera& camera);
 
     /* Given the current position of the camera, this
      * function works out which cells to draw and fills

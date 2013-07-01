@@ -9,6 +9,15 @@
 
 class AFK_Camera: public AFK_Object
 {
+protected:
+    /* The projection is wanted lots so cache it here. */
+    Mat4<float> projection;
+
+    /* Worker function -- update the projection when
+     * something has changed
+     */
+    void updateProjection();
+
 public:
     /* Basic parameters. */
     int     windowWidth;
@@ -33,7 +42,7 @@ public:
     void adjustAttitude(enum AFK_Axes axis, float c);
     void displace(const Vec3<float>& v);
 
-    Mat4<float> getProjection() const;
+    const Mat4<float>& getProjection() const;
 };
 
 #endif /* _AFK_CAMERA_H_ */
