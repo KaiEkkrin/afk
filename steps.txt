@@ -9,8 +9,8 @@
  - landscape subdivision and LoD. OK
  - random number generator. OK
  - randomly distributed landscape in a grid (smallest cells only). OK
- - apply lighting to protagonist object.
- - triangular, lit landscape.  (no tessellation, just pre-defined triangle strips).
+ - apply lighting to protagonist object. OK
+ - triangular, lit landscape.  (no tessellation, just pre-defined triangle strips). OK (but fix z order)
  - randomly distributed landscape in a grid (all cells contributing).
  - adjust detail pitch on the fly to maintain a framerate.
  - compute location of points-grid with opencl and feed back.

@@ -1,10 +1,12 @@
 Import('extra_ccflags')
+Import('extra_ldflags')
 
 afk_sources = Glob('*.cpp') + Glob('rng/*.cpp')
 afk_libs = ['boost_random', 'crypto', 'GL', 'GLU', 'GLEW', 'glut', 'OpenCL']
 afk_ccflags = ['-Wall', '-Werror']
+afk_ldflags = []
 
-Program('afk', afk_sources, LIBS=afk_libs, CCFLAGS=afk_ccflags + extra_ccflags)
+Program('afk', afk_sources, LIBS=afk_libs, CCFLAGS=afk_ccflags + extra_ccflags, LINKFLAGS=afk_ldflags + extra_ldflags)
 
 for shader in Glob('shaders/*.glsl'):
     File(shader)
