@@ -73,16 +73,9 @@ static void vertices2FlatTriangles(
     unsigned int *triangleVsCount)
 {
     /* Each vertex generates 2 triangles (i.e. 6 triangle vertices) when
-     * combined with the 3 vertices adjacent to it.  However, I don't
-     * run off the edges of the subdivision like this.  So:
+     * combined with the 3 vertices adjacent to it.
      */
-    /* TODO The above comment is a lie: right now I have BIG BLACK GUTTERS.
-     * However, in order to avoid the gutters I need to be able to compute a
-     * cell's terrain function outside of the cell boundaries, which conflicts
-     * with the current landscape determination algorithm.  I need to fix the
-     * latter to pin a single landscape starting at y=0.
-     */
-    unsigned int expectedTriangleVsCount = SQUARE(pointSubdivisionFactor - 1) * 6;
+    unsigned int expectedTriangleVsCount = SQUARE(pointSubdivisionFactor) * 6;
 
     if (!triangleVs)
     {
@@ -104,16 +97,18 @@ static void vertices2FlatTriangles(
          * Each triangle pair is:
          * ((row2, col1), (row1, col1), (row1, col2)),
          * ((row2, col1), (row1, col2), (row2, col2)).
+         * The grid given to me goes from 0 to pointSubdivisionFactor+1
+         * in both directions, so as to join up with adjacent cells.
          */
         struct AFK_VcolPhongVertex *triangleVPos = triangleVs;
-        for (unsigned int row = 0; row < (pointSubdivisionFactor-1); ++row)
+        for (unsigned int row = 0; row < pointSubdivisionFactor; ++row)
         {
-            for (unsigned int col = 0; col < (pointSubdivisionFactor-1); ++col)
+            for (unsigned int col = 0; col < pointSubdivisionFactor; ++col)
             {
-                float *r1c1 = vertices + 3 * row * pointSubdivisionFactor + 3 * col;
-                float *r1c2 = vertices + 3 * row * pointSubdivisionFactor + 3 * (col + 1);
-                float *r2c1 = vertices + 3 * (row + 1) * pointSubdivisionFactor + 3 * col;
-                float *r2c2 = vertices + 3 * (row + 1) * pointSubdivisionFactor + 3 * (col + 1);
+                float *r1c1 = vertices + 3 * row * (pointSubdivisionFactor+1) + 3 * col;
+                float *r1c2 = vertices + 3 * row * (pointSubdivisionFactor+1) + 3 * (col + 1);
+                float *r2c1 = vertices + 3 * (row + 1) * (pointSubdivisionFactor+1) + 3 * col;
+                float *r2c2 = vertices + 3 * (row + 1) * (pointSubdivisionFactor+1) + 3 * (col + 1);
 
                 computeFlatTriangle(
                     Vec3<float>().fromArray(r2c1), Vec3<float>().fromArray(r1c1), Vec3<float>().fromArray(r1c2), triangleVPos);
@@ -165,7 +160,10 @@ AFK_LandscapeCell::AFK_LandscapeCell(
     /* Seed the RNG for this cell. */
     rng.seed(cell.worldCell.rngSeed());
 
-    vertexCount = SQUARE(pointSubdivisionFactor);
+    /* I'm going to need to sample the edges of the next cell along
+     * the +ve x and z too, in order to join up with it.
+     */
+    vertexCount = SQUARE(pointSubdivisionFactor + 1);
     float *rawVertices = NULL;
     unsigned int rawVerticesCount = 3 * vertexCount;
 
@@ -177,9 +175,9 @@ AFK_LandscapeCell::AFK_LandscapeCell(
     /* Populate the vertex array. */
     float *rawVerticesPos = rawVertices;
 
-    for (unsigned int xi = 0; xi < pointSubdivisionFactor; ++xi)
+    for (unsigned int xi = 0; xi < pointSubdivisionFactor + 1; ++xi)
     {
-        for (unsigned int zi = 0; zi < pointSubdivisionFactor; ++zi)
+        for (unsigned int zi = 0; zi < pointSubdivisionFactor + 1; ++zi)
         {
             /* The geometry in a cell goes from its (0,0,0) point to
              * just before its (coord.v[3], coord.v[3], coord.v[3]
@@ -188,20 +186,21 @@ AFK_LandscapeCell::AFK_LandscapeCell(
             float xf = (float)xi * cell.coord.v[3] / (float)pointSubdivisionFactor;
             float zf = (float)zi * cell.coord.v[3] / (float)pointSubdivisionFactor;
 
-            /* Here's a non-cumulative use of the RNG (unlike the
-             * upwards displacement).  Jitter all the raw vertex
-             * locations around a little bit, in order to avoid
-             * aliasing along the axes.
-             * Of course, sampling the vertices themselves may
-             * require *one reseed per vertex*! (hence the fast-
-             * reseeding RNG)
-             * But this tweak makes the flat landscape look SO MUCH
-             * BETTER that I might get away with a lower detailPitch
-             */
-            float xdisp = rng.frand() * cell.coord.v[3] / (float)pointSubdivisionFactor;
-            float zdisp = rng.frand() * cell.coord.v[3] / (float)pointSubdivisionFactor;
+            /* Jitter the vertices inside the cell around a bit. 
+             * Not the edge ones; that will cause a join-up
+             * headache (especially at different levels of detail).
+             * TODO Of course, I'm going to have a headache on a
+             * transition between LoDs anyway, but I'm trying not
+             * to think about that too hard right now :P
+             */ 
+            float xdisp = 0.0f, zdisp = 0.0f;
+            if (xi > 0 && xi <= pointSubdivisionFactor)
+                xdisp = rng.frand() * cell.coord.v[3] / ((float)pointSubdivisionFactor * 2.0f);
 
-            /* Having done this, shunt them into world space */
+            if (zi > 0 && zi <= pointSubdivisionFactor)
+                zdisp = rng.frand() * cell.coord.v[3] / ((float)pointSubdivisionFactor * 2.0f);
+
+            /* And shunt them into world space */
             *(rawVerticesPos++) = xf + xdisp + cell.coord.v[0];
             *(rawVerticesPos++) = cell.coord.v[1];
             *(rawVerticesPos++) = zf + zdisp + cell.coord.v[2];
@@ -379,7 +378,7 @@ void AFK_Landscape::enqueueSubcells(
     AFK_RealCell realCell(cell, minCellSize);
 
     /* Add the terrain for this cell to the terrain vector. */
-    realCell.makeTerrain(terrain, *(afk_core.rng));
+    realCell.makeTerrain(pointSubdivisionFactor, subdivisionFactor, minCellSize, terrain, *(afk_core.rng));
 
     /* Test whether this cell actually has any landscape in it */
     /* TODO This clause, right now, actually defines where the

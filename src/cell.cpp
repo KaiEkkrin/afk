@@ -200,9 +200,9 @@ void AFK_RealCell::enumerateHalfCells(AFK_RealCell *halfCells, size_t halfCellsS
                 worldCell.coord.v[3]));
 
             halfCells[halfCellsIdx].coord = Vec4<float>(
-                coord.v[0] + coord.v[3] * xd / 2.0f,
+                coord.v[0] + coord.v[3] * (float)xd / 2.0f,
                 coord.v[1],
-                coord.v[2] + coord.v[3] * zd / 2.0f,
+                coord.v[2] + coord.v[3] * (float)zd / 2.0f,
                 coord.v[3]);
         }
     }
@@ -350,12 +350,17 @@ void AFK_RealCell::testVisibility(const AFK_Camera& camera, bool& io_someVisible
  */
 #define HALFCELL_TERRAIN 0
 
-void AFK_RealCell::makeTerrain(AFK_Terrain& terrain, AFK_RNG& rng) const
+void AFK_RealCell::makeTerrain(
+    unsigned int pointSubdivisionFactor,
+    unsigned int subdivisionFactor,
+    float minCellSize,
+    AFK_Terrain& terrain,
+    AFK_RNG& rng) const
 {
     /* Make the terrain cell for this actual cell. */
     AFK_TerrainCell terrainCell(coord);
     rng.seed(worldCell.rngSeed());
-    terrainCell.make(rng);
+    terrainCell.make(pointSubdivisionFactor, subdivisionFactor, minCellSize, rng);
     terrain.push(terrainCell);
 
     /* TODO Re-enable this when the basics look OK */
@@ -367,7 +372,7 @@ void AFK_RealCell::makeTerrain(AFK_Terrain& terrain, AFK_RNG& rng) const
     {
         AFK_TerrainCell terrainHalfCell(halfCells[i].coord);
         rng.seed(halfCells[i].worldCell.rngSeed());
-        terrainHalfCell.make(rng);
+        terrainHalfCell.make(pointSubdivisionFactor, subdivisionFactor, minCellSize, rng);
         terrain.push(terrainHalfCell);
     }
 #endif /* HALFCELL_TERRAIN */ 

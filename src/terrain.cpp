@@ -5,7 +5,6 @@
 #include <cmath>
 #include <sstream>
 
-#include "core.hpp"
 #include "exception.hpp"
 #include "terrain.hpp"
 
@@ -109,7 +108,7 @@ AFK_TerrainCell& AFK_TerrainCell::operator=(const AFK_TerrainCell& c)
     return *this;
 }
 
-void AFK_TerrainCell::make(AFK_RNG& rng)
+void AFK_TerrainCell::make(unsigned int pointSubdivisionFactor, unsigned int subdivisionFactor, float minCellSize, AFK_RNG& rng)
 {
 #if 1
     /* To test, I'm only going to include features
@@ -127,7 +126,7 @@ void AFK_TerrainCell::make(AFK_RNG& rng)
      * polygonal landscape so that I can actually see what I've
      * made.
      */
-    if (cellCoord.v[3] > (2.0f * afk_core.landscape->minCellSize))
+    if (cellCoord.v[3] > (64.0f * minCellSize))
     {
         featureCount = 0;
         return;
@@ -146,35 +145,62 @@ void AFK_TerrainCell::make(AFK_RNG& rng)
      */
     unsigned int descriptor = rng.uirand();
 
+#if 0
     /* So as not to run out of the cell, the maximum
      * size for a feature is equal to 1 divided by
      * the number of features that could appear there.
      * The half cells mechanism means any point could
      * have up to 2 features on it.
      */
-    float featureScaleFactor = 1.0f / (2.0f * TERRAIN_FEATURE_COUNT_PER_CELL);
+    float maxFeatureSize = 1.0f / (2.0f * TERRAIN_FEATURE_COUNT_PER_CELL);
 
-    /* So that they don't run off the sides, each feature
-     * is confined to (featureScaleFactor, 1.0-featureScaleFactor)
-     * on the x, z co-ordinates.
-     * That means the x or z location is featureScaleFactor +
-     * (0.0-1.0)*featureLocationFactor in cell co-ordinates
+    /* ... and the *minimum* size of a feature is equal
+     * to that divided by the cell subdivision factor;
+     * features smaller than that should be in subcells
      */
-    float featureLocationFactor = 1.0f - (2.0f * featureScaleFactor);
+    float minFeatureSize = maxFeatureSize / (float)subdivisionFactor;
+#else
+    /* The maximum size of a feature is equal to the cell size
+     * divided by the point subdivision factor.  Like that, I
+     * shouldn't get humongous feature pop-in when changing LoDs:
+     * all features are minimally visible at greatest zoom.
+     * (There will necessarily be a BIT of feature pop-in when
+     * they add together.)
+     */
+    float maxFeatureSize = 1.0f / ((float)pointSubdivisionFactor);
 
-    featureCount = descriptor % (TERRAIN_FEATURE_COUNT_PER_CELL + 1) + 1; /* between 1 and TERRAIN_FEATURE_COUNT_PER_CELL */
+    /* ... and the *minimum* size of a feature is equal
+     * to that divided by the cell subdivision factor;
+     * features smaller than that should be in subcells
+     */
+    float minFeatureSize = maxFeatureSize / (float)subdivisionFactor;
+#endif
+
+    /* I want between 1 and TERRAIN_FEATURE_COUNT_PER_CELL features. */
+    featureCount = (descriptor % TERRAIN_FEATURE_COUNT_PER_CELL) + 1;
     for (unsigned int i = 0; i < featureCount; ++i)
     {
-        features[i] = AFK_TerrainFeature(
-            AFK_TERRAIN_SQUARE_PYRAMID,
-            Vec3<float>( /* location */
-                rng.frand() * featureLocationFactor + featureScaleFactor,
-                0.0f,
-                rng.frand() * featureLocationFactor + featureScaleFactor),
-            Vec3<float>( /* scale */
-                rng.frand() * featureScaleFactor,
-                rng.frand() * featureScaleFactor,
-                rng.frand() * featureScaleFactor));
+        /* Pick our feature scale. */
+        Vec3<float> scale(
+            rng.frand() * (maxFeatureSize - minFeatureSize) + minFeatureSize,
+            rng.frand() * (maxFeatureSize - minFeatureSize) + minFeatureSize,
+            rng.frand() * (maxFeatureSize - minFeatureSize) + minFeatureSize);
+
+        /* To stop it from running off the sides, each feature
+         * is confined to (scale, 1.0-scale) on the
+         * (x, z) co-ordinates.
+         */
+        float minFeatureLocationX = scale.v[0];
+        float maxFeatureLocationX = 1.0f - scale.v[0];
+        float minFeatureLocationZ = scale.v[2];
+        float maxFeatureLocationZ = 1.0f - scale.v[2];
+
+        Vec3<float> location(
+            rng.frand() * (maxFeatureLocationX - minFeatureLocationX) + minFeatureLocationX,
+            0.0f,
+            rng.frand() * (maxFeatureLocationZ - minFeatureLocationZ) + minFeatureLocationZ);
+
+        features[i] = AFK_TerrainFeature(AFK_TERRAIN_SQUARE_PYRAMID, location, scale);
     }
 } 
 

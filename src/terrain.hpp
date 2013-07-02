@@ -116,7 +116,7 @@ public:
     /* Assumes the RNG to have been seeded correctly for
      * the cell.
      */
-    void make(AFK_RNG& rng);
+    void make(unsigned int pointSubdivisionFactor, unsigned int subdivisionFactor, float minCellSize, AFK_RNG& rng);
 
     /* Computes in world co-ordinates each of the
      * terrain features and puts them together.

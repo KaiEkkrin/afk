@@ -167,7 +167,12 @@ public:
     /* Makes this cell's terrain.  Pushes back the terrain
      * cells onto the terrain object.
      */
-    void makeTerrain(AFK_Terrain& terrain, AFK_RNG& rng) const;
+    void makeTerrain(
+        unsigned int pointSubdivisionFactor,
+        unsigned int subdivisionFactor,
+        float minCellSize,
+        AFK_Terrain& terrain,
+        AFK_RNG& rng) const;
 
     /* Removes this cell's terrain from the terrain
      * object.  Doesn't work unless you called
