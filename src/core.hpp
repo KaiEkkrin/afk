@@ -13,6 +13,7 @@
 #include "def.hpp"
 #include "display.hpp"
 #include "landscape.hpp"
+#include "light.hpp"
 #include "rng/rng.hpp"
 
 class AFK_Core
@@ -39,8 +40,10 @@ public:
     /* The landscape. */
     AFK_Landscape       *landscape;
 
+    /* Global lighting. */
+    AFK_Light           sun;
+
     /* To track various special objects. */
-    AFK_DisplayedTestObject         *testObject;
     AFK_DisplayedProtagonist        *protagonist;
 
     /* Input state. */

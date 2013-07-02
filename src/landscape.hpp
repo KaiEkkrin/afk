@@ -49,8 +49,8 @@ public:
 
     AFK_LandscapeCell(
         GLuint _program,
-        GLuint _transformLocation,
-        GLuint _fixedColorLocation,
+        GLuint _worldTransformLocation,
+        GLuint _clipTransformLocation,
         const AFK_RealCell& cell,
         unsigned int pointSubdivisionFactor,
         const AFK_Terrain& terrain,
@@ -69,8 +69,8 @@ class AFK_Landscape
 public:
     /* Landscape shader details. */
     AFK_ShaderProgram *shaderProgram;
-    GLuint transformLocation;
-    GLuint fixedColorLocation;
+    GLuint worldTransformLocation;
+    GLuint clipTransformLocation;
 
     /* Maps a cell identifier to its displayed landscape
      * object.  For now, the displayed landscape object

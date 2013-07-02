@@ -4,8 +4,20 @@
 #define _AFK_DISPLAY_H_
 
 #include "afk.hpp"
+#include "light.hpp"
 #include "object.hpp"
 #include "shader.hpp"
+
+
+/* Describes the layout of a vertex for the vcol_phong
+ * shader sequence.
+ */
+struct AFK_VcolPhongVertex
+{
+    float       location[3];
+    float       colour[3];
+    float       normal[3];
+};
 
 class AFK_DisplayedObject
 {
@@ -20,13 +32,17 @@ public:
      */
     AFK_ShaderProgram *shaderProgram;
 
-    /* The uniform variable in the shader program that
-     * contains the transform to apply to this object when
-     * rendered. */
-    GLuint transformLocation;
+    /* The world transform goes here. */
+    GLuint worldTransformLocation;
 
-    /* The location of the `fixed color' variable. */
-    GLuint fixedColorLocation;
+    /* The clip transform goes here. */
+    GLuint clipTransformLocation;
+
+    /* The light goes here. */
+    AFK_ShaderLight *shaderLight;
+
+    /* Vertices and indices */
+    GLuint bufs[2];
 
     /* The "Object" describes how this object is scaled,
      * rotated and transformed, etc.
@@ -35,35 +51,15 @@ public:
      */
     AFK_Object object;
 
-    /* This object's base colour. */
-    Vec3<float> colour;
-
     AFK_DisplayedObject();
     virtual ~AFK_DisplayedObject();
 
     virtual void display(const Mat4<float>& projection) = 0;
 };
 
-/* TODO Now follow declarations of some things I'm
- * using to test.  Maybe I want to move these, etc? */
-class AFK_DisplayedTestObject: public AFK_DisplayedObject
-{
-public:
-    /* The vertex set. */
-    GLuint vertices;
-
-    AFK_DisplayedTestObject();
-    virtual ~AFK_DisplayedTestObject();
-
-    virtual void display(const Mat4<float>& projection);
-};
-
 class AFK_DisplayedProtagonist: public AFK_DisplayedObject
 {
 public:
-    /* Vertices and indices. */
-    GLuint bufs[2];
-
     AFK_DisplayedProtagonist();
     virtual ~AFK_DisplayedProtagonist();
 

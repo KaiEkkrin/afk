@@ -37,6 +37,15 @@ public:
         return *this;
     }
 
+    Vec3<F>& normalise()
+    {
+        F mag = magnitude();
+        v[0] = v[0] / mag;
+        v[1] = v[1] / mag;
+        v[2] = v[2] / mag;
+        return *this;
+    }
+
     Vec3<F> operator-(const Vec3<F>& p) const
     {
         return Vec3<F>(v[0] - p.v[0], v[1] - p.v[1], v[2] - p.v[2]);

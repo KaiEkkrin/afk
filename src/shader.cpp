@@ -15,9 +15,13 @@
 #include "shader.hpp"
 
 struct shaderSpec shaders[] = {
-    {   GL_FRAGMENT_SHADER, 0,  "basic_fragment.glsl"       },
-    {   GL_VERTEX_SHADER,   0,  "basic_vertex.glsl"         },
-    {   0,                  0,  ""                          }
+    {   GL_FRAGMENT_SHADER, 0,  "basic_fragment.glsl"           },
+    {   GL_VERTEX_SHADER,   0,  "basic_vertex.glsl"             },
+    {   GL_FRAGMENT_SHADER, 0,  "vcol_phong_fragment.glsl"      },
+    {   GL_VERTEX_SHADER,   0,  "vcol_phong_vertex.glsl"        },
+    {   GL_FRAGMENT_SHADER, 0,  "vertexColour_fragment.glsl"    },
+    {   GL_VERTEX_SHADER,   0,  "vertexColour_vertex.glsl"      },
+    {   0,                  0,  ""                              }
 };
 
 

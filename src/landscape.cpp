@@ -18,16 +18,22 @@
 
 AFK_LandscapeCell::AFK_LandscapeCell(
     GLuint _program,
-    GLuint _transformLocation,
-    GLuint _fixedColorLocation,
+    GLuint _worldTransformLocation,
+    GLuint _clipTransformLocation,
     const AFK_RealCell& cell,
     unsigned int pointSubdivisionFactor,
     const AFK_Terrain& terrain,
     AFK_RNG& rng)
 {
     program = _program;
-    transformLocation = _transformLocation;
-    fixedColorLocation = _fixedColorLocation;
+    worldTransformLocation = _worldTransformLocation;
+    clipTransformLocation = _clipTransformLocation;
+
+    /* TODO re-enable this, and fix it to make triangles, after
+     * I've confirmed that I got the vcol_phong thing right
+     * using the protagonist.
+     */
+#if 0
 
     /* Seed the RNG for this cell. */
     rng.seed(cell.worldCell.rngSeed());
@@ -106,6 +112,7 @@ AFK_LandscapeCell::AFK_LandscapeCell(
      */
     rng.seed(cell.worldCell.rngSeed());
     colour = Vec3<float>(rng.frand(), rng.frand(), rng.frand());
+#endif /* 0 */
 }
 
 AFK_LandscapeCell::~AFK_LandscapeCell()
@@ -115,6 +122,8 @@ AFK_LandscapeCell::~AFK_LandscapeCell()
 
 void AFK_LandscapeCell::display(const Mat4<float>& projection)
 {
+/* TODO as above. */
+#if 0
     if (vertices != 0)
     {
         /* TODO Do I have to do `glUseProgram' once per cell, really?
@@ -134,18 +143,9 @@ void AFK_LandscapeCell::display(const Mat4<float>& projection)
 
         glDisableVertexAttribArray(0);
     }
+#endif
 }
 
-#if 0
-std::ostream& operator<<(std::ostream& os, const AFK_LandscapeCell& cell)
-{
-    return os << "LandscapeCell(" <<
-        cell.coord.v[0] << ", " <<
-        cell.coord.v[1] << ", " <<
-        cell.coord.v[2] << ", scale " <<
-        cell.coord.v[3] << ")";
-}
-#endif
 
 /* AFK_Landscape implementation */
 
@@ -158,11 +158,11 @@ AFK_Landscape::AFK_Landscape(size_t _cacheSize, float _maxDistance, unsigned int
 
     /* Set up the landscape shader. */
     shaderProgram = new AFK_ShaderProgram();
-    *shaderProgram << "basic_fragment" << "basic_vertex";
+    *shaderProgram << "vcol_phong_fragment" << "vcol_phong_vertex";
     shaderProgram->Link();
 
-    transformLocation = glGetUniformLocation(shaderProgram->program, "transform");
-    fixedColorLocation = glGetUniformLocation(shaderProgram->program, "fixedColor");
+    worldTransformLocation = glGetUniformLocation(shaderProgram->program, "WorldTransform");
+    clipTransformLocation = glGetUniformLocation(shaderProgram->program, "ClipTransform");
 
     /* TODO Make this a parameter. */
     pointSubdivisionFactor = 8;
@@ -295,8 +295,8 @@ void AFK_Landscape::enqueueSubcells(
                 if (!landscapeCell)
                     landscapeCell = new AFK_LandscapeCell(
                         shaderProgram->program,
-                        transformLocation,
-                        fixedColorLocation,
+                        worldTransformLocation,
+                        clipTransformLocation,
                         realCell,
                         pointSubdivisionFactor,
                         terrain,

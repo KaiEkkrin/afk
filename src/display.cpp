@@ -11,100 +11,68 @@
 #include "object.hpp"
 
 
+
 AFK_DisplayedObject::AFK_DisplayedObject()
 {
     shaderProgram = NULL;
-    transformLocation = 0;
-    fixedColorLocation = 0;
+    worldTransformLocation = 0;
+    clipTransformLocation = 0;
+    shaderLight = NULL;
 }
 
 AFK_DisplayedObject::~AFK_DisplayedObject()
 {
+    if (shaderLight) delete shaderLight;
     if (shaderProgram) delete shaderProgram;
 }
 
 void AFK_DisplayedObject::updateTransform(const Mat4<float>& projection)
 {
-    Mat4<float> objectTransform = projection * object.getTransformation();
-    glUniformMatrix4fv(transformLocation, 1, GL_TRUE, &objectTransform.m[0][0]);
-}
+    Mat4<float> worldTransform = object.getTransformation();
+    Mat4<float> clipTransform = projection * worldTransform;
 
-AFK_DisplayedTestObject::AFK_DisplayedTestObject()
-{
-    /* Link up the shader program I want. */
-    shaderProgram = new AFK_ShaderProgram();
-    *shaderProgram << "basic_fragment" << "basic_vertex";
-    shaderProgram->Link();
-
-    transformLocation = glGetUniformLocation(shaderProgram->program, "transform");
-    fixedColorLocation = glGetUniformLocation(shaderProgram->program, "fixedColor");
-
-    /* Setup the test object's data. */
-    float rawVertices[] = {
-        -1.0f,  -1.0f,  0.0f,
-        1.0f,   -1.0f,  0.0f,
-        0.0f,   1.0f,   0.0f
-    };
-
-    glGenBuffers(1, &vertices);
-    glBindBuffer(GL_ARRAY_BUFFER, vertices);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(rawVertices), rawVertices, GL_STATIC_DRAW);
-
-    colour = Vec3<float>(1.0f, 0.0f, 0.0f);
-}
-
-AFK_DisplayedTestObject::~AFK_DisplayedTestObject()
-{
-    glDeleteBuffers(1, &vertices);
-}
-
-void AFK_DisplayedTestObject::display(const Mat4<float>& projection)
-{
-    glUseProgram(shaderProgram->program);
-    glUniform3f(fixedColorLocation, colour.v[0], colour.v[1], colour.v[2]);
-
-    updateTransform(projection);
-
-    glEnableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, vertices);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-
-    glDisableVertexAttribArray(0);
+    glUniformMatrix4fv(worldTransformLocation, 1, GL_TRUE, &worldTransform.m[0][0]);
+    glUniformMatrix4fv(clipTransformLocation, 1, GL_TRUE, &clipTransform.m[0][0]);
 }
 
 AFK_DisplayedProtagonist::AFK_DisplayedProtagonist()
 {
     /* Link up the shader program I want. */
     shaderProgram = new AFK_ShaderProgram();
-    *shaderProgram << "basic_fragment" << "basic_vertex";
+    *shaderProgram << "vcol_phong_fragment" << "vcol_phong_vertex";
     shaderProgram->Link();
 
-    transformLocation = glGetUniformLocation(shaderProgram->program, "transform");
-    fixedColorLocation = glGetUniformLocation(shaderProgram->program, "fixedColor");
+    worldTransformLocation = glGetUniformLocation(shaderProgram->program, "WorldTransform");
+    clipTransformLocation = glGetUniformLocation(shaderProgram->program, "ClipTransform");
+
+    shaderLight = new AFK_ShaderLight(shaderProgram->program);
 
     /* For now, I'm going to make a simple flat chevron
      * facing in the travel direction, because I can't
      * generate cool ones yet.
+     * TODO: To test vcol_phong, I'm going to set it up
+     * with some static colour and highly phony normals.
+     * This will look weird but it should serve as a
+     * test.
      */
-    float rawVertices[] = {
+    struct AFK_VcolPhongVertex rawVertices[] = {
+        /* location ...                             colour ...                  normal */
+
         /* bow */
-        0.0f,   0.0f,   2.0f,   /* 0 */
+        {{   0.0f,   0.0f,   2.0f,   },  /* 0 */     {   0.2f, 1.0f, 1.0f,   },  {   0.0f, 0.0f, 1.0f,   }},
 
         /* top and bottom */
-        0.0f,   0.3f,   -0.5f,  /* 1 */
-        0.0f,   -0.3f,  -0.5f,  /* 2 */
+        {{   0.0f,   0.3f,   -0.5f,  },  /* 1 */     {   0.2f, 1.0f, 1.0f,   },  {   0.0f, 1.0f, 0.0f,   }},
+        {{   0.0f,   -0.3f,  -0.5f,  },  /* 2 */     {   0.2f, 1.0f, 1.0f,   },  {   0.0f, -1.0f, 0.0f,  }},
 
         /* wingtips */
-        1.0f,   0.0f,   -0.5f,  /* 3 */
-        -1.0f,  0.0f,   -0.5f,  /* 4 */
+        {{   1.0f,   0.0f,   -0.5f,  },  /* 3 */     {   0.2f, 1.0f, 1.0f,   },  {   1.0f, 0.0f, 0.0f,   }},
+        {{   -1.0f,  0.0f,   -0.5f,  },  /* 4 */     {   0.2f, 1.0f, 1.0f,   },  {   -1.0f, 0.0f, 0.0f,  }},
 
         /* concave stern */
-        0.0f,   0.0f,   0.0f,   /* 5 */
+        {{   0.0f,   0.0f,   0.0f,   },  /* 5 */     {   0.2f, 1.0f, 1.0f,   },  {   0.0f, 0.0f, -1.0f,  }},
     };
 
-    /* TODO Only the top two triangles are rendering.  Why? */
     unsigned int rawIndices[] = {
         /* bow/top/wingtips */
         0, 1, 3,
@@ -128,8 +96,6 @@ AFK_DisplayedProtagonist::AFK_DisplayedProtagonist()
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bufs[1]);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(rawIndices), rawIndices, GL_STATIC_DRAW);
-
-    colour = Vec3<float>(0.2f, 1.0f, 1.0f);
 }
 
 AFK_DisplayedProtagonist::~AFK_DisplayedProtagonist()
@@ -140,18 +106,28 @@ AFK_DisplayedProtagonist::~AFK_DisplayedProtagonist()
 void AFK_DisplayedProtagonist::display(const Mat4<float>& projection)
 {
     glUseProgram(shaderProgram->program);
-    glUniform3f(fixedColorLocation, colour.v[0], colour.v[1], colour.v[2]);
 
     updateTransform(projection);
 
+    shaderLight->setupLight(afk_core.sun);
+
     glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+
     glBindBuffer(GL_ARRAY_BUFFER, bufs[0]);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), 0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(3 * sizeof(float)));
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(6 * sizeof(float)));
+
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bufs[1]);
 
     glDrawElements(GL_TRIANGLES, 8*3, GL_UNSIGNED_INT, 0);
 
     glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
+    glDisableVertexAttribArray(2);
 }
 
 
@@ -161,8 +137,10 @@ void afk_display(void)
 
     glClear(GL_COLOR_BUFFER_BIT);
 
-    afk_core.landscape->display(projection);
-    afk_core.testObject->display(projection);
+    /* TODO Put this back after I've sorted out the protagonist
+     * lighting.
+     */
+    //afk_core.landscape->display(projection);
     afk_core.protagonist->display(projection);
 
     glFlush();

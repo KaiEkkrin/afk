@@ -66,11 +66,7 @@ static void afk_idle(void)
 
     /* Manage the other objects.
      * TODO A call-through to AI stuff probably goes here?
-     * For now, I'm just going to wiggle testObject about in a
-     * silly manner.
      */
-    afk_core.testObject->object.adjustAttitude(AXIS_ROLL, 0.02f);
-    afk_core.testObject->object.displace(Vec3<float>(0.0f, 0.03f, 0.0f));
 
     /* Update the landscape, deciding which bits of it I'm going
      * to draw.
@@ -92,7 +88,6 @@ AFK_Core::AFK_Core()
     rng             = NULL;
     camera          = NULL;
     landscape       = NULL;
-    testObject      = NULL;
     protagonist     = NULL;
     frameCounter    = 0;
 }
@@ -104,7 +99,6 @@ AFK_Core::~AFK_Core()
     if (rng) delete rng;
     if (camera) delete camera;
     if (landscape) delete landscape;
-    if (testObject) delete testObject;  
     if (protagonist) delete protagonist;
 
     std::cout << "AFK: Core destroyed" << std::endl;
@@ -165,6 +159,19 @@ void AFK_Core::configure(int *argcp, char **argv)
      * fixed 3rd person view here.
      */
     camera = new AFK_Camera(Vec3<float>(0.0f, -1.5f, 3.0f));
+
+    /* Set up the sun.  (TODO: Make configurable?  Randomly
+     * generated?  W/e :) )
+     */
+    sun.colour[0] = 0.8f;       sun.colour[1] = 0.8f;       sun.colour[2] = 0.6f;
+
+    Vec3<float> sunDirection = Vec3<float>(0.0f, -1.0f, 1.0f).normalise();
+    sun.direction[0] = sunDirection.v[0];
+    sun.direction[1] = sunDirection.v[1];
+    sun.direction[2] = sunDirection.v[2];
+
+    sun.ambient = 0.2f;
+    sun.diffuse = 1.0f;
 }
 
 void AFK_Core::loop(void)
@@ -173,7 +180,6 @@ void AFK_Core::loop(void)
     afk_loadShaders(config->shadersDir);
 
     /* Initialise the starting objects. */
-    testObject = new AFK_DisplayedTestObject();
     landscape = new AFK_Landscape( /* TODO tweak this initialisation...  extensively, and make it configurable */
         1000000,            /* cacheSize */
         config->zFar / 2.0f,/* maxDistance -- zFar must be a lot bigger or things will vanish */
