@@ -22,9 +22,27 @@ static void computeFlatTriangle(
     const Vec3<float>& vert3,
     struct AFK_VcolPhongVertex *triangleVPos)
 {
-    struct AFK_VcolPhongVertex *triV1 = triangleVPos;
-    struct AFK_VcolPhongVertex *triV2 = triangleVPos + 1;
-    struct AFK_VcolPhongVertex *triV3 = triangleVPos + 2;
+    struct AFK_VcolPhongVertex *triV1;
+    struct AFK_VcolPhongVertex *triV2;
+    struct AFK_VcolPhongVertex *triV3;
+
+    Vec3<float> crossP = ((vert2 - vert1).cross(vert3 - vert1));
+
+    /* Try to sort out the winding order so that under GL_CCW,
+     * all triangles are facing upwards
+     */
+    if (crossP.v[1] < 0.0f)
+    {
+        triV1 = triangleVPos;
+        triV2 = triangleVPos + 1;
+        triV3 = triangleVPos + 2;
+    }
+    else
+    {
+        triV1 = triangleVPos;
+        triV2 = triangleVPos + 2;
+        triV3 = triangleVPos + 1;
+    }   
 
     vert1.toArray(&triV1->location[0]);
     vert2.toArray(&triV2->location[0]);
@@ -35,7 +53,7 @@ static void computeFlatTriangle(
     triV1->colour[1] = triV2->colour[1] = triV3->colour[1] = 0.8f;
     triV1->colour[2] = triV2->colour[2] = triV3->colour[2] = 0.4f;
 
-    Vec3<float> normal = ((vert2 - vert1).cross(vert3 - vert1)).normalise();
+    Vec3<float> normal = crossP.normalise();
     normal.toArray(&triV1->normal[0]);
     normal.toArray(&triV2->normal[0]);
     normal.toArray(&triV3->normal[0]);

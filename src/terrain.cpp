@@ -203,9 +203,12 @@ bool AFK_TerrainCell::compute(Vec3<float>& c) const
          * this cell
          * TODO: Finesse as described above
          */
+        /* TODO: Is this actually very slow? */
+        /*
         csc.v[0] = fmod(csc.v[0], 1.0f);
         csc.v[1] = fmod(csc.v[1], 1.0f);
         csc.v[2] = fmod(csc.v[2], 1.0f);
+         */
 
         /* Update `c' with the transformed terrain and notify
          * the caller that we found terrain here.

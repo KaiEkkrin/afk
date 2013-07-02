@@ -135,7 +135,11 @@ void afk_display(void)
 {
     Mat4<float> projection = afk_core.camera->getProjection();
 
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
 
     afk_core.landscape->display(projection);
     afk_core.protagonist->display(projection);

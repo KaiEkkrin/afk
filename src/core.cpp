@@ -109,7 +109,7 @@ void AFK_Core::initGraphics(int *argcp, char **argv)
     GLenum res;
 
     glutInit(argcp, argv); // TODO check what exactly this does
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
 
     /* TODO Full screen by default?  Pull configuration from file / from cmdline? */
     glutCreateWindow("AFK");
