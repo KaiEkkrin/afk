@@ -26,6 +26,21 @@ public:
         return *this;
     }
 
+    Vec3<F>& fromArray(const F* a)
+    {
+        v[0] = *a;
+        v[1] = *(a+1);
+        v[2] = *(a+2);
+        return *this;
+    }
+
+    void toArray(F* a) const
+    {
+        *a = v[0];
+        *(a+1) = v[1];
+        *(a+2) = v[2];
+    }
+
     Vec3<F> operator+(const Vec3<F>& p) const
     {
         return Vec3<F>(v[0] + p.v[0], v[1] + p.v[1], v[2] + p.v[2]);
@@ -69,6 +84,14 @@ public:
     F dot(const Vec3<F>& p) const
     {
         return v[0] * p.v[0] + v[1] * p.v[1] + v[2] * p.v[2];
+    }
+
+    Vec3<F> cross(const Vec3<F>& p) const
+    {
+        return Vec3<F>(
+            v[1] * p.v[2] - v[2] * p.v[1],
+            v[2] * p.v[0] - v[0] * p.v[2],
+            v[0] * p.v[1] - v[1] * p.v[0]);
     }
 };
 

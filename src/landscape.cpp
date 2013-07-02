@@ -14,6 +14,120 @@
 #define PROTAGONIST_CELL_DEBUG 1
 
 
+/* AFK_LandscapeCell workers. */
+
+static void computeFlatTriangle(
+    const Vec3<float>& vert1,
+    const Vec3<float>& vert2,
+    const Vec3<float>& vert3,
+    struct AFK_VcolPhongVertex *triangleVPos)
+{
+    struct AFK_VcolPhongVertex *triV1 = triangleVPos;
+    struct AFK_VcolPhongVertex *triV2 = triangleVPos + 1;
+    struct AFK_VcolPhongVertex *triV3 = triangleVPos + 2;
+
+    vert1.toArray(&triV1->location[0]);
+    vert2.toArray(&triV2->location[0]);
+    vert3.toArray(&triV3->location[0]);
+
+    /* TODO Apply a colour through the terrain? */
+    triV1->colour[0] = triV2->colour[0] = triV3->colour[0] = 0.4f;
+    triV1->colour[1] = triV2->colour[1] = triV3->colour[1] = 0.8f;
+    triV1->colour[2] = triV2->colour[2] = triV3->colour[2] = 0.4f;
+
+    Vec3<float> normal = ((vert2 - vert1).cross(vert3 - vert1)).normalise();
+    normal.toArray(&triV1->normal[0]);
+    normal.toArray(&triV2->normal[0]);
+    normal.toArray(&triV3->normal[0]);
+}
+
+/* Turns a vertex grid into a landscape of flat triangles.
+ * (Each triangle has different vertices because the normals
+ * are different, so no index array is used.)
+ * Call with NULL `triangleVs' to find out how large the
+ * triangles array ought to be.
+ */
+static void vertices2FlatTriangles(
+    float *vertices,
+    unsigned int verticesCount,
+    unsigned int pointSubdivisionFactor,
+    struct AFK_VcolPhongVertex *triangleVs,
+    unsigned int *triangleVsCount)
+{
+    /* Each vertex generates 2 triangles (i.e. 6 triangle vertices) when
+     * combined with the 3 vertices adjacent to it.  However, I don't
+     * run off the edges of the subdivision like this.  So:
+     */
+    /* TODO The above comment is a lie: right now I have BIG BLACK GUTTERS.
+     * However, in order to avoid the gutters I need to be able to compute a
+     * cell's terrain function outside of the cell boundaries, which conflicts
+     * with the current landscape determination algorithm.  I need to fix the
+     * latter to pin a single landscape starting at y=0.
+     */
+    unsigned int expectedTriangleVsCount = SQUARE(pointSubdivisionFactor - 1) * 6;
+
+    if (!triangleVs)
+    {
+        /* Just output the required size */
+        *triangleVsCount = expectedTriangleVsCount;
+    }
+    else
+    {
+        if (*triangleVsCount < expectedTriangleVsCount)
+        {
+            std::ostringstream ss;
+            ss << "vertices2FlatTriangles: supplied " << *triangleVsCount << " triangle vertices (needed " << expectedTriangleVsCount << ")";
+            throw AFK_Exception(ss.str());
+        }
+
+        *triangleVsCount = expectedTriangleVsCount;
+
+        /* To make the triangles, I chew one row and the next at once.
+         * Each triangle pair is:
+         * ((row2, col1), (row1, col1), (row1, col2)),
+         * ((row2, col1), (row1, col2), (row2, col2)).
+         */
+        struct AFK_VcolPhongVertex *triangleVPos = triangleVs;
+        for (unsigned int row = 0; row < (pointSubdivisionFactor-1); ++row)
+        {
+            for (unsigned int col = 0; col < (pointSubdivisionFactor-1); ++col)
+            {
+                float *r1c1 = vertices + 3 * row * pointSubdivisionFactor + 3 * col;
+                float *r1c2 = vertices + 3 * row * pointSubdivisionFactor + 3 * (col + 1);
+                float *r2c1 = vertices + 3 * (row + 1) * pointSubdivisionFactor + 3 * col;
+                float *r2c2 = vertices + 3 * (row + 1) * pointSubdivisionFactor + 3 * (col + 1);
+
+                computeFlatTriangle(
+                    Vec3<float>().fromArray(r2c1), Vec3<float>().fromArray(r1c1), Vec3<float>().fromArray(r1c2), triangleVPos);
+                triangleVPos += 3;
+                computeFlatTriangle(
+                    Vec3<float>().fromArray(r2c1), Vec3<float>().fromArray(r1c2), Vec3<float>().fromArray(r2c2), triangleVPos);
+                triangleVPos += 3;
+            }
+        }
+    }
+}
+
+
+/* Turns a vertex grid into a landscape of curved triangles,
+ * producing an array of AFK_VcolPhongVertex and also an
+ * index array.
+ * Again, call with NULL pointers to find out how big the
+ * arrays ought to be.
+ */
+#if 0
+static void vertices2CurvedTriangles(
+    float *vertices,
+    size_t verticesCount,
+    struct AFK_VcolPhongVertex *triangles,
+    size_t *io_trianglesCount,
+    unsigned int *indices,
+    size_t *indicesCount)
+{
+    /* TODO. */
+}
+#endif
+
 /* AFK_LandscapeCell implementation */
 
 AFK_LandscapeCell::AFK_LandscapeCell(
@@ -28,30 +142,19 @@ AFK_LandscapeCell::AFK_LandscapeCell(
     program = _program;
     worldTransformLocation = _worldTransformLocation;
     clipTransformLocation = _clipTransformLocation;
-
-    /* TODO re-enable this, and fix it to make triangles, after
-     * I've confirmed that I got the vcol_phong thing right
-     * using the protagonist.
-     */
-#if 0
+    shaderLight = new AFK_ShaderLight(_program); /* TODO heap thrashing :P */
 
     /* Seed the RNG for this cell. */
     rng.seed(cell.worldCell.rngSeed());
 
     vertexCount = SQUARE(pointSubdivisionFactor);
     float *rawVertices = NULL;
-    size_t rawVerticesSize = sizeof(float) * 3 * vertexCount;
+    unsigned int rawVerticesCount = 3 * vertexCount;
 
     /* TODO This is thrashing the heap.  Try making a single
      * scratch place for this in thread-local storage
      */
-    rawVertices = (float *)malloc(rawVerticesSize);
-    if (!rawVertices)
-    {
-        std::ostringstream ss;
-        ss << "Unable to allocate vertex array for landscape cell " << cell.worldCell;
-        throw AFK_Exception(ss.str());
-    }
+    rawVertices = new float[rawVerticesCount];
 
     /* Populate the vertex array. */
     float *rawVerticesPos = rawVertices;
@@ -100,19 +203,26 @@ AFK_LandscapeCell::AFK_LandscapeCell(
         *(rawVerticesPos+2) = rawSample.v[2];
     }
 
+    /* I've completed my vertex array!  Transform this into an
+     * array of VcolPhongVertex by computing colours and normals
+     */
+    struct AFK_VcolPhongVertex *triangleVs = NULL;
+    unsigned int triangleVsCount;
+
+    vertices2FlatTriangles(rawVertices, rawVerticesCount, pointSubdivisionFactor, NULL, &triangleVsCount);
+    triangleVs = new struct AFK_VcolPhongVertex[triangleVsCount];
+    vertices2FlatTriangles(rawVertices, rawVerticesCount, pointSubdivisionFactor, triangleVs, &triangleVsCount);
+
+    /* I don't need this any more... */
+    delete[] rawVertices;
+
     /* Turn this into an OpenGL vertex buffer */
     glGenBuffers(1, &vertices);
     glBindBuffer(GL_ARRAY_BUFFER, vertices);
-    glBufferData(GL_ARRAY_BUFFER, rawVerticesSize, rawVertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, triangleVsCount * sizeof(struct AFK_VcolPhongVertex), triangleVs, GL_STATIC_DRAW);
+    vertexCount = triangleVsCount;
 
-    free(rawVertices);
-
-    /* TODO For testing. Maybe I can come up with something neater; OTOH, maybe
-     * I don't want to :P
-     */
-    rng.seed(cell.worldCell.rngSeed());
-    colour = Vec3<float>(rng.frand(), rng.frand(), rng.frand());
-#endif /* 0 */
+    delete[] triangleVs;
 }
 
 AFK_LandscapeCell::~AFK_LandscapeCell()
@@ -122,8 +232,6 @@ AFK_LandscapeCell::~AFK_LandscapeCell()
 
 void AFK_LandscapeCell::display(const Mat4<float>& projection)
 {
-/* TODO as above. */
-#if 0
     if (vertices != 0)
     {
         /* TODO Do I have to do `glUseProgram' once per cell, really?
@@ -131,19 +239,27 @@ void AFK_LandscapeCell::display(const Mat4<float>& projection)
          * object do it before displaying its cells?
          */
         glUseProgram(program);
-        glUniform3f(fixedColorLocation, colour.v[0], colour.v[1], colour.v[2]);
 
         updateTransform(projection);
 
-        glEnableVertexAttribArray(0);
-        glBindBuffer(GL_ARRAY_BUFFER, vertices);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+        shaderLight->setupLight(afk_core.sun);
 
-        glDrawArrays(GL_POINTS, 0, vertexCount);
+        glEnableVertexAttribArray(0);
+        glEnableVertexAttribArray(1);
+        glEnableVertexAttribArray(2);
+
+        glBindBuffer(GL_ARRAY_BUFFER, vertices);
+
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), 0);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(3 * sizeof(float)));
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(6 * sizeof(float)));
+
+        glDrawArrays(GL_TRIANGLES, 0, vertexCount);
 
         glDisableVertexAttribArray(0);
+        glDisableVertexAttribArray(1);
+        glDisableVertexAttribArray(2);
     }
-#endif
 }
 
 

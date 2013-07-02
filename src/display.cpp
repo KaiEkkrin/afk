@@ -137,10 +137,7 @@ void afk_display(void)
 
     glClear(GL_COLOR_BUFFER_BIT);
 
-    /* TODO Put this back after I've sorted out the protagonist
-     * lighting.
-     */
-    //afk_core.landscape->display(projection);
+    afk_core.landscape->display(projection);
     afk_core.protagonist->display(projection);
 
     glFlush();
