@@ -373,7 +373,7 @@ void AFK_RealCell::makeTerrain(
 
         /* TODO Re-enable this when the basics look OK */
         /* Make the terrain cell for the four half-cells */
-#if HALFCELL_TERRAIN
+#if HALFCELL_TERRAIN != 0
         AFK_RealCell halfCells[4];
         enumerateHalfCells(&halfCells[0], 4);
         for (unsigned int i = 0; i < 4; ++i)
@@ -391,7 +391,7 @@ void AFK_RealCell::removeTerrain(AFK_Terrain& terrain) const
 {
     if (worldCell.coord.v[1] == 0)
     {
-#if HALFCELL_TERRAIN
+#if HALFCELL_TERRAIN != 0
         for (unsigned int i = 0; i < 5; ++i)
             terrain.pop();
 #else

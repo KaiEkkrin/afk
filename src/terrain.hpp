@@ -11,7 +11,7 @@
  * be computed, I guess.
  */
 
-#include <vector>
+#include <deque>
 
 #include "def.hpp"
 #include "rng/rng.hpp"
@@ -103,10 +103,12 @@ public:
      */
     void make(unsigned int pointSubdivisionFactor, unsigned int subdivisionFactor, float minCellSize, AFK_RNG& rng);
 
-    /* Computes in world co-ordinates each of the
+    /* Computes in cell co-ordinates each of the
      * terrain features and puts them together.
      */
     void compute(Vec3<float>& c) const;
+
+    friend class AFK_Terrain;
 };
 
 /* This describes an entire terrain. */
@@ -114,7 +116,7 @@ public:
 class AFK_Terrain
 {
 protected:
-    std::vector<AFK_TerrainCell> t;
+    std::deque<AFK_TerrainCell> t;
 
 public:
     AFK_Terrain() {}
@@ -123,7 +125,9 @@ public:
     void pop();
 
     /* Like AFK_TerrainCell::compute(), but chains
-     * together the entire terrain.
+     * together the entire terrain.  This time, the
+     * input should be in world space (it will come
+     * out like that, too).
      */
     void compute(Vec3<float>& c) const;
 };

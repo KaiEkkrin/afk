@@ -183,6 +183,10 @@ void AFK_TerrainCell::make(unsigned int pointSubdivisionFactor, unsigned int sub
          * is confined to (maxFeatureSize+scale, 1.0-scale-maxFeatureSize) on the
          * (x, z) co-ordinates.
          */
+        /* TODO how the F is this going wrong?!  Clamping all features to the
+         * exact centre as a sanity check
+         */
+#if 0
         float minFeatureLocationX = scale.v[0] + maxFeatureSize;
         float maxFeatureLocationX = 1.0f - scale.v[0] - maxFeatureSize;
         float minFeatureLocationZ = scale.v[2] + maxFeatureSize;
@@ -192,6 +196,9 @@ void AFK_TerrainCell::make(unsigned int pointSubdivisionFactor, unsigned int sub
             rng.frand() * (maxFeatureLocationX - minFeatureLocationX) + minFeatureLocationX,
             0.0f, /* not meaningful */
             rng.frand() * (maxFeatureLocationZ - minFeatureLocationZ) + minFeatureLocationZ);
+#else
+        Vec3<float> location(0.5f, 0.0f, 0.5f);
+#endif
 
         features[i] = AFK_TerrainFeature(AFK_TERRAIN_SQUARE_PYRAMID, location, scale);
     }
@@ -199,18 +206,8 @@ void AFK_TerrainCell::make(unsigned int pointSubdivisionFactor, unsigned int sub
 
 void AFK_TerrainCell::compute(Vec3<float>& c) const
 {
-    /* Make cell-space co-ordinates for `c' */
-    Vec3<float> csc(
-        (c.v[0] - cellCoord.v[0]) / cellCoord.v[3],
-        (c.v[1] - cellCoord.v[1]) / cellCoord.v[3],
-        (c.v[2] - cellCoord.v[2]) / cellCoord.v[3]);
-
-    /* Compute the terrain on the cell-space */
     for (unsigned int i = 0; i < featureCount; ++i)
-        features[i].compute(csc);
-
-    /* The y co-ordinate has been updated, transform it back. */
-    c.v[1] = csc.v[1] * cellCoord.v[3] + cellCoord.v[1];
+        features[i].compute(c);
 }
 
 
@@ -218,17 +215,64 @@ void AFK_TerrainCell::compute(Vec3<float>& c) const
 
 void AFK_Terrain::push(const AFK_TerrainCell& cell)
 {
-    t.push_back(cell);
+    t.push_front(cell);
 }
 
 void AFK_Terrain::pop()
 {
-    t.pop_back();
+    t.pop_front();
 }
 
+/* TODO This is still coming out weird.  Try sampling the terrain as
+ * `double' and then backing down again afterwards.
+ */
 void AFK_Terrain::compute(Vec3<float>& c) const
 {
-    for (std::vector<AFK_TerrainCell>::const_iterator tIt = t.begin(); tIt != t.end(); ++tIt)
-        tIt->compute(c);
+    /* Try starting with the smallest feature, and progressively
+     * going larger.  Hopefully this will minimise any
+     * mathematical inaccuracies due to finite precision
+     * arithmetic.
+     */
+
+    std::deque<AFK_TerrainCell>::const_iterator large = t.begin();
+    if (large != t.end())
+    {
+        /* First, transform to the space of the smallest terrain cell,
+         * which of course is `large' right now.
+         */
+        Vec3<float> csc(
+            (c.v[0] - large->cellCoord.v[0]) / large->cellCoord.v[3],
+            (c.v[1] - large->cellCoord.v[1]) / large->cellCoord.v[3],
+            (c.v[2] - large->cellCoord.v[2]) / large->cellCoord.v[3]);
+
+        ++large;
+        std::deque<AFK_TerrainCell>::const_iterator small = t.begin();
+
+        while (large != t.end())
+        {
+            /* Compute in the context of the small cell */
+            small->compute(csc);
+
+            /* Transform from the context of the small cell into the
+             * context of the large cell
+             */
+            float scaleFactor = large->cellCoord.v[3] / small->cellCoord.v[3];
+            csc = Vec3<float>(
+                (csc.v[0] - (large->cellCoord.v[0] - small->cellCoord.v[0])) / scaleFactor,
+                (csc.v[1] - (large->cellCoord.v[1] - small->cellCoord.v[1])) / scaleFactor,
+                (csc.v[2] - (large->cellCoord.v[2] - small->cellCoord.v[2])) / scaleFactor);
+
+            ++small;
+            ++large;
+        }
+
+        /* Do the last computation */
+        small->compute(csc);
+
+        /* Transform the y co-ordinate from `small' (now biggest-cell!) space back
+         * into world space
+         */
+        c.v[1] = csc.v[1] * small->cellCoord.v[3] + small->cellCoord.v[1];
+    }
 }
 
