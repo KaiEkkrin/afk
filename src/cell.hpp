@@ -98,6 +98,10 @@ public:
      */
     unsigned int subdivide(AFK_Cell *subCells, const size_t subCellsSize) const;
 
+/* TODO I don't think I need this */
+#define AUGMENTED_SUBCELLS 0
+
+#if AUGMENTED_SUBCELLS
     /* This does the same, except it also includes the
      * nearest subcells of the adjacent cells + along
      * each axis.  The idea is that each cell is described
@@ -109,6 +113,7 @@ public:
      * already, else the number of subcells made.
      */
     unsigned int augmentedSubdivide(AFK_Cell *augmentedSubcells, const size_t augmentedSubcellsSize) const;
+#endif
 
     /* Returns the parent cell to this one. */
     AFK_Cell parent(void) const;

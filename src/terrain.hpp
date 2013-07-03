@@ -21,14 +21,13 @@
  */
 enum AFK_TerrainType
 {
-    AFK_TERRAIN_FLAT                    = 0,
-    AFK_TERRAIN_SQUARE_PYRAMID          = 1
+    AFK_TERRAIN_SQUARE_PYRAMID          = 0
 };
 
 /* TODO Keep this updated with the current feature
  * count.
  */
-#define AFK_TERRAIN_FEATURE_TYPES 2
+#define AFK_TERRAIN_FEATURE_TYPES 1
 
 /* The encapsulation of any terrain feature.
  * A feature is computed at a particular location
@@ -48,34 +47,18 @@ enum AFK_TerrainType
  * TODO:
  * Right now the feature is not allowed to displace
  * the x or z co-ordinates, only the y co-ordinate.
- * Clearly features for objects (??) would displace
- * all 3, but that's incompatible with the current
- * test for remaining within cell boundaries.
- * Do I want a different system for moving objects
- * (not cell restricted in the same way)?
- * Have a think about this.
- *
- * Can I cunningly finesse a remain-within-cell-
- * boundaries thing by means of "bouncing": compute
- * the co-ordinate modulo the cell boundary, and if
- * the co-ordinate divided by the cell boundary (to
- * integer) is odd, make the co-ordinate (1 - co-ordinate
- * modulo cell boundary), i.e. cause excess co-ordinates
- * to bounce back and forth between the cell walls?
- * Anyway, sort out terrain feature space and make
- * the basic thing render properly first.
+ * I want a different system for objects.
  */
 class AFK_TerrainFeature
 {
 protected:
     enum AFK_TerrainType    type;
-    Vec3<float>             location;
+    Vec3<float>             location; /* y is always 0 */
     Vec3<float>             scale;
 
     /* The methods for computing each individual
      * terrain type.
      */
-    void compute_flat(Vec3<float>& c) const;
     void compute_squarePyramid(Vec3<float>& c) const;
 
 public:
@@ -88,7 +71,8 @@ public:
 
     AFK_TerrainFeature& operator=(const AFK_TerrainFeature& f);
 
-    /* Computes in cell co-ordinates. and updates `c'.
+    /* Computes in cell co-ordinates, updating the
+     * y co-ordinate.
      */
     void compute(Vec3<float>& c) const;
 };
@@ -99,22 +83,13 @@ public:
  * world co-ordinates.
  */
 
-#define TERRAIN_FEATURE_COUNT_PER_CELL 1
-
+#define TERRAIN_FEATURE_COUNT_PER_CELL 4 
 class AFK_TerrainCell
 {
 protected:
-    Vec4<float>         cellCoord; /* Like an AFK_RealCell */
+    Vec4<float>         cellCoord; /* Like an AFK_RealCell, but y always 0 */
     AFK_TerrainFeature  features[TERRAIN_FEATURE_COUNT_PER_CELL];
     unsigned int        featureCount;
-
-    /* Tells compute() whether to clip the terrain at the
-     * cell boundaries.  This should always be the case
-     * unless deliberately trying to make holes in it
-     * (e.g. with the starting cell -- cells not containing
-     * the starting plane shouldn't have landscape.)
-     */
-    bool clip;
 
 public:
     AFK_TerrainCell();
@@ -123,12 +98,6 @@ public:
 
     AFK_TerrainCell& operator=(const AFK_TerrainCell& c);
 
-    /* Call this to make a starting cell with a basic,
-     * flat landscape.
-     * `baseHeight' is a world-space height.
-     */
-    void start(float baseHeight);
-
     /* Assumes the RNG to have been seeded correctly for
      * the cell.
      */
@@ -136,12 +105,8 @@ public:
 
     /* Computes in world co-ordinates each of the
      * terrain features and puts them together.
-     * Updates `c' with the terrain modification if
-     * there is terrain here (otherwise leaves it alone),
-     * and returns true if there was terrain here, else
-     * false.
      */
-    bool compute(Vec3<float>& c) const;
+    void compute(Vec3<float>& c) const;
 };
 
 /* This describes an entire terrain. */
@@ -160,7 +125,7 @@ public:
     /* Like AFK_TerrainCell::compute(), but chains
      * together the entire terrain.
      */
-    bool compute(Vec3<float>& c) const;
+    void compute(Vec3<float>& c) const;
 };
 
 

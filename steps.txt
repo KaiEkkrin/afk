@@ -11,7 +11,8 @@
  - randomly distributed landscape in a grid (smallest cells only). OK
  - apply lighting to protagonist object. OK
  - triangular, lit landscape.  (no tessellation, just pre-defined triangle strips). OK (but fix z order)
- - x/z only terrain, with horizontal LoD.  all terrain mated to the cells with y=0.  terrain of arbitrary height.
+ - x/z only terrain, with horizontal LoD.  all terrain mated to the cells with y=0.  terrain of arbitrary height.  (expected glitch: when you can't see the floor, you can't see the terrain however high.  Unable to look up at mountains or down into troughs) OK (but with flaws)
+ - correct seam stitching.  See todo_stitching.txt.
  - migrate terrain geometry to adjacent cells along the y-axis.  vertical terrain LoD.
  - random protagonist with flat surfaces.
  - random objects in each cell.  object LoD.
@@ -24,4 +25,5 @@
  - opencl random number generator.
  - tessellation example.
  - tessellated landscape.
+ - parallel evaluation via task queueing.
 

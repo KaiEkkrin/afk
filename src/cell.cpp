@@ -98,6 +98,8 @@ unsigned int AFK_Cell::subdivide(AFK_Cell *subCells, const size_t subCellsSize) 
         afk_core.landscape->subdivisionFactor);
 }
 
+/* TODO I don't think I need this */
+#if AUGMENTED_SUBCELLS
 unsigned int AFK_Cell::augmentedSubdivide(AFK_Cell *augmentedSubcells, const size_t augmentedSubcellsSize) const
 {
     return subdivide(
@@ -107,6 +109,7 @@ unsigned int AFK_Cell::augmentedSubdivide(AFK_Cell *augmentedSubcells, const siz
         coord.v[3] / afk_core.landscape->subdivisionFactor,
         afk_core.landscape->subdivisionFactor + 1);
 }
+#endif
 
 /* The C++ integer modulus operator's behaviour with
  * negative numbers is just shocking
@@ -139,7 +142,8 @@ bool AFK_Cell::isParent(const AFK_Cell& parent) const
         coord.v[1] >= parent.coord.v[1] &&
         coord.v[1] < (parent.coord.v[1] + parent.coord.v[3]) &&
         coord.v[2] >= parent.coord.v[2] &&
-        coord.v[2] < (parent.coord.v[2] + parent.coord.v[3]));
+        coord.v[2] < (parent.coord.v[2] + parent.coord.v[3]) &&
+        coord.v[3] < parent.coord.v[3]);
 }
 
 size_t hash_value(const AFK_Cell& cell)
@@ -357,34 +361,42 @@ void AFK_RealCell::makeTerrain(
     AFK_Terrain& terrain,
     AFK_RNG& rng) const
 {
-    /* Make the terrain cell for this actual cell. */
-    AFK_TerrainCell terrainCell(coord);
-    rng.seed(worldCell.rngSeed());
-    terrainCell.make(pointSubdivisionFactor, subdivisionFactor, minCellSize, rng);
-    terrain.push(terrainCell);
-
-    /* TODO Re-enable this when the basics look OK */
-    /* Make the terrain cell for the four half-cells */
-#if HALFCELL_TERRAIN
-    AFK_RealCell halfCells[4];
-    enumerateHalfCells(&halfCells[0], 4);
-    for (unsigned int i = 0; i < 4; ++i)
+    if (worldCell.coord.v[1] == 0)
     {
-        AFK_TerrainCell terrainHalfCell(halfCells[i].coord);
-        rng.seed(halfCells[i].worldCell.rngSeed());
-        terrainHalfCell.make(pointSubdivisionFactor, subdivisionFactor, minCellSize, rng);
-        terrain.push(terrainHalfCell);
-    }
+        /* There is terrain here. */
+
+        /* Make the terrain cell for this actual cell. */
+        AFK_TerrainCell terrainCell(coord);
+        rng.seed(worldCell.rngSeed());
+        terrainCell.make(pointSubdivisionFactor, subdivisionFactor, minCellSize, rng);
+        terrain.push(terrainCell);
+
+        /* TODO Re-enable this when the basics look OK */
+        /* Make the terrain cell for the four half-cells */
+#if HALFCELL_TERRAIN
+        AFK_RealCell halfCells[4];
+        enumerateHalfCells(&halfCells[0], 4);
+        for (unsigned int i = 0; i < 4; ++i)
+        {
+            AFK_TerrainCell terrainHalfCell(halfCells[i].coord);
+            rng.seed(halfCells[i].worldCell.rngSeed());
+            terrainHalfCell.make(pointSubdivisionFactor, subdivisionFactor, minCellSize, rng);
+            terrain.push(terrainHalfCell);
+        }
 #endif /* HALFCELL_TERRAIN */ 
+    }
 }
 
 void AFK_RealCell::removeTerrain(AFK_Terrain& terrain) const
 {
+    if (worldCell.coord.v[1] == 0)
+    {
 #if HALFCELL_TERRAIN
-    for (unsigned int i = 0; i < 5; ++i)
-        terrain.pop();
+        for (unsigned int i = 0; i < 5; ++i)
+            terrain.pop();
 #else
-    terrain.pop();
+        terrain.pop();
 #endif
+    }
 }
 

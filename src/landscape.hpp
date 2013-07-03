@@ -143,11 +143,6 @@ public:
      */
     float minCellSize;
 
-    /* The maximum number of features per cell.  This is
-     * another useful tweakable.
-     */
-    unsigned int maxFeaturesPerCell;
-
     /* A working variable: the current terrain.  It's scoped
      * here to avoid cluttering the function parameter lists.
      * TODO: Parallelisation gotcha -- would need to share
@@ -180,8 +175,7 @@ public:
         size_t _cacheSize, 
         float _maxDistance, 
         unsigned int _subdivisionFactor, 
-        unsigned int _detailPitch,
-        float _baseHeight);
+        unsigned int _detailPitch);
     virtual ~AFK_Landscape();
 
     /* Enqueues this cell for drawing so long as its parent

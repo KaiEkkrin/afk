@@ -11,11 +11,6 @@
 /* The methods for computing each individual
  * feature type.
  */
-void AFK_TerrainFeature::compute_flat(Vec3<float>& c) const
-{
-    c.v[1] = location.v[1];
-}
-
 void AFK_TerrainFeature::compute_squarePyramid(Vec3<float>& c) const
 {
     if (c.v[0] >= (location.v[0] - scale.v[0]) &&
@@ -69,10 +64,6 @@ void AFK_TerrainFeature::compute(Vec3<float>& c) const
 {
     switch (type)
     {
-    case AFK_TERRAIN_FLAT:
-        compute_flat(c);
-        break;
-
     case AFK_TERRAIN_SQUARE_PYRAMID:
         compute_squarePyramid(c);
         break;
@@ -100,14 +91,12 @@ AFK_TerrainCell::AFK_TerrainCell(const AFK_TerrainCell& c)
     for (unsigned int i = 0; i < c.featureCount; ++i)
         features[i] = c.features[i];
     featureCount = c.featureCount;
-    clip = c.clip;
 }
 
 AFK_TerrainCell::AFK_TerrainCell(const Vec4<float>& coord)
 {
     cellCoord = coord;
     featureCount = 0;
-    clip = true;
 }
 
 AFK_TerrainCell& AFK_TerrainCell::operator=(const AFK_TerrainCell& c)
@@ -116,31 +105,12 @@ AFK_TerrainCell& AFK_TerrainCell::operator=(const AFK_TerrainCell& c)
     for (unsigned int i = 0; i < c.featureCount; ++i)
         features[i] = c.features[i];
     featureCount = c.featureCount;
-    clip = c.clip;
     return *this;
-}
-
-void AFK_TerrainCell::start(float baseHeight)
-{
-    /* Map that world height into cell co-ordinates. */
-    float cellLandHeight = (baseHeight - cellCoord.v[1]) / cellCoord.v[3];    
-
-    /* Add a FLAT at that height. */
-    featureCount = 1;
-    features[0] = AFK_TerrainFeature(
-        AFK_TERRAIN_FLAT,
-        Vec3<float>(0.0f, cellLandHeight, 0.0f),
-        Vec3<float>(1.0f, 1.0f, 1.0f));
-
-    /* The start cell mustn't clip, or we'll get
-     * phantom landscapes along the clip planes.
-     */
-    clip = false;
 }
 
 void AFK_TerrainCell::make(unsigned int pointSubdivisionFactor, unsigned int subdivisionFactor, float minCellSize, AFK_RNG& rng)
 {
-#if 0
+#if 1
     /* To test, I'm only going to include features
      * in the smallest level of terrain.
      * TODO: I need to sort out the terrain composition so
@@ -156,7 +126,7 @@ void AFK_TerrainCell::make(unsigned int pointSubdivisionFactor, unsigned int sub
      * polygonal landscape so that I can actually see what I've
      * made.
      */
-    if (cellCoord.v[3] > (64.0f * minCellSize))
+    if (cellCoord.v[3] > (2.0f * minCellSize))
     {
         featureCount = 0;
         return;
@@ -175,21 +145,6 @@ void AFK_TerrainCell::make(unsigned int pointSubdivisionFactor, unsigned int sub
      */
     unsigned int descriptor = rng.uirand();
 
-#if 0
-    /* So as not to run out of the cell, the maximum
-     * size for a feature is equal to 1 divided by
-     * the number of features that could appear there.
-     * The half cells mechanism means any point could
-     * have up to 2 features on it.
-     */
-    float maxFeatureSize = 1.0f / (2.0f * TERRAIN_FEATURE_COUNT_PER_CELL);
-
-    /* ... and the *minimum* size of a feature is equal
-     * to that divided by the cell subdivision factor;
-     * features smaller than that should be in subcells
-     */
-    float minFeatureSize = maxFeatureSize / (float)subdivisionFactor;
-#else
     /* The maximum size of a feature is equal to the cell size
      * divided by the point subdivision factor.  Like that, I
      * shouldn't get humongous feature pop-in when changing LoDs:
@@ -204,7 +159,6 @@ void AFK_TerrainCell::make(unsigned int pointSubdivisionFactor, unsigned int sub
      * features smaller than that should be in subcells
      */
     float minFeatureSize = maxFeatureSize / (float)subdivisionFactor;
-#endif
 
     /* I want between 1 and TERRAIN_FEATURE_COUNT_PER_CELL features. */
     featureCount = (descriptor % TERRAIN_FEATURE_COUNT_PER_CELL) + 1;
@@ -224,14 +178,15 @@ void AFK_TerrainCell::make(unsigned int pointSubdivisionFactor, unsigned int sub
             ySign * (yScale * (maxFeatureSize - minFeatureSize) + minFeatureSize),
             rng.frand() * (maxFeatureSize - minFeatureSize) + minFeatureSize);
 
-        /* To stop it from running off the sides, each feature
-         * is confined to (scale, 1.0-scale) on the
+        /* To stop it from running off the sides or lifting the sides
+         * up and making gaps, each feature
+         * is confined to (maxFeatureSize+scale, 1.0-scale-maxFeatureSize) on the
          * (x, z) co-ordinates.
          */
-        float minFeatureLocationX = scale.v[0];
-        float maxFeatureLocationX = 1.0f - scale.v[0];
-        float minFeatureLocationZ = scale.v[2];
-        float maxFeatureLocationZ = 1.0f - scale.v[2];
+        float minFeatureLocationX = scale.v[0] + maxFeatureSize;
+        float maxFeatureLocationX = 1.0f - scale.v[0] - maxFeatureSize;
+        float minFeatureLocationZ = scale.v[2] + maxFeatureSize;
+        float maxFeatureLocationZ = 1.0f - scale.v[2] - maxFeatureSize;
 
         Vec3<float> location(
             rng.frand() * (maxFeatureLocationX - minFeatureLocationX) + minFeatureLocationX,
@@ -240,61 +195,22 @@ void AFK_TerrainCell::make(unsigned int pointSubdivisionFactor, unsigned int sub
 
         features[i] = AFK_TerrainFeature(AFK_TERRAIN_SQUARE_PYRAMID, location, scale);
     }
-
-    /* Normal cells must clip to avoid landscape straying
-     * (and vanishing).
-     */
-    clip = true;
 } 
 
-bool AFK_TerrainCell::compute(Vec3<float>& c) const
+void AFK_TerrainCell::compute(Vec3<float>& c) const
 {
-    bool haveTerrain = false;
+    /* Make cell-space co-ordinates for `c' */
+    Vec3<float> csc(
+        (c.v[0] - cellCoord.v[0]) / cellCoord.v[3],
+        (c.v[1] - cellCoord.v[1]) / cellCoord.v[3],
+        (c.v[2] - cellCoord.v[2]) / cellCoord.v[3]);
 
-    /* Check whether this sample point is in this terrain cell
-     * at all.  In world space, to minimise computations if it
-     * isn't.
-     */
-    if (c.v[0] >= cellCoord.v[0] && c.v[0] <= (cellCoord.v[0] + cellCoord.v[3]) &&
-        c.v[1] >= cellCoord.v[1] && c.v[1] <= (cellCoord.v[1] + cellCoord.v[3]) &&
-        c.v[2] >= cellCoord.v[2] && c.v[2] <= (cellCoord.v[2] + cellCoord.v[3]))
-    {
-        /* Make cell-space co-ordinates for `c' */
-        Vec3<float> csc(
-            (c.v[0] - cellCoord.v[0]) / cellCoord.v[3],
-            (c.v[1] - cellCoord.v[1]) / cellCoord.v[3],
-            (c.v[2] - cellCoord.v[2]) / cellCoord.v[3]);
+    /* Compute the terrain on the cell-space */
+    for (unsigned int i = 0; i < featureCount; ++i)
+        features[i].compute(csc);
 
-        /* Compute the terrain on the cell-space */
-        for (unsigned int i = 0; i < featureCount; ++i)
-            features[i].compute(csc);
-
-        if (clip)
-        {
-            /* Clip the computed y co-ordinate at the cell boundaries.
-             * TODO Finesse?  (See notes above)
-             */
-            if (csc.v[1] < 0.0f) csc.v[1] = 0.0f;
-            if (csc.v[1] > 1.0f) csc.v[1] = 1.0f;
-
-            haveTerrain = true;
-        }
-        else
-        {
-            /* If we escaped the cell, we don't have terrain. */
-            haveTerrain = (csc.v[1] >= 0.0f && csc.v[1] <= 1.0f);
-        }
-
-        /* Update `c' with the transformed terrain and notify
-         * the caller that we found terrain here.
-         */
-        c = Vec3<float>(
-            csc.v[0] * cellCoord.v[3] + cellCoord.v[0],
-            csc.v[1] * cellCoord.v[3] + cellCoord.v[1],
-            csc.v[2] * cellCoord.v[3] + cellCoord.v[2]);
-    }
-
-    return haveTerrain;
+    /* The y co-ordinate has been updated, transform it back. */
+    c.v[1] = csc.v[1] * cellCoord.v[3] + cellCoord.v[1];
 }
 
 
@@ -310,12 +226,9 @@ void AFK_Terrain::pop()
     t.pop_back();
 }
 
-bool AFK_Terrain::compute(Vec3<float>& c) const
+void AFK_Terrain::compute(Vec3<float>& c) const
 {
-    bool haveTerrain = true;
-    for (std::vector<AFK_TerrainCell>::const_iterator tIt = t.begin(); haveTerrain && tIt != t.end(); ++tIt)
-        haveTerrain = tIt->compute(c);
-
-    return haveTerrain;
+    for (std::vector<AFK_TerrainCell>::const_iterator tIt = t.begin(); tIt != t.end(); ++tIt)
+        tIt->compute(c);
 }
 

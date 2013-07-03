@@ -13,6 +13,9 @@
 /* TODO remove debug?  (or something) */
 #define PROTAGONIST_CELL_DEBUG 1
 
+/* More debugging */
+#define CELL_BOUNDARIES_IN_RED 1
+
 
 /* AFK_LandscapeCell workers. */
 
@@ -20,6 +23,7 @@ static void computeFlatTriangle(
     const Vec3<float>& vert1,
     const Vec3<float>& vert2,
     const Vec3<float>& vert3,
+    const Vec3<float>& colour,
     struct AFK_VcolPhongVertex *triangleVPos)
 {
     struct AFK_VcolPhongVertex *triV1;
@@ -49,9 +53,9 @@ static void computeFlatTriangle(
     vert3.toArray(&triV3->location[0]);
 
     /* TODO Apply a colour through the terrain? */
-    triV1->colour[0] = triV2->colour[0] = triV3->colour[0] = 0.4f;
-    triV1->colour[1] = triV2->colour[1] = triV3->colour[1] = 0.8f;
-    triV1->colour[2] = triV2->colour[2] = triV3->colour[2] = 0.4f;
+    colour.toArray(&triV1->colour[0]);
+    colour.toArray(&triV2->colour[0]);
+    colour.toArray(&triV3->colour[0]);
 
     Vec3<float> normal = crossP.normalise();
     normal.toArray(&triV1->normal[0]);
@@ -110,11 +114,18 @@ static void vertices2FlatTriangles(
                 float *r2c1 = vertices + 3 * (row + 1) * (pointSubdivisionFactor+1) + 3 * col;
                 float *r2c2 = vertices + 3 * (row + 1) * (pointSubdivisionFactor+1) + 3 * (col + 1);
 
+                /* TODO Colour determined by terrain. */
+                Vec3<float> colour(0.4f, 0.8f, 0.4f);
+#if CELL_BOUNDARIES_IN_RED
+                if (row == pointSubdivisionFactor-1 || col == pointSubdivisionFactor-1)
+                    colour = Vec3<float>(0.8f, 0.4f, 0.4f);
+#endif
+
                 computeFlatTriangle(
-                    Vec3<float>().fromArray(r2c1), Vec3<float>().fromArray(r1c1), Vec3<float>().fromArray(r1c2), triangleVPos);
+                    Vec3<float>().fromArray(r2c1), Vec3<float>().fromArray(r1c1), Vec3<float>().fromArray(r1c2), colour, triangleVPos);
                 triangleVPos += 3;
                 computeFlatTriangle(
-                    Vec3<float>().fromArray(r2c1), Vec3<float>().fromArray(r1c2), Vec3<float>().fromArray(r2c2), triangleVPos);
+                    Vec3<float>().fromArray(r2c1), Vec3<float>().fromArray(r1c2), Vec3<float>().fromArray(r2c2), colour, triangleVPos);
                 triangleVPos += 3;
             }
         }
@@ -194,11 +205,13 @@ AFK_LandscapeCell::AFK_LandscapeCell(
              * to think about that too hard right now :P
              */ 
             float xdisp = 0.0f, zdisp = 0.0f;
+#if 0
             if (xi > 0 && xi <= pointSubdivisionFactor)
                 xdisp = rng.frand() * cell.coord.v[3] / ((float)pointSubdivisionFactor * 2.0f);
 
             if (zi > 0 && zi <= pointSubdivisionFactor)
                 zdisp = rng.frand() * cell.coord.v[3] / ((float)pointSubdivisionFactor * 2.0f);
+#endif
 
             /* And shunt them into world space */
             *(rawVerticesPos++) = xf + xdisp + cell.coord.v[0];
@@ -286,14 +299,12 @@ AFK_Landscape::AFK_Landscape(
     size_t _cacheSize,
     float _maxDistance,
     unsigned int _subdivisionFactor,
-    unsigned int _detailPitch,
-    float _baseHeight)
+    unsigned int _detailPitch)
 {
     cacheSize           = _cacheSize;
     maxDistance         = _maxDistance;
     subdivisionFactor   = _subdivisionFactor;
     detailPitch         = _detailPitch;
-    baseHeight          = _baseHeight;
 
     /* Set up the landscape shader. */
     shaderProgram = new AFK_ShaderProgram();
@@ -330,11 +341,6 @@ AFK_Landscape::AFK_Landscape(
         ++maxSubdivisions;
 
     std::cout << "AFK: Landscape using minCellSize " << minCellSize << std::endl;
-
-    /* TODO Here's another thing that should be implemented as a
-     * configuration parameter
-     */
-    maxFeaturesPerCell = 4;
 }
 
 AFK_Landscape::~AFK_Landscape()
@@ -373,31 +379,23 @@ void AFK_Landscape::enqueueSubcells(
     enqueued.first = true;
     enqueued.second = NULL;
 
-    /* Work out the real-world cell that corresponds to this
-     * abstract one.
+    /* Is there any terrain here?
+     * TODO: If there isn't, I still want to evaluate
+     * contained objects, and any terrain geometry that
+     * might have "bled" into this cell.  But for now,
+     * just dump it.
      */
-    AFK_RealCell realCell(cell, minCellSize);
-
-    /* Add the terrain for this cell to the terrain vector. */
-    realCell.makeTerrain(pointSubdivisionFactor, subdivisionFactor, minCellSize, terrain, *(afk_core.rng));
-
-    /* Test whether this cell actually has any landscape in it
-     * TODO Either this sampling or the makeTerrain call
-     * is very slow.  I should work out how to profile the program
-     * to find out what, and perhaps consider caching one or the
-     * other (or maybe I'll just need multithreading :P )
-     */
-    Vec3<float> terrainSample(
-        realCell.coord.v[0],
-        realCell.coord.v[1],
-        realCell.coord.v[2]);
-    if (!terrain.compute(terrainSample))
+    if (cell.coord.v[1] != 0)
     {
-        /* This cell is empty, nothing else to do with it. */
         ++landscapeCellsEmpty;
     }
     else
     {
+        /* Work out the real-world cell that corresponds to this
+         * abstract one.
+         */
+        AFK_RealCell realCell(cell, minCellSize);
+
         /* Check for visibility. */
         bool someVisible = false;
         bool allVisible = parentEntirelyVisible;
@@ -411,6 +409,9 @@ void AFK_Landscape::enqueueSubcells(
         }
         else
         {
+            /* Add the terrain for this cell to the terrain vector. */
+            realCell.makeTerrain(pointSubdivisionFactor, subdivisionFactor, minCellSize, terrain, *(afk_core.rng));
+
             /* If it's the smallest possible cell, or its detail pitch
              * is at the target detail pitch, include it as-is
              */
@@ -436,43 +437,35 @@ void AFK_Landscape::enqueueSubcells(
             }
             else
             {
-                /* Pull out the augmented set of subcells.  This set
-                 * includes all direct subcells and also the shell of
-                 * subcells one step + along each axis; I've done this
-                 * because I want to enqueue a cell if any of its
-                 * vertices are within fov, and a cell is described
-                 * by its lowest vertex (along each axis).
-                 */
-                size_t augmentedSubcellsSize = CUBE(subdivisionFactor + 1);
-                AFK_Cell *augmentedSubcells = new AFK_Cell[augmentedSubcellsSize]; /* TODO thread local storage */
-                unsigned int augmentedSubcellsCount = cell.augmentedSubdivide(augmentedSubcells, augmentedSubcellsSize);
-        
-                if (augmentedSubcellsCount == augmentedSubcellsSize)
+                /* Recurse through the subcells. */
+                size_t subcellsSize = CUBE(subdivisionFactor);
+                AFK_Cell *subcells = new AFK_Cell[subcellsSize]; /* TODO avoid heap thrashing somehow */
+                unsigned int subcellsCount = cell.subdivide(subcells, subcellsSize);
+
+                if (subcellsCount == subcellsSize)
                 {
-                    for (unsigned int i = 0; i < augmentedSubcellsCount; ++i)
+                    for (unsigned int i = 0; i < subcellsCount; ++i)
                     {
-                        /* TODO Should I put back the big complicated thing?
-                         * Am I about to be missing lots of cells? */
-                        enqueueSubcells(augmentedSubcells[i], cell, viewerLocation, camera, allVisible);
+                        enqueueSubcells(subcells[i], cell, viewerLocation, camera, allVisible);
                     }
                 }
                 else
                 {
                     /* That's clearly a bug :P */
                     std::ostringstream ss;
-                    ss << "Cell " << cell << " subdivided into " << augmentedSubcellsCount << " not " << augmentedSubcellsSize;
+                    ss << "Cell " << cell << " subdivided into " << subcellsCount << " not " << subcellsSize;
                     throw AFK_Exception(ss.str());
                 }
             
-                delete[] augmentedSubcells;
+                delete[] subcells;
             }
+        
+            /* Back out the terrain changes for the next cell
+             * to try.
+             */
+            realCell.removeTerrain(terrain);   
         }
     }
-        
-    /* Back out the terrain changes for the next cell
-     * to try.
-     */
-    realCell.removeTerrain(terrain);   
 }
 
 void AFK_Landscape::enqueueSubcells(
@@ -486,18 +479,7 @@ void AFK_Landscape::enqueueSubcells(
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[1],
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[2],
         cell.coord.v[3]));
-
-    /* Since this is the top level, start off the terrain in
-     * that cell.
-     */
-    AFK_TerrainCell startingTerrainCell(AFK_RealCell(modifiedCell, minCellSize).coord);
-    startingTerrainCell.start(baseHeight);
-    terrain.push(startingTerrainCell);
-
     enqueueSubcells(modifiedCell, modifiedCell.parent(), viewerLocation, camera, false);
-
-    /* Pull the starting cell off again */
-    terrain.pop();
 }
 
 void AFK_Landscape::updateLandMap(void)
