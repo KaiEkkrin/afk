@@ -180,11 +180,19 @@ void AFK_Core::loop(void)
     afk_loadShaders(config->shadersDir);
 
     /* Initialise the starting objects. */
+    /* I want to put the plane of the landscape at some suitable place so
+     * that it can go up and down (it'll be confined to cells of `maxDistance'
+     * height)
+     */
+    float landscapeMaxDistance = config->zFar / 2.0f;
+    float landscapeBaseHeight = (landscapeMaxDistance / 2.0f) + 1.0f;
+
     landscape = new AFK_Landscape( /* TODO tweak this initialisation...  extensively, and make it configurable */
-        1000000,            /* cacheSize */
-        config->zFar / 2.0f,/* maxDistance -- zFar must be a lot bigger or things will vanish */
-        2,                  /* subdivisionFactor */
-        256                 /* detailPitch.  TODO Currently this number is being interpreted as much smaller than spec'd */
+        1000000,                /* cacheSize */
+        landscapeMaxDistance,   /* maxDistance -- zFar must be a lot bigger or things will vanish */
+        2,                      /* subdivisionFactor */
+        256,                    /* detailPitch.  TODO Currently this number is being interpreted as much smaller than spec'd */
+        landscapeBaseHeight     /* baseHeight */
         );
     protagonist = new AFK_DisplayedProtagonist();
 
@@ -192,6 +200,13 @@ void AFK_Core::loop(void)
     int windowWidth = glutGet(GLUT_WINDOW_WIDTH);
     int windowHeight = glutGet(GLUT_WINDOW_HEIGHT);
     camera->setWindowDimensions(windowWidth, windowHeight);
+
+    /* Move the camera and protagonist to somewhere close to the landscape
+     * so they can see
+     */
+    Vec3<float> startingPosition(0.0f, landscapeBaseHeight + 16.0f, 0.0f);
+    protagonist->object.displace(startingPosition);
+    camera->displace(startingPosition);
 
     /* Pull the pointer into the middle before I begin so that
      * I don't start with a massive mouse axis movement right

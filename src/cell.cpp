@@ -224,10 +224,10 @@ AFK_RealCell::AFK_RealCell(const AFK_Cell& cell, float minCellSize)
 {
     worldCell       = cell;
     coord           = Vec4<float>(
-        (float)cell.coord.v[0] * minCellSize,
-        (float)cell.coord.v[1] * minCellSize,
-        (float)cell.coord.v[2] * minCellSize,
-        (float)cell.coord.v[3] * minCellSize);
+        (float)cell.coord.v[0] * minCellSize / MIN_CELL_PITCH,
+        (float)cell.coord.v[1] * minCellSize / MIN_CELL_PITCH,
+        (float)cell.coord.v[2] * minCellSize / MIN_CELL_PITCH,
+        (float)cell.coord.v[3] * minCellSize / MIN_CELL_PITCH);
 }
 
 AFK_RealCell& AFK_RealCell::operator=(const AFK_RealCell& realCell)

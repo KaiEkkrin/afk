@@ -85,7 +85,7 @@ public:
     /* Returns a random unsigned int */
     virtual unsigned int uirand(void);
 
-    /* Returns a random float between 0 and 1 */
+    /* Returns a random float between 0.0 and 1.0 */
     virtual float frand(void);
 };
 

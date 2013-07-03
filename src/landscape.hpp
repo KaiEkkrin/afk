@@ -119,6 +119,9 @@ public:
      */
     unsigned int detailPitch;
 
+    /* The landscape starting height. */
+    float baseHeight;
+
     /* The maximum number of subdivisions each cell can undergo.
      * An important result, because maximally subdivided cells
      * are separated by 1 in AFK_Cell coords. (see class
@@ -173,7 +176,12 @@ public:
     boost::unordered_map<const AFK_Cell, std::pair<bool, AFK_LandscapeCell*> > landQueue;
 
 
-    AFK_Landscape(size_t _cacheSize, float _maxDistance, unsigned int _subdivisionFactor, unsigned int _detailPitch);
+    AFK_Landscape(
+        size_t _cacheSize, 
+        float _maxDistance, 
+        unsigned int _subdivisionFactor, 
+        unsigned int _detailPitch,
+        float _baseHeight);
     virtual ~AFK_Landscape();
 
     /* Enqueues this cell for drawing so long as its parent

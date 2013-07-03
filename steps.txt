@@ -11,7 +11,14 @@
  - randomly distributed landscape in a grid (smallest cells only). OK
  - apply lighting to protagonist object. OK
  - triangular, lit landscape.  (no tessellation, just pre-defined triangle strips). OK (but fix z order)
- - randomly distributed landscape in a grid (all cells contributing).
+ - x/z only terrain, with horizontal LoD.  all terrain mated to the cells with y=0.  terrain of arbitrary height.
+ - migrate terrain geometry to adjacent cells along the y-axis.  vertical terrain LoD.
+ - random protagonist with flat surfaces.
+ - random objects in each cell.  object LoD.
+ - curved terrain (interpolated normals, curved terrain features).
+ - object movement.  (simplest AI.)
+ - object/object collision.
+ - object/terrain collision.
  - adjust detail pitch on the fly to maintain a framerate.
  - compute location of points-grid with opencl and feed back.
  - opencl random number generator.

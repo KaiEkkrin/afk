@@ -282,12 +282,18 @@ void AFK_LandscapeCell::display(const Mat4<float>& projection)
 
 /* AFK_Landscape implementation */
 
-AFK_Landscape::AFK_Landscape(size_t _cacheSize, float _maxDistance, unsigned int _subdivisionFactor, unsigned int _detailPitch)
+AFK_Landscape::AFK_Landscape(
+    size_t _cacheSize,
+    float _maxDistance,
+    unsigned int _subdivisionFactor,
+    unsigned int _detailPitch,
+    float _baseHeight)
 {
     cacheSize           = _cacheSize;
     maxDistance         = _maxDistance;
     subdivisionFactor   = _subdivisionFactor;
     detailPitch         = _detailPitch;
+    baseHeight          = _baseHeight;
 
     /* Set up the landscape shader. */
     shaderProgram = new AFK_ShaderProgram();
@@ -329,11 +335,6 @@ AFK_Landscape::AFK_Landscape(size_t _cacheSize, float _maxDistance, unsigned int
      * configuration parameter
      */
     maxFeaturesPerCell = 4;
-
-    /* Initialise the terrain vector with a size that ought to
-     * be large enough for all iterations.
-     */
-    terrain.init(maxSubdivisions);
 }
 
 AFK_Landscape::~AFK_Landscape()
@@ -380,23 +381,15 @@ void AFK_Landscape::enqueueSubcells(
     /* Add the terrain for this cell to the terrain vector. */
     realCell.makeTerrain(pointSubdivisionFactor, subdivisionFactor, minCellSize, terrain, *(afk_core.rng));
 
-    /* Test whether this cell actually has any landscape in it */
-    /* TODO This clause, right now, actually defines where the
-     * landscape is (at all).  I would like to change it so that
-     * the landscape automatically starts out as a flat plane at
-     * y=0; that is, with no other terrain applied, calling this
-     * with all 3 real co-ordinates causes cells that don't touch
-     * zero to be rejected.  I think that will involve always
-     * having a new "flat" terrain type applied at the front of
-     * the terrain vector.
-     * TODO *2: Also, either this sampling or the makeTerrain call
+    /* Test whether this cell actually has any landscape in it
+     * TODO Either this sampling or the makeTerrain call
      * is very slow.  I should work out how to profile the program
      * to find out what, and perhaps consider caching one or the
      * other (or maybe I'll just need multithreading :P )
      */
     Vec3<float> terrainSample(
         realCell.coord.v[0],
-        0.0f,
+        realCell.coord.v[1],
         realCell.coord.v[2]);
     if (!terrain.compute(terrainSample))
     {
@@ -493,7 +486,18 @@ void AFK_Landscape::enqueueSubcells(
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[1],
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[2],
         cell.coord.v[3]));
+
+    /* Since this is the top level, start off the terrain in
+     * that cell.
+     */
+    AFK_TerrainCell startingTerrainCell(AFK_RealCell(modifiedCell, minCellSize).coord);
+    startingTerrainCell.start(baseHeight);
+    terrain.push(startingTerrainCell);
+
     enqueueSubcells(modifiedCell, modifiedCell.parent(), viewerLocation, camera, false);
+
+    /* Pull the starting cell off again */
+    terrain.pop();
 }
 
 void AFK_Landscape::updateLandMap(void)

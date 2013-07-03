@@ -21,13 +21,14 @@
  */
 enum AFK_TerrainType
 {
-    AFK_TERRAIN_SQUARE_PYRAMID          = 0
+    AFK_TERRAIN_FLAT                    = 0,
+    AFK_TERRAIN_SQUARE_PYRAMID          = 1
 };
 
 /* TODO Keep this updated with the current feature
  * count.
  */
-#define AFK_TERRAIN_FEATURE_TYPES 1
+#define AFK_TERRAIN_FEATURE_TYPES 2
 
 /* The encapsulation of any terrain feature.
  * A feature is computed at a particular location
@@ -74,6 +75,7 @@ protected:
     /* The methods for computing each individual
      * terrain type.
      */
+    void compute_flat(Vec3<float>& c) const;
     void compute_squarePyramid(Vec3<float>& c) const;
 
 public:
@@ -106,12 +108,26 @@ protected:
     AFK_TerrainFeature  features[TERRAIN_FEATURE_COUNT_PER_CELL];
     unsigned int        featureCount;
 
+    /* Tells compute() whether to clip the terrain at the
+     * cell boundaries.  This should always be the case
+     * unless deliberately trying to make holes in it
+     * (e.g. with the starting cell -- cells not containing
+     * the starting plane shouldn't have landscape.)
+     */
+    bool clip;
+
 public:
     AFK_TerrainCell();
     AFK_TerrainCell(const AFK_TerrainCell& c);
     AFK_TerrainCell(const Vec4<float>& coord);
 
     AFK_TerrainCell& operator=(const AFK_TerrainCell& c);
+
+    /* Call this to make a starting cell with a basic,
+     * flat landscape.
+     * `baseHeight' is a world-space height.
+     */
+    void start(float baseHeight);
 
     /* Assumes the RNG to have been seeded correctly for
      * the cell.
@@ -137,8 +153,6 @@ protected:
 
 public:
     AFK_Terrain() {}
-
-    void init(unsigned int maxSubdivisions);
 
     void push(const AFK_TerrainCell& cell);
     void pop();
