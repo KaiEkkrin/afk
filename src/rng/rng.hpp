@@ -88,10 +88,22 @@ public:
     virtual AFK_RNG_Value rand(void) = 0;
 
     /* Returns a random unsigned int */
-    unsigned int uirand(void);
+    unsigned int uirand(void)
+    {
+        if (vForFField == 4)
+        {
+            lastVForF = rand();
+            vForFField = 0;
+        }
+    
+        return lastVForF.v.ui[vForFField++];
+    }
 
     /* Returns a random float between 0.0 and 1.0 */
-    float frand(void);
+    float frand(void)
+    {
+        return uirand() / 0x1.0p32;
+    }
 };
 
 class AFK_RNG_Test

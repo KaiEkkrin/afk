@@ -62,22 +62,6 @@ void AFK_RNG::seed(const AFK_RNG_Value& seed)
     vForFField = 4;
 }
 
-unsigned int AFK_RNG::uirand(void)
-{
-    if (vForFField == 4)
-    {
-        lastVForF = rand();
-        vForFField = 0;
-    }
-    
-    return lastVForF.v.ui[vForFField++];
-}
-
-float AFK_RNG::frand(void)
-{
-    return uirand() / 0x1.0p32;
-}
-
 
 /* The RNG test system. */
 

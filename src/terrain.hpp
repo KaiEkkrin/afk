@@ -126,6 +126,10 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainCell& cell);
 class AFK_Terrain
 {
 protected:
+    /* TODO Change this back to a vector?  I suspect deque is
+     * slow.  I can push_back() and pop_back() to the vector and
+     * iterate through it in inverse order with the [] overload.
+     */
     std::deque<AFK_TerrainCell> t;
 
 public:
