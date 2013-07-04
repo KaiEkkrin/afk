@@ -25,6 +25,9 @@
     keyboardMapping.insert(std::pair<const char, enum AFK_Controls>((chr), (ctrl)));\
     keyboardMapping.insert(std::pair<const char, enum AFK_Controls>(toupper((chr)), (ctrl)));
 
+#define DEFAULT_SPECIAL_CONTROL(key, ctrl) \
+    specialMapping.insert(std::pair<const int, enum AFK_Controls>((key), (ctrl)));
+
 #define DEFAULT_MOUSE_CONTROL(button, ctrl) \
     mouseMapping.insert(std::pair<const int, enum AFK_Controls>((button), (ctrl)));
 
@@ -119,6 +122,11 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         DEFAULT_KEYBOARD_CONTROL('e', CTRL_YAW_RIGHT)
         DEFAULT_KEYBOARD_CONTROL('q', CTRL_YAW_LEFT)
         DEFAULT_KEYBOARD_CONTROL('m', CTRL_MOUSE_CAPTURE)
+    }
+
+    if (specialMapping.empty())
+    {
+        DEFAULT_SPECIAL_CONTROL(GLUT_KEY_F11, CTRL_FULLSCREEN)
     }
 
     if (mouseMapping.empty())

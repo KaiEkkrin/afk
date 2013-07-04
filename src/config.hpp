@@ -32,10 +32,11 @@ enum AFK_Controls
     CTRL_THRUST_UP, 
     CTRL_THRUST_DOWN,
     CTRL_PRIMARY_FIRE,
-    CTRL_SECONDARY_FIRE
+    CTRL_SECONDARY_FIRE,
+    CTRL_FULLSCREEN
 };
 
-#define AFK_IS_TOGGLE(bit) ((bit) == CTRL_MOUSE_CAPTURE)
+#define AFK_IS_TOGGLE(bit) ((bit) == CTRL_MOUSE_CAPTURE || (bit) == CTRL_FULLSCREEN)
 
 enum AFK_Control_Axes
 {
@@ -65,6 +66,7 @@ public:
 
     /* The controls */
     std::map<const char, enum AFK_Controls> keyboardMapping;
+    std::map<const int, enum AFK_Controls> specialMapping;
     std::map<const int, enum AFK_Controls> mouseMapping;
     std::map<const enum AFK_Mouse_Axes, enum AFK_Control_Axes> mouseAxisMapping;
 

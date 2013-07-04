@@ -39,8 +39,55 @@ static void enableControl(enum AFK_Controls control)
     else
         AFK_SET_BIT(afk_core.controlsEnabled, control);
 
-    if (control == CTRL_MOUSE_CAPTURE)
+    /* Some special handling. */
+    static int oldWindowWidth = -1, oldWindowHeight = -1;
+
+    switch (control)
+    {
+    case CTRL_MOUSE_CAPTURE:
         glutWarpPointer(afk_core.camera->windowWidth / 2, afk_core.camera->windowHeight / 2);
+        break;
+
+    case CTRL_FULLSCREEN:
+        if (AFK_TEST_BIT(afk_core.controlsEnabled, control))
+        {
+            oldWindowWidth = glutGet(GLUT_WINDOW_WIDTH);
+            oldWindowHeight = glutGet(GLUT_WINDOW_HEIGHT);
+            
+            int screenWidth = glutGet(GLUT_SCREEN_WIDTH);
+            int screenHeight = glutGet(GLUT_SCREEN_HEIGHT);
+
+            glutReshapeWindow(screenWidth, screenHeight);
+            glutFullScreen();
+
+            /* TODO When I enter game mode, all subsequent events get swallowed.
+             * I think I might need to debug freeglut3 to figure out what's
+             * going on there.  In the meantime, leaving this bit out.
+             */
+#define USE_GAME_MODE 0
+
+#if USE_GAME_MODE
+            glutEnterGameMode();
+#endif
+        }
+        else
+        {
+#if USE_GAME_MODE
+            glutLeaveGameMode();
+#endif
+
+            if (oldWindowWidth != -1 && oldWindowHeight != -1)
+            {
+                glutReshapeWindow(oldWindowWidth, oldWindowHeight);
+            }
+        }
+        break;
+
+    default:
+        /* Nothing else to do. */
+        break;
+
+    }
 }
 
 static void disableControl(enum AFK_Controls control)
@@ -52,6 +99,12 @@ static void disableControl(enum AFK_Controls control)
         displaceAxis(afk_core.config->mouseAxisMapping[MOUSE_AXIS_X], 0.0f);
         displaceAxis(afk_core.config->mouseAxisMapping[MOUSE_AXIS_Y], 0.0f);
     }
+}
+
+void afk_entry(int state)
+{
+    /* TODO Do I actually need to do anything here? */
+    //if (state == GLUT_LEFT) disableControl(CTRL_MOUSE_CAPTURE);
 }
 
 void afk_keyboard(unsigned char key, int x, int y)
@@ -101,9 +154,13 @@ void afk_motion(int x, int y)
     }
 }
 
-void afk_entry(int state)
+void afk_special(int key, int x, int y)
 {
-    /* TODO Do I actually need to do anything here? */
-    //if (state == GLUT_LEFT) disableControl(CTRL_MOUSE_CAPTURE);
+    enableControl(afk_core.config->specialMapping[key]);
+}
+
+void afk_specialUp(int key, int x, int y)
+{
+    disableControl(afk_core.config->specialMapping[key]);
 }
 

@@ -113,18 +113,34 @@ void AFK_Core::initGraphics(int *argcp, char **argv)
 
     /* TODO Full screen by default?  Pull configuration from file / from cmdline? */
     glutCreateWindow("AFK");
+
+    /* Work out the screen size in case I decide to switch to
+     * fullscreen mode.
+     * TODO: Configurable screen mode selection?  (GLUT seems
+     * to make this hard.)
+     */
+    int screenWidth = glutGet(GLUT_SCREEN_WIDTH);
+    int screenHeight = glutGet(GLUT_SCREEN_HEIGHT);
+
+    {
+        std::ostringstream gms;
+        gms << screenWidth << "x" << screenHeight << ":" << 24;
+        glutGameModeString(gms.str().c_str());
+    }
     
     /* These functions from the `display' module. */
     glutDisplayFunc(afk_display);
     glutReshapeFunc(afk_reshape);
 
     /* These functions from the `event' module. */
+    glutEntryFunc(afk_entry);
     glutKeyboardFunc(afk_keyboard);
     glutKeyboardUpFunc(afk_keyboardUp);
     glutMouseFunc(afk_mouse);
     glutMotionFunc(afk_motion);
     glutPassiveMotionFunc(afk_motion);
-    glutEntryFunc(afk_entry);
+    glutSpecialFunc(afk_special);
+    glutSpecialUpFunc(afk_specialUp);
 
     /* Specifies the loop function. */
     glutIdleFunc(afk_idle);
