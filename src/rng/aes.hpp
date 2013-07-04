@@ -16,11 +16,12 @@ protected:
 
     EVP_CIPHER_CTX *ctx;
 
+    virtual void seed_internal(const AFK_RNG_Value& seed);
+
 public:
     AFK_AES_RNG();
     virtual ~AFK_AES_RNG();
 
-    virtual void seed(const AFK_RNG_Value& seed);
     virtual AFK_RNG_Value rand(void);
 };
 

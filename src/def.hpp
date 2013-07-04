@@ -4,6 +4,7 @@
 #define _AFK_DEF_H_
 
 #include <math.h>
+#include <sstream>
 
 #define SQUARE(x) ((x) * (x))
 #define CUBE(x) ((x) * (x) * (x))
@@ -41,6 +42,11 @@ public:
         *(a+2) = v[2];
     }
 
+    Vec3<F> operator+(F f) const
+    {
+        return Vec3<F>(v[0] + f, v[1] + f, v[2] + f);
+    }
+
     Vec3<F> operator+(const Vec3<F>& p) const
     {
         return Vec3<F>(v[0] + p.v[0], v[1] + p.v[1], v[2] + p.v[2]);
@@ -52,6 +58,21 @@ public:
         return *this;
     }
 
+    Vec3<F> operator-(const Vec3<F>& p) const
+    {
+        return Vec3<F>(v[0] - p.v[0], v[1] - p.v[1], v[2] - p.v[2]);
+    }
+
+    Vec3<F> operator*(F f) const
+    {
+        return Vec3<F>(v[0] * f, v[1] * f, v[2] * f);
+    }
+
+    Vec3<F> operator/(F f) const
+    {
+        return Vec3<F>(v[0] / f, v[1] / f, v[2] / f);
+    }
+
     Vec3<F>& normalise()
     {
         F mag = magnitude();
@@ -59,16 +80,6 @@ public:
         v[1] = v[1] / mag;
         v[2] = v[2] / mag;
         return *this;
-    }
-
-    Vec3<F> operator-(const Vec3<F>& p) const
-    {
-        return Vec3<F>(v[0] - p.v[0], v[1] - p.v[1], v[2] - p.v[2]);
-    }
-
-    Vec3<F> operator*(float f) const
-    {
-        return Vec3<F>(v[0] * f, v[1] * f, v[2] * f);
     }
 
     F magnitudeSquared(void) const
@@ -94,6 +105,12 @@ public:
             v[0] * p.v[1] - v[1] * p.v[0]);
     }
 };
+
+template<class F>
+std::ostream& operator<<(std::ostream& os, const Vec3<F>& v)
+{
+    return os << "(" << v.v[0] << ", " << v.v[1] << ", " << v.v[2] << ")";
+}
 
 template<class F>
 class Vec4
@@ -123,6 +140,12 @@ public:
         return v[0] != p.v[0] || v[1] != p.v[1] || v[2] != p.v[2] || v[3] != p.v[3];
     }
 };
+
+template<class F>
+std::ostream& operator<<(std::ostream& os, const Vec4<F>& v)
+{
+    return os << "(" << v.v[0] << ", " << v.v[1] << ", " << v.v[2] << ", " << v.v[3] << ")";
+}
 
 template<class F>
 class Mat4

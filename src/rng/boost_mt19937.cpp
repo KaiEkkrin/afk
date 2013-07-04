@@ -2,7 +2,7 @@
 
 #include "boost_mt19937.hpp"
 
-void AFK_Boost_MT19937_RNG::seed(const AFK_RNG_Value& seed)
+void AFK_Boost_MT19937_RNG::seed_internal(const AFK_RNG_Value& seed)
 {
     rng[0] = boost::random::mt19937(seed.v.i[0]);
     rng[1] = boost::random::mt19937(seed.v.i[1]);

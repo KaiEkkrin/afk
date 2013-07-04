@@ -51,6 +51,17 @@ std::ostream& operator<<(std::ostream& os, const AFK_RNG_Value& value)
 
 /* Actual RNG utilities. */
 
+void AFK_RNG::seed(const AFK_RNG_Value& seed)
+{
+    /* Call the internal function to do the actual seeding. */
+    seed_internal(seed);
+
+    /* Reset the float tracker.  (very important, otherwise
+     * I get one of 4 possible states!)
+     */
+    vForFField = 4;
+}
+
 unsigned int AFK_RNG::uirand(void)
 {
     if (vForFField == 4)

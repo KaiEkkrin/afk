@@ -45,7 +45,7 @@ AFK_HMAC_RNG::~AFK_HMAC_RNG()
     if (ctx) delete ctx;
 }
 
-void AFK_HMAC_RNG::seed(const AFK_RNG_Value& seed)
+void AFK_HMAC_RNG::seed_internal(const AFK_RNG_Value& seed)
 {
     memcpy(key, &seed.v.b[0], valLen);
     if (valLen == 32) memcpy(key+16, &seed.v.b[0], 16);

@@ -20,47 +20,42 @@
 /* AFK_LandscapeCell workers. */
 
 static void computeFlatTriangle(
-    const Vec3<float>& vert1,
-    const Vec3<float>& vert2,
-    const Vec3<float>& vert3,
-    const Vec3<float>& colour,
+    float *vertices,
+    float *colours,
+    const Vec3<unsigned int>& indices,
     struct AFK_VcolPhongVertex *triangleVPos)
 {
-    struct AFK_VcolPhongVertex *triV1;
-    struct AFK_VcolPhongVertex *triV2;
-    struct AFK_VcolPhongVertex *triV3;
+    Vec3<float> triVs[3];
+    Vec3<float> triCs[3];
+    struct AFK_VcolPhongVertex *outStructs[3];
+    unsigned int i;
 
-    Vec3<float> crossP = ((vert2 - vert1).cross(vert3 - vert1));
+    for (i = 0; i < 3; ++i)
+    {
+        triVs[i].fromArray(&vertices[indices.v[i]]);
+        triCs[i].fromArray(&colours[indices.v[i]]);
+        outStructs[i] = triangleVPos + i;
+    }
+
+    Vec3<float> crossP = ((triVs[1] - triVs[0]).cross(triVs[2] - triVs[0]));
 
     /* Try to sort out the winding order so that under GL_CCW,
      * all triangles are facing upwards
      */
-    if (crossP.v[1] < 0.0f)
+    if (crossP.v[1] >= 0.0f)
     {
-        triV1 = triangleVPos;
-        triV2 = triangleVPos + 1;
-        triV3 = triangleVPos + 2;
-    }
-    else
-    {
-        triV1 = triangleVPos;
-        triV2 = triangleVPos + 2;
-        triV3 = triangleVPos + 1;
+        outStructs[1] = triangleVPos + 2;
+        outStructs[2] = triangleVPos + 1;
     }   
 
-    vert1.toArray(&triV1->location[0]);
-    vert2.toArray(&triV2->location[0]);
-    vert3.toArray(&triV3->location[0]);
-
-    /* TODO Apply a colour through the terrain? */
-    colour.toArray(&triV1->colour[0]);
-    colour.toArray(&triV2->colour[0]);
-    colour.toArray(&triV3->colour[0]);
-
     Vec3<float> normal = crossP.normalise();
-    normal.toArray(&triV1->normal[0]);
-    normal.toArray(&triV2->normal[0]);
-    normal.toArray(&triV3->normal[0]);
+
+    for (i = 0; i < 3; ++i)
+    {
+        triVs[i].toArray(&outStructs[i]->location[0]);
+        triCs[i].toArray(&outStructs[i]->colour[0]);
+        normal.toArray(&outStructs[i]->normal[0]);
+    }
 }
 
 /* Turns a vertex grid into a landscape of flat triangles.
@@ -71,6 +66,7 @@ static void computeFlatTriangle(
  */
 static void vertices2FlatTriangles(
     float *vertices,
+    float *colours,
     unsigned int verticesCount,
     unsigned int pointSubdivisionFactor,
     struct AFK_VcolPhongVertex *triangleVs,
@@ -109,23 +105,19 @@ static void vertices2FlatTriangles(
         {
             for (unsigned int col = 0; col < pointSubdivisionFactor; ++col)
             {
-                float *r1c1 = vertices + 3 * row * (pointSubdivisionFactor+1) + 3 * col;
-                float *r1c2 = vertices + 3 * row * (pointSubdivisionFactor+1) + 3 * (col + 1);
-                float *r2c1 = vertices + 3 * (row + 1) * (pointSubdivisionFactor+1) + 3 * col;
-                float *r2c2 = vertices + 3 * (row + 1) * (pointSubdivisionFactor+1) + 3 * (col + 1);
+                unsigned int i_r1c1 = 3 * row * (pointSubdivisionFactor+1) + 3 * col;
+                unsigned int i_r1c2 = 3 * row * (pointSubdivisionFactor+1) + 3 * (col + 1);
+                unsigned int i_r2c1 = 3 * (row + 1) * (pointSubdivisionFactor+1) + 3 * col;
+                unsigned int i_r2c2 = 3 * (row + 1) * (pointSubdivisionFactor+1) + 3 * (col + 1);
 
-                /* TODO Colour determined by terrain. */
-                Vec3<float> colour(0.4f, 0.8f, 0.4f);
-#if CELL_BOUNDARIES_IN_RED
-                if (row == pointSubdivisionFactor-1 || col == pointSubdivisionFactor-1)
-                    colour = Vec3<float>(0.8f, 0.4f, 0.4f);
-#endif
+                Vec3<unsigned int> tri1Is(i_r2c1, i_r1c1, i_r1c2);
+                computeFlatTriangle(vertices, colours, tri1Is, triangleVPos);
 
-                computeFlatTriangle(
-                    Vec3<float>().fromArray(r2c1), Vec3<float>().fromArray(r1c1), Vec3<float>().fromArray(r1c2), colour, triangleVPos);
                 triangleVPos += 3;
-                computeFlatTriangle(
-                    Vec3<float>().fromArray(r2c1), Vec3<float>().fromArray(r1c2), Vec3<float>().fromArray(r2c2), colour, triangleVPos);
+
+                Vec3<unsigned int> tri2Is(i_r2c1, i_r1c2, i_r2c2);
+                computeFlatTriangle(vertices, colours, tri2Is, triangleVPos);
+
                 triangleVPos += 3;
             }
         }
@@ -173,15 +165,18 @@ AFK_LandscapeCell::AFK_LandscapeCell(
 
     /* I'm going to need to sample the edges of the next cell along
      * the +ve x and z too, in order to join up with it.
+     * -- TODO: That needs to change (see: stitching).
      */
     vertexCount = SQUARE(pointSubdivisionFactor + 1);
     float *rawVertices = NULL;
+    float *rawColours = NULL;
     unsigned int rawVerticesCount = 3 * vertexCount;
 
     /* TODO This is thrashing the heap.  Try making a single
      * scratch place for this in thread-local storage
      */
     rawVertices = new float[rawVerticesCount];
+    rawColours = new float[rawVerticesCount];
 
     /* Populate the vertex array. */
     float *rawVerticesPos = rawVertices;
@@ -224,13 +219,22 @@ AFK_LandscapeCell::AFK_LandscapeCell(
      * TODO This may be slow -- obvious candidate for OpenCL?
      * But, the cache may rescue me; profile first!
      */
-    for (rawVerticesPos = rawVertices; rawVerticesPos < (rawVertices + vertexCount * 3); rawVerticesPos += 3)
+    for (unsigned int i = 0; i < vertexCount; ++i)
     {
-        Vec3<float> rawSample(*rawVerticesPos, *(rawVerticesPos+1), *(rawVerticesPos+2));
-        terrain.compute(rawSample);
-        *rawVerticesPos = rawSample.v[0];
-        *(rawVerticesPos+1) = rawSample.v[1];
-        *(rawVerticesPos+2) = rawSample.v[2];
+        Vec3<float> rawVertex(
+            *(rawVertices + 3 * i),
+            *(rawVertices + 3 * i + 1),
+            *(rawVertices + 3 * i + 2));
+
+        Vec3<float> rawColour(0.5f, 0.5f, 0.5f);
+
+        terrain.compute(rawVertex, rawColour);
+
+        for (unsigned int j = 0; j < 3; ++j)
+        {
+            *(rawVertices + 3 * i + j) = rawVertex.v[j];
+            *(rawColours + 3 * i + j) = rawColour.v[j];
+        }
     }
 
     /* I've completed my vertex array!  Transform this into an
@@ -239,12 +243,13 @@ AFK_LandscapeCell::AFK_LandscapeCell(
     struct AFK_VcolPhongVertex *triangleVs = NULL;
     unsigned int triangleVsCount;
 
-    vertices2FlatTriangles(rawVertices, rawVerticesCount, pointSubdivisionFactor, NULL, &triangleVsCount);
+    vertices2FlatTriangles(rawVertices, rawColours, rawVerticesCount, pointSubdivisionFactor, NULL, &triangleVsCount);
     triangleVs = new struct AFK_VcolPhongVertex[triangleVsCount];
-    vertices2FlatTriangles(rawVertices, rawVerticesCount, pointSubdivisionFactor, triangleVs, &triangleVsCount);
+    vertices2FlatTriangles(rawVertices, rawColours, rawVerticesCount, pointSubdivisionFactor, triangleVs, &triangleVsCount);
 
     /* I don't need this any more... */
     delete[] rawVertices;
+    delete[] rawColours;
 
     /* Turn this into an OpenGL vertex buffer */
     glGenBuffers(1, &vertices);
@@ -410,7 +415,22 @@ void AFK_Landscape::enqueueSubcells(
         else
         {
             /* Add the terrain for this cell to the terrain vector. */
-            realCell.makeTerrain(pointSubdivisionFactor, subdivisionFactor, minCellSize, terrain, *(afk_core.rng));
+            /* TODO Using debug colours right now. */
+
+            /* Here's an LoD one... (apparently) */
+#if 0
+            Vec3<float> tint =
+                cell.coord.v[3] == MIN_CELL_PITCH ? Vec3<float>(0.0f, 0.0f, 1.0f) :
+                cell.coord.v[3] == MIN_CELL_PITCH * subdivisionFactor ? Vec3<float>(0.0f, 1.0f, 0.0f) :
+                Vec3<float>(1.0f, 0.0f, 0.0f);
+#else
+            /* And here's a location one... */
+            Vec3<float> tint(
+                0.0f,
+                fmod(realCell.coord.v[0], 16.0),
+                fmod(realCell.coord.v[2], 16.0));
+#endif
+            realCell.makeTerrain(tint, pointSubdivisionFactor, subdivisionFactor, minCellSize, terrain, *(afk_core.rng));
 
             /* If it's the smallest possible cell, or its detail pitch
              * is at the target detail pitch, include it as-is

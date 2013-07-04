@@ -54,12 +54,13 @@ class AFK_TerrainFeature
 protected:
     enum AFK_TerrainType    type;
     Vec3<float>             location; /* y is always 0 */
+    Vec3<float>             tint;
     Vec3<float>             scale;
 
     /* The methods for computing each individual
      * terrain type.
      */
-    void compute_squarePyramid(Vec3<float>& c) const;
+    void compute_squarePyramid(Vec3<float>& position, Vec3<float>& colour) const;
 
 public:
     AFK_TerrainFeature() {}
@@ -67,6 +68,7 @@ public:
     AFK_TerrainFeature(
         const enum AFK_TerrainType _type,
         const Vec3<float>& _location,
+        const Vec3<float>& _tint,
         const Vec3<float>& _scale);
 
     AFK_TerrainFeature& operator=(const AFK_TerrainFeature& f);
@@ -74,8 +76,12 @@ public:
     /* Computes in cell co-ordinates, updating the
      * y co-ordinate.
      */
-    void compute(Vec3<float>& c) const;
+    void compute(Vec3<float>& position, Vec3<float>& colour) const;
+
+    friend std::ostream& operator<<(std::ostream& os, const AFK_TerrainFeature& feature);
 };
+
+std::ostream& operator<<(std::ostream& os, const AFK_TerrainFeature& feature);
 
 /* This describes a cell containing a collection of
  * terrain features.  It provides a method for computing
@@ -100,16 +106,20 @@ public:
 
     /* Assumes the RNG to have been seeded correctly for
      * the cell.
+     * TODO Do something about the colour.
      */
-    void make(unsigned int pointSubdivisionFactor, unsigned int subdivisionFactor, float minCellSize, AFK_RNG& rng);
+    void make(const Vec3<float>& tint, unsigned int pointSubdivisionFactor, unsigned int subdivisionFactor, float minCellSize, AFK_RNG& rng);
 
     /* Computes in cell co-ordinates each of the
      * terrain features and puts them together.
      */
-    void compute(Vec3<float>& c) const;
+    void compute(Vec3<float>& position, Vec3<float>& colour) const;
 
+    friend std::ostream& operator<<(std::ostream& os, const AFK_TerrainCell& cell);
     friend class AFK_Terrain;
 };
+
+std::ostream& operator<<(std::ostream& os, const AFK_TerrainCell& cell);
 
 /* This describes an entire terrain. */
 
@@ -129,7 +139,7 @@ public:
      * input should be in world space (it will come
      * out like that, too).
      */
-    void compute(Vec3<float>& c) const;
+    void compute(Vec3<float>& position, Vec3<float>& colour) const;
 };
 
 

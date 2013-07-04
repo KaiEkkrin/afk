@@ -28,11 +28,12 @@ protected:
 
     HMAC_CTX *ctx;
 
+    virtual void seed_internal(const AFK_RNG_Value& seed);
+
 public:
     AFK_HMAC_RNG(enum AFK_HMAC_RNG_Algorithm algo);
     virtual ~AFK_HMAC_RNG();
 
-    virtual void seed(const AFK_RNG_Value& seed);
     virtual AFK_RNG_Value rand(void);
 };
 

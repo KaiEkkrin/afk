@@ -2,7 +2,7 @@
 
 #include "boost_taus88.hpp"
 
-void AFK_Boost_Taus88_RNG::seed(const AFK_RNG_Value& seed)
+void AFK_Boost_Taus88_RNG::seed_internal(const AFK_RNG_Value& seed)
 {
     rng[0] = boost::random::taus88(seed.v.i[0]);
     rng[1] = boost::random::taus88(seed.v.i[1]);

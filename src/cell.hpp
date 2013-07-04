@@ -173,6 +173,7 @@ public:
      * cells onto the terrain object.
      */
     void makeTerrain(
+        const Vec3<float>& tint,
         unsigned int pointSubdivisionFactor,
         unsigned int subdivisionFactor,
         float minCellSize,

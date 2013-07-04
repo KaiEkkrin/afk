@@ -22,9 +22,9 @@ protected:
     struct random_data buf;
 
     int bumpXorTracker(void);
+    virtual void seed_internal(const AFK_RNG_Value& seed);
 
 public:
-    virtual void seed(const AFK_RNG_Value& seed);
     virtual AFK_RNG_Value rand(void);
 };
 

@@ -12,7 +12,7 @@ int AFK_C_RNG::bumpXorTracker(void)
     return t;
 }
 
-void AFK_C_RNG::seed(const AFK_RNG_Value& seed)
+void AFK_C_RNG::seed_internal(const AFK_RNG_Value& seed)
 {
     originalSeed = seed;
     xorTracker = 1;

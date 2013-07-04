@@ -16,7 +16,7 @@ AFK_AES_RNG::~AFK_AES_RNG()
     if (ctx) delete ctx;
 }
 
-void AFK_AES_RNG::seed(const AFK_RNG_Value& seed)
+void AFK_AES_RNG::seed_internal(const AFK_RNG_Value& seed)
 {
     if (ctx)
     {

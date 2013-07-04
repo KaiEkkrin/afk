@@ -8,30 +8,43 @@
 #include "exception.hpp"
 #include "terrain.hpp"
 
+/* TODO REMOVEME for TARGETED_TERRAIN_DEBUG */
+#include <iostream>
+#include "core.hpp"
+
+/* TODO REMOVE the copious amounts of debug I littered this file with in
+ * order to discover what was going wrong.
+ * Back out the various extra-conservative landscape changes I made here
+ * and make it generate a "natural" landscape again.
+ */
+
 /* The methods for computing each individual
  * feature type.
  */
-void AFK_TerrainFeature::compute_squarePyramid(Vec3<float>& c) const
+void AFK_TerrainFeature::compute_squarePyramid(Vec3<float>& position, Vec3<float>& colour) const
 {
-    if (c.v[0] >= (location.v[0] - scale.v[0]) &&
-        c.v[0] < (location.v[0] + scale.v[0]) &&
-        c.v[2] >= (location.v[2] - scale.v[2]) &&
-        c.v[2] < (location.v[2] + scale.v[2]))
+    if (position.v[0] >= (location.v[0] - scale.v[0]) &&
+        position.v[0] < (location.v[0] + scale.v[0]) &&
+        position.v[2] >= (location.v[2] - scale.v[2]) &&
+        position.v[2] < (location.v[2] + scale.v[2]))
     {
         /* Make pyramid space co-ordinates. */
-        float px = (c.v[0] - location.v[0]) / scale.v[0];
-        float pz = (c.v[2] - location.v[2]) / scale.v[2];
+        float px = (position.v[0] - location.v[0]) / scale.v[0];
+        float pz = (position.v[2] - location.v[2]) / scale.v[2];
 
         if (fabs(px) > fabs(pz))
         {
             /* We're on one of the left/right faces. */
-            c.v[1] += (1.0f - fabs(px)) * scale.v[1];
+            position.v[1] += (1.0f - fabs(px)) * scale.v[1];
         }
         else
         {
             /* We're on one of the front/back faces. */
-            c.v[1] += (1.0f - fabs(pz)) * scale.v[1];
+            position.v[1] += (1.0f - fabs(pz)) * scale.v[1];
         }
+
+        /* A temporary thing... */
+        colour += tint /* * scale.v[1] */;
     }
 }
 
@@ -39,16 +52,19 @@ AFK_TerrainFeature::AFK_TerrainFeature(const AFK_TerrainFeature& f)
 {
     type        = f.type;
     location    = f.location;
+    tint        = f.tint;
     scale       = f.scale;
 }
 
 AFK_TerrainFeature::AFK_TerrainFeature(
     enum AFK_TerrainType _type,
     const Vec3<float>& _location,
+    const Vec3<float>& _tint,
     const Vec3<float>& _scale)
 {
     type        = _type;
     location    = _location;
+    tint        = _tint;
     scale       = _scale;
 }
 
@@ -56,16 +72,17 @@ AFK_TerrainFeature& AFK_TerrainFeature::operator=(const AFK_TerrainFeature& f)
 {
     type        = f.type;
     location    = f.location;
+    tint        = f.tint;
     scale       = f.scale;
     return *this;
 }
 
-void AFK_TerrainFeature::compute(Vec3<float>& c) const
+void AFK_TerrainFeature::compute(Vec3<float>& position, Vec3<float>& colour) const
 {
     switch (type)
     {
     case AFK_TERRAIN_SQUARE_PYRAMID:
-        compute_squarePyramid(c);
+        compute_squarePyramid(position, colour);
         break;
 
     default:
@@ -75,6 +92,11 @@ void AFK_TerrainFeature::compute(Vec3<float>& c) const
             throw AFK_Exception(ss.str());
         }
     }
+}
+
+std::ostream& operator<<(std::ostream& os, const AFK_TerrainFeature& feature)
+{
+    return os << "Feature(Location=" << feature.location << ", Scale=" << feature.scale << ")";
 }
 
 
@@ -108,9 +130,9 @@ AFK_TerrainCell& AFK_TerrainCell::operator=(const AFK_TerrainCell& c)
     return *this;
 }
 
-void AFK_TerrainCell::make(unsigned int pointSubdivisionFactor, unsigned int subdivisionFactor, float minCellSize, AFK_RNG& rng)
+void AFK_TerrainCell::make(const Vec3<float>& tint, unsigned int pointSubdivisionFactor, unsigned int subdivisionFactor, float minCellSize, AFK_RNG& rng)
 {
-#if 1
+#if 0
     /* To test, I'm only going to include features
      * in the smallest level of terrain.
      * TODO: I need to sort out the terrain composition so
@@ -126,7 +148,7 @@ void AFK_TerrainCell::make(unsigned int pointSubdivisionFactor, unsigned int sub
      * polygonal landscape so that I can actually see what I've
      * made.
      */
-    if (cellCoord.v[3] > (2.0f * minCellSize))
+    if (cellCoord.v[3] > (4.0f * minCellSize))
     {
         featureCount = 0;
         return;
@@ -178,36 +200,33 @@ void AFK_TerrainCell::make(unsigned int pointSubdivisionFactor, unsigned int sub
             ySign * (yScale * (maxFeatureSize - minFeatureSize) + minFeatureSize),
             rng.frand() * (maxFeatureSize - minFeatureSize) + minFeatureSize);
 
-        /* To stop it from running off the sides or lifting the sides
-         * up and making gaps, each feature
-         * is confined to (maxFeatureSize+scale, 1.0-scale-maxFeatureSize) on the
-         * (x, z) co-ordinates.
-         */
-        /* TODO how the F is this going wrong?!  Clamping all features to the
-         * exact centre as a sanity check
-         */
-#if 0
-        float minFeatureLocationX = scale.v[0] + maxFeatureSize;
-        float maxFeatureLocationX = 1.0f - scale.v[0] - maxFeatureSize;
-        float minFeatureLocationZ = scale.v[2] + maxFeatureSize;
-        float maxFeatureLocationZ = 1.0f - scale.v[2] - maxFeatureSize;
+        float minFeatureLocationX = scale.v[0] /* + maxFeatureSize */;
+        float maxFeatureLocationX = 1.0f - scale.v[0] /* - maxFeatureSize */;
+        float minFeatureLocationZ = scale.v[2] /* + maxFeatureSize */;
+        float maxFeatureLocationZ = 1.0f - scale.v[2] /* - maxFeatureSize */;
 
         Vec3<float> location(
             rng.frand() * (maxFeatureLocationX - minFeatureLocationX) + minFeatureLocationX,
             0.0f, /* not meaningful */
             rng.frand() * (maxFeatureLocationZ - minFeatureLocationZ) + minFeatureLocationZ);
-#else
-        Vec3<float> location(0.5f, 0.0f, 0.5f);
-#endif
 
-        features[i] = AFK_TerrainFeature(AFK_TERRAIN_SQUARE_PYRAMID, location, scale);
+        features[i] = AFK_TerrainFeature(AFK_TERRAIN_SQUARE_PYRAMID, location, tint, scale);
     }
 } 
 
-void AFK_TerrainCell::compute(Vec3<float>& c) const
+void AFK_TerrainCell::compute(Vec3<float>& position, Vec3<float>& colour) const
 {
     for (unsigned int i = 0; i < featureCount; ++i)
-        features[i].compute(c);
+        features[i].compute(position, colour);
+}
+
+std::ostream& operator<<(std::ostream& os, const AFK_TerrainCell& cell)
+{
+    os << "TerrainCell(Coord=" << cell.cellCoord;
+    for (unsigned int i = 0; i < cell.featureCount; ++i)
+        os << ", " << i << "=" << cell.features[i];
+    os << ")";
+    return os;
 }
 
 
@@ -223,10 +242,12 @@ void AFK_Terrain::pop()
     t.pop_front();
 }
 
+#define TARGETED_TERRAIN_DEBUG 1
+
 /* TODO This is still coming out weird.  Try sampling the terrain as
  * `double' and then backing down again afterwards.
  */
-void AFK_Terrain::compute(Vec3<float>& c) const
+void AFK_Terrain::compute(Vec3<float>& position, Vec3<float>& colour) const
 {
     /* Try starting with the smallest feature, and progressively
      * going larger.  Hopefully this will minimise any
@@ -234,16 +255,30 @@ void AFK_Terrain::compute(Vec3<float>& c) const
      * arithmetic.
      */
 
+#if TARGETED_TERRAIN_DEBUG
+    bool debugThisOne = (position.v[0] == 4.0f && position.v[2] == 4.0f);
+    if (debugThisOne) std::cout << "4/4:" << std::endl;
+#endif
+
     std::deque<AFK_TerrainCell>::const_iterator large = t.begin();
     if (large != t.end())
     {
         /* First, transform to the space of the smallest terrain cell,
          * which of course is `large' right now.
          */
-        Vec3<float> csc(
-            (c.v[0] - large->cellCoord.v[0]) / large->cellCoord.v[3],
-            (c.v[1] - large->cellCoord.v[1]) / large->cellCoord.v[3],
-            (c.v[2] - large->cellCoord.v[2]) / large->cellCoord.v[3]);
+        Vec3<float> poscs(
+            (position.v[0] - large->cellCoord.v[0]) / large->cellCoord.v[3],
+            (position.v[1] - large->cellCoord.v[1]) / large->cellCoord.v[3],
+            (position.v[2] - large->cellCoord.v[2]) / large->cellCoord.v[3]);
+
+#if TARGETED_TERRAIN_DEBUG
+        if (debugThisOne)
+        {
+            std::ostringstream ss;
+            ss << "4/4: Starting position: " << position;
+            std::cout << ss.str() << std::endl;
+        }
+#endif
 
         ++large;
         std::deque<AFK_TerrainCell>::const_iterator small = t.begin();
@@ -251,28 +286,66 @@ void AFK_Terrain::compute(Vec3<float>& c) const
         while (large != t.end())
         {
             /* Compute in the context of the small cell */
-            small->compute(csc);
+            small->compute(poscs, colour);
+
+#if TARGETED_TERRAIN_DEBUG
+            if (debugThisOne)
+            {
+                std::ostringstream ss;
+                ss << "4/4: Large cell: " << *large << std::endl;
+                ss << "4/4: At cell: poscs became " << poscs;
+                std::cout << ss.str() << std::endl;
+            }
+#endif
 
             /* Transform from the context of the small cell into the
              * context of the large cell
              */
             float scaleFactor = large->cellCoord.v[3] / small->cellCoord.v[3];
-            csc = Vec3<float>(
-                (csc.v[0] - (large->cellCoord.v[0] - small->cellCoord.v[0])) / scaleFactor,
-                (csc.v[1] - (large->cellCoord.v[1] - small->cellCoord.v[1])) / scaleFactor,
-                (csc.v[2] - (large->cellCoord.v[2] - small->cellCoord.v[2])) / scaleFactor);
+
+            Vec3<float> displacement(
+                (large->cellCoord.v[0] - small->cellCoord.v[0]) / small->cellCoord.v[3],
+                (large->cellCoord.v[1] - small->cellCoord.v[1]) / small->cellCoord.v[3],
+                (large->cellCoord.v[2] - small->cellCoord.v[2]) / small->cellCoord.v[3]);
+
+            poscs = (poscs - displacement) / scaleFactor;
 
             ++small;
             ++large;
         }
 
         /* Do the last computation */
-        small->compute(csc);
+        small->compute(poscs, colour);
+
+#if TARGETED_TERRAIN_DEBUG
+        if (debugThisOne)
+        {
+            std::ostringstream ss;
+            ss << "4/4: Small cell: " << *small << std::endl;
+            ss << "4/4: At cell: poscs became " << poscs;
+                std::cout << ss.str() << std::endl;
+        }
+#endif
 
         /* Transform the y co-ordinate from `small' (now biggest-cell!) space back
          * into world space
          */
-        c.v[1] = csc.v[1] * small->cellCoord.v[3] + small->cellCoord.v[1];
+        position.v[1] = poscs.v[1] * small->cellCoord.v[3] + small->cellCoord.v[1];
+
+#if TARGETED_TERRAIN_DEBUG
+        if (debugThisOne)
+        {
+            std::ostringstream ss;
+            ss << "4/4: Final position: " << position;
+                std::cout << ss.str() << std::endl;
+        }
+#endif
+
+        /* Put the colour back into shape.
+         * TODO: Think about higher weighting for larger cells?
+         */
+        colour.normalise();
+        colour = colour + 1.0f / 2.0f;
     }
 }
 

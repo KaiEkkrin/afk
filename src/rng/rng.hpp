@@ -75,18 +75,23 @@ protected:
     AFK_RNG_Value lastVForF;
     int vForFField;
 
+    /* Override this with the manner of re-seeding the underlying
+     * RNG.
+     */
+    virtual void seed_internal(const AFK_RNG_Value& seed) = 0;
+
 public:
     AFK_RNG() { vForFField = 4; }
     virtual ~AFK_RNG() {}
 
-    virtual void seed(const AFK_RNG_Value& seed) = 0;
+    void seed(const AFK_RNG_Value& seed);
     virtual AFK_RNG_Value rand(void) = 0;
 
     /* Returns a random unsigned int */
-    virtual unsigned int uirand(void);
+    unsigned int uirand(void);
 
     /* Returns a random float between 0.0 and 1.0 */
-    virtual float frand(void);
+    float frand(void);
 };
 
 class AFK_RNG_Test

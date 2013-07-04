@@ -352,9 +352,11 @@ void AFK_RealCell::testVisibility(const AFK_Camera& camera, bool& io_someVisible
 /* Define this in order to enable half-cell terrain.
  * (I do want to eventually do this.)
  */
+/* TODO Halfcell terrain is bugged somehow -- re-enable and diagnose. */
 #define HALFCELL_TERRAIN 0
 
 void AFK_RealCell::makeTerrain(
+    const Vec3<float>& tint,
     unsigned int pointSubdivisionFactor,
     unsigned int subdivisionFactor,
     float minCellSize,
@@ -368,7 +370,7 @@ void AFK_RealCell::makeTerrain(
         /* Make the terrain cell for this actual cell. */
         AFK_TerrainCell terrainCell(coord);
         rng.seed(worldCell.rngSeed());
-        terrainCell.make(pointSubdivisionFactor, subdivisionFactor, minCellSize, rng);
+        terrainCell.make(tint, pointSubdivisionFactor, subdivisionFactor, minCellSize, rng);
         terrain.push(terrainCell);
 
         /* TODO Re-enable this when the basics look OK */
@@ -380,7 +382,7 @@ void AFK_RealCell::makeTerrain(
         {
             AFK_TerrainCell terrainHalfCell(halfCells[i].coord);
             rng.seed(halfCells[i].worldCell.rngSeed());
-            terrainHalfCell.make(pointSubdivisionFactor, subdivisionFactor, minCellSize, rng);
+            terrainHalfCell.make(tint, pointSubdivisionFactor, subdivisionFactor, minCellSize, rng);
             terrain.push(terrainHalfCell);
         }
 #endif /* HALFCELL_TERRAIN */ 

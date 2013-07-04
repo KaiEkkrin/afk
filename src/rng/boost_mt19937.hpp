@@ -12,8 +12,9 @@ class AFK_Boost_MT19937_RNG: public AFK_RNG
 protected:
     boost::random::mt19937 rng[4];
 
+    virtual void seed_internal(const AFK_RNG_Value& seed);
+
 public:
-    virtual void seed(const AFK_RNG_Value& seed);
     virtual AFK_RNG_Value rand(void);
 };
 

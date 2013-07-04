@@ -18,6 +18,10 @@
 #include "exception.hpp"
 #include "landscape.hpp"
 
+
+#define TEST_RNGS 0
+
+
 /* This is the AFK global core declared in core.h */
 AFK_Core afk_core;
 
@@ -26,7 +30,7 @@ int main(int argc, char **argv)
 {
     int retcode = 0;
 
-#ifdef TEST_RNGS
+#if TEST_RNGS
     test_rngs();
 #endif
 
