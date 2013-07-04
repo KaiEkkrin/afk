@@ -163,7 +163,7 @@ void AFK_Core::configure(int *argcp, char **argv)
     /* Set up the sun.  (TODO: Make configurable?  Randomly
      * generated?  W/e :) )
      */
-    sun.colour[0] = 0.8f;       sun.colour[1] = 0.8f;       sun.colour[2] = 0.6f;
+    sun.colour[0] = 1.0f;       sun.colour[1] = 1.0f;       sun.colour[2] = 1.0f;
 
     Vec3<float> sunDirection = Vec3<float>(0.0f, -1.0f, 1.0f).normalise();
     sun.direction[0] = sunDirection.v[0];
@@ -171,7 +171,7 @@ void AFK_Core::configure(int *argcp, char **argv)
     sun.direction[2] = sunDirection.v[2];
 
     sun.ambient = 0.2f;
-    sun.diffuse = 1.0f;
+    sun.diffuse = 0.6f;
 }
 
 void AFK_Core::loop(void)

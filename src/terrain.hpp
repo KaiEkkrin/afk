@@ -54,7 +54,7 @@ class AFK_TerrainFeature
 protected:
     enum AFK_TerrainType    type;
     Vec3<float>             location; /* y is always 0 */
-    Vec3<float>             tint;
+    Vec3<float>             tint; /* TODO Make location and tint features separate things? */
     Vec3<float>             scale;
 
     /* The methods for computing each individual
@@ -106,9 +106,11 @@ public:
 
     /* Assumes the RNG to have been seeded correctly for
      * the cell.
-     * TODO Do something about the colour.
+     * If `forcedTint' is non-NULL, uses that tint for all
+     * features generated here; otherwise, gets a tint off
+     * of the RNG.
      */
-    void make(const Vec3<float>& tint, unsigned int pointSubdivisionFactor, unsigned int subdivisionFactor, float minCellSize, AFK_RNG& rng);
+    void make(unsigned int pointSubdivisionFactor, unsigned int subdivisionFactor, float minCellSize, AFK_RNG& rng, const Vec3<float> *forcedTint);
 
     /* Computes in cell co-ordinates each of the
      * terrain features and puts them together.
@@ -126,10 +128,6 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainCell& cell);
 class AFK_Terrain
 {
 protected:
-    /* TODO Change this back to a vector?  I suspect deque is
-     * slow.  I can push_back() and pop_back() to the vector and
-     * iterate through it in inverse order with the [] overload.
-     */
     std::deque<AFK_TerrainCell> t;
 
 public:

@@ -12,12 +12,6 @@
 #include <iostream>
 #include "core.hpp"
 
-/* TODO REMOVE the copious amounts of debug I littered this file with in
- * order to discover what was going wrong.
- * Back out the various extra-conservative landscape changes I made here
- * and make it generate a "natural" landscape again.
- */
-
 /* The methods for computing each individual
  * feature type.
  */
@@ -130,23 +124,11 @@ AFK_TerrainCell& AFK_TerrainCell::operator=(const AFK_TerrainCell& c)
     return *this;
 }
 
-void AFK_TerrainCell::make(const Vec3<float>& tint, unsigned int pointSubdivisionFactor, unsigned int subdivisionFactor, float minCellSize, AFK_RNG& rng)
+void AFK_TerrainCell::make(unsigned int pointSubdivisionFactor, unsigned int subdivisionFactor, float minCellSize, AFK_RNG& rng, const Vec3<float> *forcedTint)
 {
 #if 0
-    /* To test, I'm only going to include features
-     * in the smallest level of terrain.
-     * TODO: I need to sort out the terrain composition so
-     * that it does something sensible about crossing cell
-     * boundaries (or really really makes sure it can't, and
-     * I don't know how to do that, because I want to be able
-     * to go down as well as up, and I'm right next to the
-     * zero y at the moment as it is, and right now every
-     * landscape cell has a plane of points in it if I let it).
-     * However, the array of points is already making it very
-     * difficult to visualise what is going on, so before I
-     * continue, I should first turn it into a properly lit
-     * polygonal landscape so that I can actually see what I've
-     * made.
+    /* To test, only include features
+     * in some small level of terrain.
      */
     if (cellCoord.v[3] > (4.0f * minCellSize))
     {
@@ -209,6 +191,9 @@ void AFK_TerrainCell::make(const Vec3<float>& tint, unsigned int pointSubdivisio
             rng.frand() * (maxFeatureLocationX - minFeatureLocationX) + minFeatureLocationX,
             0.0f, /* not meaningful */
             rng.frand() * (maxFeatureLocationZ - minFeatureLocationZ) + minFeatureLocationZ);
+        
+        Vec3<float> tint = forcedTint ? *forcedTint :
+            Vec3<float>(rng.frand(), rng.frand(), rng.frand());
 
         features[i] = AFK_TerrainFeature(AFK_TERRAIN_SQUARE_PYRAMID, location, tint, scale);
     }
@@ -242,11 +227,8 @@ void AFK_Terrain::pop()
     t.pop_front();
 }
 
-#define TARGETED_TERRAIN_DEBUG 1
+#define TARGETED_TERRAIN_DEBUG 0
 
-/* TODO This is still coming out weird.  Try sampling the terrain as
- * `double' and then backing down again afterwards.
- */
 void AFK_Terrain::compute(Vec3<float>& position, Vec3<float>& colour) const
 {
     /* Try starting with the smallest feature, and progressively

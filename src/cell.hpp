@@ -173,12 +173,12 @@ public:
      * cells onto the terrain object.
      */
     void makeTerrain(
-        const Vec3<float>& tint,
         unsigned int pointSubdivisionFactor,
         unsigned int subdivisionFactor,
         float minCellSize,
         AFK_Terrain& terrain,
-        AFK_RNG& rng) const;
+        AFK_RNG& rng,
+        const Vec3<float> *forcedTint) const;
 
     /* Removes this cell's terrain from the terrain
      * object.  Doesn't work unless you called

@@ -226,7 +226,7 @@ AFK_LandscapeCell::AFK_LandscapeCell(
             *(rawVertices + 3 * i + 1),
             *(rawVertices + 3 * i + 2));
 
-        Vec3<float> rawColour(0.5f, 0.5f, 0.5f);
+        Vec3<float> rawColour = Vec3<float>(1.0f, 1.0f, 1.0f);
 
         terrain.compute(rawVertex, rawColour);
 
@@ -359,6 +359,8 @@ AFK_Landscape::~AFK_Landscape()
     delete shaderProgram;
 }
 
+#define ENQUEUE_DEBUG_COLOURS 0
+
 void AFK_Landscape::enqueueSubcells(
     const AFK_Cell& cell,
     const AFK_Cell& parent,
@@ -415,8 +417,9 @@ void AFK_Landscape::enqueueSubcells(
         else
         {
             /* Add the terrain for this cell to the terrain vector. */
-            /* TODO Using debug colours right now. */
+            Vec3<float> *debugColour = NULL;
 
+#if ENQUEUE_DEBUG_COLOURS
             /* Here's an LoD one... (apparently) */
 #if 0
             Vec3<float> tint =
@@ -430,7 +433,10 @@ void AFK_Landscape::enqueueSubcells(
                 fmod(realCell.coord.v[0], 16.0),
                 fmod(realCell.coord.v[2], 16.0));
 #endif
-            realCell.makeTerrain(tint, pointSubdivisionFactor, subdivisionFactor, minCellSize, terrain, *(afk_core.rng));
+            debugColour = &tint;
+#endif /* ENQUEUE_DEBUG_COLOURS */
+
+            realCell.makeTerrain(pointSubdivisionFactor, subdivisionFactor, minCellSize, terrain, *(afk_core.rng), debugColour);
 
             /* If it's the smallest possible cell, or its detail pitch
              * is at the target detail pitch, include it as-is

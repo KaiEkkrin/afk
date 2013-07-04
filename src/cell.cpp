@@ -50,7 +50,7 @@ bool AFK_Cell::operator!=(const AFK_Cell& _cell) const
 
 AFK_RNG_Value AFK_Cell::rngSeed() const
 {
-    return AFK_RNG_Value(coord.v[0], coord.v[1], coord.v[2], coord.v[3]);
+    return AFK_RNG_Value(coord.v[0], coord.v[1], coord.v[2], coord.v[3]) ^ afk_core.config->masterSeed;
 }
 
 unsigned int AFK_Cell::subdivide(
@@ -208,6 +208,8 @@ void AFK_RealCell::enumerateHalfCells(AFK_RealCell *halfCells, size_t halfCellsS
                 coord.v[1],
                 coord.v[2] + coord.v[3] * (float)zd / 2.0f,
                 coord.v[3]);
+
+            ++halfCellsIdx;
         }
     }
 }
@@ -352,16 +354,15 @@ void AFK_RealCell::testVisibility(const AFK_Camera& camera, bool& io_someVisible
 /* Define this in order to enable half-cell terrain.
  * (I do want to eventually do this.)
  */
-/* TODO Halfcell terrain is bugged somehow -- re-enable and diagnose. */
-#define HALFCELL_TERRAIN 0
+#define HALFCELL_TERRAIN 1
 
 void AFK_RealCell::makeTerrain(
-    const Vec3<float>& tint,
     unsigned int pointSubdivisionFactor,
     unsigned int subdivisionFactor,
     float minCellSize,
     AFK_Terrain& terrain,
-    AFK_RNG& rng) const
+    AFK_RNG& rng,
+    const Vec3<float> *forcedTint) const
 {
     if (worldCell.coord.v[1] == 0)
     {
@@ -370,19 +371,19 @@ void AFK_RealCell::makeTerrain(
         /* Make the terrain cell for this actual cell. */
         AFK_TerrainCell terrainCell(coord);
         rng.seed(worldCell.rngSeed());
-        terrainCell.make(tint, pointSubdivisionFactor, subdivisionFactor, minCellSize, rng);
+        terrainCell.make(pointSubdivisionFactor, subdivisionFactor, minCellSize, rng, forcedTint);
         terrain.push(terrainCell);
 
         /* TODO Re-enable this when the basics look OK */
         /* Make the terrain cell for the four half-cells */
-#if HALFCELL_TERRAIN != 0
+#if HALFCELL_TERRAIN
         AFK_RealCell halfCells[4];
         enumerateHalfCells(&halfCells[0], 4);
         for (unsigned int i = 0; i < 4; ++i)
         {
             AFK_TerrainCell terrainHalfCell(halfCells[i].coord);
             rng.seed(halfCells[i].worldCell.rngSeed());
-            terrainHalfCell.make(tint, pointSubdivisionFactor, subdivisionFactor, minCellSize, rng);
+            terrainHalfCell.make(pointSubdivisionFactor, subdivisionFactor, minCellSize, rng, forcedTint);
             terrain.push(terrainHalfCell);
         }
 #endif /* HALFCELL_TERRAIN */ 
@@ -393,7 +394,7 @@ void AFK_RealCell::removeTerrain(AFK_Terrain& terrain) const
 {
     if (worldCell.coord.v[1] == 0)
     {
-#if HALFCELL_TERRAIN != 0
+#if HALFCELL_TERRAIN
         for (unsigned int i = 0; i < 5; ++i)
             terrain.pop();
 #else

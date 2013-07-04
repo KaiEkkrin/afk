@@ -1,3 +1,12 @@
+...It turns out that the cell sampling is quite accurate enough for pixels calculated at
+the same LoD to line up.  So the below isn't as urgent as I thought it was.
+
+That said, I still feel it's a good idea to make the task queue next.
+
+Original text follows...
+
+...
+
 See those red lines?  Those represent the seams.  Right now the seams are being done wrongly.
 Here's what I actually need to do:
  - Implement the task queue.  I am totally going to want the task queue.  It doesn't need to
