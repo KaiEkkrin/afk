@@ -11,6 +11,7 @@
 
 #include <iostream>
 
+#include "async/test.hpp"
 #include "rng/boost_taus88.hpp"
 #include "rng/test.hpp"
 
@@ -19,6 +20,7 @@
 #include "landscape.hpp"
 
 
+#define TEST_ASYNC 1
 #define TEST_RNGS 0
 
 
@@ -29,6 +31,10 @@ AFK_Core afk_core;
 int main(int argc, char **argv)
 {
     int retcode = 0;
+
+#if TEST_ASYNC
+    test_async();
+#endif
 
 #if TEST_RNGS
     test_rngs();

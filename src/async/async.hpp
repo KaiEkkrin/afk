@@ -1,7 +1,7 @@
 /* AFK (c) Alex Holloway 2013 */
 
-#ifndef _AFK_ASYNC_H_
-#define _AFK_ASYNC_H_
+#ifndef _AFK_ASYNC_ASYNC_H_
+#define _AFK_ASYNC_ASYNC_H_
 
 #include <vector>
 
@@ -63,6 +63,13 @@
 /* Here are the mechanisms an AsyncGang uses to control its workers */
 class AFK_AsyncControls
 {
+private:
+    /* It's really important this thing doesn't get accidentally
+     * duplicated
+     */
+    AFK_AsyncControls(const AFK_AsyncControls& controls) {}
+    AFK_AsyncControls& operator=(const AFK_AsyncControls& controls) { return *this; }
+
 protected:
     /* The workers wait on this condition variable until things are
      * primed and they're ready to go. Here's how we do it:
@@ -84,6 +91,8 @@ protected:
     boost::atomic<int> workersBusy;
 
 public:
+    AFK_AsyncControls() {}
+
     void control_workReady(unsigned int workerCount);
     void control_quit();
 
@@ -100,22 +109,16 @@ public:
 };
 
 
-#define ASYNC_QUEUE_TYPE boost::lockfree::queue<ParameterType>
-#define ASYNC_WQUEUE_TYPE boost::reference_wrapper<boost::lockfree::queue<ParameterType> >
+#define ASYNC_QUEUE_TYPE(type) boost::lockfree::queue<type>
 
 template<class ParameterType, class ReturnType>
 void afk_asyncWorker(
-    boost::reference_wrapper<AFK_AsyncControls> wControls,
+    AFK_AsyncControls& controls,
     unsigned int id,
-    boost::reference_wrapper<boost::function<ReturnType (const ParameterType&, ASYNC_WQUEUE_TYPE)> > wFunc,
-    ASYNC_WQUEUE_TYPE wQueue,
-    boost::reference_wrapper<boost::promise<ReturnType> > wPromise)
+    boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
+    ASYNC_QUEUE_TYPE(ParameterType)& queue,
+    boost::promise<ReturnType> *promise)
 {
-    AFK_AsyncControls& controls = wControls.get();
-    boost::function<ReturnType (const ParameterType&, ASYNC_WQUEUE_TYPE)>& func = wFunc.get();
-    ASYNC_QUEUE_TYPE& queue = wQueue().get;
-    boost::promise<ReturnType>& promise = wPromise().get;
-
     while (controls.worker_waitForWork())
     {
         /* TODO Do something sane with the return values rather
@@ -134,7 +137,7 @@ void afk_asyncWorker(
                 /* I've got a parameter.  Make the call. */
                 if (wasIdle) controls.worker_amBusy();
                 wasIdle = false;
-                retval = func(nextParameter, wQueue);
+                retval = func(nextParameter, queue);
             }
             else
             {
@@ -153,7 +156,7 @@ void afk_asyncWorker(
          * 0, I'll populate the return value, otherwise
          * I'll throw it away now
          */
-        if (id == 0) promise.set_value(retval);
+        if (id == 0) promise->set_value(retval);
     }
 }
 
@@ -162,67 +165,98 @@ template<class ParameterType, class ReturnType>
 class AFK_AsyncGang
 {
 protected:
-    std::vector<boost::thread> workers;
+    std::vector<boost::thread*> workers;
     AFK_AsyncControls controls;
 
     /* The queue of parameters to future calls of the function. */
-    ASYNC_QUEUE_TYPE queue;
+    ASYNC_QUEUE_TYPE(ParameterType) queue;
 
     /* The promised return value. */
-    boost::promise<ReturnType> promise;
+    boost::promise<ReturnType> *promise;
 
 public:
     /* TODO Finesse this by setting a queue size?  Using guaranteed
      * lock-free calls?
      */
-    AFK_AsyncGang(boost::function<ReturnType (const ParameterType&, ASYNC_WQUEUE_TYPE)> func)
+    AFK_AsyncGang(boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
+        size_t queueSize, unsigned int concurrency)
     {
         /* Make a pile of workers. */
-        for (unsigned int i = 0; i < boost::thread::hardware_concurrency(); ++i)
-        {
-            boost::thread t(
-                boost::reference_wrapper<AFK_AsyncControls>(controls),
+        for (unsigned int i = 0; i < concurrency; ++i)
+        { 
+            boost::thread *t = new boost::thread(
+                afk_asyncWorker<ParameterType, ReturnType>,
+                boost::ref(controls),
                 i,
-                boost::reference_wrapper<boost::function<ReturnType (const ParameterType&, ASYNC_WQUEUE_TYPE)> >(func),
-                ASYNC_WQUEUE_TYPE(queue),
-                boost::reference_wrapper<boost::promise<ReturnType> >(promise));
+                func,
+                boost::ref(queue),
+                boost::ref(promise));
             workers.push_back(t);
         }
+
+        /* Reserve enough space in the queue. */
+        queue.reserve(queueSize);
+
+        /* There's no promise until we start. */
+        promise = NULL;
+    }
+
+    AFK_AsyncGang(boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func, size_t queueSize)
+    {
+        AFK_AsyncGang(func, queueSize, boost::thread::hardware_concurrency());
     }
 
     virtual ~AFK_AsyncGang()
     {
         controls.control_quit();
-        for (std::vector<boost::thread>::iterator wIt = workers.begin(); wIt != workers.end(); ++wIt)
-            wIt->join();
+        if (promise) delete promise;
+        for (std::vector<boost::thread*>::iterator wIt = workers.begin(); wIt != workers.end(); ++wIt)
+        {
+            (*wIt)->join();
+            delete *wIt;
+        }
     }
 
-    /* Tells the async task to do a run.  Returns a promise of
-     * the result.
-     * The caller should wait on that promise, no doubt.
-     * TODO: For multiple async tasks going at once, I'm going to
-     * want to select() between multiple promises, maybe using
-     * boost::asio ??
+    /* Push initial parameters into the gang.  Call before calling
+     * start().
+     * Err, or while it's running, if you feel brave.  It should
+     * be fine...
      */
-    boost::promise<ReturnType>& start(const ParameterType& parameter)
+    AFK_AsyncGang& operator<<(const ParameterType& parameter)
+    {
+        queue.push(parameter);
+        return *this;
+    }
+
+    /* Tells the async task to do a run.  Returns the future
+     * result.
+     * The caller should wait on that future, no doubt.
+     * TODO: For multiple async tasks going at once, I'm going to
+     * want to select() between multiple futures somehow ??
+     */
+    boost::unique_future<ReturnType> start(void)
     {
         /* Reset that promise */
-        promise = boost::promise<ReturnType>();
+        if (promise) delete promise;
+        promise = new boost::promise<ReturnType>();
 
-        /* Enqueue the first parameter and set things off */
-        queue.push(parameter);
+        /* Set things off */
         controls.control_workReady(workers.size());
 
-        /* Send back a reference to the promise.  Dear caller, please
-         * don't mangle it
-         */
-        return promise;
+        /* Send back the future */
+        return promise->get_future();
     }
-};
 
+    friend void afk_asyncWorker<ParameterType, ReturnType>(
+        AFK_AsyncControls& controls,
+        unsigned int id,
+        boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
+        ASYNC_QUEUE_TYPE(ParameterType)& queue,
+        boost::promise<ReturnType> *promise);
+};
 
 /* TODO: I need a bigass test suite for the above :P */
 
 
-#endif /* _AFK_ASYNC_H_ */
+#endif /* _AFK_ASYNC_ASYNC_H_ */
 
