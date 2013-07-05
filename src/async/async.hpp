@@ -91,7 +91,7 @@ protected:
     boost::atomic<int> workersBusy;
 
 public:
-    AFK_AsyncControls() {}
+    AFK_AsyncControls(): workReady(0), quit(false), workersBusy(0) {}
 
     void control_workReady(unsigned int workerCount);
     void control_quit();
@@ -102,10 +102,13 @@ public:
     /* Flags this worker as busy. */
     void worker_amBusy(void);
 
-    /* Flags this worker as idle.  Returns true if all the other
-     * workers have become idle too.
+    /* Flags this worker as idle. */
+    void worker_amIdle(void);
+
+    /* Returns true if all workers are idle, i.e. they should
+     * fall out of the work loop.
      */
-    bool worker_amIdle(void);
+    bool worker_allIdle(void);
 };
 
 
@@ -117,7 +120,7 @@ void afk_asyncWorker(
     unsigned int id,
     boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
     ASYNC_QUEUE_TYPE(ParameterType)& queue,
-    boost::promise<ReturnType> *promise)
+    boost::promise<ReturnType>& promise)
 {
     while (controls.worker_waitForWork())
     {
@@ -126,9 +129,8 @@ void afk_asyncWorker(
          */
         ReturnType retval;
         bool wasIdle = false;
-        bool allIdle = false;
 
-        while (!allIdle)
+        while (!controls.worker_allIdle())
         {
             /* Get the next parameter to call with. */
             ParameterType nextParameter;
@@ -145,7 +147,7 @@ void afk_asyncWorker(
                  * be something very soon), but also register my
                  * idleness.
                  */
-                if (!wasIdle) allIdle = controls.worker_amIdle();
+                if (!wasIdle) controls.worker_amIdle();
                 wasIdle = true;
                 boost::this_thread::yield();
             }
@@ -156,7 +158,7 @@ void afk_asyncWorker(
          * 0, I'll populate the return value, otherwise
          * I'll throw it away now
          */
-        if (id == 0) promise->set_value(retval);
+        if (id == 0) promise.set_value(retval);
     }
 }
 
@@ -172,16 +174,11 @@ protected:
     ASYNC_QUEUE_TYPE(ParameterType) queue;
 
     /* The promised return value. */
-    boost::promise<ReturnType> *promise;
+    boost::promise<ReturnType> promise;
 
-public:
-    /* TODO Finesse this by setting a queue size?  Using guaranteed
-     * lock-free calls?
-     */
-    AFK_AsyncGang(boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
-        size_t queueSize, unsigned int concurrency)
+    void initWorkers(boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
+        unsigned int concurrency)
     {
-        /* Make a pile of workers. */
         for (unsigned int i = 0; i < concurrency; ++i)
         { 
             boost::thread *t = new boost::thread(
@@ -193,28 +190,26 @@ public:
                 boost::ref(promise));
             workers.push_back(t);
         }
-
-        /* Reserve enough space in the queue. */
-        queue.reserve(queueSize);
-
-        /* There's no promise until we start. */
-        promise = NULL;
     }
 
-    AFK_AsyncGang(boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func, size_t queueSize)
+public:
+    AFK_AsyncGang(boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
+        size_t queueSize, unsigned int concurrency):
+            queue(queueSize)
     {
-        AFK_AsyncGang(func, queueSize, boost::thread::hardware_concurrency());
+        initWorkers(func, concurrency);
+    }
+
+    AFK_AsyncGang(boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func, size_t queueSize):
+        queue(queueSize)
+    {
+        initWorkers(func, boost::thread::hardware_concurrency());
     }
 
     virtual ~AFK_AsyncGang()
     {
-        controls.control_quit();
-        if (promise) delete promise;
         for (std::vector<boost::thread*>::iterator wIt = workers.begin(); wIt != workers.end(); ++wIt)
-        {
-            (*wIt)->join();
             delete *wIt;
-        }
     }
 
     /* Push initial parameters into the gang.  Call before calling
@@ -237,22 +232,22 @@ public:
     boost::unique_future<ReturnType> start(void)
     {
         /* Reset that promise */
-        if (promise) delete promise;
-        promise = new boost::promise<ReturnType>();
+        promise = boost::promise<ReturnType>();
 
         /* Set things off */
         controls.control_workReady(workers.size());
 
         /* Send back the future */
-        return promise->get_future();
+        return promise.get_future();
     }
 
-    friend void afk_asyncWorker<ParameterType, ReturnType>(
-        AFK_AsyncControls& controls,
-        unsigned int id,
-        boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
-        ASYNC_QUEUE_TYPE(ParameterType)& queue,
-        boost::promise<ReturnType> *promise);
+    /* Tells everything to stop.  Call before a delete. */
+    void stop(void)
+    {
+        controls.control_quit();
+        for (std::vector<boost::thread*>::iterator wIt = workers.begin(); wIt != workers.end(); ++wIt)
+            (*wIt)->join();
+    }
 };
 
 /* TODO: I need a bigass test suite for the above :P */
