@@ -110,8 +110,6 @@ void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<
         finished.wait();
         std::cout << std::endl << std::endl;
         std::cout << "Finished with " << finished.get() << std::endl;
-
-        primeFilterGang.stop();
     }
 
     endTime = boost::posix_time::microsec_clock::local_time();

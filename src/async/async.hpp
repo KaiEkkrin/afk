@@ -208,6 +208,10 @@ public:
 
     virtual ~AFK_AsyncGang()
     {
+        controls.control_quit();
+        for (std::vector<boost::thread*>::iterator wIt = workers.begin(); wIt != workers.end(); ++wIt)
+            (*wIt)->join();
+
         for (std::vector<boost::thread*>::iterator wIt = workers.begin(); wIt != workers.end(); ++wIt)
             delete *wIt;
     }
@@ -239,14 +243,6 @@ public:
 
         /* Send back the future */
         return promise.get_future();
-    }
-
-    /* Tells everything to stop.  Call before a delete. */
-    void stop(void)
-    {
-        controls.control_quit();
-        for (std::vector<boost::thread*>::iterator wIt = workers.begin(); wIt != workers.end(); ++wIt)
-            (*wIt)->join();
     }
 };
 
