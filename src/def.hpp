@@ -10,6 +10,18 @@
 #define CUBE(x) ((x) * (x) * (x))
 
 template<class F>
+F rotateLeft(const F& f, int amount)
+{
+    /* TODO change this for something that doesn't require an asm,
+     * and verify the compiler is OK with it?
+     */
+    F fr = f;
+    amount = amount % (sizeof(F) * 8);
+    asm("rol %0, %1\n": "=r"(amount), "=r"(fr) :"1"(fr));
+    return fr;
+}
+
+template<class F>
 class Vec3
 {
 public:
