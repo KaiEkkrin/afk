@@ -157,6 +157,7 @@ protected:
 
     /* Where we get the substrate RNG seeds from. */
     boost::random::random_device rdev;
+    boost::random::taus88 rng;
 
     /* Adds a new substrate to the vector. */
     void addSubstrate(void)
@@ -196,6 +197,8 @@ public:
     {
         /* Start with one. */
         addSubstrate();
+
+        rng.seed(rdev());
     }
 
     virtual ~AFK_Substrate()
@@ -219,6 +222,23 @@ public:
 
         while (!allocated)
         {
+#if 1
+            /* I should try the substrates in a random order.
+             * This will work so long as I don't have too many ... */
+            static long long multipliers[] = {
+                 31, 37, 41, 43, 47, 53, 59, 61,
+            };
+
+            size_t substratesTried = 0;
+            long long multiplier = multipliers[(rng() & 7)];
+
+            for (long long mit = multiplier; substratesTried < s.size(); mit += multiplier, ++substratesTried)
+            {
+                substrateNumber = mit % s.size();
+                allocated = s[substrateNumber]->alloc(substrateIndex);
+                if (allocated) break;
+            }
+#else
             /* I try the substrates in inverse order, because newer ones
              * are likely to be less busy
              */    
@@ -227,6 +247,7 @@ public:
                 allocated = s[substrateNumber]->alloc(substrateIndex);
                 if (allocated) break;
             }
+#endif
 
             if (!allocated)
             {
