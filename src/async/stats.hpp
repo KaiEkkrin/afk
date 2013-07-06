@@ -5,7 +5,7 @@
 
 #include <sstream>
 
-#include <boost/atomic.h>
+#include <boost/atomic.hpp>
 
 /* Useful tracking stats module for the async structures. */
 

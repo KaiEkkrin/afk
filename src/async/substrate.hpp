@@ -6,10 +6,10 @@
 #include <exception>
 #include <vector>
 
-#include <boost/atomic.h>
-#include <boost/mutex.h>
+#include <boost/atomic.hpp>
 #include <boost/random/random_device.hpp>
 #include <boost/random/taus88.hpp>
+#include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 
 #include "stats.hpp"
@@ -22,17 +22,23 @@
  * usage, but hopefully it will be OK...
  */
 
+/* Set this to make it print whenever it expands */
+#define DEBUG_PRINT_ON_EXPAND 0
+
 class AFK_SubstrateDoubleFreeException: public std::exception {};
 class AFK_BadSubstrateIndexException: public std::exception {};
 
-typedef<class T>
+/* The substrate "invalid" value, equivalent to a NULL pointer. */
+#define SUBSTRATE_INVALID (((size_t)1) << ((sizeof(size_t) * 8) - 1))
+
+template<class T>
 struct AFK_SubstrateEntry
 {
     T t;
     boost::atomic<bool> inUse;
 };
 
-typedef<class T>
+template<class T>
 class AFK_SingleSubstrate
 {
 protected:
@@ -63,8 +69,8 @@ public:
         s = new AFK_SubstrateEntry<T>[size];
 
         /* Each one starts out free */
-        for (size_t i = 0; i < SS_USAGE_SIZE; ++i)
-            s.inUse.store(false);
+        for (size_t i = 0; i < size; ++i)
+            s[i].inUse.store(false);
     }
 
     virtual ~AFK_SingleSubstrate()
@@ -88,7 +94,7 @@ public:
         {
             size_t tryIndex = rng() & ((1 << subBits) - 1);
             bool wasInUse = false;
-            gotIt = s[tryIndex].inUse.compare_exchange_weak(wasInUse, true);
+            bool gotIt = s[tryIndex].inUse.compare_exchange_weak(wasInUse, true);
             if (gotIt && !wasInUse)
             {
                 o_index = tryIndex;
@@ -105,6 +111,8 @@ public:
      */
     void free(size_t index)
     {
+        if (index == SUBSTRATE_INVALID) throw AFK_BadSubstrateIndexException();
+
         bool wasInUse = true;
 
         /* It's quite important that I succeed at this */
@@ -113,9 +121,10 @@ public:
     }
 
     /* Accesses an element by index. */
-    T* operator[](size_t index) const
+    T& operator[](size_t index) const
     {
-        return s[index].inUse ? &s[index].t : NULL;
+        if (index == SUBSTRATE_INVALID || s[index].inUse == false) throw AFK_BadSubstrateIndexException();
+        return s[index].t;
     }
 
     /* Prints usage stats. */
@@ -125,7 +134,7 @@ public:
     }
 };
 
-typedef<class T>
+template<class T>
 class AFK_Substrate
 {
 protected:
@@ -133,7 +142,7 @@ protected:
      * of them.  If one of them runs out and I need a new one,
      * I add another to the list.
      */
-    std::vector<AFK_SingleSubstrate *> s;
+    std::vector<AFK_SingleSubstrate<T> *> s;
 
     /* The number of bits in the index that index into an
      * individual substrate, as described below.
@@ -153,7 +162,7 @@ protected:
     void addSubstrate(void)
     {
         boost::unique_lock<boost::mutex> lock(sMut);
-        s.push_back(new AFK_SingleSubstrate(subBits, rdev(), targetContention * targetContention));
+        s.push_back(new AFK_SingleSubstrate<T>(subBits, rdev(), targetContention * targetContention));
     }
 
     /* Splits an index into its substrate number and within-
@@ -192,10 +201,10 @@ public:
     virtual ~AFK_Substrate()
     {
         boost::unique_lock<boost::mutex> lock(sMut);
-        for (std::vector<AFK_SingleSubstrate *>::iterator sIt = s.begin();
+        for (typename std::vector<AFK_SingleSubstrate<T> *>::iterator sIt = s.begin();
             sIt != s.end(); ++sIt)
         {
-            delete *s;
+            delete *sIt;
         }
 
         s.clear();
@@ -204,7 +213,8 @@ public:
     /* Allocates a new element in the substrate, returning the index. */
     size_t alloc(void)
     {
-        size_t substrateNumber, substrateIndex;
+        long long substrateNumber;
+        size_t substrateIndex;
         bool allocated = false;
 
         while (!allocated)
@@ -212,29 +222,42 @@ public:
             /* I try the substrates in inverse order, because newer ones
              * are likely to be less busy
              */    
-            for (substrateNumber = s.size() - 1; !allocated && substrateNumber >= 0; ++substrateNumber)
-                allocated = s[substrateNumber].alloc(substrateIndex);
+            for (substrateNumber = s.size() - 1; substrateNumber >= 0; --substrateNumber)
+            {
+                allocated = s[substrateNumber]->alloc(substrateIndex);
+                if (allocated) break;
+            }
 
-            if (!allocated) addSubstrate();
+            if (!allocated)
+            {
+#if DEBUG_PRINT_ON_EXPAND   
+                printStats(std::cout, "expanding");
+#endif
+                addSubstrate();
+            }
         }
 
-        return makeIndex(substrateNumber, substrateIndex);
+        return makeIndex((size_t)substrateNumber, substrateIndex);
     }
 
     void free(size_t index)
     {
+        if (index == SUBSTRATE_INVALID) throw AFK_BadSubstrateIndexException();
+
         size_t substrateNumber, substrateIndex;
 
         splitIndex(index, substrateNumber, substrateIndex);
-        s[substrateNumber].free(substrateIndex);
+        s[substrateNumber]->free(substrateIndex);
     }
 
-    T* operator[](size_t index) const
+    T& operator[](size_t index) const
     {
+        if (index == SUBSTRATE_INVALID) throw AFK_BadSubstrateIndexException();
+
         size_t substrateNumber, substrateIndex;
 
         splitIndex(index, substrateNumber, substrateIndex);
-        return s[substrateNumber][substrateIndex];
+        return (*(s[substrateNumber]))[substrateIndex];
     }
 
     /* Prints usage stats. */
@@ -244,7 +267,7 @@ public:
         {
             std::ostringstream ss;
             ss << prefix << " " << i;
-            s[i].printStats(os, ss.str());
+            s[i]->printStats(os, ss.str());
         }
     }
 };

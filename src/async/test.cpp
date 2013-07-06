@@ -5,6 +5,10 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include "async.hpp"
+#include "substrate.hpp"
+
+
+/* --- async test --- */
 
 /* The shared structure I'll use to record which numbers have
  * been seen
@@ -174,5 +178,210 @@ void test_async(void)
     test_pnFilter(boost::thread::hardware_concurrency() * 4, primeMax, primes[5]);
     check_result(primes[0], primes[5]);
     std::cout << std::endl;
+}
+
+
+/* --- substrate test --- */
+
+
+struct STS
+{
+    float f;
+    STS(): f(0.0f) {}
+};
+
+void test_substrate(void)
+{
+    boost::posix_time::ptime startTime, endTime;
+
+    /* first with new (to check), then with a substrate. */
+#define SUBTEST_CHUNK_SIZE 100000
+
+    unsigned int i;
+    bool ok;
+
+    struct STS **newF1 = new struct STS*[SUBTEST_CHUNK_SIZE];
+    struct STS **newF2 = new struct STS*[SUBTEST_CHUNK_SIZE];
+
+    startTime = boost::posix_time::microsec_clock::local_time();
+
+    /* allocate many floats */
+    for (i = 0; i < SUBTEST_CHUNK_SIZE; ++i)
+        newF1[i] = new struct STS();
+
+    /* assign them a value equal to their index squared */
+    for (i = 0; i < SUBTEST_CHUNK_SIZE; ++i)
+        newF1[i]->f = ((float)i * (float)i);
+
+    /* allocate another batch */
+    for (i = 0; i < SUBTEST_CHUNK_SIZE; ++i)
+        newF2[i] = new struct STS();
+
+    /* assign them a value equal to their index cubed */
+    for (i = 0; i < SUBTEST_CHUNK_SIZE; ++i)
+        newF2[i]->f = ((float)i * (float)i * (float)i);
+
+    /* delete half the first batch */
+    for (i = 0; i < (SUBTEST_CHUNK_SIZE / 2); ++i)
+        delete newF1[i];
+
+    /* add 1 to the rest */
+    for (i = (SUBTEST_CHUNK_SIZE / 2); i < SUBTEST_CHUNK_SIZE; ++i)
+        newF1[i]->f += 1;
+
+    for (i = 0; i < SUBTEST_CHUNK_SIZE; ++i)
+        newF2[i]->f += 1;
+
+    /* delete half the second batch */
+    for (i = 0; i < (SUBTEST_CHUNK_SIZE / 2); ++i)
+        delete newF2[i];
+
+    /* re-allocate the first half of the first batch and assign
+     * them all the square minus one
+     */
+    for (i = 0; i < (SUBTEST_CHUNK_SIZE / 2); ++i)
+    {
+        newF1[i] = new struct STS();
+        newF1[i]->f = ((float)i * (float)i) - 1.0f;
+    }
+
+    /* go through it all.  the first half of newF1 should be i**2-1.
+     * the second half should be i**2+1.  the second half of newF2
+     * should be i**3+1
+     */
+    ok = true;
+    for (i = 0; i < SUBTEST_CHUNK_SIZE; ++i)
+    {
+        if (i < (SUBTEST_CHUNK_SIZE / 2))
+        {
+            if (newF1[i]->f != ((float)i * (float)i - 1))
+            {
+                std::cout << "x";
+                ok = false;
+            }
+        }
+        else
+        {
+            if (newF1[i]->f != ((float)i * (float)i + 1))
+            {
+                std::cout << "x";
+                ok = false;
+            }
+
+            if (newF2[i]->f != ((float)i * (float)i * (float)i + 1))
+            {
+                std::cout << "x";
+                ok = false;
+            }
+        }
+    }
+
+    /* clean up */
+    for (i = 0; i < SUBTEST_CHUNK_SIZE; ++i)
+        delete newF1[i];
+
+    for (i = (SUBTEST_CHUNK_SIZE / 2); i < SUBTEST_CHUNK_SIZE; ++i)
+        delete newF2[i];
+
+    endTime = boost::posix_time::microsec_clock::local_time();
+
+    delete[] newF1;
+    delete[] newF2;
+
+    std::cout << "single thread new test: finished in " << endTime - startTime << std::endl;
+    if (ok) std::cout << "no errors" << std::endl;
+
+    /* now do the same thing with a substrate (this will so break) */
+    AFK_Substrate<struct STS> sub1(16, 12);
+    size_t *newF1S = new size_t[SUBTEST_CHUNK_SIZE];
+    size_t *newF2S = new size_t[SUBTEST_CHUNK_SIZE];
+    startTime = boost::posix_time::microsec_clock::local_time();
+
+    /* allocate many floats */
+    for (i = 0; i < SUBTEST_CHUNK_SIZE; ++i)
+        newF1S[i] = sub1.alloc();
+
+    /* assign them a value equal to their index squared */
+    for (i = 0; i < SUBTEST_CHUNK_SIZE; ++i)
+        sub1[newF1S[i]].f = ((float)i * (float)i);
+
+    /* allocate another batch */
+    for (i = 0; i < SUBTEST_CHUNK_SIZE; ++i)
+        newF2S[i] = sub1.alloc();
+
+    /* assign them a value equal to their index cubed */
+    for (i = 0; i < SUBTEST_CHUNK_SIZE; ++i)
+        sub1[newF2S[i]].f = ((float)i * (float)i * (float)i);
+
+    /* delete half the first batch */
+    for (i = 0; i < (SUBTEST_CHUNK_SIZE / 2); ++i)
+        sub1.free(newF1S[i]);
+
+    /* add 1 to the rest */
+    for (i = (SUBTEST_CHUNK_SIZE / 2); i < SUBTEST_CHUNK_SIZE; ++i)
+        sub1[newF1S[i]].f += 1;
+
+    for (i = 0; i < SUBTEST_CHUNK_SIZE; ++i)
+        sub1[newF2S[i]].f += 1;
+
+    /* delete half the second batch */
+    for (i = 0; i < (SUBTEST_CHUNK_SIZE / 2); ++i)
+        sub1.free(newF2S[i]);
+
+    /* re-allocate the first half of the first batch and assign
+     * them all the square minus one
+     */
+    for (i = 0; i < (SUBTEST_CHUNK_SIZE / 2); ++i)
+    {
+        newF1S[i] = sub1.alloc();
+        sub1[newF1S[i]].f = ((float)i * (float)i) - 1.0f;
+    }
+
+    /* go through it all.  the first half of newF1 should be i**2-1.
+     * the second half should be i**2+1.  the second half of newF2
+     * should be i**3+1
+     */
+    ok = true;
+    for (i = 0; i < SUBTEST_CHUNK_SIZE; ++i)
+    {
+        if (i < (SUBTEST_CHUNK_SIZE / 2))
+        {
+            if (sub1[newF1S[i]].f != ((float)i * (float)i - 1))
+            {
+                std::cout << "x";
+                ok = false;
+            }
+        }
+        else
+        {
+            if (sub1[newF1S[i]].f != ((float)i * (float)i + 1))
+            {
+                std::cout << "x";
+                ok = false;
+            }
+
+            if (sub1[newF2S[i]].f != ((float)i * (float)i * (float)i + 1))
+            {
+                std::cout << "x";
+                ok = false;
+            }
+        }
+    }
+
+    /* clean up */
+    for (i = 0; i < SUBTEST_CHUNK_SIZE; ++i)
+        sub1.free(newF1S[i]);
+
+    for (i = (SUBTEST_CHUNK_SIZE / 2); i < SUBTEST_CHUNK_SIZE; ++i)
+        sub1.free(newF2S[i]);
+
+    delete[] newF1S;
+    delete[] newF2S;
+
+    endTime = boost::posix_time::microsec_clock::local_time();
+
+    std::cout << "single thread substrate test: finished in " << endTime - startTime << std::endl;
+    if (ok) std::cout << "no errors" << std::endl;
+    sub1.printStats(std::cout, "sub1");
 }
 

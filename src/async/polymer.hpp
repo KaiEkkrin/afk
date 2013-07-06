@@ -44,10 +44,11 @@ class AFK_Polymer
 {
 protected:
     /* The hash map is stored internally as a vector of chains of
-     * AFK_Monomers.  When too much contention is deemed to be
+     * links to AFK_Monomers.  When too much contention is deemed to be
      * going on, a new block is added.
+     * The links are indices into the storage substrate, below.
      */
-    std::vector<boost::atomic<struct AFK_Monomer<KeyType, ValueType>*>*> chains;
+    std::vector<boost::atomic<size_t>*> chains;
 
     /* This is the substrate from which all monomers get allocated. */
     AFK_Substrate<struct AFK_Monomer<KeyType, ValueType> > substrate;
@@ -68,10 +69,10 @@ protected:
     /* Adds a new chain. */
     void unsafe_addChain()
     {
-        boost::atomic<struct AFK_Monomer *> *chain =
-            new boost::atomic<struct AFK_Monomer *>[CHAIN_SIZE];
+        boost::atomic<size_t> *chain =
+            new boost::atomic<size_t>[CHAIN_SIZE];
         for (unsigned int i = 0; i < CHAIN_SIZE; ++i)
-            chain[i].store(NULL);
+            chain[i].store(SUBSTRATE_INVALID);
 
         chains.push_back(chain);
     }
@@ -87,20 +88,24 @@ protected:
         return (thisHash + hops) & (CHAIN_SIZE - 1);
     }
 
-    /* Attempts to push a new monomer into place in a chain.
+    /* Gets a monomer index from a specific place in a chain. */
+    size_t at(unsigned int ch, unsigned int hops, size_t baseHash)
+    {
+        return chains[ch][chainOffset(ch, hops, baseHash)];
+    }
+
+    /* Attempts to push a new monomer into place in a chain by index.
      * Returns true if success, else false.
      */
-    bool tryInsert(unsigned int ch, unsigned int hops, size_t baseHash, struct AFK_Monomer *monomer)
+    bool insert(unsigned int ch, unsigned int hops, size_t baseHash, size_t monomer)
     {
-        struct AFK_Monomer *expected = NULL;
+        size_t expected = SUBSTRATE_INVALID;
         bool gotIt = chains[ch][chainOffset(ch, hops, baseHash)].compare_exchange_weak(
             expected, monomer);
         if (gotIt)
         {
             /* Update statistics. */
-            size.fetch_add(1);
-            contention.fetch_add(hops);
-            contentionSampleSize.fetch_add(1);
+            stats.insertedOne(hops);
         }
 
         return gotIt;
@@ -121,7 +126,7 @@ public:
          */
 
         boost::unique_lock<boost::mutex> lock(chainsMut);
-        for (std::vector<boost::atomic<struct AFK_Monomer *>*>::iterator chIt = chains.begin();
+        for (std::vector<boost::atomic<size_t>*>::iterator chIt = chains.begin();
             chIt != chains.end(); ++chIt)
         {
             delete[] *chIt;
@@ -130,52 +135,63 @@ public:
         chains.clear();
     }
 
-    /* TODO: no no no, this isn't the interface that I want.  I want an
-     * operator[] that will return a reference to the existing value if
-     * it's there, or initialise a new one, put it in and return a
-     * reference to that if it wasn't.  And in order to be able to do
-     * that locklessly I definitely want my lockless memory substrate,
-     * so I should write that first, then re-think a whole lot of the
-     * pointers that I put in this structure (eww).
-     * Gnargle.
-     */
-    void insert(struct AFK_Monomer *monomer)
-    {
-        size_t hash = hash_value(*monomer);
-        bool inserted = false;
-        unsigned int hops = 0;
-
-        /* Try to insert it at its proper place first.  If that fails,
-         * attempt to go through hops.
-         */
-        while (!inserted)
-        {
-            for (hops = 0; hops < targetContention && !inserted; ++hops)
-            {
-                for (unsigned int ch = 0; ch < chains.size() && !inserted; ++ch)
-                {
-                    inserted = tryInsert(ch, hops, hash, monomer);
-                }
-            }
-
-            if (!inserted)
-            {
-                /* Oh dear.  We need a new chain now */
-                boost::unique_lock<boost::mutex> lock(chainsMut);
-                unsafe_addChain();
-            }
-        }
-
-    }
-
     /* Returns a reference to a map entry.  Inserts a new one if
      * it couldn't find one.
+     * This will occasionally generate duplicates.  That should be
+     * okay.
+     * TODO Actually I'm not sure this IS what I want to do.  When
+     * I look for a cell, I want to either retrieve a pre-made
+     * one or I want to initialise a new one.  I don't want to
+     * accidentally end up with two threads trying to initialise
+     * the SAME one.  That means that I want [] to return NULL if
+     * it can't find one, at which point I initialise a new one
+     * and insert it after it's initialised -- which means I need
+     * the substrate to be accessible separately from the map
+     * ARGH ARGH ARGH
+     * I need to change everything again!  o.O
      */
     struct ValueType& operator[](const KeyType& key)
     {
         size_t hash = hash_value(key);
+        size_t monomer = SUBSTRATE_INVALID;
 
-        
+        /* I'm going to assume it's probably there already, and first
+         * just do a basic search.
+         */
+        for (unsigned int hops = 0; hops < targetContention && monomer == SUBSTRATE_INVALID; ++hops)
+        {
+            for (unsigned int ch = 0; ch < chains.size() && monomer == SUBSTRATE_INVALID; ++ch)
+            {
+                size_t candidateMonomer = at(ch, hops, hash);
+                if (substrate[candidateMonomer].key == key) monomer = candidateMonomer;
+            }
+        }
+
+        if (monomer == SUBSTRATE_INVALID)
+        {
+            /* Make a new one. */
+            size_t newMonomer = substrate.alloc();
+            bool inserted = false;
+
+            while (!inserted)
+            {
+                for (unsigned int hops = 0; hops < targetContention && !inserted; ++hops)
+                    for (unsigned int ch = 0; ch < chains.size() && !inserted; ++ch)
+                        inserted = insert(ch, hops, hash, newMonomer);
+
+                if (!inserted)
+                {
+                    /* Add a new chain for it */
+                    boost::unique_lock<boost::mutex> lock(chainsMut);
+                    unsafe_addChain();
+                    stats.getContentionAndReset();
+                }
+            }
+
+            monomer = newMonomer;
+        }
+
+        return substrate[monomer].value;
     }
 
     /* TODO: Other functions I need to support:

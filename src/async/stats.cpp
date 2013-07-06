@@ -2,6 +2,13 @@
 
 #include "stats.hpp"
 
+AFK_StructureStats::AFK_StructureStats()
+{
+    size.store(0);
+    contention.store(0);
+    contentionSampleSize.store(0);
+}
+
 void AFK_StructureStats::insertedOne(unsigned int tries)
 {
     /* TODO Right now this doesn't guard against concurrent
@@ -10,7 +17,7 @@ void AFK_StructureStats::insertedOne(unsigned int tries)
      */
     size.fetch_add(1);
     contention.fetch_add(tries);
-    contentionSampleSize.fetch_add(tries);
+    contentionSampleSize.fetch_add(1);
 }
 
 void AFK_StructureStats::erasedOne(void)
@@ -32,6 +39,6 @@ unsigned int AFK_StructureStats::getContentionAndReset(void)
 void AFK_StructureStats::printStats(std::ostream& os, const std::string& prefix) const
 {
     os << prefix << ": Size: " << size << std::endl;
-    os << prefix << ": Contention: " << contention / contentionSampleSize << std::endl;
+    os << prefix << ": Contention: " << (float)contention / (float)contentionSampleSize << std::endl;
 }
 

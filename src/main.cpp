@@ -20,7 +20,8 @@
 #include "landscape.hpp"
 
 
-#define TEST_ASYNC 1
+#define TEST_ASYNC 0
+#define TEST_SUBSTRATE 1
 #define TEST_RNGS 0
 
 
@@ -34,6 +35,10 @@ int main(int argc, char **argv)
 
 #if TEST_ASYNC
     test_async();
+#endif
+
+#if TEST_SUBSTRATE
+    test_substrate();
 #endif
 
 #if TEST_RNGS
