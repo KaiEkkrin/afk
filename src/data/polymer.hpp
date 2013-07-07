@@ -9,6 +9,7 @@
 #include <iostream>
 #endif
 
+#include <assert.h>
 #include <sstream>
 #include <vector>
 
@@ -62,7 +63,7 @@ protected:
     /* I should do this, because I can't be sure of the thread safety
      * of chains.size() ...
      */
-    boost::atomic<size_t> chainSize;
+    boost::atomic<size_t> chainsSize;
 
     /* This mutex is used only to guard changing the `chains'
      * structure itself, which happens relatively infrequently.
@@ -96,7 +97,7 @@ protected:
         {
             boost::unique_lock<boost::mutex> lock(chainsMut);
             chains.push_back(chain);
-            return chainSize.fetch_add(1);
+            return chainsSize.fetch_add(1);
         }
     }
 
@@ -107,11 +108,18 @@ protected:
          * the next in an attempt to average out any contention
          * causing anomalies.
          */
-        size_t leftPart = hash << (ch * hashBits);
-        size_t rightPart = hash >> ((sizeof(size_t) * 8) - (ch * hashBits));
+        size_t rotateAmount = (ch * hashBits) % (sizeof(size_t) * 8);
+        size_t leftPart = hash << rotateAmount;
+        size_t rightPart = hash >> ((sizeof(size_t) * 8) - rotateAmount);
+#if 0
         size_t thisHash = (leftPart | rightPart) & HASH_MASK;
         return ((thisHash + hops) & HASH_MASK) +
             ((thisHash + hops) >> hashBits);
+#else
+        size_t thisHash = (((leftPart | rightPart) + hops) & HASH_MASK);
+        assert(thisHash < CHAIN_SIZE);
+        return ((thisHash + hops) & HASH_MASK);
+#endif
     }
 
     /* Gets a monomer from a specific place in a chain. */
@@ -142,7 +150,7 @@ public:
         hashBits (_hashBits), targetContention (_targetContention), hasher (_hasher)
     {
         /* Start off with just one chain. */
-        chainSize.store(0);
+        chainsSize.store(0);
         addChain();
     }
 
@@ -187,7 +195,7 @@ public:
          */
         for (unsigned int hops = 0; hops < targetContention && monomer == NULL; ++hops)
         {
-            for (unsigned int ch = 0; ch < chainSize.load() && monomer == NULL; ++ch)
+            for (unsigned int ch = 0; ch < chainsSize.load() && monomer == NULL; ++ch)
             {
                 AFK_Monomer<KeyType, ValueType> *candidateMonomer = at(ch, hops, hash);
 #if DREADFUL_POLYMER_DEBUG
@@ -210,7 +218,7 @@ public:
             {
                 for (unsigned int hops = 0; hops < targetContention && !inserted; ++hops)
                 {
-                    for (unsigned int ch = chStart; ch < chainSize.load() && !inserted; ++ch)
+                    for (unsigned int ch = chStart; ch < chainsSize.load() && !inserted; ++ch)
                     {
                         inserted = insert(ch, hops, hash, newMonomer);
 
@@ -257,7 +265,7 @@ public:
     void printStats(std::ostream& os, const std::string& prefix) const
     {
         stats.printStats(os, prefix);
-        os << prefix << ": Chain count: " << chainSize.load() << std::endl;
+        os << prefix << ": Chain count: " << chainsSize.load() << std::endl;
     }
 };
 

@@ -21,7 +21,7 @@ if GetOption('dbg'):
         variant_dir = 'build/debug'
 else:
     if GetOption('pg'):
-        extra_ccflags = ['-O3', '-pg']
+        extra_ccflags = ['-O3', '-pg', '-g']
         extra_ldflags = ['-pg']
         variant_dir = 'build/release_pg'
     else:
