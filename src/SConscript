@@ -1,7 +1,7 @@
 Import('extra_ccflags')
 Import('extra_ldflags')
 
-afk_sources = Glob('*.cpp') + Glob('async/*.cpp') + Glob('rng/*.cpp')
+afk_sources = Glob('*.cpp') + Glob('async/*.cpp') + Glob('data/*.cpp') + Glob('rng/*.cpp')
 afk_libs = ['boost_random', 'boost_system', 'boost_thread', 'crypto', 'GL', 'GLU', 'GLEW', 'glut', 'OpenCL']
 afk_ccflags = ['-Wall', '-Werror']
 afk_ldflags = []

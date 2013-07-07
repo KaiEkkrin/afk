@@ -1,15 +1,22 @@
 /* AFK (c) Alex Holloway 2013 */
 
-#ifndef _AFK_ASYNC_POLYMER_H_
-#define _AFK_ASYNC_POLYMER_H_
+#ifndef _AFK_DATA_POLYMER_H_
+#define _AFK_DATA_POLYMER_H_
 
+#define DREADFUL_POLYMER_DEBUG 0
+
+#if DREADFUL_POLYMER_DEBUG
+#include <iostream>
+#endif
+
+#include <sstream>
 #include <vector>
 
 #include <boost/atomic.hpp>
+#include <boost/functional/hash/hash.hpp>
 #include <boost/thread/mutex.hpp>
 
 #include "stats.hpp"
-#include "substrate.hpp"
 
 /* This is an atomically accessible hash map.  It should be quick to
  * add, retrieve and delete, cope with a lot of value turnover, and
@@ -32,26 +39,30 @@
  * `size_t hash_value(const KeyType&)'.
  * - ValueType: should be copy constructable and assignable.
  */
-template<class KeyType, class ValueType>
-struct AFK_Monomer
+template<typename KeyType, typename ValueType>
+class AFK_Monomer
 {
+public:
     KeyType     key;
     ValueType   value;
+
+    AFK_Monomer(KeyType _key):
+        key(_key), value() {}
 };
 
-template<class KeyType, class ValueType>
-class AFK_Polymer
-{
+template<typename KeyType, typename ValueType, typename Hasher>
+class AFK_Polymer {
 protected:
     /* The hash map is stored internally as a vector of chains of
      * links to AFK_Monomers.  When too much contention is deemed to be
      * going on, a new block is added.
-     * The links are indices into the storage substrate, below.
      */
-    std::vector<boost::atomic<size_t>*> chains;
+    std::vector<boost::atomic<AFK_Monomer<KeyType, ValueType> *>*> chains;
 
-    /* This is the substrate from which all monomers get allocated. */
-    AFK_Substrate<struct AFK_Monomer<KeyType, ValueType> > substrate;
+    /* I should do this, because I can't be sure of the thread safety
+     * of chains.size() ...
+     */
+    boost::atomic<size_t> chainSize;
 
     /* This mutex is used only to guard changing the `chains'
      * structure itself, which happens relatively infrequently.
@@ -60,21 +71,33 @@ protected:
 
     /* These values define the behaviour of this polymer. */
     const unsigned int hashBits; /* Each chain is 1<<hashBits long */
-#define CHAIN_SIZE (1<<hashBits)
+#define CHAIN_SIZE (1u<<hashBits)
+#define HASH_MASK ((1u<<hashBits)-1)
     const unsigned int targetContention; /* The contention level at which we make a new chain */
+
+    /* The hasher to use. */
+    Hasher hasher;
 
     /* Stats for the chain */
     AFK_StructureStats stats;
 
-    /* Adds a new chain. */
-    void unsafe_addChain()
+    /* Adds a new chain, returning the old chain size. */
+    size_t addChain()
     {
-        boost::atomic<size_t> *chain =
-            new boost::atomic<size_t>[CHAIN_SIZE];
+        /* TODO This is slow.  Consider keeping a spare around to
+         * swap to immediately, and spawning a new thread to slowly
+         * build the next spare.
+         */
+        boost::atomic<AFK_Monomer<KeyType, ValueType>*> *chain =
+            new boost::atomic<AFK_Monomer<KeyType, ValueType>*>[CHAIN_SIZE];
         for (unsigned int i = 0; i < CHAIN_SIZE; ++i)
-            chain[i].store(SUBSTRATE_INVALID);
+            chain[i].store(NULL);
 
-        chains.push_back(chain);
+        {
+            boost::unique_lock<boost::mutex> lock(chainsMut);
+            chains.push_back(chain);
+            return chainSize.fetch_add(1);
+        }
     }
 
     /* Calculates the chain index for a given hash. */
@@ -84,22 +107,25 @@ protected:
          * the next in an attempt to average out any contention
          * causing anomalies.
          */
-        size_t thisHash = rotateLeft(baseHash, ch * hashBits);
-        return (thisHash + hops) & (CHAIN_SIZE - 1);
+        size_t leftPart = hash << (ch * hashBits);
+        size_t rightPart = hash >> ((sizeof(size_t) * 8) - (ch * hashBits));
+        size_t thisHash = (leftPart | rightPart) & HASH_MASK;
+        return ((thisHash + hops) & HASH_MASK) +
+            ((thisHash + hops) >> hashBits);
     }
 
-    /* Gets a monomer index from a specific place in a chain. */
-    size_t at(unsigned int ch, unsigned int hops, size_t baseHash)
+    /* Gets a monomer from a specific place in a chain. */
+    AFK_Monomer<KeyType, ValueType> *at(unsigned int ch, unsigned int hops, size_t baseHash)
     {
-        return chains[ch][chainOffset(ch, hops, baseHash)];
+        return chains[ch][chainOffset(ch, hops, baseHash)].load();
     }
 
     /* Attempts to push a new monomer into place in a chain by index.
      * Returns true if success, else false.
      */
-    bool insert(unsigned int ch, unsigned int hops, size_t baseHash, size_t monomer)
+    bool insert(unsigned int ch, unsigned int hops, size_t baseHash, AFK_Monomer<KeyType, ValueType> *monomer)
     {
-        size_t expected = SUBSTRATE_INVALID;
+        AFK_Monomer<KeyType, ValueType> *expected = NULL;
         bool gotIt = chains[ch][chainOffset(ch, hops, baseHash)].compare_exchange_weak(
             expected, monomer);
         if (gotIt)
@@ -112,10 +138,11 @@ protected:
     }
 
 public:
-    AFK_Polymer(unsigned int _hashBits, unsigned int _targetContention):
-        substrate(_hashBits, _targetContention), hashBits (_hashBits), targetContention (_targetContention)
+    AFK_Polymer(unsigned int _hashBits, unsigned int _targetContention, Hasher _hasher):
+        hashBits (_hashBits), targetContention (_targetContention), hasher (_hasher)
     {
         /* Start off with just one chain. */
+        chainSize.store(0);
         addChain();
     }
 
@@ -125,10 +152,20 @@ public:
          * TODO: Clear all entries first?
          */
 
+        /* TODO: The segfault is NOT caused by a premature delete.  I repeat,
+         * the segfault is NOT caused by a premature delete.
+         * :-(
+         */
+
         boost::unique_lock<boost::mutex> lock(chainsMut);
-        for (std::vector<boost::atomic<size_t>*>::iterator chIt = chains.begin();
+        for (typename std::vector<boost::atomic<AFK_Monomer<KeyType, ValueType> *>*>::iterator chIt = chains.begin();
             chIt != chains.end(); ++chIt)
         {
+            for (unsigned int i = 0; i < CHAIN_SIZE; ++i)
+            {
+                delete (*chIt)[i].load();
+            }
+
             delete[] *chIt;
         }
 
@@ -139,59 +176,68 @@ public:
      * it couldn't find one.
      * This will occasionally generate duplicates.  That should be
      * okay.
-     * TODO Actually I'm not sure this IS what I want to do.  When
-     * I look for a cell, I want to either retrieve a pre-made
-     * one or I want to initialise a new one.  I don't want to
-     * accidentally end up with two threads trying to initialise
-     * the SAME one.  That means that I want [] to return NULL if
-     * it can't find one, at which point I initialise a new one
-     * and insert it after it's initialised -- which means I need
-     * the substrate to be accessible separately from the map
-     * ARGH ARGH ARGH
-     * I need to change everything again!  o.O
      */
-    struct ValueType& operator[](const KeyType& key)
+    ValueType& operator[](const KeyType& key)
     {
-        size_t hash = hash_value(key);
-        size_t monomer = SUBSTRATE_INVALID;
+        size_t hash = hasher(key);
+        AFK_Monomer<KeyType, ValueType> *monomer = NULL;
 
         /* I'm going to assume it's probably there already, and first
          * just do a basic search.
          */
-        for (unsigned int hops = 0; hops < targetContention && monomer == SUBSTRATE_INVALID; ++hops)
+        for (unsigned int hops = 0; hops < targetContention && monomer == NULL; ++hops)
         {
-            for (unsigned int ch = 0; ch < chains.size() && monomer == SUBSTRATE_INVALID; ++ch)
+            for (unsigned int ch = 0; ch < chainSize.load() && monomer == NULL; ++ch)
             {
-                size_t candidateMonomer = at(ch, hops, hash);
-                if (substrate[candidateMonomer].key == key) monomer = candidateMonomer;
+                AFK_Monomer<KeyType, ValueType> *candidateMonomer = at(ch, hops, hash);
+#if DREADFUL_POLYMER_DEBUG
+                std::cout << key << "(ch " << ch << ", hops " << hops << ") -> " << candidateMonomer;
+                if (candidateMonomer) std::cout << "(key " << candidateMonomer->key << ")";
+                std::cout << std::endl;
+#endif
+                if (candidateMonomer && candidateMonomer->key == key) monomer = candidateMonomer;
             }
         }
 
-        if (monomer == SUBSTRATE_INVALID)
+        if (monomer == NULL)
         {
             /* Make a new one. */
-            size_t newMonomer = substrate.alloc();
+            AFK_Monomer<KeyType, ValueType> *newMonomer = new AFK_Monomer<KeyType, ValueType>(key);
             bool inserted = false;
+            unsigned int chStart = 0;
 
             while (!inserted)
             {
                 for (unsigned int hops = 0; hops < targetContention && !inserted; ++hops)
-                    for (unsigned int ch = 0; ch < chains.size() && !inserted; ++ch)
+                {
+                    for (unsigned int ch = chStart; ch < chainSize.load() && !inserted; ++ch)
+                    {
                         inserted = insert(ch, hops, hash, newMonomer);
+
+#if DREADFUL_POLYMER_DEBUG
+                        if (inserted)
+                        {
+                            std::cout << newMonomer << "(key " << newMonomer->key << ") -> (ch " << ch << ", hops " << hops << ")" << std::endl;
+                        }
+#endif
+                    }
+                }
 
                 if (!inserted)
                 {
                     /* Add a new chain for it */
-                    boost::unique_lock<boost::mutex> lock(chainsMut);
-                    unsafe_addChain();
+                    size_t oldSize = addChain();
                     stats.getContentionAndReset();
+
+                    /* When I re-try, use the new chain */
+                    chStart = oldSize;
                 }
             }
 
             monomer = newMonomer;
         }
 
-        return substrate[monomer].value;
+        return monomer->value;
     }
 
     /* TODO: Other functions I need to support:
@@ -210,19 +256,10 @@ public:
 
     void printStats(std::ostream& os, const std::string& prefix) const
     {
-        {
-            std::ostringstream ss;
-            ss << prefix << ": Polymer";
-            stats.printStats(os, ss.str());
-        }
-
-        {
-            std::ostringstream ss;
-            ss << prefix << ": Substrate";
-            substrate.printStats(os, ss.str());
-        }
+        stats.printStats(os, prefix);
+        os << prefix << ": Chain count: " << chainSize.load() << std::endl;
     }
 };
 
-#endif /* _AFK_ASYNC_POLYMER_H_ */
+#endif /* _AFK_DATA_POLYMER_H_ */
 

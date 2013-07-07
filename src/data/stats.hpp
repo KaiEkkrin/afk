@@ -1,7 +1,7 @@
 /* AFK (c) Alex Holloway 2013 */
 
-#ifndef _AFK_ASYNC_STATS_H_
-#define _AFK_ASYNC_STATS_H_
+#ifndef _AFK_DATA_STATS_H_
+#define _AFK_DATA_STATS_H_
 
 #include <sstream>
 
@@ -35,5 +35,5 @@ public:
     void printStats(std::ostream& os, const std::string& prefix) const;
 };
 
-#endif /* _AFK_ASYNC_STATS_H_ */
+#endif /* _AFK_DATA_STATS_H_ */
 

@@ -33,12 +33,13 @@ unsigned int AFK_StructureStats::getContentionAndReset(void)
     contentionSampleSize.store(0);
     contention.store(0);
 
-    return oldContention / oldContentionSampleSize;
+    return oldContentionSampleSize == 0 ? 0 : (oldContention / oldContentionSampleSize);
 }
 
 void AFK_StructureStats::printStats(std::ostream& os, const std::string& prefix) const
 {
     os << prefix << ": Size: " << size << std::endl;
-    os << prefix << ": Contention: " << (float)contention / (float)contentionSampleSize << std::endl;
+    os << prefix << ": Contention: " << (
+        contentionSampleSize == 0 ? 0.0f : ((float)contention / (float)contentionSampleSize)) << std::endl;
 }
 

@@ -12,6 +12,7 @@
 #include <iostream>
 
 #include "async/test.hpp"
+#include "data/cache_test.hpp"
 #include "rng/boost_taus88.hpp"
 #include "rng/test.hpp"
 
@@ -21,8 +22,9 @@
 
 
 #define TEST_ASYNC 0
-#define TEST_SUBSTRATE 1
+#define TEST_CACHE 1
 #define TEST_RNGS 0
+#define TEST_SUBSTRATE 0
 
 
 /* This is the AFK global core declared in core.h */
@@ -37,12 +39,16 @@ int main(int argc, char **argv)
     test_async();
 #endif
 
-#if TEST_SUBSTRATE
-    test_substrate();
+#if TEST_CACHE
+    test_cache();
 #endif
 
 #if TEST_RNGS
     test_rngs();
+#endif
+
+#if TEST_SUBSTRATE
+    test_substrate();
 #endif
 
     try
