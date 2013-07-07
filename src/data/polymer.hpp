@@ -15,8 +15,13 @@
 #include <boost/atomic.hpp>
 #include <boost/functional/hash/hash.hpp>
 #include <boost/thread/mutex.hpp>
+#include <boost/thread/thread.hpp>
 
 #include "stats.hpp"
+
+#if DREADFUL_POLYMER_DEBUG
+boost::mutex dpdMut;
+#endif
 
 /* This is an atomically accessible hash map.  It should be quick to
  * add, retrieve and delete, cope with a lot of value turnover, and
@@ -50,148 +55,158 @@ public:
         key(_key), value() {}
 };
 
+/* The hash map is stored internally as these chains of
+ * links to AFK_Monomers.  When too much contention is deemed to be
+ * going on, a new block is added.
+ */
+template<typename KeyType, typename ValueType>
+class AFK_PolymerChain
+{
+protected:
+    boost::atomic<AFK_Monomer<KeyType, ValueType>*> *chain;
+    boost::atomic<AFK_PolymerChain<KeyType, ValueType>*> nextChain;
+
+    /* Various parameters (replicated from below) */
+    const unsigned int hashBits;
+#define CHAIN_SIZE (1u<<hashBits)
+#define HASH_MASK ((1u<<hashBits)-1)
+
+    /* What position in the sequence we appear to be.  Used for
+     * swizzling the chain offset around so that different chains
+     * come out different.
+     */
+    unsigned int index;
+
+    /* Calculates the chain index for a given hash. */
+    size_t chainOffset(unsigned int hops, size_t hash) const
+    {
+        size_t offset = ((hash + hops) & HASH_MASK);
+        return offset;
+    }
+    
+public:
+    AFK_PolymerChain(const unsigned int _hashBits): hashBits (_hashBits), index (0)
+    {
+        chain = new boost::atomic<AFK_Monomer<KeyType, ValueType>*>[CHAIN_SIZE];
+        for (unsigned int i = 0; i < CHAIN_SIZE; ++i)
+            chain[i].store(NULL);
+
+        nextChain.store(NULL);
+    }
+
+    virtual ~AFK_PolymerChain()
+    {
+        if (next()) delete next();
+        for (unsigned int i = 0; i < CHAIN_SIZE; ++i)
+        {
+            AFK_Monomer<KeyType, ValueType> *monomer = chain[i].load();
+            if (monomer) delete monomer;
+        }
+    }
+    
+    /* Appends a new chain. */
+    void extend(AFK_PolymerChain<KeyType, ValueType> *chain, unsigned int _index)
+    {
+        AFK_PolymerChain<KeyType, ValueType> *expected = NULL;
+        bool gotIt = nextChain.compare_exchange_strong(expected, chain);
+        if (gotIt)
+        {
+            chain->index = _index + 1;
+        }
+        else
+        {
+            assert(nextChain.load() != NULL);
+            nextChain.load()->extend(chain, _index + 1);
+        }
+    }
+
+    /* Gets a monomer from a specific place. */
+    AFK_Monomer<KeyType, ValueType> *at(unsigned int hops, size_t baseHash)
+    {
+        size_t offset = chainOffset(hops, baseHash);
+        return chain[offset].load();
+    }
+    
+    /* Inserts a monomer into a specific place.
+     * Returns true if successful, else false.
+     */
+    bool insert(unsigned int hops, size_t baseHash, AFK_Monomer<KeyType, ValueType> *monomer)
+    {
+        AFK_Monomer<KeyType, ValueType> *expected = NULL;
+        size_t offset = chainOffset(hops, baseHash);
+        return chain[offset].compare_exchange_strong(expected, monomer);
+    }
+
+    /* Returns the next chain, or NULL if we're at the end. */
+    AFK_PolymerChain<KeyType, ValueType> *next(void) const
+    {
+        return nextChain.load();
+    }
+
+    unsigned int getIndex(void) const
+    {
+        return index;
+    }
+
+    unsigned int getCount(void) const
+    {
+        return next() ? 1 + next()->getCount() : 0;
+    }
+};
+
 template<typename KeyType, typename ValueType, typename Hasher>
 class AFK_Polymer {
 protected:
-    /* The hash map is stored internally as an array of chains of
-     * links to AFK_Monomers.  When too much contention is deemed to be
-     * going on, a new block is added.
-     */
-    boost::atomic<AFK_Monomer<KeyType, ValueType>*> **chains;
-
-    const size_t chainsMax;
-    boost::atomic<size_t> chainsSize;
-
-    /* This mutex is used only to guard changing the `chains'
-     * structure itself, which happens relatively infrequently.
-     */
-    boost::mutex chainsMut;
+    AFK_PolymerChain<KeyType, ValueType> *chains;
 
     /* These values define the behaviour of this polymer. */
     const unsigned int hashBits; /* Each chain is 1<<hashBits long */
-#define CHAIN_SIZE (1u<<hashBits)
-#define HASH_MASK ((1u<<hashBits)-1)
     const unsigned int targetContention; /* The contention level at which we make a new chain */
 
     /* The hasher to use. */
     Hasher hasher;
 
-    /* Stats for the chain */
+    /* Analysis */
     AFK_StructureStats stats;
 
-    /* Adds a new chain, returning the old chain size. */
-    size_t addChain()
-    {
-        /* TODO This is slow.  Consider keeping a spare around to
-         * swap to immediately, and spawning a new thread to slowly
-         * build the next spare.
-         */
-        boost::atomic<AFK_Monomer<KeyType, ValueType>*> *chain =
-            new boost::atomic<AFK_Monomer<KeyType, ValueType>*>[CHAIN_SIZE];
-        for (unsigned int i = 0; i < CHAIN_SIZE; ++i)
-            chain[i].store(NULL);
-
-        /* TODO I should probably replace this with a real chain-linked
-         * list type structure, to remove this limit
-         * (sigh)
-         */
-        size_t newChainIndex = chainsSize.fetch_add(1);
-        assert(newChainIndex < chainsMax);
-
-        /* This should be safe: I'll only give out each new chain
-         * index once
-         * But, when accessing `chains' check for NULL...
-         */
-        chains[newChainIndex] = chain;
-        return newChainIndex;
-    }
-
-    /* Calculates the chain index for a given hash. */
-    size_t chainOffset(unsigned int ch, unsigned int hops, size_t hash) const
-    {
-        /* I'm going to swizzle the hash around from one chain to
-         * the next in an attempt to average out any contention
-         * causing anomalies.
-         */
-        size_t rotateAmount = (ch * hashBits) % (sizeof(size_t) * 8);
-        size_t leftPart = hash << rotateAmount;
-        size_t rightPart = hash >> ((sizeof(size_t) * 8) - rotateAmount);
-#if 0
-        size_t thisHash = (leftPart | rightPart) & HASH_MASK;
-        return ((thisHash + hops) & HASH_MASK) +
-            ((thisHash + hops) >> hashBits);
-#else
-        size_t thisHash = (((leftPart | rightPart) + hops) & HASH_MASK);
-        assert(thisHash < CHAIN_SIZE);
-        return ((thisHash + hops) & HASH_MASK);
-#endif
-    }
-
-    /* Gets a monomer from a specific place in a chain. */
-    AFK_Monomer<KeyType, ValueType> *at(unsigned int ch, unsigned int hops, size_t baseHash)
-    {
-        if (chains[ch])
-        {
-            size_t offset = chainOffset(ch, hops, baseHash);
-            return chains[ch][offset].load();
-        }
-
-        return NULL;
-    }
-
-    /* Attempts to push a new monomer into place in a chain by index.
-     * Returns true if success, else false.
+    /* This wrings as many bits out of a hash as I can
+     * within the `hashBits' limit
      */
-    bool insert(unsigned int ch, unsigned int hops, size_t baseHash, AFK_Monomer<KeyType, ValueType> *monomer)
+    size_t wring(size_t hash) const
     {
-        AFK_Monomer<KeyType, ValueType> *expected = NULL;
-        bool gotIt = false;
+        size_t wrung = 0;
+        for (size_t hOff = 0; hOff < (sizeof(size_t) * 8); hOff += hashBits)
+            wrung ^= (hash >> hOff);
 
-        if (chains[ch])
-        {       
-            size_t offset = chainOffset(ch, hops, baseHash);
-            gotIt = chains[ch][offset].compare_exchange_weak(expected, monomer);
-            if (gotIt)
-            {
-                /* Update statistics. */
-                stats.insertedOne(hops);
-            }
-        }
+        return (wrung & HASH_MASK);
+    }
 
-        return gotIt;
+    /* Adds a new chain, returning a pointer to the old one. */
+    AFK_PolymerChain<KeyType, ValueType> *addChain()
+    {
+        /* TODO Make this have prepared one already (in a different
+         * thread), because making a new chain is slow
+         */
+        AFK_PolymerChain<KeyType, ValueType> *newChain =
+            new AFK_PolymerChain<KeyType, ValueType>(hashBits);
+        chains->extend(newChain, 0);
+        return newChain;
     }
 
 public:
-    AFK_Polymer(size_t _chainsMax, unsigned int _hashBits, unsigned int _targetContention, Hasher _hasher):
-        chainsMax (_chainsMax), hashBits (_hashBits), targetContention (_targetContention), hasher (_hasher)
+    AFK_Polymer(unsigned int _hashBits, unsigned int _targetContention, Hasher _hasher):
+        hashBits (_hashBits), targetContention (_targetContention), hasher (_hasher)
     {
         /* Start off with just one chain. */
-        chains = new boost::atomic<AFK_Monomer<KeyType, ValueType>*>*[chainsMax];
-        chainsSize.store(0);
-        addChain();
+        chains = new AFK_PolymerChain<KeyType, ValueType>(_hashBits);
     }
 
     virtual ~AFK_Polymer()
     {
 #if 0
         /* Wipeout time.  I hope nobody is attempting concurrent access now.
-         * TODO: Clear all entries first?
          */
-        for (size_t ch = 0; ch < chainsMax; ++ch)
-        {
-            if (chains[ch])
-            {
-                for (unsigned int i = 0; i < CHAIN_SIZE; ++i)
-                {
-                    AFK_Monomer<KeyType, ValueType>* monomer = chains[ch][i].load();
-                    if (monomer) delete monomer;
-                }
-
-                delete[] chains[ch];
-            }
-        }
-
-        delete[] chains;
+        delete chains;
 #endif
     }
 
@@ -202,21 +217,28 @@ public:
      */
     ValueType& operator[](const KeyType& key)
     {
-        size_t hash = hasher(key);
+        size_t hash = wring(hasher(key));
         AFK_Monomer<KeyType, ValueType> *monomer = NULL;
 
         /* I'm going to assume it's probably there already, and first
          * just do a basic search.
+         * Try a small number of hops first, then expand out.
          */
-        for (unsigned int hops = 0; hops < targetContention && monomer == NULL; ++hops)
+        for (unsigned int hops = 0; hops < targetContention && !monomer; ++hops)
         {
-            for (unsigned int ch = 0; ch < chainsSize.load() && monomer == NULL; ++ch)
+            for (AFK_PolymerChain<KeyType, ValueType> *chain = chains;
+                chain && !monomer; chain = chain->next())
             {
-                AFK_Monomer<KeyType, ValueType> *candidateMonomer = at(ch, hops, hash);
+                AFK_Monomer<KeyType, ValueType> *candidateMonomer = chain->at(hops, hash);
 #if DREADFUL_POLYMER_DEBUG
-                std::cout << key << "(ch " << ch << ", hops " << hops << ") -> " << candidateMonomer;
-                if (candidateMonomer) std::cout << "(key " << candidateMonomer->key << ")";
-                std::cout << std::endl;
+                if (candidateMonomer)
+                {
+                    boost::unique_lock<boost::mutex> lock(dpdMut);
+                    std::cout << boost::this_thread::get_id() << ": FOUND ";
+                    std::cout << key << " (ch " << chain->getIndex() << ", hops " << hops << ") -> " << candidateMonomer;
+                    std::cout << " (key " << candidateMonomer->key << ")";
+                    std::cout << std::endl;
+                }
 #endif
                 if (candidateMonomer && candidateMonomer->key == key) monomer = candidateMonomer;
             }
@@ -227,33 +249,57 @@ public:
             /* Make a new one. */
             AFK_Monomer<KeyType, ValueType> *newMonomer = new AFK_Monomer<KeyType, ValueType>(key);
             bool inserted = false;
-            unsigned int chStart = 0;
+            AFK_PolymerChain<KeyType, ValueType> *startChain = chains;
 
             while (!inserted)
             {
                 for (unsigned int hops = 0; hops < targetContention && !inserted; ++hops)
                 {
-                    for (unsigned int ch = chStart; ch < chainsSize.load() && !inserted; ++ch)
+                    for (AFK_PolymerChain<KeyType, ValueType> *chain = startChain;
+                        chain != NULL && !inserted; chain = chain->next())
                     {
-                        inserted = insert(ch, hops, hash, newMonomer);
+                        inserted = chain->insert(hops, hash, newMonomer);
 
-#if DREADFUL_POLYMER_DEBUG
                         if (inserted)
                         {
-                            std::cout << newMonomer << "(key " << newMonomer->key << ") -> (ch " << ch << ", hops " << hops << ")" << std::endl;
-                        }
+                            stats.insertedOne(hops);
+#if DREADFUL_POLYMER_DEBUG
+                            {
+                                boost::unique_lock<boost::mutex> lock(dpdMut);
+                                std::cout << boost::this_thread::get_id() << ": ADDED ";
+                                std::cout << newMonomer << "(key " << newMonomer->key << ") -> (ch " << chain->getIndex() << ", hops " << hops << ")" << std::endl;
+                            }
 #endif
+                        }
+                        else
+                        {
+#if DREADFUL_POLYMER_DEBUG
+                            {
+                                boost::unique_lock<boost::mutex> lock(dpdMut);
+                                AFK_Monomer<KeyType, ValueType> *conflictMonomer = chain->at(hops, hash);
+                                std::cout << boost::this_thread::get_id() << ": CONFLICTED ";
+                                std::cout << key << " (ch " << chain->getIndex() << ", hops " << hops << ") -> " << conflictMonomer;
+                                if (conflictMonomer) std::cout << " (key " << conflictMonomer->key << ")";
+                                std::cout << std::endl;
+                            }
+#endif
+                        }
                     }
                 }
 
                 if (!inserted)
                 {
                     /* Add a new chain for it */
-                    size_t oldSize = addChain();
-                    stats.getContentionAndReset();
+                    startChain = addChain();
+                    //stats.getContentionAndReset();
 
-                    /* When I re-try, start from the new chain */
-                    chStart = oldSize;
+#if DREADFUL_POLYMER_DEBUG
+                    {
+                        boost::unique_lock<boost::mutex> lock(dpdMut);
+                        std::cout << boost::this_thread::get_id() << ": EXTENDED ";
+                        std::cout << startChain->getIndex() << std::endl;
+                    }
+#endif
                 }
             }
 
@@ -280,7 +326,7 @@ public:
     void printStats(std::ostream& os, const std::string& prefix) const
     {
         stats.printStats(os, prefix);
-        os << prefix << ": Chain count: " << chainsSize.load() << std::endl;
+        os << prefix << ": Chain count: " << chains->getCount() << std::endl;
     }
 };
 
