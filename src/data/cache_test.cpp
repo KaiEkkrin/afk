@@ -52,6 +52,7 @@ bool testCacheWorker(struct insertSqrtParam param, ASYNC_QUEUE_TYPE(struct inser
             if (num & (1 << biti)) ++bitcount;
 
         (*(param.cache))[bitcount] += 1;
+        (*(param.cache))[num % 0xff] += bitcount;
     }
 
     return true;
@@ -74,7 +75,6 @@ void test_cache(void)
         testCacheWorker, CACHE_TEST_THREAD_COUNT, CACHE_TEST_THREAD_COUNT);       
 
     struct insertSqrtParam params[CACHE_TEST_THREAD_COUNT];
-#if 0
     for (unsigned int i = 0; i < CACHE_TEST_THREAD_COUNT; ++i)
     {
         params[i].cache = &mapCache;
@@ -93,7 +93,6 @@ void test_cache(void)
         std::cout << t << " -> " << mapCache[t].v << "; ";
     }
     std::cout << std::endl;
-#endif
 
     /* Now let's try it again with the polymer cache */
     boost::function<size_t (const int&)> hashFunc = expensivelyHashInt();

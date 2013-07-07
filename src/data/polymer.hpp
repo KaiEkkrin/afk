@@ -11,7 +11,6 @@
 
 #include <assert.h>
 #include <sstream>
-#include <vector>
 
 #include <boost/atomic.hpp>
 #include <boost/functional/hash/hash.hpp>
@@ -54,15 +53,13 @@ public:
 template<typename KeyType, typename ValueType, typename Hasher>
 class AFK_Polymer {
 protected:
-    /* The hash map is stored internally as a vector of chains of
+    /* The hash map is stored internally as an array of chains of
      * links to AFK_Monomers.  When too much contention is deemed to be
      * going on, a new block is added.
      */
-    std::vector<boost::atomic<AFK_Monomer<KeyType, ValueType> *>*> chains;
+    boost::atomic<AFK_Monomer<KeyType, ValueType>*> **chains;
 
-    /* I should do this, because I can't be sure of the thread safety
-     * of chains.size() ...
-     */
+    const size_t chainsMax;
     boost::atomic<size_t> chainsSize;
 
     /* This mutex is used only to guard changing the `chains'
@@ -94,11 +91,19 @@ protected:
         for (unsigned int i = 0; i < CHAIN_SIZE; ++i)
             chain[i].store(NULL);
 
-        {
-            boost::unique_lock<boost::mutex> lock(chainsMut);
-            chains.push_back(chain);
-            return chainsSize.fetch_add(1);
-        }
+        /* TODO I should probably replace this with a real chain-linked
+         * list type structure, to remove this limit
+         * (sigh)
+         */
+        size_t newChainIndex = chainsSize.fetch_add(1);
+        assert(newChainIndex < chainsMax);
+
+        /* This should be safe: I'll only give out each new chain
+         * index once
+         * But, when accessing `chains' check for NULL...
+         */
+        chains[newChainIndex] = chain;
+        return newChainIndex;
     }
 
     /* Calculates the chain index for a given hash. */
@@ -125,7 +130,13 @@ protected:
     /* Gets a monomer from a specific place in a chain. */
     AFK_Monomer<KeyType, ValueType> *at(unsigned int ch, unsigned int hops, size_t baseHash)
     {
-        return chains[ch][chainOffset(ch, hops, baseHash)].load();
+        if (chains[ch])
+        {
+            size_t offset = chainOffset(ch, hops, baseHash);
+            return chains[ch][offset].load();
+        }
+
+        return NULL;
     }
 
     /* Attempts to push a new monomer into place in a chain by index.
@@ -134,50 +145,54 @@ protected:
     bool insert(unsigned int ch, unsigned int hops, size_t baseHash, AFK_Monomer<KeyType, ValueType> *monomer)
     {
         AFK_Monomer<KeyType, ValueType> *expected = NULL;
-        bool gotIt = chains[ch][chainOffset(ch, hops, baseHash)].compare_exchange_weak(
-            expected, monomer);
-        if (gotIt)
-        {
-            /* Update statistics. */
-            stats.insertedOne(hops);
+        bool gotIt = false;
+
+        if (chains[ch])
+        {       
+            size_t offset = chainOffset(ch, hops, baseHash);
+            gotIt = chains[ch][offset].compare_exchange_weak(expected, monomer);
+            if (gotIt)
+            {
+                /* Update statistics. */
+                stats.insertedOne(hops);
+            }
         }
 
         return gotIt;
     }
 
 public:
-    AFK_Polymer(unsigned int _hashBits, unsigned int _targetContention, Hasher _hasher):
-        hashBits (_hashBits), targetContention (_targetContention), hasher (_hasher)
+    AFK_Polymer(size_t _chainsMax, unsigned int _hashBits, unsigned int _targetContention, Hasher _hasher):
+        chainsMax (_chainsMax), hashBits (_hashBits), targetContention (_targetContention), hasher (_hasher)
     {
         /* Start off with just one chain. */
+        chains = new boost::atomic<AFK_Monomer<KeyType, ValueType>*>*[chainsMax];
         chainsSize.store(0);
         addChain();
     }
 
     virtual ~AFK_Polymer()
     {
+#if 0
         /* Wipeout time.  I hope nobody is attempting concurrent access now.
          * TODO: Clear all entries first?
          */
-
-        /* TODO: The segfault is NOT caused by a premature delete.  I repeat,
-         * the segfault is NOT caused by a premature delete.
-         * :-(
-         */
-
-        boost::unique_lock<boost::mutex> lock(chainsMut);
-        for (typename std::vector<boost::atomic<AFK_Monomer<KeyType, ValueType> *>*>::iterator chIt = chains.begin();
-            chIt != chains.end(); ++chIt)
+        for (size_t ch = 0; ch < chainsMax; ++ch)
         {
-            for (unsigned int i = 0; i < CHAIN_SIZE; ++i)
+            if (chains[ch])
             {
-                delete (*chIt)[i].load();
-            }
+                for (unsigned int i = 0; i < CHAIN_SIZE; ++i)
+                {
+                    AFK_Monomer<KeyType, ValueType>* monomer = chains[ch][i].load();
+                    if (monomer) delete monomer;
+                }
 
-            delete[] *chIt;
+                delete[] chains[ch];
+            }
         }
 
-        chains.clear();
+        delete[] chains;
+#endif
     }
 
     /* Returns a reference to a map entry.  Inserts a new one if
@@ -237,7 +252,7 @@ public:
                     size_t oldSize = addChain();
                     stats.getContentionAndReset();
 
-                    /* When I re-try, use the new chain */
+                    /* When I re-try, start from the new chain */
                     chStart = oldSize;
                 }
             }

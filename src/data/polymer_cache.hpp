@@ -19,7 +19,7 @@ public:
      * (if I'm going to use this structure at all.  Maybe mutexes
      * are really fast now?
      */
-    AFK_PolymerCache(Hasher hasher): polymer(8, 4, hasher) {}
+    AFK_PolymerCache(Hasher hasher): polymer(1, 24, 8, hasher) {}
     virtual ~AFK_PolymerCache() {}
 
     virtual Value& operator[](const Key& key)
