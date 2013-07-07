@@ -19,7 +19,10 @@ public:
      */
     virtual Value& operator[](const Key& key) = 0;
 
-    /* TODO: Iterators. */
+    /* For debugging. */
+    virtual void printEverything(std::ostream& os) const = 0;
+
+    /* TODO: Enqueuement. */
 
     /* TODO: Cache eviction. */
 

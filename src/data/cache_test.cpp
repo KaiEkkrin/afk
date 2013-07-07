@@ -32,6 +32,11 @@ public:
     IntStartingAtZero& operator+=(const int& o) { v += o; return *this; }
 };
 
+std::ostream& operator<<(std::ostream& os, const IntStartingAtZero& i)
+{
+    return os << i.v;
+}
+
 struct insertSqrtParam
 {
     AFK_Cache<int, IntStartingAtZero> *cache;
@@ -94,6 +99,10 @@ void test_cache(void)
     }
     std::cout << std::endl;
 
+    std::cout << "MAP CACHE: " << std::endl;
+    mapCache.printEverything(std::cout);
+    std::cout << std::endl;
+
     /* Now let's try it again with the polymer cache */
     boost::function<size_t (const int&)> hashFunc = expensivelyHashInt();
     AFK_PolymerCache<int, IntStartingAtZero, boost::function<size_t (const int&)> > polymerCache(hashFunc);
@@ -118,6 +127,8 @@ void test_cache(void)
     }
     std::cout << std::endl;
 
-
+    std::cout << "POLYMER CACHE: " << std::endl;
+    polymerCache.printEverything(std::cout);
+    std::cout << std::endl;
 }
 

@@ -27,6 +27,17 @@ public:
         return polymer[key];
     }
 
+    virtual void printEverything(std::ostream& os) const
+    {
+        for (typename AFK_PolymerChain<Key, Value>::iterator polyIt = polymer.begin();
+            polyIt != polymer.end(); ++polyIt)
+        {
+            boost::atomic<AFK_Monomer<Key, Value>*>& monoAt = *polyIt;
+            AFK_Monomer<Key, Value>* monomer = monoAt.load();
+            os << monomer->key << " -> " << monomer->value << std::endl;
+        }
+    }
+
     virtual void printStats(std::ostream& os, const std::string& prefix) const
     {
         return polymer.printStats(os, prefix);

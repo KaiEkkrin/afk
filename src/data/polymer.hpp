@@ -13,7 +13,7 @@
 #include <sstream>
 
 #include <boost/atomic.hpp>
-#include <boost/functional/hash/hash.hpp>
+#include <boost/iterator/indirect_iterator.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 
@@ -152,6 +152,59 @@ public:
     {
         return next() ? 1 + next()->getCount() : 0;
     }
+
+    /* This iterator sees all. */
+    class iterator:
+        public boost::iterator_facade<
+            AFK_PolymerChain<KeyType, ValueType>::iterator,
+            boost::atomic<AFK_Monomer<KeyType, ValueType>*>,
+            boost::forward_traversal_tag>
+    {
+    private:
+        friend class boost::iterator_core_access;
+
+        AFK_PolymerChain<KeyType, ValueType> *currentChain;
+        unsigned int index;
+    
+        /* iterator implementation */
+
+        void increment()
+        {
+            do
+            {
+                ++index;
+                if (index == (1u << (currentChain->hashBits))) /* CHAIN_SIZE */
+                {
+                    index = 0;
+                    currentChain = currentChain->next();
+                }
+            } while (currentChain && currentChain->chain[index].load() == NULL);
+        }
+
+        bool equal(AFK_PolymerChain<KeyType, ValueType>::iterator const& other) const
+        {
+            return other.index == index && other.currentChain == currentChain;
+        }
+
+        boost::atomic<AFK_Monomer<KeyType, ValueType>*>& dereference() const
+        {
+            return currentChain->chain[index];
+        }
+
+        /* to help out with initialisation */
+
+        void forwardToFirst()
+        {
+            if (currentChain && currentChain->chain[index].load() == NULL) increment();
+        }
+
+    public:
+        iterator(AFK_PolymerChain<KeyType, ValueType> *chain):
+            currentChain (chain), index (0) { forwardToFirst(); }
+    
+        iterator(AFK_PolymerChain<KeyType, ValueType> *chain, unsigned int _index):
+            currentChain (chain), index (_index) { forwardToFirst(); }
+    };
 };
 
 template<typename KeyType, typename ValueType, typename Hasher>
@@ -322,6 +375,16 @@ public:
      * and http://www.boost.org/doc/libs/1_54_0/libs/iterator/doc/iterator_adaptor.html#tutorial-example
      * I should perhaps test these things on a trivial class first.
      */
+
+    typename AFK_PolymerChain<KeyType, ValueType>::iterator begin() const
+    {
+        return typename AFK_PolymerChain<KeyType, ValueType>::iterator(chains);
+    }
+
+    typename AFK_PolymerChain<KeyType, ValueType>::iterator end() const
+    {
+        return typename AFK_PolymerChain<KeyType, ValueType>::iterator(NULL);
+    }
 
     void printStats(std::ostream& os, const std::string& prefix) const
     {
