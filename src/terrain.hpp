@@ -100,7 +100,6 @@ protected:
 public:
     AFK_TerrainCell();
     AFK_TerrainCell(const AFK_TerrainCell& c);
-    AFK_TerrainCell(const Vec4<float>& coord);
 
     AFK_TerrainCell& operator=(const AFK_TerrainCell& c);
 
@@ -112,7 +111,18 @@ public:
      * features generated here; otherwise, gets a tint off
      * of the RNG.
      */
-    void make(unsigned int pointSubdivisionFactor, unsigned int subdivisionFactor, float minCellSize, AFK_RNG& rng, const Vec3<float> *forcedTint);
+    void make(
+        const Vec4<float>& _cellCoord,
+        unsigned int pointSubdivisionFactor,
+        unsigned int subdivisionFactor,
+        float minCellSize,
+        AFK_RNG& rng,
+        const Vec3<float> *forcedTint);
+
+    /* Transforms a position from this cell's co-ordinates to
+     * the given one.
+     */
+    void transformCellToCell(Vec3<float>& position, const AFK_TerrainCell& other) const;
 
     /* Computes in cell co-ordinates each of the
      * terrain features and puts them together.

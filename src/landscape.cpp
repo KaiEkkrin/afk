@@ -299,15 +299,26 @@ std::ostream& operator<<(std::ostream& os, const AFK_DisplayedLandscapeCell& dlc
 
 void AFK_LandscapeCell::computeTerrainRec(Vec3<float>& position, Vec3<float>& colour, AFK_CACHE& cache) const
 {
-    /* Co-ordinates arrive in the context of the current cell.
-     * Compute its terrain.
+    /* Co-ordinates arrive in the context of this cell's
+     * first terrain element.
+     * Compute all of them, transforming between them as
+     * required
      */
-    terrain->compute(position, colour);
+    for (unsigned int i = 0; i < TERRAIN_CELLS_PER_CELL; ++i)
+    {
+        if (i > 0)
+        {
+            /* Need to do the next transformation. */
+            terrain[i-1].transformCellToCell(position, terrain[i]);
+        }
+
+        terrain[i].compute(position, colour);
+    }
 
     if (topLevel)
     {
         /* Transform back into world space. */
-        Vec4<float> cellCoord = terrain->getCellCoord();
+        Vec4<float> cellCoord = terrain[TERRAIN_CELLS_PER_CELL-1].getCellCoord();
         position = (position * cellCoord.v[3]) + afk_vec3<float>(cellCoord.v[0], cellCoord.v[1], cellCoord.v[2]);
     }
     else
@@ -318,17 +329,11 @@ void AFK_LandscapeCell::computeTerrainRec(Vec3<float>& position, Vec3<float>& co
          */
         AFK_LandscapeCell& parentLandscapeCell = cache[cell.parent()];
 
-        /* Transform into this cell's co-ordinates */
-        Vec4<float> small = terrain->getCellCoord();
-        Vec4<float> large = parentLandscapeCell.terrain->getCellCoord();
-        float scaleFactor = large.v[3] / small.v[3];
-
-        Vec3<float> displacement = afk_vec3<float>(
-            (large.v[0] - small.v[0]) / small.v[3],
-            (large.v[1] - small.v[1]) / small.v[3],
-            (large.v[2] - small.v[2]) / small.v[3]);
-
-        position = (position - displacement) / scaleFactor;
+        /* Transform into the co-ordinates of this cell's
+         * first terrain element
+         */
+        terrain[TERRAIN_CELLS_PER_CELL-1].transformCellToCell(
+            position, parentLandscapeCell.terrain[0]);
 
         /* ...and compute its terrain too */
         parentLandscapeCell.computeTerrainRec(position, colour, cache);
@@ -337,7 +342,11 @@ void AFK_LandscapeCell::computeTerrainRec(Vec3<float>& position, Vec3<float>& co
 
 AFK_LandscapeCell::AFK_LandscapeCell(const AFK_LandscapeCell& c):
     lastSeen (c.lastSeen), cell (c.cell), topLevel (c.topLevel), realCoord (c.realCoord),
-    terrain (c.terrain), displayed (c.displayed) {}
+    hasTerrain (c.hasTerrain), displayed (c.displayed)
+{
+    for (unsigned int i = 0; i < TERRAIN_CELLS_PER_CELL; ++i)
+        terrain[i] = c.terrain[i];
+}
 
 AFK_LandscapeCell& AFK_LandscapeCell::operator=(const AFK_LandscapeCell& c)
 {
@@ -345,7 +354,11 @@ AFK_LandscapeCell& AFK_LandscapeCell::operator=(const AFK_LandscapeCell& c)
     cell = c.cell;
     topLevel = c.topLevel;
     realCoord = c.realCoord;
-    terrain = c.terrain;
+    hasTerrain = c.hasTerrain;
+
+    for (unsigned int i = 0; i < TERRAIN_CELLS_PER_CELL; ++i)
+        terrain[i] = c.terrain[i];
+
     displayed = c.displayed;
     return *this;
 }
@@ -367,15 +380,14 @@ bool AFK_LandscapeCell::claim(void)
     return false;
 }
 
-void AFK_LandscapeCell::bind(const AFK_Cell& _cell, bool _topLevel, float worldScale)
+void AFK_LandscapeCell::bind(const AFK_Cell& _cell, bool _topLevel, float _worldScale)
 {
     cell = _cell;
     topLevel = _topLevel;
-    realCoord = afk_vec4<float>(
-        (float)_cell.coord.v[0] * worldScale / MIN_CELL_PITCH,
-        (float)_cell.coord.v[1] * worldScale / MIN_CELL_PITCH,
-        (float)_cell.coord.v[2] * worldScale / MIN_CELL_PITCH,
-        (float)_cell.coord.v[3] * worldScale / MIN_CELL_PITCH);
+    /* TODO If this actually *changes* something, I need to
+     * clear the terrain so that it can be re-made.
+     */
+    realCoord = _cell.toWorldSpace(_worldScale);
 }
 
 bool AFK_LandscapeCell::testDetailPitch(
@@ -495,12 +507,8 @@ void AFK_LandscapeCell::makeTerrain(
     float minCellSize,
     const Vec3<float> *forcedTint)
 {
-    if (cell.coord.v[1] == 0 && !terrain)
+    if (cell.coord.v[1] == 0 && !hasTerrain)
     {
-        /* There is terrain here that needs adding. */
-        boost::shared_ptr<AFK_TerrainCell> _terrain(new AFK_TerrainCell(realCoord));
-        terrain = _terrain;
-
         /* TODO RNG in thread local storage so I don't have to re-make
          * ones on the stack?  (inefficient?)
          */
@@ -508,22 +516,20 @@ void AFK_LandscapeCell::makeTerrain(
 
         /* Make the terrain cell for this actual cell. */
         rng.seed(cell.rngSeed());
-        terrain->make(pointSubdivisionFactor, subdivisionFactor, minCellSize, rng, forcedTint);
+        terrain[0].make(cell.toWorldSpace(minCellSize), pointSubdivisionFactor, subdivisionFactor, minCellSize, rng, forcedTint);
 
-        /* TODO Re-enable this when the basics look OK */
-        /* This is going to need surgery :/ The rest of it is left over in cell.cpp */
-        /* Make the terrain cell for the four half-cells */
-#if 0
-        AFK_RealCell halfCells[4];
-        enumerateHalfCells(&halfCells[0], 4);
+        /* Now, make the terrain for the four 1/2-cells that
+         * overlap this cell
+         */
+        AFK_Cell halfCells[4];
+        cell.enumerateHalfCells(&halfCells[0], 4);
         for (unsigned int i = 0; i < 4; ++i)
         {
-            AFK_TerrainCell terrainHalfCell(halfCells[i].coord);
-            rng.seed(halfCells[i].worldCell.rngSeed());
-            terrainHalfCell.make(pointSubdivisionFactor, subdivisionFactor, minCellSize, rng, forcedTint);
-            terrain->push(terrainHalfCell);
+            rng.seed(halfCells[i].rngSeed());
+            terrain[i+1].make(halfCells[i].toWorldSpace(minCellSize), pointSubdivisionFactor, subdivisionFactor, minCellSize, rng, forcedTint);
         }
-#endif /* HALFCELL_TERRAIN */ 
+
+        hasTerrain = true;
     }
 }
 
@@ -531,11 +537,12 @@ void AFK_LandscapeCell::computeTerrain(Vec3<float>& position, Vec3<float>& colou
 {
     if (terrain)
     {
-        /* Make a position in cell space */
+        /* Make a position in the space of the first terrain cell */
+        Vec4<float> firstTerrainCoord = terrain[0].getCellCoord();
         Vec3<float> poscs = afk_vec3<float>(
-            (position.v[0] - realCoord.v[0]) / realCoord.v[3],
-            (position.v[1] - realCoord.v[1]) / realCoord.v[3],
-            (position.v[2] - realCoord.v[2]) / realCoord.v[3]);
+            (position.v[0] - firstTerrainCoord.v[0]) / firstTerrainCoord.v[3],
+            (position.v[1] - firstTerrainCoord.v[1]) / firstTerrainCoord.v[3],
+            (position.v[2] - firstTerrainCoord.v[2]) / firstTerrainCoord.v[3]);
 
         computeTerrainRec(poscs, colour, cache);
 

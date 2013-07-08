@@ -78,6 +78,8 @@ public:
 std::ostream& operator<<(std::ostream& os, const AFK_DisplayedLandscapeCell& dlc);
 
 
+#define TERRAIN_CELLS_PER_CELL 5
+
 /* This is the value that we cache.
  */
 class AFK_LandscapeCell
@@ -110,8 +112,14 @@ protected:
      */
     Vec4<float> realCoord;
 
-    /* The terrain at this cell. */
-    boost::shared_ptr<AFK_TerrainCell> terrain;
+    /* The terrain at this cell.
+     * There's one terrain cell that corresponds to this cell proper,
+     * and four that correspond to a 1/2 cell offset in each diagonal
+     * of the x-z plane.
+     * Well-known RNG seeding keeps these consistent across cell seams.
+     */
+    bool hasTerrain;
+    AFK_TerrainCell terrain[TERRAIN_CELLS_PER_CELL];
 
     /* Internal terrain computation. */
     void computeTerrainRec(Vec3<float>& position, Vec3<float>& colour, AFK_CACHE& cache) const;
@@ -122,7 +130,7 @@ public:
      */
     boost::shared_ptr<AFK_DisplayedLandscapeCell> displayed;
 
-    AFK_LandscapeCell() {}
+    AFK_LandscapeCell(): hasTerrain(false) {}
     AFK_LandscapeCell(const AFK_LandscapeCell& c);
     AFK_LandscapeCell& operator=(const AFK_LandscapeCell& c);
 

@@ -131,6 +131,39 @@ bool AFK_Cell::isParent(const AFK_Cell& parent) const
         coord.v[3] < parent.coord.v[3]);
 }
 
+Vec4<float> AFK_Cell::toWorldSpace(float worldScale) const
+{
+    return afk_vec4<float>(
+        (float)coord.v[0] * worldScale / MIN_CELL_PITCH,
+        (float)coord.v[1] * worldScale / MIN_CELL_PITCH,
+        (float)coord.v[2] * worldScale / MIN_CELL_PITCH,
+        (float)coord.v[3] * worldScale / MIN_CELL_PITCH);
+}
+
+void AFK_Cell::enumerateHalfCells(AFK_Cell *halfCells, size_t halfCellsSize) const
+{
+    if (halfCellsSize != 4)
+    {
+        std::ostringstream ss;
+        ss << "Tried to enumerate half cells of count " << halfCellsSize;
+        throw AFK_Exception(ss.str());
+    }
+
+    unsigned int halfCellsIdx = 0;
+    for (long long xd = -1; xd <= 1; xd += 2)
+    {
+        for (long long zd = -1; zd <= 1; zd += 2)
+        {
+            halfCells[halfCellsIdx].coord = afk_vec4<long long>(
+                coord.v[0] + coord.v[3] * xd / 2,
+                coord.v[1],
+                coord.v[2] + coord.v[3] * zd / 2,
+                coord.v[3]);
+
+            ++halfCellsIdx;
+        }
+    }
+}
 AFK_Cell afk_cell(const AFK_Cell& other)
 {
     AFK_Cell cell;

@@ -109,12 +109,6 @@ AFK_TerrainCell::AFK_TerrainCell(const AFK_TerrainCell& c)
     featureCount = c.featureCount;
 }
 
-AFK_TerrainCell::AFK_TerrainCell(const Vec4<float>& coord)
-{
-    cellCoord = coord;
-    featureCount = 0;
-}
-
 AFK_TerrainCell& AFK_TerrainCell::operator=(const AFK_TerrainCell& c)
 {
     cellCoord = c.cellCoord;
@@ -129,8 +123,17 @@ const Vec4<float>& AFK_TerrainCell::getCellCoord(void) const
     return cellCoord;
 }
 
-void AFK_TerrainCell::make(unsigned int pointSubdivisionFactor, unsigned int subdivisionFactor, float minCellSize, AFK_RNG& rng, const Vec3<float> *forcedTint)
+void AFK_TerrainCell::make(
+    const Vec4<float>& _cellCoord,
+    unsigned int pointSubdivisionFactor,
+    unsigned int subdivisionFactor,
+    float minCellSize,
+    AFK_RNG& rng,
+    const Vec3<float> *forcedTint)
 {
+    /* This establishes where our terrain cell actually lies. */
+    cellCoord = _cellCoord;
+
 #if 0
     /* To test, only include features
      * in some small level of terrain.
@@ -203,6 +206,19 @@ void AFK_TerrainCell::make(unsigned int pointSubdivisionFactor, unsigned int sub
         features[i] = AFK_TerrainFeature(AFK_TERRAIN_SQUARE_PYRAMID, location, tint, scale);
     }
 } 
+
+void AFK_TerrainCell::transformCellToCell(Vec3<float>& position, const AFK_TerrainCell& other) const
+{
+    Vec4<float> otherCoord = other.getCellCoord();
+    float scaleFactor = otherCoord.v[3] / cellCoord.v[3];
+
+    Vec3<float> displacement = afk_vec3<float>(
+        (otherCoord.v[0] - cellCoord.v[0]) / cellCoord.v[3],
+        (otherCoord.v[1] - cellCoord.v[1]) / cellCoord.v[3],
+        (otherCoord.v[2] - cellCoord.v[2]) / cellCoord.v[3]);
+
+    position = (position - displacement) / scaleFactor;
+}
 
 void AFK_TerrainCell::compute(Vec3<float>& position, Vec3<float>& colour) const
 {

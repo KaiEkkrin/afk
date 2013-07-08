@@ -124,6 +124,12 @@ public:
      * parent anew, doesn't require modulus)
      */
     bool isParent(const AFK_Cell& parent) const;
+
+    /* Transforms this cell's co-ordinates to world space. */
+    Vec4<float> toWorldSpace(float worldScale) const;
+
+    /* TODO Turn this into an iterator -- saves on the array */
+    void enumerateHalfCells(AFK_Cell *halfCells, size_t halfCellsSize) const;
 };
 
 /* Useful ways of making cells. */
