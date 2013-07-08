@@ -27,6 +27,22 @@ public:
         return polymer[key];
     }
 
+    /* I'll want to try this some day ? */
+#if 0
+    virtual bool findDuplicate(const Key& key, const Value& value, Value& o_duplicateValue)
+    {
+        Value& firstMatch = polymer[key];
+
+        if (!(polymer[key] == value))
+        {
+            o_duplicateValue = firstMatch;
+            return true;
+        }
+
+        return false;
+    }
+#endif
+
     virtual void printEverything(std::ostream& os) const
     {
         for (typename AFK_PolymerChain<Key, Value>::iterator polyIt = polymer.begin();

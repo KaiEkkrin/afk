@@ -133,7 +133,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_Cell& cell);
 
 
 /* Describes a cell in terms of world co-ordinates.
- * Use for making the LandscapeCell that contains its
+ * Use for making the DisplayedLandscapeCell that contains its
  * computed contents.
  */
 class AFK_RealCell

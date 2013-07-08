@@ -13,7 +13,7 @@
 /* Static, context-less functions needed to drive GLUT, etc. */
 static void afk_idle(void)
 {
-    ++afk_core.frameCounter;
+    afk_core.renderingFrame.increment();
     afk_core.printOccasionals(false);
 
     /* TODO For now I'm calculating the intended contents of the next frame in
@@ -89,7 +89,6 @@ AFK_Core::AFK_Core()
     camera          = NULL;
     landscape       = NULL;
     protagonist     = NULL;
-    frameCounter    = 0;
 }
 
 AFK_Core::~AFK_Core()
@@ -199,7 +198,6 @@ void AFK_Core::loop(void)
     float landscapeMaxDistance = config->zFar / 2.0f;
 
     landscape = new AFK_Landscape( /* TODO tweak this initialisation...  extensively, and make it configurable */
-        1000000,                /* cacheSize */
         landscapeMaxDistance,   /* maxDistance -- zFar must be a lot bigger or things will vanish */
         2,                      /* subdivisionFactor */
         256                     /* detailPitch.  TODO Currently this number is being interpreted as much smaller than spec'd */
@@ -230,12 +228,12 @@ void AFK_Core::loop(void)
 
 void AFK_Core::occasionallyPrint(const std::string& message)
 {
-    occasionalPrints << "AFK Frame " << frameCounter << ": " << message << std::endl;
+    occasionalPrints << "AFK Frame " << renderingFrame.get() << ": " << message << std::endl;
 }
 
 void AFK_Core::printOccasionals(bool definitely)
 {
-    if (definitely || (frameCounter % 60) == 0)
+    if (definitely || (renderingFrame.get() % 60) == 0)
         std::cout << occasionalPrints.str();
 
     occasionalPrints.str(std::string());

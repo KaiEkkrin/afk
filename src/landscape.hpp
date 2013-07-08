@@ -7,15 +7,17 @@
 
 #include <iostream>
 
-/* TODO: If I'm going to switch to C++11, I no longer need to
- * pull this from Boost
- */
-#include <boost/unordered_map.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/thread/thread.hpp>
 
 #include "camera.hpp"
 #include "cell.hpp"
+#include "data/cache.hpp"
+#include "data/map_cache.hpp"
+#include "data/render_queue.hpp"
 #include "def.hpp"
 #include "display.hpp"
+#include "frame.hpp"
 #include "rng/rng.hpp"
 #include "shader.hpp"
 #include "terrain.hpp"
@@ -35,7 +37,7 @@
  * I might be replicating too many fields here, making these
  * too big and clunky
  */
-class AFK_LandscapeCell: public AFK_DisplayedObject
+class AFK_DisplayedLandscapeCell: public AFK_DisplayedObject
 {
 public:
     /* This will be a reference to the overall landscape
@@ -47,7 +49,7 @@ public:
     GLuint vertices;
     unsigned int vertexCount;
 
-    AFK_LandscapeCell(
+    AFK_DisplayedLandscapeCell(
         GLuint _program,
         GLuint _worldTransformLocation,
         GLuint _clipTransformLocation,
@@ -55,10 +57,58 @@ public:
         unsigned int pointSubdivisionFactor,
         const AFK_Terrain& terrain,
         AFK_RNG& rng);
-    virtual ~AFK_LandscapeCell();
+    virtual ~AFK_DisplayedLandscapeCell();
 
     virtual void display(const Mat4<float>& projection);
 };
+
+std::ostream& operator<<(std::ostream& os, const AFK_DisplayedLandscapeCell& dlc);
+
+
+/* This is the value that we cache.
+ * It contains a link to the DisplayedLandscapeCell we've
+ * rendered (if any).
+ * TODO: This should also start to include a last-seen
+ * timestamp, a link to dynamic objects in this cell, all
+ * sorts of things.
+ */
+class AFK_LandscapeCell
+{
+public:
+    /* This value says when the subcell enumerator last used
+     * this cell.  If it's a long time ago, the cell will
+     * become a candidate for eviction from the cache.
+     */
+    AFK_Frame lastSeen;
+
+    /* The identity of the thread that last claimed use of
+     * this cell.
+     */
+    boost::thread::id claimingThreadId;
+
+    /* TODO: Things that might slot nicely into here:
+     * - This cell's terrain cell
+     */
+
+    /* The data for this cell's landscape, if we've
+     * calculated it.
+     */
+    boost::shared_ptr<AFK_DisplayedLandscapeCell> displayed;
+
+    AFK_LandscapeCell();
+    AFK_LandscapeCell(const AFK_LandscapeCell& c);
+    AFK_LandscapeCell& operator=(const AFK_LandscapeCell& c);
+
+    /* Tries to claim this landscape cell for processing by
+     * the current thread.
+     * I have no idea whether this is correct.  If something
+     * kerpows, maybe it isn't...
+     */
+    bool claim(void);
+};
+
+std::ostream& operator<<(std::ostream& os, const AFK_LandscapeCell& landscapeCell);
+
 
 
 /* Encapsulates a whole landscape.  There will only be one of
@@ -72,26 +122,18 @@ public:
     GLuint worldTransformLocation;
     GLuint clipTransformLocation;
 
-    /* Maps a cell identifier to its displayed landscape
-     * object.  For now, the displayed landscape object
-     * actually contains all the data.  This may or may
-     * not be a good idea.
-     * TODO: I don't think I want to keep this structure.  I
-     * can't pick an element randomly from it, which means
-     * I'm going to have horrible cache eviction artifacts.
-     * Instead, after I've gotten the basic thing working
-     * with this, I should write my own structure that
-     * provides the proper interface I want.
+    /* The cache of landscape cells we're tracking.
+     * TODO Try with both MapCache and PolymerCache. The latter
+     * should be faster but might crash :/
      */
-    boost::unordered_map<const AFK_Cell, AFK_LandscapeCell*> landMap;
+    AFK_MapCache<AFK_Cell, AFK_LandscapeCell> cache;
+
+    /* The render queue: cells to display next frame.
+     * DOES NOT OWN THESE POINTERS.  DO NOT DELETE
+     */
+    AFK_RenderQueue<AFK_DisplayedLandscapeCell*> renderQueue;
 
     /* Overall landscape parameters. */
-
-    /* The cache size to use.
-     * I'm going to allocate the whole damn thing right away,
-     * you know.
-     */
-    size_t cacheSize;
 
     /* The distance to the furthest landscape cell to consider.
      * (You may want to use zFar, or maybe not.)
@@ -158,21 +200,8 @@ public:
     unsigned int landscapeCellsCached;
     unsigned int landscapeCellsQueued;
 
-    /* The queue of landscape cells to display in the
-     * next frame.
-     * This is actually implemented as a map just like the
-     * cache.  It doesn't matter what order they get picked
-     * in, but it does matter that I can quickly avoid
-     * re-adding a cell if it's in there already.
-     * The bool is used to flag a cell that's been analysed
-     * and subdivided; it means "no LandscapeCell to render
-     * here, but don't try to analyse it again"
-     */
-    boost::unordered_map<const AFK_Cell, std::pair<bool, AFK_LandscapeCell*> > landQueue;
-
 
     AFK_Landscape(
-        size_t _cacheSize, 
         float _maxDistance, 
         unsigned int _subdivisionFactor, 
         unsigned int _detailPitch);

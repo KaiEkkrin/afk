@@ -29,6 +29,14 @@ public:
         return map[key];
     }
 
+#if 0
+    virtual bool findDuplicate(const Key& key, const Value& value, Value& o_duplicateValue)
+    {
+        /* mapCache is uniquely keyed. */
+        return false;
+    }
+#endif
+
     virtual void printEverything(std::ostream& os) const
     {
         for (typename boost::unordered_map<Key, Value>::const_iterator mapIt = map.begin();

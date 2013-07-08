@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include <boost/atomic.hpp>
+#include <boost/memory_order.hpp>
+
 #include "core.hpp"
 #include "exception.hpp"
 #include "landscape.hpp"
@@ -17,7 +20,7 @@
 #define CELL_BOUNDARIES_IN_RED 1
 
 
-/* AFK_LandscapeCell workers. */
+/* AFK_DisplayedLandscapeCell workers. */
 
 static void computeFlatTriangle(
     float *vertices,
@@ -144,9 +147,9 @@ static void vertices2CurvedTriangles(
 }
 #endif
 
-/* AFK_LandscapeCell implementation */
+/* AFK_DisplayedLandscapeCell implementation */
 
-AFK_LandscapeCell::AFK_LandscapeCell(
+AFK_DisplayedLandscapeCell::AFK_DisplayedLandscapeCell(
     GLuint _program,
     GLuint _worldTransformLocation,
     GLuint _clipTransformLocation,
@@ -260,12 +263,12 @@ AFK_LandscapeCell::AFK_LandscapeCell(
     delete[] triangleVs;
 }
 
-AFK_LandscapeCell::~AFK_LandscapeCell()
+AFK_DisplayedLandscapeCell::~AFK_DisplayedLandscapeCell()
 {
     glDeleteBuffers(1, &vertices);
 }
 
-void AFK_LandscapeCell::display(const Mat4<float>& projection)
+void AFK_DisplayedLandscapeCell::display(const Mat4<float>& projection)
 {
     if (vertices != 0)
     {
@@ -297,16 +300,59 @@ void AFK_LandscapeCell::display(const Mat4<float>& projection)
     }
 }
 
+std::ostream& operator<<(std::ostream& os, const AFK_DisplayedLandscapeCell& dlc)
+{
+    return os << "Displayed landscape cell with " << dlc.vertexCount << " vertices";
+}
+
+
+/* AFK_LandscapeCell implementation. */
+
+AFK_LandscapeCell::AFK_LandscapeCell():
+    lastSeen (), displayed () {}
+
+AFK_LandscapeCell::AFK_LandscapeCell(const AFK_LandscapeCell& c):
+    lastSeen (c.lastSeen), displayed (c.displayed) {}
+
+AFK_LandscapeCell& AFK_LandscapeCell::operator=(const AFK_LandscapeCell& c)
+{
+    lastSeen = c.lastSeen;
+    displayed = c.displayed;
+    return *this;
+}
+
+bool AFK_LandscapeCell::claim(void)
+{
+    boost::thread::id myThreadId = boost::this_thread::get_id();
+
+    if (lastSeen == afk_core.renderingFrame) return false;
+
+    /* Grab it */
+    lastSeen = afk_core.renderingFrame;
+    claimingThreadId = myThreadId;
+    boost::atomic_thread_fence(boost::memory_order_seq_cst); /* Gremlin */
+
+    /* Was I the grabber? */
+    if (claimingThreadId == myThreadId) return true;
+
+    return false;
+}
+
+std::ostream& operator<<(std::ostream& os, const AFK_LandscapeCell& landscapeCell)
+{
+    /* TODO Something more descriptive might be nice */
+    return os << "Landscape cell (last seen " << landscapeCell.lastSeen << ", claimed by " << landscapeCell.claimingThreadId << ")";
+}
+
 
 /* AFK_Landscape implementation */
 
 AFK_Landscape::AFK_Landscape(
-    size_t _cacheSize,
     float _maxDistance,
     unsigned int _subdivisionFactor,
-    unsigned int _detailPitch)
+    unsigned int _detailPitch):
+        renderQueue(10000) /* TODO make a better guess */
 {
-    cacheSize           = _cacheSize;
     maxDistance         = _maxDistance;
     subdivisionFactor   = _subdivisionFactor;
     detailPitch         = _detailPitch;
@@ -350,12 +396,6 @@ AFK_Landscape::AFK_Landscape(
 
 AFK_Landscape::~AFK_Landscape()
 {
-    for (boost::unordered_map<const AFK_Cell, AFK_LandscapeCell*>::iterator lmIt = landMap.begin(); lmIt != landMap.end(); ++lmIt)
-        delete lmIt->second;
-
-    landMap.clear();    
-    landQueue.clear();
-
     delete shaderProgram;
 }
 
@@ -373,18 +413,14 @@ void AFK_Landscape::enqueueSubcells(
      */
     if (!cell.isParent(parent)) return;
 
-    /* Find out if it's enqueued already */
-    std::pair<bool, AFK_LandscapeCell*>& enqueued = landQueue[cell];
-    
-    /* If we've seen it already, stop */
-    if (enqueued.first) return;
-
-    /* Otherwise, flag this cell as having been looked at
-     * (regardless of whether we add a landscape, we don't
-     * want to come back here)
+    /* Find out if we've already processed this frame this time
+     * around.
+     * TODO: I need to change this so that instead of using
+     * `renderingFrame', it uses a `computingFrame tracking
+     * one step behind, and so on
      */
-    enqueued.first = true;
-    enqueued.second = NULL;
+    AFK_LandscapeCell& landscapeCell = cache[cell];
+    if (!landscapeCell.claim()) return;
 
     /* Is there any terrain here?
      * TODO: If there isn't, I still want to evaluate
@@ -443,22 +479,29 @@ void AFK_Landscape::enqueueSubcells(
              */
             if (cell.coord.v[3] == MIN_CELL_PITCH || realCell.testDetailPitch(detailPitch, camera, viewerLocation))
             {
-                /* Find out if it's already in the cache */
-                AFK_LandscapeCell*& landscapeCell = landMap[cell];
-                if (!landscapeCell)
-                    landscapeCell = new AFK_LandscapeCell(
+                /* If the displayed cell isn't there already, better make it now.
+                 * TODO Expensive: enqueue as separate work item (maybe even in OpenCL?)
+                 */
+                if (!landscapeCell.displayed)
+                {
+                    boost::shared_ptr<AFK_DisplayedLandscapeCell> newD(new AFK_DisplayedLandscapeCell(
                         shaderProgram->program,
                         worldTransformLocation,
                         clipTransformLocation,
                         realCell,
                         pointSubdivisionFactor,
                         terrain,
-                        *(afk_core.rng));
+                        *(afk_core.rng)));
+                    landscapeCell.displayed = newD;
+                }
                 else
+                {
                     ++landscapeCellsCached;
+                }
         
                 /* Now, push it into the queue as well */
-                enqueued.second = landscapeCell;
+                AFK_DisplayedLandscapeCell *dptr = landscapeCell.displayed.get();
+                renderQueue.push(dptr);
                 ++landscapeCellsQueued;
             }
             else
@@ -580,9 +623,8 @@ void AFK_Landscape::updateLandMap(void)
 
 void AFK_Landscape::display(const Mat4<float>& projection)
 {
-    for (boost::unordered_map<const AFK_Cell, std::pair<bool, AFK_LandscapeCell*> >::iterator lqIt = landQueue.begin(); lqIt != landQueue.end(); ++lqIt)
-        if (lqIt->second.second) lqIt->second.second->display(projection);
-
-    landQueue.clear();
+    AFK_DisplayedLandscapeCell *displayedCell;
+    while (renderQueue.pop(displayedCell))
+        displayedCell->display(projection);
 }
 

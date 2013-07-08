@@ -12,6 +12,7 @@
 #include "config.hpp"
 #include "def.hpp"
 #include "display.hpp"
+#include "frame.hpp"
 #include "landscape.hpp"
 #include "light.hpp"
 #include "rng/rng.hpp"
@@ -34,6 +35,12 @@ public:
      */
     AFK_RNG             *rng;
 
+    /* TODO Compute for the previous frame while rendering the
+     * current one, and track a "computingFrame" as well, here
+     * and maybe even more at some point! :P
+     */
+    AFK_Frame           renderingFrame;
+
     /* The camera. */
     AFK_Camera          *camera;
 
@@ -55,13 +62,6 @@ public:
 
     /* Bits set/cleared based on AFK_Controls */
     unsigned long long  controlsEnabled;
-
-    /* This counter tracks which frame I'm displaying.
-     * I'm going to want it.
-     * Don't really need to worry about what happens
-     * when it wraps.
-     */
-    unsigned int frameCounter;
 
     /* This buffer holds the last frame's worth of occasional
      * prints, so that I can dump them if we quit.
