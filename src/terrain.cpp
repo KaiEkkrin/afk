@@ -177,7 +177,7 @@ void AFK_TerrainCell::make(unsigned int pointSubdivisionFactor, unsigned int sub
         float ySign = (descriptor & 1) ? 1.0f : -1.0f;
         descriptor = descriptor >> 1;
 
-        Vec3<float> scale(
+        Vec3<float> scale = afk_vec3<float>(
             rng.frand() * (maxFeatureSize - minFeatureSize) + minFeatureSize,
             ySign * (yScale * (maxFeatureSize - minFeatureSize) + minFeatureSize),
             rng.frand() * (maxFeatureSize - minFeatureSize) + minFeatureSize);
@@ -187,13 +187,13 @@ void AFK_TerrainCell::make(unsigned int pointSubdivisionFactor, unsigned int sub
         float minFeatureLocationZ = scale.v[2] /* + maxFeatureSize */;
         float maxFeatureLocationZ = 1.0f - scale.v[2] /* - maxFeatureSize */;
 
-        Vec3<float> location(
+        Vec3<float> location = afk_vec3<float>(
             rng.frand() * (maxFeatureLocationX - minFeatureLocationX) + minFeatureLocationX,
             0.0f, /* not meaningful */
             rng.frand() * (maxFeatureLocationZ - minFeatureLocationZ) + minFeatureLocationZ);
         
         Vec3<float> tint = forcedTint ? *forcedTint :
-            Vec3<float>(rng.frand(), rng.frand(), rng.frand());
+            afk_vec3<float>(rng.frand(), rng.frand(), rng.frand());
 
         features[i] = AFK_TerrainFeature(AFK_TERRAIN_SQUARE_PYRAMID, location, tint, scale);
     }
@@ -248,7 +248,7 @@ void AFK_Terrain::compute(Vec3<float>& position, Vec3<float>& colour) const
         /* First, transform to the space of the smallest terrain cell,
          * which of course is `large' right now.
          */
-        Vec3<float> poscs(
+        Vec3<float> poscs = afk_vec3<float>(
             (position.v[0] - large->cellCoord.v[0]) / large->cellCoord.v[3],
             (position.v[1] - large->cellCoord.v[1]) / large->cellCoord.v[3],
             (position.v[2] - large->cellCoord.v[2]) / large->cellCoord.v[3]);
@@ -285,7 +285,7 @@ void AFK_Terrain::compute(Vec3<float>& position, Vec3<float>& colour) const
              */
             float scaleFactor = large->cellCoord.v[3] / small->cellCoord.v[3];
 
-            Vec3<float> displacement(
+            Vec3<float> displacement = afk_vec3<float>(
                 (large->cellCoord.v[0] - small->cellCoord.v[0]) / small->cellCoord.v[3],
                 (large->cellCoord.v[1] - small->cellCoord.v[1]) / small->cellCoord.v[3],
                 (large->cellCoord.v[2] - small->cellCoord.v[2]) / small->cellCoord.v[3]);

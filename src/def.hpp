@@ -6,27 +6,22 @@
 #include <math.h>
 #include <sstream>
 
+#include <boost/static_assert.hpp>
+#include <boost/type_traits/has_trivial_assign.hpp>
+#include <boost/type_traits/has_trivial_constructor.hpp>
+#include <boost/type_traits/has_trivial_destructor.hpp>
+
 #define SQUARE(x) ((x) * (x))
 #define CUBE(x) ((x) * (x) * (x))
 
-template<class F>
+template<typename F>
 class Vec3
 {
 public:
     F v[3];
 
-    Vec3() {}
-    Vec3(F e0, F e1, F e2)
-    {
-        v[0] = e0; v[1] = e1; v[2] = e2;
-    }
-
-    Vec3<F>& operator=(const Vec3<F>& p)
-    {
-        v[0] = p.v[0]; v[1] = p.v[1]; v[2] = p.v[2];
-        return *this;
-    }
-
+    /* TODO remove these, replace with directly embedded Vec3 and
+     * memcpy() */
     Vec3<F>& fromArray(const F* a)
     {
         v[0] = *a;
@@ -44,12 +39,16 @@ public:
 
     Vec3<F> operator+(F f) const
     {
-        return Vec3<F>(v[0] + f, v[1] + f, v[2] + f);
+        Vec3<F> r;
+        r.v[0] = v[0] + f; r.v[1] = v[1] + f; r.v[2] = v[2] + f;
+        return r;
     }
 
     Vec3<F> operator+(const Vec3<F>& p) const
     {
-        return Vec3<F>(v[0] + p.v[0], v[1] + p.v[1], v[2] + p.v[2]);
+        Vec3<F> r;
+        r.v[0] = v[0] + p.v[0]; r.v[1] = v[1] + p.v[1]; r.v[2] = v[2] + p.v[2];
+        return r;
     }
 
     Vec3<F>& operator+=(const Vec3<F>& p)
@@ -60,17 +59,23 @@ public:
 
     Vec3<F> operator-(const Vec3<F>& p) const
     {
-        return Vec3<F>(v[0] - p.v[0], v[1] - p.v[1], v[2] - p.v[2]);
+        Vec3<F> r;
+        r.v[0] = v[0] - p.v[0]; r.v[1] = v[1] - p.v[1]; r.v[2] = v[2] - p.v[2];
+        return r;
     }
 
     Vec3<F> operator*(F f) const
     {
-        return Vec3<F>(v[0] * f, v[1] * f, v[2] * f);
+        Vec3<F> r;
+        r.v[0] = v[0] * f; r.v[1] = v[1] * f; r.v[2] = v[2] * f;
+        return r;
     }
 
     Vec3<F> operator/(F f) const
     {
-        return Vec3<F>(v[0] / f, v[1] / f, v[2] / f);
+        Vec3<F> r;
+        r.v[0] = v[0] / f; r.v[1] = v[1] / f; r.v[2] = v[2] / f;
+        return r;
     }
 
     Vec3<F>& normalise()
@@ -99,36 +104,45 @@ public:
 
     Vec3<F> cross(const Vec3<F>& p) const
     {
-        return Vec3<F>(
-            v[1] * p.v[2] - v[2] * p.v[1],
-            v[2] * p.v[0] - v[0] * p.v[2],
-            v[0] * p.v[1] - v[1] * p.v[0]);
+        Vec3<F> r;
+        r.v[0] = v[1] * p.v[2] - v[2] * p.v[1];
+        r.v[1] = v[2] * p.v[0] - v[0] * p.v[2];
+        r.v[2] = v[0] * p.v[1] - v[1] * p.v[0];
+        return r;
     }
 };
 
-template<class F>
+template<typename F>
+Vec3<F> afk_vec3(const Vec3<F>& o)
+{
+    Vec3<F> v;
+    v.v[0] = o.v[0]; v.v[1] = o.v[1]; v.v[2] = o.v[2];
+    return v;
+}
+
+template<typename F>
+Vec3<F> afk_vec3(F e0, F e1, F e2)
+{
+    Vec3<F> v;
+    v.v[0] = e0; v.v[1] = e1; v.v[2] = e2;
+    return v;
+}
+
+template<typename F>
 std::ostream& operator<<(std::ostream& os, const Vec3<F>& v)
 {
     return os << "(" << v.v[0] << ", " << v.v[1] << ", " << v.v[2] << ")";
 }
 
-template<class F>
+BOOST_STATIC_ASSERT((boost::has_trivial_assign<Vec3<float> >::value));
+BOOST_STATIC_ASSERT((boost::has_trivial_constructor<Vec3<float> >::value));
+BOOST_STATIC_ASSERT((boost::has_trivial_destructor<Vec3<float> >::value));
+
+template<typename F>
 class Vec4
 {
 public:
     F v[4];
-
-    Vec4() {}
-    Vec4(F e0, F e1, F e2, F e3)
-    {
-        v[0] = e0; v[1] = e1; v[2] = e2; v[3] = e3;
-    }
-
-    Vec4<F>& operator=(const Vec4<F>& p)
-    {
-        v[0] = p.v[0]; v[1] = p.v[1]; v[2] = p.v[2]; v[3] = p.v[3];
-        return *this;
-    }
 
     bool operator==(const Vec4<F>& p) const
     {
@@ -141,13 +155,34 @@ public:
     }
 };
 
-template<class F>
+template<typename F>
+Vec4<F> afk_vec4(const Vec4<F>& o)
+{
+    Vec4<F> v;
+    v.v[0] = o.v[0]; v.v[1] = o.v[1]; v.v[2] = o.v[2]; v.v[3] = o.v[3];
+    return v;
+}
+
+template<typename F>
+Vec4<F> afk_vec4(F e0, F e1, F e2, F e3)
+{
+    Vec4<F> v;
+    v.v[0] = e0; v.v[1] = e1; v.v[2] = e2; v.v[3] = e3;
+    return v;
+}
+
+BOOST_STATIC_ASSERT((boost::has_trivial_assign<Vec4<float> >::value));
+BOOST_STATIC_ASSERT((boost::has_trivial_constructor<Vec4<float> >::value));
+BOOST_STATIC_ASSERT((boost::has_trivial_destructor<Vec4<float> >::value));
+
+template<typename F>
 std::ostream& operator<<(std::ostream& os, const Vec4<F>& v)
 {
     return os << "(" << v.v[0] << ", " << v.v[1] << ", " << v.v[2] << ", " << v.v[3] << ")";
 }
 
-template<class F>
+/* This one isn't trivially copyable and assignable.  Make it so? */
+template<typename F>
 class Mat4
 {
 public:
@@ -177,12 +212,12 @@ public:
     /* Assume we intend to convert that vector to homogeneous co-ordinates :) */
     Vec4<F> operator*(const Vec3<F>& p) const
     {
-        return *this * Vec4<F>(p.v[0], p.v[1], p.v[2], 1.0f);
+        return *this * afk_vec4<F>(p.v[0], p.v[1], p.v[2], 1.0f);
     }
 
     Vec4<F> operator*(const Vec4<F>& p) const
     {
-        return Vec4<F>(
+        return afk_vec4<F>(
             m[0][0] * p.v[0] + m[0][1] * p.v[1] + m[0][2] * p.v[2] + m[0][3] * p.v[3],
             m[1][0] * p.v[0] + m[1][1] * p.v[1] + m[1][2] * p.v[2] + m[1][3] * p.v[3],
             m[2][0] * p.v[0] + m[2][1] * p.v[1] + m[2][2] * p.v[2] + m[2][3] * p.v[3],

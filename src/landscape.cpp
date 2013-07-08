@@ -113,12 +113,12 @@ static void vertices2FlatTriangles(
                 unsigned int i_r2c1 = 3 * (row + 1) * (pointSubdivisionFactor+1) + 3 * col;
                 unsigned int i_r2c2 = 3 * (row + 1) * (pointSubdivisionFactor+1) + 3 * (col + 1);
 
-                Vec3<unsigned int> tri1Is(i_r2c1, i_r1c1, i_r1c2);
+                Vec3<unsigned int> tri1Is = afk_vec3<unsigned int>(i_r2c1, i_r1c1, i_r1c2);
                 computeFlatTriangle(vertices, colours, tri1Is, triangleVPos);
 
                 triangleVPos += 3;
 
-                Vec3<unsigned int> tri2Is(i_r2c1, i_r1c2, i_r2c2);
+                Vec3<unsigned int> tri2Is = afk_vec3<unsigned int>(i_r2c1, i_r1c2, i_r2c2);
                 computeFlatTriangle(vertices, colours, tri2Is, triangleVPos);
 
                 triangleVPos += 3;
@@ -224,12 +224,12 @@ AFK_DisplayedLandscapeCell::AFK_DisplayedLandscapeCell(
      */
     for (unsigned int i = 0; i < vertexCount; ++i)
     {
-        Vec3<float> rawVertex(
+        Vec3<float> rawVertex = afk_vec3<float>(
             *(rawVertices + 3 * i),
             *(rawVertices + 3 * i + 1),
             *(rawVertices + 3 * i + 2));
 
-        Vec3<float> rawColour = Vec3<float>(1.0f, 1.0f, 1.0f);
+        Vec3<float> rawColour = afk_vec3<float>(1.0f, 1.0f, 1.0f);
 
         terrain.compute(rawVertex, rawColour);
 
@@ -546,7 +546,7 @@ void AFK_Landscape::enqueueSubcells(
     const Vec3<float>& viewerLocation,
     const AFK_Camera& camera)
 {
-    AFK_Cell modifiedCell(Vec4<long long>(
+    AFK_Cell modifiedCell = afk_cell(afk_vec4<long long>(
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[0],
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[1],
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[2],
@@ -569,18 +569,18 @@ void AFK_Landscape::updateLandMap(void)
      */
     Mat4<float> protagonistTransformation = afk_core.protagonist->object.getTransformation();
     Vec4<float> hgProtagonistLocation = protagonistTransformation *
-        Vec4<float>(0.0f, 0.0f, 0.0f, 1.0f);
-    Vec3<float> protagonistLocation = Vec3<float>(
+        afk_vec4<float>(0.0f, 0.0f, 0.0f, 1.0f);
+    Vec3<float> protagonistLocation = afk_vec3<float>(
         hgProtagonistLocation.v[0] / hgProtagonistLocation.v[3],
         hgProtagonistLocation.v[1] / hgProtagonistLocation.v[3],
         hgProtagonistLocation.v[2] / hgProtagonistLocation.v[3]);
-    Vec4<long long> csProtagonistLocation = Vec4<long long>(
+    Vec4<long long> csProtagonistLocation = afk_vec4<long long>(
         (long long)(protagonistLocation.v[0] / minCellSize),
         (long long)(protagonistLocation.v[1] / minCellSize),
         (long long)(protagonistLocation.v[2] / minCellSize),
         1);
 
-    AFK_Cell protagonistCell(csProtagonistLocation);
+    AFK_Cell protagonistCell = afk_cell(csProtagonistLocation);
 
 #ifdef PROTAGONIST_CELL_DEBUG
     {
@@ -608,7 +608,7 @@ void AFK_Landscape::updateLandMap(void)
     for (long long i = -1; i <= 1; ++i)
         for (long long j = -1; j <= 1; ++j)
             for (long long k = -1; k <= 1; ++k)
-                enqueueSubcells(cell, Vec3<long long>(i, j, k), protagonistLocation, *(afk_core.camera));
+                enqueueSubcells(cell, afk_vec3<long long>(i, j, k), protagonistLocation, *(afk_core.camera));
 
 #ifdef PROTAGONIST_CELL_DEBUG
     {

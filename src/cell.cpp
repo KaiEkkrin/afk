@@ -13,29 +13,14 @@
 
 /* AFK_Cell implementation */
 
+/* TODO Something is relying on this.  I don't know what.  It's highly
+ * irritating.  But it doesn't matter for the purpose of being able to
+ * add AFK_Cells to lockless queues.
+ * (It's not AFK_RealCell .)
+ */
 AFK_Cell::AFK_Cell()
 {
-    /* A cell size number of 0 indicates this AFK_Cell is invalid:
-     * being able to express such an invalid value might be
-     * useful.
-     */
-    coord = Vec4<long long>(0ll, 0ll, 0ll, 0ll);
-}
-
-AFK_Cell::AFK_Cell(const AFK_Cell& _cell)
-{
-    coord = _cell.coord;
-}
-
-AFK_Cell::AFK_Cell(const Vec4<long long>& _coord)
-{
-    coord = _coord;
-}
-
-AFK_Cell& AFK_Cell::operator=(const AFK_Cell& _cell)
-{
-    coord = _cell.coord;
-    return *this;
+    coord = afk_vec4<long long>(0, 0, 0, 0);
 }
 
 bool AFK_Cell::operator==(const AFK_Cell& _cell) const
@@ -79,7 +64,7 @@ unsigned int AFK_Cell::subdivide(
         {
             for (long long k = coord.v[2]; k < coord.v[2] + stride * points; k += stride)
             {
-                *(subCellPos++) = AFK_Cell(Vec4<long long>(i, j, k, stride));
+                *(subCellPos++) = afk_cell(afk_vec4<long long>(i, j, k, stride));
                 ++subCellCount;
             }
         }
@@ -124,7 +109,7 @@ unsigned int AFK_Cell::augmentedSubdivide(AFK_Cell *augmentedSubcells, const siz
 AFK_Cell AFK_Cell::parent(void) const
 {
     long long parentCellScale = coord.v[3] * afk_core.landscape->subdivisionFactor;
-    return AFK_Cell(Vec4<long long>(
+    return afk_cell(afk_vec4<long long>(
         ROUND_TO_CELL_SCALE(coord.v[0], parentCellScale),
         ROUND_TO_CELL_SCALE(coord.v[1], parentCellScale),
         ROUND_TO_CELL_SCALE(coord.v[2], parentCellScale),
@@ -144,6 +129,20 @@ bool AFK_Cell::isParent(const AFK_Cell& parent) const
         coord.v[2] >= parent.coord.v[2] &&
         coord.v[2] < (parent.coord.v[2] + parent.coord.v[3]) &&
         coord.v[3] < parent.coord.v[3]);
+}
+
+AFK_Cell afk_cell(const AFK_Cell& other)
+{
+    AFK_Cell cell;
+    cell.coord = other.coord;
+    return cell;
+}
+
+AFK_Cell afk_cell(const Vec4<long long>& _coord)
+{
+    AFK_Cell cell;
+    cell.coord = _coord;
+    return cell;
 }
 
 size_t hash_value(const AFK_Cell& cell)
@@ -197,13 +196,13 @@ void AFK_RealCell::enumerateHalfCells(AFK_RealCell *halfCells, size_t halfCellsS
     {
         for (long long zd = -1; zd <= 1; zd += 2)
         {
-            halfCells[halfCellsIdx].worldCell = AFK_Cell(Vec4<long long>(
+            halfCells[halfCellsIdx].worldCell = afk_cell(afk_vec4<long long>(
                 worldCell.coord.v[0] + worldCell.coord.v[3] * xd / 2,
                 worldCell.coord.v[1],
                 worldCell.coord.v[2] + worldCell.coord.v[3] * zd / 2,
                 worldCell.coord.v[3]));
 
-            halfCells[halfCellsIdx].coord = Vec4<float>(
+            halfCells[halfCellsIdx].coord = afk_vec4<float>(
                 coord.v[0] + coord.v[3] * (float)xd / 2.0f,
                 coord.v[1],
                 coord.v[2] + coord.v[3] * (float)zd / 2.0f,
@@ -216,8 +215,7 @@ void AFK_RealCell::enumerateHalfCells(AFK_RealCell *halfCells, size_t halfCellsS
 
 AFK_RealCell::AFK_RealCell()
 {
-    worldCell       = AFK_Cell();
-    coord           = Vec4<float>(0.0f, 0.0f, 0.0f, 1.0f);
+    coord           = afk_vec4<float>(0.0f, 0.0f, 0.0f, 1.0f);
 }
 
 AFK_RealCell::AFK_RealCell(const AFK_RealCell& realCell)
@@ -229,7 +227,7 @@ AFK_RealCell::AFK_RealCell(const AFK_RealCell& realCell)
 AFK_RealCell::AFK_RealCell(const AFK_Cell& cell, float minCellSize)
 {
     worldCell       = cell;
-    coord           = Vec4<float>(
+    coord           = afk_vec4<float>(
         (float)cell.coord.v[0] * minCellSize / MIN_CELL_PITCH,
         (float)cell.coord.v[1] * minCellSize / MIN_CELL_PITCH,
         (float)cell.coord.v[2] * minCellSize / MIN_CELL_PITCH,
@@ -257,7 +255,7 @@ bool AFK_RealCell::testDetailPitch(unsigned int detailPitch, const AFK_Camera& c
      * (in fact I'd probably get away with just the x and
      * z axes)
      */
-    Vec3<float> centre = Vec3<float>(
+    Vec3<float> centre = afk_vec3<float>(
         coord.v[0] + coord.v[3] / 2.0f,
         coord.v[1] + coord.v[3] / 2.0f,
         coord.v[2] + coord.v[3] / 2.0f);
@@ -278,7 +276,7 @@ static void testPointVisible(const Vec3<float>& point, const AFK_Camera& camera,
      * yields a viewport with the x co-ordinates
      * (-ar, ar) and the y co-ordinates (-1.0, 1.0).
      */
-    Vec4<float> projectedPoint = camera.getProjection() * Vec4<float>(
+    Vec4<float> projectedPoint = camera.getProjection() * afk_vec4<float>(
         point.v[0], point.v[1], point.v[2], 1.0f);
     bool visible = (
         (projectedPoint.v[0] / projectedPoint.v[2]) >= -camera.ar &&
@@ -296,55 +294,55 @@ void AFK_RealCell::testVisibility(const AFK_Camera& camera, bool& io_someVisible
      * testing all 8 vertices and its midpoint.
      * TODO Is that enough?
      */
-    testPointVisible(Vec3<float>(
+    testPointVisible(afk_vec3<float>(
         coord.v[0],
         coord.v[1],
         coord.v[2]),
         camera, io_someVisible, io_allVisible);
 
-    testPointVisible(Vec3<float>(
+    testPointVisible(afk_vec3<float>(
         coord.v[0] + coord.v[3],
         coord.v[1],
         coord.v[2]),
         camera, io_someVisible, io_allVisible);
 
-    testPointVisible(Vec3<float>(
+    testPointVisible(afk_vec3<float>(
         coord.v[0],
         coord.v[1] + coord.v[3],
         coord.v[2]),
         camera, io_someVisible, io_allVisible);
 
-    testPointVisible(Vec3<float>(
+    testPointVisible(afk_vec3<float>(
         coord.v[0] + coord.v[3],
         coord.v[1] + coord.v[3],
         coord.v[2]),
         camera, io_someVisible, io_allVisible);
 
-    testPointVisible(Vec3<float>(
+    testPointVisible(afk_vec3<float>(
         coord.v[0],
         coord.v[1],
         coord.v[2] + coord.v[3]),
         camera, io_someVisible, io_allVisible);
 
-    testPointVisible(Vec3<float>(
+    testPointVisible(afk_vec3<float>(
         coord.v[0] + coord.v[3],
         coord.v[1],
         coord.v[2] + coord.v[3]),
         camera, io_someVisible, io_allVisible);
 
-    testPointVisible(Vec3<float>(
+    testPointVisible(afk_vec3<float>(
         coord.v[0],
         coord.v[1] + coord.v[3],
         coord.v[2] + coord.v[3]),
         camera, io_someVisible, io_allVisible);
 
-    testPointVisible(Vec3<float>(
+    testPointVisible(afk_vec3<float>(
         coord.v[0] + coord.v[3],
         coord.v[1] + coord.v[3],
         coord.v[2] + coord.v[3]),
         camera, io_someVisible, io_allVisible);
 
-    testPointVisible(Vec3<float>(
+    testPointVisible(afk_vec3<float>(
         coord.v[0] + coord.v[3] / 2.0f,
         coord.v[1] + coord.v[3] / 2.0f,
         coord.v[2] + coord.v[3] / 2.0f),

@@ -7,6 +7,10 @@
 
 #include <iostream>
 
+#include <boost/static_assert.hpp>
+#include <boost/type_traits/has_trivial_assign.hpp>
+#include <boost/type_traits/has_trivial_destructor.hpp>
+
 #include "camera.hpp"
 #include "def.hpp"
 #include "rng/rng.hpp"
@@ -39,6 +43,8 @@
 class AFK_Cell
 {
 public:
+    AFK_Cell();
+
     /* These co-ordinates are in smallest-cell steps, starting
      * from (0,0,0) at the origin.  The 4th number is the
      * cell size: 2 for smallest, then increasing in factors
@@ -52,10 +58,6 @@ public:
      */
     Vec4<long long> coord;
 
-    AFK_Cell();
-    AFK_Cell(const AFK_Cell& _cell);
-    AFK_Cell(const Vec4<long long>& _coord);
-
     /* TODO Somewhere, I'm going to need a way of making the
      * smallest AFK_Cell that can contain a particular object
      * at the current LoD, so that I can assign moving objects
@@ -64,7 +66,6 @@ public:
      */
 
     /* Obligatory thingies. */
-    AFK_Cell& operator=(const AFK_Cell& _cell);
     bool operator==(const AFK_Cell& _cell) const;
     bool operator!=(const AFK_Cell& _cell) const;
 
@@ -125,6 +126,10 @@ public:
     bool isParent(const AFK_Cell& parent) const;
 };
 
+/* Useful ways of making cells. */
+AFK_Cell afk_cell(const AFK_Cell& other);
+AFK_Cell afk_cell(const Vec4<long long>& _coord);
+
 /* For insertion into an unordered_map. */
 size_t hash_value(const AFK_Cell& cell);
 
@@ -136,6 +141,10 @@ struct AFK_HashCell
 
 /* For printing an AFK_Cell. */
 std::ostream& operator<<(std::ostream& os, const AFK_Cell& cell);
+
+/* Important for being able to pass cells around in the queue. */
+BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_Cell>::value));
+BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_Cell>::value));
 
 
 /* Describes a cell in terms of world co-ordinates.

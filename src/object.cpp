@@ -13,7 +13,7 @@
 
 AFK_Object::AFK_Object()
 {
-    scale = Vec3<float>(1.0f, 1.0f, 1.0f);
+    scale = afk_vec3<float>(1.0f, 1.0f, 1.0f);
 
     movement = Mat4<float>(
         1.0f,   0.0f,   0.0f,   0.0f,

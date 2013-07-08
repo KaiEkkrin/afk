@@ -62,7 +62,7 @@ static void afk_idle(void)
     /* Swallow the axis displacement after it's been applied
      * so that I don't get a strange mouse acceleration effect
      */
-    afk_core.axisDisplacement = Vec3<float>(0.0f, 0.0f, 0.0f);
+    afk_core.axisDisplacement = afk_vec3<float>(0.0f, 0.0f, 0.0f);
 
     /* Manage the other objects.
      * TODO A call-through to AI stuff probably goes here?
@@ -166,21 +166,21 @@ void AFK_Core::configure(int *argcp, char **argv)
     rng = new AFK_Boost_Taus88_RNG();
 
     /* Startup state of the protagonist. */
-    velocity            = Vec3<float>(0.0f, 0.0f, 0.0f);
-    axisDisplacement    = Vec3<float>(0.0f, 0.0f, 0.0f);
+    velocity            = afk_vec3<float>(0.0f, 0.0f, 0.0f);
+    axisDisplacement    = afk_vec3<float>(0.0f, 0.0f, 0.0f);
     controlsEnabled     = 0uLL;
 
     /* TODO Make the viewpoint configurable?  Right now I have a
      * fixed 3rd person view here.
      */
-    camera = new AFK_Camera(Vec3<float>(0.0f, -1.5f, 3.0f));
+    camera = new AFK_Camera(afk_vec3<float>(0.0f, -1.5f, 3.0f));
 
     /* Set up the sun.  (TODO: Make configurable?  Randomly
      * generated?  W/e :) )
      */
     sun.colour[0] = 1.0f;       sun.colour[1] = 1.0f;       sun.colour[2] = 1.0f;
 
-    Vec3<float> sunDirection = Vec3<float>(0.0f, -1.0f, 1.0f).normalise();
+    Vec3<float> sunDirection = afk_vec3<float>(0.0f, -1.0f, 1.0f).normalise();
     sun.direction[0] = sunDirection.v[0];
     sun.direction[1] = sunDirection.v[1];
     sun.direction[2] = sunDirection.v[2];
@@ -214,7 +214,7 @@ void AFK_Core::loop(void)
      * TODO: Better, evaluate the landscape in the protagonist's cell and
      * move the protagonist to just above it!
      */
-    Vec3<float> startingPosition(0.0f, 16.0f, 0.0f);
+    Vec3<float> startingPosition = afk_vec3<float>(0.0f, 16.0f, 0.0f);
     protagonist->object.displace(startingPosition);
     camera->displace(startingPosition);
 
