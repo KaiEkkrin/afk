@@ -722,7 +722,7 @@ AFK_Landscape::AFK_Landscape(
         genGang(
             boost::function<bool (const struct AFK_LandscapeCellGenParam,
                 ASYNC_QUEUE_TYPE(struct AFK_LandscapeCellGenParam)&)>(afk_generateLandscapeCells),
-            10000 /* Likewise */ , 1 /* TODO make concurrent after initial testing */ )
+            100 /* Likewise */ )
 {
     maxDistance         = _maxDistance;
     subdivisionFactor   = _subdivisionFactor;
