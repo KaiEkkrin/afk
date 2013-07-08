@@ -74,7 +74,7 @@ int main(int argc, char **argv)
     }
 
     std::cout << "AFK exiting" << std::endl;
-    afk_core.printOccasionals(true);
+    afk_core.checkpoint(true);
     return retcode;
 }
 

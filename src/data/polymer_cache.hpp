@@ -6,6 +6,9 @@
 #include "cache.hpp"
 #include "polymer.hpp"
 
+#define AFK_POLYMER_HASHBITS 20
+#define AFK_POLYMER_CONTENTION 3
+
 /* This defines the AFK cache as an unguarded polymer cache. */
 
 template<typename Key, typename Value, typename Hasher>
@@ -19,7 +22,7 @@ public:
      * (if I'm going to use this structure at all.  Maybe mutexes
      * are really fast now?
      */
-    AFK_PolymerCache(Hasher hasher): polymer(9, 4, hasher) {}
+    AFK_PolymerCache(Hasher hasher): polymer(AFK_POLYMER_HASHBITS, AFK_POLYMER_CONTENTION, hasher) {}
     virtual ~AFK_PolymerCache() {}
 
     virtual Value& operator[](const Key& key)

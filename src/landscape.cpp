@@ -351,6 +351,9 @@ AFK_Landscape::AFK_Landscape(
     float _maxDistance,
     unsigned int _subdivisionFactor,
     unsigned int _detailPitch):
+#if AFK_USE_POLYMER_CACHE
+        cache(AFK_HashCell()),
+#endif
         renderQueue(10000) /* TODO make a better guess */
 {
     maxDistance         = _maxDistance;

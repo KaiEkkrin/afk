@@ -14,7 +14,7 @@
 static void afk_idle(void)
 {
     afk_core.renderingFrame.increment();
-    afk_core.printOccasionals(false);
+    afk_core.checkpoint(false);
 
     /* TODO For now I'm calculating the intended contents of the next frame in
      * series with drawing it.  In future, I want to move this so that it's
@@ -223,6 +223,9 @@ void AFK_Core::loop(void)
      * away and confuse the user. */
     glutWarpPointer(windowWidth / 2, windowHeight / 2);
 
+    /* First checkpoint */
+    lastCheckpoint = boost::posix_time::microsec_clock::local_time();
+
     glutMainLoop();
 }
 
@@ -231,10 +234,32 @@ void AFK_Core::occasionallyPrint(const std::string& message)
     occasionalPrints << "AFK Frame " << renderingFrame.get() << ": " << message << std::endl;
 }
 
-void AFK_Core::printOccasionals(bool definitely)
+void AFK_Core::checkpoint(bool definitely)
 {
-    if (definitely || (renderingFrame.get() % 60) == 0)
+    boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
+    boost::posix_time::time_duration sinceLastCheckpoint = now - lastCheckpoint;
+
+    if (definitely || sinceLastCheckpoint.total_seconds() > 0)
+    {
+        lastCheckpoint = now;
+
+        std::cout << "AFK: Checkpoint at " << now << std::endl;
+        std::cout << "AFK: Since last checkpoint: " << std::dec << renderingFrame - frameAtLastCheckpoint << " frames";
+        float fps = (float)(renderingFrame - frameAtLastCheckpoint) * 1000.0f / (float)sinceLastCheckpoint.total_milliseconds();
+        std::cout << " (" << fps << " frames/second)" << std::endl;        
+
+        frameAtLastCheckpoint = renderingFrame;
+
+#if AFK_USE_POLYMER_CACHE
+        {
+            std::ostringstream ss;
+            afk_core.landscape->cache.printStats(ss, "Polymer cache");
+            std::cout << ss.str();
+        }
+#endif
+
         std::cout << occasionalPrints.str();
+    }
 
     occasionalPrints.str(std::string());
 }

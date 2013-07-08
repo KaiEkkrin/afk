@@ -8,6 +8,8 @@
 #include <iostream>
 #include <string>
 
+#include <boost/date_time/posix_time/posix_time.hpp>
+
 #include "camera.hpp"
 #include "config.hpp"
 #include "def.hpp"
@@ -70,6 +72,12 @@ public:
      */
     std::ostringstream occasionalPrints;
 
+    /* For tracking and occasionally printing what the engine is
+     * doing.
+     */
+    boost::posix_time::ptime lastCheckpoint;
+    AFK_Frame           frameAtLastCheckpoint;   
+
     AFK_Core();
     ~AFK_Core();
 
@@ -83,14 +91,21 @@ public:
     
     void loop(void);
 
-    /* This utility function prints a message once every certain
-     * number of frames, so that I can usefully debug-print
+    /* This utility function prints a message at checkpoints,
+     * so that I can usefully debug-print
      * engine state without spamming stdout.
+     * TODO So that I'm not wasting time formatting strings
+     * that get thrown away, change checkpoint() to call into
+     * various bits of AFK asking for the information as
+     * required?
      */
     void occasionallyPrint(const std::string& message);
 
-    /* ...and the internal thing. */
-    void printOccasionals(bool definitely);
+    /* Does a checkpoint.  This happens once every
+     * checkpoint interval unless `definitely' is set
+     * in which case it happens right away.
+     */
+    void checkpoint(bool definitely);
 };
 
 extern AFK_Core afk_core;

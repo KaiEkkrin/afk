@@ -7,6 +7,7 @@
 
 #include <iostream>
 
+#include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/thread/thread.hpp>
 
@@ -14,6 +15,7 @@
 #include "cell.hpp"
 #include "data/cache.hpp"
 #include "data/map_cache.hpp"
+#include "data/polymer_cache.hpp"
 #include "data/render_queue.hpp"
 #include "def.hpp"
 #include "display.hpp"
@@ -123,10 +125,13 @@ public:
     GLuint clipTransformLocation;
 
     /* The cache of landscape cells we're tracking.
-     * TODO Try with both MapCache and PolymerCache. The latter
-     * should be faster but might crash :/
+     * This is a global configured in afk.h
      */
+#if AFK_USE_POLYMER_CACHE
+    AFK_PolymerCache<AFK_Cell, AFK_LandscapeCell, boost::function<size_t (const AFK_Cell&)> > cache;
+#else
     AFK_MapCache<AFK_Cell, AFK_LandscapeCell> cache;
+#endif
 
     /* The render queue: cells to display next frame.
      * DOES NOT OWN THESE POINTERS.  DO NOT DELETE
