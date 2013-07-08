@@ -5,13 +5,15 @@
 
 #include "afk.hpp"
 
+#include "def.hpp"
+
 /* This is the structure that gets passed into the shader.
  * Basic description of a light.
  */
 struct AFK_Light
 {
-    float       colour[3];
-    float       direction[3];
+    Vec3<float> colour;
+    Vec3<float> direction;
     float       ambient;    
     float       diffuse;
 };

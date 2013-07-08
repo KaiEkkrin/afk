@@ -20,23 +20,6 @@ class Vec3
 public:
     F v[3];
 
-    /* TODO remove these, replace with directly embedded Vec3 and
-     * memcpy() */
-    Vec3<F>& fromArray(const F* a)
-    {
-        v[0] = *a;
-        v[1] = *(a+1);
-        v[2] = *(a+2);
-        return *this;
-    }
-
-    void toArray(F* a) const
-    {
-        *a = v[0];
-        *(a+1) = v[1];
-        *(a+2) = v[2];
-    }
-
     Vec3<F> operator+(F f) const
     {
         Vec3<F> r;

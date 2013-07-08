@@ -59,18 +59,18 @@ AFK_DisplayedProtagonist::AFK_DisplayedProtagonist()
         /* location ...                             colour ...                  normal */
 
         /* bow */
-        {{   0.0f,   0.0f,   2.0f,   },  /* 0 */     {   0.2f, 1.0f, 1.0f,   },  {   0.0f, 0.0f, 1.0f,   }},
+        {{{  0.0f,   0.0f,   2.0f,  }},  /* 0 */     {{  0.2f, 1.0f, 1.0f,  }},  {{  0.0f, 0.0f, 1.0f,  }}},
 
         /* top and bottom */
-        {{   0.0f,   0.3f,   -0.5f,  },  /* 1 */     {   0.2f, 1.0f, 1.0f,   },  {   0.0f, 1.0f, 0.0f,   }},
-        {{   0.0f,   -0.3f,  -0.5f,  },  /* 2 */     {   0.2f, 1.0f, 1.0f,   },  {   0.0f, -1.0f, 0.0f,  }},
+        {{{  0.0f,   0.3f,   -0.5f, }},  /* 1 */     {{  0.2f, 1.0f, 1.0f,  }},  {{  0.0f, 1.0f, 0.0f,  }}},
+        {{{  0.0f,   -0.3f,  -0.5f, }},  /* 2 */     {{  0.2f, 1.0f, 1.0f,  }},  {{  0.0f, -1.0f, 0.0f, }}},
 
         /* wingtips */
-        {{   1.0f,   0.0f,   -0.5f,  },  /* 3 */     {   0.2f, 1.0f, 1.0f,   },  {   1.0f, 0.0f, 0.0f,   }},
-        {{   -1.0f,  0.0f,   -0.5f,  },  /* 4 */     {   0.2f, 1.0f, 1.0f,   },  {   -1.0f, 0.0f, 0.0f,  }},
+        {{{  1.0f,   0.0f,   -0.5f, }},  /* 3 */     {{  0.2f, 1.0f, 1.0f,  }},  {{  1.0f, 0.0f, 0.0f,  }}},
+        {{{  -1.0f,  0.0f,   -0.5f, }},  /* 4 */     {{  0.2f, 1.0f, 1.0f,  }},  {{  -1.0f, 0.0f, 0.0f, }}},
 
         /* concave stern */
-        {{   0.0f,   0.0f,   0.0f,   },  /* 5 */     {   0.2f, 1.0f, 1.0f,   },  {   0.0f, 0.0f, -1.0f,  }},
+        {{{  0.0f,   0.0f,   0.0f,  }},  /* 5 */     {{  0.2f, 1.0f, 1.0f,  }},  {{  0.0f, 0.0f, -1.0f, }}},
     };
 
     unsigned int rawIndices[] = {
@@ -118,8 +118,8 @@ void AFK_DisplayedProtagonist::display(const Mat4<float>& projection)
     glBindBuffer(GL_ARRAY_BUFFER, bufs[0]);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), 0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(3 * sizeof(float)));
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(6 * sizeof(float)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(sizeof(Vec3<float>)));
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(2 * sizeof(Vec3<float>)));
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bufs[1]);
 

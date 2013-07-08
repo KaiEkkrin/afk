@@ -3,6 +3,7 @@
 #include "afk.hpp"
 
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #include <boost/atomic.hpp>
@@ -23,24 +24,19 @@
 /* AFK_DisplayedLandscapeCell workers. */
 
 static void computeFlatTriangle(
-    float *vertices,
-    float *colours,
+    const Vec3<float> *vertices,
+    const Vec3<float> *colours,
     const Vec3<unsigned int>& indices,
     struct AFK_VcolPhongVertex *triangleVPos)
 {
-    Vec3<float> triVs[3];
-    Vec3<float> triCs[3];
     struct AFK_VcolPhongVertex *outStructs[3];
     unsigned int i;
 
     for (i = 0; i < 3; ++i)
-    {
-        triVs[i].fromArray(&vertices[indices.v[i]]);
-        triCs[i].fromArray(&colours[indices.v[i]]);
         outStructs[i] = triangleVPos + i;
-    }
 
-    Vec3<float> crossP = ((triVs[1] - triVs[0]).cross(triVs[2] - triVs[0]));
+    Vec3<float> crossP = ((vertices[indices.v[1]] - vertices[indices.v[0]]).cross(
+        vertices[indices.v[2]] - vertices[indices.v[0]]));
 
     /* Try to sort out the winding order so that under GL_CCW,
      * all triangles are facing upwards
@@ -55,9 +51,9 @@ static void computeFlatTriangle(
 
     for (i = 0; i < 3; ++i)
     {
-        triVs[i].toArray(&outStructs[i]->location[0]);
-        triCs[i].toArray(&outStructs[i]->colour[0]);
-        normal.toArray(&outStructs[i]->normal[0]);
+        outStructs[i]->location = vertices[indices.v[i]];
+        outStructs[i]->colour = colours[indices.v[i]];
+        outStructs[i]->normal = normal;
     }
 }
 
@@ -68,9 +64,9 @@ static void computeFlatTriangle(
  * triangles array ought to be.
  */
 static void vertices2FlatTriangles(
-    float *vertices,
-    float *colours,
-    unsigned int verticesCount,
+    Vec3<float> *vertices,
+    Vec3<float> *colours,
+    unsigned int vertexCount,
     unsigned int pointSubdivisionFactor,
     struct AFK_VcolPhongVertex *triangleVs,
     unsigned int *triangleVsCount)
@@ -108,10 +104,10 @@ static void vertices2FlatTriangles(
         {
             for (unsigned int col = 0; col < pointSubdivisionFactor; ++col)
             {
-                unsigned int i_r1c1 = 3 * row * (pointSubdivisionFactor+1) + 3 * col;
-                unsigned int i_r1c2 = 3 * row * (pointSubdivisionFactor+1) + 3 * (col + 1);
-                unsigned int i_r2c1 = 3 * (row + 1) * (pointSubdivisionFactor+1) + 3 * col;
-                unsigned int i_r2c2 = 3 * (row + 1) * (pointSubdivisionFactor+1) + 3 * (col + 1);
+                unsigned int i_r1c1 = row * (pointSubdivisionFactor+1) + col;
+                unsigned int i_r1c2 = row * (pointSubdivisionFactor+1) + (col + 1);
+                unsigned int i_r2c1 = (row + 1) * (pointSubdivisionFactor+1) + col;
+                unsigned int i_r2c2 = (row + 1) * (pointSubdivisionFactor+1) + (col + 1);
 
                 Vec3<unsigned int> tri1Is = afk_vec3<unsigned int>(i_r2c1, i_r1c1, i_r1c2);
                 computeFlatTriangle(vertices, colours, tri1Is, triangleVPos);
@@ -137,7 +133,7 @@ static void vertices2FlatTriangles(
 #if 0
 static void vertices2CurvedTriangles(
     float *vertices,
-    size_t verticesCount,
+    size_t vertexCount,
     struct AFK_VcolPhongVertex *triangles,
     size_t *io_trianglesCount,
     unsigned int *indices,
@@ -170,19 +166,15 @@ AFK_DisplayedLandscapeCell::AFK_DisplayedLandscapeCell(
      * the +ve x and z too, in order to join up with it.
      * -- TODO: That needs to change (see: stitching).
      */
-    vertexCount = SQUARE(pointSubdivisionFactor + 1);
-    float *rawVertices = NULL;
-    float *rawColours = NULL;
-    unsigned int rawVerticesCount = 3 * vertexCount;
-
     /* TODO This is thrashing the heap.  Try making a single
      * scratch place for this in thread-local storage
      */
-    rawVertices = new float[rawVerticesCount];
-    rawColours = new float[rawVerticesCount];
+    vertexCount = SQUARE(pointSubdivisionFactor + 1);
+    Vec3<float> *rawVertices = new Vec3<float>[vertexCount];
+    Vec3<float> *rawColours = new Vec3<float>[vertexCount];
 
-    /* Populate the vertex array. */
-    float *rawVerticesPos = rawVertices;
+    /* Populate the vertex and colour arrays. */
+    size_t rawIndex = 0;    
 
     for (unsigned int xi = 0; xi < pointSubdivisionFactor + 1; ++xi)
     {
@@ -212,9 +204,14 @@ AFK_DisplayedLandscapeCell::AFK_DisplayedLandscapeCell(
 #endif
 
             /* And shunt them into world space */
-            *(rawVerticesPos++) = xf + xdisp + cell.coord.v[0];
-            *(rawVerticesPos++) = cell.coord.v[1];
-            *(rawVerticesPos++) = zf + zdisp + cell.coord.v[2];
+            rawVertices[rawIndex] = afk_vec3<float>(
+                xf + xdisp + cell.coord.v[0],
+                cell.coord.v[1],
+                zf + zdisp + cell.coord.v[2]);
+
+            rawColours[rawIndex] = afk_vec3<float>(0.1f, 0.1f, 0.1f);
+
+            ++rawIndex;
         }
     }
 
@@ -223,22 +220,7 @@ AFK_DisplayedLandscapeCell::AFK_DisplayedLandscapeCell(
      * But, the cache may rescue me; profile first!
      */
     for (unsigned int i = 0; i < vertexCount; ++i)
-    {
-        Vec3<float> rawVertex = afk_vec3<float>(
-            *(rawVertices + 3 * i),
-            *(rawVertices + 3 * i + 1),
-            *(rawVertices + 3 * i + 2));
-
-        Vec3<float> rawColour = afk_vec3<float>(1.0f, 1.0f, 1.0f);
-
-        terrain.compute(rawVertex, rawColour);
-
-        for (unsigned int j = 0; j < 3; ++j)
-        {
-            *(rawVertices + 3 * i + j) = rawVertex.v[j];
-            *(rawColours + 3 * i + j) = rawColour.v[j];
-        }
-    }
+        terrain.compute(rawVertices[i], rawColours[i]);
 
     /* I've completed my vertex array!  Transform this into an
      * array of VcolPhongVertex by computing colours and normals
@@ -246,9 +228,9 @@ AFK_DisplayedLandscapeCell::AFK_DisplayedLandscapeCell(
     struct AFK_VcolPhongVertex *triangleVs = NULL;
     unsigned int triangleVsCount;
 
-    vertices2FlatTriangles(rawVertices, rawColours, rawVerticesCount, pointSubdivisionFactor, NULL, &triangleVsCount);
+    vertices2FlatTriangles(rawVertices, rawColours, vertexCount, pointSubdivisionFactor, NULL, &triangleVsCount);
     triangleVs = new struct AFK_VcolPhongVertex[triangleVsCount];
-    vertices2FlatTriangles(rawVertices, rawColours, rawVerticesCount, pointSubdivisionFactor, triangleVs, &triangleVsCount);
+    vertices2FlatTriangles(rawVertices, rawColours, vertexCount, pointSubdivisionFactor, triangleVs, &triangleVsCount);
 
     /* I don't need this any more... */
     delete[] rawVertices;

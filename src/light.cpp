@@ -12,8 +12,8 @@ AFK_ShaderLight::AFK_ShaderLight(GLuint program)
 
 void AFK_ShaderLight::setupLight(const struct AFK_Light& light)
 {
-    glUniform3f(colourField,    light.colour[0],        light.colour[1],        light.colour[2]);
-    glUniform3f(directionField, light.direction[0],     light.direction[1],     light.direction[2]);
+    glUniform3f(colourField,    light.colour.v[0],      light.colour.v[1],      light.colour.v[2]);
+    glUniform3f(directionField, light.direction.v[0],   light.direction.v[1],   light.direction.v[2]);
     glUniform1f(ambientField,   light.ambient);
     glUniform1f(diffuseField,   light.diffuse);
 }

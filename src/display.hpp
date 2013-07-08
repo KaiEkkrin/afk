@@ -14,9 +14,9 @@
  */
 struct AFK_VcolPhongVertex
 {
-    float       location[3];
-    float       colour[3];
-    float       normal[3];
+    Vec3<float> location;
+    Vec3<float> colour;
+    Vec3<float> normal;
 };
 
 class AFK_DisplayedObject
