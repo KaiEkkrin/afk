@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <boost/atomic.hpp>
+#include <boost/chrono.hpp>
 #include <boost/function.hpp>
 #include <boost/lockfree/queue.hpp>
 #include <boost/ref.hpp>
@@ -149,7 +150,17 @@ void afk_asyncWorker(
                  */
                 if (!wasIdle) controls.worker_amIdle();
                 wasIdle = true;
-                boost::this_thread::yield();
+
+                /* TODO: It looks like spinning on yield() causes a great deal
+                 * of system time wasted.
+                 * Trying:
+                 * - sleep for a little while -- if I do this, I'm going to also
+                 * want to push in an interrupt on a regular basis (but my
+                 * frame metering stuff wants this anyway)
+                 * - total spin?
+                 */
+                /* boost::this_thread::yield(); */
+                boost::this_thread::sleep_for(boost::chrono::milliseconds(2));
             }
         }
 
