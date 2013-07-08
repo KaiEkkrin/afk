@@ -54,15 +54,18 @@ public:
     AFK_DisplayedObject();
     virtual ~AFK_DisplayedObject();
 
+    /* Run these two in the main thread: OpenGL seems to be
+     * unhappy about being called from other threads...
+     */
+    virtual void initGL(void) = 0;
+
     virtual void display(const Mat4<float>& projection) = 0;
 };
 
 class AFK_DisplayedProtagonist: public AFK_DisplayedObject
 {
 public:
-    AFK_DisplayedProtagonist();
-    virtual ~AFK_DisplayedProtagonist();
-
+    virtual void initGL(void);
     virtual void display(const Mat4<float>& projection);
 };
 

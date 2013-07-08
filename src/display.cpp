@@ -12,18 +12,21 @@
 
 
 
-AFK_DisplayedObject::AFK_DisplayedObject()
+AFK_DisplayedObject::AFK_DisplayedObject():
+    shaderProgram(NULL),
+    worldTransformLocation(0),
+    clipTransformLocation(0),
+    shaderLight(NULL)
 {
-    shaderProgram = NULL;
-    worldTransformLocation = 0;
-    clipTransformLocation = 0;
-    shaderLight = NULL;
+    bufs[0] = 0;
+    bufs[1] = 0;
 }
 
 AFK_DisplayedObject::~AFK_DisplayedObject()
 {
     if (shaderLight) delete shaderLight;
     if (shaderProgram) delete shaderProgram;
+    if (bufs[0] && bufs[1]) glDeleteBuffers(2, &bufs[0]);
 }
 
 void AFK_DisplayedObject::updateTransform(const Mat4<float>& projection)
@@ -35,7 +38,7 @@ void AFK_DisplayedObject::updateTransform(const Mat4<float>& projection)
     glUniformMatrix4fv(clipTransformLocation, 1, GL_TRUE, &clipTransform.m[0][0]);
 }
 
-AFK_DisplayedProtagonist::AFK_DisplayedProtagonist()
+void AFK_DisplayedProtagonist::initGL(void)
 {
     /* Link up the shader program I want. */
     shaderProgram = new AFK_ShaderProgram();
@@ -98,13 +101,9 @@ AFK_DisplayedProtagonist::AFK_DisplayedProtagonist()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(rawIndices), rawIndices, GL_STATIC_DRAW);
 }
 
-AFK_DisplayedProtagonist::~AFK_DisplayedProtagonist()
-{
-    glDeleteBuffers(2, &bufs[0]);
-}
-
 void AFK_DisplayedProtagonist::display(const Mat4<float>& projection)
 {
+    if (!shaderProgram) initGL();
     glUseProgram(shaderProgram->program);
 
     updateTransform(projection);

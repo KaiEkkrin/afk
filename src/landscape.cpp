@@ -12,6 +12,7 @@
 #include "core.hpp"
 #include "exception.hpp"
 #include "landscape.hpp"
+#include "rng/boost_taus88.hpp"
 
 
 /* TODO remove debug?  (or something) */
@@ -146,21 +147,16 @@ static void vertices2CurvedTriangles(
 /* AFK_DisplayedLandscapeCell implementation */
 
 AFK_DisplayedLandscapeCell::AFK_DisplayedLandscapeCell(
-    GLuint _program,
-    GLuint _worldTransformLocation,
-    GLuint _clipTransformLocation,
-    const AFK_RealCell& cell,
+    const AFK_LandscapeCell& landscapeCell,
     unsigned int pointSubdivisionFactor,
-    const AFK_Terrain& terrain,
-    AFK_RNG& rng)
+    AFK_CACHE& cache):
+        triangleVs(NULL),
+        triangleVsCount(0),
+        program(0),
+        vertices(0),
+        vertexCount(0)
 {
-    program = _program;
-    worldTransformLocation = _worldTransformLocation;
-    clipTransformLocation = _clipTransformLocation;
-    shaderLight = new AFK_ShaderLight(_program); /* TODO heap thrashing :P */
-
-    /* Seed the RNG for this cell. */
-    rng.seed(cell.worldCell.rngSeed());
+    Vec4<float> realCoord = landscapeCell.getRealCoord();
 
     /* I'm going to need to sample the edges of the next cell along
      * the +ve x and z too, in order to join up with it.
@@ -184,8 +180,8 @@ AFK_DisplayedLandscapeCell::AFK_DisplayedLandscapeCell(
              * just before its (coord.v[3], coord.v[3], coord.v[3]
              * point (in cell space)
              */
-            float xf = (float)xi * cell.coord.v[3] / (float)pointSubdivisionFactor;
-            float zf = (float)zi * cell.coord.v[3] / (float)pointSubdivisionFactor;
+            float xf = (float)xi * realCoord.v[3] / (float)pointSubdivisionFactor;
+            float zf = (float)zi * realCoord.v[3] / (float)pointSubdivisionFactor;
 
             /* Jitter the vertices inside the cell around a bit. 
              * Not the edge ones; that will cause a join-up
@@ -197,17 +193,17 @@ AFK_DisplayedLandscapeCell::AFK_DisplayedLandscapeCell(
             float xdisp = 0.0f, zdisp = 0.0f;
 #if 0
             if (xi > 0 && xi <= pointSubdivisionFactor)
-                xdisp = rng.frand() * cell.coord.v[3] / ((float)pointSubdivisionFactor * 2.0f);
+                xdisp = rng.frand() * landscapeCell.coord.v[3] / ((float)pointSubdivisionFactor * 2.0f);
 
             if (zi > 0 && zi <= pointSubdivisionFactor)
-                zdisp = rng.frand() * cell.coord.v[3] / ((float)pointSubdivisionFactor * 2.0f);
+                zdisp = rng.frand() * landscapeCell.coord.v[3] / ((float)pointSubdivisionFactor * 2.0f);
 #endif
 
             /* And shunt them into world space */
             rawVertices[rawIndex] = afk_vec3<float>(
-                xf + xdisp + cell.coord.v[0],
-                cell.coord.v[1],
-                zf + zdisp + cell.coord.v[2]);
+                xf + xdisp + realCoord.v[0],
+                realCoord.v[1],
+                zf + zdisp + realCoord.v[2]);
 
             rawColours[rawIndex] = afk_vec3<float>(0.1f, 0.1f, 0.1f);
 
@@ -220,14 +216,11 @@ AFK_DisplayedLandscapeCell::AFK_DisplayedLandscapeCell(
      * But, the cache may rescue me; profile first!
      */
     for (unsigned int i = 0; i < vertexCount; ++i)
-        terrain.compute(rawVertices[i], rawColours[i]);
+        landscapeCell.computeTerrain(rawVertices[i], rawColours[i], cache);
 
     /* I've completed my vertex array!  Transform this into an
      * array of VcolPhongVertex by computing colours and normals
      */
-    struct AFK_VcolPhongVertex *triangleVs = NULL;
-    unsigned int triangleVsCount;
-
     vertices2FlatTriangles(rawVertices, rawColours, vertexCount, pointSubdivisionFactor, NULL, &triangleVsCount);
     triangleVs = new struct AFK_VcolPhongVertex[triangleVsCount];
     vertices2FlatTriangles(rawVertices, rawColours, vertexCount, pointSubdivisionFactor, triangleVs, &triangleVsCount);
@@ -235,24 +228,38 @@ AFK_DisplayedLandscapeCell::AFK_DisplayedLandscapeCell(
     /* I don't need this any more... */
     delete[] rawVertices;
     delete[] rawColours;
-
-    /* Turn this into an OpenGL vertex buffer */
-    glGenBuffers(1, &vertices);
-    glBindBuffer(GL_ARRAY_BUFFER, vertices);
-    glBufferData(GL_ARRAY_BUFFER, triangleVsCount * sizeof(struct AFK_VcolPhongVertex), triangleVs, GL_STATIC_DRAW);
-    vertexCount = triangleVsCount;
-
-    delete[] triangleVs;
 }
 
 AFK_DisplayedLandscapeCell::~AFK_DisplayedLandscapeCell()
 {
-    glDeleteBuffers(1, &vertices);
+    delete[] triangleVs;
+    
+    /* TODO Cache eviction is going to cause some nasty OpenGL
+     * wrong-thread problem here, isn't it?  Should I enqueue
+     * these into a to-be-deleted queue that's scraped by
+     * the main thread?
+     */
+    if (vertices) glDeleteBuffers(1, &vertices);
+}
+
+void AFK_DisplayedLandscapeCell::initGL(void)
+{
+    program = afk_core.landscape->shaderProgram->program;
+    worldTransformLocation = afk_core.landscape->worldTransformLocation;
+    clipTransformLocation = afk_core.landscape->clipTransformLocation;
+    shaderLight = new AFK_ShaderLight(program); /* TODO heap thrashing :P */
+
+    glGenBuffers(1, &vertices);
+    glBindBuffer(GL_ARRAY_BUFFER, vertices);
+    glBufferData(GL_ARRAY_BUFFER, triangleVsCount * sizeof(struct AFK_VcolPhongVertex), triangleVs, GL_STATIC_DRAW);
+    vertexCount = triangleVsCount;
 }
 
 void AFK_DisplayedLandscapeCell::display(const Mat4<float>& projection)
 {
-    if (vertices != 0)
+    if (!vertices) initGL();
+
+    if (vertices)
     {
         /* TODO Do I have to do `glUseProgram' once per cell, really?
           * Can't I omit it from here and have the AFK_Landscape
@@ -271,8 +278,8 @@ void AFK_DisplayedLandscapeCell::display(const Mat4<float>& projection)
         glBindBuffer(GL_ARRAY_BUFFER, vertices);
 
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), 0);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(3 * sizeof(float)));
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(6 * sizeof(float)));
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(sizeof(Vec3<float>)));
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(2 * sizeof(Vec3<float>)));
 
         glDrawArrays(GL_TRIANGLES, 0, vertexCount);
 
@@ -290,15 +297,55 @@ std::ostream& operator<<(std::ostream& os, const AFK_DisplayedLandscapeCell& dlc
 
 /* AFK_LandscapeCell implementation. */
 
-AFK_LandscapeCell::AFK_LandscapeCell():
-    lastSeen (), displayed () {}
+void AFK_LandscapeCell::computeTerrainRec(Vec3<float>& position, Vec3<float>& colour, AFK_CACHE& cache) const
+{
+    /* Co-ordinates arrive in the context of the current cell.
+     * Compute its terrain.
+     */
+    terrain->compute(position, colour);
+
+    if (topLevel)
+    {
+        /* Transform back into world space. */
+        Vec4<float> cellCoord = terrain->getCellCoord();
+        position = (position * cellCoord.v[3]) + afk_vec3<float>(cellCoord.v[0], cellCoord.v[1], cellCoord.v[2]);
+    }
+    else
+    {
+        /* Find the next cell up.
+         * If it isn't there something has gone rather wrong,
+         * because I should have touched it earlier
+         */
+        AFK_LandscapeCell& parentLandscapeCell = cache[cell.parent()];
+
+        /* Transform into this cell's co-ordinates */
+        Vec4<float> small = terrain->getCellCoord();
+        Vec4<float> large = parentLandscapeCell.terrain->getCellCoord();
+        float scaleFactor = large.v[3] / small.v[3];
+
+        Vec3<float> displacement = afk_vec3<float>(
+            (large.v[0] - small.v[0]) / small.v[3],
+            (large.v[1] - small.v[1]) / small.v[3],
+            (large.v[2] - small.v[2]) / small.v[3]);
+
+        position = (position - displacement) / scaleFactor;
+
+        /* ...and compute its terrain too */
+        parentLandscapeCell.computeTerrainRec(position, colour, cache);
+    }
+}
 
 AFK_LandscapeCell::AFK_LandscapeCell(const AFK_LandscapeCell& c):
-    lastSeen (c.lastSeen), displayed (c.displayed) {}
+    lastSeen (c.lastSeen), cell (c.cell), topLevel (c.topLevel), realCoord (c.realCoord),
+    terrain (c.terrain), displayed (c.displayed) {}
 
 AFK_LandscapeCell& AFK_LandscapeCell::operator=(const AFK_LandscapeCell& c)
 {
     lastSeen = c.lastSeen;
+    cell = c.cell;
+    topLevel = c.topLevel;
+    realCoord = c.realCoord;
+    terrain = c.terrain;
     displayed = c.displayed;
     return *this;
 }
@@ -320,10 +367,338 @@ bool AFK_LandscapeCell::claim(void)
     return false;
 }
 
+void AFK_LandscapeCell::bind(const AFK_Cell& _cell, bool _topLevel, float worldScale)
+{
+    cell = _cell;
+    topLevel = _topLevel;
+    realCoord = afk_vec4<float>(
+        (float)_cell.coord.v[0] * worldScale / MIN_CELL_PITCH,
+        (float)_cell.coord.v[1] * worldScale / MIN_CELL_PITCH,
+        (float)_cell.coord.v[2] * worldScale / MIN_CELL_PITCH,
+        (float)_cell.coord.v[3] * worldScale / MIN_CELL_PITCH);
+}
+
+bool AFK_LandscapeCell::testDetailPitch(
+    unsigned int detailPitch,
+    const AFK_Camera& camera,
+    const Vec3<float>& viewerLocation) const
+{
+    /* Sample the centre of the cell.  This is wrong: it
+     * will cause artifacts if you manage to get to exactly
+     * the middle of a cell (I can probably test this with
+     * the start position (8192, 8192, 8192)
+     * TODO To fix it properly, I need to pick three points
+     * displaced along the 3 axes by the dot pitch from the
+     * centre of the cell, project them through the camera,
+     * and compare those distances to the detail pitch,
+     * no?
+     * (in fact I'd probably get away with just the x and
+     * z axes)
+     */
+    Vec3<float> centre = afk_vec3<float>(
+        realCoord.v[0] + realCoord.v[3] / 2.0f,
+        realCoord.v[1] + realCoord.v[3] / 2.0f,
+        realCoord.v[2] + realCoord.v[3] / 2.0f);
+    Vec3<float> facing = centre - viewerLocation;
+    float distanceToViewer = facing.magnitude();
+
+    /* Magic */
+    float cellDetailPitch = camera.windowHeight * realCoord.v[3] /
+        (camera.tanHalfFov * distanceToViewer);
+    
+    return cellDetailPitch < (float)detailPitch;
+}
+
+/* Helper for the below. */
+static void testPointVisible(const Vec3<float>& point, const AFK_Camera& camera, bool& io_someVisible, bool& io_allVisible)
+{
+    /* Project the point.  This perspective projection
+     * yields a viewport with the x co-ordinates
+     * (-ar, ar) and the y co-ordinates (-1.0, 1.0).
+     */
+    Vec4<float> projectedPoint = camera.getProjection() * afk_vec4<float>(
+        point.v[0], point.v[1], point.v[2], 1.0f);
+    bool visible = (
+        (projectedPoint.v[0] / projectedPoint.v[2]) >= -camera.ar &&
+        (projectedPoint.v[0] / projectedPoint.v[2]) <= camera.ar &&
+        (projectedPoint.v[1] / projectedPoint.v[2]) >= -1.0f &&
+        (projectedPoint.v[1] / projectedPoint.v[2]) <= 1.0f);
+
+    io_someVisible |= visible;
+    io_allVisible &= visible;
+}
+
+void AFK_LandscapeCell::testVisibility(const AFK_Camera& camera, bool& io_someVisible, bool& io_allVisible) const
+{
+    /* Check whether this cell is actually visible, by
+     * testing all 8 vertices and its midpoint.
+     * TODO Is that enough?
+     */
+    testPointVisible(afk_vec3<float>(
+        realCoord.v[0],
+        realCoord.v[1],
+        realCoord.v[2]),
+        camera, io_someVisible, io_allVisible);
+
+    testPointVisible(afk_vec3<float>(
+        realCoord.v[0] + realCoord.v[3],
+        realCoord.v[1],
+        realCoord.v[2]),
+        camera, io_someVisible, io_allVisible);
+
+    testPointVisible(afk_vec3<float>(
+        realCoord.v[0],
+        realCoord.v[1] + realCoord.v[3],
+        realCoord.v[2]),
+        camera, io_someVisible, io_allVisible);
+
+    testPointVisible(afk_vec3<float>(
+        realCoord.v[0] + realCoord.v[3],
+        realCoord.v[1] + realCoord.v[3],
+        realCoord.v[2]),
+        camera, io_someVisible, io_allVisible);
+
+    testPointVisible(afk_vec3<float>(
+        realCoord.v[0],
+        realCoord.v[1],
+        realCoord.v[2] + realCoord.v[3]),
+        camera, io_someVisible, io_allVisible);
+
+    testPointVisible(afk_vec3<float>(
+        realCoord.v[0] + realCoord.v[3],
+        realCoord.v[1],
+        realCoord.v[2] + realCoord.v[3]),
+        camera, io_someVisible, io_allVisible);
+
+    testPointVisible(afk_vec3<float>(
+        realCoord.v[0],
+        realCoord.v[1] + realCoord.v[3],
+        realCoord.v[2] + realCoord.v[3]),
+        camera, io_someVisible, io_allVisible);
+
+    testPointVisible(afk_vec3<float>(
+        realCoord.v[0] + realCoord.v[3],
+        realCoord.v[1] + realCoord.v[3],
+        realCoord.v[2] + realCoord.v[3]),
+        camera, io_someVisible, io_allVisible);
+
+    testPointVisible(afk_vec3<float>(
+        realCoord.v[0] + realCoord.v[3] / 2.0f,
+        realCoord.v[1] + realCoord.v[3] / 2.0f,
+        realCoord.v[2] + realCoord.v[3] / 2.0f),
+        camera, io_someVisible, io_allVisible);
+}
+
+void AFK_LandscapeCell::makeTerrain(
+    unsigned int pointSubdivisionFactor,
+    unsigned int subdivisionFactor,
+    float minCellSize,
+    const Vec3<float> *forcedTint)
+{
+    if (cell.coord.v[1] == 0 && !terrain)
+    {
+        /* There is terrain here that needs adding. */
+        boost::shared_ptr<AFK_TerrainCell> _terrain(new AFK_TerrainCell(realCoord));
+        terrain = _terrain;
+
+        /* TODO RNG in thread local storage so I don't have to re-make
+         * ones on the stack?  (inefficient?)
+         */
+        AFK_Boost_Taus88_RNG rng;
+
+        /* Make the terrain cell for this actual cell. */
+        rng.seed(cell.rngSeed());
+        terrain->make(pointSubdivisionFactor, subdivisionFactor, minCellSize, rng, forcedTint);
+
+        /* TODO Re-enable this when the basics look OK */
+        /* This is going to need surgery :/ The rest of it is left over in cell.cpp */
+        /* Make the terrain cell for the four half-cells */
+#if 0
+        AFK_RealCell halfCells[4];
+        enumerateHalfCells(&halfCells[0], 4);
+        for (unsigned int i = 0; i < 4; ++i)
+        {
+            AFK_TerrainCell terrainHalfCell(halfCells[i].coord);
+            rng.seed(halfCells[i].worldCell.rngSeed());
+            terrainHalfCell.make(pointSubdivisionFactor, subdivisionFactor, minCellSize, rng, forcedTint);
+            terrain->push(terrainHalfCell);
+        }
+#endif /* HALFCELL_TERRAIN */ 
+    }
+}
+
+void AFK_LandscapeCell::computeTerrain(Vec3<float>& position, Vec3<float>& colour, AFK_CACHE& cache) const
+{
+    if (terrain)
+    {
+        /* Make a position in cell space */
+        Vec3<float> poscs = afk_vec3<float>(
+            (position.v[0] - realCoord.v[0]) / realCoord.v[3],
+            (position.v[1] - realCoord.v[1]) / realCoord.v[3],
+            (position.v[2] - realCoord.v[2]) / realCoord.v[3]);
+
+        computeTerrainRec(poscs, colour, cache);
+
+        /* computeTerrainRec finishes by putting the co-ordinates back into
+         * world space.
+         * However, since I'm not really wanting the terrain to modify x and
+         * z right now, I'll just ignore those
+         */
+        position.v[1] = poscs.v[1];
+
+        /* Put the colour into shape.
+         * TODO This really wants tweaking; the normalise produces
+         * pastels.  Maybe something logarithmic?
+         */
+        colour.normalise();
+        colour = colour + 1.0f / 2.0f;
+    }
+}
+
 std::ostream& operator<<(std::ostream& os, const AFK_LandscapeCell& landscapeCell)
 {
     /* TODO Something more descriptive might be nice */
     return os << "Landscape cell (last seen " << landscapeCell.lastSeen << ", claimed by " << landscapeCell.claimingThreadId << ")";
+}
+
+
+/* The cell generating worker */
+
+
+#define ENQUEUE_DEBUG_COLOURS 0
+
+bool afk_generateLandscapeCells(
+    struct AFK_LandscapeCellGenParam param,
+    ASYNC_QUEUE_TYPE(struct AFK_LandscapeCellGenParam)& queue)
+{
+    const AFK_Cell& cell                = param.cell;
+    bool topLevel                       = param.topLevel;
+    AFK_Landscape *landscape            = param.landscape;
+    const Vec3<float>& viewerLocation   = param.viewerLocation;
+    const AFK_Camera *camera            = param.camera;
+    bool entirelyVisible                = param.entirelyVisible; 
+
+    /* Find out if we've already processed this cell this frame.
+     * TODO: I need to change this so that instead of using
+     * `renderingFrame', it uses a `computingFrame tracking
+     * one step behind, and so on
+     */
+    AFK_LandscapeCell& landscapeCell = landscape->cache[cell];
+    if (!landscapeCell.claim()) return true;
+    landscapeCell.bind(cell, topLevel, landscape->minCellSize);
+
+    /* Is there any terrain here?
+     * TODO: If there isn't, I still want to evaluate
+     * contained objects, and any terrain geometry that
+     * might have "bled" into this cell.  But for now,
+     * just dump it.
+     */
+    if (cell.coord.v[1] != 0)
+    {
+        landscape->cellsEmpty.fetch_add(1);
+    }
+    else
+    {
+        /* Check for visibility. */
+        bool someVisible = false;
+        bool allVisible = entirelyVisible;
+
+        landscapeCell.testVisibility(*camera, someVisible, allVisible);
+        if (!someVisible)
+        {
+            landscape->cellsInvisible.fetch_add(1);
+
+            /* Nothing else to do with it now either. */
+        }
+        else
+        {
+            Vec3<float> *debugColour = NULL;
+
+#if ENQUEUE_DEBUG_COLOURS
+            /* Here's an LoD one... (apparently) */
+#if 0
+            Vec3<float> tint =
+                cell.coord.v[3] == MIN_CELL_PITCH ? Vec3<float>(0.0f, 0.0f, 1.0f) :
+                cell.coord.v[3] == MIN_CELL_PITCH * subdivisionFactor ? Vec3<float>(0.0f, 1.0f, 0.0f) :
+                Vec3<float>(1.0f, 0.0f, 0.0f);
+#else
+            /* And here's a location one... */
+            Vec3<float> tint(
+                0.0f,
+                fmod(realCell.coord.v[0], 16.0),
+                fmod(realCell.coord.v[2], 16.0));
+#endif
+            debugColour = &tint;
+#endif /* ENQUEUE_DEBUG_COLOURS */
+            /* Make sure there's terrain here. */
+            landscapeCell.makeTerrain(
+                landscape->pointSubdivisionFactor,
+                landscape->subdivisionFactor,
+                landscape->minCellSize,
+                debugColour);
+
+            /* If it's the smallest possible cell, or its detail pitch
+             * is at the target detail pitch, include it as-is
+             */
+            if (cell.coord.v[3] == MIN_CELL_PITCH ||
+                landscapeCell.testDetailPitch(landscape->detailPitch, *camera, viewerLocation))
+            {
+                /* If the displayed cell isn't there already, better make it now.
+                 * TODO Expensive: enqueue as separate work item (maybe even in OpenCL?)
+                 */
+                if (!landscapeCell.displayed)
+                {
+                    boost::shared_ptr<AFK_DisplayedLandscapeCell> newD(new AFK_DisplayedLandscapeCell(
+                        landscapeCell,
+                        landscape->pointSubdivisionFactor,
+                        landscape->cache));
+                    landscapeCell.displayed = newD;
+                }
+                else
+                {
+                    landscape->cellsCached.fetch_add(1);
+                }
+        
+                /* Now, push it into the queue as well */
+                AFK_DisplayedLandscapeCell *dptr = landscapeCell.displayed.get();
+                landscape->renderQueue.push(dptr);
+                landscape->cellsQueued.fetch_add(1);
+            }
+            else
+            {
+                /* Recurse through the subcells. */
+                size_t subcellsSize = CUBE(landscape->subdivisionFactor);
+                AFK_Cell *subcells = new AFK_Cell[subcellsSize]; /* TODO avoid heap thrashing somehow.  Maybe make it an iterator */
+                unsigned int subcellsCount = cell.subdivide(subcells, subcellsSize);
+
+                if (subcellsCount == subcellsSize)
+                {
+                    for (unsigned int i = 0; i < subcellsCount; ++i)
+                    {
+                        struct AFK_LandscapeCellGenParam subcellParam;
+                        subcellParam.cell               = subcells[i];
+                        subcellParam.topLevel           = false;
+                        subcellParam.landscape          = landscape;
+                        subcellParam.viewerLocation     = viewerLocation;
+                        subcellParam.camera             = camera;
+                        subcellParam.entirelyVisible    = allVisible;
+                        queue.push(subcellParam);
+                    }
+                }
+                else
+                {
+                    /* That's clearly a bug :P */
+                    std::ostringstream ss;
+                    ss << "Cell " << cell << " subdivided into " << subcellsCount << " not " << subcellsSize;
+                    throw AFK_Exception(ss.str());
+                }
+            
+                delete[] subcells;
+            }
+        }
+    }
+
+    return true;
 }
 
 
@@ -336,7 +711,11 @@ AFK_Landscape::AFK_Landscape(
 #if AFK_USE_POLYMER_CACHE
         cache(AFK_HashCell()),
 #endif
-        renderQueue(10000) /* TODO make a better guess */
+        renderQueue(10000), /* TODO make a better guess */
+        genGang(
+            boost::function<bool (const struct AFK_LandscapeCellGenParam,
+                ASYNC_QUEUE_TYPE(struct AFK_LandscapeCellGenParam)&)>(afk_generateLandscapeCells),
+            10000 /* Likewise */ , 1 /* TODO make concurrent after initial testing */ )
 {
     maxDistance         = _maxDistance;
     subdivisionFactor   = _subdivisionFactor;
@@ -377,149 +756,17 @@ AFK_Landscape::AFK_Landscape(
         ++maxSubdivisions;
 
     std::cout << "AFK: Landscape using minCellSize " << minCellSize << std::endl;
+
+    /* Initialise the statistics. */
+    cellsEmpty.store(0);
+    cellsInvisible.store(0);
+    cellsCached.store(0);
+    cellsQueued.store(0);
 }
 
 AFK_Landscape::~AFK_Landscape()
 {
     delete shaderProgram;
-}
-
-#define ENQUEUE_DEBUG_COLOURS 0
-
-void AFK_Landscape::enqueueSubcells(
-    const AFK_Cell& cell,
-    const AFK_Cell& parent,
-    const Vec3<float>& viewerLocation,
-    const AFK_Camera& camera,
-    bool parentEntirelyVisible)
-{
-    /* If this cell is outside the given parent, stop right
-     * away.
-     */
-    if (!cell.isParent(parent)) return;
-
-    /* Find out if we've already processed this frame this time
-     * around.
-     * TODO: I need to change this so that instead of using
-     * `renderingFrame', it uses a `computingFrame tracking
-     * one step behind, and so on
-     */
-    AFK_LandscapeCell& landscapeCell = cache[cell];
-    if (!landscapeCell.claim()) return;
-
-    /* Is there any terrain here?
-     * TODO: If there isn't, I still want to evaluate
-     * contained objects, and any terrain geometry that
-     * might have "bled" into this cell.  But for now,
-     * just dump it.
-     */
-    if (cell.coord.v[1] != 0)
-    {
-        ++landscapeCellsEmpty;
-    }
-    else
-    {
-        /* Work out the real-world cell that corresponds to this
-         * abstract one.
-         */
-        AFK_RealCell realCell(cell, minCellSize);
-
-        /* Check for visibility. */
-        bool someVisible = false;
-        bool allVisible = parentEntirelyVisible;
-
-        realCell.testVisibility(camera, someVisible, allVisible);
-        if (!someVisible)
-        {
-            ++landscapeCellsInvisible;
-
-            /* Nothing else to do with it now either. */
-        }
-        else
-        {
-            /* Add the terrain for this cell to the terrain vector. */
-            Vec3<float> *debugColour = NULL;
-
-#if ENQUEUE_DEBUG_COLOURS
-            /* Here's an LoD one... (apparently) */
-#if 0
-            Vec3<float> tint =
-                cell.coord.v[3] == MIN_CELL_PITCH ? Vec3<float>(0.0f, 0.0f, 1.0f) :
-                cell.coord.v[3] == MIN_CELL_PITCH * subdivisionFactor ? Vec3<float>(0.0f, 1.0f, 0.0f) :
-                Vec3<float>(1.0f, 0.0f, 0.0f);
-#else
-            /* And here's a location one... */
-            Vec3<float> tint(
-                0.0f,
-                fmod(realCell.coord.v[0], 16.0),
-                fmod(realCell.coord.v[2], 16.0));
-#endif
-            debugColour = &tint;
-#endif /* ENQUEUE_DEBUG_COLOURS */
-
-            realCell.makeTerrain(pointSubdivisionFactor, subdivisionFactor, minCellSize, terrain, *(afk_core.rng), debugColour);
-
-            /* If it's the smallest possible cell, or its detail pitch
-             * is at the target detail pitch, include it as-is
-             */
-            if (cell.coord.v[3] == MIN_CELL_PITCH || realCell.testDetailPitch(detailPitch, camera, viewerLocation))
-            {
-                /* If the displayed cell isn't there already, better make it now.
-                 * TODO Expensive: enqueue as separate work item (maybe even in OpenCL?)
-                 */
-                if (!landscapeCell.displayed)
-                {
-                    boost::shared_ptr<AFK_DisplayedLandscapeCell> newD(new AFK_DisplayedLandscapeCell(
-                        shaderProgram->program,
-                        worldTransformLocation,
-                        clipTransformLocation,
-                        realCell,
-                        pointSubdivisionFactor,
-                        terrain,
-                        *(afk_core.rng)));
-                    landscapeCell.displayed = newD;
-                }
-                else
-                {
-                    ++landscapeCellsCached;
-                }
-        
-                /* Now, push it into the queue as well */
-                AFK_DisplayedLandscapeCell *dptr = landscapeCell.displayed.get();
-                renderQueue.push(dptr);
-                ++landscapeCellsQueued;
-            }
-            else
-            {
-                /* Recurse through the subcells. */
-                size_t subcellsSize = CUBE(subdivisionFactor);
-                AFK_Cell *subcells = new AFK_Cell[subcellsSize]; /* TODO avoid heap thrashing somehow */
-                unsigned int subcellsCount = cell.subdivide(subcells, subcellsSize);
-
-                if (subcellsCount == subcellsSize)
-                {
-                    for (unsigned int i = 0; i < subcellsCount; ++i)
-                    {
-                        enqueueSubcells(subcells[i], cell, viewerLocation, camera, allVisible);
-                    }
-                }
-                else
-                {
-                    /* That's clearly a bug :P */
-                    std::ostringstream ss;
-                    ss << "Cell " << cell << " subdivided into " << subcellsCount << " not " << subcellsSize;
-                    throw AFK_Exception(ss.str());
-                }
-            
-                delete[] subcells;
-            }
-        
-            /* Back out the terrain changes for the next cell
-             * to try.
-             */
-            realCell.removeTerrain(terrain);   
-        }
-    }
 }
 
 void AFK_Landscape::enqueueSubcells(
@@ -533,16 +780,20 @@ void AFK_Landscape::enqueueSubcells(
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[1],
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[2],
         cell.coord.v[3]));
-    enqueueSubcells(modifiedCell, modifiedCell.parent(), viewerLocation, camera, false);
+
+    struct AFK_LandscapeCellGenParam cellParam;
+    cellParam.cell                  = modifiedCell;
+    cellParam.topLevel              = true;
+    cellParam.landscape             = this;
+    cellParam.viewerLocation        = viewerLocation;
+    cellParam.camera                = &camera;
+    cellParam.entirelyVisible       = false;
+
+    genGang << cellParam;
 }
 
-void AFK_Landscape::updateLandMap(void)
+boost::unique_future<bool> AFK_Landscape::updateLandMap(void)
 {
-    /* Do the statistics thing for this pass. */
-    landscapeCellsEmpty = 0;
-    landscapeCellsInvisible = 0;
-    landscapeCellsCached = 0;
-    landscapeCellsQueued = 0;
 
     /* First, transform the protagonist location and its facing
      * into integer cell-space.
@@ -595,15 +846,23 @@ void AFK_Landscape::updateLandMap(void)
 #ifdef PROTAGONIST_CELL_DEBUG
     {
         std::ostringstream ss;
-        ss << "Queued " << landscapeCellsQueued << " cells";
+        ss << "Queued " << cellsQueued.load() << " cells";
     
-        if (landscapeCellsQueued > 0)
-            ss << " (" << (100 * landscapeCellsCached / landscapeCellsQueued) << "\% cached)";
+        if (cellsQueued.load() > 0)
+            ss << " (" << (100 * cellsCached.load() / cellsQueued.load()) << "\% cached)";
 
-        ss << " (" << landscapeCellsInvisible << " invisible, " << landscapeCellsEmpty << " empty)";
+        ss << " (" << cellsInvisible.load() << " invisible, " << cellsEmpty.load() << " empty)";
         afk_core.occasionallyPrint(ss.str());
     }
 #endif
+
+    /* Do the statistics thing for the next pass. */
+    cellsEmpty.store(0);
+    cellsInvisible.store(0);
+    cellsCached.store(0);
+    cellsQueued.store(0);
+
+    return genGang.start();
 }
 
 void AFK_Landscape::display(const Mat4<float>& projection)

@@ -93,7 +93,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainFeature& feature);
 class AFK_TerrainCell
 {
 protected:
-    Vec4<float>         cellCoord; /* Like an AFK_RealCell, but y always 0 */
+    Vec4<float>         cellCoord; /* y always 0 */
     AFK_TerrainFeature  features[TERRAIN_FEATURE_COUNT_PER_CELL];
     unsigned int        featureCount;
 
@@ -103,6 +103,8 @@ public:
     AFK_TerrainCell(const Vec4<float>& coord);
 
     AFK_TerrainCell& operator=(const AFK_TerrainCell& c);
+
+    const Vec4<float>& getCellCoord(void) const;
 
     /* Assumes the RNG to have been seeded correctly for
      * the cell.
@@ -118,32 +120,9 @@ public:
     void compute(Vec3<float>& position, Vec3<float>& colour) const;
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_TerrainCell& cell);
-    friend class AFK_Terrain;
 };
 
 std::ostream& operator<<(std::ostream& os, const AFK_TerrainCell& cell);
-
-/* This describes an entire terrain. */
-
-class AFK_Terrain
-{
-protected:
-    std::deque<AFK_TerrainCell> t;
-
-public:
-    AFK_Terrain() {}
-
-    void push(const AFK_TerrainCell& cell);
-    void pop();
-
-    /* Like AFK_TerrainCell::compute(), but chains
-     * together the entire terrain.  This time, the
-     * input should be in world space (it will come
-     * out like that, too).
-     */
-    void compute(Vec3<float>& position, Vec3<float>& colour) const;
-};
-
 
 #endif /* _AFK_TERRAIN_H_ */
 

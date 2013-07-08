@@ -1,6 +1,9 @@
 /* AFK (c) Alex Holloway 2013 */
 
 #include "afk.hpp"
+
+#include <boost/thread/future.hpp>
+
 #include "computer.hpp"
 #include "core.hpp"
 #include "def.hpp"
@@ -70,10 +73,9 @@ static void afk_idle(void)
 
     /* Update the landscape, deciding which bits of it I'm going
      * to draw.
-     * TODO Which dynamic objects to draw (except for the protagonist ;) )
-     * should be tied into which cells get selected here.
      */
-    afk_core.landscape->updateLandMap();
+    boost::unique_future<bool> result = afk_core.landscape->updateLandMap();
+    result.wait();
 
     afk_display();
 }

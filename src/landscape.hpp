@@ -7,10 +7,12 @@
 
 #include <iostream>
 
+#include <boost/atomic.hpp>
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/thread/thread.hpp>
 
+#include "async/async.hpp"
 #include "camera.hpp"
 #include "cell.hpp"
 #include "data/cache.hpp"
@@ -24,6 +26,12 @@
 #include "shader.hpp"
 #include "terrain.hpp"
 
+#if AFK_USE_POLYMER_CACHE
+#define AFK_CACHE AFK_PolymerCache<AFK_Cell, AFK_LandscapeCell, boost::function<size_t (const AFK_Cell&)> >
+#else
+#define AFK_CACHE AFK_MapCache<AFK_Cell, AFK_LandscapeCell>
+#endif
+
 /* To start out with, I'm going to define an essentially
  * flat landscape split into squares for calculation and
  * rendering purposes.
@@ -34,6 +42,8 @@
  */
 
 
+class AFK_LandscapeCell;
+
 /* Describes the current state of one cell in the landscape.
  * TODO: Whilst AFK_DisplayedObject is the right abstraction,
  * I might be replicating too many fields here, making these
@@ -42,6 +52,10 @@
 class AFK_DisplayedLandscapeCell: public AFK_DisplayedObject
 {
 public:
+    /* This cell's triangle data. */
+    struct AFK_VcolPhongVertex *triangleVs;
+    unsigned int triangleVsCount;
+
     /* This will be a reference to the overall landscape
      * shader program.
      */
@@ -52,15 +66,12 @@ public:
     unsigned int vertexCount;
 
     AFK_DisplayedLandscapeCell(
-        GLuint _program,
-        GLuint _worldTransformLocation,
-        GLuint _clipTransformLocation,
-        const AFK_RealCell& cell,
+        const AFK_LandscapeCell& landscapeCell,
         unsigned int pointSubdivisionFactor,
-        const AFK_Terrain& terrain,
-        AFK_RNG& rng);
+        AFK_CACHE& cache);
     virtual ~AFK_DisplayedLandscapeCell();
 
+    virtual void initGL(void);
     virtual void display(const Mat4<float>& projection);
 };
 
@@ -68,15 +79,10 @@ std::ostream& operator<<(std::ostream& os, const AFK_DisplayedLandscapeCell& dlc
 
 
 /* This is the value that we cache.
- * It contains a link to the DisplayedLandscapeCell we've
- * rendered (if any).
- * TODO: This should also start to include a last-seen
- * timestamp, a link to dynamic objects in this cell, all
- * sorts of things.
  */
 class AFK_LandscapeCell
 {
-public:
+protected:
     /* This value says when the subcell enumerator last used
      * this cell.  If it's a long time ago, the cell will
      * become a candidate for eviction from the cache.
@@ -88,18 +94,39 @@ public:
      */
     boost::thread::id claimingThreadId;
 
-    /* TODO: Things that might slot nicely into here:
-     * - This cell's terrain cell
-     */
+    /* The obvious. */
+    AFK_Cell cell;
 
+    /* If this is a top level cell, don't go hunting in its parent
+     * for stuff.
+     */
+    bool topLevel;
+
+    /* The matching world co-ordinates.
+     * TODO This is the thing that needs to change everywhere
+     * when doing a rebase...  Of course, though since the
+     * gen worker calls bind() on every cell it touches maybe
+     * it will be easy...
+     */
+    Vec4<float> realCoord;
+
+    /* The terrain at this cell. */
+    boost::shared_ptr<AFK_TerrainCell> terrain;
+
+    /* Internal terrain computation. */
+    void computeTerrainRec(Vec3<float>& position, Vec3<float>& colour, AFK_CACHE& cache) const;
+
+public:
     /* The data for this cell's landscape, if we've
      * calculated it.
      */
     boost::shared_ptr<AFK_DisplayedLandscapeCell> displayed;
 
-    AFK_LandscapeCell();
+    AFK_LandscapeCell() {}
     AFK_LandscapeCell(const AFK_LandscapeCell& c);
     AFK_LandscapeCell& operator=(const AFK_LandscapeCell& c);
+
+    const Vec4<float>& getRealCoord(void) const { return realCoord; }
 
     /* Tries to claim this landscape cell for processing by
      * the current thread.
@@ -107,10 +134,56 @@ public:
      * kerpows, maybe it isn't...
      */
     bool claim(void);
+
+    /* Binds a landscape cell to the world.  Needs to be called
+     * before anything else gets done, because LandscapeCells
+     * are created uninitialised in the cache.
+     */
+    void bind(const AFK_Cell& _cell, bool _topLevel, float worldScale);
+
+    /* Tests whether this cell is within the specified detail pitch
+     * when viewed from the specified location.
+     */
+    bool testDetailPitch(unsigned int detailPitch, const AFK_Camera& camera, const Vec3<float>& viewerLocation) const;
+
+    /* Tests whether none, some or all of this cell's vertices are
+     * visible when projected with the supplied camera.
+     */
+    void testVisibility(const AFK_Camera& camera, bool& io_someVisible, bool& io_allVisible) const;
+
+    /* Adds terrain if there isn't any already. */
+    void makeTerrain(
+        unsigned int pointSubdivisionFactor,
+        unsigned int subdivisionFactor,
+        float minCellSize,
+        const Vec3<float> *forcedTint);
+
+    /* Computes the total terrain features here. */
+    void computeTerrain(Vec3<float>& position, Vec3<float>& colour, AFK_CACHE& cache) const;
+
+    friend std::ostream& operator<<(std::ostream& os, const AFK_LandscapeCell& landscapeCell);
 };
 
 std::ostream& operator<<(std::ostream& os, const AFK_LandscapeCell& landscapeCell);
 
+
+class AFK_Landscape;
+
+/* The parameter for the cell generating worker. */
+struct AFK_LandscapeCellGenParam
+{
+    AFK_Cell cell;
+    bool topLevel;
+    AFK_Landscape *landscape;
+    Vec3<float> viewerLocation;
+    const AFK_Camera *camera;
+    bool entirelyVisible;   
+};
+
+/* ...and this *is* the cell generating worker function */
+bool afk_generateLandscapeCells(
+    struct AFK_LandscapeCellGenParam param,
+    ASYNC_QUEUE_TYPE(struct AFK_LandscapeCellGenParam)& queue);
 
 
 /* Encapsulates a whole landscape.  There will only be one of
@@ -125,18 +198,16 @@ public:
     GLuint clipTransformLocation;
 
     /* The cache of landscape cells we're tracking.
-     * This is a global configured in afk.h
      */
-#if AFK_USE_POLYMER_CACHE
-    AFK_PolymerCache<AFK_Cell, AFK_LandscapeCell, boost::function<size_t (const AFK_Cell&)> > cache;
-#else
-    AFK_MapCache<AFK_Cell, AFK_LandscapeCell> cache;
-#endif
+    AFK_CACHE cache;
 
     /* The render queue: cells to display next frame.
      * DOES NOT OWN THESE POINTERS.  DO NOT DELETE
      */
     AFK_RenderQueue<AFK_DisplayedLandscapeCell*> renderQueue;
+
+    /* The cell generating gang */
+    AFK_AsyncGang<struct AFK_LandscapeCellGenParam, bool> genGang;
 
     /* Overall landscape parameters. */
 
@@ -190,20 +261,12 @@ public:
      */
     float minCellSize;
 
-    /* A working variable: the current terrain.  It's scoped
-     * here to avoid cluttering the function parameter lists.
-     * TODO: Parallelisation gotcha -- would need to share
-     * the object with each thread as I went.  (Consider:
-     * thread local storage; copying; etc.)
-     */
-    AFK_Terrain terrain;
-
     /* Gather statistics.  (Useful.)
      */
-    unsigned int landscapeCellsEmpty;
-    unsigned int landscapeCellsInvisible;
-    unsigned int landscapeCellsCached;
-    unsigned int landscapeCellsQueued;
+    boost::atomic<unsigned int> cellsEmpty;
+    boost::atomic<unsigned int> cellsInvisible;
+    boost::atomic<unsigned int> cellsCached;
+    boost::atomic<unsigned int> cellsQueued;
 
 
     AFK_Landscape(
@@ -212,20 +275,9 @@ public:
         unsigned int _detailPitch);
     virtual ~AFK_Landscape();
 
-    /* Enqueues this cell for drawing so long as its parent
-     * is as supplied.  If it's less fine than the target
-     * detail level, instead splits it recursively.
-     */
-    void enqueueSubcells(
-        const AFK_Cell& cell,
-        const AFK_Cell& parent,
-        const Vec3<float>& viewerLocation,
-        const AFK_Camera& camera,
-        bool entirelyVisible);
-
-    /* The same, but with a vector modifier from the base
-     * cell that should be multiplied up by the base cell's
-     * scale.  Figures the parent out itself.
+    /* Helper for the above -- requests a particular cell
+     * at an offset (in cell scale multiples) from the
+     * supplied one.
      */
     void enqueueSubcells(
         const AFK_Cell& cell,
@@ -233,14 +285,12 @@ public:
         const Vec3<float>& viewerLocation,
         const AFK_Camera& camera);
 
-    /* Given the current position of the camera, this
-     * function works out which cells to draw and fills
-     * in the landMap appropriately.
-     * TODO: I expect I'll want to split this up and assign
-     * OpenCL work items to do the heavy lifting if things
-     * start taking long! ;)
+    /* This function drives the cell generating worker to
+     * update the landscape cache and enqueue visible
+     * cells.  Returns a future that becomes available
+     * when we're done.
      */
-    void updateLandMap(void);
+    boost::unique_future<bool> updateLandMap(void);
 
     /* Draws the landscape in the current OpenGL context.
      * (There's no AFK_DisplayedObject for the landscape.)

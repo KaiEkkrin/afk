@@ -124,6 +124,11 @@ AFK_TerrainCell& AFK_TerrainCell::operator=(const AFK_TerrainCell& c)
     return *this;
 }
 
+const Vec4<float>& AFK_TerrainCell::getCellCoord(void) const
+{
+    return cellCoord;
+}
+
 void AFK_TerrainCell::make(unsigned int pointSubdivisionFactor, unsigned int subdivisionFactor, float minCellSize, AFK_RNG& rng, const Vec3<float> *forcedTint)
 {
 #if 0
@@ -212,122 +217,5 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainCell& cell)
         os << ", " << i << "=" << cell.features[i];
     os << ")";
     return os;
-}
-
-
-/* AFK_Terrain implementation. */
-
-void AFK_Terrain::push(const AFK_TerrainCell& cell)
-{
-    t.push_front(cell);
-}
-
-void AFK_Terrain::pop()
-{
-    t.pop_front();
-}
-
-#define TARGETED_TERRAIN_DEBUG 0
-
-void AFK_Terrain::compute(Vec3<float>& position, Vec3<float>& colour) const
-{
-    /* Try starting with the smallest feature, and progressively
-     * going larger.  Hopefully this will minimise any
-     * mathematical inaccuracies due to finite precision
-     * arithmetic.
-     */
-
-#if TARGETED_TERRAIN_DEBUG
-    bool debugThisOne = (position.v[0] == 4.0f && position.v[2] == 4.0f);
-    if (debugThisOne) std::cout << "4/4:" << std::endl;
-#endif
-
-    std::deque<AFK_TerrainCell>::const_iterator large = t.begin();
-    if (large != t.end())
-    {
-        /* First, transform to the space of the smallest terrain cell,
-         * which of course is `large' right now.
-         */
-        Vec3<float> poscs = afk_vec3<float>(
-            (position.v[0] - large->cellCoord.v[0]) / large->cellCoord.v[3],
-            (position.v[1] - large->cellCoord.v[1]) / large->cellCoord.v[3],
-            (position.v[2] - large->cellCoord.v[2]) / large->cellCoord.v[3]);
-
-#if TARGETED_TERRAIN_DEBUG
-        if (debugThisOne)
-        {
-            std::ostringstream ss;
-            ss << "4/4: Starting position: " << position;
-            std::cout << ss.str() << std::endl;
-        }
-#endif
-
-        ++large;
-        std::deque<AFK_TerrainCell>::const_iterator small = t.begin();
-
-        while (large != t.end())
-        {
-            /* Compute in the context of the small cell */
-            small->compute(poscs, colour);
-
-#if TARGETED_TERRAIN_DEBUG
-            if (debugThisOne)
-            {
-                std::ostringstream ss;
-                ss << "4/4: Large cell: " << *large << std::endl;
-                ss << "4/4: At cell: poscs became " << poscs;
-                std::cout << ss.str() << std::endl;
-            }
-#endif
-
-            /* Transform from the context of the small cell into the
-             * context of the large cell
-             */
-            float scaleFactor = large->cellCoord.v[3] / small->cellCoord.v[3];
-
-            Vec3<float> displacement = afk_vec3<float>(
-                (large->cellCoord.v[0] - small->cellCoord.v[0]) / small->cellCoord.v[3],
-                (large->cellCoord.v[1] - small->cellCoord.v[1]) / small->cellCoord.v[3],
-                (large->cellCoord.v[2] - small->cellCoord.v[2]) / small->cellCoord.v[3]);
-
-            poscs = (poscs - displacement) / scaleFactor;
-
-            ++small;
-            ++large;
-        }
-
-        /* Do the last computation */
-        small->compute(poscs, colour);
-
-#if TARGETED_TERRAIN_DEBUG
-        if (debugThisOne)
-        {
-            std::ostringstream ss;
-            ss << "4/4: Small cell: " << *small << std::endl;
-            ss << "4/4: At cell: poscs became " << poscs;
-                std::cout << ss.str() << std::endl;
-        }
-#endif
-
-        /* Transform the y co-ordinate from `small' (now biggest-cell!) space back
-         * into world space
-         */
-        position.v[1] = poscs.v[1] * small->cellCoord.v[3] + small->cellCoord.v[1];
-
-#if TARGETED_TERRAIN_DEBUG
-        if (debugThisOne)
-        {
-            std::ostringstream ss;
-            ss << "4/4: Final position: " << position;
-                std::cout << ss.str() << std::endl;
-        }
-#endif
-
-        /* Put the colour back into shape.
-         * TODO: Think about higher weighting for larger cells?
-         */
-        colour.normalise();
-        colour = colour + 1.0f / 2.0f;
-    }
 }
 
