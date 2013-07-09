@@ -215,8 +215,7 @@ AFK_DisplayedLandscapeCell::AFK_DisplayedLandscapeCell(
      * TODO This may be slow -- obvious candidate for OpenCL?
      * But, the cache may rescue me; profile first!
      */
-    for (unsigned int i = 0; i < vertexCount; ++i)
-        landscapeCell.computeTerrain(rawVertices[i], rawColours[i], cache);
+    landscapeCell.computeTerrain(rawVertices, rawColours, vertexCount, cache);
 
     /* I've completed my vertex array!  Transform this into an
      * array of VcolPhongVertex by computing colours and normals
@@ -303,7 +302,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_DisplayedLandscapeCell& dlc
 
 /* AFK_LandscapeCell implementation. */
 
-void AFK_LandscapeCell::computeTerrainRec(Vec3<float>& position, Vec3<float>& colour, AFK_CACHE& cache) const
+void AFK_LandscapeCell::computeTerrainRec(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_CACHE& cache) const
 {
     /* Co-ordinates arrive in the context of this cell's
      * first terrain element.
@@ -315,17 +314,20 @@ void AFK_LandscapeCell::computeTerrainRec(Vec3<float>& position, Vec3<float>& co
         if (i > 0)
         {
             /* Need to do the next transformation. */
-            terrain[i-1].transformCellToCell(position, terrain[i]);
+            terrain[i-1].transformCellToCell(positions, length, terrain[i]);
         }
 
-        terrain[i].compute(position, colour);
+        terrain[i].compute(positions, colours, length);
     }
 
     if (topLevel)
     {
         /* Transform back into world space. */
         Vec4<float> cellCoord = terrain[TERRAIN_CELLS_PER_CELL-1].getCellCoord();
-        position = (position * cellCoord.v[3]) + afk_vec3<float>(cellCoord.v[0], cellCoord.v[1], cellCoord.v[2]);
+        Vec3<float> cellXYZ = afk_vec3<float>(cellCoord.v[0], cellCoord.v[1], cellCoord.v[2]);
+
+        for (size_t i = 0; i < length; ++i)
+            positions[i] = (positions[i] * cellCoord.v[3]) + cellXYZ;
     }
     else
     {
@@ -339,10 +341,10 @@ void AFK_LandscapeCell::computeTerrainRec(Vec3<float>& position, Vec3<float>& co
          * first terrain element
          */
         terrain[TERRAIN_CELLS_PER_CELL-1].transformCellToCell(
-            position, parentLandscapeCell.terrain[0]);
+            positions, length, parentLandscapeCell.terrain[0]);
 
         /* ...and compute its terrain too */
-        parentLandscapeCell.computeTerrainRec(position, colour, cache);
+        parentLandscapeCell.computeTerrainRec(positions, colours, length, cache);
     }
 }
 
@@ -538,32 +540,27 @@ void AFK_LandscapeCell::makeTerrain(
     }
 }
 
-void AFK_LandscapeCell::computeTerrain(Vec3<float>& position, Vec3<float>& colour, AFK_CACHE& cache) const
+void AFK_LandscapeCell::computeTerrain(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_CACHE& cache) const
 {
     if (terrain)
     {
-        /* Make a position in the space of the first terrain cell */
+        /* Make positions in the space of the first terrain cell */
         Vec4<float> firstTerrainCoord = terrain[0].getCellCoord();
-        Vec3<float> poscs = afk_vec3<float>(
-            (position.v[0] - firstTerrainCoord.v[0]) / firstTerrainCoord.v[3],
-            (position.v[1] - firstTerrainCoord.v[1]) / firstTerrainCoord.v[3],
-            (position.v[2] - firstTerrainCoord.v[2]) / firstTerrainCoord.v[3]);
+        Vec3<float> firstTerrainXYZ = afk_vec3<float>(firstTerrainCoord.v[0], firstTerrainCoord.v[1], firstTerrainCoord.v[2]);
 
-        computeTerrainRec(poscs, colour, cache);
+        for (size_t i = 0; i < length; ++i)
+            positions[i] = (positions[i] - firstTerrainXYZ) / firstTerrainCoord.v[3];
 
-        /* computeTerrainRec finishes by putting the co-ordinates back into
-         * world space.
-         * However, since I'm not really wanting the terrain to modify x and
-         * z right now, I'll just ignore those
-         */
-        position.v[1] = poscs.v[1];
+        computeTerrainRec(positions, colours, length, cache);
 
-        /* Put the colour into shape.
+        /* Put the colours into shape.
          * TODO This really wants tweaking; the normalise produces
          * pastels.  Maybe something logarithmic?
          */
-        colour.normalise();
-        colour = colour + 1.0f / 2.0f;
+        for (size_t i = 0; i < length; ++i)
+        {
+            /* colours[i] = (colours[i].normalise() + 1.0f) / 2.0f; */
+        }
     }
 }
 

@@ -15,30 +15,33 @@
 /* The methods for computing each individual
  * feature type.
  */
-void AFK_TerrainFeature::compute_squarePyramid(Vec3<float>& position, Vec3<float>& colour) const
+void AFK_TerrainFeature::compute_squarePyramid(Vec3<float> *positions, Vec3<float> *colours, size_t length) const
 {
-    if (position.v[0] >= (location.v[0] - scale.v[0]) &&
-        position.v[0] < (location.v[0] + scale.v[0]) &&
-        position.v[2] >= (location.v[2] - scale.v[2]) &&
-        position.v[2] < (location.v[2] + scale.v[2]))
+    for (size_t i = 0; i < length; ++i)
     {
-        /* Make pyramid space co-ordinates. */
-        float px = (position.v[0] - location.v[0]) / scale.v[0];
-        float pz = (position.v[2] - location.v[2]) / scale.v[2];
-
-        if (fabs(px) > fabs(pz))
+        if (positions[i].v[0] >= (location.v[0] - scale.v[0]) &&
+            positions[i].v[0] < (location.v[0] + scale.v[0]) &&
+            positions[i].v[2] >= (location.v[2] - scale.v[2]) &&
+            positions[i].v[2] < (location.v[2] + scale.v[2]))
         {
-            /* We're on one of the left/right faces. */
-            position.v[1] += (1.0f - fabs(px)) * scale.v[1];
-        }
-        else
-        {
-            /* We're on one of the front/back faces. */
-            position.v[1] += (1.0f - fabs(pz)) * scale.v[1];
-        }
+            /* Make pyramid space co-ordinates. */
+            float px = (positions[i].v[0] - location.v[0]) / scale.v[0];
+            float pz = (positions[i].v[2] - location.v[2]) / scale.v[2];
 
-        /* A temporary thing... */
-        colour += tint /* * scale.v[1] */;
+            if (fabs(px) > fabs(pz))
+            {
+                /* We're on one of the left/right faces. */
+                positions[i].v[1] += (1.0f - fabs(px)) * scale.v[1];
+            }
+            else
+            {
+                /* We're on one of the front/back faces. */
+                positions[i].v[1] += (1.0f - fabs(pz)) * scale.v[1];
+            }
+
+            /* A temporary thing... */
+            colours[i] += tint /* * scale.v[1] */;
+        }
     }
 }
 
@@ -71,12 +74,12 @@ AFK_TerrainFeature& AFK_TerrainFeature::operator=(const AFK_TerrainFeature& f)
     return *this;
 }
 
-void AFK_TerrainFeature::compute(Vec3<float>& position, Vec3<float>& colour) const
+void AFK_TerrainFeature::compute(Vec3<float> *positions, Vec3<float> *colours, size_t length) const
 {
     switch (type)
     {
     case AFK_TERRAIN_SQUARE_PYRAMID:
-        compute_squarePyramid(position, colour);
+        compute_squarePyramid(positions, colours, length);
         break;
 
     default:
@@ -207,7 +210,7 @@ void AFK_TerrainCell::make(
     }
 } 
 
-void AFK_TerrainCell::transformCellToCell(Vec3<float>& position, const AFK_TerrainCell& other) const
+void AFK_TerrainCell::transformCellToCell(Vec3<float> *positions, size_t length, const AFK_TerrainCell& other) const
 {
     Vec4<float> otherCoord = other.getCellCoord();
     float scaleFactor = otherCoord.v[3] / cellCoord.v[3];
@@ -217,13 +220,14 @@ void AFK_TerrainCell::transformCellToCell(Vec3<float>& position, const AFK_Terra
         (otherCoord.v[1] - cellCoord.v[1]) / cellCoord.v[3],
         (otherCoord.v[2] - cellCoord.v[2]) / cellCoord.v[3]);
 
-    position = (position - displacement) / scaleFactor;
+    for (size_t i = 0; i < length; ++i)
+        positions[i] = (positions[i] - displacement) / scaleFactor;
 }
 
-void AFK_TerrainCell::compute(Vec3<float>& position, Vec3<float>& colour) const
+void AFK_TerrainCell::compute(Vec3<float> *positions, Vec3<float> *colours, size_t length) const
 {
     for (unsigned int i = 0; i < featureCount; ++i)
-        features[i].compute(position, colour);
+        features[i].compute(positions, colours, length);
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_TerrainCell& cell)

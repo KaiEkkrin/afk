@@ -203,7 +203,7 @@ void AFK_Core::loop(void)
     landscape = new AFK_Landscape( /* TODO tweak this initialisation...  extensively, and make it configurable */
         landscapeMaxDistance,   /* maxDistance -- zFar must be a lot bigger or things will vanish */
         2,                      /* subdivisionFactor */
-        256                     /* detailPitch.  TODO Currently this number is being interpreted as much smaller than spec'd */
+        128                     /* detailPitch.  TODO Currently this number is being interpreted as much smaller than spec'd */
         );
     protagonist = new AFK_DisplayedProtagonist();
 

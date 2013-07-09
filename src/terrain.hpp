@@ -60,7 +60,7 @@ protected:
     /* The methods for computing each individual
      * terrain type.
      */
-    void compute_squarePyramid(Vec3<float>& position, Vec3<float>& colour) const;
+    void compute_squarePyramid(Vec3<float>* positions, Vec3<float>* colours, size_t length) const;
 
 public:
     AFK_TerrainFeature() {}
@@ -76,7 +76,7 @@ public:
     /* Computes in cell co-ordinates, updating the
      * y co-ordinate.
      */
-    void compute(Vec3<float>& position, Vec3<float>& colour) const;
+    void compute(Vec3<float>* positions, Vec3<float>* colours, size_t length) const;
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_TerrainFeature& feature);
 };
@@ -119,15 +119,15 @@ public:
         AFK_RNG& rng,
         const Vec3<float> *forcedTint);
 
-    /* Transforms a position from this cell's co-ordinates to
+    /* Transforms positions from this cell's co-ordinates to
      * the given one.
      */
-    void transformCellToCell(Vec3<float>& position, const AFK_TerrainCell& other) const;
+    void transformCellToCell(Vec3<float> *positions, size_t length, const AFK_TerrainCell& other) const;
 
     /* Computes in cell co-ordinates each of the
      * terrain features and puts them together.
      */
-    void compute(Vec3<float>& position, Vec3<float>& colour) const;
+    void compute(Vec3<float> *positions, Vec3<float> *colours, size_t length) const;
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_TerrainCell& cell);
 };

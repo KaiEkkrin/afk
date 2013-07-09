@@ -37,7 +37,7 @@
  * because async hangs trying to start when only one worker thread is
  * specified.
  */
-#define AFK_NO_THREADING 1
+#define AFK_NO_THREADING 0
 
 
 /* To start out with, I'm going to define an essentially
@@ -131,7 +131,7 @@ protected:
     AFK_TerrainCell terrain[TERRAIN_CELLS_PER_CELL];
 
     /* Internal terrain computation. */
-    void computeTerrainRec(Vec3<float>& position, Vec3<float>& colour, AFK_CACHE& cache) const;
+    void computeTerrainRec(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_CACHE& cache) const;
 
 public:
     /* The data for this cell's landscape, if we've
@@ -176,7 +176,7 @@ public:
         const Vec3<float> *forcedTint);
 
     /* Computes the total terrain features here. */
-    void computeTerrain(Vec3<float>& position, Vec3<float>& colour, AFK_CACHE& cache) const;
+    void computeTerrain(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_CACHE& cache) const;
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_LandscapeCell& landscapeCell);
 };
