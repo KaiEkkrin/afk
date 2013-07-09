@@ -6,6 +6,12 @@
 boost::mutex debugSpamMut;
 #endif
 
+void afk_workerBusyBitAndMask(unsigned int id, size_t& o_busyBit, size_t& o_busyMask)
+{
+    o_busyBit = (size_t)1 << id;
+    o_busyMask = ~o_busyBit;
+}
+
 void AFK_AsyncControls::control_workReady(void)
 {
     ASYNC_CONTROL_DEBUG("control_workReady: " << std::dec << workerCount << " workers")   
@@ -19,7 +25,7 @@ void AFK_AsyncControls::control_workReady(void)
         workCond.wait(lock);
     }
 
-    workReady = workerCount;
+    workReady = ((size_t)1 << workerCount) - 1;
     quit = false;
 
     ASYNC_CONTROL_DEBUG("control_workReady: (workersBusy " <<
@@ -41,12 +47,12 @@ void AFK_AsyncControls::control_quit(void)
         workCond.wait(lock);
     }
 
-    workReady = workerCount;
+    workReady = ((size_t)1 << workerCount) - 1;
     quit = true;
     workCond.notify_all();
 }
 
-bool AFK_AsyncControls::worker_waitForWork(void)
+bool AFK_AsyncControls::worker_waitForWork(unsigned int id)
 {
     ASYNC_CONTROL_DEBUG("worker_waitForWork: entry")
 
@@ -58,25 +64,23 @@ bool AFK_AsyncControls::worker_waitForWork(void)
         /* There's no work, wait for some to turn up. */
         workCond.wait(lock);
     }
-
-    /* Register this thread as working on the task */
-    --workReady;
-    workCond.notify_all();
-    ASYNC_CONTROL_DEBUG("worker_waitForWork: " << std::dec << workReady << " left over (quit=" << quit << ")")
-
-    /* Make sure everyone starts out as busy.  This should stop
-     * us from accidentally thinking everyone has finished when
-     * some of the workers have merely not been scheduled yet
-     * at all
-     */
-    //workersBusy.store(((size_t)1 << workerCount) - 1);
+    
+    ASYNC_CONTROL_DEBUG("worker_waitForWork: syncing with other workers")
 
     /* Wait for everyone else to be working on this task too */
     while (workReady != 0)
     {
-        ASYNC_CONTROL_DEBUG("worker_waitForWork: syncing with other workers")
+        /* Register this thread as working on the task */
+        size_t busyBit, busyMask;
+        afk_workerBusyBitAndMask(id, busyBit, busyMask);
+        workReady &= busyMask;
+        ASYNC_CONTROL_DEBUG("worker_waitForWork: " << std::hex << workReady << " left over (quit=" << quit << ")")
+        workCond.notify_all();
+
         workCond.wait(lock);
     }
+
+    workCond.notify_all();
 
     return !quit;
 }

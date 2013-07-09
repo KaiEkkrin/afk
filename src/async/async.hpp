@@ -17,7 +17,7 @@
 #include <boost/thread/thread.hpp>
 
 /* Don't enable this unless you want MAXIMAL SPAM */
-#define ASYNC_DEBUG_SPAM 1
+#define ASYNC_DEBUG_SPAM 0
 
 #define ASYNC_WORKER_DEBUG 0
 
@@ -111,17 +111,19 @@ protected:
 
     /* The workers wait on this condition variable until things are
      * primed and they're ready to go. Here's how we do it:
-     * - The control thread sets `workReady' to the number of
-     * workers it wants to run
-     * - When a worker grabs the condition variable it checks for
-     * nonzero and if so, decrements the variable and gets going
+     * - The control thread flags a bit of `workReady' for each
+     * worker it wants to run
+     * - When a worker grabs the condition variable, it clears its
+     * bit to indicate it got it.  It then waits on the variable
+     * again until all bits become 0, indicating all workers are
+     * sync'd up and ready to go
      * - After everything has started once, when work has finished,
      * all the workers will find a zero `workReady' value and just
      * block until the process is begun again.
      */
     boost::condition_variable workCond;
     boost::mutex workMut;
-    unsigned int workReady;
+    size_t workReady;
     bool quit; /* Tells the workers to instead quit out entirely */
 
 public:
@@ -135,9 +137,15 @@ public:
     void control_quit(void);
 
     /* Returns true if there is work to be done, false for quit */
-    bool worker_waitForWork(void);
+    bool worker_waitForWork(unsigned int id);
 };
 
+
+/* Helper function for the bitfields above: populates `busyBit'
+ * and `busyMask' with the bit and mask for the supplied
+ * thread ID
+ */
+void afk_workerBusyBitAndMask(unsigned int id, size_t& o_busyBit, size_t& o_busyMask);
 
 #define ASYNC_QUEUE_TYPE(type) boost::lockfree::queue<type>
 
@@ -150,12 +158,14 @@ void afk_asyncWorker(
     boost::promise<ReturnType>*& promise)
 {
     /* This is my bit in the `controls.workersBusy' field. */
-    size_t busyBit = (size_t)1 << id;
+    size_t busyBit;
 
     /* This is a mask for said. */
-    size_t busyMask = ~busyBit;
+    size_t busyMask;
 
-    while (controls.worker_waitForWork())
+    afk_workerBusyBitAndMask(id, busyBit, busyMask);
+
+    while (controls.worker_waitForWork(id))
     {
         /* TODO Do something sane with the return values rather
          * than just accumulating the last one!
