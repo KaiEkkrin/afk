@@ -75,9 +75,14 @@ static void afk_idle(void)
      * to draw.
      */
     boost::unique_future<bool> result = afk_core.landscape->updateLandMap();
-    result.wait();
 
+    /* Meanwhile, draw the previous frame */
     afk_display();
+
+    /* Don't flip buffers until I've got the next frame ready to roll */
+    result.wait();
+    glutSwapBuffers();
+    afk_core.landscape->flipRenderQueues();
 }
 
 
@@ -248,6 +253,11 @@ void AFK_Core::checkpoint(bool definitely)
         frameAtLastCheckpoint = renderingFrame;
 
 #if AFK_USE_POLYMER_CACHE
+        /* BODGE. This can cause a SIGSEGV when we do the final print upon
+         * catching an exception, it looks like the destructors are
+         * being called in a strange order
+         */
+        if (!definitely)
         {
             std::ostringstream ss;
             afk_core.landscape->cache.printStats(ss, "Polymer cache");

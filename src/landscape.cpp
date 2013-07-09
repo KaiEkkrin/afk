@@ -255,21 +255,25 @@ void AFK_DisplayedLandscapeCell::initGL(void)
     vertexCount = triangleVsCount;
 }
 
+void AFK_DisplayedLandscapeCell::displaySetup(const Mat4<float>& projection)
+{
+    /* A single DisplayedLandscapeCell will do this common stuff;
+     * the others' display() functions will assume they were called
+     * right after and don't have to do it again
+     */
+    glUseProgram(program);
+    shaderLight->setupLight(afk_core.sun);
+}
+
 void AFK_DisplayedLandscapeCell::display(const Mat4<float>& projection)
 {
     if (!vertices) initGL();
 
     if (vertices)
     {
-        /* TODO Do I have to do `glUseProgram' once per cell, really?
-          * Can't I omit it from here and have the AFK_Landscape
-         * object do it before displaying its cells?
-         */
-        glUseProgram(program);
-
         updateTransform(projection);
 
-        shaderLight->setupLight(afk_core.sun);
+        /* Cell specific stuff will go here ... */
 
         glEnableVertexAttribArray(0);
         glEnableVertexAttribArray(1);
@@ -668,7 +672,7 @@ bool afk_generateLandscapeCells(
         
                 /* Now, push it into the queue as well */
                 AFK_DisplayedLandscapeCell *dptr = landscapeCell.displayed.get();
-                landscape->renderQueue.push(dptr);
+                landscape->renderQueue.update_push(dptr);
                 landscape->cellsQueued.fetch_add(1);
             }
             else
@@ -799,6 +803,11 @@ void AFK_Landscape::enqueueSubcells(
     genGang << cellParam;
 }
 
+void AFK_Landscape::flipRenderQueues(void)
+{
+    renderQueue.flipQueues();
+}
+
 boost::unique_future<bool> AFK_Landscape::updateLandMap(void)
 {
 
@@ -875,7 +884,21 @@ boost::unique_future<bool> AFK_Landscape::updateLandMap(void)
 void AFK_Landscape::display(const Mat4<float>& projection)
 {
     AFK_DisplayedLandscapeCell *displayedCell;
-    while (renderQueue.pop(displayedCell))
+    bool first;
+    while (renderQueue.draw_pop(displayedCell))
+    {
+        /* All cells are the same in many ways, so I can do this
+         * just the once
+         * TODO: I really ought to move this out into a drawable
+         * single object related to AFK_Landscape instead
+         */
+        if (first)
+        {
+            displayedCell->displaySetup(projection);
+            first = false;
+        }
+
         displayedCell->display(projection);
+    }
 }
 

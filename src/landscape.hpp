@@ -72,6 +72,7 @@ public:
     virtual ~AFK_DisplayedLandscapeCell();
 
     virtual void initGL(void);
+    virtual void displaySetup(const Mat4<float>& projection);
     virtual void display(const Mat4<float>& projection);
 };
 
@@ -292,6 +293,9 @@ public:
         const Vec3<long long>& modifier,
         const Vec3<float>& viewerLocation,
         const AFK_Camera& camera);
+
+    /* Call when we're about to start a new frame. */
+    void flipRenderQueues(void);
 
     /* This function drives the cell generating worker to
      * update the landscape cache and enqueue visible

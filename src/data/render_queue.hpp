@@ -16,26 +16,42 @@ template<typename Renderable>
 class AFK_RenderQueue
 {
 protected:
-    /* TODO: In a moment, I want to change this so that it's
-     * maintaining two queues, one for enqueuement while the
-     * previous frame is being popped to render.  With
-     * swapping upon frame-swap.
-     * But for now this is okay.
+    /* I have two queues.  At any one time, one of them is being
+     * rendered and the other is being updated for the
+     * next frame.
      */
-    boost::lockfree::queue<Renderable> q;
+    boost::lockfree::queue<Renderable> *q[2];
+    unsigned int updateQueue;
+    unsigned int drawQueue;
 
 public:
-    AFK_RenderQueue(unsigned int qSize): q(qSize) {}
-    virtual ~AFK_RenderQueue() {}
-
-    virtual void push(Renderable& r)
+    AFK_RenderQueue(unsigned int qSize): updateQueue(0), drawQueue(1)
     {
-        q.push(r);
+        /* Stupid initializer list.  I could do this better with C++11 :/ */
+        q[0] = new boost::lockfree::queue<Renderable>(qSize);
+        q[1] = new boost::lockfree::queue<Renderable>(qSize);
     }
 
-    virtual bool pop(Renderable& r)
+    virtual ~AFK_RenderQueue()
     {
-        return q.pop(r);
+        delete q[0];
+        delete q[1];
+    }
+
+    virtual void flipQueues(void)
+    {
+        updateQueue = (updateQueue == 1 ? 0 : 1);
+        drawQueue = (drawQueue == 1 ? 0 : 1);
+    }
+
+    virtual void update_push(Renderable& r)
+    {
+        q[updateQueue]->push(r);
+    }
+
+    virtual bool draw_pop(Renderable& r)
+    {
+        return q[drawQueue]->pop(r);
     }
 };
 

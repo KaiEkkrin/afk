@@ -3,6 +3,7 @@
 #ifndef _AFK_ASYNC_ASYNC_H_
 #define _AFK_ASYNC_ASYNC_H_
 
+#include <iostream>
 #include <vector>
 
 #include <boost/atomic.hpp>
@@ -14,6 +15,8 @@
 #include <boost/thread/future.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
+
+#define ASYNC_WORKER_DEBUG 0
 
 /* Asynchronous function calling for AFK.  Passes out the function to
  * a threadpool.  Supports tail-recursive / multiply tail-recursive
@@ -87,11 +90,10 @@ protected:
     unsigned int workReady;
     bool quit; /* Tells the workers to instead quit out entirely */
 
-    /* The number of still-busy workers.
-     */
-    boost::atomic<int> workersBusy;
-
 public:
+    /* Flags which workers are busy. */
+    boost::atomic<size_t> workersBusy;
+
     AFK_AsyncControls(): workReady(0), quit(false), workersBusy(0) {}
 
     void control_workReady(unsigned int workerCount);
@@ -99,17 +101,6 @@ public:
 
     /* Returns true if there is work to be done, false for quit */
     bool worker_waitForWork(void);
-
-    /* Flags this worker as busy. */
-    void worker_amBusy(void);
-
-    /* Flags this worker as idle. */
-    void worker_amIdle(void);
-
-    /* Returns true if all workers are idle, i.e. they should
-     * fall out of the work loop.
-     */
-    bool worker_allIdle(void);
 };
 
 
@@ -123,33 +114,41 @@ void afk_asyncWorker(
     ASYNC_QUEUE_TYPE(ParameterType)& queue,
     boost::promise<ReturnType>& promise)
 {
+    /* This is my bit in the `controls.workersBusy' field. */
+    size_t busyBit = (size_t)1 << id;
+
+    /* This is a mask for said. */
+    size_t busyMask = ~busyBit;
+
     while (controls.worker_waitForWork())
     {
         /* TODO Do something sane with the return values rather
          * than just accumulating the last one!
          */
         ReturnType retval;
-        bool wasIdle = false;
 
-        while (!controls.worker_allIdle())
+        for (;;)
         {
             /* Get the next parameter to call with. */
             ParameterType nextParameter;
             if (queue.pop(nextParameter))
             {
                 /* I've got a parameter.  Make the call. */
-                if (wasIdle) controls.worker_amBusy();
-                wasIdle = false;
+                controls.workersBusy.fetch_or(busyBit);
                 retval = func(nextParameter, queue);
+
+#if ASYNC_WORKER_DEBUG
+                std::cout << ".";
+#endif
             }
             else
             {
                 /* I have nothing to do.  Spin (there will probably
                  * be something very soon), but also register my
-                 * idleness.
+                 * idleness.  If everyone else was already idle,
+                 * leave the loop.
                  */
-                if (!wasIdle) controls.worker_amIdle();
-                wasIdle = true;
+                if ((controls.workersBusy.fetch_and(busyMask) & busyMask) == 0) break;
 
                 /* TODO: It looks like spinning on yield() causes a great deal
                  * of system time wasted.
@@ -158,11 +157,22 @@ void afk_asyncWorker(
                  * want to push in an interrupt on a regular basis (but my
                  * frame metering stuff wants this anyway)
                  * - total spin?
+                 * 
+                 * TODO *2: It looks like at the "hang points", I don't stay
+                 * waiting for some thread or other -- ALL the threads are
+                 * spinning here rather than exiting the inner loop.  Hmm!
                  */
-                /* boost::this_thread::yield(); */
-                boost::this_thread::sleep_for(boost::chrono::milliseconds(2));
+                boost::this_thread::yield();
+                /* boost::this_thread::sleep_for(boost::chrono::milliseconds(2)); */
+#if ASYNC_WORKER_DEBUG
+                std::cout << id;
+#endif
             }
         }
+
+#if ASYNC_WORKER_DEBUG
+        std::cout << "X";
+#endif
 
         /* At this point, everyone has finished.
          * See TODO above: for expediency, if I'm worker
@@ -208,6 +218,11 @@ public:
         size_t queueSize, unsigned int concurrency):
             queue(queueSize)
     {
+        /* Make sure the flags for this level of concurrency will fit
+         * into a size_t
+         */
+        assert(concurrency < (sizeof(size_t) * 8));
+
         initWorkers(func, concurrency);
     }
 

@@ -71,10 +71,10 @@ int main(int argc, char **argv)
     {
         retcode = 1;
         std::cerr << "AFK Error: " << e.what() << std::endl;
+        afk_core.checkpoint(true);
     }
 
     std::cout << "AFK exiting" << std::endl;
-    afk_core.checkpoint(true);
     return retcode;
 }
 

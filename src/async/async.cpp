@@ -26,7 +26,7 @@ boost::mutex debugSpamMut;
 
 void AFK_AsyncControls::control_workReady(unsigned int workerCount)
 {
-    ASYNC_DEBUG("control_workReady: " << workerCount << " workers")   
+    ASYNC_DEBUG("control_workReady: " << std::dec << workerCount << " workers")   
 
     boost::unique_lock<boost::mutex> lock(workMut);
     while (workReady != 0)
@@ -39,7 +39,9 @@ void AFK_AsyncControls::control_workReady(unsigned int workerCount)
 
     workReady = workerCount;
     quit = false;
-    workersBusy.store(workerCount);
+
+    /* Flag all workers as busy */
+    workersBusy.store(((size_t)1 << workerCount) - 1);
 
     ASYNC_DEBUG("control_workReady: (workersBusy " <<
         (workersBusy.is_lock_free() ? "is" : "is not") << " lock free)")
@@ -79,27 +81,7 @@ bool AFK_AsyncControls::worker_waitForWork(void)
 
     /* Register this thread as working on the task */
     --workReady;
-    ASYNC_DEBUG("worker_waitForWork: " << workReady << " left over (quit=" << quit << ")")
+    ASYNC_DEBUG("worker_waitForWork: " << std::dec << workReady << " left over (quit=" << quit << ")")
     return !quit;
-}
-
-void AFK_AsyncControls::worker_amBusy(void)
-{
-    workersBusy.fetch_add(1);
-    ASYNC_DEBUG("worker_amBusy: now " << workersBusy << " busy")
-}
-
-void AFK_AsyncControls::worker_amIdle(void)
-{
-    workersBusy.fetch_sub(1);
-    ASYNC_DEBUG("worker_amIdle: now " << workersBusy << " busy")
-}
-
-bool AFK_AsyncControls::worker_allIdle(void)
-{
-    /* If I get 1 back, I just decremented it to zero, meaning
-     * there are no busy workers left
-     */
-    return (workersBusy == 0);
 }
 

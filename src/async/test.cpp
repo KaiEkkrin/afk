@@ -162,21 +162,25 @@ void test_async(void)
 
     test_pnFilter(1, primeMax, primes[0]);
     std::cout << std::endl;
+
     test_pnFilter(2, primeMax, primes[1]);
     check_result(primes[0], primes[1]);
     std::cout << std::endl;
+
     test_pnFilter(4, primeMax, primes[2]);
     check_result(primes[0], primes[2]);
     std::cout << std::endl;
+
     test_pnFilter(boost::thread::hardware_concurrency(), primeMax, primes[3]);
     check_result(primes[0], primes[3]);
     std::cout << std::endl;
+
     test_pnFilter(boost::thread::hardware_concurrency() * 2, primeMax, primes[4]);
     check_result(primes[0], primes[4]);
     std::cout << std::endl;
+
     test_pnFilter(boost::thread::hardware_concurrency() * 4, primeMax, primes[5]);
     check_result(primes[0], primes[5]);
     std::cout << std::endl;
 }
-
 

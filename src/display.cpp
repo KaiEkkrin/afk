@@ -153,8 +153,6 @@ void afk_display(void)
         ss << "AFK: Got GL error: " << gluErrorString(glErr);
         throw AFK_Exception(ss.str());
     }
-
-    glutSwapBuffers();
 }
 
 void afk_reshape(int width, int height)
