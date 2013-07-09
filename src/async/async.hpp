@@ -103,10 +103,12 @@ private:
     /* It's really important this thing doesn't get accidentally
      * duplicated
      */
-    AFK_AsyncControls(const AFK_AsyncControls& controls) {}
+    AFK_AsyncControls(const AFK_AsyncControls& controls): workerCount(controls.workerCount) {}
     AFK_AsyncControls& operator=(const AFK_AsyncControls& controls) { return *this; }
 
 protected:
+    const unsigned int workerCount;
+
     /* The workers wait on this condition variable until things are
      * primed and they're ready to go. Here's how we do it:
      * - The control thread sets `workReady' to the number of
@@ -126,10 +128,11 @@ public:
     /* Flags which workers are busy. */
     boost::atomic<size_t> workersBusy;
 
-    AFK_AsyncControls(): workReady(0), quit(false), workersBusy(0) {}
+    AFK_AsyncControls(const unsigned int _workerCount):
+        workerCount(_workerCount), workReady(0), quit(false), workersBusy(0) {}
 
-    void control_workReady(unsigned int workerCount);
-    void control_quit();
+    void control_workReady(void);
+    void control_quit(void);
 
     /* Returns true if there is work to be done, false for quit */
     bool worker_waitForWork(void);
@@ -257,7 +260,7 @@ protected:
 public:
     AFK_AsyncGang(boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
         size_t queueSize, unsigned int concurrency):
-            queue(queueSize), promise(NULL)
+            controls(concurrency), queue(queueSize), promise(NULL)
     {
         /* Make sure the flags for this level of concurrency will fit
          * into a size_t
@@ -268,7 +271,7 @@ public:
     }
 
     AFK_AsyncGang(boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func, size_t queueSize):
-        queue(queueSize)
+        controls(boost::thread::hardware_concurrency()), queue(queueSize)
     {
         initWorkers(func, boost::thread::hardware_concurrency());
     }
@@ -315,7 +318,7 @@ public:
 #endif
 
         /* Set things off */
-        controls.control_workReady(workers.size());
+        controls.control_workReady();
 
         /* Send back the future */
         return promise->get_future();

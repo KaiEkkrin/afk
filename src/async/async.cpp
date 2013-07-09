@@ -6,14 +6,14 @@
 boost::mutex debugSpamMut;
 #endif
 
-void AFK_AsyncControls::control_workReady(unsigned int workerCount)
+void AFK_AsyncControls::control_workReady(void)
 {
     ASYNC_CONTROL_DEBUG("control_workReady: " << std::dec << workerCount << " workers")   
 
     boost::unique_lock<boost::mutex> lock(workMut);
-    while (workReady != 0 || workersBusy.load() != 0)
+    while (workReady != 0)
     {
-        ASYNC_CONTROL_DEBUG("control_workReady: waiting (workersBusy: " << std::hex << workersBusy.load() << ")")
+        ASYNC_CONTROL_DEBUG("control_workReady: waiting")
 
         /* Those workers are busy launching something else */
         workCond.wait(lock);
@@ -21,9 +21,6 @@ void AFK_AsyncControls::control_workReady(unsigned int workerCount)
 
     workReady = workerCount;
     quit = false;
-
-    /* Flag all workers as busy */
-    workersBusy.store(((size_t)1 << workerCount) - 1);
 
     ASYNC_CONTROL_DEBUG("control_workReady: (workersBusy " <<
         (workersBusy.is_lock_free() ? "is" : "is not") << " lock free)")
@@ -44,6 +41,7 @@ void AFK_AsyncControls::control_quit(void)
         workCond.wait(lock);
     }
 
+    workReady = workerCount;
     quit = true;
     workCond.notify_all();
 }
@@ -63,7 +61,23 @@ bool AFK_AsyncControls::worker_waitForWork(void)
 
     /* Register this thread as working on the task */
     --workReady;
+    workCond.notify_all();
     ASYNC_CONTROL_DEBUG("worker_waitForWork: " << std::dec << workReady << " left over (quit=" << quit << ")")
+
+    /* Make sure everyone starts out as busy.  This should stop
+     * us from accidentally thinking everyone has finished when
+     * some of the workers have merely not been scheduled yet
+     * at all
+     */
+    //workersBusy.store(((size_t)1 << workerCount) - 1);
+
+    /* Wait for everyone else to be working on this task too */
+    while (workReady != 0)
+    {
+        ASYNC_CONTROL_DEBUG("worker_waitForWork: syncing with other workers")
+        workCond.wait(lock);
+    }
+
     return !quit;
 }
 

@@ -257,6 +257,8 @@ void AFK_DisplayedLandscapeCell::initGL(void)
 
 void AFK_DisplayedLandscapeCell::displaySetup(const Mat4<float>& projection)
 {
+    if (!shaderLight) initGL();
+
     /* A single DisplayedLandscapeCell will do this common stuff;
      * the others' display() functions will assume they were called
      * right after and don't have to do it again
