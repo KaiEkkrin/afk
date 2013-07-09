@@ -181,6 +181,7 @@ class AFK_Landscape;
 /* The parameter for the cell generating worker. */
 struct AFK_LandscapeCellGenParam
 {
+    unsigned int recCount;
     AFK_Cell cell;
     bool topLevel;
     AFK_Landscape *landscape;
@@ -217,6 +218,9 @@ public:
 
     /* The cell generating gang */
     AFK_AsyncGang<struct AFK_LandscapeCellGenParam, bool> genGang;
+
+    /* How much to pressure the queue (or not). */
+    unsigned int recursionsPerTask;
 
     /* Overall landscape parameters. */
 

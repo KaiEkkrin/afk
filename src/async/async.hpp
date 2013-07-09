@@ -16,7 +16,38 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 
+/* Don't enable this unless you want MAXIMAL SPAM */
+#define ASYNC_DEBUG_SPAM 1
+
 #define ASYNC_WORKER_DEBUG 0
+
+#include <iostream>
+#include <boost/date_time/posix_time/posix_time.hpp>
+
+#if ASYNC_DEBUG_SPAM
+extern boost::mutex debugSpamMut;
+
+#define ASYNC_DEBUG(chain) \
+    { \
+        boost::unique_lock<boost::mutex> guard(debugSpamMut); \
+        boost::posix_time::ptime debugTime = boost::posix_time::microsec_clock::local_time(); \
+        std::cout << "in thread " << boost::this_thread::get_id() << " at " << debugTime << ": "; \
+        std::cout << chain << std::endl; \
+    }
+
+#define ASYNC_CONTROL_DEBUG(chain) \
+    { \
+        boost::unique_lock<boost::mutex> guard(debugSpamMut); \
+        boost::posix_time::ptime debugTime = boost::posix_time::microsec_clock::local_time(); \
+        std::cout << "control " << this << " in thread "; \
+        std::cout << boost::this_thread::get_id() << " at " << debugTime << ": "; \
+        std::cout << chain << std::endl; \
+    }
+
+
+#else
+#define ASYNC_DEBUG(chain)
+#endif /* ASYNC_DEBUG_SPAM */
 
 /* Asynchronous function calling for AFK.  Passes out the function to
  * a threadpool.  Supports tail-recursive / multiply tail-recursive
@@ -112,7 +143,7 @@ void afk_asyncWorker(
     unsigned int id,
     boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
     ASYNC_QUEUE_TYPE(ParameterType)& queue,
-    boost::promise<ReturnType>& promise)
+    boost::promise<ReturnType>*& promise)
 {
     /* This is my bit in the `controls.workersBusy' field. */
     size_t busyBit = (size_t)1 << id;
@@ -162,8 +193,8 @@ void afk_asyncWorker(
                  * waiting for some thread or other -- ALL the threads are
                  * spinning here rather than exiting the inner loop.  Hmm!
                  */
-                boost::this_thread::yield();
-                /* boost::this_thread::sleep_for(boost::chrono::milliseconds(2)); */
+                /* boost::this_thread::yield(); */
+                 boost::this_thread::sleep_for(boost::chrono::milliseconds(2));
 #if ASYNC_WORKER_DEBUG
                 std::cout << id;
 #endif
@@ -179,7 +210,13 @@ void afk_asyncWorker(
          * 0, I'll populate the return value, otherwise
          * I'll throw it away now
          */
-        if (id == 0) promise.set_value(retval);
+        if (id == 0)
+        {
+            promise->set_value(retval);
+#if ASYNC_DEBUG_SPAM
+            ASYNC_DEBUG("fulfilling promise " << std::hex << promise)
+#endif
+        }
     }
 }
 
@@ -195,7 +232,7 @@ protected:
     ASYNC_QUEUE_TYPE(ParameterType) queue;
 
     /* The promised return value. */
-    boost::promise<ReturnType> promise;
+    boost::promise<ReturnType> *promise;
 
     void initWorkers(boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
         unsigned int concurrency)
@@ -216,7 +253,7 @@ protected:
 public:
     AFK_AsyncGang(boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
         size_t queueSize, unsigned int concurrency):
-            queue(queueSize)
+            queue(queueSize), promise(NULL)
     {
         /* Make sure the flags for this level of concurrency will fit
          * into a size_t
@@ -240,6 +277,8 @@ public:
 
         for (std::vector<boost::thread*>::iterator wIt = workers.begin(); wIt != workers.end(); ++wIt)
             delete *wIt;
+
+        if (promise) delete promise;
     }
 
     /* Push initial parameters into the gang.  Call before calling
@@ -261,14 +300,21 @@ public:
      */
     boost::unique_future<ReturnType> start(void)
     {
+#if ASYNC_DEBUG_SPAM
+        ASYNC_DEBUG("deleting promise " << std::hex << promise)
+#endif
         /* Reset that promise */
-        promise = boost::promise<ReturnType>();
+        if (promise) delete promise;
+        promise = new boost::promise<ReturnType>();
+#if ASYNC_DEBUG_SPAM
+        ASYNC_DEBUG("making new promise " << std::hex << promise)
+#endif
 
         /* Set things off */
         controls.control_workReady(workers.size());
 
         /* Send back the future */
-        return promise.get_future();
+        return promise->get_future();
     }
 };
 

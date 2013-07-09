@@ -582,6 +582,7 @@ bool afk_generateLandscapeCells(
     struct AFK_LandscapeCellGenParam param,
     ASYNC_QUEUE_TYPE(struct AFK_LandscapeCellGenParam)& queue)
 {
+    unsigned int recCount               = param.recCount;
     const AFK_Cell& cell                = param.cell;
     bool topLevel                       = param.topLevel;
     AFK_Landscape *landscape            = param.landscape;
@@ -687,13 +688,25 @@ bool afk_generateLandscapeCells(
                     for (unsigned int i = 0; i < subcellsCount; ++i)
                     {
                         struct AFK_LandscapeCellGenParam subcellParam;
+                        subcellParam.recCount           = recCount + 1;
                         subcellParam.cell               = subcells[i];
                         subcellParam.topLevel           = false;
                         subcellParam.landscape          = landscape;
                         subcellParam.viewerLocation     = viewerLocation;
                         subcellParam.camera             = camera;
                         subcellParam.entirelyVisible    = allVisible;
-                        queue.push(subcellParam);
+
+                        if (subcellParam.recCount == landscape->recursionsPerTask)
+                        {
+                            /* I've hit the task recursion limit, queue this as a new task */
+                            subcellParam.recCount = 0;
+                            queue.push(subcellParam);
+                        }
+                        else
+                        {
+                            /* Use a direct function call */
+                            afk_generateLandscapeCells(subcellParam, queue);
+                        }
                     }
                 }
                 else
@@ -726,7 +739,8 @@ AFK_Landscape::AFK_Landscape(
         genGang(
             boost::function<bool (const struct AFK_LandscapeCellGenParam,
                 ASYNC_QUEUE_TYPE(struct AFK_LandscapeCellGenParam)&)>(afk_generateLandscapeCells),
-            100 /* Likewise */ , 8)
+            100 /* Likewise */ , 8),
+        recursionsPerTask(2) /* Again */
 {
     maxDistance         = _maxDistance;
     subdivisionFactor   = _subdivisionFactor;
@@ -793,6 +807,7 @@ void AFK_Landscape::enqueueSubcells(
         cell.coord.v[3]));
 
     struct AFK_LandscapeCellGenParam cellParam;
+    cellParam.recCount              = 0;
     cellParam.cell                  = modifiedCell;
     cellParam.topLevel              = true;
     cellParam.landscape             = this;
