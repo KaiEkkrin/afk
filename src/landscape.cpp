@@ -698,6 +698,9 @@ bool afk_generateLandscapeCells(
                         subcellParam.camera             = camera;
                         subcellParam.entirelyVisible    = allVisible;
 
+#if AFK_NO_THREADING
+                        afk_generateLandscapeCells(subcellParam, queue);
+#else
                         if (subcellParam.recCount == landscape->recursionsPerTask)
                         {
                             /* I've hit the task recursion limit, queue this as a new task */
@@ -709,6 +712,7 @@ bool afk_generateLandscapeCells(
                             /* Use a direct function call */
                             afk_generateLandscapeCells(subcellParam, queue);
                         }
+#endif
                     }
                 }
                 else
@@ -742,6 +746,10 @@ AFK_Landscape::AFK_Landscape(
             boost::function<bool (const struct AFK_LandscapeCellGenParam,
                 ASYNC_QUEUE_TYPE(struct AFK_LandscapeCellGenParam)&)>(afk_generateLandscapeCells),
             100 /* Likewise */ ),
+#if AFK_NO_THREADING
+        fakeQueue(100),
+        fakePromise(NULL),
+#endif
         /* On HyperThreading systems, can ignore the hyper threads:
          * there appears to be zero benefit.  However, I can't figure
          * out how to identify this.
@@ -799,6 +807,9 @@ AFK_Landscape::AFK_Landscape(
 AFK_Landscape::~AFK_Landscape()
 {
     delete shaderProgram;
+#if AFK_NO_THREADING
+    if (fakePromise) delete fakePromise;
+#endif
 }
 
 void AFK_Landscape::enqueueSubcells(
@@ -822,7 +833,11 @@ void AFK_Landscape::enqueueSubcells(
     cellParam.camera                = &camera;
     cellParam.entirelyVisible       = false;
 
+#if AFK_NO_THREADING
+    afk_generateLandscapeCells(cellParam, fakeQueue);
+#else
     genGang << cellParam;
+#endif
 }
 
 void AFK_Landscape::flipRenderQueues(void)
@@ -881,7 +896,14 @@ boost::unique_future<bool> AFK_Landscape::updateLandMap(void)
             for (long long k = -1; k <= 1; ++k)
                 enqueueSubcells(cell, afk_vec3<long long>(i, j, k), protagonistLocation, *(afk_core.camera));
 
+#if AFK_NO_THREADING
+    if (fakePromise) delete fakePromise;
+    fakePromise = new boost::promise<bool>();
+    fakePromise->set_value(true);
+    return fakePromise->get_future();
+#else
     return genGang.start();
+#endif
 }
 
 void AFK_Landscape::display(const Mat4<float>& projection)

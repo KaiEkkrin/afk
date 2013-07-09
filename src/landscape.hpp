@@ -32,6 +32,14 @@
 #define AFK_CACHE AFK_MapCache<AFK_Cell, AFK_LandscapeCell>
 #endif
 
+
+/* TODO This needs to be default when a single threaded system is detected,
+ * because async hangs trying to start when only one worker thread is
+ * specified.
+ */
+#define AFK_NO_THREADING 1
+
+
 /* To start out with, I'm going to define an essentially
  * flat landscape split into squares for calculation and
  * rendering purposes.
@@ -218,6 +226,11 @@ public:
 
     /* The cell generating gang */
     AFK_AsyncGang<struct AFK_LandscapeCellGenParam, bool> genGang;
+
+#if AFK_NO_THREADING
+    ASYNC_QUEUE_TYPE(struct AFK_LandscapeCellGenParam) fakeQueue; /* unused, but to fulfil function parameters */
+    boost::promise<bool> *fakePromise;
+#endif
 
     /* How much to pressure the queue (or not). */
     unsigned int recursionsPerTask;
