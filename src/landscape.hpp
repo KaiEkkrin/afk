@@ -276,10 +276,11 @@ public:
 
     /* Gather statistics.  (Useful.)
      */
-    boost::atomic<unsigned int> cellsEmpty;
-    boost::atomic<unsigned int> cellsInvisible;
-    boost::atomic<unsigned int> cellsCached;
-    boost::atomic<unsigned int> cellsQueued;
+    boost::atomic<unsigned long long> cellsEmpty;
+    boost::atomic<unsigned long long> cellsInvisible;
+    boost::atomic<unsigned long long> cellsQueued;
+    boost::atomic<unsigned long long> cellsCached;
+    boost::atomic<unsigned long long> cellsGenerated;
 
 
     AFK_Landscape(
@@ -312,6 +313,9 @@ public:
      * (There's no AFK_DisplayedObject for the landscape.)
      */
     void display(const Mat4<float>& projection);
+
+    /* Takes a landscape checkpoint. */
+    void checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint);
 };
 
 #endif /* _AFK_LANDSCAPE_H_ */

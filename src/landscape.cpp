@@ -666,6 +666,7 @@ bool afk_generateLandscapeCells(
                         landscape->pointSubdivisionFactor,
                         landscape->cache));
                     landscapeCell.displayed = newD;
+                    landscape->cellsGenerated.fetch_add(1);
                 }
                 else
                 {
@@ -740,8 +741,12 @@ AFK_Landscape::AFK_Landscape(
         genGang(
             boost::function<bool (const struct AFK_LandscapeCellGenParam,
                 ASYNC_QUEUE_TYPE(struct AFK_LandscapeCellGenParam)&)>(afk_generateLandscapeCells),
-            100 /* Likewise */ , 8),
-        recursionsPerTask(2) /* Again */
+            100 /* Likewise */ ),
+        /* On HyperThreading systems, can ignore the hyper threads:
+         * there appears to be zero benefit.  However, I can't figure
+         * out how to identify this.
+         */
+        recursionsPerTask(1) /* This seems to do better than higher numbers */
 {
     maxDistance         = _maxDistance;
     subdivisionFactor   = _subdivisionFactor;
@@ -786,8 +791,9 @@ AFK_Landscape::AFK_Landscape(
     /* Initialise the statistics. */
     cellsEmpty.store(0);
     cellsInvisible.store(0);
-    cellsCached.store(0);
     cellsQueued.store(0);
+    cellsCached.store(0);
+    cellsGenerated.store(0);
 }
 
 AFK_Landscape::~AFK_Landscape()
@@ -875,25 +881,6 @@ boost::unique_future<bool> AFK_Landscape::updateLandMap(void)
             for (long long k = -1; k <= 1; ++k)
                 enqueueSubcells(cell, afk_vec3<long long>(i, j, k), protagonistLocation, *(afk_core.camera));
 
-#ifdef PROTAGONIST_CELL_DEBUG
-    {
-        std::ostringstream ss;
-        ss << "Queued " << cellsQueued.load() << " cells";
-    
-        if (cellsQueued.load() > 0)
-            ss << " (" << (100 * cellsCached.load() / cellsQueued.load()) << "\% cached)";
-
-        ss << " (" << cellsInvisible.load() << " invisible, " << cellsEmpty.load() << " empty)";
-        afk_core.occasionallyPrint(ss.str());
-    }
-#endif
-
-    /* Do the statistics thing for the next pass. */
-    cellsEmpty.store(0);
-    cellsInvisible.store(0);
-    cellsCached.store(0);
-    cellsQueued.store(0);
-
     return genGang.start();
 }
 
@@ -916,5 +903,25 @@ void AFK_Landscape::display(const Mat4<float>& projection)
 
         displayedCell->display(projection);
     }
+}
+
+/* Worker for the below. */
+static float toRatePerSecond(unsigned long long quantity, boost::posix_time::time_duration& interval)
+{
+    return (float)quantity * 1000.0f / (float)interval.total_milliseconds();
+}
+
+void AFK_Landscape::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint)
+{
+    std::cout << "Cells found empty:        " << toRatePerSecond(cellsEmpty.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
+    std::cout << "Cells found invisible:    " << toRatePerSecond(cellsInvisible.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
+    std::cout << "Cells queued:             " << toRatePerSecond(cellsQueued.load(), timeSinceLastCheckpoint) << "/second (" << (100 * cellsCached.load() / cellsQueued.load()) << "\% cached)" << std::endl;
+    std::cout << "Cells generated:          " << toRatePerSecond(cellsGenerated.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
+
+    cellsEmpty.store(0);
+    cellsInvisible.store(0);
+    cellsQueued.store(0);
+    cellsCached.store(0);
+    cellsGenerated.store(0);
 }
 

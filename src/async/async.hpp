@@ -195,20 +195,16 @@ void afk_asyncWorker(
                  */
                 if ((controls.workersBusy.fetch_and(busyMask) & busyMask) == 0) break;
 
-                /* TODO: It looks like spinning on yield() causes a great deal
-                 * of system time wasted.
-                 * Trying:
-                 * - sleep for a little while -- if I do this, I'm going to also
-                 * want to push in an interrupt on a regular basis (but my
-                 * frame metering stuff wants this anyway)
-                 * - total spin?
-                 * 
-                 * TODO *2: It looks like at the "hang points", I don't stay
-                 * waiting for some thread or other -- ALL the threads are
-                 * spinning here rather than exiting the inner loop.  Hmm!
+                /* Upon further testing, I think spinning on yield() is best
+                 * (so long as I'm not spending too long in the async worker:
+                 * scheduling larger lumps, with a couple of recursions within
+                 * each thread before going back to the queue, is better).
+                 * It causes this method to show up at the top of the gprof list,
+                 * but it also results in a bit of a smoother feel and a faster
+                 * cell generation rate (maybe 10%).
                  */
-                /* boost::this_thread::yield(); */
-                 boost::this_thread::sleep_for(boost::chrono::milliseconds(2));
+                boost::this_thread::yield();
+                 /* boost::this_thread::sleep_for(boost::chrono::milliseconds(2)); */
 #if ASYNC_WORKER_DEBUG
                 std::cout << id;
 #endif
