@@ -47,6 +47,7 @@ extern boost::mutex debugSpamMut;
 
 #else
 #define ASYNC_DEBUG(chain)
+#define ASYNC_CONTROL_DEBUG(chain)
 #endif /* ASYNC_DEBUG_SPAM */
 
 /* Asynchronous function calling for AFK.  Passes out the function to
@@ -212,9 +213,12 @@ void afk_asyncWorker(
          */
         if (id == 0)
         {
+#if ASYNC_DEBUG_SPAM
+            ASYNC_DEBUG("busy field: " << std::hex << controls.workersBusy.load())
+#endif
             promise->set_value(retval);
 #if ASYNC_DEBUG_SPAM
-            ASYNC_DEBUG("fulfilling promise " << std::hex << promise)
+            ASYNC_DEBUG("fulfilling promise " << std::hex << (void *)promise)
 #endif
         }
     }
@@ -301,13 +305,13 @@ public:
     boost::unique_future<ReturnType> start(void)
     {
 #if ASYNC_DEBUG_SPAM
-        ASYNC_DEBUG("deleting promise " << std::hex << promise)
+        ASYNC_DEBUG("deleting promise " << std::hex << (void *)promise)
 #endif
         /* Reset that promise */
         if (promise) delete promise;
         promise = new boost::promise<ReturnType>();
 #if ASYNC_DEBUG_SPAM
-        ASYNC_DEBUG("making new promise " << std::hex << promise)
+        ASYNC_DEBUG("making new promise " << std::hex << (void *)promise)
 #endif
 
         /* Set things off */

@@ -81,6 +81,7 @@ static void afk_idle(void)
 
     /* Don't flip buffers until I've got the next frame ready to roll */
     result.wait();
+    if (!result.get()) throw AFK_Exception("oops");
     glutSwapBuffers();
     afk_core.landscape->flipRenderQueues();
 }

@@ -376,7 +376,6 @@ bool AFK_LandscapeCell::claim(void)
     /* Grab it */
     lastSeen = afk_core.renderingFrame;
     claimingThreadId = myThreadId;
-    boost::atomic_thread_fence(boost::memory_order_seq_cst); /* Gremlin */
 
     /* Was I the grabber? */
     if (claimingThreadId == myThreadId) return true;

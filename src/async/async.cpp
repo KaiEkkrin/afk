@@ -11,9 +11,9 @@ void AFK_AsyncControls::control_workReady(unsigned int workerCount)
     ASYNC_CONTROL_DEBUG("control_workReady: " << std::dec << workerCount << " workers")   
 
     boost::unique_lock<boost::mutex> lock(workMut);
-    while (workReady != 0)
+    while (workReady != 0 || workersBusy.load() != 0)
     {
-        ASYNC_CONTROL_DEBUG("control_workReady: waiting")
+        ASYNC_CONTROL_DEBUG("control_workReady: waiting (workersBusy: " << std::hex << workersBusy.load() << ")")
 
         /* Those workers are busy launching something else */
         workCond.wait(lock);
