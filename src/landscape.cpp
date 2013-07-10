@@ -380,6 +380,7 @@ bool AFK_LandscapeCell::claim(void)
     /* Grab it */
     lastSeen = afk_core.renderingFrame;
     claimingThreadId = myThreadId;
+    boost::atomic_thread_fence(boost::memory_order_seq_cst); /* Gremlin */
 
     /* Was I the grabber? */
     if (claimingThreadId == myThreadId) return true;
@@ -564,6 +565,12 @@ void AFK_LandscapeCell::computeTerrain(Vec3<float> *positions, Vec3<float> *colo
     }
 }
 
+bool AFK_LandscapeCell::canBeEvicted(const AFK_Frame& renderingFrame) const
+{
+    /* This is a tweakable value ... */
+    return ((renderingFrame - lastSeen) > 30);
+}
+
 std::ostream& operator<<(std::ostream& os, const AFK_LandscapeCell& landscapeCell)
 {
     /* TODO Something more descriptive might be nice */
@@ -729,6 +736,20 @@ bool afk_generateLandscapeCells(
 }
 
 
+#if AFK_USE_POLYMER_CACHE
+/* This worker function says whether a cache entry can
+ * be evicted.
+ */
+bool afk_canEvictLandscapeCell(const AFK_LandscapeCell& cell)
+{
+    /* TODO Change this to pass the currently computing frame
+     * too, which might be delayed?
+     */
+    //return cell.canBeEvicted(afk_core.renderingFrame);
+    return false;
+}
+#endif
+
 /* AFK_Landscape implementation */
 
 AFK_Landscape::AFK_Landscape(
@@ -736,7 +757,8 @@ AFK_Landscape::AFK_Landscape(
     unsigned int _subdivisionFactor,
     unsigned int _detailPitch):
 #if AFK_USE_POLYMER_CACHE
-        cache(AFK_HashCell()),
+        cache(AFK_HashCell(), 100000 /* TODO make based on system/GPU memory */,
+            boost::function<bool (const AFK_LandscapeCell&)>(afk_canEvictLandscapeCell)),
 #endif
         renderQueue(10000), /* TODO make a better guess */
         genGang(
@@ -844,6 +866,10 @@ void AFK_Landscape::flipRenderQueues(void)
 
 boost::unique_future<bool> AFK_Landscape::updateLandMap(void)
 {
+#if AFK_USE_POLYMER_CACHE
+    /* Maintenance. */
+    cache.doEvictionIfNecessary();
+#endif
 
     /* First, transform the protagonist location and its facing
      * into integer cell-space.

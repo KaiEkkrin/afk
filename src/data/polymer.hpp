@@ -85,18 +85,22 @@ protected:
     }
     
 public:
-    AFK_PolymerChain(const unsigned int _hashBits): hashBits (_hashBits), index (0)
+    AFK_PolymerChain(const unsigned int _hashBits): nextChain (NULL), hashBits (_hashBits), index (0)
     {
         chain = new boost::atomic<AFK_Monomer<KeyType, ValueType>*>[CHAIN_SIZE];
         for (unsigned int i = 0; i < CHAIN_SIZE; ++i)
             chain[i].store(NULL);
-
-        nextChain.store(NULL);
     }
 
     virtual ~AFK_PolymerChain()
     {
-        if (next()) delete next();
+        AFK_PolymerChain<KeyType, ValueType> *next = nextChain.load();
+        if (next)
+        {
+            delete next;
+            nextChain.store(NULL);
+        }
+
         for (unsigned int i = 0; i < CHAIN_SIZE; ++i)
         {
             AFK_Monomer<KeyType, ValueType> *monomer = chain[i].load();
@@ -115,8 +119,9 @@ public:
         }
         else
         {
-            assert(nextChain.load() != NULL);
-            nextChain.load()->extend(chain, _index + 1);
+            AFK_PolymerChain<KeyType, ValueType> *next = nextChain.load();
+            assert(next);
+            next->extend(chain, _index + 1);
         }
     }
 
@@ -134,7 +139,7 @@ public:
     {
         AFK_Monomer<KeyType, ValueType> *expected = NULL;
         size_t offset = chainOffset(hops, baseHash);
-        return chain[offset].compare_exchange_strong(expected, monomer);
+        return chain[offset].compare_exchange_weak(expected, monomer);
     }
 
     /* Returns the next chain, or NULL if we're at the end. */
@@ -150,10 +155,16 @@ public:
 
     unsigned int getCount(void) const
     {
-        return next() ? 1 + next()->getCount() : 0;
+        AFK_PolymerChain<KeyType, ValueType> *next = nextChain.load();
+        if (next)
+            return 1 + next->getCount();
+        else
+            return 1;
     }
 
-    /* This iterator sees all. */
+    /* This iterator goes through the elements present in a
+     * traditional manner.
+     */
     class iterator:
         public boost::iterator_facade<
             AFK_PolymerChain<KeyType, ValueType>::iterator,
@@ -205,6 +216,45 @@ public:
         iterator(AFK_PolymerChain<KeyType, ValueType> *chain, unsigned int _index):
             currentChain (chain), index (_index) { forwardToFirst(); }
     };
+
+    /* Methods for supporting direct-slot access. */
+
+    AFK_Monomer<KeyType, ValueType> *atSlot(size_t slot) const
+    {
+        if (slot & ~HASH_MASK)
+        {
+            AFK_PolymerChain<KeyType, ValueType> *next = nextChain.load();
+            if (next)
+                return next->atSlot(slot - CHAIN_SIZE);
+            else
+                return NULL;
+        }
+        else
+        {
+            return chain[slot].load();
+        }
+    }
+
+    bool eraseSlot(size_t slot, AFK_Monomer<KeyType, ValueType> *monomer)
+    {
+        if (slot & ~HASH_MASK)
+        {
+            AFK_PolymerChain<KeyType, ValueType> *next = nextChain.load();
+            if (next)
+                return next->eraseSlot(slot - CHAIN_SIZE, monomer);
+            else
+                return false;
+        }
+        else
+        {
+            if (chain[slot].compare_exchange_weak(monomer, NULL))
+            {
+                delete monomer;
+                return true;
+            }
+            else return false;
+        }
+    }
 };
 
 template<typename KeyType, typename ValueType, typename Hasher>
@@ -261,6 +311,11 @@ public:
          */
         delete chains;
 #endif
+    }
+
+    size_t size() const
+    {
+        return stats.getSize();
     }
 
     /* Returns a reference to a map entry.  Inserts a new one if
@@ -384,6 +439,35 @@ public:
     typename AFK_PolymerChain<KeyType, ValueType>::iterator end() const
     {
         return typename AFK_PolymerChain<KeyType, ValueType>::iterator(NULL);
+    }
+
+    /* For accessing the chain slots directly.  Use carefully (it's really
+     * just for the eviction thread).
+     * Here chain slots are numbered 0 to (CHAIN_SIZE * chain count).
+     */
+    size_t slotCount() const
+    {
+        return chains->getCount() * CHAIN_SIZE;
+    }
+
+    /* If there's nothing in the slot, returns NULL. */
+    AFK_Monomer<KeyType, ValueType> *atSlot(size_t slot) const
+    {
+        return chains->atSlot(slot);
+    }
+
+    /* Removes from a slot so long as it contains the monomer specified
+     * (previously retrieved with atSlot() ).  Returns true if it
+     * removed something, else false.
+     * Because the memory is managed by the polymer itself, this
+     * function call also causes `monomer' to have been freed if it
+     * returns true.
+     */
+    bool eraseSlot(size_t slot, AFK_Monomer<KeyType, ValueType> *monomer)
+    {
+        bool success = chains->eraseSlot(slot, monomer);
+        if (success) stats.erasedOne();
+        return success;
     }
 
     void printStats(std::ostream& os, const std::string& prefix) const

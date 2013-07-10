@@ -65,6 +65,14 @@ bool testCacheWorker(struct insertSqrtParam param, ASYNC_QUEUE_TYPE(struct inser
 
 #define CACHE_TEST_THREAD_COUNT 16
 
+/* I'm not testing eviction here right now, but I need to provide
+ * a function anyway.
+ */
+bool testCache_canEvict(const IntStartingAtZero& value)
+{
+    return false;
+}
+
 void test_cache(void)
 {
     /* Really simple -- just insert the square roots of a lot of
@@ -99,13 +107,14 @@ void test_cache(void)
     }
     std::cout << std::endl;
 
-    std::cout << "MAP CACHE: " << std::endl;
-    mapCache.printEverything(std::cout);
-    std::cout << std::endl;
+    //std::cout << "MAP CACHE: " << std::endl;
+    //mapCache.printEverything(std::cout);
+    //std::cout << std::endl;
 
     /* Now let's try it again with the polymer cache */
     boost::function<size_t (const int&)> hashFunc = expensivelyHashInt();
-    AFK_PolymerCache<int, IntStartingAtZero, boost::function<size_t (const int&)> > polymerCache(hashFunc);
+    AFK_PolymerCache<int, IntStartingAtZero, boost::function<size_t (const int&)> > polymerCache(
+        hashFunc, 1000000, boost::function<bool (const IntStartingAtZero&)>(testCache_canEvict));
 
     for (unsigned int i = 0; i < CACHE_TEST_THREAD_COUNT; ++i)
     {
@@ -127,8 +136,8 @@ void test_cache(void)
     }
     std::cout << std::endl;
 
-    std::cout << "POLYMER CACHE: " << std::endl;
-    polymerCache.printEverything(std::cout);
-    std::cout << std::endl;
+    //std::cout << "POLYMER CACHE: " << std::endl;
+    //polymerCache.printEverything(std::cout);
+    //std::cout << std::endl;
 }
 

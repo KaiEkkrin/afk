@@ -253,7 +253,7 @@ void AFK_Core::checkpoint(bool definitely)
 
         frameAtLastCheckpoint = renderingFrame;
 
-        landscape->checkpoint(sinceLastCheckpoint);
+        if (landscape) landscape->checkpoint(sinceLastCheckpoint);
 
 #if AFK_USE_POLYMER_CACHE
         /* BODGE. This can cause a SIGSEGV when we do the final print upon

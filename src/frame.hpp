@@ -27,7 +27,7 @@ public:
         never = false;
     }
 
-    bool operator==(const AFK_Frame& f)
+    bool operator==(const AFK_Frame& f) const
     {
         if (never) return f.never;
         else return id == f.id;
@@ -38,7 +38,7 @@ public:
      * equal to the operand frame ID is assumed to be earlier (just
      * ones numerically greater are much much earlier...)
      */
-    bool operator<(const AFK_Frame& f)
+    bool operator<(const AFK_Frame& f) const
     {
         if (never)
         {
@@ -51,7 +51,7 @@ public:
         }
     }
 
-    unsigned long long operator-(const AFK_Frame& f)
+    unsigned long long operator-(const AFK_Frame& f) const
     {
         if (never)
             return 0xffffffffffffffffull; /* as long ago as possible */

@@ -25,6 +25,11 @@ void AFK_StructureStats::erasedOne(void)
     size.fetch_sub(1);
 }
 
+size_t AFK_StructureStats::getSize(void) const
+{
+    return size.load();
+}
+
 unsigned int AFK_StructureStats::getContentionAndReset(void)
 {
     unsigned int oldContention = contention;

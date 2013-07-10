@@ -178,6 +178,9 @@ public:
     /* Computes the total terrain features here. */
     void computeTerrain(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_CACHE& cache) const;
 
+    /* Says whether this cell can be evicted from the cache. */
+    bool canBeEvicted(const AFK_Frame& renderingFrame) const;
+
     friend std::ostream& operator<<(std::ostream& os, const AFK_LandscapeCell& landscapeCell);
 };
 

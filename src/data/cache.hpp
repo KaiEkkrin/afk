@@ -34,6 +34,8 @@ public:
     virtual bool findDuplicate(const Key& key, const Value& value, Value& o_duplicateValue) = 0;
 #endif
 
+    virtual void doEvictionIfNecessary(void) = 0;
+
     /* For debugging. */
     virtual void printEverything(std::ostream& os) const = 0;
 

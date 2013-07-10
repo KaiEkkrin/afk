@@ -37,6 +37,13 @@ public:
     }
 #endif
 
+    virtual void doEvictionIfNecessary(void)
+    {
+        /* TODO. I don't think I'm going to keep supporting the
+         * map cache, so ...
+         */
+    }
+
     virtual void printEverything(std::ostream& os) const
     {
         for (typename boost::unordered_map<Key, Value>::const_iterator mapIt = map.begin();

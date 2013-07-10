@@ -31,6 +31,7 @@ public:
 
     void insertedOne(unsigned int tries);
     void erasedOne(void);
+    size_t getSize(void) const;
     unsigned int getContentionAndReset(void);
     void printStats(std::ostream& os, const std::string& prefix) const;
 };
