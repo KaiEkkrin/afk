@@ -9,6 +9,7 @@
 #include <string>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/lockfree/queue.hpp>
 
 #include "camera.hpp"
 #include "config.hpp"
@@ -19,8 +20,30 @@
 #include "light.hpp"
 #include "rng/rng.hpp"
 
+
+void afk_idle(void);
+
 class AFK_Core
 {
+protected:
+    /* These are part of the render process managed by afk_idle().
+     * Nothing else ought to be looking at them.
+     */
+
+    /* The result we're currently waiting on from the computing
+     * side of things, if there is one.
+     */
+    boost::unique_future<bool> computingUpdate;
+    bool computingUpdateDelayed;
+    unsigned int delaysSinceLastCheckpoint;
+
+    /* This stuff is for the OpenGL buffer cleanup, glBuffersForDeletion()
+     * etc.
+     */
+    boost::lockfree::queue<GLuint> glGarbageBufs;
+
+    void deleteGlGarbageBufs(void);
+
 public:
     /* General things. */
     struct AFK_Config   *config;
@@ -43,7 +66,16 @@ public:
      * Although I only really seem to need that to manage
      * cache eviction...
      */
+
+    /* This is the frame currently being rendered. */
     AFK_Frame           renderingFrame;
+
+    /* This is the frame currently being computed.  It's meant
+     * to track one step behind the frame currently being
+     * rendered, but if the computing process doesn't finish
+     * in time, it'll lag behind and then jump
+     */
+    AFK_Frame           computingFrame;
 
     /* The camera. */
     AFK_Camera          *camera;
@@ -108,6 +140,16 @@ public:
      * in which case it happens right away.
      */
     void checkpoint(bool definitely);
+
+    /* TODO REMOVE WHEN LOSE DEPENDENCY ON GLUT
+     * Because GLUT requires that all OpenGL commands be called
+     * from the primary thread, deletes requested on other
+     * threads should push their gl buffers to here to be
+     * cleaned up in the main loop.
+     */
+    void glBuffersForDeletion(GLuint *bufs, size_t bufsSize);
+
+    friend void afk_idle(void);
 };
 
 extern AFK_Core afk_core;

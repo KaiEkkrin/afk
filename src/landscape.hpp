@@ -9,7 +9,6 @@
 
 #include <boost/atomic.hpp>
 #include <boost/function.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/thread/thread.hpp>
 
 #include "async/async.hpp"
@@ -25,12 +24,6 @@
 #include "rng/rng.hpp"
 #include "shader.hpp"
 #include "terrain.hpp"
-
-#if AFK_USE_POLYMER_CACHE
-#define AFK_CACHE AFK_PolymerCache<AFK_Cell, AFK_LandscapeCell, boost::function<size_t (const AFK_Cell&)> >
-#else
-#define AFK_CACHE AFK_MapCache<AFK_Cell, AFK_LandscapeCell>
-#endif
 
 
 /* TODO This needs to be default when a single threaded system is detected,
@@ -51,6 +44,7 @@
 
 
 class AFK_LandscapeCell;
+class AFK_LandscapeCache;
 
 /* Describes the current state of one cell in the landscape.
  * TODO: Whilst AFK_DisplayedObject is the right abstraction,
@@ -76,7 +70,7 @@ public:
     AFK_DisplayedLandscapeCell(
         const AFK_LandscapeCell& landscapeCell,
         unsigned int pointSubdivisionFactor,
-        AFK_CACHE& cache);
+        AFK_LandscapeCache& cache);
     virtual ~AFK_DisplayedLandscapeCell();
 
     virtual void initGL(void);
@@ -131,17 +125,19 @@ protected:
     AFK_TerrainCell terrain[TERRAIN_CELLS_PER_CELL];
 
     /* Internal terrain computation. */
-    void computeTerrainRec(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_CACHE& cache) const;
+    void computeTerrainRec(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_LandscapeCache& cache) const;
 
 public:
     /* The data for this cell's landscape, if we've
      * calculated it.
      */
-    boost::shared_ptr<AFK_DisplayedLandscapeCell> displayed;
+    AFK_DisplayedLandscapeCell *displayed;
 
-    AFK_LandscapeCell(): hasTerrain(false) {}
-    AFK_LandscapeCell(const AFK_LandscapeCell& c);
-    AFK_LandscapeCell& operator=(const AFK_LandscapeCell& c);
+    AFK_LandscapeCell(): hasTerrain(false), displayed(NULL) {}
+    virtual ~AFK_LandscapeCell() { if (displayed) delete displayed; }
+    //AFK_LandscapeCell(const AFK_LandscapeCell& c);
+    //AFK_LandscapeCell& operator=(const AFK_LandscapeCell& c);
+
 
     const Vec4<float>& getRealCoord(void) const { return realCoord; }
 
@@ -176,10 +172,10 @@ public:
         const Vec3<float> *forcedTint);
 
     /* Computes the total terrain features here. */
-    void computeTerrain(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_CACHE& cache) const;
+    void computeTerrain(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_LandscapeCache& cache) const;
 
     /* Says whether this cell can be evicted from the cache. */
-    bool canBeEvicted(const AFK_Frame& renderingFrame) const;
+    bool canBeEvicted(void) const;
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_LandscapeCell& landscapeCell);
 };
@@ -187,9 +183,46 @@ public:
 std::ostream& operator<<(std::ostream& os, const AFK_LandscapeCell& landscapeCell);
 
 
+
+/* The landscape cache.
+ * I'm no longer supporting the map cache -- I'm confident that
+ * my polymer cache is OK.  Really.  (Nnnnnngggg scared, Mummy!)
+ */
+class AFK_LandscapeCache: public AFK_PolymerCache<AFK_Cell, AFK_LandscapeCell, AFK_HashCell>
+{
+protected:
+    /* The state of the evictor. */
+    size_t targetSize;
+    size_t kickoffSize;
+
+    boost::thread *th;
+    boost::promise<unsigned int> *rp;
+    boost::unique_future<unsigned int> result;
+
+    bool stop;
+
+    /* Stats. */
+    unsigned int entriesEvicted;
+    unsigned int runsSkipped;
+    unsigned int runsOverlapped;
+
+    void evictionWorker(void);
+
+public:
+    AFK_LandscapeCache(size_t _targetSize);
+    virtual ~AFK_LandscapeCache();
+
+    virtual void doEvictionIfNecessary(void);
+    virtual void printStats(std::ostream& os, const std::string& prefix) const;
+};
+
+
 class AFK_Landscape;
 
-/* The parameter for the cell generating worker. */
+/* The parameter for the cell generating worker.
+ * TODO Is it possible to make this thing a member of AFK_Landscape,
+ * like evictionWorker is a member of AFK_LandscapeCache ?
+ */
 struct AFK_LandscapeCellGenParam
 {
     unsigned int recCount;
@@ -220,7 +253,7 @@ public:
 
     /* The cache of landscape cells we're tracking.
      */
-    AFK_CACHE cache;
+    AFK_LandscapeCache cache;
 
     /* The render queue: cells to display next frame.
      * DOES NOT OWN THESE POINTERS.  DO NOT DELETE

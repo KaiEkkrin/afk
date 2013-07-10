@@ -149,7 +149,7 @@ static void vertices2CurvedTriangles(
 AFK_DisplayedLandscapeCell::AFK_DisplayedLandscapeCell(
     const AFK_LandscapeCell& landscapeCell,
     unsigned int pointSubdivisionFactor,
-    AFK_CACHE& cache):
+    AFK_LandscapeCache& cache):
         triangleVs(NULL),
         triangleVsCount(0),
         program(0),
@@ -233,12 +233,8 @@ AFK_DisplayedLandscapeCell::~AFK_DisplayedLandscapeCell()
 {
     delete[] triangleVs;
     
-    /* TODO Cache eviction is going to cause some nasty OpenGL
-     * wrong-thread problem here, isn't it?  Should I enqueue
-     * these into a to-be-deleted queue that's scraped by
-     * the main thread?
-     */
-    if (vertices) glDeleteBuffers(1, &vertices);
+    //if (vertices) glDeleteBuffers(1, &vertices);
+    if (vertices) afk_core.glBuffersForDeletion(&vertices, 1);
 }
 
 void AFK_DisplayedLandscapeCell::initGL(void)
@@ -302,7 +298,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_DisplayedLandscapeCell& dlc
 
 /* AFK_LandscapeCell implementation. */
 
-void AFK_LandscapeCell::computeTerrainRec(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_CACHE& cache) const
+void AFK_LandscapeCell::computeTerrainRec(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_LandscapeCache& cache) const
 {
     /* Co-ordinates arrive in the context of this cell's
      * first terrain element.
@@ -348,6 +344,7 @@ void AFK_LandscapeCell::computeTerrainRec(Vec3<float> *positions, Vec3<float> *c
     }
 }
 
+#if 0
 AFK_LandscapeCell::AFK_LandscapeCell(const AFK_LandscapeCell& c):
     lastSeen (c.lastSeen), cell (c.cell), topLevel (c.topLevel), realCoord (c.realCoord),
     hasTerrain (c.hasTerrain), displayed (c.displayed)
@@ -370,15 +367,16 @@ AFK_LandscapeCell& AFK_LandscapeCell::operator=(const AFK_LandscapeCell& c)
     displayed = c.displayed;
     return *this;
 }
+#endif
 
 bool AFK_LandscapeCell::claim(void)
 {
     boost::thread::id myThreadId = boost::this_thread::get_id();
 
-    if (lastSeen == afk_core.renderingFrame) return false;
+    if (lastSeen == afk_core.computingFrame) return false;
 
     /* Grab it */
-    lastSeen = afk_core.renderingFrame;
+    lastSeen = afk_core.computingFrame;
     claimingThreadId = myThreadId;
     boost::atomic_thread_fence(boost::memory_order_seq_cst); /* Gremlin */
 
@@ -541,7 +539,7 @@ void AFK_LandscapeCell::makeTerrain(
     }
 }
 
-void AFK_LandscapeCell::computeTerrain(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_CACHE& cache) const
+void AFK_LandscapeCell::computeTerrain(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_LandscapeCache& cache) const
 {
     if (terrain)
     {
@@ -565,10 +563,11 @@ void AFK_LandscapeCell::computeTerrain(Vec3<float> *positions, Vec3<float> *colo
     }
 }
 
-bool AFK_LandscapeCell::canBeEvicted(const AFK_Frame& renderingFrame) const
+bool AFK_LandscapeCell::canBeEvicted(void) const
 {
     /* This is a tweakable value ... */
-    return ((renderingFrame - lastSeen) > 30);
+    bool canEvict = ((afk_core.renderingFrame - lastSeen) > 30);
+    return canEvict;
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_LandscapeCell& landscapeCell)
@@ -576,6 +575,110 @@ std::ostream& operator<<(std::ostream& os, const AFK_LandscapeCell& landscapeCel
     /* TODO Something more descriptive might be nice */
     return os << "Landscape cell (last seen " << landscapeCell.lastSeen << ", claimed by " << landscapeCell.claimingThreadId << ")";
 }
+
+
+/* AFK_LandscapeCache implementation */
+
+void AFK_LandscapeCache::evictionWorker()
+{
+    unsigned int entriesEvicted = 0;
+
+    do
+    {
+        /* TODO Does this walk need randomising?  Maybe I should check
+         * for eviction artifacts before I included something complicated
+         * including an RNG
+         */
+        size_t slotCount = polymer.slotCount(); /* don't keep recomputing */
+        for (size_t slot = 0; slot < slotCount; ++slot)
+        {
+            AFK_Monomer<AFK_Cell, AFK_LandscapeCell> *candidate = polymer.atSlot(slot);
+            if (candidate && candidate->value.canBeEvicted())
+            {
+                if (polymer.eraseSlot(slot, candidate))
+                {
+                    /* Double check */
+                    if (candidate->value.canBeEvicted())
+                    {
+                        delete candidate;
+                        ++entriesEvicted;
+                    }
+                    else
+                    {
+                        /* Uh oh.  Quick, put it back. */
+                        polymer.reinsertSlot(slot, candidate);
+                    }
+                }
+            }
+        }
+    } while (!stop && polymer.size() > targetSize);
+
+    rp->set_value(entriesEvicted);
+}
+
+AFK_LandscapeCache::AFK_LandscapeCache(size_t _targetSize):
+    AFK_PolymerCache<AFK_Cell, AFK_LandscapeCell, AFK_HashCell>(AFK_HashCell()),
+    targetSize(_targetSize),
+    kickoffSize(_targetSize + _targetSize / 4),
+    th(NULL), rp(NULL), stop(false),
+    entriesEvicted(0), runsSkipped(0), runsOverlapped(0)
+{
+}
+
+AFK_LandscapeCache::~AFK_LandscapeCache()
+{
+    if (th)
+    {
+        stop = true;
+        th->join();
+        delete th;
+    }
+
+    if (rp) delete rp;
+}
+
+void AFK_LandscapeCache::doEvictionIfNecessary()
+{
+    /* Check whether any current eviction task has finished */
+    if (th && rp)
+    {
+        if (result.is_ready())
+        {
+            entriesEvicted += result.get();
+            th->join();
+            delete th; th = NULL;
+            delete rp; rp = NULL;
+        }
+    }
+
+    if (th)
+    {
+        ++runsOverlapped;
+    }
+    else
+    {
+        if (polymer.size() > kickoffSize)
+        {
+            /* Kick off a new eviction task */
+            rp = new boost::promise<unsigned int>();
+            th = new boost::thread(&AFK_LandscapeCache::evictionWorker, this);
+            result = rp->get_future();
+        }
+        else
+        {
+            ++runsSkipped;
+        }
+    }
+}
+
+void AFK_LandscapeCache::printStats(std::ostream& os, const std::string& prefix) const
+{
+    AFK_PolymerCache<AFK_Cell, AFK_LandscapeCell, AFK_HashCell>::printStats(os, prefix);
+    /* TODO An eviction rate would be much more interesting */
+    os << prefix << ": Evicted " << entriesEvicted << " entries" << std::endl;
+    os << prefix << ": " << runsOverlapped << " runs overlapped, " << runsSkipped << " runs skipped" << std::endl;
+}
+
 
 
 /* The cell generating worker */
@@ -595,11 +698,6 @@ bool afk_generateLandscapeCells(
     const AFK_Camera *camera            = param.camera;
     bool entirelyVisible                = param.entirelyVisible; 
 
-    /* Find out if we've already processed this cell this frame.
-     * TODO: I need to change this so that instead of using
-     * `renderingFrame', it uses a `computingFrame tracking
-     * one step behind, and so on
-     */
     AFK_LandscapeCell& landscapeCell = landscape->cache[cell];
     if (!landscapeCell.claim()) return true;
     landscapeCell.bind(cell, topLevel, landscape->minCellSize);
@@ -665,11 +763,10 @@ bool afk_generateLandscapeCells(
                  */
                 if (!landscapeCell.displayed)
                 {
-                    boost::shared_ptr<AFK_DisplayedLandscapeCell> newD(new AFK_DisplayedLandscapeCell(
+                    landscapeCell.displayed = new AFK_DisplayedLandscapeCell(
                         landscapeCell,
                         landscape->pointSubdivisionFactor,
-                        landscape->cache));
-                    landscapeCell.displayed = newD;
+                        landscape->cache);
                     landscape->cellsGenerated.fetch_add(1);
                 }
                 else
@@ -678,8 +775,7 @@ bool afk_generateLandscapeCells(
                 }
         
                 /* Now, push it into the queue as well */
-                AFK_DisplayedLandscapeCell *dptr = landscapeCell.displayed.get();
-                landscape->renderQueue.update_push(dptr);
+                landscape->renderQueue.update_push(landscapeCell.displayed);
                 landscape->cellsQueued.fetch_add(1);
             }
             else
@@ -736,30 +832,13 @@ bool afk_generateLandscapeCells(
 }
 
 
-#if AFK_USE_POLYMER_CACHE
-/* This worker function says whether a cache entry can
- * be evicted.
- */
-bool afk_canEvictLandscapeCell(const AFK_LandscapeCell& cell)
-{
-    /* TODO Change this to pass the currently computing frame
-     * too, which might be delayed?
-     */
-    //return cell.canBeEvicted(afk_core.renderingFrame);
-    return false;
-}
-#endif
-
 /* AFK_Landscape implementation */
 
 AFK_Landscape::AFK_Landscape(
     float _maxDistance,
     unsigned int _subdivisionFactor,
     unsigned int _detailPitch):
-#if AFK_USE_POLYMER_CACHE
-        cache(AFK_HashCell(), 100000 /* TODO make based on system/GPU memory */,
-            boost::function<bool (const AFK_LandscapeCell&)>(afk_canEvictLandscapeCell)),
-#endif
+        cache(10000 /* target cache size.  TODO make based on system/GPU memory */),
         renderQueue(10000), /* TODO make a better guess */
         genGang(
             boost::function<bool (const struct AFK_LandscapeCellGenParam,
@@ -866,10 +945,8 @@ void AFK_Landscape::flipRenderQueues(void)
 
 boost::unique_future<bool> AFK_Landscape::updateLandMap(void)
 {
-#if AFK_USE_POLYMER_CACHE
     /* Maintenance. */
     cache.doEvictionIfNecessary();
-#endif
 
     /* First, transform the protagonist location and its facing
      * into integer cell-space.

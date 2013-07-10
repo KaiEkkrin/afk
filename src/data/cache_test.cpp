@@ -113,8 +113,7 @@ void test_cache(void)
 
     /* Now let's try it again with the polymer cache */
     boost::function<size_t (const int&)> hashFunc = expensivelyHashInt();
-    AFK_PolymerCache<int, IntStartingAtZero, boost::function<size_t (const int&)> > polymerCache(
-        hashFunc, 1000000, boost::function<bool (const IntStartingAtZero&)>(testCache_canEvict));
+    AFK_PolymerCache<int, IntStartingAtZero, boost::function<size_t (const int&)> > polymerCache(hashFunc);
 
     for (unsigned int i = 0; i < CACHE_TEST_THREAD_COUNT; ++i)
     {

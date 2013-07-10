@@ -15,7 +15,6 @@
 #include <GL/freeglut.h>
 
 /* Global compile-time settings */
-#define AFK_USE_POLYMER_CACHE 1
 
 #endif /* _AFK_AFK_H_ */
 

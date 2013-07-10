@@ -247,12 +247,24 @@ public:
         }
         else
         {
-            if (chain[slot].compare_exchange_weak(monomer, NULL))
-            {
-                delete monomer;
-                return true;
-            }
-            else return false;
+            return chain[slot].compare_exchange_weak(monomer, NULL);
+        }
+    }
+
+    bool reinsertSlot(size_t slot, AFK_Monomer<KeyType, ValueType> *monomer)
+    {
+        if (slot & ~HASH_MASK)
+        {
+            AFK_PolymerChain<KeyType, ValueType> *next = nextChain.load();
+            if (next)
+                return next->reinsertSlot(slot - CHAIN_SIZE, monomer);
+            else
+                return false;
+        }
+        else
+        {
+            AFK_Monomer<KeyType, ValueType> *expected = NULL;
+            return chain[slot].compare_exchange_weak(expected, monomer);
         }
     }
 };
@@ -294,6 +306,67 @@ protected:
             new AFK_PolymerChain<KeyType, ValueType>(hashBits);
         chains->extend(newChain, 0);
         return newChain;
+    }
+
+    /* Inserts a newly allocated monomer, creating a new chain
+     * if necessary.
+     */
+    void insertMonomer(AFK_Monomer<KeyType, ValueType> *monomer, size_t hash)
+    {
+        bool inserted = false;
+        AFK_PolymerChain<KeyType, ValueType> *startChain = chains;
+
+        while (!inserted)
+        {
+            for (unsigned int hops = 0; hops < targetContention && !inserted; ++hops)
+            {
+                for (AFK_PolymerChain<KeyType, ValueType> *chain = startChain;
+                    chain != NULL && !inserted; chain = chain->next())
+                {
+                    inserted = chain->insert(hops, hash, monomer);
+
+                    if (inserted)
+                    {
+                        stats.insertedOne(hops);
+#if DREADFUL_POLYMER_DEBUG
+                        {
+                            boost::unique_lock<boost::mutex> lock(dpdMut);
+                            std::cout << boost::this_thread::get_id() << ": ADDED ";
+                            std::cout << monomer << "(key " << monomer->key << ") -> (ch " << chain->getIndex() << ", hops " << hops << ")" << std::endl;
+                        }
+#endif
+                    }
+                    else
+                    {
+#if DREADFUL_POLYMER_DEBUG
+                        {
+                            boost::unique_lock<boost::mutex> lock(dpdMut);
+                            AFK_Monomer<KeyType, ValueType> *conflictMonomer = chain->at(hops, hash);
+                            std::cout << boost::this_thread::get_id() << ": CONFLICTED ";
+                            std::cout << key << " (ch " << chain->getIndex() << ", hops " << hops << ") -> " << conflictMonomer;
+                            if (conflictMonomer) std::cout << " (key " << conflictMonomer->key << ")";
+                            std::cout << std::endl;
+                        }
+#endif
+                    }
+                }
+            }
+
+            if (!inserted)
+            {
+                /* Add a new chain for it */
+                startChain = addChain();
+                //stats.getContentionAndReset();
+
+#if DREADFUL_POLYMER_DEBUG
+                {
+                    boost::unique_lock<boost::mutex> lock(dpdMut);
+                    std::cout << boost::this_thread::get_id() << ": EXTENDED ";
+                    std::cout << startChain->getIndex() << std::endl;
+                }
+#endif
+            }
+        }
     }
 
 public:
@@ -355,63 +428,8 @@ public:
         if (monomer == NULL)
         {
             /* Make a new one. */
-            AFK_Monomer<KeyType, ValueType> *newMonomer = new AFK_Monomer<KeyType, ValueType>(key);
-            bool inserted = false;
-            AFK_PolymerChain<KeyType, ValueType> *startChain = chains;
-
-            while (!inserted)
-            {
-                for (unsigned int hops = 0; hops < targetContention && !inserted; ++hops)
-                {
-                    for (AFK_PolymerChain<KeyType, ValueType> *chain = startChain;
-                        chain != NULL && !inserted; chain = chain->next())
-                    {
-                        inserted = chain->insert(hops, hash, newMonomer);
-
-                        if (inserted)
-                        {
-                            stats.insertedOne(hops);
-#if DREADFUL_POLYMER_DEBUG
-                            {
-                                boost::unique_lock<boost::mutex> lock(dpdMut);
-                                std::cout << boost::this_thread::get_id() << ": ADDED ";
-                                std::cout << newMonomer << "(key " << newMonomer->key << ") -> (ch " << chain->getIndex() << ", hops " << hops << ")" << std::endl;
-                            }
-#endif
-                        }
-                        else
-                        {
-#if DREADFUL_POLYMER_DEBUG
-                            {
-                                boost::unique_lock<boost::mutex> lock(dpdMut);
-                                AFK_Monomer<KeyType, ValueType> *conflictMonomer = chain->at(hops, hash);
-                                std::cout << boost::this_thread::get_id() << ": CONFLICTED ";
-                                std::cout << key << " (ch " << chain->getIndex() << ", hops " << hops << ") -> " << conflictMonomer;
-                                if (conflictMonomer) std::cout << " (key " << conflictMonomer->key << ")";
-                                std::cout << std::endl;
-                            }
-#endif
-                        }
-                    }
-                }
-
-                if (!inserted)
-                {
-                    /* Add a new chain for it */
-                    startChain = addChain();
-                    //stats.getContentionAndReset();
-
-#if DREADFUL_POLYMER_DEBUG
-                    {
-                        boost::unique_lock<boost::mutex> lock(dpdMut);
-                        std::cout << boost::this_thread::get_id() << ": EXTENDED ";
-                        std::cout << startChain->getIndex() << std::endl;
-                    }
-#endif
-                }
-            }
-
-            monomer = newMonomer;
+            monomer = new AFK_Monomer<KeyType, ValueType>(key);
+            insertMonomer(monomer, hash);
         }
 
         return monomer->value;
@@ -459,15 +477,28 @@ public:
     /* Removes from a slot so long as it contains the monomer specified
      * (previously retrieved with atSlot() ).  Returns true if it
      * removed something, else false.
-     * Because the memory is managed by the polymer itself, this
-     * function call also causes `monomer' to have been freed if it
-     * returns true.
+     * This function does *not* free the monomer, giving the caller
+     * the chance to change its mind.  If the caller chooses not to
+     * change its mind, it should delete the monomer itself.
      */
     bool eraseSlot(size_t slot, AFK_Monomer<KeyType, ValueType> *monomer)
     {
         bool success = chains->eraseSlot(slot, monomer);
         if (success) stats.erasedOne();
         return success;
+    }
+
+    /* Tries to put back something I just pulled out with eraseSlot, in case I
+     * got it wrong.
+     */
+    void reinsertSlot(size_t slot, AFK_Monomer<KeyType, ValueType> *monomer)
+    {
+        bool success = chains->reinsertSlot(slot, monomer);
+        if (success)
+            stats.insertedOne(0);
+        else
+            /* Uh oh.  I'll find a new place for it */
+            insertMonomer(monomer, wring(hasher(monomer->key)));
     }
 
     void printStats(std::ostream& os, const std::string& prefix) const
