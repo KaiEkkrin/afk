@@ -566,7 +566,7 @@ void AFK_LandscapeCell::computeTerrain(Vec3<float> *positions, Vec3<float> *colo
 bool AFK_LandscapeCell::canBeEvicted(void) const
 {
     /* This is a tweakable value ... */
-    bool canEvict = ((afk_core.renderingFrame - lastSeen) > 30);
+    bool canEvict = ((afk_core.renderingFrame - lastSeen) > 10);
     return canEvict;
 }
 
@@ -677,6 +677,11 @@ void AFK_LandscapeCache::printStats(std::ostream& os, const std::string& prefix)
     /* TODO An eviction rate would be much more interesting */
     os << prefix << ": Evicted " << entriesEvicted << " entries" << std::endl;
     os << prefix << ": " << runsOverlapped << " runs overlapped, " << runsSkipped << " runs skipped" << std::endl;
+}
+
+bool AFK_LandscapeCache::withinTargetSize(void) const
+{
+    return size() < targetSize;
 }
 
 
@@ -838,9 +843,11 @@ AFK_Landscape::AFK_Landscape(
     float _maxDistance,
     unsigned int _subdivisionFactor,
     unsigned int _pointSubdivisionFactor):
-        detailPitch(8192.0f), /* This is a starting point */
-        cache(10000 /* target cache size.  TODO make based on system/GPU memory */),
-        renderQueue(10000), /* TODO make a better guess */
+        detailPitch(1024.0f), /* This is a starting point */
+        cache(40000 /* target cache size.  TODO make based on system/GPU memory 
+                     * Observation: 20000 uses about 7% memory on guinevere?
+                     * 22 hashbits are good for 20000, 23 for 40000? */),
+        renderQueue(100), /* TODO make a better guess */
         genGang(
             boost::function<bool (const struct AFK_LandscapeCellGenParam,
                 ASYNC_QUEUE_TYPE(struct AFK_LandscapeCellGenParam)&)>(afk_generateLandscapeCells),
@@ -856,7 +863,8 @@ AFK_Landscape::AFK_Landscape(
         recursionsPerTask(1), /* This seems to do better than higher numbers */
         maxDistance(_maxDistance),
         subdivisionFactor(_subdivisionFactor),
-        pointSubdivisionFactor(_pointSubdivisionFactor)
+        pointSubdivisionFactor(_pointSubdivisionFactor),
+        minCellSize(1.0f) /* TODO That's silly small (although works).  In future increase pointSubdivisionFactor and use smaller minCellSize, I suspect.  But for now, it looks great.  */
 {
     /* Set up the landscape shader. */
     shaderProgram = new AFK_ShaderProgram();
@@ -865,39 +873,6 @@ AFK_Landscape::AFK_Landscape(
 
     worldTransformLocation = glGetUniformLocation(shaderProgram->program, "WorldTransform");
     clipTransformLocation = glGetUniformLocation(shaderProgram->program, "ClipTransform");
-
-    /* TODO The below is a bit of a disaster.  `minCellSize' is
-     * a fixed result derived from the starting value of a
-     * variable one (`detailPitch').  I should instead pick a
-     * sensible value for it, small enough to encompass any
-     * level of detail that might get chosen.
-     */
-
-    /* Guess at the minimum point separation.
-     * Explanation on a piece of paper I'll lose quickly
-     * TODO: This changes with window dimensions.  Move
-     * this calculation elsewhere so that it can be
-     * changed as we go too :/
-     */
-    float tanHalfFov = tanf((afk_core.config->fov / 2.0f) * M_PI / 180.0f);
-    float minPointSeparation = (detailPitch * afk_core.config->zNear * tanHalfFov) / (float)glutGet(GLUT_WINDOW_HEIGHT);
-
-    /* The target minimum cell size is that multiplied by
-     * the point subdivision factor.
-     */
-    float targetMinCellSize = minPointSeparation * pointSubdivisionFactor;
-
-    /* Now, start with the obvious max cell size and subdivide
-     * until I've got a minimum cell size that roughly matches
-     * the intended detail pitch.
-     */
-    maxSubdivisions = 1;
-
-    for (minCellSize = maxDistance; minCellSize > targetMinCellSize; minCellSize = minCellSize / subdivisionFactor)
-        ++maxSubdivisions;
-
-    /* TODO Make debug optional :P */
-    std::cout << "AFK: Landscape using minCellSize " << minCellSize << std::endl;
 
     /* Initialise the statistics. */
     cellsEmpty.store(0);
@@ -948,20 +923,17 @@ void AFK_Landscape::flipRenderQueues(void)
     renderQueue.flipQueues();
 }
 
-void AFK_Landscape::increaseDetail(void)
+void AFK_Landscape::alterDetail(float adjustment)
 {
-    detailPitch = detailPitch / 1.1f;
+    /* TODO Better way of stopping afk from hogging the entirety
+     * of system memory?
+     * :(
+     */
+    float adj = std::max(std::min(adjustment, 2.0f), 0.5f);
 
-    /* TODO remove debug */
-    std::cout << "Increased detail pitch to " << std::dec << detailPitch << std::endl;
-}
-
-void AFK_Landscape::decreaseDetail(void)
-{
-    detailPitch = detailPitch * 1.1f;
-
-    /* TODO remove debug */
-    std::cout << "Decreased detail pitch to " << std::dec << detailPitch << std::endl;
+    if (adj > 1.0f || cache.withinTargetSize())
+        //detailPitch = std::min((double)detailPitch * adjustment, 128.0d);
+        detailPitch = detailPitch * adjustment;
 }
 
 boost::unique_future<bool> AFK_Landscape::updateLandMap(void)
@@ -1056,6 +1028,7 @@ static float toRatePerSecond(unsigned long long quantity, boost::posix_time::tim
 
 void AFK_Landscape::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint)
 {
+    std::cout << "Detail pitch:             " << detailPitch << std::endl;
     std::cout << "Cells found empty:        " << toRatePerSecond(cellsEmpty.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
     std::cout << "Cells found invisible:    " << toRatePerSecond(cellsInvisible.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
     std::cout << "Cells queued:             " << toRatePerSecond(cellsQueued.load(), timeSinceLastCheckpoint) << "/second (" << (100 * cellsCached.load() / cellsQueued.load()) << "\% cached)" << std::endl;

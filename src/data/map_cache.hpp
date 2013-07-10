@@ -23,6 +23,11 @@ public:
     AFK_MapCache() {}
     virtual ~AFK_MapCache() {}
 
+    virtual size_t size() const
+    {
+        return map.size();
+    }
+
     virtual Value& operator[](const Key& key)
     {
         boost::unique_lock<boost::mutex> lock(mut);

@@ -12,7 +12,7 @@
 #include "cache.hpp"
 #include "polymer.hpp"
 
-#define AFK_POLYMER_HASHBITS 22
+#define AFK_POLYMER_HASHBITS 23
 #define AFK_POLYMER_CONTENTION 4
 
 
@@ -32,6 +32,11 @@ public:
     AFK_PolymerCache(Hasher hasher):
         polymer(AFK_POLYMER_HASHBITS, AFK_POLYMER_CONTENTION, hasher)
     {
+    }
+
+    virtual size_t size() const
+    {
+        return polymer.size();
     }
 
     virtual Value& operator[](const Key& key)

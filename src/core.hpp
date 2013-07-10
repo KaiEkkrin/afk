@@ -35,10 +35,15 @@ protected:
      */
     boost::unique_future<bool> computingUpdate;
     bool computingUpdateDelayed;
-    unsigned int delaysSinceLastCalibration;
     unsigned int delaysSinceLastCheckpoint;
 
     boost::posix_time::ptime lastCalibration;
+
+    /* The calibration error is the number of microseconds away
+     * I was from filling all the frame time with calculation.
+     * Negative means I finished early, positive means late.
+     */
+    int calibrationError;
 
     /* This stuff is for the OpenGL buffer cleanup, glBuffersForDeletion()
      * etc.

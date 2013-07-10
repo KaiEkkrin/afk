@@ -2,6 +2,8 @@
 
 #include "afk.hpp"
 
+#include <cmath>
+
 #include <boost/thread/future.hpp>
 
 #include "computer.hpp"
@@ -18,9 +20,9 @@
  * Oh God, I've got fixed bits of configuration *everywhere* now :(
  */
 #define EXPECTED_FRAME_TIME_MICROS 15500
-#define CALIBRATION_INTERVAL_MICROS (EXPECTED_FRAME_TIME_MICROS * 16)
-#define SKIPPED_FRAME_TOLERANCE 4.0f /* okay to skip one frame in this many before reducing LoD */
-#define FRAMES_PER_CALIBRATION_INTERVAL ((float)CALIBRATION_INTERVAL_MICROS / (float)EXPECTED_FRAME_TIME_MICROS)
+#define CALIBRATION_INTERVAL_MICROS (EXPECTED_FRAME_TIME_MICROS * 8)
+#define NEGATIVE_DETAIL_NUDGE 0.02f /* Tries to make the engine push the system a bit harder */
+#define POSITIVE_DETAIL_NUDGE 0.05f /* Controls how quickly the engine tries to "pull back" */
 
 /* Static, context-less functions needed to drive GLUT, etc. */
 void afk_idle(void)
@@ -35,13 +37,16 @@ void afk_idle(void)
     boost::posix_time::time_duration sinceLastCalibration = startOfFrameTime - afk_core.lastCalibration;
     if (sinceLastCalibration.total_microseconds() > CALIBRATION_INTERVAL_MICROS)
     {
-        if (afk_core.delaysSinceLastCalibration == 0)
-            afk_core.landscape->increaseDetail();
-        else if ((FRAMES_PER_CALIBRATION_INTERVAL / afk_core.delaysSinceLastCalibration) < SKIPPED_FRAME_TOLERANCE)
-            afk_core.landscape->decreaseDetail();
+        /* Work out an error factor, and apply it to the LoD */
+        float normalisedError = (float)afk_core.calibrationError / CALIBRATION_INTERVAL_MICROS; /* between -1 and 1? */
+        float detailFactor = -(1.0f / (normalisedError / 2.0f - 1.0f)); /* between 0.5 and 2? */
+        if (detailFactor < 1.0f) detailFactor -= NEGATIVE_DETAIL_NUDGE;
+        else detailFactor += POSITIVE_DETAIL_NUDGE;
+        //std::cout << "calibration error " << std::dec << afk_core.calibrationError << ": applying detail factor " << detailFactor << std::endl;
+        afk_core.landscape->alterDetail(detailFactor);
 
         afk_core.lastCalibration = startOfFrameTime;
-        afk_core.delaysSinceLastCalibration = 0;
+        afk_core.calibrationError = 0;
     }
 
     if (!afk_core.computingUpdateDelayed)
@@ -114,26 +119,42 @@ void afk_idle(void)
      */
     boost::posix_time::ptime waitTime = boost::posix_time::microsec_clock::local_time();
     int frameTimeLeft = EXPECTED_FRAME_TIME_MICROS - (waitTime - startOfFrameTime).total_microseconds();
-    boost::this_thread::sleep_for(boost::chrono::microseconds(frameTimeLeft));
-    if (afk_core.computingUpdate.is_ready())
+    boost::chrono::microseconds chFrameTimeLeft(frameTimeLeft);
+    boost::future_status status = afk_core.computingUpdate.wait_for(chFrameTimeLeft);
+
+    switch (status)
     {
-        /* Great.  Flip the buffers and bump the computing frame */
-        glutSwapBuffers();
-        afk_core.landscape->flipRenderQueues();
-        afk_core.computingUpdateDelayed = false;
-        afk_core.computingFrame = afk_core.renderingFrame;
-        afk_core.renderingFrame.increment();
-    }
-    else
-    {
-        /* We were too slow.
-         * TODO: This is the place where I should add logic that
-         * considers adjusting the detail pitch in order to keep 
-         * up.
-         */
-        afk_core.computingUpdateDelayed = true;
-        ++afk_core.delaysSinceLastCheckpoint;
-        ++afk_core.delaysSinceLastCalibration;
+    case boost::future_status::ready:
+        {
+            /* Work out how much time there is left on the clock */
+            boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
+            int timeLeftAfterFinish = (now - waitTime).total_microseconds();
+            afk_core.calibrationError -= timeLeftAfterFinish;
+
+            /* Flip the buffers and bump the computing frame */
+            glutSwapBuffers();
+            afk_core.landscape->flipRenderQueues();
+            afk_core.computingUpdateDelayed = false;
+            afk_core.computingFrame = afk_core.renderingFrame;
+            afk_core.renderingFrame.increment();
+            
+            break;
+        }
+
+    case boost::future_status::timeout:
+        {
+            /* Add the required amount of time to the calibration error */
+            afk_core.calibrationError += frameTimeLeft;
+
+            /* Flag this update as delayed. */
+            afk_core.computingUpdateDelayed = true;
+            ++afk_core.delaysSinceLastCheckpoint;
+
+            break;
+        }
+
+    default:
+        throw AFK_Exception("Unexpected future_status received");
     }
 }
 
@@ -154,8 +175,8 @@ void AFK_Core::deleteGlGarbageBufs(void)
 
 AFK_Core::AFK_Core():
     computingUpdateDelayed(false),
-    delaysSinceLastCalibration(0),
     delaysSinceLastCheckpoint(0),
+    calibrationError(0),
     glGarbageBufs(1000),
     config(NULL),
     computer(NULL),

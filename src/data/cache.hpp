@@ -21,6 +21,9 @@ public:
     AFK_Cache() {}
     virtual ~AFK_Cache() {}
 
+    /* Returns the number of elements in the cache. */
+    virtual size_t size() const = 0;
+
     /* Returns the value at this key, or inserts a new one and
      * returns that if there wasn't one.
      */

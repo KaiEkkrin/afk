@@ -214,6 +214,8 @@ public:
 
     virtual void doEvictionIfNecessary(void);
     virtual void printStats(std::ostream& os, const std::string& prefix) const;
+
+    bool withinTargetSize(void) const;
 };
 
 
@@ -261,20 +263,6 @@ protected:
      * maximum number of subdivisions?  I bet I can.
      */
     float detailPitch;
-
-    /* The maximum number of subdivisions each cell can undergo.
-     * An important result, because maximally subdivided cells
-     * are separated by 1 in AFK_Cell coords. (see class
-     * definition above.)
-     */
-    unsigned int maxSubdivisions;
-
-    /* The size of the smallest cell.  This is an important
-     * result, because it's the amount I multiply the integer
-     * cell co-ordinates by to get the float world
-     * co-ordinates.
-     */
-    float minCellSize;
 
     /* Gather statistics.  (Useful.)
      */
@@ -337,6 +325,9 @@ public:
      */
     const unsigned int pointSubdivisionFactor;
 
+    /* The size of the smallest cell. */
+    const float minCellSize;
+
 
     AFK_Landscape(
         float _maxDistance, 
@@ -357,11 +348,14 @@ public:
     /* Call when we're about to start a new frame. */
     void flipRenderQueues(void);
 
-    /* These two functions increase and decrease the level of detail,
-     * then update the detail settings.
+    /* For changing the level of detail.  Values >1 decrease
+     * it.  Values <1 increase it.
+     * I'm not entirely sure what the correlation between the
+     * detail pitch and the amount of processing power required
+     * is, but I expect it's in the neighbourhood of
+     * (1 / detailPitch ** 2) ...
      */
-    void increaseDetail(void);
-    void decreaseDetail(void);
+    void alterDetail(float adjustment);
 
     /* This function drives the cell generating worker to
      * update the landscape cache and enqueue visible
