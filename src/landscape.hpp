@@ -157,7 +157,7 @@ public:
     /* Tests whether this cell is within the specified detail pitch
      * when viewed from the specified location.
      */
-    bool testDetailPitch(unsigned int detailPitch, const AFK_Camera& camera, const Vec3<float>& viewerLocation) const;
+    bool testDetailPitch(float detailPitch, const AFK_Camera& camera, const Vec3<float>& viewerLocation) const;
 
     /* Tests whether none, some or all of this cell's vertices are
      * visible when projected with the supplied camera.
@@ -245,7 +245,50 @@ bool afk_generateLandscapeCells(
  */
 class AFK_Landscape
 {
+protected:
+    /* These derived results are things I want to be carefully
+     * managed now that I'm trying to adjust the LOD on the fly.
+     */
+
+    /* The maximum number of pixels each detail point on the
+     * landscape should occupy on screen.  Determines when
+     * to split a cell into smaller ones.
+     * (I'm expecting to have to number-crunch a lot with this
+     * value to get the right number to pass to the points
+     * generator, but hopefully I'll only have to do that
+     * once per landscape cell)
+     * TODO: Can I use this and zNear to calculate the
+     * maximum number of subdivisions?  I bet I can.
+     */
+    float detailPitch;
+
+    /* The maximum number of subdivisions each cell can undergo.
+     * An important result, because maximally subdivided cells
+     * are separated by 1 in AFK_Cell coords. (see class
+     * definition above.)
+     */
+    unsigned int maxSubdivisions;
+
+    /* The size of the smallest cell.  This is an important
+     * result, because it's the amount I multiply the integer
+     * cell co-ordinates by to get the float world
+     * co-ordinates.
+     */
+    float minCellSize;
+
+    /* Gather statistics.  (Useful.)
+     */
+    boost::atomic<unsigned long long> cellsEmpty;
+    boost::atomic<unsigned long long> cellsInvisible;
+    boost::atomic<unsigned long long> cellsQueued;
+    boost::atomic<unsigned long long> cellsCached;
+    boost::atomic<unsigned long long> cellsGenerated;
+
 public:
+    /* TODO Try to go around protecting these things.  Having it all
+     * public is a bad plan.
+     */
+
     /* Landscape shader details. */
     AFK_ShaderProgram *shaderProgram;
     GLuint worldTransformLocation;
@@ -276,7 +319,7 @@ public:
     /* The distance to the furthest landscape cell to consider.
      * (You may want to use zFar, or maybe not.)
      */
-    float maxDistance;
+    const float maxDistance;
 
     /* The size of the biggest cell (across one dimension) shall
      * be equal to maxDistance; this is also the furthest-
@@ -285,57 +328,20 @@ public:
      * thus each cell gets split into this number cubed more
      * detailed cells
      */
-    unsigned int subdivisionFactor;
-
-    /* The maximum number of pixels each detail point on the
-     * landscape should occupy on screen.  Determines when
-     * to split a cell into smaller ones.
-     * (I'm expecting to have to number-crunch a lot with this
-     * value to get the right number to pass to the points
-     * generator, but hopefully I'll only have to do that
-     * once per landscape cell)
-     * TODO: Can I use this and zNear to calculate the
-     * maximum number of subdivisions?  I bet I can.
-     */
-    unsigned int detailPitch;
-
-    /* The landscape starting height. */
-    float baseHeight;
-
-    /* The maximum number of subdivisions each cell can undergo.
-     * An important result, because maximally subdivided cells
-     * are separated by 1 in AFK_Cell coords. (see class
-     * definition above.)
-     */
-    unsigned int maxSubdivisions;
+    const unsigned int subdivisionFactor;
 
     /* The number of rendered points each cell edge is
      * subdivided into.
      * With cubic cells, (pointSubdivisionFactor**2) is the
      * number of points per cell.
      */
-    unsigned int pointSubdivisionFactor;
-
-    /* The size of the smallest cell.  This is an important
-     * result, because it's the amount I multiply the integer
-     * cell co-ordinates by to get the float world
-     * co-ordinates.
-     */
-    float minCellSize;
-
-    /* Gather statistics.  (Useful.)
-     */
-    boost::atomic<unsigned long long> cellsEmpty;
-    boost::atomic<unsigned long long> cellsInvisible;
-    boost::atomic<unsigned long long> cellsQueued;
-    boost::atomic<unsigned long long> cellsCached;
-    boost::atomic<unsigned long long> cellsGenerated;
+    const unsigned int pointSubdivisionFactor;
 
 
     AFK_Landscape(
         float _maxDistance, 
         unsigned int _subdivisionFactor, 
-        unsigned int _detailPitch);
+        unsigned int _pointSubdivisionFactor);
     virtual ~AFK_Landscape();
 
     /* Helper for the above -- requests a particular cell
@@ -351,6 +357,12 @@ public:
     /* Call when we're about to start a new frame. */
     void flipRenderQueues(void);
 
+    /* These two functions increase and decrease the level of detail,
+     * then update the detail settings.
+     */
+    void increaseDetail(void);
+    void decreaseDetail(void);
+
     /* This function drives the cell generating worker to
      * update the landscape cache and enqueue visible
      * cells.  Returns a future that becomes available
@@ -365,6 +377,10 @@ public:
 
     /* Takes a landscape checkpoint. */
     void checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint);
+
+    friend bool afk_generateLandscapeCells(
+        struct AFK_LandscapeCellGenParam param,
+        ASYNC_QUEUE_TYPE(struct AFK_LandscapeCellGenParam)& queue);
 };
 
 #endif /* _AFK_LANDSCAPE_H_ */

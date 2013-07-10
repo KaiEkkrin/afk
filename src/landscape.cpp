@@ -397,7 +397,7 @@ void AFK_LandscapeCell::bind(const AFK_Cell& _cell, bool _topLevel, float _world
 }
 
 bool AFK_LandscapeCell::testDetailPitch(
-    unsigned int detailPitch,
+    float detailPitch,
     const AFK_Camera& camera,
     const Vec3<float>& viewerLocation) const
 {
@@ -424,7 +424,7 @@ bool AFK_LandscapeCell::testDetailPitch(
     float cellDetailPitch = camera.windowHeight * realCoord.v[3] /
         (camera.tanHalfFov * distanceToViewer);
     
-    return cellDetailPitch < (float)detailPitch;
+    return cellDetailPitch < detailPitch;
 }
 
 /* Helper for the below. */
@@ -837,7 +837,8 @@ bool afk_generateLandscapeCells(
 AFK_Landscape::AFK_Landscape(
     float _maxDistance,
     unsigned int _subdivisionFactor,
-    unsigned int _detailPitch):
+    unsigned int _pointSubdivisionFactor):
+        detailPitch(8192.0f), /* This is a starting point */
         cache(10000 /* target cache size.  TODO make based on system/GPU memory */),
         renderQueue(10000), /* TODO make a better guess */
         genGang(
@@ -852,12 +853,11 @@ AFK_Landscape::AFK_Landscape(
          * there appears to be zero benefit.  However, I can't figure
          * out how to identify this.
          */
-        recursionsPerTask(1) /* This seems to do better than higher numbers */
+        recursionsPerTask(1), /* This seems to do better than higher numbers */
+        maxDistance(_maxDistance),
+        subdivisionFactor(_subdivisionFactor),
+        pointSubdivisionFactor(_pointSubdivisionFactor)
 {
-    maxDistance         = _maxDistance;
-    subdivisionFactor   = _subdivisionFactor;
-    detailPitch         = _detailPitch;
-
     /* Set up the landscape shader. */
     shaderProgram = new AFK_ShaderProgram();
     *shaderProgram << "vcol_phong_fragment" << "vcol_phong_vertex";
@@ -866,8 +866,12 @@ AFK_Landscape::AFK_Landscape(
     worldTransformLocation = glGetUniformLocation(shaderProgram->program, "WorldTransform");
     clipTransformLocation = glGetUniformLocation(shaderProgram->program, "ClipTransform");
 
-    /* TODO Make this a parameter. */
-    pointSubdivisionFactor = 8;
+    /* TODO The below is a bit of a disaster.  `minCellSize' is
+     * a fixed result derived from the starting value of a
+     * variable one (`detailPitch').  I should instead pick a
+     * sensible value for it, small enough to encompass any
+     * level of detail that might get chosen.
+     */
 
     /* Guess at the minimum point separation.
      * Explanation on a piece of paper I'll lose quickly
@@ -876,7 +880,7 @@ AFK_Landscape::AFK_Landscape(
      * changed as we go too :/
      */
     float tanHalfFov = tanf((afk_core.config->fov / 2.0f) * M_PI / 180.0f);
-    float minPointSeparation = ((float)_detailPitch * afk_core.config->zNear * tanHalfFov) / (float)glutGet(GLUT_WINDOW_HEIGHT);
+    float minPointSeparation = (detailPitch * afk_core.config->zNear * tanHalfFov) / (float)glutGet(GLUT_WINDOW_HEIGHT);
 
     /* The target minimum cell size is that multiplied by
      * the point subdivision factor.
@@ -892,6 +896,7 @@ AFK_Landscape::AFK_Landscape(
     for (minCellSize = maxDistance; minCellSize > targetMinCellSize; minCellSize = minCellSize / subdivisionFactor)
         ++maxSubdivisions;
 
+    /* TODO Make debug optional :P */
     std::cout << "AFK: Landscape using minCellSize " << minCellSize << std::endl;
 
     /* Initialise the statistics. */
@@ -941,6 +946,22 @@ void AFK_Landscape::enqueueSubcells(
 void AFK_Landscape::flipRenderQueues(void)
 {
     renderQueue.flipQueues();
+}
+
+void AFK_Landscape::increaseDetail(void)
+{
+    detailPitch = detailPitch / 1.1f;
+
+    /* TODO remove debug */
+    std::cout << "Increased detail pitch to " << std::dec << detailPitch << std::endl;
+}
+
+void AFK_Landscape::decreaseDetail(void)
+{
+    detailPitch = detailPitch * 1.1f;
+
+    /* TODO remove debug */
+    std::cout << "Decreased detail pitch to " << std::dec << detailPitch << std::endl;
 }
 
 boost::unique_future<bool> AFK_Landscape::updateLandMap(void)

@@ -35,7 +35,10 @@ protected:
      */
     boost::unique_future<bool> computingUpdate;
     bool computingUpdateDelayed;
+    unsigned int delaysSinceLastCalibration;
     unsigned int delaysSinceLastCheckpoint;
+
+    boost::posix_time::ptime lastCalibration;
 
     /* This stuff is for the OpenGL buffer cleanup, glBuffersForDeletion()
      * etc.
@@ -139,7 +142,7 @@ public:
      * checkpoint interval unless `definitely' is set
      * in which case it happens right away.
      */
-    void checkpoint(bool definitely);
+    void checkpoint(boost::posix_time::ptime& now, bool definitely);
 
     /* TODO REMOVE WHEN LOSE DEPENDENCY ON GLUT
      * Because GLUT requires that all OpenGL commands be called

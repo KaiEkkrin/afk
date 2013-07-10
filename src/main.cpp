@@ -71,7 +71,8 @@ int main(int argc, char **argv)
     {
         retcode = 1;
         std::cerr << "AFK Error: " << e.what() << std::endl;
-        afk_core.checkpoint(true);
+        boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
+        afk_core.checkpoint(now, true);
     }
 
     std::cout << "AFK exiting" << std::endl;

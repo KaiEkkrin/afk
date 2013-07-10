@@ -13,13 +13,36 @@
 #include "rng/boost_taus88.hpp"
 
 
+/* TODO Maybe move these statics that are governing the calibrator
+ * into configuration?
+ * Oh God, I've got fixed bits of configuration *everywhere* now :(
+ */
+#define EXPECTED_FRAME_TIME_MICROS 15500
+#define CALIBRATION_INTERVAL_MICROS (EXPECTED_FRAME_TIME_MICROS * 16)
+#define SKIPPED_FRAME_TOLERANCE 4.0f /* okay to skip one frame in this many before reducing LoD */
+#define FRAMES_PER_CALIBRATION_INTERVAL ((float)CALIBRATION_INTERVAL_MICROS / (float)EXPECTED_FRAME_TIME_MICROS)
+
 /* Static, context-less functions needed to drive GLUT, etc. */
 void afk_idle(void)
 {
-    afk_core.checkpoint(false);
-
     /* Time how long it takes me to do setup */
     boost::posix_time::ptime startOfFrameTime = boost::posix_time::microsec_clock::local_time();
+
+    afk_core.checkpoint(startOfFrameTime, false);
+
+    /* Check whether I need to recalibrate. */
+    /* TODO Make the time between calibrations configurable */
+    boost::posix_time::time_duration sinceLastCalibration = startOfFrameTime - afk_core.lastCalibration;
+    if (sinceLastCalibration.total_microseconds() > CALIBRATION_INTERVAL_MICROS)
+    {
+        if (afk_core.delaysSinceLastCalibration == 0)
+            afk_core.landscape->increaseDetail();
+        else if ((FRAMES_PER_CALIBRATION_INTERVAL / afk_core.delaysSinceLastCalibration) < SKIPPED_FRAME_TOLERANCE)
+            afk_core.landscape->decreaseDetail();
+
+        afk_core.lastCalibration = startOfFrameTime;
+        afk_core.delaysSinceLastCalibration = 0;
+    }
 
     if (!afk_core.computingUpdateDelayed)
     {
@@ -90,7 +113,7 @@ void afk_idle(void)
      * this method might be deleterious to input.  GLUT, eh?
      */
     boost::posix_time::ptime waitTime = boost::posix_time::microsec_clock::local_time();
-    int frameTimeLeft = 15500 - (waitTime - startOfFrameTime).total_microseconds();
+    int frameTimeLeft = EXPECTED_FRAME_TIME_MICROS - (waitTime - startOfFrameTime).total_microseconds();
     boost::this_thread::sleep_for(boost::chrono::microseconds(frameTimeLeft));
     if (afk_core.computingUpdate.is_ready())
     {
@@ -110,6 +133,7 @@ void afk_idle(void)
          */
         afk_core.computingUpdateDelayed = true;
         ++afk_core.delaysSinceLastCheckpoint;
+        ++afk_core.delaysSinceLastCalibration;
     }
 }
 
@@ -130,6 +154,7 @@ void AFK_Core::deleteGlGarbageBufs(void)
 
 AFK_Core::AFK_Core():
     computingUpdateDelayed(false),
+    delaysSinceLastCalibration(0),
     delaysSinceLastCheckpoint(0),
     glGarbageBufs(1000),
     config(NULL),
@@ -245,7 +270,7 @@ void AFK_Core::loop(void)
     landscape = new AFK_Landscape( /* TODO tweak this initialisation...  extensively, and make it configurable */
         landscapeMaxDistance,   /* maxDistance -- zFar must be a lot bigger or things will vanish */
         2,                      /* subdivisionFactor */
-        128                     /* detailPitch.  TODO Currently this number is being interpreted as much smaller than spec'd */
+        8                       /* pointSubdivisionFactor */
         );
     protagonist = new AFK_DisplayedProtagonist();
 
@@ -270,6 +295,7 @@ void AFK_Core::loop(void)
 
     /* First checkpoint */
     lastCheckpoint = boost::posix_time::microsec_clock::local_time();
+    lastCalibration = boost::posix_time::microsec_clock::local_time();
     delaysSinceLastCheckpoint = 0;
 
     glutMainLoop();
@@ -280,12 +306,12 @@ void AFK_Core::occasionallyPrint(const std::string& message)
     occasionalPrints << "AFK Frame " << renderingFrame.get() << ": " << message << std::endl;
 }
 
-void AFK_Core::checkpoint(bool definitely)
+void AFK_Core::checkpoint(boost::posix_time::ptime& now, bool definitely)
 {
-    boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
     boost::posix_time::time_duration sinceLastCheckpoint = now - lastCheckpoint;
 
-    if (definitely || sinceLastCheckpoint.total_seconds() > 0)
+    if ((definitely || sinceLastCheckpoint.total_seconds() > 0) &&
+        !(frameAtLastCheckpoint == renderingFrame))
     {
         lastCheckpoint = now;
 
