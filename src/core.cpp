@@ -404,4 +404,3 @@ void AFK_Core::glBuffersForDeletion(GLuint *bufs, size_t bufsSize)
         glGarbageBufs.push(bufs[i]);
 }
 
-

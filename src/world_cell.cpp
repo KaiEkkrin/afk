@@ -63,7 +63,16 @@ AFK_WorldCell::AFK_WorldCell():
 
 AFK_WorldCell::~AFK_WorldCell()
 {
-    if (displayed) delete displayed;
+    if (displayed)
+    {
+        if (cell.coord.v[1] == 0)
+        {
+            /* This displayed cell owns the vertex array. */
+            displayed->deleteVs();
+        }
+
+        delete displayed;
+    }
 }
 
 bool AFK_WorldCell::claim(void)
@@ -264,6 +273,8 @@ bool AFK_WorldCell::canBeEvicted(void) const
 {
     /* This is a tweakable value ... */
     bool canEvict = ((afk_core.renderingFrame - lastSeen) > 10);
+
+    /* TODO Check for spilled geometry, as described in displayed_world_cell.hpp */
     return canEvict;
 }
 

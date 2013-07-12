@@ -52,7 +52,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
      * from a few things like the seed which could do with being
      * command line based ...
      */
-    targetFrameTimeMicros       = 18000;
+    targetFrameTimeMicros       = 17000;
     framesPerCalibration        = 8;
     negativeDetailNudge         = 0.02f;
     positiveDetailNudge         = 0.10f;

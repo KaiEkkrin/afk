@@ -11,6 +11,11 @@
 #include "object.hpp"
 
 
+void afk_displayedBufferGlBuffersForDeletion(GLuint *bufs, size_t bufsSize)
+{
+    afk_core.glBuffersForDeletion(bufs, bufsSize);
+}
+
 
 AFK_DisplayedObject::AFK_DisplayedObject():
     shaderProgram(NULL),
