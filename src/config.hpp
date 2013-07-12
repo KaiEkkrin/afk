@@ -75,6 +75,18 @@ public:
     float   mouseAxisSensitivity;
     unsigned long long  axisInversionMap; /* bitfield of axes that are inverted */
 
+    /* Engine calibration */
+    unsigned int targetFrameTimeMicros;
+    unsigned int framesPerCalibration;
+    float negativeDetailNudge;
+    float positiveDetailNudge;
+
+    /* World setup */
+    float startingDetailPitch;
+    float minCellSize;
+    unsigned int subdivisionFactor;
+    unsigned int pointSubdivisionFactor;
+
     /* Initialises AFK configuration, based on command line
      * arguments. */
     AFK_Config(int *argcp, char **argv);

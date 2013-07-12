@@ -47,6 +47,22 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     axisInversionMap = 0uLL;
     AFK_SET_BIT(axisInversionMap, CTRL_AXIS_YAW);
 
+    /* TODO Make all the random twiddlies configurable via a
+     * settings file.  And in fact, all the rest I think, apart
+     * from a few things like the seed which could do with being
+     * command line based ...
+     */
+    targetFrameTimeMicros       = 18000;
+    framesPerCalibration        = 8;
+    negativeDetailNudge         = 0.02f;
+    positiveDetailNudge         = 0.10f;
+
+    startingDetailPitch         = 1024.0f;
+    minCellSize                 = 1.0f;
+    subdivisionFactor           = 2;
+    pointSubdivisionFactor      = 8;
+    
+
     /* Some hand rolled command line parsing, because it's not very
      * hard, and there's no good cross platform one by default */
     for (int argi = 0; argi < *argcp; ++argi)

@@ -15,20 +15,44 @@
 #include "rng/boost_taus88.hpp"
 
 
+/* With a little less for wiggle room. */
+#define FRAME_REFRESH_TIME 15500
+
+
 /* TODO Maybe move these statics that are governing the calibrator
  * into configuration?
  * Oh God, I've got fixed bits of configuration *everywhere* now :(
  */
-#define EXPECTED_FRAME_TIME_MICROS 15500
-#define CALIBRATION_INTERVAL_MICROS (EXPECTED_FRAME_TIME_MICROS * 8)
-#define NEGATIVE_DETAIL_NUDGE 0.02f /* Tries to make the engine push the system a bit harder */
-#define POSITIVE_DETAIL_NUDGE 0.05f /* Controls how quickly the engine tries to "pull back" */
+#define CALIBRATION_INTERVAL_MICROS (afk_core.config->targetFrameTimeMicros * afk_core.config->framesPerCalibration)
 
 /* Static, context-less functions needed to drive GLUT, etc. */
 void afk_idle(void)
 {
-    /* Time how long it takes me to do setup */
     boost::posix_time::ptime startOfFrameTime = boost::posix_time::microsec_clock::local_time();
+
+    /* Work out what the graphics delay was. */
+    unsigned int bufferFlipTime = (startOfFrameTime - afk_core.lastFrameTime).total_microseconds();
+
+    /* If it's been dropping frames, there will be more than a whole
+     * number of `targetFrameTimeMicros' here.
+     */
+    unsigned int framesDropped = bufferFlipTime / afk_core.config->targetFrameTimeMicros;
+    afk_core.graphicsDelaysSinceLastCheckpoint += framesDropped;
+    afk_core.graphicsDelaysSinceLastCalibration += framesDropped;
+
+    /* I'm going to tolerate one random graphics delay per calibration
+     * point.  Glitches happen.
+     */
+    if (afk_core.graphicsDelaysSinceLastCalibration > 1)
+    {
+        afk_core.calibrationError += afk_core.config->targetFrameTimeMicros * framesDropped;
+
+        /* remove any leftover delay, which is actually a good
+         * thing (means we sent it off early)
+         */
+        afk_core.calibrationError -= (afk_core.config->targetFrameTimeMicros -
+            (bufferFlipTime % afk_core.config->targetFrameTimeMicros));
+    }
 
     afk_core.checkpoint(startOfFrameTime, false);
 
@@ -39,14 +63,23 @@ void afk_idle(void)
     {
         /* Work out an error factor, and apply it to the LoD */
         float normalisedError = (float)afk_core.calibrationError / CALIBRATION_INTERVAL_MICROS; /* between -1 and 1? */
+
+        /* Cap the normalised error: occasionally the graphics can
+         * hang for ages and produce a spurious value which would
+         * otherwise result in a negative detail factor, making us
+         * crash
+         */
+        normalisedError = std::max(std::min(normalisedError, 1.0f), -1.0f);
+
         float detailFactor = -(1.0f / (normalisedError / 2.0f - 1.0f)); /* between 0.5 and 2? */
-        if (detailFactor < 1.0f) detailFactor -= NEGATIVE_DETAIL_NUDGE;
-        else detailFactor += POSITIVE_DETAIL_NUDGE;
+        if (detailFactor <= 1.0f) detailFactor -= afk_core.config->negativeDetailNudge;
+        else detailFactor += afk_core.config->positiveDetailNudge;
         //std::cout << "calibration error " << std::dec << afk_core.calibrationError << ": applying detail factor " << detailFactor << std::endl;
         afk_core.landscape->alterDetail(detailFactor);
 
         afk_core.lastCalibration = startOfFrameTime;
         afk_core.calibrationError = 0;
+        afk_core.graphicsDelaysSinceLastCalibration = 0;
     }
 
     if (!afk_core.computingUpdateDelayed)
@@ -111,14 +144,11 @@ void afk_idle(void)
     afk_core.deleteGlGarbageBufs();
 
     /* Wait until it's about time to display the next frame.
-     * I want to wait for 16 milliseconds minus a little bit (let's
-     * call it 15.5 milliseconds, or 15500 microseconds), minus the
-     * amount of time I've already spent.
      * TODO It would be better if the toolkit could do this for us:
      * this method might be deleterious to input.  GLUT, eh?
      */
     boost::posix_time::ptime waitTime = boost::posix_time::microsec_clock::local_time();
-    int frameTimeLeft = EXPECTED_FRAME_TIME_MICROS - (waitTime - startOfFrameTime).total_microseconds();
+    int frameTimeLeft = FRAME_REFRESH_TIME - (waitTime - startOfFrameTime).total_microseconds();
     boost::chrono::microseconds chFrameTimeLeft(frameTimeLeft);
     boost::future_status status = afk_core.computingUpdate.wait_for(chFrameTimeLeft);
 
@@ -130,6 +160,7 @@ void afk_idle(void)
             boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
             int timeLeftAfterFinish = (now - waitTime).total_microseconds();
             afk_core.calibrationError -= timeLeftAfterFinish;
+            afk_core.lastFrameTime = now;
 
             /* Flip the buffers and bump the computing frame */
             glutSwapBuffers();
@@ -148,7 +179,7 @@ void afk_idle(void)
 
             /* Flag this update as delayed. */
             afk_core.computingUpdateDelayed = true;
-            ++afk_core.delaysSinceLastCheckpoint;
+            ++afk_core.computeDelaysSinceLastCheckpoint;
 
             break;
         }
@@ -175,7 +206,9 @@ void AFK_Core::deleteGlGarbageBufs(void)
 
 AFK_Core::AFK_Core():
     computingUpdateDelayed(false),
-    delaysSinceLastCheckpoint(0),
+    computeDelaysSinceLastCheckpoint(0),
+    graphicsDelaysSinceLastCheckpoint(0),
+    graphicsDelaysSinceLastCalibration(0),
     calibrationError(0),
     glGarbageBufs(1000),
     config(NULL),
@@ -288,10 +321,12 @@ void AFK_Core::loop(void)
     /* Initialise the starting objects. */
     float landscapeMaxDistance = config->zFar / 2.0f;
 
-    landscape = new AFK_Landscape( /* TODO tweak this initialisation...  extensively, and make it configurable */
+    landscape = new AFK_Landscape(
         landscapeMaxDistance,   /* maxDistance -- zFar must be a lot bigger or things will vanish */
-        2,                      /* subdivisionFactor */
-        8                       /* pointSubdivisionFactor */
+        config->subdivisionFactor,
+        config->pointSubdivisionFactor,
+        config->minCellSize,
+        config->startingDetailPitch
         );
     protagonist = new AFK_DisplayedProtagonist();
 
@@ -315,9 +350,11 @@ void AFK_Core::loop(void)
     glutWarpPointer(windowWidth / 2, windowHeight / 2);
 
     /* First checkpoint */
-    lastCheckpoint = boost::posix_time::microsec_clock::local_time();
-    lastCalibration = boost::posix_time::microsec_clock::local_time();
-    delaysSinceLastCheckpoint = 0;
+    lastFrameTime = lastCheckpoint = lastCalibration =
+        boost::posix_time::microsec_clock::local_time();
+    computeDelaysSinceLastCheckpoint =
+        graphicsDelaysSinceLastCheckpoint =
+        graphicsDelaysSinceLastCalibration = 0;
 
     glutMainLoop();
 }
@@ -340,10 +377,12 @@ void AFK_Core::checkpoint(boost::posix_time::ptime& now, bool definitely)
         std::cout << "AFK: Since last checkpoint: " << std::dec << renderingFrame - frameAtLastCheckpoint << " frames";
         float fps = (float)(renderingFrame - frameAtLastCheckpoint) * 1000.0f / (float)sinceLastCheckpoint.total_milliseconds();
         std::cout << " (" << fps << " frames/second)";
-        std::cout << " (" << delaysSinceLastCheckpoint * 100 / (renderingFrame - frameAtLastCheckpoint) << "\% delayed)" << std::endl;
+        std::cout << " (" << computeDelaysSinceLastCheckpoint * 100 / (renderingFrame - frameAtLastCheckpoint) << "\% compute delay, ";
+        std::cout << graphicsDelaysSinceLastCheckpoint * 100 / (renderingFrame - frameAtLastCheckpoint) << "\% graphics delay)" << std::endl;
 
         frameAtLastCheckpoint = renderingFrame;
-        delaysSinceLastCheckpoint = 0;
+        computeDelaysSinceLastCheckpoint = 0;
+        graphicsDelaysSinceLastCheckpoint = 0;
 
         if (landscape) landscape->checkpoint(sinceLastCheckpoint);
 

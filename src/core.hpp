@@ -35,9 +35,12 @@ protected:
      */
     boost::unique_future<bool> computingUpdate;
     bool computingUpdateDelayed;
-    unsigned int delaysSinceLastCheckpoint;
+    unsigned int computeDelaysSinceLastCheckpoint;
+    unsigned int graphicsDelaysSinceLastCheckpoint;
 
+    boost::posix_time::ptime lastFrameTime;
     boost::posix_time::ptime lastCalibration;
+    unsigned int graphicsDelaysSinceLastCalibration;
 
     /* The calibration error is the number of microseconds away
      * I was from filling all the frame time with calculation.

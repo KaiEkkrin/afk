@@ -842,8 +842,10 @@ bool afk_generateLandscapeCells(
 AFK_Landscape::AFK_Landscape(
     float _maxDistance,
     unsigned int _subdivisionFactor,
-    unsigned int _pointSubdivisionFactor):
-        detailPitch(1024.0f), /* This is a starting point */
+    unsigned int _pointSubdivisionFactor,
+    float _minCellSize,
+    float startingDetailPitch):
+        detailPitch(startingDetailPitch), /* This is a starting point */
         cache(40000 /* target cache size.  TODO make based on system/GPU memory 
                      * Observation: 20000 uses about 7% memory on guinevere?
                      * 22 hashbits are good for 20000, 23 for 40000? */),
@@ -864,7 +866,7 @@ AFK_Landscape::AFK_Landscape(
         maxDistance(_maxDistance),
         subdivisionFactor(_subdivisionFactor),
         pointSubdivisionFactor(_pointSubdivisionFactor),
-        minCellSize(1.0f) /* TODO That's silly small (although works).  In future increase pointSubdivisionFactor and use smaller minCellSize, I suspect.  But for now, it looks great.  */
+        minCellSize(_minCellSize)
 {
     /* Set up the landscape shader. */
     shaderProgram = new AFK_ShaderProgram();

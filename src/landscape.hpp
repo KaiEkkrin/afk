@@ -332,7 +332,9 @@ public:
     AFK_Landscape(
         float _maxDistance, 
         unsigned int _subdivisionFactor, 
-        unsigned int _pointSubdivisionFactor);
+        unsigned int _pointSubdivisionFactor,
+        float _minCellSize,
+        float startingDetailPitch);
     virtual ~AFK_Landscape();
 
     /* Helper for the above -- requests a particular cell
