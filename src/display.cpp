@@ -140,7 +140,7 @@ void afk_display(void)
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
-    afk_core.landscape->display(projection);
+    afk_core.world->display(projection);
     afk_core.protagonist->display(projection);
 
     glFlush();

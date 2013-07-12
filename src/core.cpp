@@ -75,7 +75,7 @@ void afk_idle(void)
         if (detailFactor <= 1.0f) detailFactor -= afk_core.config->negativeDetailNudge;
         else detailFactor += afk_core.config->positiveDetailNudge;
         //std::cout << "calibration error " << std::dec << afk_core.calibrationError << ": applying detail factor " << detailFactor << std::endl;
-        afk_core.landscape->alterDetail(detailFactor);
+        afk_core.world->alterDetail(detailFactor);
 
         afk_core.lastCalibration = startOfFrameTime;
         afk_core.calibrationError = 0;
@@ -131,10 +131,10 @@ void afk_idle(void)
          * TODO A call-through to AI stuff probably goes here?
          */
 
-        /* Update the landscape, deciding which bits of it I'm going
+        /* Update the world, deciding which bits of it I'm going
          * to draw.
          */
-        afk_core.computingUpdate = afk_core.landscape->updateLandMap();
+        afk_core.computingUpdate = afk_core.world->updateLandMap();
 
         /* Meanwhile, draw the previous frame */
         afk_display();
@@ -164,7 +164,7 @@ void afk_idle(void)
 
             /* Flip the buffers and bump the computing frame */
             glutSwapBuffers();
-            afk_core.landscape->flipRenderQueues();
+            afk_core.world->flipRenderQueues();
             afk_core.computingUpdateDelayed = false;
             afk_core.computingFrame = afk_core.renderingFrame;
             afk_core.renderingFrame.increment();
@@ -215,7 +215,7 @@ AFK_Core::AFK_Core():
     computer(NULL),
     rng(NULL),
     camera(NULL),
-    landscape(NULL),
+    world(NULL),
     protagonist(NULL)
 {
 }
@@ -226,7 +226,7 @@ AFK_Core::~AFK_Core()
     if (computer) delete computer;
     if (rng) delete rng;
     if (camera) delete camera;
-    if (landscape) delete landscape;
+    if (world) delete world;
     if (protagonist) delete protagonist;
 
     std::cout << "AFK: Core destroyed" << std::endl;
@@ -319,10 +319,10 @@ void AFK_Core::loop(void)
     afk_loadShaders(config->shadersDir);
 
     /* Initialise the starting objects. */
-    float landscapeMaxDistance = config->zFar / 2.0f;
+    float worldMaxDistance = config->zFar / 2.0f;
 
-    landscape = new AFK_Landscape(
-        landscapeMaxDistance,   /* maxDistance -- zFar must be a lot bigger or things will vanish */
+    world = new AFK_World(
+        worldMaxDistance,   /* maxDistance -- zFar must be a lot bigger or things will vanish */
         config->subdivisionFactor,
         config->pointSubdivisionFactor,
         config->minCellSize,
@@ -335,9 +335,9 @@ void AFK_Core::loop(void)
     int windowHeight = glutGet(GLUT_WINDOW_HEIGHT);
     camera->setWindowDimensions(windowWidth, windowHeight);
 
-    /* Move the camera and protagonist to somewhere close to the landscape
+    /* Move the camera and protagonist to somewhere close to the terrain
      * so they can see
-     * TODO: Better, evaluate the landscape in the protagonist's cell and
+     * TODO: Better, evaluate the terrain in the protagonist's cell and
      * move the protagonist to just above it!
      */
     Vec3<float> startingPosition = afk_vec3<float>(0.0f, 16.0f, 0.0f);
@@ -384,7 +384,7 @@ void AFK_Core::checkpoint(boost::posix_time::ptime& now, bool definitely)
         computeDelaysSinceLastCheckpoint = 0;
         graphicsDelaysSinceLastCheckpoint = 0;
 
-        if (landscape) landscape->checkpoint(sinceLastCheckpoint);
+        if (world) world->checkpoint(sinceLastCheckpoint);
 
         /* BODGE. This can cause a SIGSEGV when we do the final print upon
          * catching an exception, it looks like the destructors are
@@ -393,7 +393,7 @@ void AFK_Core::checkpoint(boost::posix_time::ptime& now, bool definitely)
         if (!definitely)
         {
             std::ostringstream ss;
-            afk_core.landscape->cache.printStats(ss, "Cache");
+            afk_core.world->cache->printStats(ss, "Cache");
             std::cout << ss.str();
         }
 

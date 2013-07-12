@@ -62,7 +62,7 @@ public:
      * smallest AFK_Cell that can contain a particular object
      * at the current LoD, so that I can assign moving objects
      * to cells, decide what extra cells to draw or not etc etc.
-     * That'll probably end up in AFK_Landscape though ;)
+     * That'll probably end up in AFK_World though ;)
      */
 
     /* Obligatory thingies. */

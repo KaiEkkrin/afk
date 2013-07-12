@@ -16,9 +16,9 @@
 #include "def.hpp"
 #include "display.hpp"
 #include "frame.hpp"
-#include "landscape.hpp"
 #include "light.hpp"
 #include "rng/rng.hpp"
+#include "world.hpp"
 
 
 void afk_idle(void);
@@ -91,8 +91,8 @@ public:
     /* The camera. */
     AFK_Camera          *camera;
 
-    /* The landscape. */
-    AFK_Landscape       *landscape;
+    /* The world. */
+    AFK_World           *world;
 
     /* Global lighting. */
     AFK_Light           sun;

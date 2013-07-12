@@ -16,7 +16,7 @@
 #include "hmac.hpp"
 #include "test.hpp"
 #include "../afk.hpp"
-#include "../landscape.hpp"
+#include "../cell.hpp"
 
 
 /* TODO Add a test that tweaks each coord in an AFK_Cell in

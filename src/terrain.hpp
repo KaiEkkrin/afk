@@ -39,7 +39,7 @@ enum AFK_TerrainType
  *
  * I'm doing it like this so that I can pre-allocate
  * a single vector for all landscape terrain in the
- * landscape module, and don't end up thrashing the
+ * world module, and don't end up thrashing the
  * heap making new objects for each feature.  This
  * restricts all features to the same parameters,
  * but I think that's okay.

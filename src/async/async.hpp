@@ -57,42 +57,6 @@ extern boost::mutex debugSpamMut;
  * Call groups are entirely separate so that I can wait for one and
  * ignore (some day suspend?) another.  I hope that the OS won't mind
  * that I spin up lots of busy threads.  (Feh, finesse.)
- *
- * Things that look useful:
- * - Boost.Thread obviously
- * - Boost.Lockfree for structures used on every function call.  The
- * queue of functions to call; the output landscape queue.
- * - a condition_variable to flip the thread pool between waiting-for-
- * a-call state, and running state
- * - Boost.Promise to return a promise of the finishing state which
- * the main thread can wait for
- *
- * TODO
- * To go along with this, I need to make various structures thread
- * safe.
- * - The landMap : make a new AFK_CellCache wrapper for this.  I'm
- * going to want to cache all mip levels in any case.
- * - The cached LandscapeCells: I think I no longer want the cell
- * cache to directly cache these (which contain calculated geometry).
- * Instead the cell cache should cache a device that contains a
- * pointer to the landscape cell (which may or may not be set up)
- * and also have room for a future pointer to an object vector.
- * In addition, this is where I put the TerrainCell that I've made;
- * computing terrain cells now involves walking up through the
- * landMap.
- * - The landQueue: This should turn into a suitably safe structure
- * (use Boost.Lockfree since it will be busy ?  I'm sure I can come
- * up with a sensible size for it)
- * 
- * To do cell cache eviction, I want to stamp each cache entry with
- * the time last seen.  Then, I can have a different thread run around
- * removing old entries (and their children!) trying to keep the cache
- * size within limits.
- *
- * Challenge: can I make the cell cache lockfree?  (Suggestion: use
- * an optimistic concurrency type approach.  Evict an entry but don't
- * delete it right away, if it was a recently used one, try putting it
- * right back and hope I didn't conflict with anyone :) )
  */
 
 
