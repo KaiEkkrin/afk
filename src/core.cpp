@@ -50,8 +50,10 @@ void afk_idle(void)
         /* remove any leftover delay, which is actually a good
          * thing (means we sent it off early)
          */
+        /*
         afk_core.calibrationError -= (afk_core.config->targetFrameTimeMicros -
             (bufferFlipTime % afk_core.config->targetFrameTimeMicros));
+         */
     }
 
     afk_core.checkpoint(startOfFrameTime, false);
@@ -72,8 +74,6 @@ void afk_idle(void)
         normalisedError = std::max(std::min(normalisedError, 1.0f), -1.0f);
 
         float detailFactor = -(1.0f / (normalisedError / 2.0f - 1.0f)); /* between 0.5 and 2? */
-        if (detailFactor <= 1.0f) detailFactor -= afk_core.config->negativeDetailNudge;
-        else detailFactor += afk_core.config->positiveDetailNudge;
         //std::cout << "calibration error " << std::dec << afk_core.calibrationError << ": applying detail factor " << detailFactor << std::endl;
         afk_core.world->alterDetail(detailFactor);
 
@@ -158,7 +158,8 @@ void afk_idle(void)
         {
             /* Work out how much time there is left on the clock */
             boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
-            int timeLeftAfterFinish = (now - waitTime).total_microseconds();
+            int timeToFinish = (now - waitTime).total_microseconds();
+            int timeLeftAfterFinish = frameTimeLeft - timeToFinish;
             afk_core.calibrationError -= timeLeftAfterFinish;
             afk_core.lastFrameTime = now;
 

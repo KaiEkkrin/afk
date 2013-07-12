@@ -189,7 +189,7 @@ AFK_World::AFK_World(
         minCellSize(_minCellSize)
 {
     /* Set up the cache and generator gang. */
-    cache = new AFK_WorldCache(40000 /* target cache size.  TODO make based on system/GPU memory
+    cache = new AFK_WorldCache(20000 /* target cache size.  TODO make based on system/GPU memory
                                       * Observation: 20000 uses about 7% memory on guinevere?
                                       * 22 hashbits are good for 20000, 23 for 40000? */);
 
