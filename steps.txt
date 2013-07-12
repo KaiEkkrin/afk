@@ -12,8 +12,9 @@
  - apply lighting to protagonist object. OK
  - triangular, lit landscape.  (no tessellation, just pre-defined triangle strips). OK
  - x/z only terrain, with horizontal LoD.  all terrain mated to the cells with y=0.  terrain of arbitrary height.  (expected glitch: when you can't see the floor, you can't see the terrain however high.  Unable to look up at mountains or down into troughs) OK
- - parallel evaluation via task queueing.
- - land map cache eviction; use constant memory
+ - parallel evaluation via task queueing. OK
+ - land map cache eviction; use constant memory OK
+ - adjust detail pitch on the fly to maintain a framerate. OK
  - correct seam stitching.  See todo_stitching.txt.
  - migrate terrain geometry to adjacent cells along the y-axis.  vertical terrain LoD.
  - random protagonist with flat surfaces.
@@ -22,7 +23,6 @@
  - object movement.  (simplest AI.)
  - object/object collision.
  - object/terrain collision.
- - adjust detail pitch on the fly to maintain a framerate.
  - compute location of points-grid with opencl and feed back.
  - opencl random number generator.
  - tessellation example.
