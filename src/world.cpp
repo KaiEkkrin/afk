@@ -380,3 +380,8 @@ void AFK_World::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckp
     cellsGenerated.store(0);
 }
 
+void AFK_World::printCacheStats(std::ostream& ss, const std::string& prefix)
+{
+    cache->printStats(ss, prefix);
+}
+

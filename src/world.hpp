@@ -73,16 +73,6 @@ protected:
     boost::atomic<unsigned long long> cellsCached;
     boost::atomic<unsigned long long> cellsGenerated;
 
-public:
-    /* TODO Try to go around protecting these things.  Having it all
-     * public is a bad plan.
-     */
-
-    /* World shader details. */
-    AFK_ShaderProgram *shaderProgram;
-    GLuint worldTransformLocation;
-    GLuint clipTransformLocation;
-
     /* The cache of world cells we're tracking.
      */
     AFK_WorldCache *cache;
@@ -99,6 +89,16 @@ public:
     ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam) fakeQueue; /* unused, but to fulfil function parameters */
     boost::promise<bool> *fakePromise;
 #endif
+
+public:
+    /* TODO Try to go around protecting these things.  Having it all
+     * public is a bad plan.
+     */
+
+    /* World shader details. */
+    AFK_ShaderProgram *shaderProgram;
+    GLuint worldTransformLocation;
+    GLuint clipTransformLocation;
 
     /* How much to pressure the queue (or not). */
     const unsigned int recursionsPerTask;
@@ -174,6 +174,8 @@ public:
 
     /* Takes a world checkpoint. */
     void checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint);
+
+    void printCacheStats(std::ostream& ss, const std::string& prefix);
 
     friend bool afk_generateWorldCells(
         struct AFK_WorldCellGenParam param,

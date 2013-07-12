@@ -390,12 +390,7 @@ void AFK_Core::checkpoint(boost::posix_time::ptime& now, bool definitely)
          * catching an exception, it looks like the destructors are
          * being called in a strange order
          */
-        if (!definitely)
-        {
-            std::ostringstream ss;
-            afk_core.world->cache->printStats(ss, "Cache");
-            std::cout << ss.str();
-        }
+        if (!definitely) afk_core.world->printCacheStats(std::cout, "Cache");
 
         std::cout << occasionalPrints.str();
     }
