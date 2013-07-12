@@ -241,7 +241,7 @@ public:
     }
 
     AFK_AsyncGang(boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func, size_t queueSize):
-        controls(boost::thread::hardware_concurrency()), queue(queueSize)
+        controls(boost::thread::hardware_concurrency()), queue(queueSize), promise(NULL)
     {
         initWorkers(func, boost::thread::hardware_concurrency());
     }
