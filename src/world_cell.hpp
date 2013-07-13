@@ -138,7 +138,11 @@ public:
         float minCellSize,
         const Vec3<float> *forcedTint);
 
-    /* Computes the total terrain features here. */
+    /* Computes the total terrain features here.
+     * If it can't find the required cells or they're
+     * incomplete throws an AFK_PolymerOutOfRange or
+     * an AFK_WorldCellNotPresentException.
+     */
     void computeTerrain(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_WorldCache *cache) const;
 
     /* Gets the AFK_Cell pointing to the cell that "owns"

@@ -11,6 +11,7 @@
 /* TODO remove debug?  (or something) */
 #define PROTAGONIST_CELL_DEBUG 1
 
+#define SPILL_DEBUG 0
 
 
 /* The cell generating worker */
@@ -118,26 +119,65 @@ bool afk_generateWorldCells(
                 std::vector<AFK_Cell>::iterator spillCellsIt = worldCell.displayed->spillCellsBegin();
                 std::vector<boost::shared_ptr<AFK_DWC_INDEX_BUF> >::iterator spillIsIt = worldCell.displayed->spillIsBegin();
 
+#if SPILL_DEBUG
+                if (threadId == 0) std::cout << "Spilling " << worldCell.getCell() << " -> ";
+#endif
+
                 while (spillCellsIt != worldCell.displayed->spillCellsEnd() &&
                     spillIsIt != worldCell.displayed->spillIsEnd())
                 {
-                    AFK_WorldCell& spillCell = (*(world->cache))[*spillCellsIt];
-                    if (spillCell.displayed && !spillCell.displayed->hasGeometry())
+                    try
                     {
-                        /* I'm about to try to write to this cell, so I
-                         * should claim it first, so that I don't have
-                         * an argument with the evictor or something
-                         */
-                        if (spillCell.claimYieldLoop(threadId, false))
+                        AFK_WorldCell& spillCell = world->cache->at(*spillCellsIt);
+
+                        /* Sanity check */
+#if 1
+                        if (spillCell.getCell().coord.v[1] == 0)
                         {
-                            spillCell.displayed->spill(*(worldCell.displayed), cell, *spillIsIt);
-                            spillCell.release(threadId);
+                            std::ostringstream ss;
+                            ss << worldCell.getCell() << ": Got bad spill cell " << spillCell.getCell();
+                            throw new AFK_Exception(ss.str());
                         }
+#endif
+
+#if SPILL_DEBUG
+                        if (threadId == 0) std::cout << spillCell.getCell();
+#endif
+
+                        if (spillCell.displayed && !spillCell.displayed->hasGeometry())
+                        {
+                            /* I'm about to try to write to this cell, so I
+                             * should claim it first, so that I don't have
+                             * an argument with the evictor or something
+                             */
+                            if (spillCell.claimYieldLoop(threadId, false))
+                            {
+                                spillCell.displayed->spill(*(worldCell.displayed), cell, *spillIsIt);
+#if SPILL_DEBUG
+                                if (threadId == 0) std::cout << " (Pushed)";
+#endif
+                                spillCell.release(threadId);
+                            }
+                        }
+
+#if SPILL_DEBUG
+                        if (threadId == 0) std::cout << ", ";
+#endif
+                    }
+                    catch (AFK_PolymerOutOfRange)
+                    {
+                        /* Nothing to spill to, the cell isn't there yet --
+                         * I'll just gap it for now and leave it to the next
+                         * frame
+                         */
                     }
                     
                     ++spillCellsIt;
                     ++spillIsIt;
                 }
+#if SPILL_DEBUG
+                if (threadId == 0) std::cout << std::endl;
+#endif
             }
             else
             {

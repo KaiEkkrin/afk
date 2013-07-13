@@ -10,6 +10,7 @@
 #endif
 
 #include <assert.h>
+#include <exception>
 #include <sstream>
 
 #include <boost/atomic.hpp>
@@ -22,6 +23,11 @@
 #if DREADFUL_POLYMER_DEBUG
 boost::mutex dpdMut;
 #endif
+
+/* The at() function throws this when there's nothing at the
+ * requested cell.
+ */
+class AFK_PolymerOutOfRange: public std::exception {};
 
 /* This is an atomically accessible hash map.  It should be quick to
  * add, retrieve and delete, cope with a lot of value turnover, and
@@ -308,6 +314,36 @@ protected:
         return newChain;
     }
 
+    /* Retrieves an existing monomer. */
+    AFK_Monomer<KeyType, ValueType> *retrieveMonomer(const KeyType& key, size_t hash)
+    {
+        AFK_Monomer<KeyType, ValueType> *monomer = NULL;
+
+        /* Try a small number of hops first, then expand out.
+         */
+        for (unsigned int hops = 0; hops < targetContention && !monomer; ++hops)
+        {
+            for (AFK_PolymerChain<KeyType, ValueType> *chain = chains;
+                chain && !monomer; chain = chain->next())
+            {
+                AFK_Monomer<KeyType, ValueType> *candidateMonomer = chain->at(hops, hash);
+#if DREADFUL_POLYMER_DEBUG
+                if (candidateMonomer)
+                {
+                    boost::unique_lock<boost::mutex> lock(dpdMut);
+                    std::cout << boost::this_thread::get_id() << ": FOUND ";
+                    std::cout << key << " (ch " << chain->getIndex() << ", hops " << hops << ") -> " << candidateMonomer;
+                    std::cout << " (key " << candidateMonomer->key << ")";
+                    std::cout << std::endl;
+                }
+#endif
+                if (candidateMonomer && candidateMonomer->key == key) monomer = candidateMonomer;
+            }
+        }
+
+        return monomer;
+    }
+
     /* Inserts a newly allocated monomer, creating a new chain
      * if necessary.
      */
@@ -391,6 +427,18 @@ public:
         return stats.getSize();
     }
 
+    /* Returns a reference to a map entry.  Throws AFK_PolymerOutOfRange
+     * if it can't find it.
+     */
+    ValueType& at(const KeyType& key)
+    {
+        size_t hash = wring(hasher(key));
+        AFK_Monomer<KeyType, ValueType> *monomer = retrieveMonomer(key, hash);
+
+        if (!monomer) throw AFK_PolymerOutOfRange();
+        return monomer->value;
+    }
+
     /* Returns a reference to a map entry.  Inserts a new one if
      * it couldn't find one.
      * This will occasionally generate duplicates.  That should be
@@ -403,27 +451,8 @@ public:
 
         /* I'm going to assume it's probably there already, and first
          * just do a basic search.
-         * Try a small number of hops first, then expand out.
          */
-        for (unsigned int hops = 0; hops < targetContention && !monomer; ++hops)
-        {
-            for (AFK_PolymerChain<KeyType, ValueType> *chain = chains;
-                chain && !monomer; chain = chain->next())
-            {
-                AFK_Monomer<KeyType, ValueType> *candidateMonomer = chain->at(hops, hash);
-#if DREADFUL_POLYMER_DEBUG
-                if (candidateMonomer)
-                {
-                    boost::unique_lock<boost::mutex> lock(dpdMut);
-                    std::cout << boost::this_thread::get_id() << ": FOUND ";
-                    std::cout << key << " (ch " << chain->getIndex() << ", hops " << hops << ") -> " << candidateMonomer;
-                    std::cout << " (key " << candidateMonomer->key << ")";
-                    std::cout << std::endl;
-                }
-#endif
-                if (candidateMonomer && candidateMonomer->key == key) monomer = candidateMonomer;
-            }
-        }
+        monomer = retrieveMonomer(key, hash);
 
         if (monomer == NULL)
         {

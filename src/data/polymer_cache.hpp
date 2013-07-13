@@ -39,6 +39,11 @@ public:
         return polymer.size();
     }
 
+    virtual Value& at(const Key& key)
+    {
+        return polymer.at(key);
+    }
+
     virtual Value& operator[](const Key& key)
     {
         return polymer[key];

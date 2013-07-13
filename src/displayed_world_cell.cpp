@@ -107,6 +107,12 @@ void AFK_DisplayedWorldCell::vertices2FlatTriangles(
      */
     size_t expectedTriangleVsCount = indexSizeHint * 6;
 
+    if (vs)
+    {
+        /* TODO Is this possible?  Partial vertex population then a barf? */
+        throw new AFK_Exception("Partial population problem");
+    }
+
     /* Set things up */
     boost::shared_ptr<AFK_DWC_VERTEX_BUF> newVs(new AFK_DWC_VERTEX_BUF(expectedTriangleVsCount));
     vs = newVs;
@@ -264,6 +270,12 @@ void AFK_DisplayedWorldCell::computeGeometry(unsigned int pointSubdivisionFactor
     {
         /* Apply the terrain transform.
          * TODO This may be slow -- obvious candidate for OpenCL?  * But, the cache may rescue me; profile first!
+         * TODO This is going to get in a complete mess: right now, we'll partially
+         * compute, then throw an exception, leaving rawVertices and rawColours
+         * in a broken state that can't be recovered later.  I need to change
+         * `computeTerrain' to pull out an entire terrain descriptor before
+         * it computes anything.  Also, to claim the cells it's using so that
+         * they don't go and get evicted.
          */
         worldCell->computeTerrain(rawVertices, rawColours, rawVertexCount, cache);
 
@@ -282,6 +294,7 @@ void AFK_DisplayedWorldCell::computeGeometry(unsigned int pointSubdivisionFactor
         rawColours = NULL;
         rawVertexCount = 0;
     }
+    catch (AFK_PolymerOutOfRange) {}
     catch (AFK_WorldCellNotPresentException) {}
 }
 

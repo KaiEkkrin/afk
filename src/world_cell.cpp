@@ -48,7 +48,7 @@ void AFK_WorldCell::computeTerrainRec(Vec3<float> *positions, Vec3<float> *colou
          * If it isn't there something has gone rather wrong,
          * because I should have touched it earlier
          */
-        AFK_WorldCell& parentWorldCell = (*cache)[cell.parent()];
+        AFK_WorldCell& parentWorldCell = cache->at(cell.parent());
         if (!parentWorldCell.hasTerrain) throw AFK_WorldCellNotPresentException();
 
         /* Transform into the co-ordinates of this cell's
