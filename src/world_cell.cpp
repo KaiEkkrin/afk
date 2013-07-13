@@ -10,6 +10,11 @@
 #include "world_cell.hpp"
 
 
+/* This is a special "unclaimed" thread ID value.  It'll
+ * never be a real thread ID.
+ */
+#define UNCLAIMED 0xffffffffu
+
 void AFK_WorldCell::computeTerrainRec(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_WorldCache *cache) const
 {
     /* Co-ordinates arrive in the context of this cell's
@@ -44,6 +49,7 @@ void AFK_WorldCell::computeTerrainRec(Vec3<float> *positions, Vec3<float> *colou
          * because I should have touched it earlier
          */
         AFK_WorldCell& parentWorldCell = (*cache)[cell.parent()];
+        if (!parentWorldCell.hasTerrain) throw AFK_WorldCellNotPresentException();
 
         /* Transform into the co-ordinates of this cell's
          * first terrain element
@@ -57,39 +63,41 @@ void AFK_WorldCell::computeTerrainRec(Vec3<float> *positions, Vec3<float> *colou
 }
 
 AFK_WorldCell::AFK_WorldCell():
-    hasTerrain(false), displayed(NULL)
+    claimingThreadId(UNCLAIMED), hasTerrain(false), displayed(NULL)
 {
 }
 
 AFK_WorldCell::~AFK_WorldCell()
 {
-    if (displayed)
-    {
-        if (cell.coord.v[1] == 0)
-        {
-            /* This displayed cell owns the vertex array. */
-            displayed->deleteVs();
-        }
-
-        delete displayed;
-    }
+    if (displayed) delete displayed;
 }
 
-bool AFK_WorldCell::claim(void)
+bool AFK_WorldCell::claim(unsigned int threadId)
 {
-    boost::thread::id myThreadId = boost::this_thread::get_id();
+    unsigned int expectedId = UNCLAIMED;
+    if (claimingThreadId.compare_exchange_strong(expectedId, threadId))
+    {
+        if (lastSeen == afk_core.computingFrame)
+        {
+            /* This cell already got processed this frame,
+             * it shouldn't get claimed again
+             */
+            release(threadId);
+            return false;
+        }
+        else
+        {
+            lastSeen = afk_core.computingFrame;
+            return true;
+        }
+    }
+    else return false;
+}
 
-    if (lastSeen == afk_core.computingFrame) return false;
-
-    /* Grab it */
-    lastSeen = afk_core.computingFrame;
-    claimingThreadId = myThreadId;
-    boost::atomic_thread_fence(boost::memory_order_seq_cst); /* Gremlin */
-
-    /* Was I the grabber? */
-    if (claimingThreadId == myThreadId) return true;
-
-    return false;
+void AFK_WorldCell::release(unsigned int threadId)
+{
+    if (!claimingThreadId.compare_exchange_strong(threadId, UNCLAIMED))
+        throw AFK_Exception("Concurrency screwup");
 }
 
 void AFK_WorldCell::bind(const AFK_Cell& _cell, bool _topLevel, float _worldScale)
@@ -269,12 +277,19 @@ void AFK_WorldCell::computeTerrain(Vec3<float> *positions, Vec3<float> *colours,
     }
 }
 
+AFK_Cell AFK_WorldCell::terrainRoot(void) const
+{
+    if (cell.coord.v[1] == 0)
+        return cell;
+    else
+        return afk_cell(afk_vec4<long long>(
+            cell.coord.v[0], 0ll, cell.coord.v[2], cell.coord.v[3]));
+}
+
 bool AFK_WorldCell::canBeEvicted(void) const
 {
     /* This is a tweakable value ... */
     bool canEvict = ((afk_core.renderingFrame - lastSeen) > 10);
-
-    /* TODO Check for spilled geometry, as described in displayed_world_cell.hpp */
     return canEvict;
 }
 

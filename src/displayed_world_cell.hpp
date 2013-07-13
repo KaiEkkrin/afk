@@ -5,6 +5,11 @@
 
 #include "afk.hpp"
 
+#include <vector>
+
+#include <boost/shared_ptr.hpp>
+
+#include "cell.hpp"
 #include "display.hpp"
 #include "world.hpp"
 
@@ -13,6 +18,9 @@ class AFK_WorldCache;
 class AFK_WorldCell;
 
 
+#define AFK_DWC_VERTEX_BUF AFK_DisplayedBuffer<struct AFK_VcolPhongVertex>
+#define AFK_DWC_INDEX_BUF AFK_DisplayedBuffer<Vec3<unsigned int> >
+
 /* Describes the current state of one cell in the world.
  * TODO: Whilst AFK_DisplayedObject is the right abstraction,
  * I might be replicating too many fields here, making these
@@ -20,6 +28,11 @@ class AFK_WorldCell;
  */
 class AFK_DisplayedWorldCell: public AFK_DisplayedObject
 {
+private:
+    /* These things shouldn't be going on */
+    AFK_DisplayedWorldCell(const AFK_DisplayedWorldCell& other) {}
+    AFK_DisplayedWorldCell& operator=(const AFK_DisplayedWorldCell& other) { return *this; }
+
 protected:
     /* This cell's vertex data.
      * If this cell only has migrated terrain geometry,
@@ -39,33 +52,132 @@ protected:
      * the extra work it just had to do.
      */
 
-    /* Deleted when the y=0 cell is deleted, not when any of
-     * the others are.  By the eviction rules above, this
-     * should be OK.
+    /* Back-reference to the world cell this thing comes from.
+     * This doesn't own it, but this and it get deleted together
      */
-    AFK_DisplayedBuffer<struct AFK_VcolPhongVertex> *vs;
+    const AFK_WorldCell *worldCell;
 
-    /* This cell's index data.  Each cell has its own one
-     * of these.
+    /* The raw geometry, before I've completed computation of
+     * the actual terrain.
+     * It's kind of sad that I have to allocate this on the heap
+     * and store it here, but it looks like I do.
+     * This stuff gets deleted when computeGeometry() is complete.
      */
-    AFK_DisplayedBuffer<Vec3<unsigned int> > is;
+    Vec3<float> *rawVertices;
+    Vec3<float> *rawColours;
+    unsigned int rawVertexCount;
+
+    /* This is the same between all cells that share a
+     * common (x, z, scale).
+     */
+    boost::shared_ptr<AFK_DWC_VERTEX_BUF> vs;
+
+    /* For a cell y=0, this is the spill cell list.  Otherwise,
+     * this contains one member, the cell this cell's terrain
+     * was spilled from.
+     * For the y=0 cell, the first member is always y=0 anyway.
+     * It's a list that I search every time, because there
+     * will typically be very few spill cells.
+     */
+    std::vector<AFK_Cell> spillCells;
+
+    /* In the same order as the spill cells list, this is the y=0
+     * cell's holding buffer of individual index buffers destined
+     * for the spill cells.
+     * When these are moved to the spill cells they start being
+     * owned by them and no longer by this (they're moved into the
+     * `is' position.)
+     * The first member is always this cell's own indices, which
+     * don't get moved out.
+     */
+    std::vector<boost::shared_ptr<AFK_DWC_INDEX_BUF> > spillIs;
+
+    /* For tracking, so I don't have to keep calling lots of
+     * STL methods.  Also flags whether there's any geometry to
+     * be drawn here at all (spillCellsSize > 0).
+     */
+    unsigned int spillCellsSize;
 
     /* This will be a reference to the overall world
      * shader program.
      */
     GLuint program;
+    
+    /* Internal helper.
+     * Computes a single flat triangle, filling out
+     * the indicated vertex and index fields.
+     */
+    void computeFlatTriangle(
+        const Vec3<float> *vertices,
+        const Vec3<float> *colours,
+        const Vec3<unsigned int>& indices,
+        unsigned int triangleVOff,
+        AFK_DWC_INDEX_BUF& triangleIs);
+
+    /* Internal helper.
+     * Finds this vertex in the spill cells list and returns the
+     * corresponding buffer (inserting it if required).
+     */
+    AFK_DWC_INDEX_BUF& findIndexBuffer(
+        const Vec3<float>& vertex,
+        float minCellSize,
+        float sizeHint);
+
+    /* Internal helper.  Call for y=0 only.
+     * Turns a vertex grid into a world of flat triangles,
+     * filling out `vs', `is' and the spill structures.
+     */
+    void vertices2FlatTriangles(
+        Vec3<float> *vertices,
+        Vec3<float> *colours,
+        unsigned int vertexCount,
+        unsigned int pointSubdivisionFactor,
+        float minCellSize);
+
+    /* Internal helper.  Call for y=0 only.  Makes this cell's
+     * raw terrain data (vertices and colours).
+     */
+    void makeRawTerrain(unsigned int pointSubdivisionFactor);
 
 public:
     AFK_DisplayedWorldCell(
-        const AFK_WorldCell *worldCell,
-        unsigned int pointSubdivisionFactor,
-        AFK_WorldCache *cache);
+        const AFK_WorldCell *_worldCell,
+        unsigned int pointSubdivisionFactor);
     virtual ~AFK_DisplayedWorldCell();
+
+    bool hasRawTerrain() const { return (rawVertices || rawColours); }
+
+    /* Makes this cell's terrain geometry.  Call right after
+     * constructing.  Might fail, no doubt because dependent
+     * cells aren't in the cache yet; just ignore if it does,
+     * but always retry if !hasGeometry() -- the right cells
+     * ought to end up in the cache on the next iteration
+     */
+    void computeGeometry(unsigned int pointSubdivisionFactor, float minCellSize, AFK_WorldCache *cache);
+
+    bool hasGeometry() const { return (spillCellsSize > 0); }
+
+    /* The world enumerating worker thread should use these
+     * to perform the spillage.  These iterators skip the
+     * first element, which belongs to this cell and shouldn't
+     * be spilled!
+     */
+    std::vector<AFK_Cell>::iterator spillCellsBegin();
+    std::vector<boost::shared_ptr<AFK_DWC_INDEX_BUF> >::iterator spillIsBegin();
+    std::vector<AFK_Cell>::iterator spillCellsEnd();
+    std::vector<boost::shared_ptr<AFK_DWC_INDEX_BUF> >::iterator spillIsEnd();
+
+    /* Call this on the spill cell, with the source cell
+     * and indices.
+     */
+    void spill(
+        const AFK_DisplayedWorldCell& source,
+        const AFK_Cell& cell,
+        boost::shared_ptr<AFK_DWC_INDEX_BUF> indices);
 
     virtual void initGL(void);
     virtual void displaySetup(const Mat4<float>& projection);
     virtual void display(const Mat4<float>& projection);
-    virtual void deleteVs(void);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_DisplayedWorldCell& dlc);
 };

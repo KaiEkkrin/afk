@@ -15,151 +15,195 @@
 
 /* The cell generating worker */
 
-
 #define ENQUEUE_DEBUG_COLOURS 0
 
+
+/* The AFK_WorldCellGenParam flags. */
+#define AFK_WCG_FLAG_TOPLEVEL           1 /* Cell is at the top level */
+#define AFK_WCG_FLAG_ENTIRELY_VISIBLE   2 /* Cell is already known to be entirely within the viewing frustum */
+#define AFK_WCG_FLAG_TERRAIN_RENDER     4 /* Render the terrain regardless of visibility or LoD */
+
 bool afk_generateWorldCells(
+    unsigned int threadId,
     struct AFK_WorldCellGenParam param,
     ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue)
 {
     unsigned int recCount               = param.recCount;
     const AFK_Cell& cell                = param.cell;
-    bool topLevel                       = param.topLevel;
-    AFK_World *world            = param.world;
+    AFK_World *world                    = param.world;
     const Vec3<float>& viewerLocation   = param.viewerLocation;
     const AFK_Camera *camera            = param.camera;
-    bool entirelyVisible                = param.entirelyVisible; 
+
+    bool topLevel                       = ((param.flags & AFK_WCG_FLAG_TOPLEVEL) != 0);
+    bool entirelyVisible                = ((param.flags & AFK_WCG_FLAG_ENTIRELY_VISIBLE) != 0);
+    bool renderTerrain                  = ((param.flags & AFK_WCG_FLAG_TERRAIN_RENDER) != 0);
 
     AFK_WorldCell& worldCell = (*(world->cache))[cell];
-    if (!worldCell.claim()) return true;
+    if (!worldCell.claim(threadId)) return true;
     worldCell.bind(cell, topLevel, world->minCellSize);
 
-    /* Is there any terrain here?
-     * TODO: If there isn't, I still want to evaluate
-     * contained objects, and any terrain geometry that
-     * might have "bled" into this cell.  But for now,
-     * just dump it.
-     */
-    if (cell.coord.v[1] != 0)
+    /* Check for visibility. */
+    bool someVisible = entirelyVisible;
+    bool allVisible = entirelyVisible;
+
+    if (!entirelyVisible) worldCell.testVisibility(*camera, someVisible, allVisible);
+    if (!someVisible && !renderTerrain)
     {
-        world->cellsEmpty.fetch_add(1);
+        world->cellsInvisible.fetch_add(1);
+
+        /* Nothing else to do with it now either. */
     }
     else
     {
-        /* Check for visibility. */
-        bool someVisible = false;
-        bool allVisible = entirelyVisible;
+        Vec3<float> *debugColour = NULL;
 
-        worldCell.testVisibility(*camera, someVisible, allVisible);
-        if (!someVisible)
+#if ENQUEUE_DEBUG_COLOURS
+        /* Here's an LoD one... (apparently) */
+#if 0
+        Vec3<float> tint =
+            cell.coord.v[3] == MIN_CELL_PITCH ? Vec3<float>(0.0f, 0.0f, 1.0f) :
+            cell.coord.v[3] == MIN_CELL_PITCH * subdivisionFactor ? Vec3<float>(0.0f, 1.0f, 0.0f) :
+            Vec3<float>(1.0f, 0.0f, 0.0f);
+#else
+        /* And here's a location one... */
+        Vec3<float> tint(
+            0.0f,
+            fmod(realCell.coord.v[0], 16.0),
+            fmod(realCell.coord.v[2], 16.0));
+#endif
+        debugColour = &tint;
+#endif /* ENQUEUE_DEBUG_COLOURS */
+        /* Make sure there's terrain here. */
+        worldCell.makeTerrain(
+            world->pointSubdivisionFactor,
+            world->subdivisionFactor,
+            world->minCellSize,
+            debugColour);
+
+        /* We display a cell's terrain if its detail pitch is at the
+         * target detail pitch, or if it's already the smallest
+         * possible cell
+         */
+        bool displayTerrain = (cell.coord.v[3] == MIN_CELL_PITCH ||
+            worldCell.testDetailPitch(world->detailPitch, *camera, viewerLocation));
+
+        /* If the terrain hasn't been rendered, and either we want
+         * to display it, or we have the render-terrain flag...
+         */
+        if (!worldCell.displayed && (displayTerrain || renderTerrain))
         {
-            world->cellsInvisible.fetch_add(1);
-
-            /* Nothing else to do with it now either. */
+            worldCell.displayed = new AFK_DisplayedWorldCell(
+                &worldCell,
+                world->pointSubdivisionFactor);
+            world->cellsGenerated.fetch_add(1);
         }
         else
         {
-            Vec3<float> *debugColour = NULL;
+            if (displayTerrain) world->cellsCached.fetch_add(1);
+        }
 
-#if ENQUEUE_DEBUG_COLOURS
-            /* Here's an LoD one... (apparently) */
-#if 0
-            Vec3<float> tint =
-                cell.coord.v[3] == MIN_CELL_PITCH ? Vec3<float>(0.0f, 0.0f, 1.0f) :
-                cell.coord.v[3] == MIN_CELL_PITCH * subdivisionFactor ? Vec3<float>(0.0f, 1.0f, 0.0f) :
-                Vec3<float>(1.0f, 0.0f, 0.0f);
-#else
-            /* And here's a location one... */
-            Vec3<float> tint(
-                0.0f,
-                fmod(realCell.coord.v[0], 16.0),
-                fmod(realCell.coord.v[2], 16.0));
-#endif
-            debugColour = &tint;
-#endif /* ENQUEUE_DEBUG_COLOURS */
-            /* Make sure there's terrain here. */
-            worldCell.makeTerrain(
-                world->pointSubdivisionFactor,
-                world->subdivisionFactor,
-                world->minCellSize,
-                debugColour);
-
-            /* If it's the smallest possible cell, or its detail pitch
-             * is at the target detail pitch, include it as-is
-             */
-            if (cell.coord.v[3] == MIN_CELL_PITCH ||
-                worldCell.testDetailPitch(world->detailPitch, *camera, viewerLocation))
+        if (displayTerrain || renderTerrain)
+        {
+            /* If this cell is at y=0 (the `terrain-owning' cell layer)... */
+            if (cell.coord.v[1] == 0)
             {
-                /* If the displayed cell isn't there already, better make it now.
-                 * TODO Expensive: enqueue as separate work item (maybe even in OpenCL?)
+                /* Make sure its terrain has been fully computed */
+                if (worldCell.displayed->hasRawTerrain())
+                    worldCell.displayed->computeGeometry(
+                        world->pointSubdivisionFactor, world->minCellSize, world->cache);
+
+                /* Make sure its geometry is spilled into any other cells
+                 * that we might have in the cache
                  */
-                if (!worldCell.displayed)
+                std::vector<AFK_Cell>::iterator spillCellsIt = worldCell.displayed->spillCellsBegin();
+                std::vector<boost::shared_ptr<AFK_DWC_INDEX_BUF> >::iterator spillIsIt = worldCell.displayed->spillIsBegin();
+
+                while (spillCellsIt != worldCell.displayed->spillCellsEnd() &&
+                    spillIsIt != worldCell.displayed->spillIsEnd())
                 {
-                    worldCell.displayed = new AFK_DisplayedWorldCell(
-                        &worldCell,
-                        world->pointSubdivisionFactor,
-                        world->cache);
-                    world->cellsGenerated.fetch_add(1);
+                    AFK_WorldCell& spillCell = (*(world->cache))[*spillCellsIt];
+                    if (spillCell.displayed && !spillCell.displayed->hasGeometry())
+                        spillCell.displayed->spill(*(worldCell.displayed), cell, *spillIsIt);
+                    
+                    ++spillCellsIt;
+                    ++spillIsIt;
                 }
-                else
-                {
-                    world->cellsCached.fetch_add(1);
-                }
-        
-                /* Now, push it into the queue as well */
-                world->renderQueue.update_push(worldCell.displayed);
-                world->cellsQueued.fetch_add(1);
             }
             else
             {
-                /* Recurse through the subcells. */
-                size_t subcellsSize = CUBE(world->subdivisionFactor);
-                AFK_Cell *subcells = new AFK_Cell[subcellsSize]; /* TODO avoid heap thrashing somehow.  Maybe make it an iterator */
-                unsigned int subcellsCount = cell.subdivide(subcells, subcellsSize);
-
-                if (subcellsCount == subcellsSize)
+                if (!worldCell.displayed->hasGeometry())
                 {
-                    for (unsigned int i = 0; i < subcellsCount; ++i)
-                    {
-                        struct AFK_WorldCellGenParam subcellParam;
-                        subcellParam.recCount           = recCount + 1;
-                        subcellParam.cell               = subcells[i];
-                        subcellParam.topLevel           = false;
-                        subcellParam.world          = world;
-                        subcellParam.viewerLocation     = viewerLocation;
-                        subcellParam.camera             = camera;
-                        subcellParam.entirelyVisible    = allVisible;
+                    /* Make sure the terrain-owning cell has gotten rendered,
+                     * so that it can spill its geometry into us when we hit it
+                     */
+                    struct AFK_WorldCellGenParam zerocellParam;
+                    zerocellParam.recCount           = recCount + 1;
+                    zerocellParam.cell               = worldCell.terrainRoot();
+                    zerocellParam.world              = world;
+                    zerocellParam.viewerLocation     = viewerLocation;
+                    zerocellParam.camera             = camera;
+                    zerocellParam.flags              = AFK_WCG_FLAG_TERRAIN_RENDER;
+                    queue.push(zerocellParam);
+                }
+            }
+        }
+        
+        if (displayTerrain)
+        {
+            /* Now, push it into the queue as well */
+            world->renderQueue.update_push(worldCell.displayed);
+            world->cellsQueued.fetch_add(1);
+        }
+        else if (someVisible)
+        {
+            /* Recurse through the subcells.
+             */
+            size_t subcellsSize = CUBE(world->subdivisionFactor);
+            AFK_Cell *subcells = new AFK_Cell[subcellsSize]; /* TODO avoid heap thrashing somehow.  Maybe make it an iterator */
+            unsigned int subcellsCount = cell.subdivide(subcells, subcellsSize);
+
+            if (subcellsCount == subcellsSize)
+            {
+                for (unsigned int i = 0; i < subcellsCount; ++i)
+                {
+                    struct AFK_WorldCellGenParam subcellParam;
+                    subcellParam.recCount           = recCount + 1;
+                    subcellParam.cell               = subcells[i];
+                    subcellParam.world              = world;
+                    subcellParam.viewerLocation     = viewerLocation;
+                    subcellParam.camera             = camera;
+                    subcellParam.flags              = (allVisible ? AFK_WCG_FLAG_ENTIRELY_VISIBLE : 0);
 
 #if AFK_NO_THREADING
-                        afk_generateWorldCells(subcellParam, queue);
+                    afk_generateWorldCells(threadId, subcellParam, queue);
 #else
-                        if (subcellParam.recCount == world->recursionsPerTask)
-                        {
-                            /* I've hit the task recursion limit, queue this as a new task */
-                            subcellParam.recCount = 0;
-                            queue.push(subcellParam);
-                        }
-                        else
-                        {
-                            /* Use a direct function call */
-                            afk_generateWorldCells(subcellParam, queue);
-                        }
-#endif
+                    if (subcellParam.recCount == world->recursionsPerTask)
+                    {
+                        /* I've hit the task recursion limit, queue this as a new task */
+                        subcellParam.recCount = 0;
+                        queue.push(subcellParam);
                     }
+                    else
+                    {
+                        /* Use a direct function call */
+                        afk_generateWorldCells(threadId, subcellParam, queue);
+                    }
+#endif
                 }
-                else
-                {
-                    /* That's clearly a bug :P */
-                    std::ostringstream ss;
-                    ss << "Cell " << cell << " subdivided into " << subcellsCount << " not " << subcellsSize;
-                    throw AFK_Exception(ss.str());
-                }
-            
-                delete[] subcells;
             }
+            else
+            {
+                /* That's clearly a bug :P */
+                std::ostringstream ss;
+                ss << "Cell " << cell << " subdivided into " << subcellsCount << " not " << subcellsSize;
+                throw AFK_Exception(ss.str());
+            }
+            
+            delete[] subcells;
         }
     }
 
+    worldCell.release(threadId);
     return true;
 }
 
@@ -194,7 +238,7 @@ AFK_World::AFK_World(
                                       * 22 hashbits are good for 20000, 23 for 40000? */);
 
     genGang = new AFK_AsyncGang<struct AFK_WorldCellGenParam, bool>(
-            boost::function<bool (const struct AFK_WorldCellGenParam,
+            boost::function<bool (unsigned int, const struct AFK_WorldCellGenParam,
                 ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)&)>(afk_generateWorldCells),
             100);
 
@@ -237,21 +281,20 @@ void AFK_World::enqueueSubcells(
 {
     AFK_Cell modifiedCell = afk_cell(afk_vec4<long long>(
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[0],
-        cell.coord.v[0] + cell.coord.v[3] * modifier.v[1],
-        cell.coord.v[0] + cell.coord.v[3] * modifier.v[2],
+        cell.coord.v[1] + cell.coord.v[3] * modifier.v[1],
+        cell.coord.v[2] + cell.coord.v[3] * modifier.v[2],
         cell.coord.v[3]));
 
     struct AFK_WorldCellGenParam cellParam;
     cellParam.recCount              = 0;
     cellParam.cell                  = modifiedCell;
-    cellParam.topLevel              = true;
-    cellParam.world             = this;
+    cellParam.world                 = this;
     cellParam.viewerLocation        = viewerLocation;
     cellParam.camera                = &camera;
-    cellParam.entirelyVisible       = false;
+    cellParam.flags                 = AFK_WCG_FLAG_TOPLEVEL;
 
 #if AFK_NO_THREADING
-    afk_generateWorldCells(cellParam, fakeQueue);
+    afk_generateWorldCells(0, cellParam, fakeQueue);
 #else
     (*genGang) << cellParam;
 #endif
@@ -278,7 +321,8 @@ void AFK_World::alterDetail(float adjustment)
 boost::unique_future<bool> AFK_World::updateLandMap(void)
 {
     /* Maintenance. */
-    cache->doEvictionIfNecessary();
+    /* TODO re-enable when the rest is debugged */
+    //cache->doEvictionIfNecessary();
 
     /* First, transform the protagonist location and its facing
      * into integer cell-space.

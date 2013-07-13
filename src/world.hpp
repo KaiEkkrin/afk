@@ -32,15 +32,15 @@ struct AFK_WorldCellGenParam
 {
     unsigned int recCount;
     AFK_Cell cell;
-    bool topLevel;
     AFK_World *world;
     Vec3<float> viewerLocation;
     const AFK_Camera *camera;
-    bool entirelyVisible;   
+    unsigned int flags;
 };
 
 /* ...and this *is* the cell generating worker function */
 bool afk_generateWorldCells(
+    unsigned int threadId,
     struct AFK_WorldCellGenParam param,
     ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue);
 
@@ -178,6 +178,7 @@ public:
     void printCacheStats(std::ostream& ss, const std::string& prefix);
 
     friend bool afk_generateWorldCells(
+        unsigned int threadId,
         struct AFK_WorldCellGenParam param,
         ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue);
 };

@@ -45,7 +45,7 @@ struct insertSqrtParam
 
 #define CACHE_TEST_ITERATIONS 400000
 
-bool testCacheWorker(struct insertSqrtParam param, ASYNC_QUEUE_TYPE(struct insertSqrtParam)& queue)
+bool testCacheWorker(unsigned int id, struct insertSqrtParam param, ASYNC_QUEUE_TYPE(struct insertSqrtParam)& queue)
 {
     for (unsigned int i = 0; i < CACHE_TEST_ITERATIONS; ++i)
     {

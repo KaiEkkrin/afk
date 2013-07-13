@@ -4,6 +4,9 @@
 #define _AFK_DISPLAY_H_
 
 #include "afk.hpp"
+
+#include <vector>
+
 #include "light.hpp"
 #include "object.hpp"
 #include "shader.hpp"
@@ -31,29 +34,25 @@ template<typename T>
 class AFK_DisplayedBuffer
 {
 public:
-    T *ts;
-    unsigned int count;
+    std::vector<T> t;
     GLuint buf;
 
-    AFK_DisplayedBuffer(): ts(NULL), count(0), buf(0) {}
+    AFK_DisplayedBuffer(size_t sizeHint): buf(0)
+    {
+        t.reserve(sizeHint);
+    }
+
     virtual ~AFK_DisplayedBuffer()
     {
         /* Because of GLUT wanting all GL calls in the same thread */
         if (buf) afk_displayedBufferGlBuffersForDeletion(&buf, 1);
-        if (ts) delete[] ts;
-    }
-
-    void alloc(unsigned int _count)
-    {
-        count = _count;
-        ts = new T[_count];
     }
 
     void initGL(GLenum target, GLenum usage)
     {
         glGenBuffers(1, &buf);
         glBindBuffer(target, buf);
-        glBufferData(target, count * sizeof(T), ts, usage);
+        glBufferData(target, t.size() * sizeof(T), &t[0], usage);
     }
 };
 

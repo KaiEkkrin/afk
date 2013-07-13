@@ -5,6 +5,10 @@
 
 #include "afk.hpp"
 
+#include <exception>
+
+#include <boost/atomic.hpp>
+
 #include "frame.hpp"
 #include "terrain.hpp"
 #include "world.hpp"
@@ -14,6 +18,12 @@ class AFK_DisplayedWorldCell;
 class AFK_WorldCache;
 
 #define TERRAIN_CELLS_PER_CELL 5
+
+
+/* This occurs if we can't find a cell while trying to chain
+ * together the terrain.
+ */
+class AFK_WorldCellNotPresentException: public std::exception {};
 
 /* Describes one cell in the world.  This is the value that we
  * cache in the big ol' WorldCache.
@@ -27,10 +37,10 @@ protected:
      */
     AFK_Frame lastSeen;
 
-    /* The identity of the thread that last claimed use of
+    /* The identity of the thread that has claimed use of
      * this cell.
      */
-    boost::thread::id claimingThreadId;
+    boost::atomic<unsigned int> claimingThreadId;
 
     /* The obvious. */
     AFK_Cell cell;
@@ -57,7 +67,15 @@ protected:
     bool hasTerrain;
     AFK_TerrainCell terrain[TERRAIN_CELLS_PER_CELL];
 
-    /* Internal terrain computation. */
+    /* Internal terrain computation.
+     * TODO This ought to be split apart: I should first compile
+     * a list of all the relevant terrain cells, and only after
+     * that, do the computation on the whole list.
+     * Like that, I can avoid doing lots of computation before
+     * finding myself throwing an AFK_WorldCellNotPresentException,
+     * and it would also make the terrain computation more amenable
+     * to being OpenCLified.
+     */
     void computeTerrainRec(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_WorldCache *cache) const;
 
 public:
@@ -69,14 +87,15 @@ public:
     AFK_WorldCell();
     virtual ~AFK_WorldCell();
 
+    const AFK_Cell& getCell(void) const { return cell; }
     const Vec4<float>& getRealCoord(void) const { return realCoord; }
 
-    /* Tries to claim this landscape cell for processing by
-     * the current thread.
-     * I have no idea whether this is correct.  If something
-     * kerpows, maybe it isn't...
+    /* Tries to claim this landscape cell for processing.
+     * When finished, release it by calling release().
      */
-    bool claim(void);
+    bool claim(unsigned int threadId);
+
+    void release(unsigned int threadId);
 
     /* Binds a landscape cell to the world.  Needs to be called
      * before anything else gets done, because WorldCells
@@ -104,7 +123,15 @@ public:
     /* Computes the total terrain features here. */
     void computeTerrain(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_WorldCache *cache) const;
 
-    /* Says whether this cell can be evicted from the cache. */
+    /* Gets the AFK_Cell pointing to the cell that "owns"
+     * this one's geometry.
+     */
+    AFK_Cell terrainRoot(void) const;
+
+    /* Says whether this cell can be evicted from the cache.
+     * Note that you need to check all the spill cells as well,
+     * not just this one!
+     */
     bool canBeEvicted(void) const;
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_WorldCell& landscapeCell);

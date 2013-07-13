@@ -8,6 +8,7 @@
 void AFK_WorldCache::evictionWorker()
 {
     unsigned int entriesEvicted = 0;
+    std::vector<AFK_Monomer<AFK_Cell, AFK_WorldCell>*> forRemoval;
 
     do
     {

@@ -117,7 +117,7 @@ template<class ParameterType, class ReturnType>
 void afk_asyncWorker(
     AFK_AsyncControls& controls,
     unsigned int id,
-    boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
+    boost::function<ReturnType (unsigned int, const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
     ASYNC_QUEUE_TYPE(ParameterType)& queue,
     boost::promise<ReturnType>*& promise)
 {
@@ -144,7 +144,7 @@ void afk_asyncWorker(
             {
                 /* I've got a parameter.  Make the call. */
                 controls.workersBusy.fetch_or(busyBit);
-                retval = func(nextParameter, queue);
+                retval = func(id, nextParameter, queue);
 
 #if ASYNC_WORKER_DEBUG
                 std::cout << ".";
@@ -211,7 +211,7 @@ protected:
     /* The promised return value. */
     boost::promise<ReturnType> *promise;
 
-    void initWorkers(boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
+    void initWorkers(boost::function<ReturnType (unsigned int, const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
         unsigned int concurrency)
     {
         for (unsigned int i = 0; i < concurrency; ++i)
@@ -228,7 +228,7 @@ protected:
     }
 
 public:
-    AFK_AsyncGang(boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
+    AFK_AsyncGang(boost::function<ReturnType (unsigned int, const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
         size_t queueSize, unsigned int concurrency):
             controls(concurrency), queue(queueSize), promise(NULL)
     {
@@ -240,8 +240,9 @@ public:
         initWorkers(func, concurrency);
     }
 
-    AFK_AsyncGang(boost::function<ReturnType (const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func, size_t queueSize):
-        controls(boost::thread::hardware_concurrency()), queue(queueSize), promise(NULL)
+    AFK_AsyncGang(boost::function<ReturnType (unsigned int, const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
+        size_t queueSize):
+            controls(boost::thread::hardware_concurrency()), queue(queueSize), promise(NULL)
     {
         initWorkers(func, boost::thread::hardware_concurrency());
     }
