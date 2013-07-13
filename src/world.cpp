@@ -39,7 +39,7 @@ bool afk_generateWorldCells(
     bool renderTerrain                  = ((param.flags & AFK_WCG_FLAG_TERRAIN_RENDER) != 0);
 
     AFK_WorldCell& worldCell = (*(world->cache))[cell];
-    if (!worldCell.claim(threadId)) return true;
+    if (!worldCell.claimYieldLoop(threadId, true)) return true;
     worldCell.bind(cell, topLevel, world->minCellSize);
 
     /* Check for visibility. */
@@ -123,7 +123,17 @@ bool afk_generateWorldCells(
                 {
                     AFK_WorldCell& spillCell = (*(world->cache))[*spillCellsIt];
                     if (spillCell.displayed && !spillCell.displayed->hasGeometry())
-                        spillCell.displayed->spill(*(worldCell.displayed), cell, *spillIsIt);
+                    {
+                        /* I'm about to try to write to this cell, so I
+                         * should claim it first, so that I don't have
+                         * an argument with the evictor or something
+                         */
+                        if (spillCell.claimYieldLoop(threadId, false))
+                        {
+                            spillCell.displayed->spill(*(worldCell.displayed), cell, *spillIsIt);
+                            spillCell.release(threadId);
+                        }
+                    }
                     
                     ++spillCellsIt;
                     ++spillIsIt;
@@ -321,8 +331,7 @@ void AFK_World::alterDetail(float adjustment)
 boost::unique_future<bool> AFK_World::updateLandMap(void)
 {
     /* Maintenance. */
-    /* TODO re-enable when the rest is debugged */
-    //cache->doEvictionIfNecessary();
+    cache->doEvictionIfNecessary();
 
     /* First, transform the protagonist location and its facing
      * into integer cell-space.

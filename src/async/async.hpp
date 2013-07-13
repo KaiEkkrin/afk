@@ -244,7 +244,7 @@ public:
         size_t queueSize):
             controls(boost::thread::hardware_concurrency()), queue(queueSize), promise(NULL)
     {
-        initWorkers(func, boost::thread::hardware_concurrency());
+        initWorkers(func, boost::thread::hardware_concurrency() + 1);
     }
 
     virtual ~AFK_AsyncGang()

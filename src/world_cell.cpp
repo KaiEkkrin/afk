@@ -72,32 +72,67 @@ AFK_WorldCell::~AFK_WorldCell()
     if (displayed) delete displayed;
 }
 
-bool AFK_WorldCell::claim(unsigned int threadId)
+enum AFK_WorldCellClaimStatus AFK_WorldCell::claim(unsigned int threadId, bool touch)
 {
     unsigned int expectedId = UNCLAIMED;
     if (claimingThreadId.compare_exchange_strong(expectedId, threadId))
     {
-        if (lastSeen == afk_core.computingFrame)
+        if (touch && lastSeen == afk_core.computingFrame)
         {
             /* This cell already got processed this frame,
              * it shouldn't get claimed again
              */
             release(threadId);
-            return false;
+            return AFK_WCC_ALREADY_PROCESSED;
         }
         else
         {
             lastSeen = afk_core.computingFrame;
-            return true;
+            return AFK_WCC_CLAIMED;
         }
     }
-    else return false;
+    else
+    {
+        if (touch && lastSeen == afk_core.computingFrame) return AFK_WCC_ALREADY_PROCESSED;
+        else return AFK_WCC_TAKEN;
+    }
 }
 
 void AFK_WorldCell::release(unsigned int threadId)
 {
     if (!claimingThreadId.compare_exchange_strong(threadId, UNCLAIMED))
         throw AFK_Exception("Concurrency screwup");
+}
+
+bool AFK_WorldCell::claimYieldLoop(unsigned int threadId, bool touch)
+{
+    bool claimed = false;
+    for (unsigned int tries = 0; !claimed && tries < 2; ++tries)
+    {
+        enum AFK_WorldCellClaimStatus status = claim(threadId, touch);
+        switch (status)
+        {
+        case AFK_WCC_CLAIMED:
+            claimed = true;
+            break;
+
+        case AFK_WCC_ALREADY_PROCESSED:
+            return false;
+
+        case AFK_WCC_TAKEN:
+            boost::this_thread::yield();
+            break;
+
+        default:
+            {
+                std::ostringstream ss;
+                ss << "Unrecognised claim status: " << status;
+                throw new AFK_Exception(ss.str());
+            }
+        }
+    }
+
+    return claimed;
 }
 
 void AFK_WorldCell::bind(const AFK_Cell& _cell, bool _topLevel, float _worldScale)

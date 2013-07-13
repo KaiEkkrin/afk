@@ -5,6 +5,8 @@
 #include "world_cache.hpp"
 
 
+#define EVICTION_THREAD_ID 0xfffffffeu
+
 void AFK_WorldCache::evictionWorker()
 {
     unsigned int entriesEvicted = 0;
@@ -22,19 +24,32 @@ void AFK_WorldCache::evictionWorker()
             AFK_Monomer<AFK_Cell, AFK_WorldCell> *candidate = polymer.atSlot(slot);
             if (candidate && candidate->value.canBeEvicted())
             {
-                if (polymer.eraseSlot(slot, candidate))
+                /* Claim it first, otherwise someone else will
+                 * and the world will not be a happy place.
+                 * If someone else has it, chances are it's
+                 * needed after all and I should let go!
+                 */
+                if (candidate->value.claim(EVICTION_THREAD_ID, false) == AFK_WCC_CLAIMED)
                 {
-                    /* Double check */
-                    if (candidate->value.canBeEvicted())
+                    bool deleted = false;
+
+                    if (polymer.eraseSlot(slot, candidate))
                     {
-                        delete candidate;
-                        ++entriesEvicted;
+                        /* Double check */
+                        if (candidate->value.canBeEvicted())
+                        {
+                            delete candidate;
+                            ++entriesEvicted;
+                            deleted = true;
+                        }
+                        else
+                        {
+                            /* Uh oh.  Quick, put it back. */
+                            polymer.reinsertSlot(slot, candidate);
+                        }
                     }
-                    else
-                    {
-                        /* Uh oh.  Quick, put it back. */
-                        polymer.reinsertSlot(slot, candidate);
-                    }
+
+                    if (!deleted) candidate->value.release(EVICTION_THREAD_ID);
                 }
             }
         }

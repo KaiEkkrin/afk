@@ -52,8 +52,7 @@ void AFK_DisplayedWorldCell::computeFlatTriangle(
 
 AFK_DWC_INDEX_BUF& AFK_DisplayedWorldCell::findIndexBuffer(const Vec3<float>& vertex, float minCellSize, float sizeHint)
 {
-/* TODO Debugging other stuff -- never spill anything for now */
-#if 0
+#if 1
     AFK_Cell baseCell = worldCell->getCell();
     long long y = (long long)(vertex.v[1] / minCellSize) * MIN_CELL_PITCH;
     if (y == baseCell.coord.v[1]) return *(spillIs[0]);

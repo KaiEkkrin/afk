@@ -25,6 +25,16 @@ class AFK_WorldCache;
  */
 class AFK_WorldCellNotPresentException: public std::exception {};
 
+/* These are the possible results from an attempt to claim a
+ * cell.
+ */
+enum AFK_WorldCellClaimStatus
+{
+    AFK_WCC_CLAIMED,                /* You got it */
+    AFK_WCC_ALREADY_PROCESSED,      /* It's already been processed this frame */
+    AFK_WCC_TAKEN                   /* It hasn't been processed this frame but someone else has it right now */
+};
+
 /* Describes one cell in the world.  This is the value that we
  * cache in the big ol' WorldCache.
  */
@@ -92,10 +102,18 @@ public:
 
     /* Tries to claim this landscape cell for processing.
      * When finished, release it by calling release().
+     * The flag says whether to update the lastSeen field:
+     * only one claim can do this per frame, so claims for
+     * spillage or eviction shouldn't set this.
      */
-    bool claim(unsigned int threadId);
+    enum AFK_WorldCellClaimStatus claim(unsigned int threadId, bool touch);
 
     void release(unsigned int threadId);
+
+    /* Helper -- tries a bit harder to claim the cell.
+     * Returns true if success, else false
+     */
+    bool claimYieldLoop(unsigned int threadId, bool touch);
 
     /* Binds a landscape cell to the world.  Needs to be called
      * before anything else gets done, because WorldCells
