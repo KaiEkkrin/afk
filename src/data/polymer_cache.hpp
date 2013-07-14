@@ -39,7 +39,7 @@ public:
         return polymer.size();
     }
 
-    virtual Value& at(const Key& key)
+    virtual Value& at(const Key& key) const
     {
         return polymer.at(key);
     }

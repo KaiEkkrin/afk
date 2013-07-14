@@ -239,3 +239,50 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainCell& cell)
     return os;
 }
 
+
+/* AFK_TerrainList implementation. */
+
+AFK_TerrainList::AFK_TerrainList()
+{
+    /* Stop us from doing lots of small resizes when creating
+     * the list.
+     */
+    t.reserve(16);
+}
+
+void AFK_TerrainList::add(boost::shared_ptr<AFK_TerrainCell> cell)
+{
+    t.push_back(cell);
+}
+
+void AFK_TerrainList::compute(Vec3<float> *positions, Vec3<float> *colours, size_t length) const
+{
+    /* Sanity check. */
+    if (t.size() == 0) return;
+
+    /* Transform into the space of the first cell */
+    Vec4<float> bottomCellCoord = t[0]->getCellCoord();
+    Vec3<float> bottomCellXYZ = afk_vec3<float>(bottomCellCoord.v[0], bottomCellCoord.v[1], bottomCellCoord.v[2]);
+
+    for (size_t i = 0; i < length; ++i)
+        positions[i] = (positions[i] - bottomCellXYZ) / bottomCellCoord.v[3];
+
+    for (unsigned int i = 0; i < t.size(); ++i)
+    {
+        if (i > 0)
+        {
+            /* Transform the terrain up to the next cell space. */
+            t[i-1]->transformCellToCell(positions, length, *(t[i]));
+        }
+
+        t[i]->compute(positions, colours, length);
+    }
+
+    /* At the top level, transform back into world space. */
+    Vec4<float> topCellCoord = t[t.size()-1]->getCellCoord();
+    Vec3<float> topCellXYZ = afk_vec3<float>(topCellCoord.v[0], topCellCoord.v[1], topCellCoord.v[2]);
+
+        for (size_t i = 0; i < length; ++i)
+            positions[i] = (positions[i] * topCellCoord.v[3]) + topCellXYZ;
+}
+

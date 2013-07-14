@@ -6,8 +6,10 @@
 #include "afk.hpp"
 
 #include <exception>
+#include <vector>
 
 #include <boost/atomic.hpp>
+#include <boost/shared_ptr.hpp>
 
 #include "frame.hpp"
 #include "terrain.hpp"
@@ -75,27 +77,18 @@ protected:
      * Well-known RNG seeding keeps these consistent across cell seams.
      */
     bool hasTerrain;
-    AFK_TerrainCell terrain[TERRAIN_CELLS_PER_CELL];
-
-    /* Internal terrain computation.
-     * TODO This ought to be split apart: I should first compile
-     * a list of all the relevant terrain cells, and only after
-     * that, do the computation on the whole list.
-     * Like that, I can avoid doing lots of computation before
-     * finding myself throwing an AFK_WorldCellNotPresentException,
-     * and it would also make the terrain computation more amenable
-     * to being OpenCLified.
-     */
-    void computeTerrainRec(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_WorldCache *cache) const;
+    std::vector<boost::shared_ptr<AFK_TerrainCell> > terrain;
 
 public:
     /* The data for this cell's landscape, if we've
      * calculated it.
+     * TODO: Put these in a separate cache?  I'm going to want a
+     * different eviction policy for them anyway.  WorldCells are
+     * smaller and want to persist a lot longer ...
      */
-    AFK_DisplayedWorldCell *displayed;
+    boost::shared_ptr<AFK_DisplayedWorldCell> displayed;
 
     AFK_WorldCell();
-    virtual ~AFK_WorldCell();
 
     const AFK_Cell& getCell(void) const { return cell; }
     const Vec4<float>& getRealCoord(void) const { return realCoord; }
@@ -105,6 +98,7 @@ public:
      * The flag says whether to update the lastSeen field:
      * only one claim can do this per frame, so claims for
      * spillage or eviction shouldn't set this.
+     * TODO Can I remove the `touch' flag now?
      */
     enum AFK_WorldCellClaimStatus claim(unsigned int threadId, bool touch);
 
@@ -138,12 +132,13 @@ public:
         float minCellSize,
         const Vec3<float> *forcedTint);
 
-    /* Computes the total terrain features here.
+    /* Builds a terrain list for this cell.
+     * Call it with an empty list.
      * If it can't find the required cells or they're
      * incomplete throws an AFK_PolymerOutOfRange or
      * an AFK_WorldCellNotPresentException.
      */
-    void computeTerrain(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_WorldCache *cache) const;
+    void buildTerrainList(AFK_TerrainList& list, const AFK_WorldCache *cache) const;
 
     /* Gets the AFK_Cell pointing to the cell that "owns"
      * this one's geometry.

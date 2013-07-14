@@ -50,14 +50,17 @@ void AFK_DisplayedWorldCell::computeFlatTriangle(
     }
 }
 
-AFK_DWC_INDEX_BUF& AFK_DisplayedWorldCell::findIndexBuffer(const Vec3<float>& vertex, float minCellSize, float sizeHint)
+AFK_DWC_INDEX_BUF& AFK_DisplayedWorldCell::findIndexBuffer(
+    const Vec3<float>& vertex,
+    const AFK_Cell& baseCell,
+    float minCellSize,
+    float sizeHint)
 {
 #if 1
-    AFK_Cell baseCell = worldCell->getCell();
     long long y = (long long)(vertex.v[1] / minCellSize) * MIN_CELL_PITCH;
     if (y == baseCell.coord.v[1]) return *(spillIs[0]);
 
-    AFK_Cell cell = afk_cell(afk_vec4<long long>(
+    AFK_Cell vertexCell = afk_cell(afk_vec4<long long>(
         baseCell.coord.v[0],
         /* TODO Rebase -- this will need transforming */
         y,
@@ -66,13 +69,13 @@ AFK_DWC_INDEX_BUF& AFK_DisplayedWorldCell::findIndexBuffer(const Vec3<float>& ve
 
     for (unsigned int i = 0; i < spillCellsSize; ++i)
     {
-        if (spillCells[i] == cell)
+        if (spillCells[i] == vertexCell)
         {
             return *(spillIs[i]);
         }
     }
 
-    spillCells.push_back(cell);
+    spillCells.push_back(vertexCell);
     boost::shared_ptr<AFK_DWC_INDEX_BUF> spillBuffer(new AFK_DWC_INDEX_BUF(sizeHint));
     spillIs.push_back(spillBuffer);
     ++spillCellsSize;
@@ -94,6 +97,7 @@ void AFK_DisplayedWorldCell::vertices2FlatTriangles(
     Vec3<float> *vertices,
     Vec3<float> *colours,
     unsigned int vertexCount,
+    const AFK_Cell& baseCell,
     unsigned int pointSubdivisionFactor,
     float minCellSize)
 {
@@ -116,7 +120,7 @@ void AFK_DisplayedWorldCell::vertices2FlatTriangles(
     /* Set things up */
     boost::shared_ptr<AFK_DWC_VERTEX_BUF> newVs(new AFK_DWC_VERTEX_BUF(expectedTriangleVsCount));
     vs = newVs;
-    spillCells.push_back(worldCell->getCell());
+    spillCells.push_back(baseCell);
 
     boost::shared_ptr<AFK_DWC_INDEX_BUF> newIs(new AFK_DWC_INDEX_BUF(indexSizeHint));
     spillIs.push_back(newIs);
@@ -146,14 +150,14 @@ void AFK_DisplayedWorldCell::vertices2FlatTriangles(
             Vec3<unsigned int> indices1 = afk_vec3<unsigned int>(i_r2c1, i_r1c1, i_r1c2);
             computeFlatTriangle(
                 vertices, colours, indices1, triangleVOff,
-                findIndexBuffer(vertices[i_r1c1], minCellSize, indexSizeHint));
+                findIndexBuffer(vertices[i_r1c1], baseCell, minCellSize, indexSizeHint));
 
             triangleVOff += 3;
 
             Vec3<unsigned int> indices2 = afk_vec3<unsigned int>(i_r2c1, i_r1c2, i_r2c2);
             computeFlatTriangle(
                 vertices, colours, indices2, triangleVOff,
-                findIndexBuffer(vertices[i_r1c2], minCellSize, indexSizeHint));
+                findIndexBuffer(vertices[i_r1c2], baseCell, minCellSize, indexSizeHint));
 
             triangleVOff += 3;
         }
@@ -181,10 +185,9 @@ static void vertices2CurvedTriangles(
 #endif
 
 void AFK_DisplayedWorldCell::makeRawTerrain(
+    const Vec4<float>& baseCoord,
     unsigned int pointSubdivisionFactor)
 {
-    Vec4<float> realCoord = worldCell->getRealCoord();
-
     /* I'm going to need to sample the edges of the next cell along
      * the +ve x and z too, in order to join up with it.
      * -- TODO: That needs to change (see: stitching).
@@ -207,8 +210,8 @@ void AFK_DisplayedWorldCell::makeRawTerrain(
              * just before its (coord.v[3], coord.v[3], coord.v[3]
              * point (in cell space)
              */
-            float xf = (float)xi * realCoord.v[3] / (float)pointSubdivisionFactor;
-            float zf = (float)zi * realCoord.v[3] / (float)pointSubdivisionFactor;
+            float xf = (float)xi * baseCoord.v[3] / (float)pointSubdivisionFactor;
+            float zf = (float)zi * baseCoord.v[3] / (float)pointSubdivisionFactor;
 
             /* Jitter the vertices inside the cell around a bit. 
              * Not the edge ones; that will cause a join-up
@@ -228,9 +231,9 @@ void AFK_DisplayedWorldCell::makeRawTerrain(
 
             /* And shunt them into world space */
             rawVertices[rawIndex] = afk_vec3<float>(
-                xf + xdisp + realCoord.v[0],
-                realCoord.v[1],
-                zf + zdisp + realCoord.v[2]);
+                xf + xdisp + baseCoord.v[0],
+                baseCoord.v[1],
+                zf + zdisp + baseCoord.v[2]);
 
             rawColours[rawIndex] = afk_vec3<float>(0.1f, 0.1f, 0.1f);
 
@@ -240,16 +243,15 @@ void AFK_DisplayedWorldCell::makeRawTerrain(
 }
 
 AFK_DisplayedWorldCell::AFK_DisplayedWorldCell(
-    const AFK_WorldCell *_worldCell,
+    const Vec4<float>& baseCoord,
     unsigned int pointSubdivisionFactor):
-        worldCell(_worldCell),
         rawVertices(NULL),
         rawColours(NULL),
         rawVertexCount(0),
         spillCellsSize(0),
         program(0)
 {
-    if (worldCell->getCell().coord.v[1] == 0) makeRawTerrain(pointSubdivisionFactor);
+    if (baseCoord.v[1] == 0) makeRawTerrain(baseCoord, pointSubdivisionFactor);
 }
 
 AFK_DisplayedWorldCell::~AFK_DisplayedWorldCell()
@@ -258,44 +260,33 @@ AFK_DisplayedWorldCell::~AFK_DisplayedWorldCell()
     if (rawColours) delete[] rawColours;
 }
 
-void AFK_DisplayedWorldCell::computeGeometry(unsigned int pointSubdivisionFactor, float minCellSize, AFK_WorldCache *cache)
+void AFK_DisplayedWorldCell::computeGeometry(
+    unsigned int pointSubdivisionFactor,
+    const AFK_Cell& baseCell,
+    float minCellSize,
+    const AFK_TerrainList& terrain)
 {
     if (!rawVertices || !rawColours) return;
 
-    /* This step may fail, because the required cells may
-     * not be cached.  If it does, just leave in an
-     * uncomputed state: the generator tasks will retry.
+    /* Apply the terrain transform.
+     * TODO This may be slow -- obvious candidate for OpenCL?  * But, the cache may rescue me; profile first!
      */
-    try
-    {
-        /* Apply the terrain transform.
-         * TODO This may be slow -- obvious candidate for OpenCL?  * But, the cache may rescue me; profile first!
-         * TODO This is going to get in a complete mess: right now, we'll partially
-         * compute, then throw an exception, leaving rawVertices and rawColours
-         * in a broken state that can't be recovered later.  I need to change
-         * `computeTerrain' to pull out an entire terrain descriptor before
-         * it computes anything.  Also, to claim the cells it's using so that
-         * they don't go and get evicted.
-         */
-        worldCell->computeTerrain(rawVertices, rawColours, rawVertexCount, cache);
+    terrain.compute(rawVertices, rawColours, rawVertexCount);
 
-        /* I've completed my vertex array!  Now, compute the triangles
-         * and choose the actual world cells that they ought to be
-         * matched with
-         */
-        vertices2FlatTriangles(
-            rawVertices, rawColours, rawVertexCount, pointSubdivisionFactor, minCellSize);
+    /* I've completed my vertex array!  Now, compute the triangles
+     * and choose the actual world cells that they ought to be
+     * matched with
+     */
+    vertices2FlatTriangles(
+        rawVertices, rawColours, rawVertexCount, baseCell, pointSubdivisionFactor, minCellSize);
 
-        /* I don't need this any more... */
-        delete[] rawVertices;
-        delete[] rawColours;
+    /* I don't need this any more... */
+    delete[] rawVertices;
+    delete[] rawColours;
 
-        rawVertices = NULL;
-        rawColours = NULL;
-        rawVertexCount = 0;
-    }
-    catch (AFK_PolymerOutOfRange) {}
-    catch (AFK_WorldCellNotPresentException) {}
+    rawVertices = NULL;
+    rawColours = NULL;
+    rawVertexCount = 0;
 }
 
 std::vector<AFK_Cell>::iterator AFK_DisplayedWorldCell::spillCellsBegin()

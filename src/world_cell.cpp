@@ -15,61 +15,9 @@
  */
 #define UNCLAIMED 0xffffffffu
 
-void AFK_WorldCell::computeTerrainRec(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_WorldCache *cache) const
-{
-    /* Co-ordinates arrive in the context of this cell's
-     * first terrain element.
-     * Compute all of them, transforming between them as
-     * required
-     */
-    for (unsigned int i = 0; i < TERRAIN_CELLS_PER_CELL; ++i)
-    {
-        if (i > 0)
-        {
-            /* Need to do the next transformation. */
-            terrain[i-1].transformCellToCell(positions, length, terrain[i]);
-        }
-
-        terrain[i].compute(positions, colours, length);
-    }
-
-    if (topLevel)
-    {
-        /* Transform back into world space. */
-        Vec4<float> cellCoord = terrain[TERRAIN_CELLS_PER_CELL-1].getCellCoord();
-        Vec3<float> cellXYZ = afk_vec3<float>(cellCoord.v[0], cellCoord.v[1], cellCoord.v[2]);
-
-        for (size_t i = 0; i < length; ++i)
-            positions[i] = (positions[i] * cellCoord.v[3]) + cellXYZ;
-    }
-    else
-    {
-        /* Find the next cell up.
-         * If it isn't there something has gone rather wrong,
-         * because I should have touched it earlier
-         */
-        AFK_WorldCell& parentWorldCell = cache->at(cell.parent());
-        if (!parentWorldCell.hasTerrain) throw AFK_WorldCellNotPresentException();
-
-        /* Transform into the co-ordinates of this cell's
-         * first terrain element
-         */
-        terrain[TERRAIN_CELLS_PER_CELL-1].transformCellToCell(
-            positions, length, parentWorldCell.terrain[0]);
-
-        /* ...and compute its terrain too */
-        parentWorldCell.computeTerrainRec(positions, colours, length, cache);
-    }
-}
-
 AFK_WorldCell::AFK_WorldCell():
-    claimingThreadId(UNCLAIMED), hasTerrain(false), displayed(NULL)
+    claimingThreadId(UNCLAIMED), hasTerrain(false)
 {
-}
-
-AFK_WorldCell::~AFK_WorldCell()
-{
-    if (displayed) delete displayed;
 }
 
 enum AFK_WorldCellClaimStatus AFK_WorldCell::claim(unsigned int threadId, bool touch)
@@ -87,7 +35,7 @@ enum AFK_WorldCellClaimStatus AFK_WorldCell::claim(unsigned int threadId, bool t
         }
         else
         {
-            lastSeen = afk_core.computingFrame;
+            if (touch) lastSeen = afk_core.computingFrame;
             return AFK_WCC_CLAIMED;
         }
     }
@@ -269,9 +217,14 @@ void AFK_WorldCell::makeTerrain(
          */
         AFK_Boost_Taus88_RNG rng;
 
+        /* Reserve some terrain space. */
+        terrain.reserve(5);
+
         /* Make the terrain cell for this actual cell. */
         rng.seed(cell.rngSeed());
-        terrain[0].make(cell.toWorldSpace(minCellSize), pointSubdivisionFactor, subdivisionFactor, minCellSize, rng, forcedTint);
+        boost::shared_ptr<AFK_TerrainCell> tcell(new AFK_TerrainCell());
+        tcell->make(cell.toWorldSpace(minCellSize), pointSubdivisionFactor, subdivisionFactor, minCellSize, rng, forcedTint);
+        terrain.push_back(tcell);
 
         /* Now, make the terrain for the four 1/2-cells that
          * overlap this cell
@@ -281,34 +234,37 @@ void AFK_WorldCell::makeTerrain(
         for (unsigned int i = 0; i < 4; ++i)
         {
             rng.seed(halfCells[i].rngSeed());
-            terrain[i+1].make(halfCells[i].toWorldSpace(minCellSize), pointSubdivisionFactor, subdivisionFactor, minCellSize, rng, forcedTint);
+            boost::shared_ptr<AFK_TerrainCell> hcell(new AFK_TerrainCell());
+            hcell->make(halfCells[i].toWorldSpace(minCellSize), pointSubdivisionFactor, subdivisionFactor, minCellSize, rng, forcedTint);
+            terrain.push_back(hcell);
         }
 
         hasTerrain = true;
     }
 }
 
-void AFK_WorldCell::computeTerrain(Vec3<float> *positions, Vec3<float> *colours, size_t length, AFK_WorldCache *cache) const
+void AFK_WorldCell::buildTerrainList(AFK_TerrainList& list, const AFK_WorldCache *cache) const
 {
-    if (terrain)
+    /* Add the local terrain cells to the list. */
+    for (std::vector<boost::shared_ptr<AFK_TerrainCell> >::const_iterator it = terrain.begin();
+        it != terrain.end(); ++it)
     {
-        /* Make positions in the space of the first terrain cell */
-        Vec4<float> firstTerrainCoord = terrain[0].getCellCoord();
-        Vec3<float> firstTerrainXYZ = afk_vec3<float>(firstTerrainCoord.v[0], firstTerrainCoord.v[1], firstTerrainCoord.v[2]);
+        list.add(*it);
+    }
 
-        for (size_t i = 0; i < length; ++i)
-            positions[i] = (positions[i] - firstTerrainXYZ) / firstTerrainCoord.v[3];
-
-        computeTerrainRec(positions, colours, length, cache);
-
-        /* Put the colours into shape.
-         * TODO This really wants tweaking; the normalise produces
-         * pastels.  Maybe something logarithmic?
+    /* If this isn't the top level cell... */
+    if (!topLevel)
+    {
+        /* Find the next cell up.
+         * If it's not here I'll throw an exception; the caller
+         * needs to be able to cope (probably by gapping this
+         * cell for this frame).
+         * TODO: Should I forcibly enqueue it, and indeed can I
+         * enqueue a dependent work item that recalculates this
+         * terrain afterwards, to avoid lots of gaps?
          */
-        for (size_t i = 0; i < length; ++i)
-        {
-            /* colours[i] = (colours[i].normalise() + 1.0f) / 2.0f; */
-        }
+        AFK_WorldCell& parentWorldCell = cache->at(cell.parent());
+        parentWorldCell.buildTerrainList(list, cache);
     }
 }
 

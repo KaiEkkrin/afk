@@ -52,11 +52,6 @@ protected:
      * the extra work it just had to do.
      */
 
-    /* Back-reference to the world cell this thing comes from.
-     * This doesn't own it, but this and it get deleted together
-     */
-    const AFK_WorldCell *worldCell;
-
     /* The raw geometry, before I've completed computation of
      * the actual terrain.
      * It's kind of sad that I have to allocate this on the heap
@@ -120,6 +115,7 @@ protected:
      */
     AFK_DWC_INDEX_BUF& findIndexBuffer(
         const Vec3<float>& vertex,
+        const AFK_Cell& baseCell,
         float minCellSize,
         float sizeHint);
 
@@ -131,29 +127,31 @@ protected:
         Vec3<float> *vertices,
         Vec3<float> *colours,
         unsigned int vertexCount,
+        const AFK_Cell& baseCell,
         unsigned int pointSubdivisionFactor,
         float minCellSize);
 
     /* Internal helper.  Call for y=0 only.  Makes this cell's
      * raw terrain data (vertices and colours).
      */
-    void makeRawTerrain(unsigned int pointSubdivisionFactor);
+    void makeRawTerrain(const Vec4<float>& baseCoord, unsigned int pointSubdivisionFactor);
 
 public:
     AFK_DisplayedWorldCell(
-        const AFK_WorldCell *_worldCell,
+        const Vec4<float>& baseCoord,
         unsigned int pointSubdivisionFactor);
     virtual ~AFK_DisplayedWorldCell();
 
     bool hasRawTerrain() const { return (rawVertices || rawColours); }
 
     /* Makes this cell's terrain geometry.  Call right after
-     * constructing.  Might fail, no doubt because dependent
-     * cells aren't in the cache yet; just ignore if it does,
-     * but always retry if !hasGeometry() -- the right cells
-     * ought to end up in the cache on the next iteration
+     * constructing.
      */
-    void computeGeometry(unsigned int pointSubdivisionFactor, float minCellSize, AFK_WorldCache *cache);
+    void computeGeometry(
+        unsigned int pointSubdivisionFactor,
+        const AFK_Cell& baseCell,
+        float minCellSize,
+        const AFK_TerrainList& terrain);
 
     bool hasGeometry() const { return (spillCellsSize > 0); }
 

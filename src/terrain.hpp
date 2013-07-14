@@ -11,7 +11,9 @@
  * be computed, I guess.
  */
 
-#include <deque>
+#include <vector>
+
+#include <boost/shared_ptr.hpp>
 
 #include "def.hpp"
 #include "rng/rng.hpp"
@@ -133,6 +135,25 @@ public:
 };
 
 std::ostream& operator<<(std::ostream& os, const AFK_TerrainCell& cell);
+
+/* Encompasses the terrain as computed on a particular cell. */
+class AFK_TerrainList
+{
+protected:
+    std::vector<boost::shared_ptr<AFK_TerrainCell> > t;
+
+public:
+    AFK_TerrainList();
+
+    /* Adds a new TerrainCell to the list. */
+    void add(boost::shared_ptr<AFK_TerrainCell> cell);
+
+    /* Computes in world co-ordinates the terrain at the
+     * given positions, transforming through the list as
+     * it goes.
+     */
+    void compute(Vec3<float> *positions, Vec3<float> *colours, size_t length) const;
+};
 
 #endif /* _AFK_TERRAIN_H_ */
 

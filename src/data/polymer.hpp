@@ -132,7 +132,7 @@ public:
     }
 
     /* Gets a monomer from a specific place. */
-    AFK_Monomer<KeyType, ValueType> *at(unsigned int hops, size_t baseHash)
+    AFK_Monomer<KeyType, ValueType> *at(unsigned int hops, size_t baseHash) const
     {
         size_t offset = chainOffset(hops, baseHash);
         return chain[offset].load();
@@ -315,7 +315,7 @@ protected:
     }
 
     /* Retrieves an existing monomer. */
-    AFK_Monomer<KeyType, ValueType> *retrieveMonomer(const KeyType& key, size_t hash)
+    AFK_Monomer<KeyType, ValueType> *retrieveMonomer(const KeyType& key, size_t hash) const
     {
         AFK_Monomer<KeyType, ValueType> *monomer = NULL;
 
@@ -430,7 +430,7 @@ public:
     /* Returns a reference to a map entry.  Throws AFK_PolymerOutOfRange
      * if it can't find it.
      */
-    ValueType& at(const KeyType& key)
+    ValueType& at(const KeyType& key) const
     {
         size_t hash = wring(hasher(key));
         AFK_Monomer<KeyType, ValueType> *monomer = retrieveMonomer(key, hash);

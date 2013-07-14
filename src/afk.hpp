@@ -17,13 +17,5 @@
 /* Global compile-time settings */
 
 
-/* TODO This needs to be default when a single threaded system is detected,
- * because async hangs trying to start when only one worker thread is
- * specified.
- * OTOH -- do I just want to say "stuff those systems", load one extra
- * thread, and avoid the complexity of supporting this?
- */
-#define AFK_NO_THREADING 0
-
 #endif /* _AFK_AFK_H_ */
 

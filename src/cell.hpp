@@ -142,7 +142,7 @@ size_t hash_value(const AFK_Cell& cell);
 /* This one is for the polymer cache. */
 struct AFK_HashCell
 {
-    size_t operator()(const AFK_Cell& cell) { return hash_value(cell); }   
+    size_t operator()(const AFK_Cell& cell) const { return hash_value(cell); }
 };
 
 /* For printing an AFK_Cell. */

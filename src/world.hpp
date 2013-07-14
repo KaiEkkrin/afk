@@ -30,7 +30,6 @@ class AFK_WorldCache;
  */
 struct AFK_WorldCellGenParam
 {
-    unsigned int recCount;
     AFK_Cell cell;
     AFK_World *world;
     Vec3<float> viewerLocation;
@@ -85,11 +84,6 @@ protected:
     /* The cell generating gang */
     AFK_AsyncGang<struct AFK_WorldCellGenParam, bool> *genGang;
 
-#if AFK_NO_THREADING
-    ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam) fakeQueue; /* unused, but to fulfil function parameters */
-    boost::promise<bool> *fakePromise;
-#endif
-
 public:
     /* TODO Try to go around protecting these things.  Having it all
      * public is a bad plan.
@@ -99,9 +93,6 @@ public:
     AFK_ShaderProgram *shaderProgram;
     GLuint worldTransformLocation;
     GLuint clipTransformLocation;
-
-    /* How much to pressure the queue (or not). */
-    const unsigned int recursionsPerTask;
 
     /* Overall world parameters. */
 
