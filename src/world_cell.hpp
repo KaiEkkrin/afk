@@ -42,6 +42,11 @@ enum AFK_WorldCellClaimStatus
  */
 class AFK_WorldCell
 {
+private:
+    /* These things shouldn't be going on */
+    AFK_WorldCell(const AFK_WorldCell& other) {}
+    AFK_WorldCell& operator=(const AFK_WorldCell& other) { return *this; }
+
 protected:
     /* This value says when the subcell enumerator last used
      * this cell.  If it's a long time ago, the cell will
@@ -56,11 +61,6 @@ protected:
 
     /* The obvious. */
     AFK_Cell cell;
-
-    /* If this is a top level cell, don't go hunting in its parent
-     * for stuff.
-     */
-    bool topLevel;
 
     /* The matching world co-ordinates.
      * TODO This is the thing that needs to change everywhere
@@ -113,7 +113,7 @@ public:
      * before anything else gets done, because WorldCells
      * are created uninitialised in the cache.
      */
-    void bind(const AFK_Cell& _cell, bool _topLevel, float worldScale);
+    void bind(const AFK_Cell& _cell, float worldScale);
 
     /* Tests whether this cell is within the specified detail pitch
      * when viewed from the specified location.
@@ -133,12 +133,16 @@ public:
         const Vec3<float> *forcedTint);
 
     /* Builds a terrain list for this cell.
-     * Call it with an empty list.
-     * If it can't find the required cells or they're
-     * incomplete throws an AFK_PolymerOutOfRange or
-     * an AFK_WorldCellNotPresentException.
+     * Call it with empty lists.
+     * Fills out the `missing' list with the cells that
+     * are missing from the cache:
+     * you'll need to process them then try again.
      */
-    void buildTerrainList(AFK_TerrainList& list, const AFK_WorldCache *cache) const;
+    void buildTerrainList(
+        AFK_TerrainList& list,
+        std::vector<AFK_Cell>& missing,
+        float maxDistance,
+        const AFK_WorldCache *cache) const;
 
     /* Gets the AFK_Cell pointing to the cell that "owns"
      * this one's geometry.

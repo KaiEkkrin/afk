@@ -26,6 +26,20 @@
 class AFK_World;
 class AFK_WorldCache;
 
+struct AFK_WorldCellGenParam;
+
+/* This structure describes a cell generation dependency.
+ * Every time a cell generating worker gets a parameter with
+ * one of these, it decrements `count'.  The worker that
+ * decrements `count' to zero enqueues the final cell and
+ * deletes this structure.
+ */
+struct AFK_WorldCellGenDependency
+{
+    boost::atomic<unsigned int> count;
+    struct AFK_WorldCellGenParam *finalCell;
+};
+
 /* The parameter for the cell generating worker.
  */
 struct AFK_WorldCellGenParam
@@ -35,6 +49,7 @@ struct AFK_WorldCellGenParam
     Vec3<float> viewerLocation;
     const AFK_Camera *camera;
     unsigned int flags;
+    struct AFK_WorldCellGenDependency *dependency;
 };
 
 /* ...and this *is* the cell generating worker function */
@@ -66,11 +81,13 @@ protected:
 
     /* Gather statistics.  (Useful.)
      */
-    boost::atomic<unsigned long long> cellsEmpty;
     boost::atomic<unsigned long long> cellsInvisible;
     boost::atomic<unsigned long long> cellsQueued;
     boost::atomic<unsigned long long> cellsCached;
     boost::atomic<unsigned long long> cellsGenerated;
+    boost::atomic<unsigned long long> cellsFoundMissing;
+    boost::atomic<unsigned long long> cellsSpilledTo;
+    boost::atomic<unsigned long long> zeroCellsRequested;
 
     /* The cache of world cells we're tracking.
      */

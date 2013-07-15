@@ -282,7 +282,7 @@ void AFK_TerrainList::compute(Vec3<float> *positions, Vec3<float> *colours, size
     Vec4<float> topCellCoord = t[t.size()-1]->getCellCoord();
     Vec3<float> topCellXYZ = afk_vec3<float>(topCellCoord.v[0], topCellCoord.v[1], topCellCoord.v[2]);
 
-        for (size_t i = 0; i < length; ++i)
-            positions[i] = (positions[i] * topCellCoord.v[3]) + topCellXYZ;
+    for (size_t i = 0; i < length; ++i)
+        positions[i] = (positions[i] * topCellCoord.v[3]) + topCellXYZ;
 }
 

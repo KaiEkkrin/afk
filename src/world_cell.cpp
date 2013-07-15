@@ -83,10 +83,9 @@ bool AFK_WorldCell::claimYieldLoop(unsigned int threadId, bool touch)
     return claimed;
 }
 
-void AFK_WorldCell::bind(const AFK_Cell& _cell, bool _topLevel, float _worldScale)
+void AFK_WorldCell::bind(const AFK_Cell& _cell, float _worldScale)
 {
     cell = _cell;
-    topLevel = _topLevel;
     /* TODO If this actually *changes* something, I need to
      * clear the terrain so that it can be re-made.
      */
@@ -243,7 +242,11 @@ void AFK_WorldCell::makeTerrain(
     }
 }
 
-void AFK_WorldCell::buildTerrainList(AFK_TerrainList& list, const AFK_WorldCache *cache) const
+void AFK_WorldCell::buildTerrainList(
+    AFK_TerrainList& list,
+    std::vector<AFK_Cell>& missing,
+    float maxDistance,
+    const AFK_WorldCache *cache) const
 {
     /* Add the local terrain cells to the list. */
     for (std::vector<boost::shared_ptr<AFK_TerrainCell> >::const_iterator it = terrain.begin();
@@ -253,7 +256,7 @@ void AFK_WorldCell::buildTerrainList(AFK_TerrainList& list, const AFK_WorldCache
     }
 
     /* If this isn't the top level cell... */
-    if (!topLevel)
+    if (/* !topLevel */ cell.coord.v[3] < maxDistance)
     {
         /* Find the next cell up.
          * If it's not here I'll throw an exception; the caller
@@ -263,8 +266,22 @@ void AFK_WorldCell::buildTerrainList(AFK_TerrainList& list, const AFK_WorldCache
          * enqueue a dependent work item that recalculates this
          * terrain afterwards, to avoid lots of gaps?
          */
-        AFK_WorldCell& parentWorldCell = cache->at(cell.parent());
-        parentWorldCell.buildTerrainList(list, cache);
+        bool foundNextCell = false;
+        for (AFK_Cell nextCell = cell.parent();
+            !foundNextCell && (float)nextCell.coord.v[3] < (maxDistance * 2.0f);
+            nextCell = nextCell.parent())
+        {
+            try
+            {
+                AFK_WorldCell& parentWorldCell = cache->at(nextCell);
+                parentWorldCell.buildTerrainList(list, missing, maxDistance, cache);
+                foundNextCell = true;
+            }
+            catch (AFK_PolymerOutOfRange)
+            {
+                missing.push_back(nextCell);
+            }
+        }
     }
 }
 

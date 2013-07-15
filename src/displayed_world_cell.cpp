@@ -56,7 +56,7 @@ AFK_DWC_INDEX_BUF& AFK_DisplayedWorldCell::findIndexBuffer(
     float minCellSize,
     float sizeHint)
 {
-#if 1
+#if 0
     long long y = (long long)(vertex.v[1] / minCellSize) * MIN_CELL_PITCH;
     if (y == baseCell.coord.v[1]) return *(spillIs[0]);
 
