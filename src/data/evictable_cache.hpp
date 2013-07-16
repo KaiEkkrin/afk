@@ -59,7 +59,7 @@ protected:
                      * If someone else has it, chances are it's
                      * needed after all and I should let go!
                      */
-                    if (candidate->value.claim(threadId, false) == AFK_CL_CLAIMED)
+                    if (candidate->value.claim(threadId, AFK_CLT_EVICTOR) == AFK_CL_CLAIMED)
                     {
                         bool deleted = false;
 

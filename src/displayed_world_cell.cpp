@@ -2,6 +2,8 @@
 
 #include "afk.hpp"
 
+#include <cmath>
+
 #include "core.hpp"
 #include "debug.hpp"
 #include "displayed_world_cell.hpp"
@@ -63,10 +65,16 @@ AFK_DWC_INDEX_BUF& AFK_DisplayedWorldCell::findIndexBuffer(
     /* The operation that rounds a float to a long long will
      * always round towards 0, and I want to round negatives
      * down to the next negative number.
+     * Also: I want to make cells of the same scale as the
+     * base cell, aligned to the cell grid at that scale,
+     * which means I need to round down the nearest multiple of
+     * the base cell's scale.
+     * TODO Test this with minCellSize != 1, I'm not sure I
+     * did it right.
      */
     float fy = vertex.v[1] / minCellSize;
-    if (fy < 0.0f) fy -= minCellSize;
-    long long y = (long long)fy * MIN_CELL_PITCH;
+    float fyScaled = (floor(fy / baseCell.coord.v[3]) * baseCell.coord.v[3]);
+    long long y = (long long)fyScaled * MIN_CELL_PITCH;
     if (y == baseCell.coord.v[1])
     {
 #if FIND_INDEX_BUFFER_DEBUG
@@ -426,6 +434,10 @@ void AFK_DisplayedWorldCell::display(const Mat4<float>& projection)
         glDisableVertexAttribArray(0);
         glDisableVertexAttribArray(1);
         glDisableVertexAttribArray(2);
+    }
+    else
+    {
+        throw new AFK_Exception("Enqueued geometry-less cell");
     }
 }
 

@@ -164,6 +164,7 @@ void AFK_Cell::enumerateHalfCells(AFK_Cell *halfCells, size_t halfCellsSize) con
         }
     }
 }
+
 AFK_Cell afk_cell(const AFK_Cell& other)
 {
     AFK_Cell cell;

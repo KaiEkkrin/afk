@@ -27,6 +27,12 @@ class AFK_World;
 
 struct AFK_WorldCellGenParam;
 
+
+/* TODO These global functions are horrible, I would really like to
+ * move them somewhere, rationalise them, prune their parameter lists,
+ * and all those things...
+ */
+
 /* The spill helper */
 
 void afk_spillHelper(

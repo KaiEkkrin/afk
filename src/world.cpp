@@ -33,7 +33,7 @@ void afk_spillHelper(
     }
 
     AFK_DisplayedWorldCell& spillDWC = (*(world->dwcCache))[spillCell];
-    if (spillDWC.claimYieldLoop(threadId, true))
+    if (spillDWC.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE))
     {
         spillDWC.spill(sourceDWC, sourceCell, spillIndices);
 #if SPILL_DEBUG
@@ -126,6 +126,12 @@ bool afk_generateClaimedDWC(
 
         /* Make sure its geometry is spilled into any other cells
          * that we might have in the cache
+         * TODO This is terrible, because it makes me repeatedly
+         * re-queue the zero cell.  I should spill the other way
+         * around, from the spill cell if I think it's visible,
+         * and tag the spill cell with "I tried" if a zero cell
+         * was found, spilled from and there was no geometry for
+         * us.
          */
         std::vector<AFK_Cell>::iterator spillCellsIt = displayed.spillCellsBegin();
         std::vector<boost::shared_ptr<AFK_DWC_INDEX_BUF> >::iterator spillIsIt = displayed.spillIsBegin();
@@ -153,9 +159,9 @@ bool afk_generateClaimedDWC(
         {
             /* Oh dear.  We need to request a render of the terrain-owning
              * cell's geometry.
-             * We don't need to request a resume, though -- the zero cell
-             * will spill the correct geometry into this one, and we'll
-             * already have enqueued it for rendering (below).
+             * TODO: This is wasting a _greal deal_ of time.  I should tag
+             * cells with "definitely no geometry here, I checked" so that
+             * it stops trying to spill to them.
              */
             struct AFK_WorldCellGenParam zeroCellParam;
             zeroCellParam.cell              = worldCell.terrainRoot();
@@ -241,11 +247,11 @@ bool afk_generateClaimedWorldCell(
         if (displayTerrain || renderTerrain)
         {
             AFK_DisplayedWorldCell& displayed = (*(world->dwcCache))[cell];
-            if (displayed.claimYieldLoop(threadId, !resume))
+            if (displayed.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE))
             {
                 retval = afk_generateClaimedDWC(
                     worldCell, displayed, threadId, param, queue);
-                if (displayTerrain)
+                if (displayTerrain && displayed.hasGeometry())
                 {
                     /* It goes into the display queue */
                     AFK_DisplayedWorldCell *dptr = &displayed;
@@ -259,7 +265,7 @@ bool afk_generateClaimedWorldCell(
         /* If the terrain here was at too coarse a resolution to
          * be displayable, recurse through the subcells
          */
-        if (!displayTerrain && someVisible && !resume)
+        if (!displayTerrain && !renderTerrain && someVisible && !resume)
         {
             size_t subcellsSize = CUBE(world->subdivisionFactor);
             AFK_Cell *subcells = new AFK_Cell[subcellsSize]; /* TODO avoid heap thrashing somehow.  Maybe make it an iterator */
@@ -302,12 +308,23 @@ bool afk_generateWorldCells(
     const AFK_Cell& cell                = param.cell;
     AFK_World *world                    = param.world;
 
+    bool renderTerrain                  = ((param.flags & AFK_WCG_FLAG_TERRAIN_RENDER) != 0);
     bool resume                         = ((param.flags & AFK_WCG_FLAG_RESUME) != 0);
 
     bool retval;
 
     AFK_WorldCell& worldCell = (*(world->worldCache))[cell];
-    if (worldCell.claimYieldLoop(threadId, !resume))
+
+    /* I want an exclusive claim on world cells to stop me from
+     * repeating the recursive search process.
+     * The render flag means "definitely render this cell's terrain
+     * regardless of visibility" (for spillage purposes), and the
+     * resume flag means "you needed to wait for dependencies, keep
+     * trying"; in those cases I don't want an exclusive claim, and
+     * I won't do a recursive search.
+     */
+    if (worldCell.claimYieldLoop(threadId,
+        (renderTerrain || resume) ? AFK_CLT_NONEXCLUSIVE : AFK_CLT_EXCLUSIVE))
     {
         retval = afk_generateClaimedWorldCell(
             worldCell, threadId, param, queue);

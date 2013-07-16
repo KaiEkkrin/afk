@@ -13,31 +13,61 @@ AFK_Claimable::AFK_Claimable():
 {
 }
 
-enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, bool touch)
+enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimType type)
 {
     AFK_Frame currentFrame = getCurrentFrame();
     unsigned int expectedId = UNCLAIMED;
+    AFK_ClaimStatus status = AFK_CL_TAKEN;
     if (claimingThreadId.compare_exchange_strong(expectedId, threadId))
     {
-        if (touch && lastSeen == currentFrame)
+        switch (type)
         {
-            /* This cell already got processed this frame,
-             * it shouldn't get claimed again
+        case AFK_CLT_EXCLUSIVE:
+            if (lastSeenExclusively == currentFrame)
+            {
+                /* This cell already got processed this frame,
+                 * it shouldn't get claimed again
+                 */
+                release(threadId);
+                status = AFK_CL_ALREADY_PROCESSED;
+            }
+            else
+            {
+                /* You've got it */
+                lastSeen = currentFrame;
+                lastSeenExclusively = currentFrame;
+                status = AFK_CL_CLAIMED;
+            }
+            break;
+
+        case AFK_CLT_NONEXCLUSIVE:
+            /* You've definitely got it */
+            lastSeen = currentFrame;
+            status = AFK_CL_CLAIMED;
+            break;
+
+        case AFK_CLT_EVICTOR:
+            /* You've definitely got it, and I shouldn't bump
+             * lastSeen
              */
-            release(threadId);
-            return AFK_CL_ALREADY_PROCESSED;
-        }
-        else
-        {
-            if (touch) lastSeen = currentFrame;
-            return AFK_CL_CLAIMED;
+            status = AFK_CL_CLAIMED;
+            break;
+
+        default:
+            /* This is a programming error */
+            throw new AFK_ClaimException();
         }
     }
     else
     {
-        if (touch && lastSeen == currentFrame) return AFK_CL_ALREADY_PROCESSED;
-        else return AFK_CL_TAKEN;
+        /* I might as well check whether I'd ever give it to
+         * you at all
+         */
+        if (type == AFK_CLT_EXCLUSIVE && lastSeenExclusively == currentFrame)
+            status = AFK_CL_ALREADY_PROCESSED;
     }
+
+    return status;
 }
 
 void AFK_Claimable::release(unsigned int threadId)
@@ -46,12 +76,12 @@ void AFK_Claimable::release(unsigned int threadId)
         throw AFK_ClaimException();
 }
 
-bool AFK_Claimable::claimYieldLoop(unsigned int threadId, bool touch)
+bool AFK_Claimable::claimYieldLoop(unsigned int threadId, enum AFK_ClaimType type)
 {
     bool claimed = false;
-    for (unsigned int tries = 0; !claimed /* && tries < 2 */; ++tries)
+    for (unsigned int tries = 0; !claimed && tries < 2; ++tries)
     {
-        enum AFK_ClaimStatus status = claim(threadId, touch);
+        enum AFK_ClaimStatus status = claim(threadId, type);
         switch (status)
         {
         case AFK_CL_CLAIMED:

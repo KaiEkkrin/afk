@@ -17,12 +17,24 @@
  * a few frames before taking them out.
  */
 
+/* Here are the different ways in which we can claim a cell. */
+enum AFK_ClaimType
+{
+    AFK_CLT_EXCLUSIVE,          /* Wants to be the only claim to processing the cell this frame */
+    AFK_CLT_NONEXCLUSIVE,       /* Bump the frame, but other threads may claim it this frame after
+                                 * we've released
+                                 */
+    AFK_CLT_EVICTOR             /* We're the evictor.  Don't bump the frame. */
+};
+
 /* First here are the possible results from a claim attempt.
  */
 enum AFK_ClaimStatus
 {
     AFK_CL_CLAIMED,            /* You've got it */
-    AFK_CL_ALREADY_PROCESSED,  /* It's already been processed this frame */
+    AFK_CL_ALREADY_PROCESSED,  /* It's already been processed this frame, and you wanted an
+                                * exclusive claim
+                                */
     AFK_CL_TAKEN               /* Someone else has it */
 };
 
@@ -38,6 +50,9 @@ protected:
     /* The last time the object was seen. */
     AFK_Frame lastSeen;
 
+    /* The last time the object was claimed exclusively. */
+    AFK_Frame lastSeenExclusively;
+
     /* Which thread ID (as assigned by the async module) has
      * claimed use of this object.
      */
@@ -48,19 +63,15 @@ public:
 
     /* Tries to claim this object for processing.
      * When finished, release it by calling release().
-     * The flag says whether to update the lastSeen field:
-     * only one claim can do this per frame, so claims for
-     * spillage or eviction shouldn't set this.
-     * TODO Can I remove the `touch' flag now?
      */
-    enum AFK_ClaimStatus claim(unsigned int threadId, bool touch);
+    enum AFK_ClaimStatus claim(unsigned int threadId, enum AFK_ClaimType type);
 
     void release(unsigned int threadId);
 
     /* Helper -- tries a bit harder to claim the cell.
      * Returns true if success, else false
      */
-    bool claimYieldLoop(unsigned int threadId, bool touch);
+    bool claimYieldLoop(unsigned int threadId, enum AFK_ClaimType type);
 
     /* Things the implementer needs to define. */
     virtual AFK_Frame getCurrentFrame(void) const = 0;
