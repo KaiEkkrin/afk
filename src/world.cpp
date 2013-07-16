@@ -15,43 +15,35 @@
 #define SPILL_DEBUG 0
 
 
-/* The spill helper */
-
-void afk_spillHelper(
-    unsigned int threadId,
-    const AFK_Cell& spillCell,
-    boost::shared_ptr<AFK_DWC_INDEX_BUF> spillIndices,
-    const AFK_Cell& sourceCell,
-    const AFK_DisplayedWorldCell& sourceDWC,
-    AFK_World *world)
-{
-    if (spillCell.coord.v[1] == 0)
-    {
-        std::ostringstream ss;
-        ss << "Tried to spill to y=0 cell " << spillCell;
-        throw AFK_Exception(ss.str());
-    }
-
-    AFK_DisplayedWorldCell& spillDWC = (*(world->dwcCache))[spillCell];
-    if (spillDWC.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE))
-    {
-        spillDWC.spill(sourceDWC, sourceCell, spillIndices);
-#if SPILL_DEBUG
-        AFK_DEBUG_PRINT(spillCell << ", ")
-#endif
-        world->cellsSpilledTo.fetch_add(1);
-        spillDWC.release(threadId);
-    }
-    else
-    {
-        world->spillCellsUnclaimed.fetch_add(1);
-    }
-}
-
 
 /* The cell generating worker */
 
 #define ENQUEUE_DEBUG_COLOURS 0
+
+
+void afk_spillIfCellPresent(
+    unsigned int threadId,
+    AFK_DisplayedWorldCell& sourceDWC,
+    const AFK_Cell& sourceCell,
+    const AFK_Cell& spillCell,
+    boost::shared_ptr<AFK_DWC_INDEX_BUF> spillIndices,
+    AFK_World *world)
+{
+    try
+    {
+        AFK_DisplayedWorldCell& spillDWC = world->dwcCache->at(spillCell);
+        if (spillDWC.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE))
+        {
+            if (!spillDWC.haveSpilledTo())
+            {
+                spillDWC.spill(sourceDWC, sourceCell, spillIndices);
+            }
+            spillDWC.release(threadId);
+            world->cellsSpilledTo.fetch_add(1);
+        }
+    }
+    catch (AFK_PolymerOutOfRange) {}
+}
 
 
 /* The AFK_WorldCellGenParam flags. */
@@ -90,7 +82,7 @@ bool afk_generateClaimedDWC(
                  * final geometry.
                  */
                 struct AFK_WorldCellGenDependency *dependency = new struct AFK_WorldCellGenDependency();
-                dependency->count.store(missing.size() - 1);
+                dependency->count.store(missing.size());
                 dependency->finalCell = new struct AFK_WorldCellGenParam(param);
                 dependency->finalCell->flags |= AFK_WCG_FLAG_RESUME;
                 if (param.dependency)
@@ -121,58 +113,71 @@ bool afk_generateClaimedDWC(
                 displayed.computeGeometry(
                     world->pointSubdivisionFactor, worldCell.getCell(), world->minCellSize, terrainList);
                 world->cellsGenerated.fetch_add(1);
+
+                /* Deliberately push any spill geometry that I just found */
+                /* TODO In its current form this deadlocks immediately --
+                 * with y=0 I'm locking the zero cell then the non-zero cell,
+                 * with y!=0 I'm locking the non-zero cell then the zero cell.
+                 * FAIL
+                 */
+#if 0
+                std::vector<AFK_Cell>::iterator spillCellsIt = displayed.spillCellsBegin();
+                std::vector<boost::shared_ptr<AFK_DWC_INDEX_BUF> >::iterator spillIsIt = displayed.spillIsBegin();
+
+                while (spillCellsIt != displayed.spillCellsEnd())
+                {
+                    if (spillIsIt == displayed.spillIsEnd()) throw AFK_Exception("Cell and index buffers size mismatch");
+
+                    afk_spillIfCellPresent(threadId, displayed, cell, *spillCellsIt, *spillIsIt, world);
+                }
+#endif
             }
         }
-
-        /* Make sure its geometry is spilled into any other cells
-         * that we might have in the cache
-         * TODO This is terrible, because it makes me repeatedly
-         * re-queue the zero cell.  I should spill the other way
-         * around, from the spill cell if I think it's visible,
-         * and tag the spill cell with "I tried" if a zero cell
-         * was found, spilled from and there was no geometry for
-         * us.
-         */
-        std::vector<AFK_Cell>::iterator spillCellsIt = displayed.spillCellsBegin();
-        std::vector<boost::shared_ptr<AFK_DWC_INDEX_BUF> >::iterator spillIsIt = displayed.spillIsBegin();
-
-#if SPILL_DEBUG
-        AFK_DEBUG_PRINT("Spilling " << worldCell.getCell() << " -> ")
-#endif
-
-        while (spillCellsIt != displayed.spillCellsEnd() &&
-            spillIsIt != displayed.spillIsEnd())
-        {
-            afk_spillHelper(threadId, *spillCellsIt, *spillIsIt,
-                cell, displayed, world);
-            
-            ++spillCellsIt;
-            ++spillIsIt;
-        }
-#if SPILL_DEBUG
-        AFK_DEBUG_PRINTL("")
-#endif
     }
     else
     {
-        if (!displayed.hasGeometry())
+        if (!displayed.hasGeometry() && !displayed.haveSpilledTo())
         {
-            /* Oh dear.  We need to request a render of the terrain-owning
-             * cell's geometry.
-             * TODO: This is wasting a _greal deal_ of time.  I should tag
-             * cells with "definitely no geometry here, I checked" so that
-             * it stops trying to spill to them.
+            /* Try to dig up the zero-point cell, which will have the
+             * required geometry.
              */
-            struct AFK_WorldCellGenParam zeroCellParam;
-            zeroCellParam.cell              = worldCell.terrainRoot();
-            zeroCellParam.world             = world;
-            zeroCellParam.viewerLocation    = viewerLocation;
-            zeroCellParam.camera            = camera;
-            zeroCellParam.flags             = AFK_WCG_FLAG_TERRAIN_RENDER;
-            zeroCellParam.dependency        = NULL;
-            queue.push(zeroCellParam);
+            AFK_Cell zeroCell = worldCell.terrainRoot();
 
-            world->zeroCellsRequested.fetch_add(1);
+            try
+            {
+                AFK_DisplayedWorldCell& zeroDWC = world->dwcCache->at(zeroCell);
+                if (zeroDWC.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE))
+                {
+                    if (zeroDWC.hasGeometry())
+                    {
+                        displayed.spillFrom(zeroDWC, cell);
+                    }
+                    zeroDWC.release(threadId);
+                    world->cellsSpilledTo.fetch_add(1);
+                }
+            }
+            catch (AFK_PolymerOutOfRange) {}
+
+            if (!displayed.haveSpilledTo())
+            {
+                /* Oh dear.  We need to request a render of the terrain-owning
+                 * cell's geometry.
+                 * TODO: Insert a dependency to come back here when it's done?
+                 * Otherwise I'm going to end up with a gap, at least for one
+                 * frame.
+                 * It might turn out slow, but it's worth a try.
+                 */
+                struct AFK_WorldCellGenParam zeroCellParam;
+                zeroCellParam.cell              = zeroCell;
+                zeroCellParam.world             = world;
+                zeroCellParam.viewerLocation    = viewerLocation;
+                zeroCellParam.camera            = camera;
+                zeroCellParam.flags             = AFK_WCG_FLAG_TERRAIN_RENDER;
+                zeroCellParam.dependency        = NULL;
+                queue.push(zeroCellParam);
+
+                world->zeroCellsRequested.fetch_add(1);
+            }
         }
     }
 
@@ -311,7 +316,7 @@ bool afk_generateWorldCells(
     bool renderTerrain                  = ((param.flags & AFK_WCG_FLAG_TERRAIN_RENDER) != 0);
     bool resume                         = ((param.flags & AFK_WCG_FLAG_RESUME) != 0);
 
-    bool retval;
+    bool retval = true;
 
     AFK_WorldCell& worldCell = (*(world->worldCache))[cell];
 
@@ -332,6 +337,10 @@ bool afk_generateWorldCells(
     }
 
     /* If this cell had a dependency ... */
+    /* TODO: Should dependencies actually only trigger if I
+     * claimed the world cell?  And if they don't should I just
+     * delete them?  Think about what this means.
+     */
     if (param.dependency)
     {
         if (param.dependency->count.fetch_sub(1) == 1)
@@ -397,7 +406,6 @@ AFK_World::AFK_World(
     cellsGenerated.store(0);
     cellsFoundMissing.store(0);
     cellsSpilledTo.store(0);
-    spillCellsUnclaimed.store(0);
     zeroCellsRequested.store(0);
     dependenciesFollowed.store(0);
 }
@@ -546,7 +554,6 @@ void AFK_World::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckp
     std::cout << "Cells generated:          " << toRatePerSecond(cellsGenerated.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
     std::cout << "Cells found missing:      " << toRatePerSecond(cellsFoundMissing.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
     std::cout << "Cells spilled to:         " << toRatePerSecond(cellsSpilledTo.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
-    std::cout << "Spill cells unclaimed:    " << toRatePerSecond(spillCellsUnclaimed.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
     std::cout << "Cells at y=0 requested:   " << toRatePerSecond(zeroCellsRequested.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
     std::cout << "Dependencies followed:    " << toRatePerSecond(dependenciesFollowed.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
 
@@ -555,7 +562,6 @@ void AFK_World::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckp
     cellsGenerated.store(0);
     cellsFoundMissing.store(0);
     cellsSpilledTo.store(0);
-    spillCellsUnclaimed.store(0);
     zeroCellsRequested.store(0);
     dependenciesFollowed.store(0);
 }

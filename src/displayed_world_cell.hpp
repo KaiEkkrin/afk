@@ -91,6 +91,11 @@ protected:
      */
     unsigned int spillCellsSize;
 
+    /* Flags whether I finished spilling to this cell (if it's not
+     * a y=0 cell).
+     */
+    bool spillFinished;
+
     /* This will be a reference to the overall world
      * shader program.
      */
@@ -171,9 +176,17 @@ public:
      * and indices.
      */
     void spill(
-        const AFK_DisplayedWorldCell& source,
+        AFK_DisplayedWorldCell& source,
         const AFK_Cell& cell,
         boost::shared_ptr<AFK_DWC_INDEX_BUF> indices);
+
+    /* Spills from the given zero-cell to this cell. */
+    void spillFrom(AFK_DisplayedWorldCell& source, const AFK_Cell& thisCell);
+
+    /* Returns true if we've already spilled to this cell,
+     * else false.
+     */
+    bool haveSpilledTo(void) const;
 
     virtual void initGL(void);
     virtual void displaySetup(const Mat4<float>& projection);

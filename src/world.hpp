@@ -33,16 +33,6 @@ struct AFK_WorldCellGenParam;
  * and all those things...
  */
 
-/* The spill helper */
-
-void afk_spillHelper(
-    unsigned int threadId,
-    const AFK_Cell& spillCell,
-    boost::shared_ptr<AFK_DWC_INDEX_BUF> spillIndices,
-    const AFK_Cell& sourceCell,
-    const AFK_DisplayedWorldCell& sourceDWC,
-    AFK_World *world);
-
 /* This structure describes a cell generation dependency.
  * Every time a cell generating worker gets a parameter with
  * one of these, it decrements `count'.  The worker that
@@ -66,6 +56,17 @@ struct AFK_WorldCellGenParam
     unsigned int flags;
     struct AFK_WorldCellGenDependency *dependency;
 };
+
+/* A useful thing for opportunistically pushing
+ * spilled geometry.
+ */
+void afk_spillIfCellPresent(
+    unsigned int threadId,
+    AFK_DisplayedWorldCell& sourceDWC,
+    const AFK_Cell& sourceCell,
+    const AFK_Cell& spillCell,
+    boost::shared_ptr<AFK_DWC_INDEX_BUF> spillIndices,
+    AFK_World *world);
 
 /* This worker function makes geometry for a claimed DWC from the
  * below one
@@ -118,7 +119,6 @@ protected:
     boost::atomic<unsigned long long> cellsGenerated;
     boost::atomic<unsigned long long> cellsFoundMissing;
     boost::atomic<unsigned long long> cellsSpilledTo;
-    boost::atomic<unsigned long long> spillCellsUnclaimed;
     boost::atomic<unsigned long long> zeroCellsRequested;
     boost::atomic<unsigned long long> dependenciesFollowed;
 
@@ -227,12 +227,12 @@ public:
 
     void printCacheStats(std::ostream& ss, const std::string& prefix);
 
-    friend void afk_spillHelper(
+    friend void afk_spillIfCellPresent(
         unsigned int threadId,
+        AFK_DisplayedWorldCell& sourceDWC,
+        const AFK_Cell& sourceCell,
         const AFK_Cell& spillCell,
         boost::shared_ptr<AFK_DWC_INDEX_BUF> spillIndices,
-        const AFK_Cell& sourceCell,
-        const AFK_DisplayedWorldCell& sourceDWC,
         AFK_World *world);
 
     friend bool afk_generateClaimedDWC(

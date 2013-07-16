@@ -277,6 +277,7 @@ AFK_DisplayedWorldCell::AFK_DisplayedWorldCell():
     rawColours(NULL),
     rawVertexCount(0),
     spillCellsSize(0),
+    spillFinished(false),
     program(0)
 {
 }
@@ -363,7 +364,7 @@ std::vector<boost::shared_ptr<AFK_DWC_INDEX_BUF> >::iterator AFK_DisplayedWorldC
 }
 
 void AFK_DisplayedWorldCell::spill(
-    const AFK_DisplayedWorldCell& source,
+    AFK_DisplayedWorldCell& source,
     const AFK_Cell& cell,
     boost::shared_ptr<AFK_DWC_INDEX_BUF> indices)
 {
@@ -374,6 +375,46 @@ void AFK_DisplayedWorldCell::spill(
         spillIs.push_back(indices);
         spillCellsSize = 1;
     }   
+}
+
+void AFK_DisplayedWorldCell::spillFrom(
+    AFK_DisplayedWorldCell& source,
+    const AFK_Cell& thisCell)
+{
+    /* Sanity check. */
+    if (spillCellsSize != 0)
+    {
+        std::ostringstream ss;
+        ss << "Tried to spill into " << thisCell << " (already with " << spillCellsSize << " indexes)";
+        throw new AFK_Exception(ss.str());
+    }
+
+    if (!spillFinished)
+    {
+        std::vector<AFK_Cell>::iterator spillCellsIt = source.spillCellsBegin();
+        std::vector<boost::shared_ptr<AFK_DWC_INDEX_BUF> >::iterator spillIsIt = source.spillIsBegin();
+
+        while (spillCellsIt != source.spillCellsEnd())
+        {
+            if (spillIsIt == source.spillIsEnd()) throw AFK_Exception("Cell and index buffers size mismatch");
+
+            if (*spillCellsIt == thisCell)
+            {
+                spill(source, thisCell, *spillIsIt);
+                break;
+            }
+
+            ++spillCellsIt;
+            ++spillIsIt;
+        }
+
+        spillFinished = true;
+    }
+}
+
+bool AFK_DisplayedWorldCell::haveSpilledTo(void) const
+{
+    return spillFinished;
 }
 
 void AFK_DisplayedWorldCell::initGL(void)
