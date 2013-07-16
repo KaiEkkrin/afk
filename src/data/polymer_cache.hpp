@@ -12,9 +12,6 @@
 #include "cache.hpp"
 #include "polymer.hpp"
 
-#define AFK_POLYMER_HASHBITS 23
-#define AFK_POLYMER_CONTENTION 4
-
 
 /* This defines the AFK cache as an unguarded polymer cache. */
 
@@ -25,12 +22,8 @@ protected:
     AFK_Polymer<Key, Value, Hasher> polymer;
 
 public:
-    /* TODO: These values should probably be tweakable from elsewhere
-     * (if I'm going to use this structure at all.  Maybe mutexes
-     * are really fast now?
-     */
-    AFK_PolymerCache(Hasher hasher):
-        polymer(AFK_POLYMER_HASHBITS, AFK_POLYMER_CONTENTION, hasher)
+    AFK_PolymerCache(unsigned int hashBits, unsigned int targetContention, Hasher hasher):
+        polymer(hashBits, targetContention, hasher)
     {
     }
 

@@ -3,9 +3,12 @@
 #include "afk.hpp"
 
 #include "core.hpp"
+#include "debug.hpp"
 #include "displayed_world_cell.hpp"
 #include "exception.hpp"
 
+
+#define FIND_INDEX_BUFFER_DEBUG 0
 
 
 void AFK_DisplayedWorldCell::computeFlatTriangle(
@@ -56,9 +59,21 @@ AFK_DWC_INDEX_BUF& AFK_DisplayedWorldCell::findIndexBuffer(
     float minCellSize,
     float sizeHint)
 {
-#if 0
-    long long y = (long long)(vertex.v[1] / minCellSize) * MIN_CELL_PITCH;
-    if (y == baseCell.coord.v[1]) return *(spillIs[0]);
+#if 1
+    /* The operation that rounds a float to a long long will
+     * always round towards 0, and I want to round negatives
+     * down to the next negative number.
+     */
+    float fy = vertex.v[1] / minCellSize;
+    if (fy < 0.0f) fy -= minCellSize;
+    long long y = (long long)fy * MIN_CELL_PITCH;
+    if (y == baseCell.coord.v[1])
+    {
+#if FIND_INDEX_BUFFER_DEBUG
+        AFK_DEBUG_PRINTL(vertex << " --> base cell " << baseCell)
+#endif
+        return *(spillIs[0]);
+    }
 
     AFK_Cell vertexCell = afk_cell(afk_vec4<long long>(
         baseCell.coord.v[0],
@@ -67,10 +82,13 @@ AFK_DWC_INDEX_BUF& AFK_DisplayedWorldCell::findIndexBuffer(
         baseCell.coord.v[2],
         baseCell.coord.v[3]));
 
-    for (unsigned int i = 0; i < spillCellsSize; ++i)
+    for (unsigned int i = 1; i < spillCellsSize; ++i)
     {
         if (spillCells[i] == vertexCell)
         {
+#if FIND_INDEX_BUFFER_DEBUG
+            AFK_DEBUG_PRINTL(vertex << " --> " << spillCells[i] << " (existing at " << i << ")")
+#endif
             return *(spillIs[i]);
         }
     }
@@ -78,6 +96,9 @@ AFK_DWC_INDEX_BUF& AFK_DisplayedWorldCell::findIndexBuffer(
     spillCells.push_back(vertexCell);
     boost::shared_ptr<AFK_DWC_INDEX_BUF> spillBuffer(new AFK_DWC_INDEX_BUF(sizeHint));
     spillIs.push_back(spillBuffer);
+#if FIND_INDEX_BUFFER_DEBUG
+    AFK_DEBUG_PRINTL(vertex << " --> " << vertexCell << " (new at " << spillCellsSize << ")")
+#endif
     ++spillCellsSize;
     return *spillBuffer;
 #else
@@ -242,22 +263,34 @@ void AFK_DisplayedWorldCell::makeRawTerrain(
     }
 }
 
-AFK_DisplayedWorldCell::AFK_DisplayedWorldCell(
-    const Vec4<float>& baseCoord,
-    unsigned int pointSubdivisionFactor):
-        rawVertices(NULL),
-        rawColours(NULL),
-        rawVertexCount(0),
-        spillCellsSize(0),
-        program(0)
+AFK_DisplayedWorldCell::AFK_DisplayedWorldCell():
+    AFK_Claimable(),
+    rawVertices(NULL),
+    rawColours(NULL),
+    rawVertexCount(0),
+    spillCellsSize(0),
+    program(0)
 {
-    if (baseCoord.v[1] == 0) makeRawTerrain(baseCoord, pointSubdivisionFactor);
 }
 
 AFK_DisplayedWorldCell::~AFK_DisplayedWorldCell()
 {
     if (rawVertices) delete[] rawVertices;
     if (rawColours) delete[] rawColours;
+}
+
+bool AFK_DisplayedWorldCell::hasRawTerrain(
+    const Vec4<float>& baseCoord,
+    unsigned int pointSubdivisionFactor)
+{
+    /* Check for ...
+     * - It's a base cell.  If not, it won't have raw terrain.
+     * - It doesn't have a raw terrain already.
+     * - It doesn't have `vs' (computed geometry), which implies we
+     * already completed the raw terrain pass.
+     */
+    if (baseCoord.v[1] == 0 && !rawVertices && !vs) makeRawTerrain(baseCoord, pointSubdivisionFactor);
+    return (rawVertices != NULL);
 }
 
 void AFK_DisplayedWorldCell::computeGeometry(
@@ -326,10 +359,13 @@ void AFK_DisplayedWorldCell::spill(
     const AFK_Cell& cell,
     boost::shared_ptr<AFK_DWC_INDEX_BUF> indices)
 {
-    vs = source.vs;
-    spillCells.push_back(cell);
-    spillIs.push_back(indices);
-    spillCellsSize = 1;
+    if (spillCellsSize == 0)
+    {
+        vs = source.vs;
+        spillCells.push_back(cell);
+        spillIs.push_back(indices);
+        spillCellsSize = 1;
+    }   
 }
 
 void AFK_DisplayedWorldCell::initGL(void)
@@ -391,6 +427,18 @@ void AFK_DisplayedWorldCell::display(const Mat4<float>& projection)
         glDisableVertexAttribArray(1);
         glDisableVertexAttribArray(2);
     }
+}
+
+AFK_Frame AFK_DisplayedWorldCell::getCurrentFrame(void) const
+{
+    return afk_core.computingFrame;
+}
+
+bool AFK_DisplayedWorldCell::canBeEvicted(void) const
+{
+    /* This is a tweakable value ... */
+    bool canEvict = ((afk_core.computingFrame - lastSeen) > 10);
+    return canEvict;
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_DisplayedWorldCell& dlc)

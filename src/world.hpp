@@ -14,19 +14,28 @@
 #include "async/async.hpp"
 #include "camera.hpp"
 #include "cell.hpp"
+#include "data/evictable_cache.hpp"
 #include "data/render_queue.hpp"
 #include "def.hpp"
 #include "displayed_world_cell.hpp"
 #include "shader.hpp"
-#include "world_cache.hpp"
 #include "world_cell.hpp"
 
 /* The world of AFK. */
 
 class AFK_World;
-class AFK_WorldCache;
 
 struct AFK_WorldCellGenParam;
+
+/* The spill helper */
+
+void afk_spillHelper(
+    unsigned int threadId,
+    const AFK_Cell& spillCell,
+    boost::shared_ptr<AFK_DWC_INDEX_BUF> spillIndices,
+    const AFK_Cell& sourceCell,
+    const AFK_DisplayedWorldCell& sourceDWC,
+    AFK_World *world);
 
 /* This structure describes a cell generation dependency.
  * Every time a cell generating worker gets a parameter with
@@ -52,7 +61,24 @@ struct AFK_WorldCellGenParam
     struct AFK_WorldCellGenDependency *dependency;
 };
 
-/* ...and this *is* the cell generating worker function */
+/* This worker function makes geometry for a claimed DWC from the
+ * below one
+ */
+bool afk_generateClaimedDWC(
+    AFK_WorldCell& worldCell,
+    AFK_DisplayedWorldCell& displayed,
+    unsigned int threadId,
+    struct AFK_WorldCellGenParam param,
+    ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue);
+
+/* The below function delegates here after claiming its world cell */
+bool afk_generateClaimedWorldCell(
+    AFK_WorldCell& worldCell,
+    unsigned int threadId,
+    struct AFK_WorldCellGenParam param,
+    ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue);
+
+/* This is the actual cell generating worker function */
 bool afk_generateWorldCells(
     unsigned int threadId,
     struct AFK_WorldCellGenParam param,
@@ -83,15 +109,25 @@ protected:
      */
     boost::atomic<unsigned long long> cellsInvisible;
     boost::atomic<unsigned long long> cellsQueued;
-    boost::atomic<unsigned long long> cellsCached;
     boost::atomic<unsigned long long> cellsGenerated;
     boost::atomic<unsigned long long> cellsFoundMissing;
     boost::atomic<unsigned long long> cellsSpilledTo;
+    boost::atomic<unsigned long long> spillCellsUnclaimed;
     boost::atomic<unsigned long long> zeroCellsRequested;
+    boost::atomic<unsigned long long> dependenciesFollowed;
 
     /* The cache of world cells we're tracking.
      */
-    AFK_WorldCache *cache;
+#ifndef AFK_WORLD_CACHE
+#define AFK_WORLD_CACHE AFK_EvictableCache<AFK_Cell, AFK_WorldCell, AFK_HashCell>
+#endif
+    AFK_WORLD_CACHE *worldCache;
+
+    /* The cache of displayed world cells we're tracking. */
+#ifndef AFK_DWC_CACHE
+#define AFK_DWC_CACHE AFK_EvictableCache<AFK_Cell, AFK_DisplayedWorldCell, AFK_HashCell>
+#endif
+    AFK_DWC_CACHE *dwcCache;
 
     /* The render queue: cells to display next frame.
      * DOES NOT OWN THESE POINTERS.  DO NOT DELETE
@@ -184,6 +220,27 @@ public:
     void checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint);
 
     void printCacheStats(std::ostream& ss, const std::string& prefix);
+
+    friend void afk_spillHelper(
+        unsigned int threadId,
+        const AFK_Cell& spillCell,
+        boost::shared_ptr<AFK_DWC_INDEX_BUF> spillIndices,
+        const AFK_Cell& sourceCell,
+        const AFK_DisplayedWorldCell& sourceDWC,
+        AFK_World *world);
+
+    friend bool afk_generateClaimedDWC(
+        AFK_WorldCell& worldCell,
+        AFK_DisplayedWorldCell& displayed,
+        unsigned int threadId,
+        struct AFK_WorldCellGenParam param,
+        ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue);
+
+    friend bool afk_generateClaimedWorldCell(
+        AFK_WorldCell& worldCell,
+        unsigned int threadId,
+        struct AFK_WorldCellGenParam param,
+        ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue);
 
     friend bool afk_generateWorldCells(
         unsigned int threadId,

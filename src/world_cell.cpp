@@ -10,77 +10,9 @@
 #include "world_cell.hpp"
 
 
-/* This is a special "unclaimed" thread ID value.  It'll
- * never be a real thread ID.
- */
-#define UNCLAIMED 0xffffffffu
-
 AFK_WorldCell::AFK_WorldCell():
-    claimingThreadId(UNCLAIMED), hasTerrain(false)
+    AFK_Claimable(), hasTerrain(false)
 {
-}
-
-enum AFK_WorldCellClaimStatus AFK_WorldCell::claim(unsigned int threadId, bool touch)
-{
-    unsigned int expectedId = UNCLAIMED;
-    if (claimingThreadId.compare_exchange_strong(expectedId, threadId))
-    {
-        if (touch && lastSeen == afk_core.computingFrame)
-        {
-            /* This cell already got processed this frame,
-             * it shouldn't get claimed again
-             */
-            release(threadId);
-            return AFK_WCC_ALREADY_PROCESSED;
-        }
-        else
-        {
-            if (touch) lastSeen = afk_core.computingFrame;
-            return AFK_WCC_CLAIMED;
-        }
-    }
-    else
-    {
-        if (touch && lastSeen == afk_core.computingFrame) return AFK_WCC_ALREADY_PROCESSED;
-        else return AFK_WCC_TAKEN;
-    }
-}
-
-void AFK_WorldCell::release(unsigned int threadId)
-{
-    if (!claimingThreadId.compare_exchange_strong(threadId, UNCLAIMED))
-        throw AFK_Exception("Concurrency screwup");
-}
-
-bool AFK_WorldCell::claimYieldLoop(unsigned int threadId, bool touch)
-{
-    bool claimed = false;
-    for (unsigned int tries = 0; !claimed && tries < 2; ++tries)
-    {
-        enum AFK_WorldCellClaimStatus status = claim(threadId, touch);
-        switch (status)
-        {
-        case AFK_WCC_CLAIMED:
-            claimed = true;
-            break;
-
-        case AFK_WCC_ALREADY_PROCESSED:
-            return false;
-
-        case AFK_WCC_TAKEN:
-            boost::this_thread::yield();
-            break;
-
-        default:
-            {
-                std::ostringstream ss;
-                ss << "Unrecognised claim status: " << status;
-                throw new AFK_Exception(ss.str());
-            }
-        }
-    }
-
-    return claimed;
 }
 
 void AFK_WorldCell::bind(const AFK_Cell& _cell, float _worldScale)
@@ -246,7 +178,7 @@ void AFK_WorldCell::buildTerrainList(
     AFK_TerrainList& list,
     std::vector<AFK_Cell>& missing,
     float maxDistance,
-    const AFK_WorldCache *cache) const
+    const AFK_WORLD_CACHE *cache) const
 {
     /* Add the local terrain cells to the list. */
     for (std::vector<boost::shared_ptr<AFK_TerrainCell> >::const_iterator it = terrain.begin();
@@ -294,10 +226,15 @@ AFK_Cell AFK_WorldCell::terrainRoot(void) const
             cell.coord.v[0], 0ll, cell.coord.v[2], cell.coord.v[3]));
 }
 
+AFK_Frame AFK_WorldCell::getCurrentFrame(void) const
+{
+    return afk_core.computingFrame;
+}
+
 bool AFK_WorldCell::canBeEvicted(void) const
 {
     /* This is a tweakable value ... */
-    bool canEvict = ((afk_core.renderingFrame - lastSeen) > 10);
+    bool canEvict = ((afk_core.computingFrame - lastSeen) > 60);
     return canEvict;
 }
 
@@ -306,3 +243,4 @@ std::ostream& operator<<(std::ostream& os, const AFK_WorldCell& worldCell)
     /* TODO Something more descriptive might be nice */
     return os << "World cell (last seen " << worldCell.lastSeen << ", claimed by " << worldCell.claimingThreadId << ")";
 }
+

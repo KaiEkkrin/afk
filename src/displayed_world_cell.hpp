@@ -10,12 +10,9 @@
 #include <boost/shared_ptr.hpp>
 
 #include "cell.hpp"
+#include "data/claimable.hpp"
 #include "display.hpp"
 #include "world.hpp"
-
-
-class AFK_WorldCache;
-class AFK_WorldCell;
 
 
 #define AFK_DWC_VERTEX_BUF AFK_DisplayedBuffer<struct AFK_VcolPhongVertex>
@@ -26,7 +23,8 @@ class AFK_WorldCell;
  * I might be replicating too many fields here, making these
  * too big and clunky
  */
-class AFK_DisplayedWorldCell: public AFK_DisplayedObject
+class AFK_DisplayedWorldCell:
+    public AFK_DisplayedObject, public AFK_Claimable
 {
 private:
     /* These things shouldn't be going on */
@@ -137,12 +135,16 @@ protected:
     void makeRawTerrain(const Vec4<float>& baseCoord, unsigned int pointSubdivisionFactor);
 
 public:
-    AFK_DisplayedWorldCell(
-        const Vec4<float>& baseCoord,
-        unsigned int pointSubdivisionFactor);
+    AFK_DisplayedWorldCell();
     virtual ~AFK_DisplayedWorldCell();
 
-    bool hasRawTerrain() const { return (rawVertices || rawColours); }
+    /* Returns true if there is raw terrain here that needs computing,
+     * else false.  As a side effect, computes the initial raw
+     * terrain grid if required.
+     */
+    bool hasRawTerrain(
+        const Vec4<float>& baseCoord,
+        unsigned int pointSubdivisionFactor);
 
     /* Makes this cell's terrain geometry.  Call right after
      * constructing.
@@ -176,6 +178,10 @@ public:
     virtual void initGL(void);
     virtual void displaySetup(const Mat4<float>& projection);
     virtual void display(const Mat4<float>& projection);
+
+    virtual AFK_Frame getCurrentFrame(void) const;
+
+    virtual bool canBeEvicted(void) const;
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_DisplayedWorldCell& dlc);
 };

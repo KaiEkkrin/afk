@@ -8,11 +8,15 @@
 
 #include "computer.hpp"
 #include "core.hpp"
+#include "debug.hpp"
 #include "def.hpp"
 #include "display.hpp"
 #include "event.hpp"
 #include "exception.hpp"
 #include "rng/boost_taus88.hpp"
+
+
+#define FRAME_NUMBER_DEBUG 0
 
 
 /* With a little less for wiggle room. */
@@ -169,6 +173,10 @@ void afk_idle(void)
             afk_core.computingUpdateDelayed = false;
             afk_core.computingFrame = afk_core.renderingFrame;
             afk_core.renderingFrame.increment();
+
+#if FRAME_NUMBER_DEBUG
+            AFK_DEBUG_PRINTL("Now computing frame " << afk_core.computingFrame)
+#endif
             
             break;
         }
@@ -356,6 +364,8 @@ void AFK_Core::loop(void)
     computeDelaysSinceLastCheckpoint =
         graphicsDelaysSinceLastCheckpoint =
         graphicsDelaysSinceLastCalibration = 0;
+
+    renderingFrame.increment();
 
     glutMainLoop();
 }

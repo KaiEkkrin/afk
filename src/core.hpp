@@ -13,9 +13,9 @@
 
 #include "camera.hpp"
 #include "config.hpp"
+#include "data/frame.hpp"
 #include "def.hpp"
 #include "display.hpp"
-#include "frame.hpp"
 #include "light.hpp"
 #include "rng/rng.hpp"
 #include "world.hpp"
