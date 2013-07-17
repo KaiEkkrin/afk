@@ -14,11 +14,64 @@
 #define SQUARE(x) ((x) * (x))
 #define CUBE(x) ((x) * (x) * (x))
 
+template<typename T>
+inline T afk_lrotate(const T& v, const unsigned int r)
+{
+    /* Hopefully the compiler will optimise this into a rotate
+     * instruction...
+     */
+    return ((v << r) | (v >> (sizeof(T)*8 - r)));
+}
+
+template<typename F>
+class Vec2
+{
+public:
+    F v[2];
+
+};
+
+template<typename F>
+Vec2<F> afk_vec2(const Vec2<F>& o)
+{
+    Vec2<F> v;
+    v.v[0] = o.v[0]; v.v[1] = o.v[1];
+    return v;
+}
+
+template<typename F>
+Vec2<F> afk_vec2(F e0, F e1)
+{
+    Vec2<F> v;
+    v.v[0] = e0; v.v[1] = e1;
+    return v;
+}
+
+template<typename F>
+std::ostream& operator<<(std::ostream& os, const Vec2<F>& v)
+{
+    return os << "(" << v.v[0] << ", " << v.v[1] << ")";
+}
+
+BOOST_STATIC_ASSERT((boost::has_trivial_assign<Vec2<float> >::value));
+BOOST_STATIC_ASSERT((boost::has_trivial_constructor<Vec2<float> >::value));
+BOOST_STATIC_ASSERT((boost::has_trivial_destructor<Vec2<float> >::value));
+
 template<typename F>
 class Vec3
 {
 public:
     F v[3];
+
+    bool operator==(const Vec3<F>& p) const
+    {
+        return v[0] == p.v[0] && v[1] == p.v[1] && v[2] == p.v[2];
+    }
+
+    bool operator!=(const Vec3<F>& p) const
+    {
+        return v[0] != p.v[0] || v[1] != p.v[1] || v[2] != p.v[2];
+    }
 
     Vec3<F> operator+(F f) const
     {

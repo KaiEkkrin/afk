@@ -33,7 +33,7 @@ enum AFK_TerrainType
 
 /* The encapsulation of any terrain feature.
  * A feature is computed at a particular location
- * based on the (x,y,z)
+ * based on the (x,z)
  * position that I want to compute it at, and
  * returns a displaced y co-ordinate for that position.
  * Terrain features are in cell co-ordinates (between
@@ -55,7 +55,7 @@ class AFK_TerrainFeature
 {
 protected:
     enum AFK_TerrainType    type;
-    Vec3<float>             location; /* y is always 0 */
+    Vec2<float>             location; /* x-z */
     Vec3<float>             tint; /* TODO Make location and tint features separate things? */
     Vec3<float>             scale;
 
@@ -69,7 +69,7 @@ public:
     AFK_TerrainFeature(const AFK_TerrainFeature& f);
     AFK_TerrainFeature(
         const enum AFK_TerrainType _type,
-        const Vec3<float>& _location,
+        const Vec2<float>& _location,
         const Vec3<float>& _tint,
         const Vec3<float>& _scale);
 
@@ -85,68 +85,69 @@ public:
 
 std::ostream& operator<<(std::ostream& os, const AFK_TerrainFeature& feature);
 
-/* This describes a cell containing a collection of
+/* This describes a tile containing a collection of
  * terrain features.  It provides a method for computing
  * the total displacement applied by these features in
  * world co-ordinates.
  */
 
-#define TERRAIN_FEATURE_COUNT_PER_CELL 4 
-class AFK_TerrainCell
+#define TERRAIN_FEATURE_COUNT_PER_TILE 4 
+class AFK_TerrainTile
 {
 protected:
-    Vec4<float>         cellCoord; /* y always 0 */
-    AFK_TerrainFeature  features[TERRAIN_FEATURE_COUNT_PER_CELL];
+    Vec3<float>         tileCoord;
+    AFK_TerrainFeature  features[TERRAIN_FEATURE_COUNT_PER_TILE];
     unsigned int        featureCount;
 
 public:
-    AFK_TerrainCell();
-    AFK_TerrainCell(const AFK_TerrainCell& c);
+    AFK_TerrainTile();
+    AFK_TerrainTile(const AFK_TerrainTile& c);
 
-    AFK_TerrainCell& operator=(const AFK_TerrainCell& c);
+    AFK_TerrainTile& operator=(const AFK_TerrainTile& c);
 
-    const Vec4<float>& getCellCoord(void) const;
+    const Vec3<float>& getTileCoord(void) const;
+    Vec4<float> getCellCoord(void) const; /* y=0 */
 
     /* Assumes the RNG to have been seeded correctly for
-     * the cell.
+     * the tile.
      * If `forcedTint' is non-NULL, uses that tint for all
      * features generated here; otherwise, gets a tint off
      * of the RNG.
      */
     void make(
-        const Vec4<float>& _cellCoord,
+        const Vec3<float>& _tileCoord,
         unsigned int pointSubdivisionFactor,
         unsigned int subdivisionFactor,
         float minCellSize,
         AFK_RNG& rng,
         const Vec3<float> *forcedTint);
 
-    /* Transforms positions from this cell's co-ordinates to
+    /* Transforms positions from this tile's co-ordinates to
      * the given one.
      */
-    void transformCellToCell(Vec3<float> *positions, size_t length, const AFK_TerrainCell& other) const;
+    void transformTileToTile(Vec3<float> *positions, size_t length, const AFK_TerrainTile& other) const;
 
     /* Computes in cell co-ordinates each of the
      * terrain features and puts them together.
      */
     void compute(Vec3<float> *positions, Vec3<float> *colours, size_t length) const;
 
-    friend std::ostream& operator<<(std::ostream& os, const AFK_TerrainCell& cell);
+    friend std::ostream& operator<<(std::ostream& os, const AFK_TerrainTile& tile);
 };
 
-std::ostream& operator<<(std::ostream& os, const AFK_TerrainCell& cell);
+std::ostream& operator<<(std::ostream& os, const AFK_TerrainTile& tile);
 
-/* Encompasses the terrain as computed on a particular cell. */
+/* Encompasses the terrain as computed on a particular tile. */
 class AFK_TerrainList
 {
 protected:
-    std::vector<boost::shared_ptr<AFK_TerrainCell> > t;
+    std::vector<boost::shared_ptr<AFK_TerrainTile> > t;
 
 public:
     AFK_TerrainList();
 
-    /* Adds a new TerrainCell to the list. */
-    void add(boost::shared_ptr<AFK_TerrainCell> cell);
+    /* Adds a new TerrainTile to the list. */
+    void add(boost::shared_ptr<AFK_TerrainTile> tile);
 
     /* Computes in world co-ordinates the terrain at the
      * given positions, transforming through the list as

@@ -138,7 +138,7 @@ void afk_idle(void)
         /* Update the world, deciding which bits of it I'm going
          * to draw.
          */
-        afk_core.computingUpdate = afk_core.world->updateLandMap();
+        afk_core.computingUpdate = afk_core.world->updateWorld();
 
         /* Meanwhile, draw the previous frame */
         afk_display();

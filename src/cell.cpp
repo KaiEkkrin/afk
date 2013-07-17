@@ -73,14 +73,14 @@ unsigned int AFK_Cell::subdivide(
     return subCellCount;
 }
 
-unsigned int AFK_Cell::subdivide(AFK_Cell *subCells, const size_t subCellsSize) const
+unsigned int AFK_Cell::subdivide(AFK_Cell *subCells, const size_t subCellsSize, unsigned int subdivisionFactor) const
 {
     return subdivide(
         subCells,
         subCellsSize,
-        afk_core.world->subdivisionFactor,
-        coord.v[3] / afk_core.world->subdivisionFactor,
-        afk_core.world->subdivisionFactor);
+        subdivisionFactor,
+        coord.v[3] / subdivisionFactor,
+        subdivisionFactor);
 }
 
 /* TODO I don't think I need this */
@@ -96,19 +96,9 @@ unsigned int AFK_Cell::augmentedSubdivide(AFK_Cell *augmentedSubcells, const siz
 }
 #endif
 
-/* The C++ integer modulus operator's behaviour with
- * negative numbers is just shocking
- */
-#define ROUND_TO_CELL_SCALE(coord, scale) \
-    (coord) - ((coord) >= 0 ? \
-                ((coord) % (scale)) : \
-                ((scale) + (((coord) % (scale)) != 0 ? \
-                            ((coord) % (scale)) : \
-                            -(scale))))
-
-AFK_Cell AFK_Cell::parent(void) const
+AFK_Cell AFK_Cell::parent(unsigned int subdivisionFactor) const
 {
-    long long parentCellScale = coord.v[3] * afk_core.world->subdivisionFactor;
+    long long parentCellScale = coord.v[3] * subdivisionFactor;
     return afk_cell(afk_vec4<long long>(
         ROUND_TO_CELL_SCALE(coord.v[0], parentCellScale),
         ROUND_TO_CELL_SCALE(coord.v[1], parentCellScale),
@@ -140,31 +130,6 @@ Vec4<float> AFK_Cell::toWorldSpace(float worldScale) const
         (float)coord.v[3] * worldScale / MIN_CELL_PITCH);
 }
 
-void AFK_Cell::enumerateHalfCells(AFK_Cell *halfCells, size_t halfCellsSize) const
-{
-    if (halfCellsSize != 4)
-    {
-        std::ostringstream ss;
-        ss << "Tried to enumerate half cells of count " << halfCellsSize;
-        throw AFK_Exception(ss.str());
-    }
-
-    unsigned int halfCellsIdx = 0;
-    for (long long xd = -1; xd <= 1; xd += 2)
-    {
-        for (long long zd = -1; zd <= 1; zd += 2)
-        {
-            halfCells[halfCellsIdx].coord = afk_vec4<long long>(
-                coord.v[0] + coord.v[3] * xd / 2,
-                coord.v[1],
-                coord.v[2] + coord.v[3] * zd / 2,
-                coord.v[3]);
-
-            ++halfCellsIdx;
-        }
-    }
-}
-
 AFK_Cell afk_cell(const AFK_Cell& other)
 {
     AFK_Cell cell;
@@ -181,25 +146,11 @@ AFK_Cell afk_cell(const Vec4<long long>& _coord)
 
 size_t hash_value(const AFK_Cell& cell)
 {
-    /* TODO This is only valid on 64-bit.
-     * Hopefully declaring the local variables as type
-     * `unsigned long long' below will result in a
-     * compiler warning when I need reminding to fix
-     * this.
-     */
-    
-    unsigned long long xr, yr, zr, sr;
-
-    xr = (unsigned long long)cell.coord.v[0];
-    yr = (unsigned long long)cell.coord.v[1];
-    zr = (unsigned long long)cell.coord.v[2];
-    sr = (unsigned long long)cell.coord.v[3];
-
-    asm("rol $13, %0\n" :"=r"(yr) :"0"(yr));
-    asm("rol $29, %0\n" :"=r"(zr) :"0"(zr));
-    asm("rol $43, %0\n" :"=r"(sr) :"0"(sr));
-
-    return xr ^ yr ^ zr ^ sr;
+    return (
+        cell.coord.v[0] ^
+        afk_lrotate<unsigned long long>((unsigned long long)cell.coord.v[1], 13) ^
+        afk_lrotate<unsigned long long>((unsigned long long)cell.coord.v[2], 29) ^
+        afk_lrotate<unsigned long long>((unsigned long long)cell.coord.v[3], 43));
 }
 
 

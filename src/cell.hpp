@@ -26,6 +26,18 @@
 #define MIN_CELL_PITCH 2
 
 
+/* The C++ integer modulus operator's behaviour with
+ * negative numbers is just shocking.
+ * This utility is used for making the parents of both
+ * cells and tiles
+ */
+#define ROUND_TO_CELL_SCALE(coord, scale) \
+    (coord) - ((coord) >= 0 ? \
+                ((coord) % (scale)) : \
+                ((scale) + (((coord) % (scale)) != 0 ? \
+                            ((coord) % (scale)) : \
+                            -(scale))))
+
 
 /* Identifies a cell in the world in an abstract manner,
  * suitable for using as a hash key.
@@ -97,7 +109,10 @@ public:
      * Returns 0 if we're at the smallest subdivision
      * already, else the number of subcells made.
      */
-    unsigned int subdivide(AFK_Cell *subCells, const size_t subCellsSize) const;
+    unsigned int subdivide(
+        AFK_Cell *subCells,
+        const size_t subCellsSize,
+        unsigned int subdivisionFactor) const;
 
 /* TODO I don't think I need this */
 #define AUGMENTED_SUBCELLS 0
@@ -117,7 +132,7 @@ public:
 #endif
 
     /* Returns the parent cell to this one. */
-    AFK_Cell parent(void) const;
+    AFK_Cell parent(unsigned int subdivisionFactor) const;
 
     /* Checks whether the given cell could be a parent
      * to this one.  (Quicker than generating the
@@ -127,9 +142,6 @@ public:
 
     /* Transforms this cell's co-ordinates to world space. */
     Vec4<float> toWorldSpace(float worldScale) const;
-
-    /* TODO Turn this into an iterator -- saves on the array */
-    void enumerateHalfCells(AFK_Cell *halfCells, size_t halfCellsSize) const;
 };
 
 /* Useful ways of making cells. */

@@ -24,7 +24,6 @@ in VertexData
     vec3 normal;
 } inData[];
 
-uniform mat4 WorldTransform;
 uniform mat4 ClipTransform;
 
 uniform float yCellMin;
@@ -46,7 +45,7 @@ void main()
         {
             gl_Position = ClipTransform * gl_in[i].gl_Position;
             outData.colour = inData[i].colour;
-            outData.normal = (WorldTransform * vec4(inData[i].normal, 0.0)).xyz;
+            outData.normal = inData[i].normal;
             EmitVertex();
         }
         EndPrimitive();

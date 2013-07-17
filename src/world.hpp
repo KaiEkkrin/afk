@@ -17,21 +17,20 @@
 #include "data/evictable_cache.hpp"
 #include "data/render_queue.hpp"
 #include "def.hpp"
-#include "displayed_world_cell.hpp"
+#include "displayed_landscape_tile.hpp"
+#include "landscape_tile.hpp"
 #include "shader.hpp"
+#include "tile.hpp"
 #include "world_cell.hpp"
 
 /* The world of AFK. */
 
+class AFK_DisplayedLandscapeTile;
+class AFK_LandscapeTile;
 class AFK_World;
 
 struct AFK_WorldCellGenParam;
 
-
-/* TODO These global functions are horrible, I would really like to
- * move them somewhere, rationalise them, prune their parameter lists,
- * and all those things...
- */
 
 /* This structure describes a cell generation dependency.
  * Every time a cell generating worker gets a parameter with
@@ -57,35 +56,7 @@ struct AFK_WorldCellGenParam
     struct AFK_WorldCellGenDependency *dependency;
 };
 
-/* A useful thing for opportunistically pushing
- * spilled geometry.
- */
-void afk_spillIfCellPresent(
-    unsigned int threadId,
-    AFK_DisplayedWorldCell& sourceDWC,
-    const AFK_Cell& sourceCell,
-    const AFK_Cell& spillCell,
-    boost::shared_ptr<AFK_DWC_INDEX_BUF> spillIndices,
-    AFK_World *world);
-
-/* This worker function makes geometry for a claimed DWC from the
- * below one
- */
-bool afk_generateClaimedDWC(
-    AFK_WorldCell& worldCell,
-    AFK_DisplayedWorldCell& displayed,
-    unsigned int threadId,
-    struct AFK_WorldCellGenParam param,
-    ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue);
-
-/* The below function delegates here after claiming its world cell */
-bool afk_generateClaimedWorldCell(
-    AFK_WorldCell& worldCell,
-    unsigned int threadId,
-    struct AFK_WorldCellGenParam param,
-    ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue);
-
-/* This is the actual cell generating worker function */
+/* This is the cell generating worker function */
 bool afk_generateWorldCells(
     unsigned int threadId,
     struct AFK_WorldCellGenParam param,
@@ -117,10 +88,15 @@ protected:
     boost::atomic<unsigned long long> cellsInvisible;
     boost::atomic<unsigned long long> cellsQueued;
     boost::atomic<unsigned long long> cellsGenerated;
-    boost::atomic<unsigned long long> cellsFoundMissing;
-    boost::atomic<unsigned long long> cellsSpilledTo;
-    boost::atomic<unsigned long long> zeroCellsRequested;
+    boost::atomic<unsigned long long> tilesFoundMissing;
     boost::atomic<unsigned long long> dependenciesFollowed;
+
+    /* World shader details. */
+    AFK_ShaderProgram *shaderProgram;
+    AFK_ShaderLight *shaderLight;
+    GLuint clipTransformLocation;
+    GLuint yCellMinLocation;
+    GLuint yCellMaxLocation;
 
     /* The cache of world cells we're tracking.
      */
@@ -129,32 +105,48 @@ protected:
 #endif
     AFK_WORLD_CACHE *worldCache;
 
-    /* The cache of displayed world cells we're tracking. */
-#ifndef AFK_DWC_CACHE
-#define AFK_DWC_CACHE AFK_EvictableCache<AFK_Cell, AFK_DisplayedWorldCell, AFK_HashCell>
-#endif
-    AFK_DWC_CACHE *dwcCache;
-
-    /* The render queue: cells to display next frame.
-     * DOES NOT OWN THESE POINTERS.  DO NOT DELETE
+    /* The cache of landscape cells we're tracking.
+     * TODO: I think at some point, all of this should
+     * move to a separate `landscape' module (one per
+     * world) that handles the landscape, otherwise
+     * I'm going to get a bit of overload?
      */
-    AFK_RenderQueue<AFK_DisplayedWorldCell*> renderQueue;
+#ifndef AFK_LANDSCAPE_CACHE
+#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile>
+#endif
+    AFK_LANDSCAPE_CACHE *landscapeCache;
+
+    /* The landscape render queue.
+     * These are transient objects -- delete them after
+     * rendering.
+     */
+    AFK_RenderQueue<AFK_DisplayedLandscapeTile*> landscapeRenderQueue;
 
     /* The cell generating gang */
     AFK_AsyncGang<struct AFK_WorldCellGenParam, bool> *genGang;
 
-public:
-    /* TODO Try to go around protecting these things.  Having it all
-     * public is a bad plan.
+    /* Cell generation worker delegates. */
+
+    /* Generates this landscape tile, as necessary.
+     * TODO: Something to put into a separate "landscape"
+     * object if/when I make one.
      */
+    bool generateClaimedLandscapeTile(
+        const AFK_Tile& tile,
+        AFK_LandscapeTile& landscapeTile,
+        bool displayTerrain,
+        unsigned int threadId,
+        struct AFK_WorldCellGenParam param,
+        ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue);
 
-    /* World shader details. */
-    AFK_ShaderProgram *shaderProgram;
-    GLuint worldTransformLocation;
-    GLuint clipTransformLocation;
-    GLuint yCellMinLocation;
-    GLuint yCellMaxLocation;
+    /* Generates this world cell, as necessary. */
+    bool generateClaimedWorldCell(
+        AFK_WorldCell& worldCell,
+        unsigned int threadId,
+        struct AFK_WorldCellGenParam param,
+        ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue);
 
+public:
     /* Overall world parameters. */
 
     /* The distance to the furthest world cell to consider.
@@ -217,38 +209,17 @@ public:
      * cells.  Returns a future that becomes available
      * when we're done.
      */
-    boost::unique_future<bool> updateLandMap(void);
+    boost::unique_future<bool> updateWorld(void);
 
     /* Draws the world in the current OpenGL context.
      * (There's no AFK_DisplayedObject for the world.)
      */
-    void display(const Mat4<float>& projection);
+    void display(const Mat4<float>& projection, const AFK_Light &globalLight);
 
     /* Takes a world checkpoint. */
     void checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint);
 
     void printCacheStats(std::ostream& ss, const std::string& prefix);
-
-    friend void afk_spillIfCellPresent(
-        unsigned int threadId,
-        AFK_DisplayedWorldCell& sourceDWC,
-        const AFK_Cell& sourceCell,
-        const AFK_Cell& spillCell,
-        boost::shared_ptr<AFK_DWC_INDEX_BUF> spillIndices,
-        AFK_World *world);
-
-    friend bool afk_generateClaimedDWC(
-        AFK_WorldCell& worldCell,
-        AFK_DisplayedWorldCell& displayed,
-        unsigned int threadId,
-        struct AFK_WorldCellGenParam param,
-        ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue);
-
-    friend bool afk_generateClaimedWorldCell(
-        AFK_WorldCell& worldCell,
-        unsigned int threadId,
-        struct AFK_WorldCellGenParam param,
-        ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue);
 
     friend bool afk_generateWorldCells(
         unsigned int threadId,

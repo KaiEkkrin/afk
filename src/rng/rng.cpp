@@ -37,6 +37,21 @@ AFK_RNG_Value::AFK_RNG_Value(long long v0, long long v1, long long v2, long long
     asm("rol $29, %0\n": "=r"(v.ui[3]) :"0"(v.ui[3]));
 }
 
+AFK_RNG_Value::AFK_RNG_Value(long long v0, long long v1, long long v2)
+{
+    asm("rol $19, %0\n": "=r"(v1) :"0"(v1));
+    asm("rol $41, %0\n": "=r"(v2) :"0"(v2));
+
+    v.ui[0] = v.ui[1] = v.ui[2] = v.ui[3] =
+        squash_to_int(v0) ^
+        squash_to_int(v1) ^
+        squash_to_int(v2);
+
+    asm("rol $17, %0\n": "=r"(v.ui[0]) :"0"(v.ui[0]));
+    asm("rol $31, %0\n": "=r"(v.ui[1]) :"0"(v.ui[1]));
+    asm("rol $47, %0\n": "=r"(v.ui[2]) :"0"(v.ui[2]));
+}
+
 AFK_RNG_Value::AFK_RNG_Value(const std::string& s1, const std::string& s2)
 {
     v.ull[0] = strtoull(s1.c_str(), NULL, 0);

@@ -50,9 +50,12 @@ public:
 
     void initGL(GLenum target, GLenum usage)
     {
-        glGenBuffers(1, &buf);
-        glBindBuffer(target, buf);
-        glBufferData(target, t.size() * sizeof(T), &t[0], usage);
+        if (buf == 0)
+        {
+            glGenBuffers(1, &buf);
+            glBindBuffer(target, buf);
+            glBufferData(target, t.size() * sizeof(T), &t[0], usage);
+        }
     }
 };
 

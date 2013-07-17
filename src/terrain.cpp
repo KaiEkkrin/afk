@@ -21,12 +21,12 @@ void AFK_TerrainFeature::compute_squarePyramid(Vec3<float> *positions, Vec3<floa
     {
         if (positions[i].v[0] >= (location.v[0] - scale.v[0]) &&
             positions[i].v[0] < (location.v[0] + scale.v[0]) &&
-            positions[i].v[2] >= (location.v[2] - scale.v[2]) &&
-            positions[i].v[2] < (location.v[2] + scale.v[2]))
+            positions[i].v[2] >= (location.v[1] - scale.v[2]) &&
+            positions[i].v[2] < (location.v[1] + scale.v[2]))
         {
             /* Make pyramid space co-ordinates. */
             float px = (positions[i].v[0] - location.v[0]) / scale.v[0];
-            float pz = (positions[i].v[2] - location.v[2]) / scale.v[2];
+            float pz = (positions[i].v[2] - location.v[1]) / scale.v[2];
 
             if (fabs(px) > fabs(pz))
             {
@@ -55,7 +55,7 @@ AFK_TerrainFeature::AFK_TerrainFeature(const AFK_TerrainFeature& f)
 
 AFK_TerrainFeature::AFK_TerrainFeature(
     enum AFK_TerrainType _type,
-    const Vec3<float>& _location,
+    const Vec2<float>& _location,
     const Vec3<float>& _tint,
     const Vec3<float>& _scale)
 {
@@ -97,37 +97,43 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainFeature& feature)
 }
 
 
-/* AFK_TerrainCell implementation. */
+/* AFK_TerrainTile implementation. */
 
-AFK_TerrainCell::AFK_TerrainCell()
+AFK_TerrainTile::AFK_TerrainTile()
 {
     featureCount = 0;
 }
 
-AFK_TerrainCell::AFK_TerrainCell(const AFK_TerrainCell& c)
+AFK_TerrainTile::AFK_TerrainTile(const AFK_TerrainTile& c)
 {
-    cellCoord = c.cellCoord;
+    tileCoord = c.tileCoord;
     for (unsigned int i = 0; i < c.featureCount; ++i)
         features[i] = c.features[i];
     featureCount = c.featureCount;
 }
 
-AFK_TerrainCell& AFK_TerrainCell::operator=(const AFK_TerrainCell& c)
+AFK_TerrainTile& AFK_TerrainTile::operator=(const AFK_TerrainTile& c)
 {
-    cellCoord = c.cellCoord;
+    tileCoord = c.tileCoord;
     for (unsigned int i = 0; i < c.featureCount; ++i)
         features[i] = c.features[i];
     featureCount = c.featureCount;
     return *this;
 }
 
-const Vec4<float>& AFK_TerrainCell::getCellCoord(void) const
+const Vec3<float>& AFK_TerrainTile::getTileCoord(void) const
 {
-    return cellCoord;
+    return tileCoord;
 }
 
-void AFK_TerrainCell::make(
-    const Vec4<float>& _cellCoord,
+Vec4<float> AFK_TerrainTile::getCellCoord(void) const
+{
+    return afk_vec4<float>(
+        tileCoord.v[0], 0.0f, tileCoord.v[1], tileCoord.v[2]);
+}
+
+void AFK_TerrainTile::make(
+    const Vec3<float>& _tileCoord,
     unsigned int pointSubdivisionFactor,
     unsigned int subdivisionFactor,
     float minCellSize,
@@ -135,18 +141,7 @@ void AFK_TerrainCell::make(
     const Vec3<float> *forcedTint)
 {
     /* This establishes where our terrain cell actually lies. */
-    cellCoord = _cellCoord;
-
-#if 0
-    /* To test, only include features
-     * in some small level of terrain.
-     */
-    if (cellCoord.v[3] > (4.0f * minCellSize))
-    {
-        featureCount = 0;
-        return;
-    }
-#endif
+    tileCoord = _tileCoord;
 
     /* Draw a value that tells me how many features
      * to put into this cell and what their
@@ -175,9 +170,9 @@ void AFK_TerrainCell::make(
      */
     float minFeatureSize = maxFeatureSize / (float)subdivisionFactor;
 
-    /* I want between 1 and TERRAIN_FEATURE_COUNT_PER_CELL features. */
-    featureCount = (descriptor % TERRAIN_FEATURE_COUNT_PER_CELL) + 1;
-    descriptor = descriptor / TERRAIN_FEATURE_COUNT_PER_CELL;
+    /* I want between 1 and TERRAIN_FEATURE_COUNT_PER_TILE features. */
+    featureCount = (descriptor % TERRAIN_FEATURE_COUNT_PER_TILE) + 1;
+    descriptor = descriptor / TERRAIN_FEATURE_COUNT_PER_TILE;
     for (unsigned int i = 0; i < featureCount; ++i)
     {
         /* Pick our feature scale.
@@ -198,9 +193,8 @@ void AFK_TerrainCell::make(
         float minFeatureLocationZ = scale.v[2] /* + maxFeatureSize */;
         float maxFeatureLocationZ = 1.0f - scale.v[2] /* - maxFeatureSize */;
 
-        Vec3<float> location = afk_vec3<float>(
+        Vec2<float> location = afk_vec2<float>(
             rng.frand() * (maxFeatureLocationX - minFeatureLocationX) + minFeatureLocationX,
-            0.0f, /* not meaningful */
             rng.frand() * (maxFeatureLocationZ - minFeatureLocationZ) + minFeatureLocationZ);
         
         Vec3<float> tint = forcedTint ? *forcedTint :
@@ -210,8 +204,9 @@ void AFK_TerrainCell::make(
     }
 } 
 
-void AFK_TerrainCell::transformCellToCell(Vec3<float> *positions, size_t length, const AFK_TerrainCell& other) const
+void AFK_TerrainTile::transformTileToTile(Vec3<float> *positions, size_t length, const AFK_TerrainTile& other) const
 {
+    Vec4<float> cellCoord = getCellCoord();
     Vec4<float> otherCoord = other.getCellCoord();
     float scaleFactor = otherCoord.v[3] / cellCoord.v[3];
 
@@ -224,17 +219,17 @@ void AFK_TerrainCell::transformCellToCell(Vec3<float> *positions, size_t length,
         positions[i] = (positions[i] - displacement) / scaleFactor;
 }
 
-void AFK_TerrainCell::compute(Vec3<float> *positions, Vec3<float> *colours, size_t length) const
+void AFK_TerrainTile::compute(Vec3<float> *positions, Vec3<float> *colours, size_t length) const
 {
     for (unsigned int i = 0; i < featureCount; ++i)
         features[i].compute(positions, colours, length);
 }
 
-std::ostream& operator<<(std::ostream& os, const AFK_TerrainCell& cell)
+std::ostream& operator<<(std::ostream& os, const AFK_TerrainTile& tile)
 {
-    os << "TerrainCell(Coord=" << cell.cellCoord;
-    for (unsigned int i = 0; i < cell.featureCount; ++i)
-        os << ", " << i << "=" << cell.features[i];
+    os << "TerrainTile(Coord=" << tile.tileCoord;
+    for (unsigned int i = 0; i < tile.featureCount; ++i)
+        os << ", " << i << "=" << tile.features[i];
     os << ")";
     return os;
 }
@@ -250,9 +245,9 @@ AFK_TerrainList::AFK_TerrainList()
     t.reserve(16);
 }
 
-void AFK_TerrainList::add(boost::shared_ptr<AFK_TerrainCell> cell)
+void AFK_TerrainList::add(boost::shared_ptr<AFK_TerrainTile> tile)
 {
-    t.push_back(cell);
+    t.push_back(tile);
 }
 
 void AFK_TerrainList::compute(Vec3<float> *positions, Vec3<float> *colours, size_t length) const
@@ -272,7 +267,7 @@ void AFK_TerrainList::compute(Vec3<float> *positions, Vec3<float> *colours, size
         if (i > 0)
         {
             /* Transform the terrain up to the next cell space. */
-            t[i-1]->transformCellToCell(positions, length, *(t[i]));
+            t[i-1]->transformTileToTile(positions, length, *(t[i]));
         }
 
         t[i]->compute(positions, colours, length);
