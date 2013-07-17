@@ -394,11 +394,14 @@ AFK_World::AFK_World(
 
     /* Set up the world shader. */
     shaderProgram = new AFK_ShaderProgram();
-    *shaderProgram << "vcol_phong_fragment" << "vcol_phong_vertex";
+    *shaderProgram << "landscape_fragment" << "landscape_geometry" << "landscape_vertex";
+    //*shaderProgram << "vcol_phong_fragment" << "vcol_phong_vertex";
     shaderProgram->Link();
 
     worldTransformLocation = glGetUniformLocation(shaderProgram->program, "WorldTransform");
     clipTransformLocation = glGetUniformLocation(shaderProgram->program, "ClipTransform");
+    yCellMinLocation = glGetUniformLocation(shaderProgram->program, "yCellMin");
+    yCellMaxLocation = glGetUniformLocation(shaderProgram->program, "yCellMax");
 
     /* Initialise the statistics. */
     cellsInvisible.store(0);
@@ -522,20 +525,8 @@ boost::unique_future<bool> AFK_World::updateLandMap(void)
 void AFK_World::display(const Mat4<float>& projection)
 {
     AFK_DisplayedWorldCell *displayedCell;
-    bool first;
     while (renderQueue.draw_pop(displayedCell))
     {
-        /* All cells are the same in many ways, so I can do this
-         * just the once
-         * TODO: I really ought to move this out into a drawable
-         * single object related to AFK_World instead
-         */
-        if (first)
-        {
-            displayedCell->displaySetup(projection);
-            first = false;
-        }
-
         displayedCell->display(projection);
     }
 }

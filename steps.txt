@@ -15,8 +15,8 @@
  - parallel evaluation via task queueing. OK
  - land map cache eviction; use constant memory OK
  - adjust detail pitch on the fly to maintain a framerate. OK
- - correct seam stitching.  See todo_stitching.txt.
- - migrate terrain geometry to adjacent cells along the y-axis.  vertical terrain LoD.
+ - migrate terrain geometry to adjacent cells along the y-axis.  vertical terrain LoD.  OK, but needs changing (see todo_spilling.txt)
+ - stitching the seams between different-LoD cell renders: insert triangles between the two vertices at the lower LoD, and the single inbetween vertex at the higher LoD.  Needs a "stitch cache" indexed by the 2 cells that share an edge.
  - random protagonist with flat surfaces.
  - random objects in each cell.  object LoD.
  - curved terrain (interpolated normals, curved terrain features).

@@ -100,6 +100,10 @@ protected:
      * shader program.
      */
     GLuint program;
+
+    /* Bits of geometry shader.  TODO MOVE AWAY. */
+    GLuint yCellMinLocation;
+    GLuint yCellMaxLocation;
     
     /* Internal helper.
      * Computes a single flat triangle, filling out
@@ -189,7 +193,6 @@ public:
     bool haveSpilledTo(void) const;
 
     virtual void initGL(void);
-    virtual void displaySetup(const Mat4<float>& projection);
     virtual void display(const Mat4<float>& projection);
 
     virtual AFK_Frame getCurrentFrame(void) const;

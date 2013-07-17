@@ -278,7 +278,9 @@ AFK_DisplayedWorldCell::AFK_DisplayedWorldCell():
     rawVertexCount(0),
     spillCellsSize(0),
     spillFinished(false),
-    program(0)
+    program(0),
+    yCellMinLocation(0),
+    yCellMaxLocation(0)
 {
 }
 
@@ -424,6 +426,8 @@ void AFK_DisplayedWorldCell::initGL(void)
         program = afk_core.world->shaderProgram->program;
         worldTransformLocation = afk_core.world->worldTransformLocation;
         clipTransformLocation = afk_core.world->clipTransformLocation;
+        yCellMinLocation = afk_core.world->yCellMinLocation;
+        yCellMaxLocation = afk_core.world->yCellMaxLocation;
         shaderLight = new AFK_ShaderLight(program); /* TODO heap thrashing :P */
 
         vs->initGL(GL_ARRAY_BUFFER, GL_STATIC_DRAW);
@@ -433,30 +437,23 @@ void AFK_DisplayedWorldCell::initGL(void)
     }
 }
 
-void AFK_DisplayedWorldCell::displaySetup(const Mat4<float>& projection)
-{
-    if (hasGeometry())
-    {
-        if (!shaderLight) initGL();
-
-        /* A single DisplayedWorldCell will do this common stuff;
-         * the others' display() functions will assume they were called
-         * right after and don't have to do it again
-         */
-        glUseProgram(program);
-        shaderLight->setupLight(afk_core.sun);
-    }
-}
-
 void AFK_DisplayedWorldCell::display(const Mat4<float>& projection)
 {
     if (hasGeometry())
     {
         if (!shaderLight) initGL();
 
+        /* I do need to call this every time */
+        glUseProgram(program);
+        shaderLight->setupLight(afk_core.sun);
+
         updateTransform(projection);
 
         /* Cell specific stuff will go here ... */
+
+        /* TODO Testing the geometry shader clipping. */
+        glUniform1f(yCellMinLocation, -32768.0f);
+        glUniform1f(yCellMaxLocation, 32768.0f);
 
         glEnableVertexAttribArray(0);
         glEnableVertexAttribArray(1);

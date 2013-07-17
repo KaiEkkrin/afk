@@ -152,6 +152,8 @@ public:
     AFK_ShaderProgram *shaderProgram;
     GLuint worldTransformLocation;
     GLuint clipTransformLocation;
+    GLuint yCellMinLocation;
+    GLuint yCellMaxLocation;
 
     /* Overall world parameters. */
 
