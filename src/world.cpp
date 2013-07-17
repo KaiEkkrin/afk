@@ -76,7 +76,7 @@ bool afk_generateWorldCells(
 bool AFK_World::generateClaimedLandscapeTile(
     const AFK_Tile& tile,
     AFK_LandscapeTile& landscapeTile,
-    bool displayTerrain,
+    bool display,
     unsigned int threadId,
     struct AFK_WorldCellGenParam param,
     ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue)
@@ -92,7 +92,7 @@ bool AFK_World::generateClaimedLandscapeTile(
         minCellSize,
         NULL /* Put a debug colour here */ );
 
-    if (displayTerrain)
+    if (display)
     {
         /* Next, create the terrain list, which is composed out of
          * the terrain descriptor for this landscape tile, and
@@ -112,6 +112,7 @@ bool AFK_World::generateClaimedLandscapeTile(
 
         if (missing.size() > 0)
         {
+#if 0
             /* Uh oh!  Some of the tiles required to render this
              * terrain are not in the cache.  I need to enqueue
              * tasks to compute those missing cells, then resume
@@ -148,6 +149,15 @@ bool AFK_World::generateClaimedLandscapeTile(
             }
     
             tilesFoundMissing.fetch_add(missing.size());
+#else
+            /* Now that I'm properly generating the terrain descriptor
+             * as I recurse through the world, I think getting non-0
+             * missing might be a bug...
+             */
+            std::ostringstream ss;
+            ss << "Nonzero missing at " << tile;
+            throw new AFK_Exception(ss.str());
+#endif
         }
         else
         {
@@ -193,6 +203,13 @@ bool AFK_World::generateClaimedWorldCell(
     }
     else
     {
+        /* We display geometry at a cell if its detail pitch is at the
+         * target detail pitch, or if it's already the smallest
+         * possible cell
+         */
+        bool display = (cell.coord.v[3] == MIN_CELL_PITCH ||
+            worldCell.testDetailPitch(detailPitch, *camera, viewerLocation));
+
         /* TODO: Non-landscape stuff goes here.  :-) */
 
         /* Find the tile where any landscape at this cell would be
@@ -200,51 +217,41 @@ bool AFK_World::generateClaimedWorldCell(
          */
         AFK_Tile tile = afk_tile(cell);
 
-        /* We display landscape at a cell if its detail pitch is at the
-         * target detail pitch, or if it's already the smallest
-         * possible cell
+        /* We always at least touch the landscape.  Higher detailed
+         * landscape tiles are dependent on lower detailed ones for their
+         * terrain description.
          */
-        bool displayTerrain = (cell.coord.v[3] == MIN_CELL_PITCH ||
-            worldCell.testDetailPitch(detailPitch, *camera, viewerLocation));
-
-        /* If we want to display the landscape here, OR we've been
-         * called with the flag that makes us render it regardless,
-         * look up the landscape tile in the landscape cache.
-         */
-        if (displayTerrain || renderTerrain)
+        AFK_LandscapeTile& landscapeTile = (*landscapeCache)[tile];
+        if (landscapeTile.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE))
         {
-            AFK_LandscapeTile& landscapeTile = (*landscapeCache)[tile];
-            if (landscapeTile.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE))
+            /* Make sure the terrain has been properly generated
+             * in this landscape tile.
+             */
+            retval = generateClaimedLandscapeTile(
+                tile, landscapeTile, display, threadId, param, queue);
+
+            if (display && landscapeTile.hasGeometry())
             {
-                /* Make sure the terrain has been properly generated
-                 * in this landscape tile.
+                /* Get it to make us a DisplayedLandscapeTile to
+                 * feed into the display queue.
                  */
-                retval = generateClaimedLandscapeTile(
-                    tile, landscapeTile, displayTerrain, threadId, param, queue);
+                AFK_DisplayedLandscapeTile *dptr =
+                    landscapeTile.makeDisplayedLandscapeTile(cell, minCellSize);
 
-                if (displayTerrain && landscapeTile.hasGeometry())
+                if (dptr)
                 {
-                    /* Get it to make us a DisplayedLandscapeTile to
-                     * feed into the display queue.
-                     */
-                    AFK_DisplayedLandscapeTile *dptr =
-                        landscapeTile.makeDisplayedLandscapeTile(cell, minCellSize);
-
-                    if (dptr)
-                    {
-                        landscapeRenderQueue.update_push(dptr);
-                        cellsQueued.fetch_add(1);
-                    }
+                    landscapeRenderQueue.update_push(dptr);
+                    cellsQueued.fetch_add(1);
                 }
-
-                landscapeTile.release(threadId);
             }
+
+            landscapeTile.release(threadId);
         }
 
         /* If the terrain here was at too coarse a resolution to
          * be displayable, recurse through the subcells
          */
-        if (!displayTerrain && !renderTerrain && someVisible && !resume)
+        if (!display && !renderTerrain && someVisible && !resume)
         {
             size_t subcellsSize = CUBE(subdivisionFactor);
             AFK_Cell *subcells = new AFK_Cell[subcellsSize]; /* TODO avoid heap thrashing somehow.  Maybe make it an iterator */

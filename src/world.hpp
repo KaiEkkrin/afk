@@ -134,7 +134,7 @@ protected:
     bool generateClaimedLandscapeTile(
         const AFK_Tile& tile,
         AFK_LandscapeTile& landscapeTile,
-        bool displayTerrain,
+        bool display,
         unsigned int threadId,
         struct AFK_WorldCellGenParam param,
         ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue);
