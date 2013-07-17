@@ -152,7 +152,10 @@ bool AFK_World::generateClaimedLandscapeTile(
         else
         {
             if (landscapeTile.hasRawTerrain(tile, pointSubdivisionFactor))
+            {
                 landscapeTile.computeGeometry(pointSubdivisionFactor, tile, terrainList);
+                tilesComputed.fetch_add(1);
+            }
         }
     }
 
@@ -321,8 +324,8 @@ AFK_World::AFK_World(
     /* Initialise the statistics. */
     cellsInvisible.store(0);
     cellsQueued.store(0);
-    cellsGenerated.store(0);
     tilesFoundMissing.store(0);
+    tilesComputed.store(0);
     dependenciesFollowed.store(0);
 }
 
@@ -466,14 +469,14 @@ void AFK_World::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckp
     std::cout << "Detail pitch:             " << detailPitch << std::endl;
     std::cout << "Cells found invisible:    " << toRatePerSecond(cellsInvisible.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
     std::cout << "Cells queued:             " << toRatePerSecond(cellsQueued.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
-    std::cout << "Cells generated:          " << toRatePerSecond(cellsGenerated.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
     std::cout << "Tiles found missing:      " << toRatePerSecond(tilesFoundMissing.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
+    std::cout << "Tiles computed:           " << toRatePerSecond(tilesComputed.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
     std::cout << "Dependencies followed:    " << toRatePerSecond(dependenciesFollowed.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
 
     cellsInvisible.store(0);
     cellsQueued.store(0);
-    cellsGenerated.store(0);
     tilesFoundMissing.store(0);
+    tilesComputed.store(0);
     dependenciesFollowed.store(0);
 }
 

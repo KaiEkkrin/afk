@@ -258,6 +258,12 @@ void AFK_LandscapeTile::buildTerrainList(
         {
             try
             {
+                /* TODO Try claiming the parent landscape tile?  I don't think
+                 * I can cause a claim loop.
+                 * But something else is wrong.  I probably want to pull back
+                 * to only the smallest LoD terrain and nothing else once more,
+                 * and drill down to watch what's up.
+                 */
                 AFK_LandscapeTile& parentLandscapeTile = cache->at(nextTile);
                 parentLandscapeTile.buildTerrainList(list, missing, nextTile, subdivisionFactor, maxDistance, cache);
                 foundNextTile = true;

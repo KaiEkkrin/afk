@@ -87,8 +87,8 @@ protected:
      */
     boost::atomic<unsigned long long> cellsInvisible;
     boost::atomic<unsigned long long> cellsQueued;
-    boost::atomic<unsigned long long> cellsGenerated;
     boost::atomic<unsigned long long> tilesFoundMissing;
+    boost::atomic<unsigned long long> tilesComputed;
     boost::atomic<unsigned long long> dependenciesFollowed;
 
     /* World shader details. */
