@@ -12,6 +12,7 @@
 #include <boost/thread/thread.hpp>
 
 #include "async/async.hpp"
+#include "async/work_queue.hpp"
 #include "camera.hpp"
 #include "cell.hpp"
 #include "data/evictable_cache.hpp"
@@ -60,7 +61,7 @@ struct AFK_WorldCellGenParam
 bool afk_generateWorldCells(
     unsigned int threadId,
     struct AFK_WorldCellGenParam param,
-    ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue);
+    AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>& queue);
 
 /* This is the world.  AFK_Core will have one of these.
  */
@@ -137,14 +138,14 @@ protected:
         bool display,
         unsigned int threadId,
         struct AFK_WorldCellGenParam param,
-        ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue);
+        AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>& queue);
 
     /* Generates this world cell, as necessary. */
     bool generateClaimedWorldCell(
         AFK_WorldCell& worldCell,
         unsigned int threadId,
         struct AFK_WorldCellGenParam param,
-        ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue);
+        AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>& queue);
 
 public:
     /* Overall world parameters. */
@@ -224,7 +225,7 @@ public:
     friend bool afk_generateWorldCells(
         unsigned int threadId,
         struct AFK_WorldCellGenParam param,
-        ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue);
+        AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>& queue);
 };
 
 #endif /* _AFK_WORLD_H_ */

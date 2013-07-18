@@ -3,18 +3,20 @@
 #ifndef _AFK_ASYNC_ASYNC_H_
 #define _AFK_ASYNC_ASYNC_H_
 
+#include <exception>
 #include <iostream>
 #include <vector>
 
 #include <boost/atomic.hpp>
 #include <boost/chrono.hpp>
 #include <boost/function.hpp>
-#include <boost/lockfree/queue.hpp>
 #include <boost/ref.hpp>
 #include <boost/thread/condition.hpp>
 #include <boost/thread/future.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
+
+#include "work_queue.hpp"
 
 /* Don't enable this unless you want MAXIMAL SPAM */
 #define ASYNC_DEBUG_SPAM 0
@@ -60,6 +62,9 @@ extern boost::mutex debugSpamMut;
  */
 
 
+class AFK_AsyncException: public std::exception {};
+
+
 /* Here are the mechanisms an AsyncGang uses to control its workers */
 class AFK_AsyncControls
 {
@@ -91,11 +96,8 @@ protected:
     bool quit; /* Tells the workers to instead quit out entirely */
 
 public:
-    /* Flags which workers are busy. */
-    boost::atomic<size_t> workersBusy;
-
     AFK_AsyncControls(const unsigned int _workerCount):
-        workerCount(_workerCount), workReady(0), quit(false), workersBusy(0) {}
+        workerCount(_workerCount), workReady(0), quit(false) {}
 
     void control_workReady(void);
     void control_quit(void);
@@ -105,73 +107,45 @@ public:
 };
 
 
-/* Helper function for the bitfields above: populates `busyBit'
- * and `busyMask' with the bit and mask for the supplied
- * thread ID
- */
-void afk_workerBusyBitAndMask(unsigned int id, size_t& o_busyBit, size_t& o_busyMask);
-
-#define ASYNC_QUEUE_TYPE(type) boost::lockfree::queue<type>
-
 template<class ParameterType, class ReturnType>
 void afk_asyncWorker(
     AFK_AsyncControls& controls,
     unsigned int id,
-    boost::function<ReturnType (unsigned int, const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
-    ASYNC_QUEUE_TYPE(ParameterType)& queue,
+    boost::function<ReturnType (unsigned int, const ParameterType&, AFK_WorkQueue<ParameterType, ReturnType>&)> func,
+    AFK_WorkQueue<ParameterType, ReturnType>& queue,
     boost::promise<ReturnType>*& promise)
 {
-    /* This is my bit in the `controls.workersBusy' field. */
-    size_t busyBit;
-
-    /* This is a mask for said. */
-    size_t busyMask;
-
-    afk_workerBusyBitAndMask(id, busyBit, busyMask);
-
     while (controls.worker_waitForWork(id))
     {
         /* TODO Do something sane with the return values rather
          * than just accumulating the last one!
          */
         ReturnType retval;
+        enum AFK_WorkQueueStatus status;
+        bool finished = false;
 
-        for (;;)
+        while (!finished)
         {
-            /* Get the next parameter to call with. */
-            ParameterType nextParameter;
-            if (queue.pop(nextParameter))
+            status = queue.consume(id, func, retval);
+            switch (status)
             {
-                /* I've got a parameter.  Make the call. */
-                controls.workersBusy.fetch_or(busyBit);
-                retval = func(id, nextParameter, queue);
+            case AFK_WQ_BUSY:
+                /* Keep looping. */
+                break;
 
-#if ASYNC_WORKER_DEBUG
-                std::cout << ".";
-#endif
-            }
-            else
-            {
-                /* I have nothing to do.  Spin (there will probably
-                 * be something very soon), but also register my
-                 * idleness.  If everyone else was already idle,
-                 * leave the loop.
-                 */
-                if ((controls.workersBusy.fetch_and(busyMask) & busyMask) == 0) break;
-
-                /* Upon further testing, I think spinning on yield() is best
-                 * (so long as I'm not spending too long in the async worker:
-                 * scheduling larger lumps, with a couple of recursions within
-                 * each thread before going back to the queue, is better).
-                 * It causes this method to show up at the top of the gprof list,
-                 * but it also results in a bit of a smoother feel and a faster
-                 * cell generation rate (maybe 10%).
-                 */
+            case AFK_WQ_WAITING:
+                /* Give way so I don't cram the CPU with busy-waits. */
                 boost::this_thread::yield();
-                 /* boost::this_thread::sleep_for(boost::chrono::milliseconds(2)); */
-#if ASYNC_WORKER_DEBUG
-                std::cout << id;
-#endif
+                break;
+
+            case AFK_WQ_FINISHED:
+                /* Nothing left. */
+                finished = true;
+                break;
+
+            default:
+                /* Programming error. */
+                throw new AFK_AsyncException();
             }
         }
 
@@ -206,12 +180,12 @@ protected:
     AFK_AsyncControls controls;
 
     /* The queue of parameters to future calls of the function. */
-    ASYNC_QUEUE_TYPE(ParameterType) queue;
+    AFK_WorkQueue<ParameterType, ReturnType> queue;
 
     /* The promised return value. */
     boost::promise<ReturnType> *promise;
 
-    void initWorkers(boost::function<ReturnType (unsigned int, const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
+    void initWorkers(boost::function<ReturnType (unsigned int, const ParameterType&, AFK_WorkQueue<ParameterType, ReturnType>&)> func,
         unsigned int concurrency)
     {
         for (unsigned int i = 0; i < concurrency; ++i)
@@ -228,9 +202,9 @@ protected:
     }
 
 public:
-    AFK_AsyncGang(boost::function<ReturnType (unsigned int, const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
+    AFK_AsyncGang(boost::function<ReturnType (unsigned int, const ParameterType&, AFK_WorkQueue<ParameterType, ReturnType>&)> func,
         size_t queueSize, unsigned int concurrency):
-            controls(concurrency), queue(queueSize), promise(NULL)
+            controls(concurrency), promise(NULL)
     {
         /* Make sure the flags for this level of concurrency will fit
          * into a size_t
@@ -240,9 +214,9 @@ public:
         initWorkers(func, concurrency);
     }
 
-    AFK_AsyncGang(boost::function<ReturnType (unsigned int, const ParameterType&, ASYNC_QUEUE_TYPE(ParameterType)&)> func,
+    AFK_AsyncGang(boost::function<ReturnType (unsigned int, const ParameterType&, AFK_WorkQueue<ParameterType, ReturnType>&)> func,
         size_t queueSize):
-            controls(boost::thread::hardware_concurrency()), queue(queueSize), promise(NULL)
+            controls(boost::thread::hardware_concurrency()), promise(NULL)
     {
         initWorkers(func, boost::thread::hardware_concurrency() + 1);
     }
@@ -257,6 +231,11 @@ public:
             delete *wIt;
 
         if (promise) delete promise;
+    }
+
+    void assertNoQueuedWork(void)
+    {
+        if (!queue.finished()) throw AFK_AsyncException();
     }
 
     /* Push initial parameters into the gang.  Call before calling

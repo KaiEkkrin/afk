@@ -173,6 +173,7 @@ void AFK_LandscapeTile::makeRawTerrain(
 
 AFK_LandscapeTile::AFK_LandscapeTile():
     AFK_Claimable(),
+    hasTerrainDescriptor(false),
     rawVertices(NULL),
     rawColours(NULL),
     rawVertexCount(0),
@@ -325,6 +326,7 @@ AFK_DisplayedLandscapeTile *AFK_LandscapeTile::makeDisplayedLandscapeTile(const 
     AFK_DisplayedLandscapeTile *dlt = NULL;
     if (cellBoundLower < yBoundUpper && cellBoundUpper > yBoundLower)
         dlt = new AFK_DisplayedLandscapeTile(vs, is, cellBoundLower, cellBoundUpper);
+        //dlt = new AFK_DisplayedLandscapeTile(vs, is, -32768.0, 32768.0);
 
     return dlt;
 }

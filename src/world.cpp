@@ -23,7 +23,7 @@
 bool afk_generateWorldCells(
     unsigned int threadId,
     struct AFK_WorldCellGenParam param,
-    ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue)
+    AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>& queue)
 {
     const AFK_Cell& cell                = param.cell;
     AFK_World *world                    = param.world;
@@ -79,7 +79,7 @@ bool AFK_World::generateClaimedLandscapeTile(
     bool display,
     unsigned int threadId,
     struct AFK_WorldCellGenParam param,
-    ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue)
+    AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>& queue)
 {
     /* A LandscapeTile has several stages of creation.
      * First, make sure it's got a terrain descriptor, which
@@ -176,7 +176,7 @@ bool AFK_World::generateClaimedWorldCell(
     AFK_WorldCell& worldCell,
     unsigned int threadId,
     struct AFK_WorldCellGenParam param,
-    ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)& queue)
+    AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>& queue)
 {
     const AFK_Cell& cell                = param.cell;
     const Vec3<float>& viewerLocation   = param.viewerLocation;
@@ -313,7 +313,7 @@ AFK_World::AFK_World(
 
     genGang = new AFK_AsyncGang<struct AFK_WorldCellGenParam, bool>(
             boost::function<bool (unsigned int, const struct AFK_WorldCellGenParam,
-                ASYNC_QUEUE_TYPE(struct AFK_WorldCellGenParam)&)>(afk_generateWorldCells),
+                AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>&)>(afk_generateWorldCells),
             100);
 
     /* Set up the world shader. */
@@ -374,6 +374,11 @@ void AFK_World::enqueueSubcells(
 
 void AFK_World::flipRenderQueues(void)
 {
+    /* Verify that the concurrency control business has done
+     * its job correctly.
+     */
+    genGang->assertNoQueuedWork();
+
     landscapeRenderQueue.flipQueues();
 }
 

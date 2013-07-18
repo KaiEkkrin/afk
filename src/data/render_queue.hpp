@@ -3,6 +3,8 @@
 #ifndef _AFK_DATA_RENDER_QUEUE_H_
 #define _AFK_DATA_RENDER_QUEUE_H_
 
+#include <exception>
+
 #include <boost/lockfree/queue.hpp>
 
 /* This defines a render queue for AFK.
@@ -11,6 +13,8 @@
  * it in its own class like this so that I can do analysis for
  * duplicates, etc.
  */
+
+class AFK_RenderQueueException: public std::exception {};
 
 template<typename Renderable>
 class AFK_RenderQueue
@@ -40,6 +44,14 @@ public:
 
     virtual void flipQueues(void)
     {
+        /* Should be called from the main thread while everything
+         * is halted (no concurrency issues).
+         * At this point, for sanity, I'm going to verify that:
+         * - everything in the draw queue got drawn
+         */
+
+        if (!q[drawQueue]->empty()) throw AFK_RenderQueueException();
+
         updateQueue = (updateQueue == 1 ? 0 : 1);
         drawQueue = (drawQueue == 1 ? 0 : 1);
     }

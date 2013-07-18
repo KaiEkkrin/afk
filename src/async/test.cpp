@@ -5,6 +5,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include "async.hpp"
+#include "work_queue.hpp"
 
 
 /* --- async test --- */
@@ -27,7 +28,7 @@ struct primeFilterParam
 };
 
 /* Helper. */
-void enqueueFilter(struct primeFilterParam param, ASYNC_QUEUE_TYPE(struct primeFilterParam)& queue)
+void enqueueFilter(struct primeFilterParam param, AFK_WorkQueue<struct primeFilterParam, bool>& queue)
 {
     bool gotIt = false;
     bool isEnqueued = false;
@@ -54,7 +55,7 @@ void enqueueFilter(struct primeFilterParam param, ASYNC_QUEUE_TYPE(struct primeF
  * It will be interesting to see how well it does compared to this version here
  * (so be sure to keep this original version lying around).
  */
-bool primeFilter(unsigned int id, const struct primeFilterParam& param, ASYNC_QUEUE_TYPE(struct primeFilterParam)& queue)
+bool primeFilter(unsigned int id, const struct primeFilterParam& param, AFK_WorkQueue<struct primeFilterParam, bool>& queue)
 {
     /* optional verbose debug */
     //std::cout << param.start << "+" << param.step << " ";
@@ -101,7 +102,7 @@ void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<
         p.max = primeMax;
 
         AFK_AsyncGang<struct primeFilterParam, bool> primeFilterGang(
-            boost::function<bool (unsigned int, const struct primeFilterParam&, ASYNC_QUEUE_TYPE(struct primeFilterParam)&)>(primeFilter),
+            boost::function<bool (unsigned int, const struct primeFilterParam&, AFK_WorkQueue<struct primeFilterParam, bool>&)>(primeFilter),
             primeMax / 100, concurrency);
         primeFilterGang << p;
         boost::unique_future<bool> finished = primeFilterGang.start(); 
