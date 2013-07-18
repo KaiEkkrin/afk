@@ -8,6 +8,7 @@
 #include "cell.hpp"
 #include "core.hpp"
 #include "exception.hpp"
+#include "rng/rng.hpp"
 #include "terrain.hpp"
 
 
@@ -146,9 +147,9 @@ size_t hash_value(const AFK_Cell& cell)
 {
     return (
         cell.coord.v[0] ^
-        afk_lrotate<unsigned long long>((unsigned long long)cell.coord.v[1], 13) ^
-        afk_lrotate<unsigned long long>((unsigned long long)cell.coord.v[2], 29) ^
-        afk_lrotate<unsigned long long>((unsigned long long)cell.coord.v[3], 43));
+        LROTATE_UNSIGNED((unsigned long long)cell.coord.v[1], 13) ^
+        LROTATE_UNSIGNED((unsigned long long)cell.coord.v[2], 29) ^
+        LROTATE_UNSIGNED((unsigned long long)cell.coord.v[3], 43));
 }
 
 

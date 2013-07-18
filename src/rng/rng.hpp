@@ -4,6 +4,9 @@
 
 #include <iostream>
 
+/* We do lots of rotates ... */
+#define LROTATE_UNSIGNED(v, r) (((v) << (r)) | ((v) >> (sizeof((v)) * 8 - (r))))
+
 /* An RNG abstraction that lets me get the same interface
  * onto all the algorithms I try.
  */

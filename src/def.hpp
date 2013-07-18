@@ -14,15 +14,6 @@
 #define SQUARE(x) ((x) * (x))
 #define CUBE(x) ((x) * (x) * (x))
 
-template<typename T>
-inline T afk_lrotate(const T& v, const unsigned int r)
-{
-    /* Hopefully the compiler will optimise this into a rotate
-     * instruction...
-     */
-    return ((v << r) | (v >> (sizeof(T)*8 - r)));
-}
-
 template<typename F>
 class Vec2
 {

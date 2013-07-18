@@ -7,6 +7,7 @@
 #include "cell.hpp"
 #include "core.hpp"
 #include "exception.hpp"
+#include "rng/rng.hpp"
 #include "tile.hpp"
 
 
@@ -101,8 +102,8 @@ size_t hash_value(const AFK_Tile &tile)
 {
     return (
         tile.coord.v[0] ^
-        afk_lrotate<unsigned long long>((unsigned long long)tile.coord.v[1], 17) ^
-        afk_lrotate<unsigned long long>((unsigned long long)tile.coord.v[2], 37));
+        LROTATE_UNSIGNED((unsigned long long)tile.coord.v[1], 17) ^
+        LROTATE_UNSIGNED((unsigned long long)tile.coord.v[2], 37));
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_Tile& tile)
