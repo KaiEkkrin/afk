@@ -20,14 +20,15 @@
 
 /* The cell generating worker. */
 
-#define DEBUG_00024 0 
+#define DEBUG_00024 0
 
 #if DEBUG_00024
 #define DEBUG_00024_EXCUSE(cell, what) \
 { \
-    const AFK_Cell cell0002 = afk_cell(afk_vec4<long long>(0, 0, 0, 2)); \
-    const AFK_Cell cell0004 = afk_cell(afk_vec4<long long>(0, 0, 0, 4)); \
-    if ((cell) == cell0002 || (cell) == cell0004) \
+    const AFK_Cell cell0042 = afk_cell(afk_vec4<long long>(0, 0, -0, 2)); \
+    const AFK_Cell cell0062 = afk_cell(afk_vec4<long long>(0, 0, -2, 2)); \
+    const AFK_Cell cell0082 = afk_cell(afk_vec4<long long>(0, 0, -4, 2)); \
+    if ((cell) == cell0042 || (cell) == cell0062 || (cell) == cell0082) \
     { \
         AFK_DEBUG_PRINTL((cell) << ": " << what) \
     } \
@@ -294,7 +295,7 @@ bool AFK_World::generateClaimedWorldCell(
          */
         if (!display && !renderTerrain && someVisible && !resume)
         {
-            DEBUG_00024_EXCUSE(cell, "recursing")
+            //DEBUG_00024_EXCUSE(cell, "recursing")
 
             size_t subcellsSize = CUBE(subdivisionFactor);
             AFK_Cell *subcells = new AFK_Cell[subcellsSize]; /* TODO avoid heap thrashing somehow.  Maybe make it an iterator */
@@ -304,7 +305,7 @@ bool AFK_World::generateClaimedWorldCell(
             {
                 for (unsigned int i = 0; i < subcellsCount; ++i)
                 {
-                    DEBUG_00024_EXCUSE(subcells[i], "recursive call parameter with allVisible " << allVisible)
+                    //DEBUG_00024_EXCUSE(subcells[i], "recursive call parameter with allVisible " << allVisible)
 
                     struct AFK_WorldCellGenParam subcellParam;
                     subcellParam.cell               = subcells[i];
@@ -439,7 +440,7 @@ void AFK_World::alterDetail(float adjustment)
         detailPitch = detailPitch * adjustment;
 
     /* TODO fixing this just for now */
-    detailPitch = 64.0f;
+    //detailPitch = 64.0f;
 }
 
 boost::unique_future<bool> AFK_World::updateWorld(void)

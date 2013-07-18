@@ -38,7 +38,7 @@ out GeometryData
 void main()
 {
     // Cell is determined by the first vertex of each triangle.
-    if (gl_in[0].gl_Position.y >= yCellMin && gl_in[0].gl_Position.y < yCellMax)
+    if (gl_in[0].gl_Position.y > yCellMin && gl_in[0].gl_Position.y <= yCellMax)
     {
         int i;
         for (i = 0; i < 3; ++i)

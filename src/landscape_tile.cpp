@@ -234,6 +234,7 @@ void AFK_LandscapeTile::buildTerrainList(
     float maxDistance,
     const AFK_LANDSCAPE_CACHE *cache) const
 {
+#if 0
     /* TODO Having a go at including just the lowest level of terrain,
      * and nothing else, to see how things go.
      */
@@ -247,7 +248,14 @@ void AFK_LandscapeTile::buildTerrainList(
     }
     }
 
-#if 0
+#else
+    /* Add the local terrain tiles to the list. */
+    for (std::vector<boost::shared_ptr<AFK_TerrainTile> >::const_iterator it = terrainDescriptor.begin();
+        it != terrainDescriptor.end(); ++it)
+    {
+        list.add(*it);
+    }
+
     /* If this isn't the top level cell... */
     if (tile.coord.v[2] < maxDistance)
     {
@@ -296,12 +304,6 @@ void AFK_LandscapeTile::computeGeometry(
 {
     if (!rawVertices || !rawColours) return;
 
-    /* TODO remove debug */
-    if (baseTile == afk_tile(afk_vec3<long long>(0, -6, 2)))
-    {
-        AFK_DEBUG_PRINTL("Computing geometry for 0, -6, 2")
-    }
-
     /* Apply the terrain transform.
      * TODO This may be slow -- obvious candidate for OpenCL?  * But, the cache may rescue me; profile first!
      */
@@ -322,6 +324,7 @@ void AFK_LandscapeTile::computeGeometry(
     rawVertexCount = 0;
 
     /* TODO remove debug */
+#if 0
     if (yBoundUpper != 0.0f)
     {
         AFK_DEBUG_PRINTL("Computed geometry for " << baseTile << ": " << *this)
@@ -332,6 +335,7 @@ void AFK_LandscapeTile::computeGeometry(
         }
         AFK_DEBUG_PRINTL("")
     }
+#endif
 }
 
 bool AFK_LandscapeTile::hasGeometry() const
@@ -341,14 +345,23 @@ bool AFK_LandscapeTile::hasGeometry() const
 
 AFK_DisplayedLandscapeTile *AFK_LandscapeTile::makeDisplayedLandscapeTile(const AFK_Cell& cell, float minCellSize) const
 {
+    AFK_DisplayedLandscapeTile *dlt = NULL;
+#if 0
     Vec4<float> realCoord = cell.toWorldSpace(minCellSize);
     float cellBoundLower = realCoord.v[1];
     float cellBoundUpper = realCoord.v[1] + realCoord.v[3];
 
-    AFK_DisplayedLandscapeTile *dlt = NULL;
-    if (cellBoundLower < yBoundUpper && cellBoundUpper > yBoundLower)
-        //dlt = new AFK_DisplayedLandscapeTile(vs, is, cellBoundLower, cellBoundUpper);
-        dlt = new AFK_DisplayedLandscapeTile(vs, is, -32768.0, 32768.0);
+    /* The `<=' operator here: someone needs to own the 0-plane.  I'm
+     * going to declare it to be the cell above not the cell below.
+     */
+    /* TODO: For now, assuming only y=0 cells are being supplied and
+     * returning everything.
+     */
+    if (cellBoundLower <= yBoundUpper && cellBoundUpper > yBoundLower)
+        dlt = new AFK_DisplayedLandscapeTile(vs, is, cellBoundLower, cellBoundUpper);
+#else
+    dlt = new AFK_DisplayedLandscapeTile(vs, is, -32768.0, 32768.0);
+#endif
 
     return dlt;
 }

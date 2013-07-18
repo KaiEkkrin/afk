@@ -31,7 +31,9 @@ class AFK_WorkQueue
 {
 protected:
     boost::lockfree::queue<ParameterType> q;
-    boost::atomic<unsigned int> count;
+
+    /* TODO I think I might be getting a reorder around this thing... :-( */
+    volatile boost::atomic<unsigned int> count;
 
 public:
     AFK_WorkQueue(): q(100) /* arbitrary */, count(0) {}
