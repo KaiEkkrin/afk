@@ -45,6 +45,34 @@ void AFK_TerrainFeature::compute_squarePyramid(Vec3<float> *positions, Vec3<floa
     }
 }
 
+void AFK_TerrainFeature::compute_hump(Vec3<float> *positions, Vec3<float> *colours, size_t length) const
+{
+    /* Work out my feature radius. */
+    float radius = (scale.v[0] < scale.v[2] ?
+        (0.5f - scale.v[0]) : (0.5f - scale.v[2])) / 2.0f;
+
+    for (size_t i = 0; i < length; ++i)
+    {
+        float distanceToCentreSquared =
+            SQUARE(location.v[0] - positions[i].v[0]) + 
+            SQUARE(location.v[1] - positions[i].v[2]);
+
+        float distanceToCentre = sqrt(distanceToCentreSquared);
+        
+        if (distanceToCentre < radius)
+        {
+            /* I want to scale this distance so that at 0 it
+             * becomes scale.v[1], and at radius it becomes 0.
+             */
+            float humpX = (radius - distanceToCentre) * (scale.v[1] / radius);
+
+            positions[i].v[1] += humpX;
+        }
+
+        colours[i] += tint * scale.v[2] / 8.0f;
+    }
+}
+
 AFK_TerrainFeature::AFK_TerrainFeature(const AFK_TerrainFeature& f)
 {
     type        = f.type;
@@ -80,6 +108,10 @@ void AFK_TerrainFeature::compute(Vec3<float> *positions, Vec3<float> *colours, s
     {
     case AFK_TERRAIN_SQUARE_PYRAMID:
         compute_squarePyramid(positions, colours, length);
+        break;
+
+    case AFK_TERRAIN_HUMP:
+        compute_hump(positions, colours, length);
         break;
 
     default:
@@ -200,7 +232,7 @@ void AFK_TerrainTile::make(
         Vec3<float> tint = forcedTint ? *forcedTint :
             afk_vec3<float>(rng.frand(), rng.frand(), rng.frand());
 
-        features[i] = AFK_TerrainFeature(AFK_TERRAIN_SQUARE_PYRAMID, location, tint, scale);
+        features[i] = AFK_TerrainFeature(/* AFK_TERRAIN_SQUARE_PYRAMID */ AFK_TERRAIN_HUMP, location, tint, scale);
     }
 } 
 

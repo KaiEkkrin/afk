@@ -23,7 +23,8 @@
  */
 enum AFK_TerrainType
 {
-    AFK_TERRAIN_SQUARE_PYRAMID          = 0
+    AFK_TERRAIN_SQUARE_PYRAMID          = 0,
+    AFK_TERRAIN_HUMP                    = 1
 };
 
 /* TODO Keep this updated with the current feature
@@ -63,6 +64,7 @@ protected:
      * terrain type.
      */
     void compute_squarePyramid(Vec3<float>* positions, Vec3<float>* colours, size_t length) const;
+    void compute_hump(Vec3<float>* positions, Vec3<float>* colours, size_t length) const;
 
 public:
     AFK_TerrainFeature() {}
