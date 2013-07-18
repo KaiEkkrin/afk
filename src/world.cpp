@@ -351,15 +351,15 @@ AFK_World::AFK_World(
      * bitnesses and contention targets from those values
      */
     worldCache = new AFK_WORLD_CACHE(
-        24, 6, AFK_HashCell(), 100000, 0xfffffffeu);
+        23, 8, AFK_HashCell(), 40000, 0xfffffffeu);
 
     landscapeCache = new AFK_LANDSCAPE_CACHE(
-        22, 6, AFK_HashTile(), 20000, 0xfffffffdu);
+        21, 8, AFK_HashTile(), 8000, 0xfffffffdu);
 
     genGang = new AFK_AsyncGang<struct AFK_WorldCellGenParam, bool>(
             boost::function<bool (unsigned int, const struct AFK_WorldCellGenParam,
                 AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>&)>(afk_generateWorldCells),
-            100);
+            100, 17);
 
     /* Set up the world shader. */
     shaderProgram = new AFK_ShaderProgram();
