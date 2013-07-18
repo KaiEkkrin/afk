@@ -27,8 +27,7 @@
 { \
     const AFK_Cell cell0042 = afk_cell(afk_vec4<long long>(0, 0, -0, 2)); \
     const AFK_Cell cell0062 = afk_cell(afk_vec4<long long>(0, 0, -2, 2)); \
-    const AFK_Cell cell0082 = afk_cell(afk_vec4<long long>(0, 0, -4, 2)); \
-    if ((cell) == cell0042 || (cell) == cell0062 || (cell) == cell0082) \
+    if ((cell) == cell0042 || (cell) == cell0062) \
     { \
         AFK_DEBUG_PRINTL((cell) << ": " << what) \
     } \
@@ -223,7 +222,7 @@ bool AFK_World::generateClaimedWorldCell(
 
         /* Nothing else to do with it now either. */
     }
-    else if (cell.coord.v[1] == 0) /* TODO: Test -- debugging without height stuff */
+    else /* if (cell.coord.v[1] == 0) */ /* TODO: Test -- debugging without height stuff */
     {
         /* We display geometry at a cell if its detail pitch is at the
          * target detail pitch, or if it's already the smallest

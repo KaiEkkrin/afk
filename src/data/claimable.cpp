@@ -79,7 +79,7 @@ void AFK_Claimable::release(unsigned int threadId)
 bool AFK_Claimable::claimYieldLoop(unsigned int threadId, enum AFK_ClaimType type)
 {
     bool claimed = false;
-    for (unsigned int tries = 0; !claimed && tries < 2; ++tries)
+    for (unsigned int tries = 0; !claimed /* && tries < 2 */; ++tries)
     {
         enum AFK_ClaimStatus status = claim(threadId, type);
         switch (status)

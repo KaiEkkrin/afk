@@ -346,16 +346,13 @@ bool AFK_LandscapeTile::hasGeometry() const
 AFK_DisplayedLandscapeTile *AFK_LandscapeTile::makeDisplayedLandscapeTile(const AFK_Cell& cell, float minCellSize) const
 {
     AFK_DisplayedLandscapeTile *dlt = NULL;
-#if 0
+#if 1
     Vec4<float> realCoord = cell.toWorldSpace(minCellSize);
     float cellBoundLower = realCoord.v[1];
     float cellBoundUpper = realCoord.v[1] + realCoord.v[3];
 
     /* The `<=' operator here: someone needs to own the 0-plane.  I'm
      * going to declare it to be the cell above not the cell below.
-     */
-    /* TODO: For now, assuming only y=0 cells are being supplied and
-     * returning everything.
      */
     if (cellBoundLower <= yBoundUpper && cellBoundUpper > yBoundLower)
         dlt = new AFK_DisplayedLandscapeTile(vs, is, cellBoundLower, cellBoundUpper);

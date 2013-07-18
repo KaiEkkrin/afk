@@ -17,6 +17,12 @@
  * a few frames before taking them out.
  */
 
+/* TODO: Should Claimable just use a mutex instead?  I mean,
+ * that's what it's doing, and it's actually behaviour that
+ * I want.  And I'm pretty sure yield() goes to system.
+ * Nngghh! :)
+ */
+
 /* Here are the different ways in which we can claim a cell. */
 enum AFK_ClaimType
 {

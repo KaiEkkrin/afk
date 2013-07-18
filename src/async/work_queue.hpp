@@ -7,6 +7,7 @@
 
 #include <boost/atomic.hpp>
 #include <boost/lockfree/queue.hpp>
+#include <boost/memory_order.hpp>
 
 /* An async work queue encompasses the concept of repeatedly
  * queueing up work items to be fed to a worker function.
@@ -31,9 +32,7 @@ class AFK_WorkQueue
 {
 protected:
     boost::lockfree::queue<ParameterType> q;
-
-    /* TODO I think I might be getting a reorder around this thing... :-( */
-    volatile boost::atomic<unsigned int> count;
+    boost::atomic<unsigned int> count;
 
 public:
     AFK_WorkQueue(): q(100) /* arbitrary */, count(0) {}
@@ -50,11 +49,18 @@ public:
     {
         ParameterType nextParameter;
 
+        boost::atomic_thread_fence(boost::memory_order_seq_cst);
         if (count.load() > 0)
         {
             if (q.pop(nextParameter))
             {
                 retval = func(threadId, nextParameter, *this);
+                /* TODO: It's hugely important that the following fetch_sub()
+                 * doesn't get reordered with the fetch_add() inside the
+                 * function call.  I'm hoping that the following fence
+                 * stops it from happening ???
+                 */
+                boost::atomic_thread_fence(boost::memory_order_seq_cst);
                 count.fetch_sub(1);
                 return AFK_WQ_BUSY;
             }
@@ -71,6 +77,7 @@ public:
 
     bool finished(void)
     {
+        boost::atomic_thread_fence(boost::memory_order_seq_cst);
         return (count.load() == 0);
     }
 };
