@@ -228,27 +228,11 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
 
 void AFK_LandscapeTile::buildTerrainList(
     AFK_TerrainList& list,
-    std::vector<AFK_Tile>& missing,
     const AFK_Tile& tile,
     unsigned int subdivisionFactor,
     float maxDistance,
     const AFK_LANDSCAPE_CACHE *cache) const
 {
-#if 0
-    /* TODO Having a go at including just the lowest level of terrain,
-     * and nothing else, to see how things go.
-     */
-    if (tile.coord.v[2] == 2)
-    {
-    /* Add the local terrain tiles to the list. */
-    for (std::vector<boost::shared_ptr<AFK_TerrainTile> >::const_iterator it = terrainDescriptor.begin();
-        it != terrainDescriptor.end(); ++it)
-    {
-        list.add(*it);
-    }
-    }
-
-#else
     /* Add the local terrain tiles to the list. */
     for (std::vector<boost::shared_ptr<AFK_TerrainTile> >::const_iterator it = terrainDescriptor.begin();
         it != terrainDescriptor.end(); ++it)
@@ -260,33 +244,11 @@ void AFK_LandscapeTile::buildTerrainList(
     if (tile.coord.v[2] < maxDistance)
     {
         /* Find the parent tile in the cache.
-         * If it's not here I'll throw an exception; the caller
-         * needs to be able to cope.
+         * If it's not here I'll throw an exception -- that would be a bug.
          */
-        bool foundNextTile = false;
-        for (AFK_Tile nextTile = tile.parent(subdivisionFactor);
-            !foundNextTile && (float)nextTile.coord.v[2] < (maxDistance * 2.0f);
-            nextTile = nextTile.parent(subdivisionFactor))
-        {
-            try
-            {
-                /* TODO Try claiming the parent landscape tile?  I don't think
-                 * I can cause a claim loop.
-                 * But something else is wrong.  I probably want to pull back
-                 * to only the smallest LoD terrain and nothing else once more,
-                 * and drill down to watch what's up.
-                 */
-                AFK_LandscapeTile& parentLandscapeTile = cache->at(nextTile);
-                parentLandscapeTile.buildTerrainList(list, missing, nextTile, subdivisionFactor, maxDistance, cache);
-                foundNextTile = true;
-            }
-            catch (AFK_PolymerOutOfRange)
-            {
-                missing.push_back(nextTile);
-            }
-        }
+        AFK_Tile parentTile = tile.parent(subdivisionFactor);
+        cache->at(parentTile).buildTerrainList(list, parentTile, subdivisionFactor, maxDistance, cache);
     }
-#endif
 }
 
 bool AFK_LandscapeTile::hasRawTerrain(
@@ -322,20 +284,6 @@ void AFK_LandscapeTile::computeGeometry(
     rawVertices = NULL;
     rawColours = NULL;
     rawVertexCount = 0;
-
-    /* TODO remove debug */
-#if 0
-    if (yBoundUpper != 0.0f)
-    {
-        AFK_DEBUG_PRINTL("Computed geometry for " << baseTile << ": " << *this)
-        for (std::vector<boost::shared_ptr<AFK_TerrainTile> >::iterator tIt = terrainDescriptor.begin();
-            tIt != terrainDescriptor.end(); ++tIt)
-        {
-            AFK_DEBUG_PRINTL(" - " << **tIt)
-        }
-        AFK_DEBUG_PRINTL("")
-    }
-#endif
 }
 
 bool AFK_LandscapeTile::hasGeometry() const

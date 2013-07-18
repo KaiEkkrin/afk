@@ -105,14 +105,10 @@ public:
         const Vec3<float> *forcedTint);
 
     /* Builds the terrain list for this tile.  Call it with
-     * empty lists.
-     * Fills out the `missing' list with the tiles that you are
-     * missing from the cache: you'll need to get those added then
-     * try again.
+     * an empty list.
      */
     void buildTerrainList(
         AFK_TerrainList& list,
-        std::vector<AFK_Tile>& missing,
         const AFK_Tile& tile,
         unsigned int subdivisionFactor,
         float maxDistance,

@@ -20,22 +20,6 @@
 
 /* The cell generating worker. */
 
-#define DEBUG_00024 0
-
-#if DEBUG_00024
-#define DEBUG_00024_EXCUSE(cell, what) \
-{ \
-    const AFK_Cell cell0042 = afk_cell(afk_vec4<long long>(0, 0, -0, 2)); \
-    const AFK_Cell cell0062 = afk_cell(afk_vec4<long long>(0, 0, -2, 2)); \
-    if ((cell) == cell0042 || (cell) == cell0062) \
-    { \
-        AFK_DEBUG_PRINTL((cell) << ": " << what) \
-    } \
-}
-#else
-#define DEBUG_00024_EXCUSE(cell, what)
-#endif
-
 bool afk_generateWorldCells(
     unsigned int threadId,
     struct AFK_WorldCellGenParam param,
@@ -65,10 +49,6 @@ bool afk_generateWorldCells(
         retval = world->generateClaimedWorldCell(
             worldCell, threadId, param, queue);
         worldCell.release(threadId);
-    }
-    else
-    {
-        DEBUG_00024_EXCUSE(cell, "unclaimed at top level")
     }
 
     /* If this cell had a dependency ... */
@@ -114,78 +94,25 @@ bool AFK_World::generateClaimedLandscapeTile(
 
     if (display)
     {
-        /* Next, create the terrain list, which is composed out of
-         * the terrain descriptor for this landscape tile, and
-         * those of all the parent tiles (so that child tiles
-         * just add detail to an existing terrain).
-         */
-        AFK_TerrainList terrainList;
-        std::vector<AFK_Tile> missing;
-        missing.reserve(8); /* Stop it from doing lots of small realloc's */
-        landscapeTile.buildTerrainList(
-            terrainList,
-            missing,
-            tile,
-            subdivisionFactor,
-            maxDistance,
-            landscapeCache);
-
-        if (missing.size() > 0)
+        /* Do I need a terrain list? */
+        if (landscapeTile.hasRawTerrain(tile, pointSubdivisionFactor))
         {
-#if 0
-            /* Uh oh!  Some of the tiles required to render this
-             * terrain are not in the cache.  I need to enqueue
-             * tasks to compute those missing cells, then resume
-             * this one after.
+            /* Create the terrain list, which is composed out of
+             * the terrain descriptor for this landscape tile, and
+             * those of all the parent tiles (so that child tiles
+             * just add detail to an existing terrain).
              */
-            struct AFK_WorldCellGenDependency *dependency = new struct AFK_WorldCellGenDependency();
-            dependency->count.store(missing.size());
-            dependency->finalCell = new struct AFK_WorldCellGenParam(param);
-            dependency->finalCell->flags |= AFK_WCG_FLAG_RESUME;
-            if (param.dependency)
-            { /* I can't complete my own dependency until my
-                 * resume has finished
-                 */
-                param.dependency->count.fetch_add(1);
-            }
+            AFK_TerrainList terrainList;
+            landscapeTile.buildTerrainList(
+                terrainList,
+                tile,
+                subdivisionFactor,
+                maxDistance,
+                landscapeCache);
 
-            /* To make the async gang properly render these
-             * landscape tiles and come back, I'll enqueue all
-             * matching cells with the render flag, which
-             * means, render the landscape only, don't try to
-             * recurse for cells to display.
-             */
-            for (std::vector<AFK_Tile>::iterator missingIt = missing.begin();
-                missingIt != missing.end(); ++missingIt)
-            {
-                struct AFK_WorldCellGenParam mcParam;
-                mcParam.cell                = afk_cell(*missingIt, 0);
-                mcParam.world               = param.world;
-                mcParam.viewerLocation      = param.viewerLocation;
-                mcParam.camera              = param.camera;
-                mcParam.flags               = AFK_WCG_FLAG_TERRAIN_RENDER;
-                mcParam.dependency          = dependency;
-                queue.push(mcParam);
-            }
-    
-            tilesFoundMissing.fetch_add(missing.size());
-#else
-            /* Now that I'm properly generating the terrain descriptor
-             * as I recurse through the world, I think getting non-0
-             * missing might be a bug...
-             */
-            std::ostringstream ss;
-            ss << "Nonzero missing at " << tile;
-            throw new AFK_Exception(ss.str());
-#endif
-        }
-        else
-        {
-            if (landscapeTile.hasRawTerrain(tile, pointSubdivisionFactor))
-            {
-                landscapeTile.computeGeometry(pointSubdivisionFactor, tile, terrainList);
-                tilesComputed.fetch_add(1);
-            }
+            /* Using that terrain list, compute the landscape geometry. */
+            landscapeTile.computeGeometry(pointSubdivisionFactor, tile, terrainList);
+            tilesComputed.fetch_add(1);
         }
     }
 
@@ -217,12 +144,11 @@ bool AFK_World::generateClaimedWorldCell(
     if (!entirelyVisible) worldCell.testVisibility(*camera, someVisible, allVisible);
     if (!someVisible && !renderTerrain)
     {
-        DEBUG_00024_EXCUSE(cell, "invisible")
         cellsInvisible.fetch_add(1);
 
         /* Nothing else to do with it now either. */
     }
-    else /* if (cell.coord.v[1] == 0) */ /* TODO: Test -- debugging without height stuff */
+    else
     {
         /* We display geometry at a cell if its detail pitch is at the
          * target detail pitch, or if it's already the smallest
@@ -263,30 +189,10 @@ bool AFK_World::generateClaimedWorldCell(
                 {
                     landscapeRenderQueue.update_push(dptr);
                     cellsQueued.fetch_add(1);
-                    DEBUG_00024_EXCUSE(cell, "Queued for render")
-                }
-                else
-                {
-                    DEBUG_00024_EXCUSE(cell, "No dptr")
-                }
-            }
-            else
-            {
-                if (!display)
-                {
-                    DEBUG_00024_EXCUSE(cell, "Not chosen for display")
-                }
-                else
-                {
-                    DEBUG_00024_EXCUSE(cell, "No geometry")
                 }
             }
 
             landscapeTile.release(threadId);
-        }
-        else
-        {
-            DEBUG_00024_EXCUSE(cell, "tile unclaimed")
         }
 
         /* If the terrain here was at too coarse a resolution to
@@ -294,8 +200,6 @@ bool AFK_World::generateClaimedWorldCell(
          */
         if (!display && !renderTerrain && someVisible && !resume)
         {
-            //DEBUG_00024_EXCUSE(cell, "recursing")
-
             size_t subcellsSize = CUBE(subdivisionFactor);
             AFK_Cell *subcells = new AFK_Cell[subcellsSize]; /* TODO avoid heap thrashing somehow.  Maybe make it an iterator */
             unsigned int subcellsCount = cell.subdivide(subcells, subcellsSize, subdivisionFactor);
@@ -304,8 +208,6 @@ bool AFK_World::generateClaimedWorldCell(
             {
                 for (unsigned int i = 0; i < subcellsCount; ++i)
                 {
-                    //DEBUG_00024_EXCUSE(subcells[i], "recursive call parameter with allVisible " << allVisible)
-
                     struct AFK_WorldCellGenParam subcellParam;
                     subcellParam.cell               = subcells[i];
                     subcellParam.world              = param.world;
@@ -437,9 +339,6 @@ void AFK_World::alterDetail(float adjustment)
 
     if (adj > 1.0f || !(worldCache->wayOutsideTargetSize() || landscapeCache->wayOutsideTargetSize()))
         detailPitch = detailPitch * adjustment;
-
-    /* TODO fixing this just for now */
-    //detailPitch = 64.0f;
 }
 
 boost::unique_future<bool> AFK_World::updateWorld(void)
