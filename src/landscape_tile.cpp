@@ -6,6 +6,7 @@
 #include <sstream>
 
 #include "core.hpp"
+#include "debug.hpp"
 #include "displayed_landscape_tile.hpp"
 #include "exception.hpp"
 #include "landscape_tile.hpp"
@@ -129,18 +130,18 @@ void AFK_LandscapeTile::makeRawTerrain(
     rawColours = new Vec3<float>[rawVertexCount];
 
     /* Populate the vertex and colour arrays. */
-    size_t rawIndex = 0;    
+    size_t rawIndex = 0;
 
     for (unsigned int xi = 0; xi < pointSubdivisionFactor + 1; ++xi)
     {
         for (unsigned int zi = 0; zi < pointSubdivisionFactor + 1; ++zi)
         {
-            /* The geometry in a tile goes from its (0,0) point to
-             * just before its (coord.v[2], coord.v[2])
-             * point (in tile space)
+            /* The geometry in a tile starts out going from (0,0)
+             * to (1,1).  The terrain list will transform it,
+             * eventually ending up in world space.
              */
-            float xf = (float)xi * baseTile.coord.v[2] / (float)pointSubdivisionFactor;
-            float zf = (float)zi * baseTile.coord.v[2] / (float)pointSubdivisionFactor;
+            float xf = (float)xi / (float)pointSubdivisionFactor;
+            float zf = (float)zi / (float)pointSubdivisionFactor;
 
             /* Jitter the vertices inside the cell around a bit. 
              * Not the edge ones; that will cause a join-up
@@ -158,12 +159,7 @@ void AFK_LandscapeTile::makeRawTerrain(
                 zdisp = rng.frand() * worldCell->coord.v[3] / ((float)pointSubdivisionFactor * 2.0f);
 #endif
 
-            /* And shunt them into world space */
-            rawVertices[rawIndex] = afk_vec3<float>(
-                xf + xdisp + baseTile.coord.v[0],
-                0.0f,
-                zf + zdisp + baseTile.coord.v[1]);
-
+            rawVertices[rawIndex] = afk_vec3<float>(xf + xdisp, 0.0f, zf + zdisp);
             rawColours[rawIndex] = afk_vec3<float>(0.1f, 0.1f, 0.1f);
 
             ++rawIndex;
@@ -178,7 +174,7 @@ AFK_LandscapeTile::AFK_LandscapeTile():
     rawColours(NULL),
     rawVertexCount(0),
     yBoundLower(FLT_MAX),
-    yBoundUpper(FLT_MIN)
+    yBoundUpper(-FLT_MAX)
 {
 }
 
@@ -238,13 +234,20 @@ void AFK_LandscapeTile::buildTerrainList(
     float maxDistance,
     const AFK_LANDSCAPE_CACHE *cache) const
 {
+    /* TODO Having a go at including just the lowest level of terrain,
+     * and nothing else, to see how things go.
+     */
+    if (tile.coord.v[2] == 2)
+    {
     /* Add the local terrain tiles to the list. */
     for (std::vector<boost::shared_ptr<AFK_TerrainTile> >::const_iterator it = terrainDescriptor.begin();
         it != terrainDescriptor.end(); ++it)
     {
         list.add(*it);
     }
+    }
 
+#if 0
     /* If this isn't the top level cell... */
     if (tile.coord.v[2] < maxDistance)
     {
@@ -275,6 +278,7 @@ void AFK_LandscapeTile::buildTerrainList(
             }
         }
     }
+#endif
 }
 
 bool AFK_LandscapeTile::hasRawTerrain(
@@ -291,6 +295,12 @@ void AFK_LandscapeTile::computeGeometry(
     const AFK_TerrainList& terrainList)
 {
     if (!rawVertices || !rawColours) return;
+
+    /* TODO remove debug */
+    if (baseTile == afk_tile(afk_vec3<long long>(0, -6, 2)))
+    {
+        AFK_DEBUG_PRINTL("Computing geometry for 0, -6, 2")
+    }
 
     /* Apply the terrain transform.
      * TODO This may be slow -- obvious candidate for OpenCL?  * But, the cache may rescue me; profile first!
@@ -310,6 +320,18 @@ void AFK_LandscapeTile::computeGeometry(
     rawVertices = NULL;
     rawColours = NULL;
     rawVertexCount = 0;
+
+    /* TODO remove debug */
+    if (yBoundUpper != 0.0f)
+    {
+        AFK_DEBUG_PRINTL("Computed geometry for " << baseTile << ": " << *this)
+        for (std::vector<boost::shared_ptr<AFK_TerrainTile> >::iterator tIt = terrainDescriptor.begin();
+            tIt != terrainDescriptor.end(); ++tIt)
+        {
+            AFK_DEBUG_PRINTL(" - " << **tIt)
+        }
+        AFK_DEBUG_PRINTL("")
+    }
 }
 
 bool AFK_LandscapeTile::hasGeometry() const
@@ -325,8 +347,8 @@ AFK_DisplayedLandscapeTile *AFK_LandscapeTile::makeDisplayedLandscapeTile(const 
 
     AFK_DisplayedLandscapeTile *dlt = NULL;
     if (cellBoundLower < yBoundUpper && cellBoundUpper > yBoundLower)
-        dlt = new AFK_DisplayedLandscapeTile(vs, is, cellBoundLower, cellBoundUpper);
-        //dlt = new AFK_DisplayedLandscapeTile(vs, is, -32768.0, 32768.0);
+        //dlt = new AFK_DisplayedLandscapeTile(vs, is, cellBoundLower, cellBoundUpper);
+        dlt = new AFK_DisplayedLandscapeTile(vs, is, -32768.0, 32768.0);
 
     return dlt;
 }

@@ -20,6 +20,22 @@
 
 /* The cell generating worker. */
 
+#define DEBUG_00024 0 
+
+#if DEBUG_00024
+#define DEBUG_00024_EXCUSE(cell, what) \
+{ \
+    const AFK_Cell cell0002 = afk_cell(afk_vec4<long long>(0, 0, 0, 2)); \
+    const AFK_Cell cell0004 = afk_cell(afk_vec4<long long>(0, 0, 0, 4)); \
+    if ((cell) == cell0002 || (cell) == cell0004) \
+    { \
+        AFK_DEBUG_PRINTL((cell) << ": " << what) \
+    } \
+}
+#else
+#define DEBUG_00024_EXCUSE(cell, what)
+#endif
+
 bool afk_generateWorldCells(
     unsigned int threadId,
     struct AFK_WorldCellGenParam param,
@@ -49,6 +65,10 @@ bool afk_generateWorldCells(
         retval = world->generateClaimedWorldCell(
             worldCell, threadId, param, queue);
         worldCell.release(threadId);
+    }
+    else
+    {
+        DEBUG_00024_EXCUSE(cell, "unclaimed at top level")
     }
 
     /* If this cell had a dependency ... */
@@ -197,11 +217,12 @@ bool AFK_World::generateClaimedWorldCell(
     if (!entirelyVisible) worldCell.testVisibility(*camera, someVisible, allVisible);
     if (!someVisible && !renderTerrain)
     {
+        DEBUG_00024_EXCUSE(cell, "invisible")
         cellsInvisible.fetch_add(1);
 
         /* Nothing else to do with it now either. */
     }
-    else
+    else if (cell.coord.v[1] == 0) /* TODO: Test -- debugging without height stuff */
     {
         /* We display geometry at a cell if its detail pitch is at the
          * target detail pitch, or if it's already the smallest
@@ -242,10 +263,30 @@ bool AFK_World::generateClaimedWorldCell(
                 {
                     landscapeRenderQueue.update_push(dptr);
                     cellsQueued.fetch_add(1);
+                    DEBUG_00024_EXCUSE(cell, "Queued for render")
+                }
+                else
+                {
+                    DEBUG_00024_EXCUSE(cell, "No dptr")
+                }
+            }
+            else
+            {
+                if (!display)
+                {
+                    DEBUG_00024_EXCUSE(cell, "Not chosen for display")
+                }
+                else
+                {
+                    DEBUG_00024_EXCUSE(cell, "No geometry")
                 }
             }
 
             landscapeTile.release(threadId);
+        }
+        else
+        {
+            DEBUG_00024_EXCUSE(cell, "tile unclaimed")
         }
 
         /* If the terrain here was at too coarse a resolution to
@@ -253,6 +294,8 @@ bool AFK_World::generateClaimedWorldCell(
          */
         if (!display && !renderTerrain && someVisible && !resume)
         {
+            DEBUG_00024_EXCUSE(cell, "recursing")
+
             size_t subcellsSize = CUBE(subdivisionFactor);
             AFK_Cell *subcells = new AFK_Cell[subcellsSize]; /* TODO avoid heap thrashing somehow.  Maybe make it an iterator */
             unsigned int subcellsCount = cell.subdivide(subcells, subcellsSize, subdivisionFactor);
@@ -261,6 +304,8 @@ bool AFK_World::generateClaimedWorldCell(
             {
                 for (unsigned int i = 0; i < subcellsCount; ++i)
                 {
+                    DEBUG_00024_EXCUSE(subcells[i], "recursive call parameter with allVisible " << allVisible)
+
                     struct AFK_WorldCellGenParam subcellParam;
                     subcellParam.cell               = subcells[i];
                     subcellParam.world              = param.world;
@@ -392,6 +437,9 @@ void AFK_World::alterDetail(float adjustment)
 
     if (adj > 1.0f || !(worldCache->wayOutsideTargetSize() || landscapeCache->wayOutsideTargetSize()))
         detailPitch = detailPitch * adjustment;
+
+    /* TODO fixing this just for now */
+    detailPitch = 64.0f;
 }
 
 boost::unique_future<bool> AFK_World::updateWorld(void)

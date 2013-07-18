@@ -85,7 +85,6 @@ public:
     AFK_RNG_Value rngSeed() const;
 
     /* A more general subdivide to use internally.
-     * `factor' is the number to divide the scale by.
      * `stride' is the gap to put between each subcell
      * and the next.
      * `points' is the number of subcells to put along
@@ -96,7 +95,6 @@ public:
     unsigned int subdivide(
         AFK_Cell *subCells,
         const size_t subCellsSize,
-        long long factor,
         long long stride,
         long long points) const;
 

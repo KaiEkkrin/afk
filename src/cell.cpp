@@ -41,7 +41,6 @@ AFK_RNG_Value AFK_Cell::rngSeed() const
 unsigned int AFK_Cell::subdivide(
     AFK_Cell *subCells,
     const size_t subCellsSize,
-    long long factor,
     long long stride,
     long long points) const
 {
@@ -78,7 +77,6 @@ unsigned int AFK_Cell::subdivide(AFK_Cell *subCells, const size_t subCellsSize, 
     return subdivide(
         subCells,
         subCellsSize,
-        subdivisionFactor,
         coord.v[3] / subdivisionFactor,
         subdivisionFactor);
 }

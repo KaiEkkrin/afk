@@ -204,16 +204,16 @@ void AFK_TerrainTile::make(
     }
 } 
 
-void AFK_TerrainTile::transformTileToTile(Vec3<float> *positions, size_t length, const AFK_TerrainTile& other) const
+void AFK_TerrainTile::transformTileToTile(Vec3<float> *positions, size_t length, const AFK_TerrainTile& from) const
 {
-    Vec4<float> cellCoord = getCellCoord();
-    Vec4<float> otherCoord = other.getCellCoord();
-    float scaleFactor = otherCoord.v[3] / cellCoord.v[3];
+    Vec4<float> toCoord = getCellCoord();
+    Vec4<float> fromCoord = from.getCellCoord();
+    float scaleFactor = fromCoord.v[3] / toCoord.v[3];
 
     Vec3<float> displacement = afk_vec3<float>(
-        (otherCoord.v[0] - cellCoord.v[0]) / cellCoord.v[3],
-        (otherCoord.v[1] - cellCoord.v[1]) / cellCoord.v[3],
-        (otherCoord.v[2] - cellCoord.v[2]) / cellCoord.v[3]);
+        (fromCoord.v[0] - toCoord.v[0]) / toCoord.v[3],
+        (fromCoord.v[1] - toCoord.v[1]) / toCoord.v[3],
+        (fromCoord.v[2] - toCoord.v[2]) / toCoord.v[3]);
 
     for (size_t i = 0; i < length; ++i)
         positions[i] = (positions[i] - displacement) / scaleFactor;
@@ -255,12 +255,9 @@ void AFK_TerrainList::compute(Vec3<float> *positions, Vec3<float> *colours, size
     /* Sanity check. */
     if (t.size() == 0) return;
 
-    /* Transform into the space of the first cell */
-    Vec4<float> bottomCellCoord = t[0]->getCellCoord();
-    Vec3<float> bottomCellXYZ = afk_vec3<float>(bottomCellCoord.v[0], bottomCellCoord.v[1], bottomCellCoord.v[2]);
-
-    for (size_t i = 0; i < length; ++i)
-        positions[i] = (positions[i] - bottomCellXYZ) / bottomCellCoord.v[3];
+    /* Note that I don't need to do a starting transform.  The raw
+     * positions are between 0 and 1 (tile space).
+     */
 
     for (unsigned int i = 0; i < t.size(); ++i)
     {
