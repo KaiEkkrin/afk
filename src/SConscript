@@ -1,12 +1,25 @@
+import re
+
+Import('compiler')
 Import('extra_ccflags')
 Import('extra_ldflags')
 
 afk_sources = Glob('*.cpp') + Glob('async/*.cpp') + Glob('data/*.cpp') + Glob('rng/*.cpp')
 afk_libs = ['boost_chrono', 'boost_random', 'boost_system', 'boost_thread', 'crypto', 'GL', 'GLU', 'GLEW', 'glut', 'OpenCL']
+afk_ld_libs = ['m', 'pthread', 'stdc++']
 afk_ccflags = ['-Wall', '-Werror']
 afk_ldflags = []
 
-Program('afk', afk_sources, LIBS=afk_libs, CCFLAGS=afk_ccflags + extra_ccflags, LINKFLAGS=afk_ldflags + extra_ldflags)
+if compiler == 'clang++':
+    bcfiles = []
+    for source in afk_sources:
+        bcfiles.append(Object(source=source, OBJSUFFIX='.bc', CXX=compiler, CCFLAGS=afk_ccflags + extra_ccflags + ['-emit-llvm']))
+
+    Program('afk.bc', bcfiles, LINK='llvm-link')
+    Command('afk.s', 'afk.bc', "llc -o $TARGET {0} $SOURCE".format(' '.join(extra_ccflags)))
+    Program('afk', 'afk.s', LIBS=afk_libs + afk_ld_libs, LINKFLAGS=afk_ldflags + extra_ldflags)
+else:
+    Program('afk', afk_sources, CXX=compiler, LIBS=afk_libs, CCFLAGS=afk_ccflags + extra_ccflags, LINKFLAGS=afk_ldflags + extra_ldflags)
 
 for shader in Glob('shaders/*.glsl'):
     File(shader)

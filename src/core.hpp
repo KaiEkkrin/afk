@@ -12,6 +12,7 @@
 #include <boost/lockfree/queue.hpp>
 
 #include "camera.hpp"
+#include "computer.hpp"
 #include "config.hpp"
 #include "data/frame.hpp"
 #include "def.hpp"
@@ -57,10 +58,10 @@ protected:
 
 public:
     /* General things. */
-    struct AFK_Config   *config;
+    AFK_Config          *config;
 
     /* A wrapper around the compute engine. */
-    struct AFK_Computer *computer;
+    AFK_Computer        *computer;
 
     /* The random number generator.
      * TODO: The re-seeding process is serial, and I

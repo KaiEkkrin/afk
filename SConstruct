@@ -10,6 +10,12 @@ AddOption(
     help='Enable profiling',
     default=False)
 
+AddOption(
+    '--llvm',
+    action='store_true',
+    help='Use LLVM',
+    default=False)
+
 if GetOption('dbg'):
     if GetOption('pg'):
         extra_ccflags = ['-g', '-pg']
@@ -29,5 +35,11 @@ else:
         extra_ldflags = []
         variant_dir = 'build/release'
 
-SConscript('src/SConscript', variant_dir=variant_dir, exports='extra_ccflags extra_ldflags')
+if GetOption('llvm'):
+    variant_dir += '_llvm'
+    compiler = 'clang++'
+else:
+    compiler = 'g++'
+
+SConscript('src/SConscript', variant_dir=variant_dir, exports='compiler extra_ccflags extra_ldflags')
 
