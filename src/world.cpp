@@ -46,9 +46,11 @@ bool afk_generateWorldCells(
     if (worldCell.claimYieldLoop(threadId,
         (renderTerrain || resume) ? AFK_CLT_NONEXCLUSIVE : AFK_CLT_EXCLUSIVE))
     {
+        /* This releases the world cell itself when it's done
+         * (which isn't at the end of its processing).
+         */
         retval = world->generateClaimedWorldCell(
             worldCell, threadId, param, queue);
-        worldCell.release(threadId);
     }
 
     /* If this cell had a dependency ... */
@@ -150,6 +152,7 @@ bool AFK_World::generateClaimedWorldCell(
         cellsInvisible.fetch_add(1);
 
         /* Nothing else to do with it now either. */
+        worldCell.release(threadId);
     }
     else
     {
@@ -197,6 +200,9 @@ bool AFK_World::generateClaimedWorldCell(
 
             landscapeTile.release(threadId);
         }
+
+        /* We don't need this any more */
+        worldCell.release(threadId);
 
         /* If the terrain here was at too coarse a resolution to
          * be displayable, recurse through the subcells
@@ -261,10 +267,14 @@ AFK_World::AFK_World(
     landscapeCache = new AFK_LANDSCAPE_CACHE(
         16, 8, AFK_HashTile(), 8000, 0xfffffffdu);
 
+    /* Note that loading lots of extra threads here does not seem
+     * to make us do significantly better than the default of
+     * (machine thread count + 1)
+     */
     genGang = new AFK_AsyncGang<struct AFK_WorldCellGenParam, bool>(
             boost::function<bool (unsigned int, const struct AFK_WorldCellGenParam,
                 AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>&)>(afk_generateWorldCells),
-            100, 17);
+            100);
 
     /* Set up the world shader. */
     shaderProgram = new AFK_ShaderProgram();

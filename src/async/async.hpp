@@ -134,8 +134,16 @@ void afk_asyncWorker(
                 break;
 
             case AFK_WQ_WAITING:
-                /* Give way so I don't cram the CPU with busy-waits. */
+#if WORK_QUEUE_CONDITION_WAIT
+                /* I don't expect this. */
+                throw new AFK_AsyncException();
+#else
+                /* Give way so I don't cram the CPU with busy-waits.
+                 * This is really important -- the whole system chokes
+                 * if I don't do it.
+                 */
                 boost::this_thread::yield();
+#endif
                 break;
 
             case AFK_WQ_FINISHED:

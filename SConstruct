@@ -31,7 +31,7 @@ else:
         extra_ldflags = ['-pg']
         variant_dir = 'build/release_pg'
     else:
-        extra_ccflags = ['-O3']
+        extra_ccflags = ['-O3', '-g']
         extra_ldflags = []
         variant_dir = 'build/release'
 

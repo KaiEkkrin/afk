@@ -8,17 +8,25 @@
 
 
 
-AFK_Claimable::AFK_Claimable():
-    claimingThreadId(UNCLAIMED)
+AFK_Claimable::AFK_Claimable()
+#if CLAIMABLE_MUTEX
+#else
+    :claimingThreadId(UNCLAIMED)
+#endif
 {
 }
 
 enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimType type)
 {
     AFK_Frame currentFrame = getCurrentFrame();
-    unsigned int expectedId = UNCLAIMED;
+
     AFK_ClaimStatus status = AFK_CL_TAKEN;
+#if CLAIMABLE_MUTEX
+    claimingMut.lock();
+#else
+    unsigned int expectedId = UNCLAIMED;
     if (claimingThreadId.compare_exchange_strong(expectedId, threadId))
+#endif
     {
         switch (type)
         {
@@ -58,6 +66,8 @@ enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimT
             throw new AFK_ClaimException();
         }
     }
+#if CLAIMABLE_MUTEX
+#else
     else
     {
         /* I might as well check whether I'd ever give it to
@@ -66,14 +76,19 @@ enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimT
         if (type == AFK_CLT_EXCLUSIVE && lastSeenExclusively == currentFrame)
             status = AFK_CL_ALREADY_PROCESSED;
     }
+#endif
 
     return status;
 }
 
 void AFK_Claimable::release(unsigned int threadId)
 {
+#if CLAIMABLE_MUTEX
+    claimingMut.unlock();
+#else
     if (!claimingThreadId.compare_exchange_strong(threadId, UNCLAIMED))
         throw AFK_ClaimException();
+#endif
 }
 
 bool AFK_Claimable::claimYieldLoop(unsigned int threadId, enum AFK_ClaimType type)

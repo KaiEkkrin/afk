@@ -147,6 +147,6 @@ bool AFK_WorldCell::canBeEvicted(void) const
 std::ostream& operator<<(std::ostream& os, const AFK_WorldCell& worldCell)
 {
     /* TODO Something more descriptive might be nice */
-    return os << "World cell (last seen " << worldCell.lastSeen << ", claimed by " << worldCell.claimingThreadId << ")";
+    return os << "World cell (last seen " << worldCell.lastSeen << ")";
 }
 

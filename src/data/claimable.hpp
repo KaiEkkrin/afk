@@ -17,11 +17,19 @@
  * a few frames before taking them out.
  */
 
-/* TODO: Should Claimable just use a mutex instead?  I mean,
- * that's what it's doing, and it's actually behaviour that
- * I want.  And I'm pretty sure yield() goes to system.
- * Nngghh! :)
+/* Define this to try using a mutex instead.
+ * On Linux I think this is better than the yield loop: it
+ * gets slightly smoother throughput with lower CPU usage
+ * (because it's not chewing system time with yield().
+ * However, I should leave the option in in case on some
+ * platform mutexes turn out to be really expensive...
+ * (Linux uses futexes remember)
  */
+#define CLAIMABLE_MUTEX 1
+
+#if CLAIMABLE_MUTEX
+#include <boost/thread/mutex.hpp>
+#endif
 
 /* Here are the different ways in which we can claim a cell. */
 enum AFK_ClaimType
@@ -59,10 +67,14 @@ protected:
     /* The last time the object was claimed exclusively. */
     AFK_Frame lastSeenExclusively;
 
+#if CLAIMABLE_MUTEX
+    boost::mutex claimingMut;
+#else
     /* Which thread ID (as assigned by the async module) has
      * claimed use of this object.
      */
     boost::atomic<unsigned int> claimingThreadId;
+#endif
 
 public:
     AFK_Claimable();
