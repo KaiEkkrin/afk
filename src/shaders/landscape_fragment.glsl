@@ -24,7 +24,7 @@ uniform Light gLight;
 
 void main()
 {
-    vec3 colour = inData.colour;
+    vec3 colour = normalize(inData.colour);
     vec3 normal = normalize(inData.normal);
 
     vec3 AmbientColour = gLight.Colour * gLight.Ambient;

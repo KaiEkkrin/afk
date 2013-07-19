@@ -35,6 +35,18 @@ class AFK_LandscapeTileNotPresentException: public std::exception {};
 #define AFK_LANDSCAPE_VERTEX_BUF AFK_DisplayedBuffer<struct AFK_VcolPhongVertex>
 #define AFK_LANDSCAPE_INDEX_BUF AFK_DisplayedBuffer<Vec3<unsigned int> >
 
+enum AFK_LandscapeType
+{
+    AFK_LANDSCAPE_TYPE_FLAT,
+    AFK_LANDSCAPE_TYPE_SMOOTH
+};
+
+/* TODO This really ought to be configurable somehow but I can't find
+ * a sane way to do it.  (access config directly?  it IS kind of the
+ * right paradigm?)
+ */
+#define AFK_LANDSCAPE_TYPE AFK_LANDSCAPE_TYPE_SMOOTH
+
 /* Describes a landscape tile, including managing its rendered vertex
  * and index buffers.
  */
@@ -79,6 +91,14 @@ protected:
         unsigned int triangleVOff);
 
     /* Internal helper.
+     * Computes a single smooth triangle, pushing the results into
+     * the vertex and index buffers.
+     */
+    void computeSmoothTriangle(
+        const Vec3<unsigned int>& indices,
+        bool emitIndices);
+
+    /* Internal helper.
      * Turns a vertex grid into a world of flat triangles,
      * filling out `vs' and `is', and updating yBoundLower
      * and yBoundUpper.
@@ -87,10 +107,24 @@ protected:
         const AFK_Tile& baseTile,
         unsigned int pointSubdivisionFactor);
 
+    /* Internal helper.
+     * Turns a vertex grid into a world of smooth triangles,
+     * filling out `vs' and `is', and updating yBoundLower
+     * and yBoundUpper.
+     */
+    void vertices2SmoothTriangles(
+        const AFK_Tile& baseTile,
+        unsigned int pointSubdivisionFactor);
+
     /* Internal helper.  Makes this landscape tile's
      * raw terrain data (vertices and colours).
+     * It has a `type' parameter because the smooth
+     * terrain needs an extra row of vertices in
+     * order to make the normals for the bottom and
+     * left.
      */
     void makeRawTerrain(
+        enum AFK_LandscapeType type,
         const AFK_Tile& baseTile,
         unsigned int pointSubdivisionFactor,
         float minCellSize);

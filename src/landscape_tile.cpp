@@ -12,7 +12,6 @@
 #include "landscape_tile.hpp"
 #include "rng/boost_taus88.hpp"
 
-
 void AFK_LandscapeTile::computeFlatTriangle(
     const Vec3<float> *vertices,
     const Vec3<float> *colours,
@@ -42,7 +41,11 @@ void AFK_LandscapeTile::computeFlatTriangle(
 
     is->t.push_back(triangle);
 
-    Vec3<float> normal = crossP.normalise();
+    /* I always want to compute the flat normal here.
+     * The correct normal for smooth triangles is the
+     * sum of these for all the triangles at a vertex.
+     */
+    Vec3<float> normal = crossP /* .normalise() */; /* TODO I normalise in the FS -- do I need it here too? */
 
     for (i = 0; i < 3; ++i)
     {
@@ -54,6 +57,39 @@ void AFK_LandscapeTile::computeFlatTriangle(
     }
 }
 
+void AFK_LandscapeTile::computeSmoothTriangle(
+    const Vec3<unsigned int>& indices,
+    bool emitIndices)
+{
+    Vec3<float> crossP =
+        ((rawVertices[indices.v[1]] - rawVertices[indices.v[0]]).cross(
+        rawVertices[indices.v[2]] - rawVertices[indices.v[0]]));
+
+    Vec3<float> normal = crossP /* .normalise() */; /* TODO I normalise in the FS -- do I need it here too? */
+
+    /* Update the first triangle with the normal and colour. */
+    vs->t[indices.v[0]].colour += rawColours[indices.v[1]];
+    vs->t[indices.v[0]].colour += rawColours[indices.v[2]];
+    vs->t[indices.v[0]].normal += normal;
+
+    /* Emit indices if requested */
+    if (emitIndices)
+    {
+        /* This winding order reasoning is the same as in
+         * computeFlatTriangle
+         */
+        if (crossP.v[1] >= 0.0f)
+        {
+            is->t.push_back(afk_vec3<unsigned int>(
+                indices.v[0], indices.v[2], indices.v[1]));
+        }
+        else
+        {
+            is->t.push_back(indices);
+        }
+    }
+}
+
 void AFK_LandscapeTile::vertices2FlatTriangles(
     const AFK_Tile& baseTile,
     unsigned int pointSubdivisionFactor)
@@ -61,7 +97,7 @@ void AFK_LandscapeTile::vertices2FlatTriangles(
     /* Each vertex generates 2 triangles (i.e. 6 triangle vertices) when
      * combined with the 3 vertices adjacent to it.
      */
-    size_t expectedVertexCount = SQUARE(pointSubdivisionFactor) * 6;
+    size_t expectedVertexCount = SQUARE(pointSubdivisionFactor + 1) * 6;
 
     /* Sanity check */
     if (vs)
@@ -115,29 +151,119 @@ void AFK_LandscapeTile::vertices2FlatTriangles(
     }
 }
 
+void AFK_LandscapeTile::vertices2SmoothTriangles(
+    const AFK_Tile& baseTile,
+    unsigned int pointSubdivisionFactor)
+{
+    /* Because I have excess on all 4 sides of the tile, this is
+     * the real size of a dimension of the grid.
+     */
+    unsigned int dimSize = pointSubdivisionFactor + 2;
+
+    /* Each vertex generates 2 triangles (like when I make flat
+     * triangles), but this time there is no vertex amplification.
+     */
+    size_t expectedVertexCount = SQUARE(dimSize);
+    size_t expectedIndexCount = SQUARE(dimSize) * 6;
+
+    /* Sanity check */
+    if (vs)
+    {
+        throw new AFK_Exception("Called vertices2SmoothTriangles with pre-existing computed vertices");
+    }
+
+    /* Set things up */
+    boost::shared_ptr<AFK_LANDSCAPE_VERTEX_BUF> newVs(new AFK_LANDSCAPE_VERTEX_BUF(expectedVertexCount));
+    vs = newVs;
+    boost::shared_ptr<AFK_LANDSCAPE_INDEX_BUF> newIs(new AFK_LANDSCAPE_INDEX_BUF(expectedIndexCount));
+    is = newIs;
+
+    /* In this case, I need to zero the colours and normals,
+     * because I'm going to be accumulating into them.  I can
+     * also copy the locations into the vertex array, so that
+     * computeSmoothTriangle() doesn't have to think about
+     * that.
+     */
+    for (unsigned int row = 0; row < dimSize; ++row)
+    {
+        for (unsigned int col = 0; col < dimSize; ++col)
+        {
+            struct AFK_VcolPhongVertex v;
+            v.location = rawVertices[row * dimSize + col];
+            v.colour = rawColours[row * dimSize + col];
+            v.normal = afk_vec3<float>(0.0f, 0.0f, 0.0f);
+            vs->t.push_back(v);
+
+            /* Update the bounds */
+            if (yBoundLower > rawVertices[row * dimSize + col].v[1]) yBoundLower = rawVertices[row * dimSize + col].v[1];
+            if (yBoundUpper < rawVertices[row * dimSize + col].v[1]) yBoundUpper = rawVertices[row * dimSize + col].v[1];
+        }
+    }
+
+    /* Now, I need to iterate through my new vertex array,
+     * contribute the triangles to the index buffer, and
+     * accumulate the colours and normals.
+     * Like in vertices2FlatTriangles, I chew one row and
+     * the next at once.
+     */
+    for (unsigned int row = 0; row < (pointSubdivisionFactor + 1); ++row)
+    {
+        for (unsigned int col = 0; col < (pointSubdivisionFactor + 1); ++col)
+        {
+            unsigned int i_r1c1 = row * (dimSize) + col;
+            unsigned int i_r1c2 = row * (dimSize) + (col + 1);
+            unsigned int i_r2c1 = (row + 1) * (dimSize) + col;
+            unsigned int i_r2c2 = (row + 1) * (dimSize) + (col + 1);
+            
+            /* I don't want to emit the triangles if I'm on the
+             * lower x or z edges: those are for adjacent tiles,
+             * not mine.  I still want to accumulate colour
+             * and normal though.
+             */
+            Vec3<unsigned int> indices1 = afk_vec3<unsigned int>(i_r2c1, i_r1c1, i_r1c2);
+            computeSmoothTriangle(indices1, (row > 0 && col > 0));
+
+            Vec3<unsigned int> indices2 = afk_vec3<unsigned int>(i_r2c1, i_r1c2, i_r2c2);
+            computeSmoothTriangle(indices2, (row > 0 && col > 0));
+        }
+    }
+}
+
 void AFK_LandscapeTile::makeRawTerrain(
+    enum AFK_LandscapeType type,
     const AFK_Tile& baseTile,
     unsigned int pointSubdivisionFactor,
     float minCellSize)
 {
     Vec3<float> worldTileCoord = baseTile.toWorldSpace(minCellSize);
 
-    /* I'm going to need to sample the edges of the next cell along
-     * the +ve x and z too, in order to join up with it.
+    /* We always need a bit of excess.
+     * The flat landscape type needs excess around the +x and +z in
+     * order to make the edge triangles.
+     * The smooth landscape type needs excess around the -x and -z too,
+     * in order to make the normals for the x=0 and z=0 vertices.
      */
+    int excessNX = (type == AFK_LANDSCAPE_TYPE_SMOOTH ? -1 : 0);
+    int excessPX = 1;
+    int excessNZ = (type == AFK_LANDSCAPE_TYPE_SMOOTH ? -1 : 0);
+    int excessPZ = 1;
+
     /* TODO This is thrashing the heap.  Try making a single
      * scratch place for this in thread-local storage
      */
-    rawVertexCount = SQUARE(pointSubdivisionFactor + 1);
+    if (type == AFK_LANDSCAPE_TYPE_SMOOTH)
+        rawVertexCount = SQUARE(pointSubdivisionFactor + 2);
+    else
+        rawVertexCount = SQUARE(pointSubdivisionFactor + 1);
     rawVertices = new Vec3<float>[rawVertexCount];
     rawColours = new Vec3<float>[rawVertexCount];
 
     /* Populate the vertex and colour arrays. */
     size_t rawIndex = 0;
 
-    for (unsigned int xi = 0; xi < pointSubdivisionFactor + 1; ++xi)
+    for (int xi = excessNX; xi < (int)pointSubdivisionFactor + excessPX; ++xi)
     {
-        for (unsigned int zi = 0; zi < pointSubdivisionFactor + 1; ++zi)
+        for (int zi = excessNZ; zi < (int)pointSubdivisionFactor + excessPZ; ++zi)
         {
             /* Here I'm going to enumerate geometry between (0,0)
              * and (1,1)...
@@ -252,7 +378,7 @@ bool AFK_LandscapeTile::hasRawTerrain(
     unsigned int pointSubdivisionFactor,
     float minCellSize)
 {
-    if (!rawVertices && !vs) makeRawTerrain(baseTile, pointSubdivisionFactor, minCellSize);
+    if (!rawVertices && !vs) makeRawTerrain(AFK_LANDSCAPE_TYPE, baseTile, pointSubdivisionFactor, minCellSize);
     return (rawVertices != NULL);
 }
 
@@ -272,7 +398,10 @@ void AFK_LandscapeTile::computeGeometry(
      * and choose the actual world cells that they ought to be
      * matched with
      */
-    vertices2FlatTriangles(baseTile, pointSubdivisionFactor);
+    if (AFK_LANDSCAPE_TYPE == AFK_LANDSCAPE_TYPE_FLAT)
+        vertices2FlatTriangles(baseTile, pointSubdivisionFactor);
+    else
+        vertices2SmoothTriangles(baseTile, pointSubdivisionFactor);
 
     /* I don't need this any more... */
     delete[] rawVertices;

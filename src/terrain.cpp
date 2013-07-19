@@ -420,7 +420,8 @@ void AFK_TerrainList::compute(Vec3<float> *positions, Vec3<float> *colours, size
     for (size_t i = 0; i < length; ++i)
     {
         positions[i] = (positions[i] * topCellCoord.v[3]) + topCellXYZ;
-        colours[i] = colours[i].normalise();
+        /* TODO I'm going to try to do this later */
+        //colours[i] = colours[i].normalise();
     }
 }
 
