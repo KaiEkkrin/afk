@@ -2,6 +2,7 @@
 
 #include "afk.hpp"
 
+#include <boost/functional/hash.hpp>
 #include <sstream>
 
 #include "cell.hpp"
@@ -130,15 +131,16 @@ AFK_Cell afk_cell(const AFK_Tile& tile, long long yCoord)
 
 size_t hash_value(const AFK_Tile &tile)
 {
-    return (
-        tile.coord.v[0] ^
-        LROTATE_UNSIGNED((unsigned long long)tile.coord.v[1], 17) ^
-        LROTATE_UNSIGNED((unsigned long long)tile.coord.v[2], 37));
+    size_t hash = 0;
+    boost::hash_combine(hash, tile.coord.v[0] * 0x0001c0038007000ell);
+    boost::hash_combine(hash, tile.coord.v[1] * 0x00038007000e001cll);
+    boost::hash_combine(hash, tile.coord.v[2] * 0x0007000e001c0038ll);
+    return hash;
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_Tile& tile)
 {
-    return os << "Tile(" <<
+    return os << "Tile(" << std::dec <<
         tile.coord.v[0] << ", " <<
         tile.coord.v[1] << ", scale " <<
         tile.coord.v[2] << ")";

@@ -256,10 +256,10 @@ AFK_World::AFK_World(
      * bitnesses and contention targets from those values
      */
     worldCache = new AFK_WORLD_CACHE(
-        23, 8, AFK_HashCell(), 40000, 0xfffffffeu);
+        22, 8, AFK_HashCell(), 160000, 0xfffffffeu);
 
     landscapeCache = new AFK_LANDSCAPE_CACHE(
-        21, 8, AFK_HashTile(), 8000, 0xfffffffdu);
+        16, 8, AFK_HashTile(), 8000, 0xfffffffdu);
 
     genGang = new AFK_AsyncGang<struct AFK_WorldCellGenParam, bool>(
             boost::function<bool (unsigned int, const struct AFK_WorldCellGenParam,

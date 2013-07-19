@@ -13,6 +13,7 @@
 
 #include "async/test.hpp"
 #include "data/cache_test.hpp"
+#include "hash_test.hpp"
 #include "rng/boost_taus88.hpp"
 #include "rng/test.hpp"
 
@@ -22,6 +23,7 @@
 
 #define TEST_ASYNC 0
 #define TEST_CACHE 0
+#define TEST_HASH 0
 #define TEST_RNGS 0
 #define TEST_SUBSTRATE 0
 
@@ -40,6 +42,12 @@ int main(int argc, char **argv)
 
 #if TEST_CACHE
     test_cache();
+#endif
+
+#if TEST_HASH
+    test_rotate();
+    test_tileHash();
+    test_cellHash();
 #endif
 
 #if TEST_RNGS

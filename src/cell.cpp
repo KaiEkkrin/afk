@@ -2,6 +2,7 @@
 
 #include "afk.hpp"
 
+#include <boost/functional/hash.hpp>
 #include <cmath>
 #include <sstream>
 
@@ -145,18 +146,20 @@ AFK_Cell afk_cell(const Vec4<long long>& _coord)
 
 size_t hash_value(const AFK_Cell& cell)
 {
-    return (
-        cell.coord.v[0] ^
-        LROTATE_UNSIGNED((unsigned long long)cell.coord.v[1], 13) ^
-        LROTATE_UNSIGNED((unsigned long long)cell.coord.v[2], 29) ^
-        LROTATE_UNSIGNED((unsigned long long)cell.coord.v[3], 43));
+    /* Getting this thing right is quite important... */
+    size_t hash = 0;
+    boost::hash_combine(hash, cell.coord.v[0] * 0x0000c00180030006ll);
+    boost::hash_combine(hash, cell.coord.v[1] * 0x00180030006000c0ll);
+    boost::hash_combine(hash, cell.coord.v[2] * 0x00030006000c0018ll);
+    boost::hash_combine(hash, cell.coord.v[3] * 0x006000c001800300ll);
+    return hash;
 }
 
 
 /* The AFK_Cell print overload. */
 std::ostream& operator<<(std::ostream& os, const AFK_Cell& cell)
 {
-    return os << "Cell(" <<
+    return os << "Cell(" << std::dec <<
         cell.coord.v[0] << ", " <<
         cell.coord.v[1] << ", " <<
         cell.coord.v[2] << ", scale " <<
