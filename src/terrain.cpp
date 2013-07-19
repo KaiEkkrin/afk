@@ -45,7 +45,11 @@ void AFK_TerrainFeature::compute_squarePyramid(Vec3<float> *positions, Vec3<floa
     }
 }
 
-void AFK_TerrainFeature::compute_hump(Vec3<float> *positions, Vec3<float> *colours, size_t length) const
+/* TODO: My goal is to replicate a landscape like this one makes, whilst
+ * (a) understand how it does it, and
+ * (b) not having large gaps between the bigger cells.
+ */
+void AFK_TerrainFeature::compute_mystery(Vec3<float> *positions, Vec3<float> *colours, size_t length) const
 {
     /* Work out my feature radius. */
     float radius = (scale.v[0] < scale.v[2] ?
@@ -66,6 +70,37 @@ void AFK_TerrainFeature::compute_hump(Vec3<float> *positions, Vec3<float> *colou
              */
             float humpX = (radius - distanceToCentre) * (scale.v[1] / radius);
 
+            positions[i].v[1] += humpX;
+        }
+
+        colours[i] += tint * scale.v[2] / 8.0f;
+    }
+}
+
+void AFK_TerrainFeature::compute_hump(Vec3<float> *positions, Vec3<float> *colours, size_t length) const
+{
+    /* Work out my feature radius. */
+    float radius = (scale.v[0] < scale.v[2] ?
+        (0.5f - scale.v[0]) : (0.5f - scale.v[2]));
+
+    for (size_t i = 0; i < length; ++i)
+    {
+        float distanceToCentreSquared =
+            SQUARE((location.v[0] - positions[i].v[0]) / scale.v[0]) + 
+            SQUARE((location.v[1] - positions[i].v[2]) / scale.v[2]);
+
+        float distanceToCentre = sqrt(distanceToCentreSquared);
+        
+        if (distanceToCentre < (radius / 2.0f))
+        {
+            float humpX = (SQUARE(radius / 2.0f)) * (2.0f * scale.v[1] / radius) -
+                distanceToCentreSquared * (scale.v[1] / radius);
+            positions[i].v[1] += humpX;
+        }
+        else
+        if (distanceToCentre < radius)
+        {
+            float humpX = (SQUARE(radius - distanceToCentre)) * (scale.v[1] / radius);
             positions[i].v[1] += humpX;
         }
 
@@ -108,6 +143,10 @@ void AFK_TerrainFeature::compute(Vec3<float> *positions, Vec3<float> *colours, s
     {
     case AFK_TERRAIN_SQUARE_PYRAMID:
         compute_squarePyramid(positions, colours, length);
+        break;
+
+    case AFK_TERRAIN_MYSTERY:
+        compute_mystery(positions, colours, length);
         break;
 
     case AFK_TERRAIN_HUMP:
@@ -232,7 +271,7 @@ void AFK_TerrainTile::make(
         Vec3<float> tint = forcedTint ? *forcedTint :
             afk_vec3<float>(rng.frand(), rng.frand(), rng.frand());
 
-        features[i] = AFK_TerrainFeature(/* AFK_TERRAIN_SQUARE_PYRAMID */ AFK_TERRAIN_HUMP, location, tint, scale);
+        features[i] = AFK_TerrainFeature(AFK_TERRAIN_TYPE_IN_USE, location, tint, scale);
     }
 } 
 
@@ -287,9 +326,11 @@ void AFK_TerrainList::compute(Vec3<float> *positions, Vec3<float> *colours, size
     /* Sanity check. */
     if (t.size() == 0) return;
 
-    /* Note that I don't need to do a starting transform.  The raw
-     * positions are between 0 and 1 (tile space).
-     */
+    /* Transform into the space of the first tile. */
+    Vec4<float> bottomCellCoord = t[0]->getCellCoord();
+    Vec3<float> bottomCellXYZ = afk_vec3<float>(bottomCellCoord.v[0], bottomCellCoord.v[1], bottomCellCoord.v[2]);
+    for (size_t i = 0; i < length; ++i)
+        positions[i] = (positions[i] - bottomCellXYZ) / bottomCellCoord.v[3];
 
     for (unsigned int i = 0; i < t.size(); ++i)
     {

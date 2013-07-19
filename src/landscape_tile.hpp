@@ -90,7 +90,10 @@ protected:
     /* Internal helper.  Makes this landscape tile's
      * raw terrain data (vertices and colours).
      */
-    void makeRawTerrain(const AFK_Tile& baseTile, unsigned int pointSubdivisionFactor);
+    void makeRawTerrain(
+        const AFK_Tile& baseTile,
+        unsigned int pointSubdivisionFactor,
+        float minCellSize);
     
 public:
     AFK_LandscapeTile();
@@ -120,7 +123,8 @@ public:
      */
     bool hasRawTerrain(
         const AFK_Tile& baseTile,
-        unsigned int pointSubdivisionFactor);
+        unsigned int pointSubdivisionFactor,
+        float minCellSize);
 
     /* Makes this cell's terrain geometry.  Call right after
      * constructing.

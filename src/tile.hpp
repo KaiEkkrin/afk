@@ -37,8 +37,11 @@ public:
      */
     Vec3<float> toWorldSpace(float worldScale) const;
 
-    /* TODO Turn this into an iterator -- saves on the array */
+    /* TODO Turn this into an iterator -- saves on the array? */
     void enumerateHalfTiles(AFK_Tile *halfTiles, size_t halfTilesSize) const;
+
+    /* Makes the 5 tiles that are used for the terrain at a spot. */
+    void enumerateDescriptorTiles(AFK_Tile *tiles, size_t tilesSize, unsigned int subdivisionFactor) const;
 };
 
 AFK_Tile afk_tile(const AFK_Tile& other);

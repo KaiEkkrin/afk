@@ -39,7 +39,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     shadersDir  = NULL;
     fov         = 90.0f;
     zNear       = 0.5f;
-    zFar        = 32768.0f;
+    zFar        = (float)(1 << 20);
 
     rotateButtonSensitivity     = 0.01f;
     thrustButtonSensitivity     = 0.01f;

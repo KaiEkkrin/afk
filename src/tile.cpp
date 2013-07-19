@@ -74,6 +74,36 @@ void AFK_Tile::enumerateHalfTiles(AFK_Tile *halfTiles, size_t halfTilesSize) con
     }
 }
 
+void AFK_Tile::enumerateDescriptorTiles(AFK_Tile *tiles, size_t tilesSize, unsigned int subdivisionFactor) const
+{
+    if (tilesSize != 5)
+    {
+        std::ostringstream ss;
+        ss << "Tried to enumerate descriptor tiles of count " << tilesSize;
+        throw AFK_Exception(ss.str());
+    }
+
+    /* I choose a base tile.
+     * TODO: What I'm hoping is that by choosing much larger base
+     * tiles, I'll be able to have much larger (mutually
+     * overlapping) terrain features.  Right now this isn't
+     * the case: instead I just seem to be suffering from
+     * overlap at a flat plane level.
+     * What do I need to do to persuade it to build larger,
+     * more overlapping bits of terrain?
+     * P.S. I *think* that Mystery is just interlocking cones
+     * (currently being cut off at the edges of larger cells)?
+     */
+    AFK_Tile baseTile = *this;
+    tiles[0] = baseTile;
+
+    /* The half tiles join up the terrain across base tiles
+     * and make it seamless.
+     * I hope.
+     */
+    baseTile.enumerateHalfTiles(&tiles[1], 4);
+}
+
 AFK_Tile afk_tile(const AFK_Tile& other)
 {
     AFK_Tile tile;

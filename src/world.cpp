@@ -95,7 +95,7 @@ bool AFK_World::generateClaimedLandscapeTile(
     if (display)
     {
         /* Do I need a terrain list? */
-        if (landscapeTile.hasRawTerrain(tile, pointSubdivisionFactor))
+        if (landscapeTile.hasRawTerrain(tile, pointSubdivisionFactor, minCellSize))
         {
             /* Create the terrain list, which is composed out of
              * the terrain descriptor for this landscape tile, and

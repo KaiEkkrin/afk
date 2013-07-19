@@ -117,8 +117,11 @@ void AFK_LandscapeTile::vertices2FlatTriangles(
 
 void AFK_LandscapeTile::makeRawTerrain(
     const AFK_Tile& baseTile,
-    unsigned int pointSubdivisionFactor)
+    unsigned int pointSubdivisionFactor,
+    float minCellSize)
 {
+    Vec3<float> worldTileCoord = baseTile.toWorldSpace(minCellSize);
+
     /* I'm going to need to sample the edges of the next cell along
      * the +ve x and z too, in order to join up with it.
      */
@@ -136,9 +139,8 @@ void AFK_LandscapeTile::makeRawTerrain(
     {
         for (unsigned int zi = 0; zi < pointSubdivisionFactor + 1; ++zi)
         {
-            /* The geometry in a tile starts out going from (0,0)
-             * to (1,1).  The terrain list will transform it,
-             * eventually ending up in world space.
+            /* Here I'm going to enumerate geometry between (0,0)
+             * and (1,1)...
              */
             float xf = (float)xi / (float)pointSubdivisionFactor;
             float zf = (float)zi / (float)pointSubdivisionFactor;
@@ -159,7 +161,9 @@ void AFK_LandscapeTile::makeRawTerrain(
                 zdisp = rng.frand() * worldCell->coord.v[3] / ((float)pointSubdivisionFactor * 2.0f);
 #endif
 
-            rawVertices[rawIndex] = afk_vec3<float>(xf + xdisp, 0.0f, zf + zdisp);
+            /* ... and transform it into world space. */
+            rawVertices[rawIndex] = afk_vec3<float>(xf + xdisp, 0.0f, zf + zdisp) * worldTileCoord.v[2] +
+                afk_vec3<float>(worldTileCoord.v[0], 0.0f, worldTileCoord.v[1]);
             rawColours[rawIndex] = afk_vec3<float>(0.1f, 0.1f, 0.1f);
 
             ++rawIndex;
@@ -199,27 +203,17 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
         AFK_Boost_Taus88_RNG rng;
 
         /* I'm going to make 5 terrain tiles. */
+        AFK_Tile descriptorTiles[5];
         terrainDescriptor.reserve(5);
+        tile.enumerateDescriptorTiles(&descriptorTiles[0], 5, subdivisionFactor);
 
-        /* Make the terrain tile for this actual tile. */
-        rng.seed(tile.rngSeed());
-        boost::shared_ptr<AFK_TerrainTile> t(new AFK_TerrainTile());
-        Vec3<float> tileCoord = tile.toWorldSpace(minCellSize);
-        t->make(tileCoord, pointSubdivisionFactor, subdivisionFactor, minCellSize, rng, forcedTint);
-        terrainDescriptor.push_back(t);
-
-        /* Now, make the terrain for the four 1/2-tiles that
-         * overlap this one
-         */
-        AFK_Tile halfTiles[4];
-        tile.enumerateHalfTiles(&halfTiles[0], 4);
-        for (unsigned int i = 0; i < 4; ++i)
+        for (unsigned int i = 0; i < 5; ++i)
         {
-            rng.seed(halfTiles[i].rngSeed());
-            boost::shared_ptr<AFK_TerrainTile> halfT(new AFK_TerrainTile());
-            Vec3<float> halfTileCoord = halfTiles[i].toWorldSpace(minCellSize);
-            halfT->make(halfTileCoord, pointSubdivisionFactor, subdivisionFactor, minCellSize, rng, forcedTint);
-            terrainDescriptor.push_back(halfT);
+            rng.seed(descriptorTiles[i].rngSeed());
+            boost::shared_ptr<AFK_TerrainTile> t(new AFK_TerrainTile());
+            Vec3<float> tileCoord = descriptorTiles[i].toWorldSpace(minCellSize);
+            t->make(tileCoord, pointSubdivisionFactor, subdivisionFactor, minCellSize, rng, forcedTint);
+            terrainDescriptor.push_back(t);
         }
 
         hasTerrainDescriptor = true;
@@ -253,9 +247,10 @@ void AFK_LandscapeTile::buildTerrainList(
 
 bool AFK_LandscapeTile::hasRawTerrain(
     const AFK_Tile& baseTile,
-    unsigned int pointSubdivisionFactor)
+    unsigned int pointSubdivisionFactor,
+    float minCellSize)
 {
-    if (!rawVertices && !vs) makeRawTerrain(baseTile, pointSubdivisionFactor);
+    if (!rawVertices && !vs) makeRawTerrain(baseTile, pointSubdivisionFactor, minCellSize);
     return (rawVertices != NULL);
 }
 
