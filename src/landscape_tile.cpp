@@ -212,7 +212,9 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
             rng.seed(descriptorTiles[i].rngSeed());
             boost::shared_ptr<AFK_TerrainTile> t(new AFK_TerrainTile());
             Vec3<float> tileCoord = descriptorTiles[i].toWorldSpace(minCellSize);
-            t->make(tileCoord, pointSubdivisionFactor, subdivisionFactor, minCellSize, rng, forcedTint);
+            t->make(tileCoord,
+                pointSubdivisionFactor * (descriptorTiles[i].coord.v[2] / tile.coord.v[2]),
+                subdivisionFactor, minCellSize, rng, forcedTint);
             terrainDescriptor.push_back(t);
         }
 

@@ -77,30 +77,91 @@ void AFK_TerrainFeature::compute_mystery(Vec3<float> *positions, Vec3<float> *co
     }
 }
 
-void AFK_TerrainFeature::compute_hump(Vec3<float> *positions, Vec3<float> *colours, size_t length) const
+void AFK_TerrainFeature::compute_cone(Vec3<float> *positions, Vec3<float> *colours, size_t length) const
 {
     /* Work out my feature radius. */
-    float radius = (scale.v[0] < scale.v[2] ?
-        (0.5f - scale.v[0]) : (0.5f - scale.v[2]));
+    float radius = (scale.v[0] < scale.v[2] ? scale.v[0] : scale.v[2]);
 
     for (size_t i = 0; i < length; ++i)
     {
         float distanceToCentreSquared =
-            SQUARE((location.v[0] - positions[i].v[0]) / scale.v[0]) + 
-            SQUARE((location.v[1] - positions[i].v[2]) / scale.v[2]);
+            SQUARE(location.v[0] - positions[i].v[0]) + 
+            SQUARE(location.v[1] - positions[i].v[2]);
+
+        float distanceToCentre = sqrt(distanceToCentreSquared);
+
+        if (distanceToCentre < radius)
+        {
+            float dispX = (radius - distanceToCentre) * (scale.v[1] / radius);
+            positions[i].v[1] += dispX;
+        }
+
+        colours[i] += tint * scale.v[2] / 8.0f;
+    }
+}
+
+void AFK_TerrainFeature::compute_spike(Vec3<float> *positions, Vec3<float> *colours, size_t length) const
+{
+    /* Work out my feature radius. */
+    float radius = (scale.v[0] < scale.v[2] ? scale.v[0] : scale.v[2]);
+
+    for (size_t i = 0; i < length; ++i)
+    {
+        float distanceToCentreSquared =
+            SQUARE(location.v[0] - positions[i].v[0]) + 
+            SQUARE(location.v[1] - positions[i].v[2]);
+
+        float distanceToCentre = sqrt(distanceToCentreSquared);
+        
+        /* A spike is a hump without the rounded-off section. */
+#if 0
+        if (distanceToCentre < (radius / 2.0f))
+        {
+            float humpX = (SQUARE(radius / 2.0f)) * (scale.v[1] / radius) -
+                distanceToCentreSquared * (scale.v[1] / radius);
+            positions[i].v[1] += humpX;
+        }
+        else
+#endif
+        if (distanceToCentre < radius)
+        {
+            float humpX = (SQUARE(radius - distanceToCentre)) * (scale.v[1] / SQUARE(radius));
+            positions[i].v[1] += humpX;
+        }
+
+        colours[i] += tint * scale.v[2] / 8.0f;
+    }
+}
+
+void AFK_TerrainFeature::compute_hump(Vec3<float> *positions, Vec3<float> *colours, size_t length) const
+{
+    /* Work out my feature radius. */
+    float radius = (scale.v[0] < scale.v[2] ? scale.v[0] : scale.v[2]);
+
+    for (size_t i = 0; i < length; ++i)
+    {
+        float distanceToCentreSquared =
+            SQUARE(location.v[0] - positions[i].v[0]) + 
+            SQUARE(location.v[1] - positions[i].v[2]);
 
         float distanceToCentre = sqrt(distanceToCentreSquared);
         
         if (distanceToCentre < (radius / 2.0f))
         {
-            float humpX = (SQUARE(radius / 2.0f)) * (2.0f * scale.v[1] / radius) -
-                distanceToCentreSquared * (scale.v[1] / radius);
+            /* A hump is always based off of twice the spike height at
+             * distanceToCentre == (radius / 2.0f) .
+             */
+            float humpX = (SQUARE(radius / 2.0f)) * (2.0f * scale.v[1] / SQUARE(radius));
+
+            /* From there, we subtract the inverse curve. */
+            humpX -= (distanceToCentreSquared * scale.v[1] / SQUARE(radius));
+
             positions[i].v[1] += humpX;
         }
         else
         if (distanceToCentre < radius)
         {
-            float humpX = (SQUARE(radius - distanceToCentre)) * (scale.v[1] / radius);
+            float humpX = (SQUARE(radius - distanceToCentre)) * (scale.v[1] / SQUARE(radius));
             positions[i].v[1] += humpX;
         }
 
@@ -147,6 +208,14 @@ void AFK_TerrainFeature::compute(Vec3<float> *positions, Vec3<float> *colours, s
 
     case AFK_TERRAIN_MYSTERY:
         compute_mystery(positions, colours, length);
+        break;
+
+    case AFK_TERRAIN_CONE:
+        compute_cone(positions, colours, length);
+        break;
+
+    case AFK_TERRAIN_SPIKE:
+        compute_spike(positions, colours, length);
         break;
 
     case AFK_TERRAIN_HUMP:
@@ -205,7 +274,7 @@ Vec4<float> AFK_TerrainTile::getCellCoord(void) const
 
 void AFK_TerrainTile::make(
     const Vec3<float>& _tileCoord,
-    unsigned int pointSubdivisionFactor,
+    unsigned int featureSubdivisionFactor,
     unsigned int subdivisionFactor,
     float minCellSize,
     AFK_RNG& rng,
@@ -227,13 +296,14 @@ void AFK_TerrainTile::make(
     unsigned int descriptor = rng.uirand();
 
     /* The maximum size of a feature is equal to the cell size
-     * divided by the point subdivision factor.  Like that, I
+     * divided by the feature subdivision factor.  Like that, I
      * shouldn't get humongous feature pop-in when changing LoDs:
      * all features are minimally visible at greatest zoom.
-     * (There will necessarily be a BIT of feature pop-in when
-     * they add together.)
+     * The feature subdivision factor should be something like the
+     * point subdivision factor for the local tile (which isn't
+     * necessarily the tile its features are homed to...)
      */
-    float maxFeatureSize = 1.0f / ((float)pointSubdivisionFactor);
+    float maxFeatureSize = 1.0f / ((float)featureSubdivisionFactor);
 
     /* ... and the *minimum* size of a feature is equal
      * to that divided by the cell subdivision factor;

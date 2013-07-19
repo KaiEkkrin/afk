@@ -25,7 +25,9 @@ enum AFK_TerrainType
 {
     AFK_TERRAIN_SQUARE_PYRAMID          = 0,
     AFK_TERRAIN_MYSTERY                 = 1,
-    AFK_TERRAIN_HUMP                    = 2
+    AFK_TERRAIN_CONE                    = 2,
+    AFK_TERRAIN_SPIKE                   = 3,
+    AFK_TERRAIN_HUMP                    = 4
 };
 
 /* TODO Keep this updated with the current feature
@@ -36,7 +38,7 @@ enum AFK_TerrainType
 /* Right now I'm only using a single terrain type:
  * change this to set it.
  */
-#define AFK_TERRAIN_TYPE_IN_USE AFK_TERRAIN_MYSTERY
+#define AFK_TERRAIN_TYPE_IN_USE AFK_TERRAIN_HUMP
 
 /* The encapsulation of any terrain feature.
  * A feature is computed at a particular location
@@ -71,6 +73,8 @@ protected:
      */
     void compute_squarePyramid(Vec3<float>* positions, Vec3<float>* colours, size_t length) const;
     void compute_mystery(Vec3<float>* positions, Vec3<float>* colours, size_t length) const;
+    void compute_cone(Vec3<float>* positions, Vec3<float>* colours, size_t length) const;
+    void compute_spike(Vec3<float>* positions, Vec3<float>* colours, size_t length) const;
     void compute_hump(Vec3<float>* positions, Vec3<float>* colours, size_t length) const;
 
 public:
