@@ -104,7 +104,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainFeature& feature);
  * world co-ordinates.
  */
 
-#define TERRAIN_FEATURE_COUNT_PER_TILE 4 
+#define TERRAIN_FEATURE_COUNT_PER_TILE 12
 class AFK_TerrainTile
 {
 protected:

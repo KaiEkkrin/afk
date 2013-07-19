@@ -85,12 +85,15 @@ bool AFK_World::generateClaimedLandscapeTile(
      * First, make sure it's got a terrain descriptor, which
      * will tell us what terrain features go here.
      */
+
+    /* Tile colour debugging goes here. */
+    Vec3<float>* forcedTint = NULL;
     landscapeTile.makeTerrainDescriptor(
         pointSubdivisionFactor,
         subdivisionFactor,
         tile,
         minCellSize,
-        NULL /* Put a debug colour here */ );
+        forcedTint);
 
     if (display)
     {

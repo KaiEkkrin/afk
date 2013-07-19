@@ -319,7 +319,7 @@ void AFK_Core::configure(int *argcp, char **argv)
     sun.colour = afk_vec3<float>(1.0f, 1.0f, 1.0f);
     sun.direction = afk_vec3<float>(0.0f, -1.0f, 1.0f).normalise();
     sun.ambient = 0.2f;
-    sun.diffuse = 0.6f;
+    sun.diffuse = 1.0f;
 }
 
 void AFK_Core::loop(void)

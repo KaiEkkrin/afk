@@ -73,7 +73,7 @@ void AFK_TerrainFeature::compute_mystery(Vec3<float> *positions, Vec3<float> *co
             positions[i].v[1] += humpX;
         }
 
-        colours[i] += tint * scale.v[2] / 8.0f;
+        colours[i] += tint * scale.v[2];
     }
 }
 
@@ -96,7 +96,7 @@ void AFK_TerrainFeature::compute_cone(Vec3<float> *positions, Vec3<float> *colou
             positions[i].v[1] += dispX;
         }
 
-        colours[i] += tint * scale.v[2] / 8.0f;
+        colours[i] += tint * scale.v[2];
     }
 }
 
@@ -129,7 +129,7 @@ void AFK_TerrainFeature::compute_spike(Vec3<float> *positions, Vec3<float> *colo
             positions[i].v[1] += humpX;
         }
 
-        colours[i] += tint * scale.v[2] / 8.0f;
+        colours[i] += tint * scale.v[2];
     }
 }
 
@@ -418,6 +418,9 @@ void AFK_TerrainList::compute(Vec3<float> *positions, Vec3<float> *colours, size
     Vec3<float> topCellXYZ = afk_vec3<float>(topCellCoord.v[0], topCellCoord.v[1], topCellCoord.v[2]);
 
     for (size_t i = 0; i < length; ++i)
+    {
         positions[i] = (positions[i] * topCellCoord.v[3]) + topCellXYZ;
+        colours[i] = colours[i].normalise();
+    }
 }
 
