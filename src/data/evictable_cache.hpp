@@ -79,7 +79,7 @@ protected:
                             }
                         }
     
-                        if (!deleted) candidate->value.release(threadId);
+                        if (!deleted) candidate->value.release(threadId, AFK_CL_CLAIMED);
                     }
                 }
             }

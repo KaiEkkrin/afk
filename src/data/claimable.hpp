@@ -28,7 +28,7 @@
 #define CLAIMABLE_MUTEX 1
 
 #if CLAIMABLE_MUTEX
-#include <boost/thread/mutex.hpp>
+#include <boost/thread/shared_mutex.hpp>
 #endif
 
 /* Here are the different ways in which we can claim a cell. */
@@ -36,7 +36,19 @@ enum AFK_ClaimType
 {
     AFK_CLT_EXCLUSIVE,          /* Wants to be the only claim to processing the cell this frame */
     AFK_CLT_NONEXCLUSIVE,       /* Bump the frame, but other threads may claim it this frame after
-                                 * we've released
+                                 * we've released.  Still unique and writable while holding the
+                                 * claim.
+                                 */
+    AFK_CLT_NONEXCLUSIVE_SHARED,/* Bump the frame and hold a shared lock -- other threads may
+                                 * claim it simultaneously, but no non-shared ones.  *Don't write*.
+                                 * Not supported by the non-mutex version -- you get a non-shared
+                                 * claim instead.
+                                 * This may return AFK_CL_CLAIMED_UPGRADEABLE to you -- if so, you
+                                 * can call upgrade() to get the object all to yourself for a while
+                                 * (ironically, an AFK_CLT_NONEXCLUSIVE :) ) and write to it.
+                                 * Otherwise, if you need to do something to it that requires
+                                 * writing, you'd better release your claim and go do something else
+                                 * for a while before retrying.
                                  */
     AFK_CLT_EVICTOR             /* We're the evictor.  Don't bump the frame. */
 };
@@ -46,6 +58,8 @@ enum AFK_ClaimType
 enum AFK_ClaimStatus
 {
     AFK_CL_CLAIMED,            /* You've got it */
+    AFK_CL_CLAIMED_UPGRADABLE, /* You've got it, in an upgradable context */
+    AFK_CL_CLAIMED_SHARED,     /* You've got it, in a shared context */
     AFK_CL_ALREADY_PROCESSED,  /* It's already been processed this frame, and you wanted an
                                 * exclusive claim
                                 */
@@ -68,12 +82,13 @@ protected:
     AFK_Frame lastSeenExclusively;
 
 #if CLAIMABLE_MUTEX
-    boost::mutex claimingMut;
+    boost::upgrade_mutex claimingMut;
 #else
     /* Which thread ID (as assigned by the async module) has
      * claimed use of this object.
      */
     boost::atomic<unsigned int> claimingThreadId;
+
 #endif
 
 public:
@@ -84,12 +99,17 @@ public:
      */
     enum AFK_ClaimStatus claim(unsigned int threadId, enum AFK_ClaimType type);
 
-    void release(unsigned int threadId);
+    /* Upgrades a shared claim to a non-shared one.
+     * Again, call release() to finish.
+     */
+    enum AFK_ClaimStatus upgrade(unsigned int threadId, enum AFK_ClaimStatus status);
+
+    void release(unsigned int threadId, enum AFK_ClaimStatus status);
 
     /* Helper -- tries a bit harder to claim the cell.
-     * Returns true if success, else false
+     * Returns the resulting status.
      */
-    bool claimYieldLoop(unsigned int threadId, enum AFK_ClaimType type);
+    enum AFK_ClaimStatus claimYieldLoop(unsigned int threadId, enum AFK_ClaimType type);
 
     /* Things the implementer needs to define. */
     virtual AFK_Frame getCurrentFrame(void) const = 0;

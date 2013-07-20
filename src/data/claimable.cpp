@@ -22,7 +22,14 @@ enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimT
 
     AFK_ClaimStatus status = AFK_CL_TAKEN;
 #if CLAIMABLE_MUTEX
-    claimingMut.lock();
+    bool gotUpgradeLock = false;
+    if (type == AFK_CLT_NONEXCLUSIVE_SHARED)
+    {
+        /* Try to give you an upgradable context. */
+        if (claimingMut.try_lock_upgrade()) gotUpgradeLock = true;
+        else claimingMut.lock_shared();
+    }
+    else claimingMut.lock();
 #else
     unsigned int expectedId = UNCLAIMED;
     if (claimingThreadId.compare_exchange_strong(expectedId, threadId))
@@ -36,7 +43,7 @@ enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimT
                 /* This cell already got processed this frame,
                  * it shouldn't get claimed again
                  */
-                release(threadId);
+                release(threadId, AFK_CL_CLAIMED);
                 status = AFK_CL_ALREADY_PROCESSED;
             }
             else
@@ -52,6 +59,12 @@ enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimT
             /* You've definitely got it */
             lastSeen = currentFrame;
             status = AFK_CL_CLAIMED;
+            break;
+
+        case AFK_CLT_NONEXCLUSIVE_SHARED:
+            /* You've also definitely got it, but in what way? */
+            lastSeen = currentFrame;
+            status = gotUpgradeLock ? AFK_CL_CLAIMED_UPGRADABLE : AFK_CL_CLAIMED_SHARED;
             break;
 
         case AFK_CLT_EVICTOR:
@@ -81,40 +94,63 @@ enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimT
     return status;
 }
 
-void AFK_Claimable::release(unsigned int threadId)
+enum AFK_ClaimStatus AFK_Claimable::upgrade(unsigned int threadId, enum AFK_ClaimStatus status)
 {
 #if CLAIMABLE_MUTEX
-    claimingMut.unlock();
+    switch (status)
+    {
+    case AFK_CL_CLAIMED_UPGRADABLE:
+        claimingMut.unlock_upgrade_and_lock();
+        status = AFK_CL_CLAIMED;
+        break;
+
+    default:
+        throw new AFK_ClaimException();
+    }
+#else
+    /* Not supported right now */
+    throw new AFK_ClaimException();
+#endif
+
+    return status;
+}
+
+void AFK_Claimable::release(unsigned int threadId, enum AFK_ClaimStatus status)
+{
+#if CLAIMABLE_MUTEX
+    switch (status)
+    {
+    case AFK_CL_CLAIMED:
+        claimingMut.unlock();
+        break;
+
+    case AFK_CL_CLAIMED_UPGRADABLE:
+        claimingMut.unlock_upgrade();
+        break;
+
+    case AFK_CL_CLAIMED_SHARED:
+        claimingMut.unlock_shared();
+        break;
+
+    default:
+        /* Another programming error */
+        throw new AFK_ClaimException();
+    }
 #else
     if (!claimingThreadId.compare_exchange_strong(threadId, UNCLAIMED))
         throw AFK_ClaimException();
 #endif
 }
 
-bool AFK_Claimable::claimYieldLoop(unsigned int threadId, enum AFK_ClaimType type)
+enum AFK_ClaimStatus AFK_Claimable::claimYieldLoop(unsigned int threadId, enum AFK_ClaimType type)
 {
-    bool claimed = false;
-    for (unsigned int tries = 0; !claimed /* && tries < 2 */; ++tries)
+    enum AFK_ClaimStatus status = AFK_CL_TAKEN;
+    for (unsigned int tries = 0; status == AFK_CL_TAKEN /* && tries < 2 */; ++tries)
     {
-        enum AFK_ClaimStatus status = claim(threadId, type);
-        switch (status)
-        {
-        case AFK_CL_CLAIMED:
-            claimed = true;
-            break;
-
-        case AFK_CL_ALREADY_PROCESSED:
-            return false;
-
-        case AFK_CL_TAKEN:
-            boost::this_thread::yield();
-            break;
-
-        default:
-            throw new AFK_ClaimException();
-        }
+        status = claim(threadId, type);
+        if (status == AFK_CL_TAKEN) boost::this_thread::yield();
     }
 
-    return claimed;
+    return status;
 }
 

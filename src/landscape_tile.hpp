@@ -58,7 +58,7 @@ protected:
      * (The actual terrain to be rendered will be a combination of
      * the terrain here and the terrain at all the ancestral tiles.)
      */
-    bool hasTerrainDescriptor;
+    bool haveTerrainDescriptor;
     std::vector<boost::shared_ptr<AFK_TerrainTile> > terrainDescriptor;
 
     /* This is where I store the raw geometry, while the terrain
@@ -132,6 +132,8 @@ protected:
 public:
     AFK_LandscapeTile();
     virtual ~AFK_LandscapeTile();
+
+    bool hasTerrainDescriptor() const;
 
     /* Adds a terrain descriptor to this tile if there isn't any already. */
     void makeTerrainDescriptor(

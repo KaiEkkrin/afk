@@ -44,7 +44,7 @@ bool afk_generateWorldCells(
      * I won't do a recursive search.
      */
     if (worldCell.claimYieldLoop(threadId,
-        (renderTerrain || resume) ? AFK_CLT_NONEXCLUSIVE : AFK_CLT_EXCLUSIVE))
+        (renderTerrain || resume) ? AFK_CLT_NONEXCLUSIVE : AFK_CLT_EXCLUSIVE) == AFK_CL_CLAIMED)
     {
         /* This releases the world cell itself when it's done
          * (which isn't at the end of its processing).
@@ -64,8 +64,6 @@ bool afk_generateWorldCells(
             queue.push(*(param.dependency->finalCell));
             delete param.dependency->finalCell;
             delete param.dependency;
-
-            world->dependenciesFollowed.fetch_add(1);
         }
     }
 
@@ -152,7 +150,7 @@ bool AFK_World::generateClaimedWorldCell(
         cellsInvisible.fetch_add(1);
 
         /* Nothing else to do with it now either. */
-        worldCell.release(threadId);
+        worldCell.release(threadId, AFK_CL_CLAIMED);
     }
     else
     {
@@ -161,7 +159,7 @@ bool AFK_World::generateClaimedWorldCell(
          * possible cell
          */
         bool display = (cell.coord.v[3] == MIN_CELL_PITCH ||
-            worldCell.testDetailPitch(detailPitch, *camera, viewerLocation));
+            worldCell.testDetailPitch(renderDetailPitch, *camera, viewerLocation));
 
         /* TODO: Non-landscape stuff goes here.  :-) */
 
@@ -175,34 +173,57 @@ bool AFK_World::generateClaimedWorldCell(
          * terrain description.
          */
         AFK_LandscapeTile& landscapeTile = (*landscapeCache)[tile];
-        if (landscapeTile.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE))
+        AFK_ClaimStatus landscapeClaimStatus = landscapeTile.claimYieldLoop(
+            threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+
+        if (!landscapeTile.hasTerrainDescriptor() ||
+            ((renderTerrain || display) && !landscapeTile.hasGeometry()))
         {
-            /* Make sure the terrain has been properly generated
-             * in this landscape tile.
+            /* In order to generate this tile we need to upgrade
+             * our claim if we can.
              */
-            retval = generateClaimedLandscapeTile(
-                tile, landscapeTile, display, threadId, param, queue);
+            if (landscapeClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+                landscapeClaimStatus = landscapeTile.upgrade(threadId, landscapeClaimStatus);
 
-            if (display && landscapeTile.hasGeometry())
+            if (landscapeClaimStatus == AFK_CL_CLAIMED)
             {
-                /* Get it to make us a DisplayedLandscapeTile to
-                 * feed into the display queue.
-                 */
-                AFK_DisplayedLandscapeTile *dptr =
-                    landscapeTile.makeDisplayedLandscapeTile(cell, minCellSize);
-
-                if (dptr)
-                {
-                    landscapeRenderQueue.update_push(dptr);
-                    cellsQueued.fetch_add(1);
-                }
+                generateClaimedLandscapeTile(
+                    tile, landscapeTile, display, threadId, param, queue);
             }
-
-            landscapeTile.release(threadId);
+            else
+            {
+                /* Uh oh.  Having an un-generated tile here is not
+                 * an option.  Queue a resume of this cell.
+                 * Some thread or other will have got the upgradable
+                 * claim and will fix it so that when we come back
+                 * here, the tile will be generated.
+                 */
+                struct AFK_WorldCellGenParam resumeParam(param);
+                resumeParam.flags |= AFK_WCG_FLAG_RESUME;
+                queue.push(resumeParam);
+                tilesResumed.fetch_add(1);
+            }
         }
 
+        if (display && landscapeTile.hasGeometry())
+        {
+            /* Get it to make us a DisplayedLandscapeTile to
+             * feed into the display queue.
+             */
+            AFK_DisplayedLandscapeTile *dptr =
+                landscapeTile.makeDisplayedLandscapeTile(cell, minCellSize);
+
+            if (dptr)
+            {
+                landscapeRenderQueue.update_push(dptr);
+                tilesQueued.fetch_add(1);
+            }
+        }
+
+        landscapeTile.release(threadId, landscapeClaimStatus);
+
         /* We don't need this any more */
-        worldCell.release(threadId);
+        worldCell.release(threadId, AFK_CL_CLAIMED);
 
         /* If the terrain here was at too coarse a resolution to
          * be displayable, recurse through the subcells
@@ -249,6 +270,7 @@ AFK_World::AFK_World(
     float _minCellSize,
     float startingDetailPitch):
         detailPitch(startingDetailPitch), /* This is a starting point */
+        renderDetailPitch(startingDetailPitch),
         landscapeRenderQueue(100), /* TODO make a better guess */
         maxDistance(_maxDistance),
         subdivisionFactor(_subdivisionFactor),
@@ -290,10 +312,9 @@ AFK_World::AFK_World(
 
     /* Initialise the statistics. */
     cellsInvisible.store(0);
-    cellsQueued.store(0);
-    tilesFoundMissing.store(0);
+    tilesQueued.store(0);
+    tilesResumed.store(0);
     tilesComputed.store(0);
-    dependenciesFollowed.store(0);
 }
 
 AFK_World::~AFK_World()
@@ -352,6 +373,8 @@ void AFK_World::alterDetail(float adjustment)
 
     if (adj > 1.0f || !(worldCache->wayOutsideTargetSize() || landscapeCache->wayOutsideTargetSize()))
         detailPitch = detailPitch * adjustment;
+
+    renderDetailPitch = detailPitch - fmod(detailPitch, 64.0f);
 }
 
 boost::unique_future<bool> AFK_World::updateWorld(void)
@@ -440,16 +463,14 @@ void AFK_World::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckp
 {
     std::cout << "Detail pitch:             " << detailPitch << std::endl;
     std::cout << "Cells found invisible:    " << toRatePerSecond(cellsInvisible.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
-    std::cout << "Cells queued:             " << toRatePerSecond(cellsQueued.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
-    std::cout << "Tiles found missing:      " << toRatePerSecond(tilesFoundMissing.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
+    std::cout << "Tiles queued:             " << toRatePerSecond(tilesQueued.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
+    std::cout << "Tiles resumed:            " << toRatePerSecond(tilesResumed.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
     std::cout << "Tiles computed:           " << toRatePerSecond(tilesComputed.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
-    std::cout << "Dependencies followed:    " << toRatePerSecond(dependenciesFollowed.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
 
     cellsInvisible.store(0);
-    cellsQueued.store(0);
-    tilesFoundMissing.store(0);
+    tilesQueued.store(0);
+    tilesResumed.store(0);
     tilesComputed.store(0);
-    dependenciesFollowed.store(0);
 }
 
 void AFK_World::printCacheStats(std::ostream& ss, const std::string& prefix)

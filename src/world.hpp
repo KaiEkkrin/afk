@@ -84,13 +84,17 @@ protected:
      */
     float detailPitch;
 
+    /* An aliased one that we try to use for rendering so
+     * the terrain doesn't flicker
+     */
+    float renderDetailPitch;
+
     /* Gather statistics.  (Useful.)
      */
     boost::atomic<unsigned long long> cellsInvisible;
-    boost::atomic<unsigned long long> cellsQueued;
-    boost::atomic<unsigned long long> tilesFoundMissing;
+    boost::atomic<unsigned long long> tilesQueued;
+    boost::atomic<unsigned long long> tilesResumed;
     boost::atomic<unsigned long long> tilesComputed;
-    boost::atomic<unsigned long long> dependenciesFollowed;
 
     /* World shader details. */
     AFK_ShaderProgram *shaderProgram;

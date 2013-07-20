@@ -299,7 +299,7 @@ void AFK_LandscapeTile::makeRawTerrain(
 
 AFK_LandscapeTile::AFK_LandscapeTile():
     AFK_Claimable(),
-    hasTerrainDescriptor(false),
+    haveTerrainDescriptor(false),
     rawVertices(NULL),
     rawColours(NULL),
     rawVertexCount(0),
@@ -314,6 +314,11 @@ AFK_LandscapeTile::~AFK_LandscapeTile()
     if (rawColours) delete[] rawColours;
 }
 
+bool AFK_LandscapeTile::hasTerrainDescriptor() const
+{
+    return haveTerrainDescriptor;
+}
+
 void AFK_LandscapeTile::makeTerrainDescriptor(
     unsigned int pointSubdivisionFactor,
     unsigned int subdivisionFactor,
@@ -321,7 +326,7 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
     float minCellSize,
     const Vec3<float> *forcedTint)
 {
-    if (!hasTerrainDescriptor)
+    if (!haveTerrainDescriptor)
     {
         /* TODO RNG in thread local storage so I don't have to re-make
          * ones on the stack?  (inefficient?)
@@ -344,7 +349,7 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
             terrainDescriptor.push_back(t);
         }
 
-        hasTerrainDescriptor = true;
+        haveTerrainDescriptor = true;
     }
 }
 
@@ -452,7 +457,7 @@ bool AFK_LandscapeTile::canBeEvicted(void) const
 std::ostream& operator<<(std::ostream& os, const AFK_LandscapeTile& t)
 {
     os << "Landscape tile";
-    if (t.hasTerrainDescriptor) os << " (Terrain)";
+    if (t.haveTerrainDescriptor) os << " (Terrain)";
     os << " (" << std::dec << t.rawVertexCount << "vertices)";
     if (t.vs) os << " (Computed with bounds: " << t.yBoundLower << " - " << t.yBoundUpper << ")";
     return os;
