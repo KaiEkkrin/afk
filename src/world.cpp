@@ -268,9 +268,10 @@ AFK_World::AFK_World(
     unsigned int _subdivisionFactor,
     unsigned int _pointSubdivisionFactor,
     float _minCellSize,
-    float startingDetailPitch):
-        detailPitch(startingDetailPitch), /* This is a starting point */
-        renderDetailPitch(startingDetailPitch),
+    float _startingDetailPitch):
+        startingDetailPitch(_startingDetailPitch),
+        detailPitch(_startingDetailPitch), /* This is a starting point */
+        renderDetailPitch(_startingDetailPitch),
         landscapeRenderQueue(100), /* TODO make a better guess */
         maxDistance(_maxDistance),
         subdivisionFactor(_subdivisionFactor),
@@ -369,12 +370,13 @@ void AFK_World::alterDetail(float adjustment)
      * of system memory?
      * :(
      */
-    float adj = std::max(std::min(adjustment, 2.0f), 0.5f);
+    float adj = std::max(std::min(adjustment, 1.2f), 0.85f);
 
     if (adj > 1.0f || !(worldCache->wayOutsideTargetSize() || landscapeCache->wayOutsideTargetSize()))
         detailPitch = detailPitch * adjustment;
 
-    renderDetailPitch = detailPitch - fmod(detailPitch, 64.0f);
+    renderDetailPitch = detailPitch - fmod(detailPitch, 16.0f);
+    if (renderDetailPitch > startingDetailPitch) renderDetailPitch = startingDetailPitch;
 }
 
 boost::unique_future<bool> AFK_World::updateWorld(void)

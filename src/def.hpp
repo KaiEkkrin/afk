@@ -84,6 +84,13 @@ public:
         return *this;
     }
 
+    Vec3<F> operator-(F f) const
+    {
+        Vec3<F> r;
+        r.v[0] = v[0] - f; r.v[1] = v[1] - f; r.v[2] = v[2] - f;
+        return r;
+    }
+
     Vec3<F> operator-(const Vec3<F>& p) const
     {
         Vec3<F> r;

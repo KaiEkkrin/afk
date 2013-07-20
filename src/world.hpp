@@ -82,6 +82,7 @@ protected:
      * TODO: Can I use this and zNear to calculate the
      * maximum number of subdivisions?  I bet I can.
      */
+    float startingDetailPitch;
     float detailPitch;
 
     /* An aliased one that we try to use for rendering so
@@ -184,7 +185,7 @@ public:
         unsigned int _subdivisionFactor, 
         unsigned int _pointSubdivisionFactor,
         float _minCellSize,
-        float startingDetailPitch);
+        float _startingDetailPitch);
     virtual ~AFK_World();
 
     /* Helper for the above -- requests a particular cell

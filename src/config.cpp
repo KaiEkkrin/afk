@@ -55,7 +55,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     targetFrameTimeMicros       = 16500;
     framesPerCalibration        = 8;
 
-    startingDetailPitch         = 1024.0f;
+    startingDetailPitch         = 768.0f;
     minCellSize                 = 1.0f;
     subdivisionFactor           = 2;
     pointSubdivisionFactor      = 8;
