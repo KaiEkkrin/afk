@@ -376,7 +376,6 @@ void AFK_World::alterDetail(float adjustment)
         detailPitch = detailPitch * adjustment;
 
     renderDetailPitch = detailPitch - fmod(detailPitch, 16.0f);
-    if (renderDetailPitch > startingDetailPitch) renderDetailPitch = startingDetailPitch;
 }
 
 boost::unique_future<bool> AFK_World::updateWorld(void)
