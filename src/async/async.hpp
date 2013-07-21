@@ -168,6 +168,8 @@ void afk_asyncWorker(
          */
         if (id == 0)
         {
+            
+
 #if ASYNC_DEBUG_SPAM
             ASYNC_DEBUG("busy field: " << std::hex << controls.workersBusy.load())
 #endif

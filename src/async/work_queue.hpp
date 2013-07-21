@@ -80,11 +80,13 @@ public:
                 retval = func(threadId, nextParameter, *this);
                 /* TODO: It's hugely important that the following fetch_sub()
                  * doesn't get reordered with the fetch_add() inside the
-                 * function call.  I'm hoping that the following fence
-                 * stops it from happening ???
+                 * function call, or with the load() above.
+                 * I'm hoping that the following fences
+                 * stops that from happening ???
                  */
                 boost::atomic_thread_fence(boost::memory_order_seq_cst);
                 count.fetch_sub(1);
+                boost::atomic_thread_fence(boost::memory_order_seq_cst);
                 return AFK_WQ_BUSY;
             }
             else
@@ -118,6 +120,8 @@ public:
             boost::shared_lock<boost::shared_mutex> waitLock(waitMut);
             qHasWork.notify_all();
         }
+#else
+        boost::atomic_thread_fence(boost::memory_order_seq_cst);
 #endif
     }
 
