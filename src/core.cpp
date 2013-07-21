@@ -35,13 +35,15 @@ void afk_idle(void)
     boost::posix_time::ptime startOfFrameTime = boost::posix_time::microsec_clock::local_time();
 
     /* If we just took less than FRAME_REFRESH_TIME for the entire
-     * cycle, we don't have Vsync and we're showing too little
-     * detail.  However, there may occasionally be quick frames
-     * just as there are occasionally short frames, so I should
-     * only do this if we're really much too quick
+     * cycle, we're showing too little detail if we're not on a
+     * Vsync system.
+     * TODO I could really do with being able to detect that, or
+     * being in control of it, or something.  Maybe at some point
+     * I should try monitoring and understanding all these delays
+     * more properly.
      */
     unsigned int wholeFrameTime = (startOfFrameTime - afk_core.startOfFrameTime).total_microseconds();
-    if (wholeFrameTime < (FRAME_REFRESH_TIME * 3 / 4))
+    if (!afk_core.config->assumeVsync && wholeFrameTime < FRAME_REFRESH_TIME)
     {
         afk_core.calibrationError -= (FRAME_REFRESH_TIME - wholeFrameTime);
     }

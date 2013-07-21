@@ -54,6 +54,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
      */
     targetFrameTimeMicros       = 16500;
     framesPerCalibration        = 8;
+    assumeVsync                 = false;
 
     startingDetailPitch         = 768.0f;
     minCellSize                 = 1.0f;
@@ -91,6 +92,10 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         {
             REQUIRE_ARGUMENT("--zFar")
             zFar = strtof(argv[argi], NULL);
+        }
+        else if (strcmp(argv[argi], "--assume-vsync") == 0)
+        {
+            assumeVsync = true;
         }
 
         /* Ignore other arguments. */

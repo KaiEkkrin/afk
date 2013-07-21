@@ -146,7 +146,15 @@ void afk_display(void)
     glCullFace(GL_BACK);
 
     afk_core.world->display(projection, afk_core.sun);
-    afk_core.protagonist->display(projection);
+
+    /* TODO Ignoring the protagonist for now.  I think it's served
+     * its purpose: I need to come up with a way of making objects,
+     * and then make a new protagonist that tracks through the
+     * cells.
+     * I do need to fix the camera transform accuracy bug first
+     * though ...
+     */
+    //afk_core.protagonist->display(projection);
 
     glFlush();
 

@@ -78,8 +78,7 @@ public:
     /* Engine calibration */
     unsigned int targetFrameTimeMicros;
     unsigned int framesPerCalibration;
-    float negativeDetailNudge;
-    float positiveDetailNudge;
+    bool assumeVsync;
 
     /* World setup */
     float startingDetailPitch;
