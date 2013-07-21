@@ -34,31 +34,37 @@ void afk_idle(void)
 {
     boost::posix_time::ptime startOfFrameTime = boost::posix_time::microsec_clock::local_time();
 
-    /* Work out what the graphics delay was. */
-    unsigned int bufferFlipTime = (startOfFrameTime - afk_core.lastFrameTime).total_microseconds();
-
-    /* If it's been dropping frames, there will be more than a whole
-     * number of `targetFrameTimeMicros' here.
+    /* If we just took less than FRAME_REFRESH_TIME for the entire
+     * cycle, we don't have Vsync and we're showing too little
+     * detail
      */
-    unsigned int framesDropped = bufferFlipTime / afk_core.config->targetFrameTimeMicros;
-    afk_core.graphicsDelaysSinceLastCheckpoint += framesDropped;
-    afk_core.graphicsDelaysSinceLastCalibration += framesDropped;
-
-    /* I'm going to tolerate one random graphics delay per calibration
-     * point.  Glitches happen.
-     */
-    if (afk_core.graphicsDelaysSinceLastCalibration > 1)
+    unsigned int wholeFrameTime = (startOfFrameTime - afk_core.startOfFrameTime).total_microseconds();
+    if (wholeFrameTime < FRAME_REFRESH_TIME)
     {
-        afk_core.calibrationError += afk_core.config->targetFrameTimeMicros * framesDropped;
-
-        /* remove any leftover delay, which is actually a good
-         * thing (means we sent it off early)
-         */
-        /*
-        afk_core.calibrationError -= (afk_core.config->targetFrameTimeMicros -
-            (bufferFlipTime % afk_core.config->targetFrameTimeMicros));
-         */
+        afk_core.calibrationError -= (FRAME_REFRESH_TIME - wholeFrameTime);
     }
+    else
+    {
+        /* Work out what the graphics delay was. */
+        unsigned int bufferFlipTime = (startOfFrameTime - afk_core.lastFrameTime).total_microseconds();
+
+        /* If it's been dropping frames, there will be more than a whole
+         * number of `targetFrameTimeMicros' here.
+         */
+        unsigned int framesDropped = bufferFlipTime / afk_core.config->targetFrameTimeMicros;
+        afk_core.graphicsDelaysSinceLastCheckpoint += framesDropped;
+        afk_core.graphicsDelaysSinceLastCalibration += framesDropped;
+    
+        /* I'm going to tolerate one random graphics delay per calibration
+         * point.  Glitches happen.
+         */
+        if (afk_core.graphicsDelaysSinceLastCalibration > 1)
+        {
+            afk_core.calibrationError += afk_core.config->targetFrameTimeMicros * framesDropped;
+        }
+    }
+
+    afk_core.startOfFrameTime = startOfFrameTime;
 
     afk_core.checkpoint(startOfFrameTime, false);
 
@@ -359,7 +365,7 @@ void AFK_Core::loop(void)
     glutWarpPointer(windowWidth / 2, windowHeight / 2);
 
     /* First checkpoint */
-    lastFrameTime = lastCheckpoint = lastCalibration =
+    startOfFrameTime = lastFrameTime = lastCheckpoint = lastCalibration =
         boost::posix_time::microsec_clock::local_time();
     computeDelaysSinceLastCheckpoint =
         graphicsDelaysSinceLastCheckpoint =

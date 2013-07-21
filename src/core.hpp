@@ -39,6 +39,7 @@ protected:
     unsigned int computeDelaysSinceLastCheckpoint;
     unsigned int graphicsDelaysSinceLastCheckpoint;
 
+    boost::posix_time::ptime startOfFrameTime;
     boost::posix_time::ptime lastFrameTime;
     boost::posix_time::ptime lastCalibration;
     unsigned int graphicsDelaysSinceLastCalibration;

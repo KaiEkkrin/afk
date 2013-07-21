@@ -94,9 +94,9 @@ void AFK_TerrainFeature::compute_cone(Vec3<float> *positions, Vec3<float> *colou
         {
             float dispX = (radius - distanceToCentre) * (scale.v[1] / radius);
             positions[i].v[1] += dispX;
-        }
 
-        colours[i] += tint * scale.v[2];
+            colours[i] += tint * scale.v[2] * distanceToCentre;
+        }
     }
 }
 
@@ -127,9 +127,9 @@ void AFK_TerrainFeature::compute_spike(Vec3<float> *positions, Vec3<float> *colo
         {
             float humpX = (SQUARE(radius - distanceToCentre)) * (scale.v[1] / SQUARE(radius));
             positions[i].v[1] += humpX;
-        }
 
-        colours[i] += tint * scale.v[2];
+            colours[i] += tint * scale.v[2] * distanceToCentre;
+        }
     }
 }
 
@@ -157,15 +157,17 @@ void AFK_TerrainFeature::compute_hump(Vec3<float> *positions, Vec3<float> *colou
             humpX -= (distanceToCentreSquared * scale.v[1] / SQUARE(radius));
 
             positions[i].v[1] += humpX;
+
+            colours[i] += tint * scale.v[2] * distanceToCentre;
         }
         else
         if (distanceToCentre < radius)
         {
             float humpX = (SQUARE(radius - distanceToCentre)) * (scale.v[1] / SQUARE(radius));
             positions[i].v[1] += humpX;
-        }
 
-        colours[i] += tint * scale.v[2] / 8.0f;
+            colours[i] += tint * scale.v[2] * distanceToCentre;
+        }
     }
 }
 
