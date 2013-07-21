@@ -36,10 +36,12 @@ void afk_idle(void)
 
     /* If we just took less than FRAME_REFRESH_TIME for the entire
      * cycle, we don't have Vsync and we're showing too little
-     * detail
+     * detail.  However, there may occasionally be quick frames
+     * just as there are occasionally short frames, so I should
+     * only do this if we're really much too quick
      */
     unsigned int wholeFrameTime = (startOfFrameTime - afk_core.startOfFrameTime).total_microseconds();
-    if (wholeFrameTime < FRAME_REFRESH_TIME)
+    if (wholeFrameTime < (FRAME_REFRESH_TIME * 3 / 4))
     {
         afk_core.calibrationError -= (FRAME_REFRESH_TIME - wholeFrameTime);
     }
