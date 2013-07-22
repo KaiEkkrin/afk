@@ -22,12 +22,10 @@ in VertexData
 {
     vec3 colour;
     vec3 normal;
+    bool withinBounds;
 } inData[];
 
 uniform mat4 ClipTransform;
-
-uniform float yCellMin;
-uniform float yCellMax;
 
 out GeometryData
 {
@@ -37,8 +35,7 @@ out GeometryData
 
 void main()
 {
-    // Cell is determined by the first vertex of each triangle.
-    if (yCellMin <= gl_in[0].gl_Position.y && gl_in[0].gl_Position.y <= yCellMax)
+    if (inData[0].withinBounds || inData[1].withinBounds || inData[2].withinBounds)
     {
         int i;
         for (i = 0; i < 3; ++i)
