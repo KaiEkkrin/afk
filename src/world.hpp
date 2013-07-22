@@ -96,6 +96,7 @@ protected:
     boost::atomic<unsigned long long> tilesQueued;
     boost::atomic<unsigned long long> tilesResumed;
     boost::atomic<unsigned long long> tilesComputed;
+    boost::atomic<unsigned long long> threadEscapes;
 
     /* World shader details. */
     AFK_ShaderProgram *shaderProgram;
@@ -133,17 +134,21 @@ protected:
 
     /* Cell generation worker delegates. */
 
-    /* Generates this landscape tile, as necessary.
-     * TODO: Something to put into a separate "landscape"
-     * object if/when I make one.
+    /* Makes sure a landscape tile has a terrain descriptor,
+     * and checks if its geometry needs generating.
+     * Returns true if this thread is to generate the tile's
+     * geometry, else false.
      */
-    bool generateClaimedLandscapeTile(
+    bool checkClaimedLandscapeTile(
         const AFK_Tile& tile,
         AFK_LandscapeTile& landscapeTile,
-        bool display,
-        unsigned int threadId,
-        struct AFK_WorldCellGenParam param,
-        AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>& queue);
+        bool display);
+
+    /* Generates a landscape tile's geometry. */
+    void generateLandscapeGeometry(
+        const AFK_Tile& tile,
+        AFK_LandscapeTile& landscapeTile,
+        unsigned int threadId);
 
     /* Generates this world cell, as necessary. */
     bool generateClaimedWorldCell(

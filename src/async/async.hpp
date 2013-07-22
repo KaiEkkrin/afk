@@ -243,9 +243,9 @@ public:
         if (promise) delete promise;
     }
 
-    void assertNoQueuedWork(void)
+    bool assertNoQueuedWork(void)
     {
-        if (!queue.finished()) throw AFK_AsyncException();
+        return queue.finished();
     }
 
     /* Push initial parameters into the gang.  Call before calling

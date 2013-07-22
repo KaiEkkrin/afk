@@ -9,6 +9,7 @@
 #include <iostream>
 #include <vector>
 
+#include <boost/atomic.hpp>
 #include <boost/shared_ptr.hpp>
 
 #include "data/claimable.hpp"
@@ -32,8 +33,15 @@ class AFK_DisplayedLandscapeTile;
  */
 class AFK_LandscapeTileNotPresentException: public std::exception {};
 
-#define AFK_LANDSCAPE_VERTEX_BUF AFK_DisplayedBuffer<struct AFK_VcolPhongVertex>
-#define AFK_LANDSCAPE_INDEX_BUF AFK_DisplayedBuffer<Vec3<unsigned int> >
+/* This contains a Landscape Tile's geometry buffers. */
+class AFK_LandscapeGeometry
+{
+public:
+    AFK_DisplayedBuffer<struct AFK_VcolPhongVertex>     vs;
+    AFK_DisplayedBuffer<Vec3<unsigned int> >            is;
+
+    AFK_LandscapeGeometry(size_t vCount, size_t iCount);
+};
 
 enum AFK_LandscapeType
 {
@@ -68,8 +76,8 @@ protected:
     Vec3<float> *rawColours;
     unsigned int rawVertexCount;
 
-    /* Here's the computed vertex data */
-    boost::shared_ptr<AFK_LANDSCAPE_VERTEX_BUF> vs;
+    /* Here's the computed geometry data */
+    AFK_LandscapeGeometry *geometry;
 
     /* These are the lower and upper y-bounds of the vertices in
      * world space.
@@ -77,8 +85,15 @@ protected:
     float yBoundLower;
     float yBoundUpper;
 
-    /* Here's the computed index buffer. */
-    boost::shared_ptr<AFK_LANDSCAPE_INDEX_BUF> is;
+    /* Here's the overall promise of a computed landscape tile that
+     * can be displayed.  With this, I can enqueue a future landscape
+     * tile into the render queue before I've finished computing it.
+     * This was going to be a future, but I can't make shared_future
+     * work, so right now it's just a horrible expectation
+     * that the pointer will stop being NULL at some point before
+     * render :P
+     */
+    boost::atomic<AFK_LandscapeGeometry**> futureGeometry;
 
     /* Internal helper.
      * Computes a single flat triangle, pushing the results into
@@ -115,19 +130,6 @@ protected:
     void vertices2SmoothTriangles(
         const AFK_Tile& baseTile,
         unsigned int pointSubdivisionFactor);
-
-    /* Internal helper.  Makes this landscape tile's
-     * raw terrain data (vertices and colours).
-     * It has a `type' parameter because the smooth
-     * terrain needs an extra row of vertices in
-     * order to make the normals for the bottom and
-     * left.
-     */
-    void makeRawTerrain(
-        enum AFK_LandscapeType type,
-        const AFK_Tile& baseTile,
-        unsigned int pointSubdivisionFactor,
-        float minCellSize);
     
 public:
     AFK_LandscapeTile();
@@ -143,21 +145,36 @@ public:
         float minCellSize,
         const Vec3<float> *forcedTint);
 
+    /* Returns true if there is geometry here that needs making and
+     * you are the thread chosen to make it.  Otherwise, returns
+     * false.
+     * (Call hasGeometry() to find out if there will be geometry here
+     * by the time it's needed; another thread might be making it.)
+     */
+    bool claimGeometryRights(void);
+
+    /* --- Begin functions you should call if you got geometry rights --- */
+
     /* Builds the terrain list for this tile.  Call it with
      * an empty list.
      */
     void buildTerrainList(
+        unsigned int threadId,
         AFK_TerrainList& list,
         const AFK_Tile& tile,
         unsigned int subdivisionFactor,
         float maxDistance,
         const AFK_LANDSCAPE_CACHE *cache) const;
 
-    /* Returns true if there is raw terrain here that needs computing,
-     * else false.  As a side effect, computes the initial raw
-     * terrain grid if required.
+    /* Makes this landscape tile's
+     * raw terrain data (vertices and colours).
+     * It has a `type' parameter because the smooth
+     * terrain needs an extra row of vertices in
+     * order to make the normals for the bottom and
+     * left.
      */
-    bool hasRawTerrain(
+    void makeRawTerrain(
+        enum AFK_LandscapeType type,
         const AFK_Tile& baseTile,
         unsigned int pointSubdivisionFactor,
         float minCellSize);
@@ -170,6 +187,8 @@ public:
         const AFK_Tile& baseTile,
         const AFK_TerrainList& terrainList);
 
+    /* --- End functions you should call if you got geometry rights --- */
+
     bool hasGeometry() const;
 
     /* Produces a displayed landscape tile that will render the portion
@@ -179,7 +198,7 @@ public:
      * Returns NULL if there is no landscape to be displayed
      * in that cell.
      */
-    AFK_DisplayedLandscapeTile *makeDisplayedLandscapeTile(const AFK_Cell& cell, float minCellSize) const;
+    AFK_DisplayedLandscapeTile *makeDisplayedLandscapeTile(const AFK_Cell& cell, float minCellSize);
 
     /* For handling claiming and eviction. */
     virtual AFK_Frame getCurrentFrame(void) const;

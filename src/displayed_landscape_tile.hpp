@@ -21,9 +21,8 @@
 class AFK_DisplayedLandscapeTile
 {
 protected:
-    /* These come from the LandscapeTile. */
-    boost::shared_ptr<AFK_LANDSCAPE_VERTEX_BUF> vs;
-    boost::shared_ptr<AFK_LANDSCAPE_INDEX_BUF> is;
+    /* This comes from LandscapeTile.  I don't own it. */
+    AFK_LandscapeGeometry **geometry;
 
     float cellBoundLower;
     float cellBoundUpper;
@@ -33,8 +32,7 @@ public:
      * its buffer pointers.
      */
     AFK_DisplayedLandscapeTile(
-        boost::shared_ptr<AFK_LANDSCAPE_VERTEX_BUF> _vs,
-        boost::shared_ptr<AFK_LANDSCAPE_INDEX_BUF> _is,
+        AFK_LandscapeGeometry **_geometry,
         float _cellBoundLower,
         float _cellBoundUpper);
 

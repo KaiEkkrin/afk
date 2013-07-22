@@ -73,13 +73,10 @@ bool afk_generateWorldCells(
 
 /* AFK_World implementation */
 
-bool AFK_World::generateClaimedLandscapeTile(
+bool AFK_World::checkClaimedLandscapeTile(
     const AFK_Tile& tile,
     AFK_LandscapeTile& landscapeTile,
-    bool display,
-    unsigned int threadId,
-    struct AFK_WorldCellGenParam param,
-    AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>& queue)
+    bool display)
 {
     /* A LandscapeTile has several stages of creation.
      * First, make sure it's got a terrain descriptor, which
@@ -95,31 +92,35 @@ bool AFK_World::generateClaimedLandscapeTile(
         minCellSize,
         forcedTint);
 
-    if (display)
-    {
-        /* Do I need a terrain list? */
-        if (landscapeTile.hasRawTerrain(tile, pointSubdivisionFactor, minCellSize))
-        {
-            /* Create the terrain list, which is composed out of
-             * the terrain descriptor for this landscape tile, and
-             * those of all the parent tiles (so that child tiles
-             * just add detail to an existing terrain).
-             */
-            AFK_TerrainList terrainList;
-            landscapeTile.buildTerrainList(
-                terrainList,
-                tile,
-                subdivisionFactor,
-                maxDistance,
-                landscapeCache);
+    /* Find out whether I'm going to be computing the geometry */
+    bool haveGeometryRights = (display && landscapeTile.claimGeometryRights());
+    return haveGeometryRights;
+}
 
-            /* Using that terrain list, compute the landscape geometry. */
-            landscapeTile.computeGeometry(pointSubdivisionFactor, tile, terrainList);
-            tilesComputed.fetch_add(1);
-        }
-    }
+void AFK_World::generateLandscapeGeometry(
+    const AFK_Tile& tile,
+    AFK_LandscapeTile& landscapeTile,
+    unsigned int threadId)
+{
+    landscapeTile.makeRawTerrain(AFK_LANDSCAPE_TYPE, tile, pointSubdivisionFactor, minCellSize);
 
-    return true;
+    /* Create the terrain list, which is composed out of
+     * the terrain descriptor for this landscape tile, and
+     * those of all the parent tiles (so that child tiles
+     * just add detail to an existing terrain).
+     */
+    AFK_TerrainList terrainList;
+    landscapeTile.buildTerrainList(
+        threadId,
+        terrainList,
+        tile,
+        subdivisionFactor,
+        maxDistance,
+        landscapeCache);
+
+    /* Using that terrain list, compute the landscape geometry. */
+    landscapeTile.computeGeometry(pointSubdivisionFactor, tile, terrainList);
+    tilesComputed.fetch_add(1);
 }
 
 bool AFK_World::generateClaimedWorldCell(
@@ -176,6 +177,7 @@ bool AFK_World::generateClaimedWorldCell(
         AFK_ClaimStatus landscapeClaimStatus = landscapeTile.claimYieldLoop(
             threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
 
+        bool generateGeometry = false;
         if (!landscapeTile.hasTerrainDescriptor() ||
             ((renderTerrain || display) && !landscapeTile.hasGeometry()))
         {
@@ -187,8 +189,8 @@ bool AFK_World::generateClaimedWorldCell(
 
             if (landscapeClaimStatus == AFK_CL_CLAIMED)
             {
-                generateClaimedLandscapeTile(
-                    tile, landscapeTile, display, threadId, param, queue);
+                generateGeometry = checkClaimedLandscapeTile(
+                    tile, landscapeTile, display);
             }
             else
             {
@@ -205,22 +207,40 @@ bool AFK_World::generateClaimedWorldCell(
             }
         }
 
-        if (display && landscapeTile.hasGeometry())
-        {
-            /* Get it to make us a DisplayedLandscapeTile to
-             * feed into the display queue.
-             */
-            AFK_DisplayedLandscapeTile *dptr =
-                landscapeTile.makeDisplayedLandscapeTile(cell, minCellSize);
+        /* If I was picked to generate the geometry, do that. */
+        if (generateGeometry)
+            generateLandscapeGeometry(tile, landscapeTile, threadId);
 
-            if (dptr)
+        /* At any rate, I should relinquish my claim on the tile
+         * now.
+         * TODO Why can't I do that earlier?
+         */
+        landscapeTile.release(threadId, landscapeClaimStatus);
+
+        if (display)
+        {
+            /* TODO Putting some metrics in here to try to understand what
+             * the problem with relinquishing the exclusive lock early is.
+             */
+
+            if (landscapeTile.hasGeometry())
             {
-                landscapeRenderQueue.update_push(dptr);
-                tilesQueued.fetch_add(1);
+                /* Get it to make us a DisplayedLandscapeTile to
+                 * feed into the display queue.
+                 */
+                landscapeClaimStatus = landscapeTile.claimYieldLoop(
+                    threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+                AFK_DisplayedLandscapeTile *dptr =
+                    landscapeTile.makeDisplayedLandscapeTile(cell, minCellSize);
+                landscapeTile.release(threadId, landscapeClaimStatus);
+
+                if (dptr)
+                {
+                    landscapeRenderQueue.update_push(dptr);
+                    tilesQueued.fetch_add(1);
+                }
             }
         }
-
-        landscapeTile.release(threadId, landscapeClaimStatus);
 
         /* We don't need this any more */
         worldCell.release(threadId, AFK_CL_CLAIMED);
@@ -285,10 +305,10 @@ AFK_World::AFK_World(
      * bitnesses and contention targets from those values
      */
     worldCache = new AFK_WORLD_CACHE(
-        22, 8, AFK_HashCell(), 160000, 0xfffffffeu);
+        22, 8, AFK_HashCell(), 240000, 0xfffffffeu);
 
     landscapeCache = new AFK_LANDSCAPE_CACHE(
-        16, 8, AFK_HashTile(), 8000, 0xfffffffdu);
+        18, 8, AFK_HashTile(), 24000, 0xfffffffdu);
 
     /* Note that loading lots of extra threads here does not seem
      * to make us do significantly better than the default of
@@ -316,6 +336,7 @@ AFK_World::AFK_World(
     tilesQueued.store(0);
     tilesResumed.store(0);
     tilesComputed.store(0);
+    threadEscapes.store(0);
 }
 
 AFK_World::~AFK_World()
@@ -359,7 +380,8 @@ void AFK_World::flipRenderQueues(void)
     /* Verify that the concurrency control business has done
      * its job correctly.
      */
-    genGang->assertNoQueuedWork();
+    if (!genGang->assertNoQueuedWork())
+        threadEscapes.fetch_add(1);
 
     landscapeRenderQueue.flipQueues();
 }
@@ -460,18 +482,17 @@ static float toRatePerSecond(unsigned long long quantity, boost::posix_time::tim
     return (float)quantity * 1000.0f / (float)interval.total_milliseconds();
 }
 
+#define PRINT_RATE_AND_RESET(s, v) std::cout << s << toRatePerSecond((v).load(), timeSinceLastCheckpoint) << "/second" << std::endl; \
+    (v).store(0);
+
 void AFK_World::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint)
 {
     std::cout << "Detail pitch:             " << detailPitch << std::endl;
-    std::cout << "Cells found invisible:    " << toRatePerSecond(cellsInvisible.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
-    std::cout << "Tiles queued:             " << toRatePerSecond(tilesQueued.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
-    std::cout << "Tiles resumed:            " << toRatePerSecond(tilesResumed.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
-    std::cout << "Tiles computed:           " << toRatePerSecond(tilesComputed.load(), timeSinceLastCheckpoint) << "/second" << std::endl;
-
-    cellsInvisible.store(0);
-    tilesQueued.store(0);
-    tilesResumed.store(0);
-    tilesComputed.store(0);
+    PRINT_RATE_AND_RESET("Cells found invisible:    ", cellsInvisible)
+    PRINT_RATE_AND_RESET("Tiles queued:             ", tilesQueued)
+    PRINT_RATE_AND_RESET("Tiles resumed:            ", tilesResumed)
+    PRINT_RATE_AND_RESET("Tiles computed:           ", tilesComputed)
+    std::cout <<         "Cumulative thread escapes:" << threadEscapes.load() << std::endl;
 }
 
 void AFK_World::printCacheStats(std::ostream& ss, const std::string& prefix)
