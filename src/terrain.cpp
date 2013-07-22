@@ -343,11 +343,15 @@ void AFK_TerrainTile::make(
         Vec3<float> tint = forcedTint ? *forcedTint :
             afk_vec3<float>(rng.frand(), rng.frand(), rng.frand());
 
-        features[i] = AFK_TerrainFeature(AFK_TERRAIN_TYPE_IN_USE, location, tint, scale);
+        /* For now, I'm going to include one spike per tile,
+         * and make the others humps.
+         */
+        features[i] = AFK_TerrainFeature(
+            i == 0 ? AFK_TERRAIN_SPIKE : AFK_TERRAIN_HUMP, location, tint, scale);
     }
 } 
 
-void AFK_TerrainTile::transformTileToTile(Vec3<float> *positions, size_t length, const AFK_TerrainTile& from) const
+void AFK_TerrainTile::transformTileToTile(Vec3<float> *positions, Vec3<float> *colours, size_t length, const AFK_TerrainTile& from) const
 {
     Vec4<float> toCoord = getCellCoord();
     Vec4<float> fromCoord = from.getCellCoord();
@@ -359,7 +363,10 @@ void AFK_TerrainTile::transformTileToTile(Vec3<float> *positions, size_t length,
         (fromCoord.v[2] - toCoord.v[2]) / toCoord.v[3]);
 
     for (size_t i = 0; i < length; ++i)
+    {
         positions[i] = (positions[i] - displacement) / scaleFactor;
+        colours[i] = colours[i] / scaleFactor;
+    }
 }
 
 void AFK_TerrainTile::compute(Vec3<float> *positions, Vec3<float> *colours, size_t length) const
@@ -409,7 +416,7 @@ void AFK_TerrainList::compute(Vec3<float> *positions, Vec3<float> *colours, size
         if (i > 0)
         {
             /* Transform the terrain up to the next cell space. */
-            t[i-1]->transformTileToTile(positions, length, *(t[i]));
+            t[i-1]->transformTileToTile(positions, colours, length, *(t[i]));
         }
 
         t[i]->compute(positions, colours, length);
@@ -422,8 +429,7 @@ void AFK_TerrainList::compute(Vec3<float> *positions, Vec3<float> *colours, size
     for (size_t i = 0; i < length; ++i)
     {
         positions[i] = (positions[i] * topCellCoord.v[3]) + topCellXYZ;
-        colours[i] = colours[i].normalise();
-        colours[i] = colours[i] - 0.5f;
+        colours[i] = colours[i].normalise() - 0.4f;
     }
 }
 

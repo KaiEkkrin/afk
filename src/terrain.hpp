@@ -35,11 +35,6 @@ enum AFK_TerrainType
  */
 #define AFK_TERRAIN_FEATURE_TYPES 1
 
-/* Right now I'm only using a single terrain type:
- * change this to set it.
- */
-#define AFK_TERRAIN_TYPE_IN_USE AFK_TERRAIN_HUMP
-
 /* The encapsulation of any terrain feature.
  * A feature is computed at a particular location
  * based on the (x,z)
@@ -138,7 +133,7 @@ public:
     /* Transforms positions from this tile's co-ordinates to
      * the given one.
      */
-    void transformTileToTile(Vec3<float> *positions, size_t length, const AFK_TerrainTile& other) const;
+    void transformTileToTile(Vec3<float> *positions, Vec3<float> *colours, size_t length, const AFK_TerrainTile& other) const;
 
     /* Computes in cell co-ordinates each of the
      * terrain features and puts them together.
