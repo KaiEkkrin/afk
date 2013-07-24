@@ -138,6 +138,9 @@ public:
     
     void loop(void);
 
+    /* For object updates. */
+    const boost::posix_time::ptime& getStartOfFrameTime(void) const;
+
     /* This utility function prints a message at checkpoints,
      * so that I can usefully debug-print
      * engine state without spamming stdout.

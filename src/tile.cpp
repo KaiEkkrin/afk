@@ -38,8 +38,8 @@ AFK_Tile AFK_Tile::parent(unsigned int subdivisionFactor) const
 {
     long long parentTileScale = coord.v[2] * subdivisionFactor;
     return afk_tile(afk_vec3<long long>(
-        ROUND_TO_CELL_SCALE(coord.v[0], parentTileScale),
-        ROUND_TO_CELL_SCALE(coord.v[1], parentTileScale),
+        AFK_ROUND_TO_CELL_SCALE(coord.v[0], parentTileScale),
+        AFK_ROUND_TO_CELL_SCALE(coord.v[1], parentTileScale),
         parentTileScale));
 }
 

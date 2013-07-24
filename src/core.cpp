@@ -380,6 +380,11 @@ void AFK_Core::loop(void)
     glutMainLoop();
 }
 
+const boost::posix_time::ptime& AFK_Core::getStartOfFrameTime(void) const
+{
+    return startOfFrameTime;
+}
+
 void AFK_Core::occasionallyPrint(const std::string& message)
 {
     occasionalPrints << "AFK Frame " << renderingFrame.get() << ": " << message << std::endl;

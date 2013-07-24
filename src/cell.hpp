@@ -31,7 +31,7 @@
  * This utility is used for making the parents of both
  * cells and tiles
  */
-#define ROUND_TO_CELL_SCALE(coord, scale) \
+#define AFK_ROUND_TO_CELL_SCALE(coord, scale) \
     (coord) - ((coord) >= 0 ? \
                 ((coord) % (scale)) : \
                 ((scale) + (((coord) % (scale)) != 0 ? \
@@ -145,6 +145,9 @@ public:
 /* Useful ways of making cells. */
 AFK_Cell afk_cell(const AFK_Cell& other);
 AFK_Cell afk_cell(const Vec4<long long>& _coord);
+
+/* Returns the cell (of the requested scale) that contains this point. */
+AFK_Cell afk_cellContaining(const Vec3<float>& _coord, long long scale, float worldScale);
 
 /* For insertion into an unordered_map. */
 size_t hash_value(const AFK_Cell& cell);

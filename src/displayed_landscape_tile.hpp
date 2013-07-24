@@ -5,8 +5,6 @@
 
 #include "afk.hpp"
 
-#include <boost/shared_ptr.hpp>
-
 #include "def.hpp"
 #include "landscape_tile.hpp"
 #include "light.hpp"

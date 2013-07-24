@@ -18,7 +18,9 @@
 #include "data/evictable_cache.hpp"
 #include "data/render_queue.hpp"
 #include "def.hpp"
+#include "displayed_entity.hpp"
 #include "displayed_landscape_tile.hpp"
+#include "entity.hpp"
 #include "landscape_tile.hpp"
 #include "shader.hpp"
 #include "tile.hpp"
@@ -96,14 +98,22 @@ protected:
     boost::atomic<unsigned long long> tilesQueued;
     boost::atomic<unsigned long long> tilesResumed;
     boost::atomic<unsigned long long> tilesComputed;
+    boost::atomic<unsigned long long> entitiesQueued;
+    boost::atomic<unsigned long long> entitiesMoved;
     boost::atomic<unsigned long long> threadEscapes;
 
-    /* World shader details. */
-    AFK_ShaderProgram *shaderProgram;
-    AFK_ShaderLight *shaderLight;
-    GLuint clipTransformLocation;
-    GLuint yCellMinLocation;
-    GLuint yCellMaxLocation;
+    /* Landscape shader details. */
+    AFK_ShaderProgram *landscape_shaderProgram;
+    AFK_ShaderLight *landscape_shaderLight;
+    GLuint landscape_clipTransformLocation;
+    GLuint landscape_yCellMinLocation;
+    GLuint landscape_yCellMaxLocation;
+
+    /* Entity shader details. */
+    AFK_ShaderProgram *entity_shaderProgram;
+    AFK_ShaderLight *entity_shaderLight;
+    GLuint entity_worldTransformLocation;
+    GLuint entity_clipTransformLocation;
 
     /* The cache of world cells we're tracking.
      */
@@ -128,6 +138,12 @@ protected:
      * rendering.
      */
     AFK_RenderQueue<AFK_DisplayedLandscapeTile*> landscapeRenderQueue;
+
+    /* The entity render queue.
+     * Again, these are transient objects, delete them
+     * after rendering.
+     */
+    AFK_RenderQueue<AFK_DisplayedEntity*> entityRenderQueue;
 
     /* The cell generating gang */
     AFK_AsyncGang<struct AFK_WorldCellGenParam, bool> *genGang;

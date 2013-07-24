@@ -445,6 +445,18 @@ bool AFK_LandscapeTile::hasGeometry() const
     return (futureGeometry.load() != NULL);
 }
 
+float AFK_LandscapeTile::getYBoundLower() const
+{
+    if (!hasGeometry()) throw new AFK_Exception("Tried to call getYBoundLower() without geometry");
+    return yBoundLower;
+}
+
+float AFK_LandscapeTile::getYBoundUpper() const
+{
+    if (!hasGeometry()) throw new AFK_Exception("Tried to call getYBoundUpper() without geometry");
+    return yBoundUpper;
+}
+
 AFK_DisplayedLandscapeTile *AFK_LandscapeTile::makeDisplayedLandscapeTile(const AFK_Cell& cell, float minCellSize)
 {
     AFK_DisplayedLandscapeTile *dlt = NULL;

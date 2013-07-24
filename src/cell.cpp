@@ -100,9 +100,9 @@ AFK_Cell AFK_Cell::parent(unsigned int subdivisionFactor) const
 {
     long long parentCellScale = coord.v[3] * subdivisionFactor;
     return afk_cell(afk_vec4<long long>(
-        ROUND_TO_CELL_SCALE(coord.v[0], parentCellScale),
-        ROUND_TO_CELL_SCALE(coord.v[1], parentCellScale),
-        ROUND_TO_CELL_SCALE(coord.v[2], parentCellScale),
+        AFK_ROUND_TO_CELL_SCALE(coord.v[0], parentCellScale),
+        AFK_ROUND_TO_CELL_SCALE(coord.v[1], parentCellScale),
+        AFK_ROUND_TO_CELL_SCALE(coord.v[2], parentCellScale),
         parentCellScale));
 }
 
@@ -142,6 +142,28 @@ AFK_Cell afk_cell(const Vec4<long long>& _coord)
     AFK_Cell cell;
     cell.coord = _coord;
     return cell;
+}
+
+AFK_Cell afk_cellContaining(const Vec3<float>& _coord, long long scale, float worldScale)
+{
+    /* Turn these floats into something at minimum cell scale.
+     * Note that float conversion to long long rounds towards
+     * zero, which I don't want here, hence the std::floor()
+     * first.
+     */
+    Vec3<long long> cellScaleCoord = afk_vec3<long long>(
+        (long long)std::floor(_coord.v[0] / worldScale),
+        (long long)std::floor(_coord.v[1] / worldScale),
+        (long long)std::floor(_coord.v[2] / worldScale)) * MIN_CELL_PITCH;
+
+    /* ...and now, round them down to the next cell boundary
+     * of the requested size
+     */
+    return afk_cell(afk_vec4<long long>(
+        AFK_ROUND_TO_CELL_SCALE(cellScaleCoord.v[0], scale),
+        AFK_ROUND_TO_CELL_SCALE(cellScaleCoord.v[1], scale),
+        AFK_ROUND_TO_CELL_SCALE(cellScaleCoord.v[2], scale),
+        scale));
 }
 
 size_t hash_value(const AFK_Cell& cell)

@@ -114,15 +114,6 @@ void AFK_TerrainFeature::compute_spike(Vec3<float> *positions, Vec3<float> *colo
         float distanceToCentre = sqrt(distanceToCentreSquared);
         
         /* A spike is a hump without the rounded-off section. */
-#if 0
-        if (distanceToCentre < (radius / 2.0f))
-        {
-            float humpX = (SQUARE(radius / 2.0f)) * (scale.v[1] / radius) -
-                distanceToCentreSquared * (scale.v[1] / radius);
-            positions[i].v[1] += humpX;
-        }
-        else
-#endif
         if (distanceToCentre < radius)
         {
             float humpX = (SQUARE(radius - distanceToCentre)) * (scale.v[1] / SQUARE(radius));

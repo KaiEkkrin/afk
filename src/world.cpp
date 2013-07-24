@@ -7,6 +7,8 @@
 #include "core.hpp"
 #include "debug.hpp"
 #include "exception.hpp"
+#include "rng/boost_taus88.hpp"
+#include "rng/rng.hpp"
 #include "world.hpp"
 
 /* TODO remove debug?  (or something) */
@@ -242,6 +244,104 @@ bool AFK_World::generateClaimedWorldCell(
             }
         }
 
+        /* Now that I've done all that, I can get to the
+         * business of handling the entities within the cell.
+         * Firstly, so long as it's above the landscape, give it
+         * some starting entities if it hasn't got them
+         * already.
+         */
+
+        /* TODO: This RNG will make the same set of entities every
+         * time the cell is re-displayed.  This is fine for probably
+         * static, landscape decoration type objects.  But I'm also
+         * going to want to have transient objects popping into
+         * existence, and those should be done with a different,
+         * long-period RNG that I retain (in thread local storage),
+         * perhaps a Mersenne Twister.
+         */
+        AFK_Boost_Taus88_RNG staticRng;
+        staticRng.seed(cell.rngSeed());
+
+        if (!landscapeTile.hasGeometry() ||
+            worldCell.getRealCoord().v[1] >= landscapeTile.getYBoundUpper())
+        {
+            worldCell.doStartingEntities(pointSubdivisionFactor, subdivisionFactor, staticRng);
+        }
+
+        AFK_ENTITY_LIST::iterator eIt = worldCell.entitiesBegin();
+        while (eIt != worldCell.entitiesEnd())
+        {
+            AFK_Entity *e = *eIt;
+            if (e->claimYieldLoop(threadId, AFK_CLT_EXCLUSIVE) == AFK_CL_CLAIMED)
+            {
+                AFK_Cell newCell;
+                if (e->animate(afk_core.getStartOfFrameTime(), cell, minCellSize, newCell))
+                {
+                    /* This entity has moved to a different cell.
+                     * Dig it up and feed it into its entity list.
+                     */
+                    
+                    /* Yes, I'm going to be creating this cell if
+                     * it doesn't exist.  And not claiming it.  So
+                     * there's a chance the entity gets cleaned up
+                     * by the evictor.  I can handle with that.
+                     * TODO: Permanent entities -- should prevent
+                     * the evictor from getting rid of cells that
+                     * contain them, and should also cause their
+                     * cells to always get enumerated regardless of
+                     * angle and distance.
+                     */
+                    eIt = worldCell.eraseEntity(eIt);
+
+                    /* TODO: There is a very tiny possibility of the
+                     * following scenario here:
+                     * - cell gets created in the cache
+                     * - cell gets grabbed by the eviction thread and
+                     * destroyed
+                     * - moveEntity() gets called on a dead cell and
+                     * crashes
+                     * To avoid this I need to ensure that cells are
+                     * naturally created in an un-evictable state.  I'm
+                     * not quite sure how to ensure that.
+                     */
+                    (*worldCache)[newCell].moveEntity(e);
+                    entitiesMoved.fetch_add(1);
+                }
+                else ++eIt;
+
+                /* TODO: Collisions probably go here.  I'll no doubt
+                 * want to do that in OpenCL for performance, and
+                 * all sorts.
+                 */
+
+                /* Entities are always displayed.  They don't
+                 * exist at multiple LoDs.
+                 * TODO: Maybe some day I'll want to make very
+                 * large entities out of component parts so
+                 * that I can zoom in on their LoD just like
+                 * I can with the landscape ?
+                 */
+
+                /* TODO: Figure out the list of lights that apply.
+                 * And some day, the list of shadows that apply,
+                 * too.  Rah!
+                 */
+                AFK_DisplayedEntity *de = e->makeDisplayedEntity();
+                if (de)
+                {
+                    entityRenderQueue.update_push(de);
+                    entitiesQueued.fetch_add(1);
+                }
+
+                e->release(threadId, AFK_CL_CLAIMED);
+            }
+        }
+
+        /* Pop any new entities out from the move queue into the
+         * proper list.
+         */
+        worldCell.popMoveQueue();
+
         /* We don't need this any more */
         worldCell.release(threadId, AFK_CL_CLAIMED);
 
@@ -292,7 +392,8 @@ AFK_World::AFK_World(
         startingDetailPitch(_startingDetailPitch),
         detailPitch(_startingDetailPitch), /* This is a starting point */
         renderDetailPitch(_startingDetailPitch),
-        landscapeRenderQueue(100), /* TODO make a better guess */
+        landscapeRenderQueue(10000),
+        entityRenderQueue(10000),
         maxDistance(_maxDistance),
         subdivisionFactor(_subdivisionFactor),
         pointSubdivisionFactor(_pointSubdivisionFactor),
@@ -319,23 +420,34 @@ AFK_World::AFK_World(
                 AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>&)>(afk_generateWorldCells),
             100);
 
-    /* Set up the world shader. */
-    shaderProgram = new AFK_ShaderProgram();
-    *shaderProgram << "landscape_fragment" << "landscape_geometry" << "landscape_vertex";
-    //*shaderProgram << "vcol_phong_fragment" << "vcol_phong_vertex";
-    shaderProgram->Link();
+    /* Set up the landscape shader. */
+    landscape_shaderProgram = new AFK_ShaderProgram();
+    *landscape_shaderProgram << "landscape_fragment" << "landscape_geometry" << "landscape_vertex";
+    landscape_shaderProgram->Link();
 
-    shaderLight = new AFK_ShaderLight(shaderProgram->program);
+    landscape_shaderLight = new AFK_ShaderLight(landscape_shaderProgram->program);
 
-    clipTransformLocation = glGetUniformLocation(shaderProgram->program, "ClipTransform");
-    yCellMinLocation = glGetUniformLocation(shaderProgram->program, "yCellMin");
-    yCellMaxLocation = glGetUniformLocation(shaderProgram->program, "yCellMax");
+    landscape_clipTransformLocation = glGetUniformLocation(landscape_shaderProgram->program, "ClipTransform");
+    landscape_yCellMinLocation = glGetUniformLocation(landscape_shaderProgram->program, "yCellMin");
+    landscape_yCellMaxLocation = glGetUniformLocation(landscape_shaderProgram->program, "yCellMax");
+
+    entity_shaderProgram = new AFK_ShaderProgram();
+    /* TODO How much stuff will I need here ? */
+    *entity_shaderProgram << "vcol_phong_fragment" << "vcol_phong_vertex";
+    entity_shaderProgram->Link();
+
+    entity_shaderLight = new AFK_ShaderLight(entity_shaderProgram->program);
+
+    entity_worldTransformLocation = glGetUniformLocation(entity_shaderProgram->program, "WorldTransform");
+    entity_clipTransformLocation = glGetUniformLocation(entity_shaderProgram->program, "ClipTransform");
 
     /* Initialise the statistics. */
     cellsInvisible.store(0);
     tilesQueued.store(0);
     tilesResumed.store(0);
     tilesComputed.store(0);
+    entitiesQueued.store(0);
+    entitiesMoved.store(0);
     threadEscapes.store(0);
 }
 
@@ -349,8 +461,12 @@ AFK_World::~AFK_World()
 
     delete landscapeCache;
     delete worldCache;
-    delete shaderProgram;
-    delete shaderLight;
+
+    delete landscape_shaderProgram;
+    delete landscape_shaderLight;
+
+    delete entity_shaderProgram;
+    delete entity_shaderLight;
 }
 
 void AFK_World::enqueueSubcells(
@@ -384,6 +500,7 @@ void AFK_World::flipRenderQueues(void)
         threadEscapes.fetch_add(1);
 
     landscapeRenderQueue.flipQueues();
+    entityRenderQueue.flipQueues();
 }
 
 void AFK_World::alterDetail(float adjustment)
@@ -465,14 +582,29 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     {
         dlt->initGL();
         dlt->display(
-            shaderProgram,
-            shaderLight,
+            landscape_shaderProgram,
+            landscape_shaderLight,
             globalLight,
-            clipTransformLocation,
-            yCellMinLocation,
-            yCellMaxLocation,
+            landscape_clipTransformLocation,
+            landscape_yCellMinLocation,
+            landscape_yCellMaxLocation,
             projection);
         delete dlt;
+    }
+
+    /* Render the entities */
+    AFK_DisplayedEntity *de;
+    while (entityRenderQueue.draw_pop(de))
+    {
+        de->initGL();
+        de->display(
+            entity_shaderProgram,
+            entity_shaderLight,
+            globalLight,
+            entity_worldTransformLocation,
+            entity_clipTransformLocation,
+            projection);
+        delete de;
     }
 }
 
@@ -492,6 +624,8 @@ void AFK_World::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckp
     PRINT_RATE_AND_RESET("Tiles queued:             ", tilesQueued)
     PRINT_RATE_AND_RESET("Tiles resumed:            ", tilesResumed)
     PRINT_RATE_AND_RESET("Tiles computed:           ", tilesComputed)
+    PRINT_RATE_AND_RESET("Entities queued:          ", entitiesQueued)
+    PRINT_RATE_AND_RESET("Entities moved:           ", entitiesMoved)
     std::cout <<         "Cumulative thread escapes:" << threadEscapes.load() << std::endl;
 }
 

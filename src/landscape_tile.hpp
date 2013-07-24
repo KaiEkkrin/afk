@@ -190,6 +190,8 @@ public:
     /* --- End functions you should call if you got geometry rights --- */
 
     bool hasGeometry() const;
+    float getYBoundLower() const;
+    float getYBoundUpper() const;
 
     /* Produces a displayed landscape tile that will render the portion
      * of this landscape tile that fits into the given cell.

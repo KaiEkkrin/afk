@@ -5,9 +5,18 @@
 
 #include "afk.hpp"
 
+#include <list>
+
+#include <boost/lockfree/queue.hpp>
+
 #include "data/claimable.hpp"
+#include "entity.hpp"
+#include "rng/rng.hpp"
 #include "world.hpp"
 
+
+#define AFK_ENTITY_LIST std::list<AFK_Entity*>
+#define AFK_ENTITY_MOVE_QUEUE boost::lockfree::queue<AFK_Entity*>
 
 /* Describes one cell in the world.  This is the value that we
  * cache in the big ol' WorldCache.
@@ -31,8 +40,25 @@ protected:
      */
     Vec4<float> realCoord;
 
+    /* The list of Entities currently homed to this cell. */
+    AFK_ENTITY_LIST entities;
+
+    /* The queue of Entities that are supposed to be moved
+     * into this cell's list.  I've done it like this so
+     * that I don't need to worry about claiming a cell in
+     * order to move an entity into it (which would result
+     * in deadlock issues, I suspect).
+     */
+    AFK_ENTITY_MOVE_QUEUE moveQueue;
+
+    /* Flags whether we've yet populated this cell with a
+     * starting entity set.
+     */
+    bool startingEntitiesDone;
+
 public:
     AFK_WorldCell();
+    virtual ~AFK_WorldCell();
 
     const AFK_Cell& getCell(void) const { return cell; }
     const Vec4<float>& getRealCoord(void) const { return realCoord; }
@@ -52,6 +78,27 @@ public:
      * visible when projected with the supplied camera.
      */
     void testVisibility(const AFK_Camera& camera, bool& io_someVisible, bool& io_allVisible) const;
+
+    /* Gives this cell a starting entity set, if required. */
+    void doStartingEntities(unsigned int pointSubdivisionFactor, unsigned int subdivisionFactor, AFK_RNG& rng);
+
+    /* Iterates through this cell's entities. */
+    AFK_ENTITY_LIST::iterator entitiesBegin(void);
+    AFK_ENTITY_LIST::iterator entitiesEnd(void);
+
+    /* Removes an entity from this cell's list.  Call along with
+     * calling moveEntity() on the new cell.
+     */
+    AFK_ENTITY_LIST::iterator eraseEntity(AFK_ENTITY_LIST::iterator eIt);
+
+    /* Pushes an entity into this cell's move queue.  It's okay
+     * to call this without having the claim.
+     */
+    void moveEntity(AFK_Entity *entity);
+
+    /* Pops the contents of the move queue into this cell's list.
+     */
+    void popMoveQueue(void);
 
     /* AFK_Claimable implementation. */
     virtual AFK_Frame getCurrentFrame(void) const;

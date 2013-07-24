@@ -16,14 +16,16 @@
  - land map cache eviction; use constant memory OK
  - adjust detail pitch on the fly to maintain a framerate. OK
  - migrate terrain geometry to adjacent cells along the y-axis.  vertical terrain LoD.  OK, but needs changing (see todo_spilling.txt).  OK, changed it.
+ - curved terrain (interpolated normals, curved terrain features). OK
  - horizontal stitching: insert the appropriate geometry between two tiles at different LoDs.
  - vertical stitching: insert the appropriate geometry between differently LoD's portions of the same tile.
  - random protagonist with flat surfaces.
- - random objects in each cell.  object LoD.
- - curved terrain (interpolated normals, curved terrain features).
- - object movement.  (simplest AI.)
- - object/object collision.
- - object/terrain collision.
+ - random entities in each cell.  entity LoD.
+ - entity movement.  (simplest AI.)
+ - entity/entity collision.
+ - entity/terrain collision.
+ - entities split into cubes (or something) at different LoDs.  caching and split rendering by a testDetailPitch equivalent.
+ - entity LoD stitching.
  - compute location of points-grid with opencl and feed back.
  - opencl random number generator.
  - tessellation example.

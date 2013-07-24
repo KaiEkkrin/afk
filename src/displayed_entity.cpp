@@ -2,39 +2,40 @@
 
 #include "afk.hpp"
 
-#include "displayed_landscape_tile.hpp"
+#include "displayed_entity.hpp"
 #include "exception.hpp"
 
-AFK_DisplayedLandscapeTile::AFK_DisplayedLandscapeTile(
-    AFK_LandscapeGeometry **_geometry,
-    float _cellBoundLower,
-    float _cellBoundUpper):
-        geometry(_geometry), cellBoundLower(_cellBoundLower), cellBoundUpper(_cellBoundUpper)
+AFK_DisplayedEntity::AFK_DisplayedEntity(
+    AFK_EntityGeometry **_geometry,
+    const AFK_Object *_obj):
+        geometry(_geometry), obj(_obj)
 {
 }
 
-void AFK_DisplayedLandscapeTile::initGL(void)
+void AFK_DisplayedEntity::initGL(void)
 {
-    if (!(*geometry)) throw new AFK_Exception("AFK_DisplayedLandscapeTile: Got NULL geometry");
+    if (!(*geometry)) throw new AFK_Exception("AFK_DisplayedEntity: Got NULL geometry");
     (*geometry)->vs.initGL(GL_ARRAY_BUFFER, GL_STATIC_DRAW);
     (*geometry)->is.initGL(GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW);
 }
 
-void AFK_DisplayedLandscapeTile::display(
+void AFK_DisplayedEntity::display(
     AFK_ShaderProgram *shaderProgram,
     AFK_ShaderLight *shaderLight,
     const struct AFK_Light& globalLight,
+    GLuint worldTransformLocation,
     GLuint clipTransformLocation,
-    GLuint yCellMinLocation,
-    GLuint yCellMaxLocation,
     const Mat4<float>& projection)
 {
     glUseProgram(shaderProgram->program);
     shaderLight->setupLight(globalLight);
-    glUniformMatrix4fv(clipTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
-    glUniform1f(yCellMinLocation, cellBoundLower);
-    glUniform1f(yCellMaxLocation, cellBoundUpper);
 
+    Mat4<float> worldTransformation = obj->getTransformation();
+    glUniformMatrix4fv(worldTransformLocation, 1, GL_TRUE, &worldTransformation.m[0][0]);
+
+    Mat4<float> clipTransformation = projection * worldTransformation;
+    glUniformMatrix4fv(clipTransformLocation, 1, GL_TRUE, &clipTransformation.m[0][0]);
+    
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
