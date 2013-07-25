@@ -12,13 +12,6 @@ AFK_DisplayedEntity::AFK_DisplayedEntity(
 {
 }
 
-void AFK_DisplayedEntity::initGL(void)
-{
-    if (!(*geometry)) throw new AFK_Exception("AFK_DisplayedEntity: Got NULL geometry");
-    (*geometry)->vs.initGL(GL_ARRAY_BUFFER, GL_STATIC_DRAW);
-    (*geometry)->is.initGL(GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW);
-}
-
 void AFK_DisplayedEntity::display(
     AFK_ShaderProgram *shaderProgram,
     AFK_ShaderLight *shaderLight,
@@ -40,13 +33,13 @@ void AFK_DisplayedEntity::display(
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
 
-    glBindBuffer(GL_ARRAY_BUFFER, (*geometry)->vs.buf);
+    (*geometry)->vs.bindGLBuffer(GL_ARRAY_BUFFER, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), 0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(sizeof(Vec3<float>)));
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(2 * sizeof(Vec3<float>)));
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, (*geometry)->is.buf);
+    (*geometry)->is.bindGLBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW);
 
     glDrawElements(GL_TRIANGLES, (*geometry)->is.t.size() * 3, GL_UNSIGNED_INT, 0);
 

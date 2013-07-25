@@ -262,10 +262,16 @@ bool AFK_World::generateClaimedWorldCell(
         AFK_Boost_Taus88_RNG staticRng;
         staticRng.seed(cell.rngSeed());
 
-        if (!landscapeTile.hasGeometry() ||
-            worldCell.getRealCoord().v[1] >= landscapeTile.getYBoundUpper())
+        if (/* !landscapeTile.hasGeometry() ||
+            worldCell.getRealCoord().v[1] >= landscapeTile.getYBoundUpper() */ true)
         {
-            worldCell.doStartingEntities(pointSubdivisionFactor, subdivisionFactor, staticRng);
+            /* TODO For now, I'm going to just build entities at 
+             * one particular LoD.  I need to consider how I
+             * work with this ...
+             */
+            //if (cell.coord.v[3] == 16) worldCell.doStartingEntities(pointSubdivisionFactor, subdivisionFactor, staticRng);
+            if (cell.coord.v[0] == 0 && cell.coord.v[1] == 0 && cell.coord.v[2] == 0)
+                worldCell.doStartingEntities(pointSubdivisionFactor, subdivisionFactor, staticRng);
         }
 
         AFK_ENTITY_LIST::iterator eIt = worldCell.entitiesBegin();
@@ -578,11 +584,20 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
 {
     /* Render the landscape */
     AFK_DisplayedLandscapeTile *dlt;
+
+    glUseProgram(landscape_shaderProgram->program);
+
+    /* Put the GL into the right shape to draw a bunch of
+     * VAOs in AFK_VcolPhongVertex structures.  The individual
+     * `display' calls won't do this.
+     */
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+
     while (landscapeRenderQueue.draw_pop(dlt))
     {
-        dlt->initGL();
         dlt->display(
-            landscape_shaderProgram,
             landscape_shaderLight,
             globalLight,
             landscape_clipTransformLocation,
@@ -592,11 +607,25 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
         delete dlt;
     }
 
+    glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
+    glDisableVertexAttribArray(2);
+
     /* Render the entities */
+    /* TODO Change this completely.  I want to have a list
+     * of Shapes (fairly static), and a separate list of
+     * Entity Specifications or something that I enqueue from
+     * the threads.  Each Entity Specification specifies one
+     * instance of an entity (with its own Object describing
+     * its transformation), and I should enqueue a single
+     * instanced draw call packing together all those
+     * specifications to be made at once using OpenGL
+     * geometry instancing.
+     * Bleugghh argh argh :-(
+     */
     AFK_DisplayedEntity *de;
     while (entityRenderQueue.draw_pop(de))
     {
-        de->initGL();
         de->display(
             entity_shaderProgram,
             entity_shaderLight,

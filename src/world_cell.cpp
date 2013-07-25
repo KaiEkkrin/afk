@@ -168,12 +168,14 @@ void AFK_WorldCell::doStartingEntities(
          * usually be none, and have decreasing probabilities
          * from 1 up to max.
          */
+#if 0
         float invMaxEntities = 1.0f / (float)MAX_ENTITIES;       
         float entityCountRandomRange = (float)NO_ENTITIES_BIAS - invMaxEntities;
         float invEntityCount = rng.frand() * entityCountRandomRange + invMaxEntities;
         unsigned int entityCount = (unsigned int)(1.0f / invEntityCount);
+#endif
 
-        for (unsigned int i = 0; i < entityCount; ++i)
+        for (unsigned int i = 0; i < /* entityCount */ 1; ++i)
         {
             AFK_Entity *e = new AFK_Entity();
             e->make(pointSubdivisionFactor, subdivisionFactor, rng);

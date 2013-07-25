@@ -27,11 +27,6 @@ public:
      */
     AFK_DisplayedEntity(AFK_EntityGeometry **_geometry, const AFK_Object *_obj);
 
-    /* Initialises this object with OpenGL.  Calling it again
-     * doesn't do anything in particular.
-     */
-    void initGL(void);
-
     /* Makes the GL render calls to display this object.
      * The entity shader program and the world light are
      * supplied here.

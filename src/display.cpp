@@ -154,7 +154,7 @@ void afk_display(void)
      * I do need to fix the camera transform accuracy bug first
      * though ...
      */
-    //afk_core.protagonist->display(projection);
+    afk_core.protagonist->display(projection);
 
     glFlush();
 

@@ -40,12 +40,11 @@ public:
      */
     void initGL(void);
 
-    /* This makes the GL render calls.  The landscape shader
-     * program is supplied here (there is a single one for
-     * the whole landscape).
+    /* This makes the GL render calls.  It assumes the GL is already
+     * in the context of the landscape shader program and the
+     * correct set of vertex attribute arrays has been enabled.
      */
     void display(
-        AFK_ShaderProgram *shaderProgram,
         AFK_ShaderLight *shaderLight,
         const struct AFK_Light& globalLight,
         GLuint clipTransformLocation,
