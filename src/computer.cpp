@@ -188,9 +188,19 @@ void AFK_Computer::test(unsigned int qId)
     CLCHK(clSetKernelArg(testKernel, 2, sizeof(cl_mem), &res_b))
     CLCHK(clSetKernelArg(testKernel, 3, sizeof(int), &size))
 
-    /* TODO Tweak the doodahs ? */
-    size_t local_ws = 512;
-    size_t global_ws = size + (512 - (size % 512));
+    /* TODO Tweak the doodahs ? 
+     * - For real compute kernels, I need to sort out a way of
+     * picking correct local and global work sizes, and splitting
+     * work into multiple kernels if necessary.  Different devices
+     * have different characteristics: for example I've noticed
+     * the GTX 570 is okay with a local_ws of 512, but the
+     * HD 5850 is not; a local_ws of 64 is okay on the HD 5850
+     * too.
+     * Look at the `local_work_size' argument documentation for
+     * clEnqueueNDRangeKernel().
+     */
+    size_t local_ws = 64;
+    size_t global_ws = size + (64 - (size % 64));
     CLCHK(clEnqueueNDRangeKernel(q[qId], testKernel, 1, NULL, &global_ws, &local_ws, 0, NULL, NULL))
 
     float *readBack = new float[size];
