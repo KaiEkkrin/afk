@@ -22,16 +22,17 @@ enum AFK_Axes
 class AFK_Object
 {
 protected:
-    /* The current accumulated transformation (scale, rotation and translation) */
+    /* The current object scale. */
+    Vec3<float> scale;
+
+    /* The current accumulated movement (rotation and translation) */
     Mat4<float> transform;
 
 public:
     AFK_Object();
 
-    /* Scales the object.
-     * Kinda only makes sense if you call it first ...
-     */
-    void scale(const Vec3<float>& s);
+    /* Scales the object. */
+    void resize(const Vec3<float>& s);
 
     /* Adjusts the attitude of the object (pitch, yaw or roll),
      * which changes its rotation depending on what its current

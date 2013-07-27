@@ -262,27 +262,34 @@ bool AFK_World::generateClaimedWorldCell(
         AFK_Boost_Taus88_RNG staticRng;
         staticRng.seed(cell.rngSeed());
 
-        if (/* !landscapeTile.hasGeometry() ||
-            worldCell.getRealCoord().v[1] >= landscapeTile.getYBoundUpper() */ true)
+        if (!landscapeTile.hasGeometry() ||
+            worldCell.getRealCoord().v[1] >= landscapeTile.getYBoundUpper())
         {
             /* TODO For now, I'm going to just build entities at 
              * one particular LoD.  I need to consider how I
              * work with this ...
              */
-            //if (cell.coord.v[3] == 16) worldCell.doStartingEntities(pointSubdivisionFactor, subdivisionFactor, staticRng);
-            if (cell.coord.v[0] == 0 && cell.coord.v[1] == 0 && cell.coord.v[2] == 0)
+            //if (cell.coord.v[3] == 1024)
+            //if (cell.coord.v[0] == 0 && cell.coord.v[1] == 0 && cell.coord.v[2] == 0)
+            //if (abs(cell.coord.v[0]) <= (1 * cell.coord.v[3]) &&
+            //    abs(cell.coord.v[1]) <= (1 * cell.coord.v[3]) &&
+            //    abs(cell.coord.v[2]) <= (1 * cell.coord.v[3]))
+            {
                 worldCell.doStartingEntities(
                     shape, /* TODO vary shapes! :P */
                     minCellSize,
                     pointSubdivisionFactor,
                     subdivisionFactor,
                     staticRng);
+            }
         }
 
         AFK_ENTITY_LIST::iterator eIt = worldCell.entitiesBegin();
         while (eIt != worldCell.entitiesEnd())
         {
             AFK_Entity *e = *eIt;
+            AFK_ENTITY_LIST::iterator nextEIt = eIt;
+            bool updatedEIt = false;
             if (e->claimYieldLoop(threadId, AFK_CLT_EXCLUSIVE) == AFK_CL_CLAIMED)
             {
                 AFK_Cell newCell;
@@ -302,7 +309,8 @@ bool AFK_World::generateClaimedWorldCell(
                      * cells to always get enumerated regardless of
                      * angle and distance.
                      */
-                    eIt = worldCell.eraseEntity(eIt);
+                    nextEIt = worldCell.eraseEntity(eIt);
+                    updatedEIt = true;
 
                     /* TODO: There is a very tiny possibility of the
                      * following scenario here:
@@ -318,7 +326,6 @@ bool AFK_World::generateClaimedWorldCell(
                     (*worldCache)[newCell].moveEntity(e);
                     entitiesMoved.fetch_add(1);
                 }
-                else ++eIt;
 
                 /* TODO: Collisions probably go here.  I'll no doubt
                  * want to do that in OpenCL for performance, and
@@ -342,6 +349,13 @@ bool AFK_World::generateClaimedWorldCell(
 
                 e->release(threadId, AFK_CL_CLAIMED);
             }
+
+            /* Above, we might have updated nextEIt to point to the
+             * next item to look at (e.g. if we erased an item).
+             * But if we haven't, update the iterator now.
+             */
+            if (updatedEIt) eIt = nextEIt;
+            else ++eIt;
         }
 
         /* Pop any new entities out from the move queue into the

@@ -13,6 +13,8 @@
 
 AFK_Object::AFK_Object()
 {
+    scale = afk_vec3<float>(1.0f, 1.0f, 1.0f);
+
     transform = afk_mat4<float>(
         1.0f,   0.0f,   0.0f,   0.0f,
         0.0f,   1.0f,   0.0f,   0.0f,
@@ -21,13 +23,9 @@ AFK_Object::AFK_Object()
     );
 }
 
-void AFK_Object::scale(const Vec3<float>& s)
+void AFK_Object::resize(const Vec3<float>& s)
 {
-    transform = transform * afk_mat4<float>(
-        s.v[0],     0.0f,       0.0f,       0.0f,
-        0.0f,       s.v[1],     0.0f,       0.0f,
-        0.0f,       0.0f,       s.v[2],     0.0f,
-        0.0f,       0.0f,       0.0f,       1.0f);
+    scale = s;
 }
 
 /* I'm pretty sure that this transformation and the next are
@@ -95,6 +93,10 @@ void AFK_Object::drive(const Vec3<float>& velocity, const Vec3<float>& axisDispl
 
 Mat4<float> AFK_Object::getTransformation() const
 {
-    return transform;
+    return transform * afk_mat4<float>(
+        scale.v[0], 0.0f,       0.0f,       0.0f,
+        0.0f,       scale.v[1], 0.0f,       0.0f,
+        0.0f,       0.0f,       scale.v[2], 0.0f,
+        0.0f,       0.0f,       0.0f,       1.0f);
 }
 

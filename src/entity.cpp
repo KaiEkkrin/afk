@@ -36,7 +36,7 @@ void AFK_Entity::make(
     float minScale = maxScale / (float)subdivisionFactor;
     float objScale = rng.frand() * (maxScale - minScale) + minScale;
 
-    obj.scale(afk_vec3<float>(objScale, objScale, objScale));
+    obj.resize(afk_vec3<float>(objScale, objScale, objScale));
 
     obj.displace(afk_vec3<float>(
         realCoord.v[0] + rng.frand() * realCoord.v[3],
