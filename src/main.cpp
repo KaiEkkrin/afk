@@ -17,6 +17,7 @@
 #include "rng/boost_taus88.hpp"
 #include "rng/test.hpp"
 
+#include "compute_test_long.hpp"
 #include "core.hpp"
 #include "exception.hpp"
 
@@ -45,6 +46,10 @@ int main(int argc, char **argv)
     test_cache();
 #endif
 
+#if TEST_CL
+    afk_testComputeLong();
+#endif
+
 #if TEST_HASH
     test_rotate();
     test_tileHash();
@@ -63,12 +68,6 @@ int main(int argc, char **argv)
     {
         std::cout << "AFK initalising graphics" << std::endl;
         afk_core.initGraphics(&argc, argv);
-
-        std::cout << "AFK initialising compute" << std::endl;
-        afk_core.initCompute();
-#if TEST_CL
-        afk_core.testCompute();
-#endif
 
         std::cout << "AFK configuring" << std::endl;
         afk_core.configure(&argc, argv);

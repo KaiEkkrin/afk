@@ -12,7 +12,6 @@
 #include <boost/lockfree/queue.hpp>
 
 #include "camera.hpp"
-#include "computer.hpp"
 #include "config.hpp"
 #include "data/frame.hpp"
 #include "def.hpp"
@@ -60,9 +59,6 @@ protected:
 public:
     /* General things. */
     AFK_Config          *config;
-
-    /* A wrapper around the compute engine. */
-    AFK_Computer        *computer;
 
     /* The random number generator.
      * TODO: The re-seeding process is serial, and I
@@ -135,8 +131,6 @@ public:
     void initGraphics(int *argcp, char **argv);
     void initCompute(void);
     void configure(int *argcp, char **argv);
-
-    void testCompute(void);
     
     void loop(void);
 

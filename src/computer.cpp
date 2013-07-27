@@ -91,16 +91,16 @@ void AFK_Computer::inspectDevices(cl_platform_id platform, cl_device_type device
 
 /* AFK_Computer implementation */
 
-AFK_Computer::AFK_Computer():
-    activeDevice(0)
+AFK_Computer::AFK_Computer(unsigned int _qCount):
+    activeDevice(0), qCount(_qCount)
 {
     cl_platform_id *platforms;
     unsigned int platformCount;
 
-    clGetPlatformIDs(0, NULL, &platformCount);
+    CLCHK(clGetPlatformIDs(0, NULL, &platformCount))
     platforms = (cl_platform_id *)malloc(sizeof(cl_platform_id) * platformCount);
     if (!platforms) throw AFK_Exception("Unable to allocate memory to inspect OpenCL platforms");
-    clGetPlatformIDs(platformCount, platforms, &platformCount);
+    CLCHK(clGetPlatformIDs(platformCount, platforms, &platformCount))
 
     std::cout << "AFK: Found " << platformCount << " OpenCL platforms" << std::endl;
 
@@ -109,22 +109,31 @@ AFK_Computer::AFK_Computer():
         inspectDevices(platforms[pI], CL_DEVICE_TYPE_GPU);
         inspectDevices(platforms[pI], CL_DEVICE_TYPE_CPU);
     }
+
+    /* Make up the context and queues. */
+    cl_int error;
+    ctxt = clCreateContext(0, 1, &activeDevice, NULL, NULL, &error);
+    handleError(error);
+
+    q = new cl_command_queue[qCount];
+    for (unsigned int qId = 0; qId < qCount; ++qId)
+    {
+        q[qId] = clCreateCommandQueue(ctxt, activeDevice, 0, &error);
+        handleError(error);
+    }
 }
 
-void AFK_Computer::test(void)
+AFK_Computer::~AFK_Computer()
+{
+    for (unsigned int qId = 0; qId < qCount; ++qId)
+        clReleaseCommandQueue(q[qId]);
+    delete[] q;
+    clReleaseContext(ctxt);
+}
+
+void AFK_Computer::test(unsigned int qId)
 {
     cl_int error = 0;
-
-    /* TODO: Try making the CL context, and/or the queues, global,
-     * and/or thread local.  See what happens.  Not sure what I'm
-     * going to want to do yet (although I suspect I'll end up
-     * with everything being thread local.)
-     */
-    cl_context ctxt = clCreateContext(0, 1, &activeDevice, NULL, NULL, &error);
-    handleError(error);
-
-    cl_command_queue q = clCreateCommandQueue(ctxt, activeDevice, 0, &error);
-    handleError(error);
     
     const int size = 10000;
     float* src_a_h = new float[size];
@@ -182,12 +191,17 @@ void AFK_Computer::test(void)
     /* TODO Tweak the doodahs ? */
     size_t local_ws = 512;
     size_t global_ws = size + (512 - (size % 512));
-    CLCHK(clEnqueueNDRangeKernel(q, testKernel, 1, NULL, &global_ws, &local_ws, 0, NULL, NULL))
+    CLCHK(clEnqueueNDRangeKernel(q[qId], testKernel, 1, NULL, &global_ws, &local_ws, 0, NULL, NULL))
 
     float *readBack = new float[size];
-    CLCHK(clEnqueueReadBuffer(q, res_b, CL_TRUE, 0, size * sizeof(float), readBack, 0, NULL, NULL))
+    CLCHK(clEnqueueReadBuffer(q[qId], res_b, CL_TRUE, 0, size * sizeof(float), readBack, 0, NULL, NULL))
     /* TODO Verify that read buffer */
     std::cout << "AFK_Computer: Completed execution of test program" << std::endl;
+
+    std::cout << "AFK_Computer: Start of readback: ";
+    for (int i = 0; i < 10; ++i)
+        std::cout << readBack[i] << " ";
+    std::cout << std::endl;
 
     for (int i = 0; i < size; ++i)
         if (readBack[i] != (src_a_h[i] + src_b_h[i])) throw new AFK_Exception("Failed!");
@@ -200,8 +214,6 @@ void AFK_Computer::test(void)
     clReleaseMemObject(res_b);
     clReleaseMemObject(src_b_b);
     clReleaseMemObject(src_a_b);
-    clReleaseCommandQueue(q);
-    clReleaseContext(ctxt);
 
     delete[] res_h;
     delete[] src_b_h;
