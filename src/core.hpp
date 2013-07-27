@@ -135,6 +135,8 @@ public:
     void initGraphics(int *argcp, char **argv);
     void initCompute(void);
     void configure(int *argcp, char **argv);
+
+    void testCompute(void);
     
     void loop(void);
 

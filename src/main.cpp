@@ -23,6 +23,7 @@
 
 #define TEST_ASYNC 0
 #define TEST_CACHE 0
+#define TEST_CL 1
 #define TEST_HASH 0
 #define TEST_RNGS 0
 #define TEST_SUBSTRATE 0
@@ -63,8 +64,11 @@ int main(int argc, char **argv)
         std::cout << "AFK initalising graphics" << std::endl;
         afk_core.initGraphics(&argc, argv);
 
-        //std::cout << "AFK initialising compute" << std::endl;
+        std::cout << "AFK initialising compute" << std::endl;
         afk_core.initCompute();
+#if TEST_CL
+        afk_core.testCompute();
+#endif
 
         std::cout << "AFK configuring" << std::endl;
         afk_core.configure(&argc, argv);

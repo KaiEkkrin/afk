@@ -332,6 +332,11 @@ void AFK_Core::configure(int *argcp, char **argv)
     sun.diffuse = 1.0f;
 }
 
+void AFK_Core::testCompute(void)
+{
+    computer->test();
+}
+
 void AFK_Core::loop(void)
 {
     /* Shader setup. */
