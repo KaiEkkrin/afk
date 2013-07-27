@@ -17,17 +17,17 @@
  - adjust detail pitch on the fly to maintain a framerate. OK
  - migrate terrain geometry to adjacent cells along the y-axis.  vertical terrain LoD.  OK, but needs changing (see todo_spilling.txt).  OK, changed it.
  - curved terrain (interpolated normals, curved terrain features). OK
- - horizontal stitching: insert the appropriate geometry between two tiles at different LoDs.
- - vertical stitching: insert the appropriate geometry between differently LoD's portions of the same tile.
- - random protagonist with flat surfaces.
- - random entities in each cell.  entity LoD.
- - entity movement.  (simplest AI.)
- - entity/entity collision.
- - entity/terrain collision.
- - entities split into cubes (or something) at different LoDs.  caching and split rendering by a testDetailPitch equivalent.
- - entity LoD stitching.
- - compute location of points-grid with opencl and feed back.
- - opencl random number generator.
- - tessellation example.
- - tessellated landscape.
+ - basic instanced entities.  OK
+ - within-cell collision detection between entities.
+ - within-cell collision detection between entity and terrain.
+ - protagonist as an entity.
+ - proper protagonist/camera relationship (use quaternions to track orientation?  proper inverse matrix to get camera angle?)
+ - use OpenCL to bake terrain.
+ - optimised landscape rendering derived from the above.
+ - shapes split into LoD cubes with random shapes.  (use OpenCL?)
+ - actual entity LoD and stitched rendering.
+ - collision-based vertex lighting model.  ("collide" light source, travelling from origin, to target, with entities and terrain en route).
+ - creation of entities by player.
+ - consider destruction of entities upon collision.
+ - save and load cell state.
 
