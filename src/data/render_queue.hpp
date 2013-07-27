@@ -42,7 +42,7 @@ public:
         delete q[1];
     }
 
-    virtual void flipQueues(void)
+    void flipQueues(void)
     {
         /* Should be called from the main thread while everything
          * is halted (no concurrency issues).
@@ -56,12 +56,12 @@ public:
         drawQueue = (drawQueue == 1 ? 0 : 1);
     }
 
-    virtual void update_push(Renderable& r)
+    void update_push(Renderable& r)
     {
         q[updateQueue]->push(r);
     }
 
-    virtual bool draw_pop(Renderable& r)
+    bool draw_pop(Renderable& r)
     {
         return q[drawQueue]->pop(r);
     }

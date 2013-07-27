@@ -158,6 +158,8 @@ void AFK_WorldCell::testVisibility(const AFK_Camera& camera, bool& io_someVisibl
 }
 
 void AFK_WorldCell::doStartingEntities(
+    AFK_Shape *shape,
+    float minCellSize,
     unsigned int pointSubdivisionFactor,
     unsigned int subdivisionFactor,
     AFK_RNG& rng)
@@ -178,7 +180,7 @@ void AFK_WorldCell::doStartingEntities(
         for (unsigned int i = 0; i < /* entityCount */ 1; ++i)
         {
             AFK_Entity *e = new AFK_Entity();
-            e->make(pointSubdivisionFactor, subdivisionFactor, rng);
+            e->make(shape, cell, minCellSize, pointSubdivisionFactor, subdivisionFactor, rng);
             entities.push_back(e);
         }
 

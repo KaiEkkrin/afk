@@ -18,11 +18,11 @@
 #include "data/evictable_cache.hpp"
 #include "data/render_queue.hpp"
 #include "def.hpp"
-#include "displayed_entity.hpp"
 #include "displayed_landscape_tile.hpp"
 #include "entity.hpp"
 #include "landscape_tile.hpp"
 #include "shader.hpp"
+#include "shape.hpp"
 #include "tile.hpp"
 #include "world_cell.hpp"
 
@@ -112,8 +112,7 @@ protected:
     /* Entity shader details. */
     AFK_ShaderProgram *entity_shaderProgram;
     AFK_ShaderLight *entity_shaderLight;
-    GLuint entity_worldTransformLocation;
-    GLuint entity_clipTransformLocation;
+    GLuint entity_projectionTransformLocation;
 
     /* The cache of world cells we're tracking.
      */
@@ -139,11 +138,10 @@ protected:
      */
     AFK_RenderQueue<AFK_DisplayedLandscapeTile*> landscapeRenderQueue;
 
-    /* The entity render queue.
-     * Again, these are transient objects, delete them
-     * after rendering.
+    /* TODO Deal with multiple shapes.  In whatever way.
+     * I don't know.  :/  For now, I'll just have one.
      */
-    AFK_RenderQueue<AFK_DisplayedEntity*> entityRenderQueue;
+    AFK_Shape *shape;
 
     /* The cell generating gang */
     AFK_AsyncGang<struct AFK_WorldCellGenParam, bool> *genGang;

@@ -243,6 +243,11 @@ public:
         if (promise) delete promise;
     }
 
+    size_t getConcurrency(void) const
+    {
+        return workers.size();
+    }
+
     bool assertNoQueuedWork(void)
     {
         return queue.finished();

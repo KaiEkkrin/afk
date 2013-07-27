@@ -1,3 +1,5 @@
+// AFK (c) Alex Holloway 2013
+//
 // This is the landscape vertex shader.
 // It doesn't do anything in particular -- the projection happens
 // in the geometry shader.

@@ -12,6 +12,7 @@
 #include "data/claimable.hpp"
 #include "entity.hpp"
 #include "rng/rng.hpp"
+#include "shape.hpp"
 #include "world.hpp"
 
 
@@ -80,7 +81,12 @@ public:
     void testVisibility(const AFK_Camera& camera, bool& io_someVisible, bool& io_allVisible) const;
 
     /* Gives this cell a starting entity set, if required. */
-    void doStartingEntities(unsigned int pointSubdivisionFactor, unsigned int subdivisionFactor, AFK_RNG& rng);
+    void doStartingEntities(
+        AFK_Shape *shape,
+        float minCellSize,
+        unsigned int pointSubdivisionFactor,
+        unsigned int subdivisionFactor,
+        AFK_RNG& rng);
 
     /* Iterates through this cell's entities. */
     AFK_ENTITY_LIST::iterator entitiesBegin(void);

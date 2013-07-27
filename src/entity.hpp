@@ -13,18 +13,7 @@
 #include "display.hpp"
 #include "object.hpp"
 #include "rng/rng.hpp"
-
-class AFK_DisplayedEntity;
-
-/* This class contains an entity's geometry buffers. */
-class AFK_EntityGeometry
-{
-public:
-    AFK_DisplayedBuffer<struct AFK_VcolPhongVertex>     vs;
-    AFK_DisplayedBuffer<Vec3<unsigned int> >            is;
-
-    AFK_EntityGeometry(size_t vCount, size_t iCount);
-};
+#include "shape.hpp"
 
 /* An Entity is a moveable object that exists within the
  * world cells.
@@ -32,6 +21,12 @@ public:
  * out an exclusive claim on it to ensure each one is
  * only processed once per frame.  It isn't cached, though:
  * instead they are stored within the world cells.
+ * An Entity does not have its own geometry.  Instead, it
+ * refers to a Shape (which does).  The idea is that I'll
+ * make many Entities with the same Shapes, and use
+ * OpenGL geometry instancing to draw them all at once.
+ * If I don't do that, I won't be able to produce the swarms
+ * of Entities that I really want to be able to produce. :)
  */
 class AFK_Entity: public AFK_Claimable
 {
@@ -41,15 +36,10 @@ protected:
      * the GPU ...) into entity geometry?
      */
 
-    /* This object's geometry.  (Owned by the entity,
-     * flushed along with it.)
-     * TODO: As per this design, every entity is unique. That's
-     * great, but not very scalable.  How about having lots of
-     * entities and a smaller number of different geometries,
-     * so that the identical ones can be replicated by the
-     * GPU using instancing?
+    /* This object's shape.  We don't own this pointer -- it's
+     * from the world shape list.
      */
-    AFK_EntityGeometry *geometry;
+    AFK_Shape *shape;
 
     /* Describes where this entity is located. */
     AFK_Object obj;
@@ -69,11 +59,15 @@ protected:
     boost::posix_time::ptime lastMoved;
 
 public:
-    AFK_Entity();
     virtual ~AFK_Entity();
 
-    /* Makes the entity's geometry. */
+    /* Makes the entity.  Basically, it places the given
+     * shape within the cell.
+     */
     void make(
+        AFK_Shape *_shape,
+        const AFK_Cell& cell,
+        float minCellSize,
         unsigned int pointSubdivisionFactor,
         unsigned int subdivisionFactor,
         AFK_RNG& rng);
@@ -82,17 +76,19 @@ public:
      * move out of its cell, fills out the co-ordinates of the
      * new cell it should go to and returns true; otherwise,
      * returns false.
+     * TODO: In future after I've got the entity drawing
+     * stuff nailed nicely, I'd like to be able to place
+     * all the Entities into an array and have OpenCL
+     * animate them all at once.  That would be much nicer...
      */
-    bool animate(const boost::posix_time::ptime& now, const AFK_Cell& cell, float minCellSize, AFK_Cell& o_newCell);
+    bool animate(
+        const boost::posix_time::ptime& now,
+        const AFK_Cell& cell,
+        float minCellSize,
+        AFK_Cell& o_newCell);
 
-    /* Allocates and returns the DisplayedEntity object that
-     * can actually render this entity.
-     * I've done it like this because although there aren't
-     * now, in future an entity will be rendered within a
-     * context that changes every frame (applicable lights,
-     * shadows, etc.)
-     */
-    AFK_DisplayedEntity *makeDisplayedEntity(void);
+    /* Enqueues this entity for drawing. */
+    void enqueueForDrawing(unsigned int threadId);
 
     /* AFK_Claimable implementation. */
     virtual AFK_Frame getCurrentFrame(void) const;

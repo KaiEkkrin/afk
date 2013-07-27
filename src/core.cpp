@@ -354,14 +354,10 @@ void AFK_Core::loop(void)
     int windowHeight = glutGet(GLUT_WINDOW_HEIGHT);
     camera->setWindowDimensions(windowWidth, windowHeight);
 
-    /* Move the camera and protagonist to somewhere close to the terrain
-     * so they can see
-     * TODO: Better, evaluate the terrain in the protagonist's cell and
-     * move the protagonist to just above it!
+    /* TODO: Move the camera to somewhere above the landscape to
+     * start with.
+     * (A bit unclear how to best do this ... )
      */
-    Vec3<float> startingPosition = afk_vec3<float>(0.0f, 16.0f, 0.0f);
-    protagonist->object.displace(startingPosition);
-    camera->displace(startingPosition);
 
     /* Pull the pointer into the middle before I begin so that
      * I don't start with a massive mouse axis movement right

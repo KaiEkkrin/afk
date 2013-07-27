@@ -271,7 +271,12 @@ bool AFK_World::generateClaimedWorldCell(
              */
             //if (cell.coord.v[3] == 16) worldCell.doStartingEntities(pointSubdivisionFactor, subdivisionFactor, staticRng);
             if (cell.coord.v[0] == 0 && cell.coord.v[1] == 0 && cell.coord.v[2] == 0)
-                worldCell.doStartingEntities(pointSubdivisionFactor, subdivisionFactor, staticRng);
+                worldCell.doStartingEntities(
+                    shape, /* TODO vary shapes! :P */
+                    minCellSize,
+                    pointSubdivisionFactor,
+                    subdivisionFactor,
+                    staticRng);
         }
 
         AFK_ENTITY_LIST::iterator eIt = worldCell.entitiesBegin();
@@ -332,12 +337,8 @@ bool AFK_World::generateClaimedWorldCell(
                  * And some day, the list of shadows that apply,
                  * too.  Rah!
                  */
-                AFK_DisplayedEntity *de = e->makeDisplayedEntity();
-                if (de)
-                {
-                    entityRenderQueue.update_push(de);
-                    entitiesQueued.fetch_add(1);
-                }
+                e->enqueueForDrawing(threadId);
+                entitiesQueued.fetch_add(1);
 
                 e->release(threadId, AFK_CL_CLAIMED);
             }
@@ -399,7 +400,6 @@ AFK_World::AFK_World(
         detailPitch(_startingDetailPitch), /* This is a starting point */
         renderDetailPitch(_startingDetailPitch),
         landscapeRenderQueue(10000),
-        entityRenderQueue(10000),
         maxDistance(_maxDistance),
         subdivisionFactor(_subdivisionFactor),
         pointSubdivisionFactor(_pointSubdivisionFactor),
@@ -426,6 +426,9 @@ AFK_World::AFK_World(
                 AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>&)>(afk_generateWorldCells),
             100);
 
+    /* Set up the shapes.  TODO more than one ?! */
+    shape = new AFK_ShapeChevron(genGang->getConcurrency());
+
     /* Set up the landscape shader. */
     landscape_shaderProgram = new AFK_ShaderProgram();
     *landscape_shaderProgram << "landscape_fragment" << "landscape_geometry" << "landscape_vertex";
@@ -439,13 +442,17 @@ AFK_World::AFK_World(
 
     entity_shaderProgram = new AFK_ShaderProgram();
     /* TODO How much stuff will I need here ? */
-    *entity_shaderProgram << "vcol_phong_fragment" << "vcol_phong_vertex";
+    /* TODO I'm going to need to change this to its own
+     * program.  And sort out the whole ruddy business
+     * with the uniform buffer into which I pass the
+     * transformation matrices (and pretty soon, the
+     * light list).  Narghle narghle!!
+     */
+    *entity_shaderProgram << "shape_fragment" << "shape_vertex";
     entity_shaderProgram->Link();
 
     entity_shaderLight = new AFK_ShaderLight(entity_shaderProgram->program);
-
-    entity_worldTransformLocation = glGetUniformLocation(entity_shaderProgram->program, "WorldTransform");
-    entity_clipTransformLocation = glGetUniformLocation(entity_shaderProgram->program, "ClipTransform");
+    entity_projectionTransformLocation = glGetUniformLocation(entity_shaderProgram->program, "ProjectionTransform");
 
     /* Initialise the statistics. */
     cellsInvisible.store(0);
@@ -467,6 +474,7 @@ AFK_World::~AFK_World()
 
     delete landscapeCache;
     delete worldCache;
+    delete shape;
 
     delete landscape_shaderProgram;
     delete landscape_shaderLight;
@@ -506,7 +514,6 @@ void AFK_World::flipRenderQueues(void)
         threadEscapes.fetch_add(1);
 
     landscapeRenderQueue.flipQueues();
-    entityRenderQueue.flipQueues();
 }
 
 void AFK_World::alterDetail(float adjustment)
@@ -588,13 +595,21 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     glUseProgram(landscape_shaderProgram->program);
 
     /* Put the GL into the right shape to draw a bunch of
-     * VAOs in AFK_VcolPhongVertex structures.  The individual
+     * AFK_VcolPhongVertex structures.  The individual
      * `display' calls won't do this.
      */
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
 
+    /* TODO Does it turn out, in fact, that I CAN optimise this
+     * to not be making one draw call per cell using VAOs?  Can
+     * I specify a VAO that contains a list of the GL references
+     * to buffers that I've already cached?  Argh, my brain
+     * hurts :/  Read and understand 
+     * http://ogldev.atspace.co.uk/www/tutorial32/tutorial32.html
+     * !!!
+     */
     while (landscapeRenderQueue.draw_pop(dlt))
     {
         dlt->display(
@@ -611,30 +626,22 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     glDisableVertexAttribArray(1);
     glDisableVertexAttribArray(2);
 
-    /* Render the entities */
-    /* TODO Change this completely.  I want to have a list
-     * of Shapes (fairly static), and a separate list of
-     * Entity Specifications or something that I enqueue from
-     * the threads.  Each Entity Specification specifies one
-     * instance of an entity (with its own Object describing
-     * its transformation), and I should enqueue a single
-     * instanced draw call packing together all those
-     * specifications to be made at once using OpenGL
-     * geometry instancing.
-     * Bleugghh argh argh :-(
-     */
-    AFK_DisplayedEntity *de;
-    while (entityRenderQueue.draw_pop(de))
-    {
-        de->display(
-            entity_shaderProgram,
-            entity_shaderLight,
-            globalLight,
-            entity_worldTransformLocation,
-            entity_clipTransformLocation,
-            projection);
-        delete de;
-    }
+    /* Render the shapes */
+    glUseProgram(entity_shaderProgram->program);
+
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+
+    shape->display(
+        entity_shaderLight,
+        globalLight,
+        entity_projectionTransformLocation,
+        projection);
+
+    glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
+    glDisableVertexAttribArray(2);
 }
 
 /* Worker for the below. */

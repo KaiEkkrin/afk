@@ -3,15 +3,28 @@
 #ifndef _AFK_CAMERA_H_
 #define _AFK_CAMERA_H_
 
+#include "def.hpp"
 #include "object.hpp"
 
-/* The Camera is a kind of Object.  It moves the same way. */
-
-class AFK_Camera: public AFK_Object
+class AFK_Camera
 {
 protected:
+    /* This matrix represents where the camera is in space.
+     * It's actually done like the Object transform matrix,
+     * but inverted.
+     * TODO: This causes us to track badly with an actual
+     * Object.  I'd like to change this to an easily
+     * invertable co-ordinate system to get rid of the
+     * problem, but OMG, so hard
+     */
+    Mat4<float> location;
+
     /* The projection is wanted lots so cache it here. */
     Mat4<float> projection;
+
+    /* Internal helpers that work like the Object functions. */
+    void adjustAttitude(enum AFK_Axes axis, float c);
+    void displace(const Vec3<float>& v);
 
     /* Worker function -- update the projection when
      * something has changed
@@ -38,9 +51,8 @@ public:
     /* Need to call this before the camera is properly set up */
     void setWindowDimensions(int width, int height);
 
-    /* Camera displacement is inverted */
-    void adjustAttitude(enum AFK_Axes axis, float c);
-    void displace(const Vec3<float>& v);
+    /* Like the Object function. */
+    void drive(const Vec3<float>& velocity, const Vec3<float>& axisDisplacement);
 
     const Mat4<float>& getProjection() const;
 };

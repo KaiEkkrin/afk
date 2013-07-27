@@ -1,3 +1,5 @@
+// AFK (c) Alex Holloway 2013
+//
 // This is the landscape geometry shader.
 // It accepts VertexData as produced by the landscape vertex
 // shader and culls triangles that are outside of the
