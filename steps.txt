@@ -27,7 +27,11 @@
  - shapes split into LoD cubes with random shapes.  (use OpenCL?)
  - actual entity LoD and stitched rendering.
  - collision-based vertex lighting model.  ("collide" light source, travelling from origin, to target, with entities and terrain en route).
- - creation of entities by player.
+ - creation of entities by player.  See guns.txt.
  - consider destruction of entities upon collision.
  - save and load cell state.
+ - share world across a network (synchronise seed, parameters that affect object generation).
+ - share cell state across a network.
+ - second protagonist on another networked node.
+ - more than two nodes in the network.
 

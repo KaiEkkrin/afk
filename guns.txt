@@ -1,0 +1,13 @@
+For AFK to be an interesting experience for the player, the basic thing to do might be to be able to affect the world by shooting things from the protagonist:
+ - Balls: simple massy objects.  Affected by gravity.  Bounce.  The protagonist has a finite supply and loses the ball's mass when shooting one.
+ - Darts: like balls but have lift.  And low air resistance.  So travel much further.
+ - Missiles: like darts but also have an engine and a bit of AI.  Typically try to home in on a thing.
+ - Lasers: no mass, just cause objects to break.
+ - Ray guns: like lasers, but fire lighted massless bolts with a travel time.  (Again, intersecting in the physics model causes an instant strength check fail of the object.)
+ - Glue globs: like balls, but highly sticky, so they adhere to the landscape and each other
+ - Lasso: pick up other objects, and let go to throw them.
+ - Painter: like the laser, but instead of breaking objects / the landscape, it effects colour changes.
+ - Recharge points on the landscape / objects to collect more of the above.
+ - Magnet -- applies attractive or repulsive force?
+
+

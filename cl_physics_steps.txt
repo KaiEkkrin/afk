@@ -1,0 +1,181 @@
+I want to do the physics model in OpenCL.  Partly because I think there will be plenty of computations and it'll be more efficient, partly just because I think it's interesting.
+
+Here are my physics steps (hopefully most short).
+
+ - OpenCL test program that computes a pile of things and returns the result.  (Let's make sure it works.)
+ - The same, but from the thread pool.
+ - If the above doesn't work (problems with concurrent OpenCL contexts?), fix a queueing thing and a dedicated OpenCL thread so that it *can* work.
+ - Rearrange the Entities so that each cell has a flat list of them.  No pointers: small, trivially assignable objects, one after the other in memory, so that I can dump them all into OpenCL at once.
+   Each Entity is split into an array of per-vertex information.  My physics model will involve vertices (the subjects) interacting with triangles (the objects).  For each cell, all this information gets concatenated for each shape and entity so that I can have (at most) one OpenCL call per cell (although I probably want to be more aggressive with queueing and try to make one big long list per thread and a single invocation in order to be efficient, later).
+
+   o Vertex location (Vec3<float>).
+   o Vertex colour (Vec3<float>) -- unused.
+   o Vertex normal (Vec3<float>).
+
+   Each Shape also has its index information describing its triangles:
+
+   o Vertex indices (Vec3<unsigned int>).
+
+   Separately, there is an array of per-Entity information:
+
+   o Identity, indexing into the array of vertices.
+   o Number of entries in the vertex array?
+   o Identity, indexing into the array of indices.
+   o Separately, number of entries in the index array?
+   o Instance object (AFK_Object).
+   o Velocity (Vec3<float>).
+   o Angular velocity (Vec3<float>).
+
+   Because each Entity is flat (so that I can shovel a big array into OpenCL), but the
+   entities per cell are dynamic, I'm going to want a separate list of indices into
+   the per-Entity array as well:
+
+   o Entity indices (unsigned byte).
+
+   I will want to create a new data structure that holds both this array, and a queue
+   of free entries that I can use to slot moved entities.  Yes, I've made a simple heap
+   again, argh.  ;)
+
+ - Very simplest simulation with no collisions.  Do in OpenCL what AFK_Entity::animate() currently does: displace the instance object based on the velocity and angular velocity.  (Does this get written back to the per-Entity information array, or does it go to a different array?)
+ - Next simplest simulation.  For each Entity:
+   o Iterate through each of its vertices.  For each vertex:
+     x Transform it by the object to find out where that entity's vertex is
+     x Further transform that vertex by the velocity to get where it will end up
+     x For each triangle in the indices list:
+       - Transform each of its vertices by the object to find out where it really is
+       - Intersect the movement line with the triangle
+       - If they cross, interpolate the normals to find the angle of attack
+       - Using the angle of attack and a simple conservation of velocity, calculate a new velocity for the object
+       - Using the distance it travelled before hitting and the new velocity, displace the object appropriately.
+     x If the object intersected with nothing, displace it to its final position
+       as indicated by the displacement thing only.
+
+ - When the OpenCL program finishes, on the CPU I'll need to take the results and
+   rationalise them, and update the actual Entities.  I don't know how smooth this
+   process will end up being.  Read the OpenCL API and try to minimise calls to
+   memcpy() :).
+
+ - Do I want to turn this into a 2-stage process:
+   o Stage 1: For each Entity, create the array of object-transformed vertices for it
+     (both pre- and post- velocity).
+   o Stage 2: For each line (pre-velocity to post-velocity vertex), intersect it with
+     the triangle as described above.
+
+ - Cell movement in OpenCL:
+   o It would seem quite simple to do this too.
+   o Each Entity gains its Cell (Vec4<long long>)_
+   o The OpenCL kernel gains a uniform variable (float) minCellSize.
+   o After moving each object, calculate its home cell and update it.
+   o After the OpenCL kernel has run, on the CPU I need to scan through the home
+     cells and move each object whose cell has changed to the new world cell.
+
+ - Collision with the landscape too:
+   o Include the per-vertex information for the local landscape tile.  (Along with
+     the y culling stuff so that I can reject a lot of triangles).
+   o The landscape tiles don't move and only ever objects of a collision, not
+     subjects.
+
+ - First plausible simulation:
+   o Each Entity gains a Mass (float) and a Centre of Mass (Vec3<float>).
+   o Each Vertex gains a back-reference to its Entity (which I might be adding in Stage 1
+     of the above 2-stage process).
+   o When the intersections cross, look up the Entity I'm colliding with.
+   o Use conservation of momentum (and assume conservation of energy: a perfectly
+     elastic collision -- I'll need to write down the maths) to determine a new
+     velocity for both subject *and* object.
+   o From that, displace both subject *and* object Entities.
+
+ - Elasticity:
+   o Each Entity also gains an Elasticity value (float) between 0 and 1.  1 means
+     perfectly elastic collisions (like above).  0 means the two objects get glued
+     together.  Write down some maths to create a continuum between these two.
+   o When the intersections cross, choose an overall elasticity for the collision
+     (e.g. by averaging the elasticities of the two different entities).
+   o Change the new-velocity calculation to the the collision's elasticity into
+     account using the maths above.
+     Experiment with negative elasticities (floor the calculated collision
+     elasticity at 0) to simulate "sticky" objects (which would be really nice
+     for "painting" stuff onto the landscape or other things.)
+
+ - Rotation:
+   o In order to successfully collide and provoke rotations, I need to do all the
+     stuff above with linear velocity, but with angular velocity too.  In order
+     to do that, I need to be able to tot up a collection of angular velocities
+     about different axes, and apply them over a period of time.  I need to look
+     up a good way to represent this mathematically.  (I've got a feeling I want
+     to understand those good old Quaternions at last).
+   o For each object, apply conservation of angular momentum, conservation of
+     "angular kinetic energy" (hey, an obvious analogue) modulated by the
+     computed elasticity (same as above) to provoke a change in the object's
+     angular velocity (and, of course, its final displacement, which now needs
+     to be computed out of both).
+
+ - Gravity:
+   o As well as doing collisions, each object's movement is modified by gravity:
+     a fixed downwards acceleration (feed into the OpenCL kernel as a uniform
+     variable).  This ought to be awkward because it causes an object's movement
+     to no longer be linear.  However, I think I'll be running the physics
+     simulation at a high enough rate (by necessity) that I can get away with
+     pretending all movement is linear from one frame of the simulation to the
+     next: so, just apply the gravity modification to the final velocity and
+     be done with it.
+   o I can simply simulate the aerodynamic effect of "lift" by adding that as
+     a new coefficient to each Entity.  Based on Speed: an Entity that has Lift
+     feels the full effect of gravity at Speed 0, none at all at square(Speed)
+     greater than equal to Lift, and a linear interpolation in between (that's
+     a wild guess, but it would seem appropriate.  Note the use of square(Speed)
+     not Speed, which is quicker to compute anyway from the velocity, by
+     Pythagoras.)
+   o Can I make "lift" only work along one vector (so that an entity needs to
+     have forward or reverse speed in that direction in order to gain its
+     immunity to gravity)?
+   o Remember to start the protagonist off going fast enough that its Lift is
+     keeping it in the air!
+
+ - Air resistance:
+   o Similarly, this is a modifier to the final velocity, in this case a
+     global coefficient that restricts speed by coeff * square(speed) but
+     doesn't modify its direction.  As with gravity, I can probably get away
+     with pretending all movement is linear during the frame.
+   o At this point, the protagonist controls can apply a force (which results in
+     an acceleration), and the protagonist will correctly have a terminal
+     velocity (yay).  It might also be useful to give the protagonist an "air
+     brake" control, which would hugely increase its air resistance (therefore
+     slowing its movement, to help recover from any collision).  Although ideally,
+     I'll want to couple that with air resistance affecting angular velocity
+     (below)!
+
+ - Aerodynamic objects:
+   o An object may be heading in any direction, so I want a quick computation of
+     its aerodynamic cross-section in that direction.  Try projecting all its points
+     onto the plane that crosses its centre of mass and whose normal faces the
+     direction of motion.  The sum of the squares of the distances of the vertices
+     from the centre of mass represents a coefficient to multiply the air
+     resistance by.
+
+ - Gravity and air resistance applied to angular velocity:
+   o Compute the instantaneous linear velocity at a point due to the angular
+     velocity of the object.  Apply the above aerodynamics to slow the angular
+     velocity too.
+   o I've no idea how gravity might affect angular velocity.  I suggest to just
+     ignore the idea.  Air resistance will give the desired effect of slowing
+     angular velocity over time.
+
+ - Strength:
+   o Entities gain a new property "strength" (float).  If a collision results
+     in an imparting of kinetic energy that is greater than the entity's
+     "strength" value it instead shatters into a bunch of new entities
+     ("shards"?  I could use a generic entity modified by the object's
+     colours, or all sorts depending on how I'm generating exciting objects).
+     I then have a new computation that distributes the momentum and kinetic
+     energy of the object at the point it broke, between the shards.
+   o If the entity that broke was the protagonist, the controls should stop
+     working!  :P
+
+ - String.  Ties two entities together.  May have stretchiness.
+   o TODO -- think about this.
+
+Once I've gotten to the end of this list, I will have a wonderful physics
+simulation and I should work on other stuff, see the general "steps.txt"
+list.
+
