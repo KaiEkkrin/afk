@@ -1,6 +1,7 @@
 Oh dear.  The way cl_gl works is that you allocate a buffer with the GL, and then you bind it to a CL context.  This pretty much necessitates pre-making the buffers, because the GL context is bound to the main thread.
 Therefore.
  - Use clGetGLContextInfoKHR() to determine which CL device matches the graphics device.
+ - To begin with, have AFK_Computer hold a single CL context and queue, and lock across enqueueing things to the CL queue.  If this appears to be really hurting, try multiple contexts -- but I'll need to map the big buffers (below!) to each context, which might not work well!
  - Make large GL buffer for all the landscape tile vertex data.  (Work out the amount of RAM available on the graphics device and divide it up suitably.)
  - Heapify that GL buffer: each landscape tile will take the same amount of data.  I will need a queue of free slots.
  - Bind a matchingly large CL buffer to the GL buffer.  It will be READ_WRITE.
