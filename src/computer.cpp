@@ -141,7 +141,7 @@ void AFK_Computer::test(unsigned int qId)
     float* res_h = new float[size];
     // Initialize both vectors
     for (int i = 0; i < size; i++) {
-        src_a_h[i] = src_b_h[i] = (float) i;
+        src_a_h[i] = src_b_h[i] = (float) i * (float)qId;
     }
 
     cl_mem src_a_b = clCreateBuffer(ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, size * sizeof(float), src_a_h, &error);
@@ -214,7 +214,7 @@ void AFK_Computer::test(unsigned int qId)
     std::cout << std::endl;
 
     for (int i = 0; i < size; ++i)
-        if (readBack[i] != (src_a_h[i] + src_b_h[i])) throw new AFK_Exception("Failed!");
+        if (readBack[i] != ((float)qId * (float)i * 2.0f)) throw new AFK_Exception("Failed!");
 
     std::cout << "AFK_Computer: Test program completed successfully" << std::endl;
 
