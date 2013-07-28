@@ -4,7 +4,7 @@ Import('compiler')
 Import('extra_ccflags')
 Import('extra_ldflags')
 
-afk_sources = Glob('*.cpp') + Glob('async/*.cpp') + Glob('data/*.cpp') + Glob('rng/*.cpp')
+afk_sources = Glob('*.cpp') + Glob('async/*.cpp') + Glob('data/*.cpp') + Glob('file/*.cpp') + Glob('rng/*.cpp')
 afk_libs = ['boost_chrono', 'boost_random', 'boost_system', 'boost_thread', 'crypto', 'GL', 'GLU', 'GLEW', 'glut', 'OpenCL']
 afk_ld_libs = ['m', 'pthread', 'stdc++']
 afk_ccflags = ['-Wall', '-Werror']
@@ -23,4 +23,7 @@ else:
 
 for shader in Glob('shaders/*.glsl'):
     File(shader)
+
+for clProg in Glob('compute/*.cl'):
+    File(clProg)
 

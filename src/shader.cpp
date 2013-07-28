@@ -2,16 +2,11 @@
 
 #include "afk.hpp"
 
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
 #include <iostream>
 #include <sstream>
 
 #include "exception.hpp"
+#include "file/readfile.hpp"
 #include "shader.hpp"
 
 struct shaderSpec shaders[] = {
@@ -33,51 +28,17 @@ struct shaderSpec shaders[] = {
 /* Loads a shader from the given file. */
 static void loadShaderFromFile(struct shaderSpec *s)
 {
-    FILE *f = NULL;
     GLchar *data[1] = { 0 };
     GLint lengths[1] = { 0 };
+    size_t sLength = 0;
     int success = 0;
+    std::ostringstream errStream;
 
     std::cout << "AFK: Loading shader: " << s->filename << std::endl;
+    if (!afk_readFileContents(s->filename, data, &sLength, errStream))
+        throw AFK_Exception("AFK_Shader: " + errStream.str());
 
-    /* Load the shader text from the file */
-
-    f = fopen(s->filename.c_str(), "rb");
-    if (!f) throw AFK_Exception("AFK_Shader: Failed to open " + s->filename + ": " + strerror(errno));
-
-    if (fseek(f, 0, SEEK_END) != 0)
-        throw AFK_Exception("AFK_Shader: Failed to seek to end of " + s->filename + ": " + strerror(errno));
-
-    lengths[0] = ftell(f);
-    if (lengths[0] < 0)
-        throw AFK_Exception("AFK_Shader: Failed to find size of " + s->filename + ": " + strerror(errno));
-
-    if (fseek(f, 0, SEEK_SET) != 0)
-        throw AFK_Exception("AFK_Shader: Failed to seek to beginning of " + s->filename + ": " + strerror(errno));
-
-    data[0] = (char *) malloc(sizeof(char) * lengths[0]);
-    if (!data[0])
-    {
-        std::ostringstream errmess;
-        errmess << "AFK_Shader: Failed to allocate " << lengths[0] << "bytes for file " << s->filename;
-        throw AFK_Exception(errmess.str());
-    }
-
-    {
-        char *read_pos = data[0];
-        int length_left = lengths[0];
-        int length_read;
-
-        while (!feof(f) && length_left > 0)
-        {
-            length_read = fread(read_pos, 1, length_left, f);
-            if (length_read == 0 && ferror(f))
-                throw AFK_Exception("AFK_Shader: Failed to read from " + s->filename + ": " + strerror(errno));
-
-            read_pos += length_read;
-            length_left -= length_read;
-        }
-    }
+    lengths[0] = (GLint)sLength;
 
     /* Compile the shader */
 
@@ -97,24 +58,22 @@ static void loadShaderFromFile(struct shaderSpec *s)
     free(data[0]);
 }
 
-void afk_loadShaders(const char *shadersDir)
+void afk_loadShaders(const std::string& shadersDir)
 {
     int shIdx;
-    char *savedDir = NULL;
+    std::ostringstream errStream;
 
     /* We chdir() into the shaders directory to load this stuff, so save
      * out the previous directory to go back to afterwards. */
-    savedDir = get_current_dir_name();
-    if (chdir(shadersDir) == -1)
-        throw AFK_Exception(std::string("AFK_Shader: Unable to switch to shaders dir ") + shadersDir + ": " + strerror(errno));
+    
+    if (!afk_pushDir(shadersDir, errStream))
+        throw AFK_Exception("AFK_Shader: Unable to switch to shaders dir: " + errStream.str());
 
     for (shIdx = 0; !shaders[shIdx].filename.empty(); ++shIdx)
         loadShaderFromFile(&shaders[shIdx]);
 
-    if (chdir(savedDir) == -1)
-        std::cerr << "Couldn\'t return to saved directory " << savedDir << "; ignoring" << std::endl;
-
-    free(savedDir);
+    if (!afk_popDir(errStream))
+        throw AFK_Exception("AFK_Shader: Unable to leave shaders dir: " + errStream.str());
 }
 
 

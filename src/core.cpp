@@ -6,6 +6,7 @@
 
 #include <boost/thread/future.hpp>
 
+#include "compute_test_long.hpp"
 #include "core.hpp"
 #include "debug.hpp"
 #include "def.hpp"
@@ -230,6 +231,7 @@ AFK_Core::AFK_Core():
     calibrationError(0),
     glGarbageBufs(1000),
     config(NULL),
+    computer(NULL),
     rng(NULL),
     camera(NULL),
     world(NULL),
@@ -240,6 +242,7 @@ AFK_Core::AFK_Core():
 AFK_Core::~AFK_Core()
 {
     if (config) delete config;
+    if (computer) delete computer;
     if (rng) delete rng;
     if (camera) delete camera;
     if (world) delete world;
@@ -324,6 +327,18 @@ void AFK_Core::configure(int *argcp, char **argv)
     sun.diffuse = 1.0f;
 }
 
+void AFK_Core::initCompute(void)
+{
+    computer = new AFK_Computer(config->concurrency);
+    std::string clProgramsDirStr(config->clProgramsDir);
+    computer->loadPrograms(clProgramsDirStr);
+}
+
+void AFK_Core::testCompute(void)
+{
+    afk_testComputeLong(computer, config->concurrency);
+}
+
 void AFK_Core::loop(void)
 {
     /* Shader setup. */
@@ -337,7 +352,8 @@ void AFK_Core::loop(void)
         config->subdivisionFactor,
         config->pointSubdivisionFactor,
         config->minCellSize,
-        config->startingDetailPitch
+        config->startingDetailPitch,
+        config->concurrency
         );
     protagonist = new AFK_DisplayedProtagonist();
 

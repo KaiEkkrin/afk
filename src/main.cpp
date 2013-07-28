@@ -46,10 +46,6 @@ int main(int argc, char **argv)
     test_cache();
 #endif
 
-#if TEST_CL
-    afk_testComputeLong();
-#endif
-
 #if TEST_HASH
     test_rotate();
     test_tileHash();
@@ -73,6 +69,12 @@ int main(int argc, char **argv)
         afk_core.configure(&argc, argv);
 
         std::cout << "AFK Using master seed: " << afk_core.config->masterSeed << std::endl;
+
+        std::cout << "AFK initialising compute" << std::endl;
+        afk_core.initCompute();
+#if TEST_CL
+        afk_core.testCompute();
+#endif
 
         std::cout << "AFK starting loop" << std::endl;
         afk_core.loop();

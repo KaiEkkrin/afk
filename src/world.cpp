@@ -409,7 +409,8 @@ AFK_World::AFK_World(
     unsigned int _subdivisionFactor,
     unsigned int _pointSubdivisionFactor,
     float _minCellSize,
-    float _startingDetailPitch):
+    float _startingDetailPitch,
+    unsigned int concurrency):
         startingDetailPitch(_startingDetailPitch),
         detailPitch(_startingDetailPitch), /* This is a starting point */
         renderDetailPitch(_startingDetailPitch),
@@ -438,10 +439,10 @@ AFK_World::AFK_World(
     genGang = new AFK_AsyncGang<struct AFK_WorldCellGenParam, bool>(
             boost::function<bool (unsigned int, const struct AFK_WorldCellGenParam,
                 AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>&)>(afk_generateWorldCells),
-            100);
+            100, concurrency);
 
     /* Set up the shapes.  TODO more than one ?! */
-    shape = new AFK_ShapeChevron(genGang->getConcurrency());
+    shape = new AFK_ShapeChevron(concurrency);
 
     /* Set up the landscape shader. */
     landscape_shaderProgram = new AFK_ShaderProgram();

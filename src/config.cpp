@@ -12,6 +12,7 @@
 #include <utility>
 
 #include <boost/random/random_device.hpp>
+#include <boost/thread/thread.hpp>
 
 #include "config.hpp"
 #include "exception.hpp"
@@ -56,6 +57,9 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     framesPerCalibration        = 8;
     assumeVsync                 = false;
 
+    concurrency                 = boost::thread::hardware_concurrency() + 1;
+    clProgramsDir               = NULL;
+
     startingDetailPitch         = 768.0f;
     minCellSize                 = 1.0f;
     subdivisionFactor           = 2;
@@ -96,6 +100,16 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         else if (strcmp(argv[argi], "--assume-vsync") == 0)
         {
             assumeVsync = true;
+        }
+        else if (strcmp(argv[argi], "--concurrency") == 0)
+        {
+            REQUIRE_ARGUMENT("--concurrency")
+            concurrency = strtoul(argv[argi], NULL, 0);
+        }
+        else if (strcmp(argv[argi], "--cl-programs-dir") == 0)
+        {
+            REQUIRE_ARGUMENT("--cl-programs-dir")
+            clProgramsDir = strdup(argv[argi]);
         }
 
         /* Ignore other arguments. */
@@ -161,13 +175,28 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         DEFAULT_MOUSE_AXIS_CONTROL(MOUSE_AXIS_Y, CTRL_AXIS_PITCH)
     }
 
+    if (!clProgramsDir)
+    {
+        char *currentDir;
+        const char *clProgramsDirLeafName = "compute";
+        size_t clProgramsDirLength;
+
+        currentDir = get_current_dir_name();
+        clProgramsDirLength = strlen(currentDir) + 1 + strlen(clProgramsDirLeafName) + 1;
+        clProgramsDir = (char *) malloc(sizeof(char) * clProgramsDirLength);
+        snprintf(clProgramsDir, clProgramsDirLength, "%s/%s", currentDir, clProgramsDirLeafName);
+        free(currentDir);
+    }
+
     /* Print a little dump. */
     std::cout << "AFK:Loaded configuration:" << std::endl;
     std::cout << "  shadersDir:     " << shadersDir << std::endl;
+    std::cout << "  clProgramsDir:  " << clProgramsDir << std::endl;
 }
 
 AFK_Config::~AFK_Config()
 {
+    if (clProgramsDir) free(clProgramsDir);
     if (shadersDir) free(shadersDir);
 }
 

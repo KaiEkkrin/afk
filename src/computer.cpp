@@ -6,11 +6,23 @@
 
 #include "computer.hpp"
 #include "exception.hpp"
+#include "file/readfile.hpp"
 
 
-/* Incidental functions */
+/* The set of known programs, just like the shaders doodah. */
 
-static void handleError(cl_int error)
+struct AFK_ClProgram programs[] = {
+    {   0,  "test.cl"           },
+    {   0,  ""                  }
+};
+
+struct AFK_ClKernel kernels[] = {
+    {   0,  "test.cl",              "vector_add_gpu"                },
+    {   0,  "",                     ""                              }
+};
+
+
+void afk_handleClError(cl_int error)
 {
     if (error != CL_SUCCESS)
     {
@@ -20,24 +32,23 @@ static void handleError(cl_int error)
     }
 }
 
-#define CLCHK(call) \
-    { \
-        cl_int error = call; \
-        if (error != CL_SUCCESS) handleError(error); \
-    }
+/* Incidental functions */
 
 static void printBuildLog(std::ostream& s, cl_program program, cl_device_id device)
 {
     char *buildLog;
     size_t buildLogSize;
 
-    CLCHK(clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &buildLogSize))
+    AFK_CLCHK(clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &buildLogSize))
     buildLog = new char[buildLogSize+1];
-    CLCHK(clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, NULL))
+    AFK_CLCHK(clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, NULL))
     buildLog[buildLogSize] = '\0'; /* paranoia */
     s << buildLog << std::endl;
     delete[] buildLog;
 }
+
+
+/* AFK_Computer implementation */
 
 void AFK_Computer::inspectDevices(cl_platform_id platform, cl_device_type deviceType)
 {
@@ -52,7 +63,7 @@ void AFK_Computer::inspectDevices(cl_platform_id platform, cl_device_type device
     case CL_SUCCESS:
         devices = (cl_device_id *)malloc(sizeof(cl_device_id) * deviceCount);
         if (!devices) throw AFK_Exception("Unable to allocate memory to inspect OpenCL devices");
-        CLCHK(clGetDeviceIDs(platform, deviceType, deviceCount, devices, &deviceCount))
+        AFK_CLCHK(clGetDeviceIDs(platform, deviceType, deviceCount, devices, &deviceCount))
 
         /* Use the first GPU device, if I have one. */
         if (deviceType == CL_DEVICE_TYPE_GPU && deviceCount > 0)
@@ -63,10 +74,10 @@ void AFK_Computer::inspectDevices(cl_platform_id platform, cl_device_type device
             char *deviceName = NULL;
             size_t deviceNameSize;
 
-            CLCHK(clGetDeviceInfo(devices[i], CL_DEVICE_NAME, 0, NULL, &deviceNameSize))
+            AFK_CLCHK(clGetDeviceInfo(devices[i], CL_DEVICE_NAME, 0, NULL, &deviceNameSize))
             deviceName = (char *)malloc(deviceNameSize);
             if (!deviceName) throw AFK_Exception("Unable to allocate memory for device name");
-            CLCHK(clGetDeviceInfo(devices[i], CL_DEVICE_NAME, deviceNameSize, deviceName, &deviceNameSize))
+            AFK_CLCHK(clGetDeviceInfo(devices[i], CL_DEVICE_NAME, deviceNameSize, deviceName, &deviceNameSize))
 
             std::cout << "AFK: Found device: " << devices[i] << " with name " << deviceName << std::endl;
             if (deviceType == CL_DEVICE_TYPE_GPU && i == 0)
@@ -88,8 +99,24 @@ void AFK_Computer::inspectDevices(cl_platform_id platform, cl_device_type device
     }
 }
 
+void AFK_Computer::loadProgramFromFile(struct AFK_ClProgram *p)
+{
+    char *source;
+    size_t sourceLength;
+    std::ostringstream errStream;
+    cl_int error;
 
-/* AFK_Computer implementation */
+    std::cout << "AFK: Loading CL program: " << p->filename << std::endl;
+
+    if (!afk_readFileContents(p->filename, &source, &sourceLength, errStream))
+        throw AFK_Exception("AFK_Computer: " + errStream.str());
+
+    p->program = clCreateProgramWithSource(ctxt, 1, (const char **)&source, &sourceLength, &error);
+    afk_handleClError(error);
+
+    AFK_CLCHK(clBuildProgram(p->program, 1, &activeDevice, NULL, NULL, NULL))
+    printBuildLog(std::cout, p->program, activeDevice);
+}
 
 AFK_Computer::AFK_Computer(unsigned int _qCount):
     activeDevice(0), qCount(_qCount)
@@ -97,10 +124,10 @@ AFK_Computer::AFK_Computer(unsigned int _qCount):
     cl_platform_id *platforms;
     unsigned int platformCount;
 
-    CLCHK(clGetPlatformIDs(0, NULL, &platformCount))
+    AFK_CLCHK(clGetPlatformIDs(0, NULL, &platformCount))
     platforms = (cl_platform_id *)malloc(sizeof(cl_platform_id) * platformCount);
     if (!platforms) throw AFK_Exception("Unable to allocate memory to inspect OpenCL platforms");
-    CLCHK(clGetPlatformIDs(platformCount, platforms, &platformCount))
+    AFK_CLCHK(clGetPlatformIDs(platformCount, platforms, &platformCount))
 
     std::cout << "AFK: Found " << platformCount << " OpenCL platforms" << std::endl;
 
@@ -113,120 +140,94 @@ AFK_Computer::AFK_Computer(unsigned int _qCount):
     /* Make up the context and queues. */
     cl_int error;
     ctxt = clCreateContext(0, 1, &activeDevice, NULL, NULL, &error);
-    handleError(error);
+    afk_handleClError(error);
 
     q = new cl_command_queue[qCount];
     for (unsigned int qId = 0; qId < qCount; ++qId)
     {
         q[qId] = clCreateCommandQueue(ctxt, activeDevice, 0, &error);
-        handleError(error);
+        afk_handleClError(error);
     }
 }
 
 AFK_Computer::~AFK_Computer()
 {
+    for (unsigned int i = 0; kernels[i].kernelName.size() != 0; ++i)
+        clReleaseKernel(kernels[i].kernel);
+
+    for (unsigned int i = 0; programs[i].filename.size() != 0; ++i)
+        clReleaseProgram(programs[i].program);
+
     for (unsigned int qId = 0; qId < qCount; ++qId)
         clReleaseCommandQueue(q[qId]);
     delete[] q;
     clReleaseContext(ctxt);
 }
 
-void AFK_Computer::test(unsigned int qId)
+void AFK_Computer::loadPrograms(const std::string& programsDir)
 {
-    cl_int error = 0;
-    
-    const int size = 10000;
-    float* src_a_h = new float[size];
-    float* src_b_h = new float[size];
-    float* res_h = new float[size];
-    // Initialize both vectors
-    for (int i = 0; i < size; i++) {
-        src_a_h[i] = src_b_h[i] = (float) i * (float)qId;
+    cl_int error;
+    std::ostringstream errStream;
+
+    /* Swap to the right directory. */
+    if (!afk_pushDir(programsDir, errStream))
+        throw new AFK_Exception("AFK_Computer: Unable to switch to programs dir: " + errStream.str());
+
+    /* Load all the programs I know about. */
+    for (unsigned int i = 0; programs[i].filename.size() != 0; ++i)
+        loadProgramFromFile(&programs[i]);
+
+    /* ...and all the kernels... */
+    for (unsigned int i = 0; kernels[i].kernelName.size() != 0; ++i)
+    {
+        bool identified = false;
+        for (unsigned int j = 0; programs[j].filename.size() != 0; ++j)
+        {
+            if (kernels[i].programFilename == programs[j].filename)
+            {
+                kernels[i].kernel = clCreateKernel(programs[j].program, kernels[i].kernelName.c_str(), &error);
+                afk_handleClError(error);
+                identified = true;
+            }
+        }
+
+        if (!identified) throw AFK_Exception("AFK_Computer: Unidentified compute kernel: " + kernels[i].kernelName);
     }
 
-    cl_mem src_a_b = clCreateBuffer(ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, size * sizeof(float), src_a_h, &error);
-    handleError(error);
+    /* Swap back out again. */
+    if (!afk_popDir(errStream))
+        throw new AFK_Exception("AFK_Computer: Unable to switch out of programs dir: " + errStream.str());
+}
 
-    cl_mem src_b_b = clCreateBuffer(ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, size * sizeof(float), src_b_h, &error);
-    handleError(error);
-    
-    cl_mem res_b = clCreateBuffer(ctxt, CL_MEM_WRITE_ONLY, size * sizeof(float), NULL, &error);
-    handleError(error);
-    
-    /* TODO Load program from file (like the shaders) */
-    const char *source =
-"__kernel void vector_add_gpu (__global const float* src_a,"
-"                     __global const float* src_b,"
-"                     __global float* res,"
-"           const int num)"
-"{"
-"   /* get_global_id(0) returns the ID of the thread in execution."
-"   As many threads are launched at the same time, executing the same kernel,"
-"   each one will receive a different ID, and consequently perform a different computation.*/"
-"   const int idx = get_global_id(0);"
-""
-"   /* Now each work-item asks itself: ""is my ID inside the vector's range?"""
-"   If the answer is YES, the work-item performs the corresponding computation*/"
-"   if (idx < num)"
-"      res[idx] = src_a[idx] + src_b[idx];"
-"}";
-    size_t sourceLength = strlen(source);
+bool AFK_Computer::findKernel(const std::string& kernelName, cl_kernel& o_kernel) const
+{
+    bool found = false;
+    for (unsigned int i = 0; !found && kernels[i].kernelName.size() != 0; ++i)
+    {
+        if (kernels[i].kernelName == kernelName)
+        {
+            o_kernel = kernels[i].kernel;
+            found = true;
+        }
+    }
 
-    cl_program testProgram = clCreateProgramWithSource(
-        ctxt, 1, &source, &sourceLength, &error);
-    handleError(error);
+    return found;
+}
 
-    CLCHK(clBuildProgram(testProgram, 1, &activeDevice, NULL, NULL, NULL))
-            
-    printBuildLog(std::cout, testProgram, activeDevice);
+cl_context AFK_Computer::getContext(void) const
+{
+    return ctxt;
+}
 
-    cl_kernel testKernel = clCreateKernel(testProgram, "vector_add_gpu", &error);
-    handleError(error);
+cl_command_queue AFK_Computer::getCommandQueue(unsigned int threadId) const
+{
+    if (threadId >= qCount)
+    {
+        std::ostringstream ss;
+        ss << "Requested command queue with thread ID out of range: " << threadId << " (" << qCount << ")";
+        throw new AFK_Exception(ss.str());
+    }
 
-    CLCHK(clSetKernelArg(testKernel, 0, sizeof(cl_mem), &src_a_b))
-    CLCHK(clSetKernelArg(testKernel, 1, sizeof(cl_mem), &src_b_b))
-    CLCHK(clSetKernelArg(testKernel, 2, sizeof(cl_mem), &res_b))
-    CLCHK(clSetKernelArg(testKernel, 3, sizeof(int), &size))
-
-    /* TODO Tweak the doodahs ? 
-     * - For real compute kernels, I need to sort out a way of
-     * picking correct local and global work sizes, and splitting
-     * work into multiple kernels if necessary.  Different devices
-     * have different characteristics: for example I've noticed
-     * the GTX 570 is okay with a local_ws of 512, but the
-     * HD 5850 is not; a local_ws of 64 is okay on the HD 5850
-     * too.
-     * Look at the `local_work_size' argument documentation for
-     * clEnqueueNDRangeKernel().
-     */
-    size_t local_ws = 64;
-    size_t global_ws = size + (64 - (size % 64));
-    CLCHK(clEnqueueNDRangeKernel(q[qId], testKernel, 1, NULL, &global_ws, &local_ws, 0, NULL, NULL))
-
-    float *readBack = new float[size];
-    CLCHK(clEnqueueReadBuffer(q[qId], res_b, CL_TRUE, 0, size * sizeof(float), readBack, 0, NULL, NULL))
-    /* TODO Verify that read buffer */
-    std::cout << "AFK_Computer: Completed execution of test program" << std::endl;
-
-    std::cout << "AFK_Computer: Start of readback: ";
-    for (int i = 0; i < 10; ++i)
-        std::cout << readBack[i] << " ";
-    std::cout << std::endl;
-
-    for (int i = 0; i < size; ++i)
-        if (readBack[i] != ((float)qId * (float)i * 2.0f)) throw new AFK_Exception("Failed!");
-
-    std::cout << "AFK_Computer: Test program completed successfully" << std::endl;
-
-    delete[] readBack;
-
-    clReleaseKernel(testKernel);
-    clReleaseMemObject(res_b);
-    clReleaseMemObject(src_b_b);
-    clReleaseMemObject(src_a_b);
-
-    delete[] res_h;
-    delete[] src_b_h;
-    delete[] src_a_h;
+    return q[threadId];
 }
 

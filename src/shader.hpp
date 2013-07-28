@@ -26,7 +26,7 @@ struct shaderSpec
 /* Loads all the known shaders from disk and compiles them
  * individually.
  */
-void afk_loadShaders(const char *shadersDir);
+void afk_loadShaders(const std::string& shadersDir);
 
 class AFK_ShaderProgram
 {

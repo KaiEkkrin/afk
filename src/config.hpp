@@ -80,6 +80,10 @@ public:
     unsigned int framesPerCalibration;
     bool assumeVsync;
 
+    /* Computing setup */
+    unsigned int concurrency;
+    char        *clProgramsDir;
+
     /* World setup */
     float startingDetailPitch;
     float minCellSize;

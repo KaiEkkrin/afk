@@ -204,7 +204,8 @@ public:
         unsigned int _subdivisionFactor, 
         unsigned int _pointSubdivisionFactor,
         float _minCellSize,
-        float _startingDetailPitch);
+        float _startingDetailPitch,
+        unsigned int concurrency);
     virtual ~AFK_World();
 
     /* Helper for the above -- requests a particular cell
