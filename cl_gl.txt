@@ -1,0 +1,13 @@
+Oh dear.  The way cl_gl works is that you allocate a buffer with the GL, and then you bind it to a CL context.  This pretty much necessitates pre-making the buffers, because the GL context is bound to the main thread.
+Therefore.
+ - Use clGetGLContextInfoKHR() to determine which CL device matches the graphics device.
+ - Make large GL buffer for all the landscape tile vertex data.  (Work out the amount of RAM available on the graphics device and divide it up suitably.)
+ - Heapify that GL buffer: each landscape tile will take the same amount of data.  I will need a queue of free slots.
+ - Bind a matchingly large CL buffer to the GL buffer.  It will be READ_WRITE.
+ - Make a matching index buffer (GL and CL too).  (A happy coincidence of this is that I can draw the whole landscape in one go.  Well, I need to try.  It might turn out that I can't simultaneously read and write portions of a large buffer between GL and CL, in which case I'll need to pre-allocate one buffer per cached tile, instead.)
+ - Change the landscape tile cache to wrap up all of that and abstract it.  Now, instead of caching the geometry itself, I'll be caching offsets into the GL/CL buffers.
+ - Change the landscape tile display code to invoke a large base-vertex-and-multi-and-whatever-you-call it draw across that buffer.  I'll need to feed in a stream of exactly what stuff to draw as input.  (That stream goes across the PCI-E.  The whole landscape geometry should stay on the GPU side.)
+ - Change the landscape tile creation code to bake it in OpenCL, straight into said big shared vertex and index heap-buffers.  (I'll want to back out the whole landscape displacement thingy and do a flat one first, to make sure I've transliterated everything correctly.)
+ - After all that is working, do the same thing to the shapes.
+ - This is enforced OpenCL -- all GPU-side data stays GPU-side, I'll actually need a compute kernel to transfer small bits of it to the CPU if it needs access.  It also might make my threading model redundant as I end up needing to synchronise almost everything the workers do, which would make me sad, but never mind, eh?
+
