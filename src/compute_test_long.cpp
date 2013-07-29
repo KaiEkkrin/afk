@@ -2,8 +2,6 @@
 
 #include "afk.hpp"
 
-#include <boost/thread/mutex.hpp>
-
 #include "async/async.hpp"
 #include "async/work_queue.hpp"
 #include "compute_test_long.hpp"
@@ -16,12 +14,10 @@ struct testComputeParam
     cl_kernel kernel;
 };
 
-boost::mutex extClMut;
-
 void testComputeInternal(AFK_Computer *computer, cl_kernel kernel, unsigned int id)
 {
-    cl_context ctxt = computer->getContext();
-    cl_command_queue q = computer->getCommandQueue(id);
+    cl_context ctxt;
+    cl_command_queue q;
     cl_int error;
 
     const int size = 10000;
@@ -33,7 +29,7 @@ void testComputeInternal(AFK_Computer *computer, cl_kernel kernel, unsigned int 
         src_a_h[i] = src_b_h[i] = (float) i * (float)id;
     }
 
-    extClMut.lock();
+    computer->claimCl(ctxt, q);
 
     cl_mem src_a_b = clCreateBuffer(ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, size * sizeof(float), src_a_h, &error);
     afk_handleClError(error);
@@ -64,7 +60,7 @@ void testComputeInternal(AFK_Computer *computer, cl_kernel kernel, unsigned int 
     size_t global_ws = size + (64 - (size % 64));
     AFK_CLCHK(clEnqueueNDRangeKernel(q, kernel, 1, NULL, &global_ws, &local_ws, 0, NULL, NULL))
 
-    extClMut.unlock();
+    computer->releaseCl();
 
     float *readBack = new float[size];
     AFK_CLCHK(clEnqueueReadBuffer(q, res_b, CL_TRUE, 0, size * sizeof(float), readBack, 0, NULL, NULL))

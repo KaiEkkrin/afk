@@ -7,6 +7,8 @@
 
 #include <string>
 
+#include <boost/thread/mutex.hpp>
+
 #include "exception.hpp"
 
 /* This defines a list of programs that I know about. */
@@ -50,6 +52,13 @@ void afk_handleClError(cl_int error);
  * (which no doubt would avoid the need for the mutex)?
  * Can I transfer buffers between contexts easily?  What
  * about cl_gl?
+ * - Reading up: With cl_gl, I need to create the gl buffer
+ * first, so I'm going to have to do plenty of buffer pre-
+ * creation.  That's fine.
+ * For now I'm going to serialise all OpenCL to a single
+ * queue by the claim() and release() functions below --
+ * maybe I can toy with multiple contexts (should be fine
+ * x-thread) later? (TODO?)
  */
 
 class AFK_Computer
@@ -62,14 +71,15 @@ protected:
     cl_device_id activeDevice;
 
     cl_context ctxt;
-    cl_command_queue *q;
-    unsigned int qCount;
+    cl_command_queue q;
+
+    boost::mutex mut;
 
     /* Helper functions */
     void inspectDevices(cl_platform_id platform, cl_device_type deviceType);
     void loadProgramFromFile(struct AFK_ClProgram *p);
 public:
-    AFK_Computer(unsigned int _qCount);
+    AFK_Computer();
     virtual ~AFK_Computer();
 
     /* Loads all CL programs from disk.  Call before doing
@@ -82,8 +92,15 @@ public:
      * the rest of the OpenCL yourself.
      */
     bool findKernel(const std::string& kernelName, cl_kernel& o_kernel) const;
-    cl_context getContext(void) const;
-    cl_command_queue getCommandQueue(unsigned int threadId) const;
+
+    /* Locks the CL and gives you back the context and
+     * queue.  Be quick, enqueue your thing and release
+     * it!
+     */
+    void claimCl(cl_context& o_ctxt, cl_command_queue& o_q);
+
+    /* Release it when you're done with this. */
+    void releaseCl(void);
 };
 
 #endif /* _AFK_COMPUTER_H_ */
