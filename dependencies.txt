@@ -3,24 +3,11 @@ What I may be depending on
 
 a C++ compiler
 OpenGL (-lGL -lGLU)
-freeglut3 (-lglut)
 GLEW (-lGLEW)
 OpenCL (-lOpenCL)
 boost: various.  (-lboost_random)
+glx (for Linux)
+WGL (for Windows)
 OpenSSL: not right now, but if I want to use the AES RNG, yes.  (-lcrypto)
 scons to build
-
-freeglut3 ? (-lglut)
- - glutKeyboardFunc() and glutKeyboardUpFunc() seem to be fine to handle the keyboard; I'm sure the mouse will be similar.  Is this really all I need for input?  Maybe.
- - definitely want freeglut3 rather than a generic glut so that I get glutWarpPointer()
-
-libsdl1.2 ? (-lSDL)
- - note that the SDL sample pegs the CPU while drawing a simple blank screen.  I don't think I want to be using that :(
-
-libfltk1.3 ?  (-lfltk -lfltk_gl)
- - this one's basic sample doesn't peg the CPU :P
- - can it handle keyup/keydown and the various mouse movements?  try porting the codecolony Transani1 and Camera1 examples to it.
-
-glx ? (for Linux interfacing with display and input; low level)
-WGL ? (for Windows !!)
 

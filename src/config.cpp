@@ -22,12 +22,8 @@
     if (argi == *argcp)\
         throw AFK_Exception(std::string("AFK_Config: ") + option + " without argument");
 
-#define DEFAULT_KEYBOARD_CONTROL(chr, ctrl) \
-    keyboardMapping.insert(std::pair<const char, enum AFK_Controls>((chr), (ctrl)));\
-    keyboardMapping.insert(std::pair<const char, enum AFK_Controls>(toupper((chr)), (ctrl)));
-
-#define DEFAULT_SPECIAL_CONTROL(key, ctrl) \
-    specialMapping.insert(std::pair<const int, enum AFK_Controls>((key), (ctrl)));
+#define DEFAULT_KEYBOARD_CONTROL(code, ctrl) \
+    keyboardMapping.insert(std::pair<const int, enum AFK_Controls>((code), (ctrl)));
 
 #define DEFAULT_MOUSE_CONTROL(button, ctrl) \
     mouseMapping.insert(std::pair<const int, enum AFK_Controls>((button), (ctrl)));
@@ -56,6 +52,9 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     targetFrameTimeMicros       = 16500;
     framesPerCalibration        = 8;
     assumeVsync                 = false;
+
+    windowWidth                 = 1920;
+    windowHeight                = 1080;
 
     concurrency                 = boost::thread::hardware_concurrency() + 1;
     clProgramsDir               = NULL;
@@ -100,6 +99,16 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         else if (strcmp(argv[argi], "--assume-vsync") == 0)
         {
             assumeVsync = true;
+        }
+        else if (strcmp(argv[argi], "--window-width") == 0)
+        {
+            REQUIRE_ARGUMENT("--window-width")
+            windowWidth = strtoul(argv[argi], NULL, 0);
+        }
+        else if (strcmp(argv[argi], "--window-height") == 0)
+        {
+            REQUIRE_ARGUMENT("--window-height")
+            windowHeight = strtoul(argv[argi], NULL, 0);
         }
         else if (strcmp(argv[argi], "--concurrency") == 0)
         {
@@ -146,27 +155,27 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         /* TODO Swap wsad to mouse controls by default, so I can put
          * the others somewhere more sensible!
          */
-        DEFAULT_KEYBOARD_CONTROL('w', CTRL_THRUST_FORWARD)
-        DEFAULT_KEYBOARD_CONTROL('s', CTRL_THRUST_BACKWARD)
-        DEFAULT_KEYBOARD_CONTROL('d', CTRL_THRUST_RIGHT)
-        DEFAULT_KEYBOARD_CONTROL('a', CTRL_THRUST_LEFT)
-        DEFAULT_KEYBOARD_CONTROL('r', CTRL_THRUST_UP)
-        DEFAULT_KEYBOARD_CONTROL('f', CTRL_THRUST_DOWN)
-        DEFAULT_KEYBOARD_CONTROL('e', CTRL_YAW_RIGHT)
-        DEFAULT_KEYBOARD_CONTROL('q', CTRL_YAW_LEFT)
-        DEFAULT_KEYBOARD_CONTROL('m', CTRL_MOUSE_CAPTURE)
-    }
 
-    if (specialMapping.empty())
-    {
-        DEFAULT_SPECIAL_CONTROL(GLUT_KEY_F11, CTRL_FULLSCREEN)
+        /* TODO These are observed X keycodes.  I'll need different
+         * ones for Windows at any rate ...
+         */
+        DEFAULT_KEYBOARD_CONTROL(25 /* w */, CTRL_THRUST_FORWARD)
+        DEFAULT_KEYBOARD_CONTROL(39 /* s */, CTRL_THRUST_BACKWARD)
+        DEFAULT_KEYBOARD_CONTROL(40 /* d */, CTRL_THRUST_RIGHT)
+        DEFAULT_KEYBOARD_CONTROL(38 /* a */, CTRL_THRUST_LEFT)
+        DEFAULT_KEYBOARD_CONTROL(27 /* r */, CTRL_THRUST_UP)
+        DEFAULT_KEYBOARD_CONTROL(41 /* f */, CTRL_THRUST_DOWN)
+        DEFAULT_KEYBOARD_CONTROL(26 /* e */, CTRL_YAW_RIGHT)
+        DEFAULT_KEYBOARD_CONTROL(24 /* q */, CTRL_YAW_LEFT)
+        DEFAULT_KEYBOARD_CONTROL(58 /* m */, CTRL_MOUSE_CAPTURE)
+        DEFAULT_KEYBOARD_CONTROL(95 /* f11 */, CTRL_FULLSCREEN)
     }
 
     if (mouseMapping.empty())
     {
-        DEFAULT_MOUSE_CONTROL(GLUT_LEFT_BUTTON,     CTRL_PRIMARY_FIRE)
-        DEFAULT_MOUSE_CONTROL(GLUT_RIGHT_BUTTON,    CTRL_SECONDARY_FIRE)
-        DEFAULT_MOUSE_CONTROL(GLUT_MIDDLE_BUTTON,   CTRL_MOUSE_CAPTURE)
+        DEFAULT_MOUSE_CONTROL(1 /* left button */,     CTRL_PRIMARY_FIRE)
+        DEFAULT_MOUSE_CONTROL(3 /* right button */,    CTRL_SECONDARY_FIRE)
+        DEFAULT_MOUSE_CONTROL(2 /* middle button */,   CTRL_MOUSE_CAPTURE)
     }
 
     if (mouseAxisMapping.empty())

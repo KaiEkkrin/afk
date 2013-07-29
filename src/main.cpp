@@ -62,13 +62,13 @@ int main(int argc, char **argv)
 
     try
     {
-        std::cout << "AFK initalising graphics" << std::endl;
-        afk_core.initGraphics(&argc, argv);
-
         std::cout << "AFK configuring" << std::endl;
         afk_core.configure(&argc, argv);
 
         std::cout << "AFK Using master seed: " << afk_core.config->masterSeed << std::endl;
+
+        std::cout << "AFK initalising graphics" << std::endl;
+        afk_core.initGraphics();
 
         std::cout << "AFK initialising compute" << std::endl;
         afk_core.initCompute();

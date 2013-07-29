@@ -65,8 +65,7 @@ public:
     float   zFar;
 
     /* The controls */
-    std::map<const char, enum AFK_Controls> keyboardMapping;
-    std::map<const int, enum AFK_Controls> specialMapping;
+    std::map<const int, enum AFK_Controls> keyboardMapping;
     std::map<const int, enum AFK_Controls> mouseMapping;
     std::map<const enum AFK_Mouse_Axes, enum AFK_Control_Axes> mouseAxisMapping;
 
@@ -79,6 +78,10 @@ public:
     unsigned int targetFrameTimeMicros;
     unsigned int framesPerCalibration;
     bool assumeVsync;
+
+    /* Graphics setup */
+    unsigned int windowWidth;
+    unsigned int windowHeight;
 
     /* Computing setup */
     unsigned int concurrency;

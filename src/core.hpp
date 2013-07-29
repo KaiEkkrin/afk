@@ -10,6 +10,7 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/lockfree/queue.hpp>
+#include <boost/thread/thread.hpp>
 
 #include "camera.hpp"
 #include "computer.hpp"
@@ -19,15 +20,21 @@
 #include "display.hpp"
 #include "light.hpp"
 #include "rng/rng.hpp"
+#include "window.hpp"
 #include "world.hpp"
 
 
-void afk_idle(void);
+#define DISPLAY_THREAD_ID 0xdddddddd
+
+void afk_displayLoop(void);
 
 class AFK_Core
 {
 protected:
-    /* These are part of the render process managed by afk_idle().
+    /* The display loop thread. */
+    boost::thread *displayThread;
+
+    /* These are part of the render process managed by afk_displayLoop().
      * Nothing else ought to be looking at them.
      */
 
@@ -61,6 +68,7 @@ public:
     /* General things. */
     AFK_Config          *config;
     AFK_Computer        *computer;
+    AFK_Window          *window;
 
     /* The random number generator.
      * TODO: The re-seeding process is serial, and I
@@ -130,8 +138,8 @@ public:
      * to set up.  (In order!)
      * An AFK_Exception is thrown if stuff goes wrong.
      */
-    void initGraphics(int *argcp, char **argv);
     void configure(int *argcp, char **argv);
+    void initGraphics(void);
     void initCompute(void);
     void testCompute(void); /* test mode only */
     
@@ -164,7 +172,7 @@ public:
      */
     void glBuffersForDeletion(GLuint *bufs, size_t bufsSize);
 
-    friend void afk_idle(void);
+    friend void afk_displayLoop(void);
 };
 
 extern AFK_Core afk_core;

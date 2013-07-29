@@ -16,6 +16,10 @@ AddOption(
     help='Use LLVM',
     default=False)
 
+extra_ccflags = []
+extra_ldflags = []
+extra_libs = []
+
 if GetOption('dbg'):
     if GetOption('pg'):
         extra_ccflags = ['-g', '-pg']
@@ -41,5 +45,10 @@ if GetOption('llvm'):
 else:
     compiler = 'g++'
 
-SConscript('src/SConscript', variant_dir=variant_dir, exports='compiler extra_ccflags extra_ldflags')
+# TODO Restrict this to Linux.
+# On Windows, instead apply -DAFK_WGL.  On Mac, -DAFK_CGL or somesuch.
+extra_ccflags.append('-DAFK_GLX')
+extra_libs.append('-lX11')
+
+SConscript('src/SConscript', variant_dir=variant_dir, exports='compiler extra_ccflags extra_ldflags extra_libs')
 

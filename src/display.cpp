@@ -170,6 +170,9 @@ void afk_display(void)
 
 void afk_reshape(int width, int height)
 {
+    /* TODO I've seen this segfault.  Why?  (Something to do with X
+     * events being horribly delayed, which they are?)
+     */
     glViewport(0, 0, width, height);
     afk_core.camera->setWindowDimensions(width, height);
 }

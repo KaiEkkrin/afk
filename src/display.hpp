@@ -108,7 +108,6 @@ public:
     virtual void display(const Mat4<float>& projection);
 };
 
-/* GLUT callback functions. */
 void afk_display(void);
 void afk_reshape(int width, int height);
 

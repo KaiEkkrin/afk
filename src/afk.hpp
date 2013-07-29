@@ -10,9 +10,12 @@
 
 /* TODO Include OpenCL/cl.h instead on Mac (if I ever do a port) */
 #include <CL/cl.h>
-
 #include <GL/glew.h>
-#include <GL/freeglut.h>
+
+#ifdef AFK_GLX
+#include <X11/Xlib.h>
+#include <GL/glxew.h>
+#endif /* AFK_GLX */
 
 /* Global compile-time settings */
 

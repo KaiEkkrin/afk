@@ -3,6 +3,8 @@
 #ifndef _AFK_EXCEPTION_H_
 #define _AFK_EXCEPTION_H_
 
+#include "afk.hpp"
+
 #include <exception>
 #include <string>
 

@@ -4,6 +4,7 @@
 
 #include "config.hpp"
 #include "core.hpp"
+#include "display.hpp"
 #include "event.hpp"
 
 static void displaceAxis(enum AFK_Control_Axes axis, float displacement)
@@ -39,16 +40,29 @@ static void enableControl(enum AFK_Controls control)
     else
         AFK_SET_BIT(afk_core.controlsEnabled, control);
 
+#if 0
     /* Some special handling. */
     static int oldWindowWidth = -1, oldWindowHeight = -1;
+#endif
 
     switch (control)
     {
     case CTRL_MOUSE_CAPTURE:
-        glutWarpPointer(afk_core.camera->windowWidth / 2, afk_core.camera->windowHeight / 2);
+        if (AFK_TEST_BIT(afk_core.controlsEnabled, control))
+        {
+            afk_core.window->capturePointer();
+        }
+        else
+        {
+            afk_core.window->letGoOfPointer();
+        }
         break;
 
     case CTRL_FULLSCREEN:
+        /* TODO Fix this when I've figured out how to fullscreen
+         * a window with Xlib.
+         */
+#if 0
         if (AFK_TEST_BIT(afk_core.controlsEnabled, control))
         {
             oldWindowWidth = glutGet(GLUT_WINDOW_WIDTH);
@@ -81,6 +95,7 @@ static void enableControl(enum AFK_Controls control)
                 glutReshapeWindow(oldWindowWidth, oldWindowHeight);
             }
         }
+#endif
         break;
 
     default:
@@ -101,66 +116,39 @@ static void disableControl(enum AFK_Controls control)
     }
 }
 
-void afk_entry(int state)
-{
-    /* TODO Do I actually need to do anything here? */
-    //if (state == GLUT_LEFT) disableControl(CTRL_MOUSE_CAPTURE);
-}
-
-void afk_keyboard(unsigned char key, int x, int y)
+void afk_keyboard(unsigned int key)
 {
     enableControl(afk_core.config->keyboardMapping[key]);
 }
 
-void afk_keyboardUp(unsigned char key, int x, int y)
+void afk_keyboardUp(unsigned int key)
 {
     disableControl(afk_core.config->keyboardMapping[key]);
 }
 
-void afk_mouse(int button, int state, int x, int y)
+void afk_mouse(unsigned int button)
 {
-    switch (state)
-    {
-    case GLUT_DOWN:
-        enableControl(afk_core.config->mouseMapping[button]);
-        break;
+    enableControl(afk_core.config->mouseMapping[button]);
+}
 
-    case GLUT_UP:
-        disableControl(afk_core.config->mouseMapping[button]);
-        break;
-    }
+void afk_mouseUp(unsigned int button)
+{
+    disableControl(afk_core.config->mouseMapping[button]);
 }
 
 void afk_motion(int x, int y)
 {
-    int x_midpoint = afk_core.camera->windowWidth / 2;
-    int y_midpoint = afk_core.camera->windowHeight / 2;
-
-    if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_MOUSE_CAPTURE) &&
-        (x != x_midpoint || y != y_midpoint))
+    if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_MOUSE_CAPTURE))
     {
-        int x_displacement = x - x_midpoint;
-        int y_displacement = y - y_midpoint;
-
         displaceAxis(afk_core.config->mouseAxisMapping[MOUSE_AXIS_X],
-            afk_core.config->mouseAxisSensitivity * (float)x_displacement);
+            afk_core.config->mouseAxisSensitivity * (float)x);
         displaceAxis(afk_core.config->mouseAxisMapping[MOUSE_AXIS_Y],
-            afk_core.config->mouseAxisSensitivity * (float)y_displacement);
-
-        /* Pull the pointer back to the midpoint; my next
-         * displacement will be relative to it.
-         */
-        glutWarpPointer(x_midpoint, y_midpoint);
+            afk_core.config->mouseAxisSensitivity * (float)y);
     }
 }
 
-void afk_special(int key, int x, int y)
+void afk_windowReshape(unsigned int width, unsigned int height)
 {
-    enableControl(afk_core.config->specialMapping[key]);
-}
-
-void afk_specialUp(int key, int x, int y)
-{
-    disableControl(afk_core.config->specialMapping[key]);
+    afk_reshape(width, height);
 }
 
