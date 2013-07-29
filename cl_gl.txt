@@ -12,3 +12,12 @@ Therefore.
  - After all that is working, do the same thing to the shapes.
  - This is enforced OpenCL -- all GPU-side data stays GPU-side, I'll actually need a compute kernel to transfer small bits of it to the CPU if it needs access.  It also might make my threading model redundant as I end up needing to synchronise almost everything the workers do, which would make me sad, but never mind, eh?
 
+Look above -- no.  I probably don't want to make *one* big vertex buffer, it's going to go wrong -- the glMultiDraw* calls don't look flexible enough to handle the inevitable amounts of variation between rendered tiles.  Also, I want to have a reasonably busy CL queue in order to allow the GPU to get busy as quickly as possible during a frame: batching all the tile baking into a single call will delay everything.
+Rather, try counting the number of tiles I want to be able to cache, and pre-allocating one buffer for each (CL and GL).
+So reserve one (vertex, index) buffer per potential tile first.  (Make the eviction target for the cache something like 1/2 the buffer count, because if the heap allocate function actually runs out of free buffers in the queue, it's going to throw an exception).
+
+Note: I think I may need to govern the OpenGL context myself (which GLUT doesn't appear to let me do).  To initialise cl_gl, I need to give it an OpenGL "share group", which I'm failing to find documentation on.  Maybe read up on how to use GLX?  (and I'd need WGL to make it run on Windows too...).  Hmm.  See SA09_GL_interop.pdf
+ - If I'm going to convert to GLX, then sadly, I think I first need to write a program that displays an empty window (with X) and runs a main loop and responds to keystroke events (echoing them to the terminal).  Because that entire thing will need rewriting.  :-(
+ - Also see sa10-dg-opencl-gl-interop.pdf
+
+

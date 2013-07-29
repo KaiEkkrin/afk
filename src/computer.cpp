@@ -80,10 +80,22 @@ void AFK_Computer::inspectDevices(cl_platform_id platform, cl_device_type device
             AFK_CLCHK(clGetDeviceInfo(devices[i], CL_DEVICE_NAME, deviceNameSize, deviceName, &deviceNameSize))
 
             std::cout << "AFK: Found device: " << devices[i] << " with name " << deviceName << std::endl;
+
+            char *extList = NULL;
+            size_t extListSize;
+
+            AFK_CLCHK(clGetDeviceInfo(devices[i], CL_DEVICE_EXTENSIONS, 0, NULL, &extListSize))
+            extList = (char *)malloc(extListSize);
+            if (!extList) throw AFK_Exception("Unable to allocate memory for CL extensions");
+            AFK_CLCHK(clGetDeviceInfo(devices[i], CL_DEVICE_EXTENSIONS, extListSize, extList, &extListSize))
+
+            std::cout << "AFK: Device has extensions: " << extList << std::endl;
+
             if (deviceType == CL_DEVICE_TYPE_GPU && i == 0)
                 std::cout << "AFK: Setting this CL device as the active device" << std::endl;
 
             free(deviceName);
+            free(extList);
         }
 
         free(devices);
