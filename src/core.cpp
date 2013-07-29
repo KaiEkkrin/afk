@@ -329,7 +329,7 @@ void AFK_Core::configure(int *argcp, char **argv)
 
 void AFK_Core::initCompute(void)
 {
-    computer = new AFK_Computer(config->concurrency);
+    computer = new AFK_Computer();
     std::string clProgramsDirStr(config->clProgramsDir);
     computer->loadPrograms(clProgramsDirStr);
 }

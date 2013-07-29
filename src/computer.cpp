@@ -118,8 +118,8 @@ void AFK_Computer::loadProgramFromFile(struct AFK_ClProgram *p)
     printBuildLog(std::cout, p->program, activeDevice);
 }
 
-AFK_Computer::AFK_Computer(unsigned int _qCount):
-    activeDevice(0), qCount(_qCount)
+AFK_Computer::AFK_Computer():
+    activeDevice(0)
 {
     cl_platform_id *platforms;
     unsigned int platformCount;
@@ -142,12 +142,8 @@ AFK_Computer::AFK_Computer(unsigned int _qCount):
     ctxt = clCreateContext(0, 1, &activeDevice, NULL, NULL, &error);
     afk_handleClError(error);
 
-    q = new cl_command_queue[qCount];
-    for (unsigned int qId = 0; qId < qCount; ++qId)
-    {
-        q[qId] = clCreateCommandQueue(ctxt, activeDevice, 0, &error);
-        afk_handleClError(error);
-    }
+    q = clCreateCommandQueue(ctxt, activeDevice, 0, &error);
+    afk_handleClError(error);
 }
 
 AFK_Computer::~AFK_Computer()
@@ -158,9 +154,7 @@ AFK_Computer::~AFK_Computer()
     for (unsigned int i = 0; programs[i].filename.size() != 0; ++i)
         clReleaseProgram(programs[i].program);
 
-    for (unsigned int qId = 0; qId < qCount; ++qId)
-        clReleaseCommandQueue(q[qId]);
-    delete[] q;
+    clReleaseCommandQueue(q);
     clReleaseContext(ctxt);
 }
 
@@ -214,20 +208,15 @@ bool AFK_Computer::findKernel(const std::string& kernelName, cl_kernel& o_kernel
     return found;
 }
 
-cl_context AFK_Computer::getContext(void) const
+void AFK_Computer::claimCl(cl_context& o_ctxt, cl_command_queue& o_q)
 {
-    return ctxt;
+    mut.lock();
+    o_ctxt = ctxt;
+    o_q = q;
 }
 
-cl_command_queue AFK_Computer::getCommandQueue(unsigned int threadId) const
+void AFK_Computer::releaseCl(void)
 {
-    if (threadId >= qCount)
-    {
-        std::ostringstream ss;
-        ss << "Requested command queue with thread ID out of range: " << threadId << " (" << qCount << ")";
-        throw new AFK_Exception(ss.str());
-    }
-
-    return q[threadId];
+    mut.unlock();
 }
 
