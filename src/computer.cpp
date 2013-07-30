@@ -185,6 +185,9 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
     Display *dpy = glXGetCurrentDisplay();
     GLXContext glxCtx = glXGetCurrentContext();
 
+    std::cout << std::hex << "Using display: " << dpy << std::endl;
+    std::cout << std::hex << "Using GLX context: " << glxCtx << std::endl;
+
     const cl_context_properties properties[] = {
         CL_GL_CONTEXT_KHR,      (cl_context_properties)glxCtx,
         CL_GLX_DISPLAY_KHR,     (cl_context_properties)dpy,
