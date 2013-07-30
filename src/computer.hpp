@@ -67,7 +67,7 @@ protected:
     /* The IDs of the devices that I'm using.
      */
     cl_device_id *devices;
-    size_t devicesSize;
+    unsigned int devicesSize;
 
     cl_context ctxt;
     cl_command_queue q;

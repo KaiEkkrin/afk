@@ -53,68 +53,28 @@ static void printBuildLog(std::ostream& s, cl_program program, cl_device_id devi
 
 /* AFK_Computer implementation */
 
-#if 0
-void AFK_Computer::inspectDevices(cl_platform_id platform, cl_device_type deviceType)
+/* This helper is used to cram ostensibly-64 bit pointer types from GLX
+ * into the 32-bit fields that they actually fit into without causing
+ * compiler warnings.
+ * Squick.
+ */
+template<typename SourceType, typename DestType>
+DestType firstOf(SourceType s)
 {
-    cl_int result;
-    cl_device_id *devices = NULL;
-    unsigned int deviceCount;
-    std::ostringstream ss;
-
-    result = clGetDeviceIDs(platform, deviceType, 0, NULL, &deviceCount);
-    switch (result)
+    union
     {
-    case CL_SUCCESS:
-        devices = (cl_device_id *)malloc(sizeof(cl_device_id) * deviceCount);
-        if (!devices) throw AFK_Exception("Unable to allocate memory to inspect OpenCL devices");
-        AFK_CLCHK(clGetDeviceIDs(platform, deviceType, deviceCount, devices, &deviceCount))
+        SourceType      s;
+        DestType        d[sizeof(SourceType) / sizeof(DestType)];
+    } u;
+    u.s = s;
 
-        /* Use the first GPU device, if I have one. */
-        if (deviceType == CL_DEVICE_TYPE_GPU && deviceCount > 0)
-            activeDevice = devices[0];
-
-        for (unsigned int i = 0; i < deviceCount; ++i)
-        {
-            char *deviceName = NULL;
-            size_t deviceNameSize;
-
-            AFK_CLCHK(clGetDeviceInfo(devices[i], CL_DEVICE_NAME, 0, NULL, &deviceNameSize))
-            deviceName = (char *)malloc(deviceNameSize);
-            if (!deviceName) throw AFK_Exception("Unable to allocate memory for device name");
-            AFK_CLCHK(clGetDeviceInfo(devices[i], CL_DEVICE_NAME, deviceNameSize, deviceName, &deviceNameSize))
-
-            std::cout << "AFK: Found device: " << devices[i] << " with name " << deviceName << std::endl;
-
-            char *extList = NULL;
-            size_t extListSize;
-
-            AFK_CLCHK(clGetDeviceInfo(devices[i], CL_DEVICE_EXTENSIONS, 0, NULL, &extListSize))
-            extList = (char *)malloc(extListSize);
-            if (!extList) throw AFK_Exception("Unable to allocate memory for CL extensions");
-            AFK_CLCHK(clGetDeviceInfo(devices[i], CL_DEVICE_EXTENSIONS, extListSize, extList, &extListSize))
-
-            std::cout << "AFK: Device has extensions: " << extList << std::endl;
-
-            if (deviceType == CL_DEVICE_TYPE_GPU && i == 0)
-                std::cout << "AFK: Setting this CL device as the active device" << std::endl;
-
-            free(deviceName);
-            free(extList);
-        }
-
-        free(devices);
-        break;
-
-    case CL_DEVICE_NOT_FOUND:
-        std::cout << "No devices of type " << deviceType << " found" << std::endl;
-        break;
-
-    default:
-        ss << "AFK_Computer: Failed to get device IDs: " << result;
-        throw AFK_Exception(ss.str());
+    if ((sizeof(DestType) * 2) <= sizeof(SourceType))
+    {
+        assert(u.d[1] == 0);
     }
+
+    return u.d[0];
 }
-#endif
 
 bool AFK_Computer::findClGlDevices(cl_platform_id platform)
 {
@@ -134,75 +94,34 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
     std::cout << "Finding cl_gl devices for platform " << platformName << std::endl;
     delete[] platformName;
 
-    /* Find the cl_gl context info function.
-     * (I can link directly with it OK on AMD, but not on NVIDIA)
-     */
-    cl_int (*clGetGLContextInfoKHRFunc)(
-        const cl_context_properties *,
-        cl_gl_context_info,
-        size_t, void *, size_t *
-        ) = clGetExtensionFunctionAddress("clGetGLContextInfoKHR");
-
 #if AFK_GLX
-    /* TODO YUCK YUCK -- this is requiring -fpermissive --
-     * looks like it's trying to cram 64 bit pointers into
-     * 32 bits, wtf!
-     */
     Display *dpy = glXGetCurrentDisplay();
     GLXContext glxCtx = glXGetCurrentContext();
 
     const cl_context_properties clGlProperties[] = {
-        CL_GL_CONTEXT_KHR,      (cl_context_properties)glxCtx,
-        CL_GLX_DISPLAY_KHR,     (cl_context_properties)dpy,
-        CL_CONTEXT_PLATFORM,    platform,
+        CL_GL_CONTEXT_KHR,      firstOf<GLXContext, cl_context_properties>(glxCtx),
+        CL_GLX_DISPLAY_KHR,     firstOf<Display *, cl_context_properties>(dpy),
+        CL_CONTEXT_PLATFORM,    (cl_context_properties)platform,
         0
     }; 
-    cl_gl_context_info clGlParamName = CL_DEVICES_FOR_GL_CONTEXT_KHR;
 #else
 #error "cl_gl for other platforms unimplemented"
 #endif
 
-    /* Looks like clGetGLContextInfoKHR doesn't understand how to fill
-     * out the size field itself when the devices field is NULL,
-     * so I'll supply something sensible
-     */
-    devicesSize = 64;
-    devices = new cl_device_id[devicesSize / sizeof(cl_device_id)];
-    AFK_CLCHK((*clGetGLContextInfoKHRFunc)(
-        clGlProperties,
-        clGlParamName,
-        devicesSize, devices, &devicesSize))
-
-    /* TODO For some reason, on AMD, I only get the CPU device here,
-     * even though the GPU device clearly supports cl_gl sharing
-     * :-(
-     */
-    for (size_t dI = 0; dI < (devicesSize / sizeof(cl_device_id)); ++dI)
+    AFK_CLCHK(clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &devicesSize))
+    if (devicesSize > 0)
     {
-        char *deviceName = NULL;
-        size_t deviceNameSize;
+        devices = new cl_device_id[devicesSize];
+        AFK_CLCHK(clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, devicesSize, devices, &devicesSize))
+
+        std::cout << "Found " << devicesSize << " GPU devices. " << std::endl;
+
         cl_int error;
-
-        error = clGetDeviceInfo(devices[dI], CL_DEVICE_NAME, 0, NULL, &deviceNameSize);
-        if (error == CL_SUCCESS)
-        {
-            deviceName = new char[deviceNameSize];
-            AFK_CLCHK(clGetDeviceInfo(devices[dI], CL_DEVICE_NAME, deviceNameSize, deviceName, &deviceNameSize))
-
-            std::cout << "AFK: Found cl_gl device: " << deviceName << std::endl;
-        }
-
-        delete[] deviceName;
+        ctxt = clCreateContext(clGlProperties, devicesSize, devices, NULL, NULL, &error);
+        afk_handleClError(error);
+        return true;
     }
-
-    /* TODO Is there a problem with using all the devices?
-     * (Lots of buffers to move about...)  Will I even
-     * get more than one?
-     */
-    cl_int error;
-    ctxt = clCreateContext(clGlProperties, devicesSize / sizeof(cl_device_id), devices, NULL, NULL, &error);
-    afk_handleClError(error);
-    return true;
+    else return false;
 }
 
 void AFK_Computer::loadProgramFromFile(struct AFK_ClProgram *p)
