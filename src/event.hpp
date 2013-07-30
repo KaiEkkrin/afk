@@ -8,7 +8,6 @@ void afk_keyboardUp(unsigned int key);
 void afk_mouse(unsigned int button);
 void afk_mouseUp(unsigned int button);
 void afk_motion(int x, int y);
-void afk_windowReshape(unsigned int width, unsigned int height);
 
 #endif /* _AFK_EVENT_H_ */
 

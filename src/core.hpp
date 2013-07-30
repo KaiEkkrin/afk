@@ -10,6 +10,7 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/lockfree/queue.hpp>
+#include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 
 #include "camera.hpp"
@@ -117,6 +118,11 @@ public:
 
     /* Bits set/cleared based on AFK_Controls */
     unsigned long long  controlsEnabled;
+
+    /* External lock for the input state to avoid assignment
+     * screwups.
+     */
+    boost::mutex inputMut;
 
     /* This buffer holds the last frame's worth of occasional
      * prints, so that I can dump them if we quit.

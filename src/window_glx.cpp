@@ -187,8 +187,7 @@ void AFK_WindowGlx::loopOnEvents(
     boost::function<void (unsigned int)> keyboardDownFunc,
     boost::function<void (unsigned int)> mouseUpFunc,
     boost::function<void (unsigned int)> mouseDownFunc,
-    boost::function<void (int, int)> motionFunc,
-    boost::function<void (unsigned int, unsigned int)> windowReshapeFunc)
+    boost::function<void (int, int)> motionFunc)
 {
     while (!windowClosed)
     {
@@ -232,7 +231,6 @@ void AFK_WindowGlx::loopOnEvents(
         case ConfigureNotify:
             /* Update my copy of the window attributes. */
             XGetWindowAttributes(dpy, w, &xwa);
-            windowReshapeFunc(xwa.width, xwa.height);
             break;
 
         case ClientMessage:

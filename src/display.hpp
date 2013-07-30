@@ -109,7 +109,6 @@ public:
 };
 
 void afk_display(void);
-void afk_reshape(int width, int height);
 
 #endif /* _AFK_DISPLAY_H_ */
 

@@ -103,6 +103,8 @@ void afk_displayLoop(void)
         if (!afk_core.computingUpdateDelayed)
         {
             /* Apply the current controls */
+            afk_core.inputMut.lock();
+
             if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_THRUST_RIGHT))
                 afk_core.velocity.v[0] += afk_core.config->thrustButtonSensitivity;
             if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_THRUST_LEFT))
@@ -140,6 +142,8 @@ void afk_displayLoop(void)
              * so that I don't get a strange mouse acceleration effect
              */
             afk_core.axisDisplacement = afk_vec3<float>(0.0f, 0.0f, 0.0f);
+
+            afk_core.inputMut.unlock();
 
             /* Manage the other objects.
              * TODO A call-through to AI stuff probably goes here?
@@ -351,12 +355,11 @@ void AFK_Core::loop(void)
 
     /* Branch the main thread into the window event handling loop. */
     window->loopOnEvents(
-        afk_keyboard,
         afk_keyboardUp,
-        afk_mouse,
+        afk_keyboard,
         afk_mouseUp,
-        afk_motion,
-        afk_windowReshape);
+        afk_mouse,
+        afk_motion);
 }
 
 const boost::posix_time::ptime& AFK_Core::getStartOfFrameTime(void) const

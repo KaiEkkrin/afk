@@ -139,6 +139,18 @@ void afk_display(void)
 {
     Mat4<float> projection = afk_core.camera->getProjection();
 
+    /* Make sure the display size is right */
+    static unsigned int lastWindowWidth = 0, lastWindowHeight = 0;
+    unsigned int windowWidth = afk_core.window->getWindowWidth();
+    unsigned int windowHeight = afk_core.window->getWindowHeight();
+    if (windowWidth != lastWindowWidth || windowHeight != lastWindowHeight)
+    {
+        glViewport(0, 0, windowWidth, windowHeight);
+        afk_core.camera->setWindowDimensions(windowWidth, windowHeight);
+        lastWindowWidth = windowWidth;
+        lastWindowHeight = windowHeight;
+    }
+
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glEnable(GL_DEPTH_TEST);
@@ -166,14 +178,5 @@ void afk_display(void)
         ss << "AFK: Got GL error: " << gluErrorString(glErr);
         throw AFK_Exception(ss.str());
     }
-}
-
-void afk_reshape(int width, int height)
-{
-    /* TODO I've seen this segfault.  Why?  (Something to do with X
-     * events being horribly delayed, which they are?)
-     */
-    glViewport(0, 0, width, height);
-    afk_core.camera->setWindowDimensions(width, height);
 }
 

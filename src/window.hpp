@@ -39,8 +39,7 @@ public:
         boost::function<void (unsigned int)> keyboardDownFunc,
         boost::function<void (unsigned int)> mouseUpFunc,
         boost::function<void (unsigned int)> mouseDownFunc,
-        boost::function<void (int, int)> motionFunc,
-        boost::function<void (unsigned int, unsigned int)> windowReshapeFunc) = 0;
+        boost::function<void (int, int)> motionFunc) = 0;
 
     /* Captures and releases the pointer. */
     virtual void capturePointer(void) = 0;
