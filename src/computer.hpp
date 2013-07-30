@@ -56,7 +56,7 @@ void afk_handleClError(cl_int error);
  * first, so I'm going to have to do plenty of buffer pre-
  * creation.  That's fine.
  * For now I'm going to serialise all OpenCL to a single
- * queue by the claim() and release() functions below --
+ * queue by the lock() and unlock() functions below --
  * maybe I can toy with multiple contexts (should be fine
  * x-thread) later? (TODO?)
  */
@@ -97,10 +97,10 @@ public:
      * queue.  Be quick, enqueue your thing and release
      * it!
      */
-    void claimCl(cl_context& o_ctxt, cl_command_queue& o_q);
+    void lock(cl_context& o_ctxt, cl_command_queue& o_q);
 
     /* Release it when you're done with this. */
-    void releaseCl(void);
+    void unlock(void);
 };
 
 #endif /* _AFK_COMPUTER_H_ */

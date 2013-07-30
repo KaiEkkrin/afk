@@ -220,14 +220,14 @@ bool AFK_Computer::findKernel(const std::string& kernelName, cl_kernel& o_kernel
     return found;
 }
 
-void AFK_Computer::claimCl(cl_context& o_ctxt, cl_command_queue& o_q)
+void AFK_Computer::lock(cl_context& o_ctxt, cl_command_queue& o_q)
 {
     mut.lock();
     o_ctxt = ctxt;
     o_q = q;
 }
 
-void AFK_Computer::releaseCl(void)
+void AFK_Computer::unlock(void)
 {
     mut.unlock();
 }

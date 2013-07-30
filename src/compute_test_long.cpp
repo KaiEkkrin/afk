@@ -29,7 +29,7 @@ void testComputeInternal(AFK_Computer *computer, cl_kernel kernel, unsigned int 
         src_a_h[i] = src_b_h[i] = (float) i * (float)id;
     }
 
-    computer->claimCl(ctxt, q);
+    computer->lock(ctxt, q);
 
     cl_mem src_a_b = clCreateBuffer(ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, size * sizeof(float), src_a_h, &error);
     afk_handleClError(error);
@@ -60,7 +60,7 @@ void testComputeInternal(AFK_Computer *computer, cl_kernel kernel, unsigned int 
     size_t global_ws = size + (64 - (size % 64));
     AFK_CLCHK(clEnqueueNDRangeKernel(q, kernel, 1, NULL, &global_ws, &local_ws, 0, NULL, NULL))
 
-    computer->releaseCl();
+    computer->unlock();
 
     float *readBack = new float[size];
     AFK_CLCHK(clEnqueueReadBuffer(q, res_b, CL_TRUE, 0, size * sizeof(float), readBack, 0, NULL, NULL))
