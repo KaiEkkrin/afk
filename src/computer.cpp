@@ -16,11 +16,13 @@
 
 struct AFK_ClProgram programs[] = {
     {   0,  "test.cl"           },
+    {   0,  "vs_test.cl"        },
     {   0,  ""                  }
 };
 
 struct AFK_ClKernel kernels[] = {
     {   0,  "test.cl",              "vector_add_gpu"                },
+    {   0,  "vs_test.cl",           "mangle_vs"                     },
     {   0,  "",                     ""                              }
 };
 
@@ -116,6 +118,10 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
 
         std::cout << "Found " << devicesSize << " GPU devices. " << std::endl;
 
+        /* TODO Try to fall back to un-shared buffers (copying everything)
+         * if this fails.  And, err, yeah, that'll probably be wildly
+         * slow...  :/
+         */
         cl_int error;
         ctxt = clCreateContext(clGlProperties, devicesSize, devices, NULL, NULL, &error);
         afk_handleClError(error);

@@ -24,6 +24,9 @@
 #define FRAME_REFRESH_TIME 15500
 
 
+#define CL_TEST 1
+
+
 /* TODO Maybe move these statics that are governing the calibrator
  * into configuration?
  * Oh God, I've got fixed bits of configuration *everywhere* now :(
@@ -33,6 +36,26 @@
 void afk_displayLoop(void)
 {
     afk_core.window->shareGLContext(DISPLAY_THREAD_ID);
+
+    /* TODO For initial testing purposes, I'm going to make the
+     * display loop own the OpenCL stuff.
+     * For real, I'd love if I had shared access across all
+     * threads, but there might be some interesting context
+     * related problems with that.
+     * At any rate, whilst it would be nice to move the
+     * program loading back to main(), I can't if I need
+     * one context per thread, each program must be loaded
+     * into each thread, hah!
+     */
+    afk_core.computer = new AFK_Computer();
+    std::string clProgramsDirString(afk_core.config->clProgramsDir);
+    afk_core.computer->loadPrograms(clProgramsDirString);
+    if (!afk_core.computer->findKernel("mangle_vs", afk_core.testKernel))
+        throw AFK_Exception("Cannot find mangle_vs test kernel");
+
+#if CL_TEST
+    afk_testComputeLong(afk_core.computer, afk_core.config->concurrency);
+#endif
 
     while (!afk_core.window->windowClosing())
     {
@@ -304,14 +327,18 @@ void AFK_Core::initGraphics(void)
 
 void AFK_Core::initCompute(void)
 {
+#if 0
     computer = new AFK_Computer();
     std::string clProgramsDirStr(config->clProgramsDir);
     computer->loadPrograms(clProgramsDirStr);
+#endif
 }
 
 void AFK_Core::testCompute(void)
 {
+#if 0
     afk_testComputeLong(computer, config->concurrency);
+#endif
 }
 
 void AFK_Core::loop(void)

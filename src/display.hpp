@@ -48,12 +48,13 @@ public:
         if (buf) afk_displayedBufferGlBuffersForDeletion(&buf, 1);
     }
 
-    void bindGLBuffer(GLenum target, GLenum usage)
+    bool bindGLBuffer(GLenum target, GLenum usage)
     {
         bool wasNotBuffered = (buf == 0);
         if (wasNotBuffered) glGenBuffers(1, &buf);
         glBindBuffer(target, buf);
         if (wasNotBuffered) glBufferData(target, t.size() * sizeof(T), &t[0], usage);
+        return wasNotBuffered;
     }
 };
 

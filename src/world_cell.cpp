@@ -177,7 +177,12 @@ void AFK_WorldCell::doStartingEntities(
         unsigned int entityCount = (unsigned int)(1.0f / invEntityCount);
 #endif
 
-        for (unsigned int i = 0; i < /* entityCount */ 1; ++i)
+        /* TODO Put entities back in when I want to work on
+         * them again :P
+         * For now they're just clutter.  I know the basic idea
+         * is OK.
+         */
+        for (unsigned int i = 0; i < /* entityCount */ 0; ++i)
         {
             AFK_Entity *e = new AFK_Entity();
             e->make(shape, cell, minCellSize, pointSubdivisionFactor, subdivisionFactor, rng);
