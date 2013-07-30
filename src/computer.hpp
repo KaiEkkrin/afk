@@ -64,11 +64,10 @@ void afk_handleClError(cl_int error);
 class AFK_Computer
 {
 protected:
-    /* The ID of the device that I'm using.
-     * TODO: Support many ?  Would need that many queues
-     * per device?
+    /* The IDs of the devices that I'm using.
      */
-    cl_device_id activeDevice;
+    cl_device_id *devices;
+    size_t devicesSize;
 
     cl_context ctxt;
     cl_command_queue q;
@@ -76,7 +75,10 @@ protected:
     boost::mutex mut;
 
     /* Helper functions */
+#if 0
     void inspectDevices(cl_platform_id platform, cl_device_type deviceType);
+#endif
+    bool findClGlDevices(cl_platform_id platform);
     void loadProgramFromFile(struct AFK_ClProgram *p);
 public:
     AFK_Computer();

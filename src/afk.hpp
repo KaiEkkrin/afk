@@ -11,6 +11,7 @@
 /* TODO Include OpenCL/cl.h instead on Mac (if I ever do a port) */
 #include <CL/cl.h>
 #include <GL/glew.h>
+#include <CL/cl_gl.h>
 
 #ifdef AFK_GLX
 #include <X11/Xlib.h>

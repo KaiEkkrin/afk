@@ -24,7 +24,7 @@
 
 #define TEST_ASYNC 0
 #define TEST_CACHE 0
-#define TEST_CL 0
+#define TEST_CL 1
 #define TEST_HASH 0
 #define TEST_RNGS 0
 #define TEST_SUBSTRATE 0

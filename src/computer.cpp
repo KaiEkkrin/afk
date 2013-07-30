@@ -4,6 +4,9 @@
 #include <iostream>
 #include <sstream>
 
+#include <boost/foreach.hpp>
+#include <boost/tokenizer.hpp>
+
 #include "computer.hpp"
 #include "exception.hpp"
 #include "file/readfile.hpp"
@@ -50,6 +53,7 @@ static void printBuildLog(std::ostream& s, cl_program program, cl_device_id devi
 
 /* AFK_Computer implementation */
 
+#if 0
 void AFK_Computer::inspectDevices(cl_platform_id platform, cl_device_type deviceType)
 {
     cl_int result;
@@ -110,6 +114,129 @@ void AFK_Computer::inspectDevices(cl_platform_id platform, cl_device_type device
         throw AFK_Exception(ss.str());
     }
 }
+#endif
+
+bool AFK_Computer::findClGlDevices(cl_platform_id platform)
+{
+    char *platformName;
+    size_t platformNameSize;
+
+    AFK_CLCHK(clGetPlatformInfo(
+        platform,
+        CL_PLATFORM_NAME,
+        0, NULL, &platformNameSize))
+    platformName = new char[platformNameSize];
+    AFK_CLCHK(clGetPlatformInfo(
+        platform,
+        CL_PLATFORM_NAME,
+        platformNameSize, platformName, &platformNameSize))
+
+    std::cout << "Finding cl_gl devices for platform " << platformName << std::endl;
+    delete[] platformName;
+
+    /* First, get this platform's info, make sure it
+     * supports cl_gl sharing, and find the cl_gl
+     * context info function.
+     */
+    char *extensions;
+    size_t extensionsSize;
+
+    AFK_CLCHK(clGetPlatformInfo(
+        platform,
+        CL_PLATFORM_EXTENSIONS,
+        0, NULL, &extensionsSize))
+    extensions = new char[extensionsSize];
+    AFK_CLCHK(clGetPlatformInfo(
+        platform,
+        CL_PLATFORM_EXTENSIONS,
+        extensionsSize, extensions, &extensionsSize))
+
+    std::cout << "Platform supports extensions: " << extensions << std::endl;
+
+    bool clGlSharingSupported = false;
+    boost::char_separator<char> sep(" ");
+    std::string extensionsStr(extensions);
+    boost::tokenizer<boost::char_separator<char> > extTok(extensionsStr, sep);
+    BOOST_FOREACH(const std::string& ext, extTok)
+    {
+        if (ext == "cl_khr_gl_sharing")
+        {
+            std::cout << "Platform supports cl_khr_gl_sharing" << std::endl;
+            clGlSharingSupported = true;
+        }
+    }
+
+    delete[] extensions;
+
+    if (!clGlSharingSupported) return false;
+
+    /* Find the cl_gl context info function */
+    cl_int (*clGetGLContextInfoKHRFunc)(
+        const cl_context_properties *,
+        cl_gl_context_info,
+        size_t, void *, size_t *
+        ) = clGetExtensionFunctionAddress("clGetGLContextInfoKHR");
+
+#if AFK_GLX
+    /* TODO YUCK YUCK -- this is requiring -fpermissive --
+     * looks like it's trying to cram 64 bit pointers into
+     * 32 bits, wtf!
+     */
+    Display *dpy = glXGetCurrentDisplay();
+    GLXContext glxCtx = glXGetCurrentContext();
+
+    const cl_context_properties properties[] = {
+        CL_GL_CONTEXT_KHR,      (cl_context_properties)glxCtx,
+        CL_GLX_DISPLAY_KHR,     (cl_context_properties)dpy,
+        CL_CONTEXT_PLATFORM,    platform,
+        0
+    }; 
+    cl_gl_context_info clGlParamName = CL_DEVICES_FOR_GL_CONTEXT_KHR;
+#else
+#error "cl_gl for other platforms unimplemented"
+#endif
+
+    AFK_CLCHK((*clGetGLContextInfoKHRFunc)(
+        properties,
+        clGlParamName,
+        0, NULL, &devicesSize))
+    if (devicesSize > 0)
+    {
+        devices = new cl_device_id[devicesSize];
+        AFK_CLCHK((*clGetGLContextInfoKHRFunc)(
+            properties,
+            clGlParamName,
+            devicesSize, devices, &devicesSize))
+
+        for (size_t dI = 0; dI < devicesSize; ++dI)
+        {
+            char *deviceName = NULL;
+            size_t deviceNameSize;
+
+            AFK_CLCHK(clGetDeviceInfo(devices[dI], CL_DEVICE_NAME, 0, NULL, &deviceNameSize))
+            deviceName = new char[deviceNameSize];
+            AFK_CLCHK(clGetDeviceInfo(devices[dI], CL_DEVICE_NAME, deviceNameSize, deviceName, &deviceNameSize))
+
+            std::cout << "AFK: Found cl_gl device: " << deviceName << std::endl;
+
+            delete[] deviceName;
+        }
+
+        /* TODO Is there a problem with using all the devices?
+         * (Lots of buffers to move about...)  Will I even
+         * get more than one?
+         */
+        cl_int error;
+        ctxt = clCreateContext(properties, devices, devicesSize, NULL, 0, &error);
+        afk_handleClError(error);
+        return true;
+    }
+    else
+    {
+        std::cout << "No cl_gl devices found for platform " << platform << std::endl;
+        return false;
+    }
+}
 
 void AFK_Computer::loadProgramFromFile(struct AFK_ClProgram *p)
 {
@@ -126,12 +253,13 @@ void AFK_Computer::loadProgramFromFile(struct AFK_ClProgram *p)
     p->program = clCreateProgramWithSource(ctxt, 1, (const char **)&source, &sourceLength, &error);
     afk_handleClError(error);
 
-    AFK_CLCHK(clBuildProgram(p->program, 1, &activeDevice, NULL, NULL, NULL))
-    printBuildLog(std::cout, p->program, activeDevice);
+    AFK_CLCHK(clBuildProgram(p->program, devicesSize, devices, NULL, NULL, NULL))
+    for (size_t dI = 0; dI < devicesSize; ++dI)
+        printBuildLog(std::cout, p->program, devices[dI]);
 }
 
 AFK_Computer::AFK_Computer():
-    activeDevice(0)
+    devices(NULL), devicesSize(0)
 {
     cl_platform_id *platforms;
     unsigned int platformCount;
@@ -145,29 +273,34 @@ AFK_Computer::AFK_Computer():
 
     for (unsigned int pI = 0; pI < platformCount; ++pI)
     {
-        inspectDevices(platforms[pI], CL_DEVICE_TYPE_GPU);
-        inspectDevices(platforms[pI], CL_DEVICE_TYPE_CPU);
+        //inspectDevices(platforms[pI], CL_DEVICE_TYPE_GPU);
+        //inspectDevices(platforms[pI], CL_DEVICE_TYPE_CPU);
+        if (findClGlDevices(platforms[pI])) break;
     }
 
-    /* Make up the context and queues. */
-    cl_int error;
-    ctxt = clCreateContext(0, 1, &activeDevice, NULL, NULL, &error);
-    afk_handleClError(error);
+    if (!devices) throw AFK_Exception("No cl_gl devices found");
 
-    q = clCreateCommandQueue(ctxt, activeDevice, 0, &error);
+    /* TODO Multiple queues for multiple devices? */
+    cl_int error;
+    q = clCreateCommandQueue(ctxt, devices[0], 0, &error);
     afk_handleClError(error);
 }
 
 AFK_Computer::~AFK_Computer()
 {
-    for (unsigned int i = 0; kernels[i].kernelName.size() != 0; ++i)
-        clReleaseKernel(kernels[i].kernel);
+    if (devices)
+    {
+        for (unsigned int i = 0; kernels[i].kernelName.size() != 0; ++i)
+            clReleaseKernel(kernels[i].kernel);
 
-    for (unsigned int i = 0; programs[i].filename.size() != 0; ++i)
-        clReleaseProgram(programs[i].program);
+        for (unsigned int i = 0; programs[i].filename.size() != 0; ++i)
+            clReleaseProgram(programs[i].program);
 
-    clReleaseCommandQueue(q);
-    clReleaseContext(ctxt);
+        clReleaseCommandQueue(q);
+        clReleaseContext(ctxt);
+
+        delete[] devices;
+    }
 }
 
 void AFK_Computer::loadPrograms(const std::string& programsDir)
@@ -222,6 +355,10 @@ bool AFK_Computer::findKernel(const std::string& kernelName, cl_kernel& o_kernel
 
 void AFK_Computer::lock(cl_context& o_ctxt, cl_command_queue& o_q)
 {
+    /* TODO Multiple devices and queues: can I identify
+     * the least busy device here, and pass out its
+     * queue?
+     */
     mut.lock();
     o_ctxt = ctxt;
     o_q = q;
