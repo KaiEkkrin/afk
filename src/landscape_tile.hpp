@@ -16,6 +16,7 @@
 #include "data/frame.hpp"
 #include "def.hpp"
 #include "display.hpp"
+#include "gl_buffer.hpp"
 #include "terrain.hpp"
 #include "tile.hpp"
 #include "world.hpp"
@@ -40,7 +41,8 @@ public:
     AFK_DisplayedBuffer<struct AFK_VcolPhongVertex>     vs;
     AFK_DisplayedBuffer<Vec3<unsigned int> >            is;
 
-    AFK_LandscapeGeometry(size_t vCount, size_t iCount);
+    AFK_LandscapeGeometry(size_t vCount, size_t iCount,
+        AFK_GLBufferQueue *vSource, AFK_GLBufferQueue *iSource);
 };
 
 enum AFK_LandscapeType
@@ -54,6 +56,15 @@ enum AFK_LandscapeType
  * right paradigm?)
  */
 #define AFK_LANDSCAPE_TYPE AFK_LANDSCAPE_TYPE_SMOOTH
+
+/* This utility function returns the sizes of the various landscape
+ * elements.  So that in AFK_World, I can configure the cache
+ * correctly.
+ */
+void afk_getLandscapeSizes(
+    unsigned int pointSubdivisionFactor,
+    unsigned int& o_landscapeTileVsSize,
+    unsigned int& o_landscapeTileIsSize);
 
 /* Describes a landscape tile, including managing its rendered vertex
  * and index buffers.
@@ -120,7 +131,9 @@ protected:
      */
     void vertices2FlatTriangles(
         const AFK_Tile& baseTile,
-        unsigned int pointSubdivisionFactor);
+        unsigned int pointSubdivisionFactor,
+        AFK_GLBufferQueue *vSource,
+        AFK_GLBufferQueue *iSource);
 
     /* Internal helper.
      * Turns a vertex grid into a world of smooth triangles,
@@ -129,7 +142,9 @@ protected:
      */
     void vertices2SmoothTriangles(
         const AFK_Tile& baseTile,
-        unsigned int pointSubdivisionFactor);
+        unsigned int pointSubdivisionFactor,
+        AFK_GLBufferQueue *vSource,
+        AFK_GLBufferQueue *iSource);
     
 public:
     AFK_LandscapeTile();
@@ -185,7 +200,9 @@ public:
     void computeGeometry(
         unsigned int pointSubdivisionFactor,
         const AFK_Tile& baseTile,
-        const AFK_TerrainList& terrainList);
+        const AFK_TerrainList& terrainList,
+        AFK_GLBufferQueue *vSource,
+        AFK_GLBufferQueue *iSource);
 
     /* --- End functions you should call if you got geometry rights --- */
 

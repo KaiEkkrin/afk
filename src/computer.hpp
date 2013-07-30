@@ -89,6 +89,11 @@ public:
      */
     void loadPrograms(const std::string& programsDir);
 
+    /* Reports the max allocation size of the chosen cl_gl
+     * device.
+     */
+    unsigned int clGlMaxAllocSize(void) const;
+
     /* To use this class, call the following functions
      * to identify where you want to compute, and then do
      * the rest of the OpenCL yourself.

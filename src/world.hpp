@@ -20,6 +20,7 @@
 #include "def.hpp"
 #include "displayed_landscape_tile.hpp"
 #include "entity.hpp"
+#include "gl_buffer.hpp"
 #include "landscape_tile.hpp"
 #include "shader.hpp"
 #include "shape.hpp"
@@ -121,6 +122,13 @@ protected:
 #endif
     AFK_WORLD_CACHE *worldCache;
 
+    /* Queues of ready cl_gl objects for rendering into.
+     */
+    AFK_GLBufferQueue *landscapeVsQueue;
+    AFK_GLBufferQueue *landscapeIsQueue;
+    AFK_GLBufferQueue *shapeVsQueue;
+    AFK_GLBufferQueue *shapeIsQueue;
+
     /* The cache of landscape cells we're tracking.
      * TODO: I think at some point, all of this should
      * move to a separate `landscape' module (one per
@@ -205,7 +213,10 @@ public:
         unsigned int _pointSubdivisionFactor,
         float _minCellSize,
         float _startingDetailPitch,
-        unsigned int concurrency);
+        unsigned int concurrency,
+        unsigned int worldCacheSize, /* in bytes */
+        unsigned int tileCacheSize, /* also in bytes */
+        unsigned int maxShapeSize); /* likewise */
     virtual ~AFK_World();
 
     /* Helper for the above -- requests a particular cell

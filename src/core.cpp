@@ -24,7 +24,7 @@
 #define FRAME_REFRESH_TIME 15500
 
 
-#define CL_TEST 1
+#define CL_TEST 0
 
 
 /* TODO Maybe move these statics that are governing the calibrator
@@ -56,6 +56,51 @@ void afk_displayLoop(void)
 #if CL_TEST
     afk_testComputeLong(afk_core.computer, afk_core.config->concurrency);
 #endif
+
+    /* Now that I've set that stuff up, find out how much memory
+     * I have to play with ...
+     */
+    /* TODO I don't know why this barfs :(  Assigning a pretend one for now */
+    //unsigned int clGlMaxAllocSize = afk_core.computer->clGlMaxAllocSize();
+    unsigned int clGlMaxAllocSize = 1024 * 1024 * 256;
+    std::cout << "AFK: Using GPU with " << std::dec << clGlMaxAllocSize << " bytes available to cl_gl";
+    std::cout << " (" << clGlMaxAllocSize / (1024 * 1024) << "MB) global memory" << std::endl;
+
+    /* Initialise the starting objects. */
+    float worldMaxDistance = afk_core.config->zFar / 2.0f;
+
+    /* For now, I'll try allocating 1/8th mem for the tile cache,
+     * and another 1/8th for the world cache.
+     */
+    afk_core.world = new AFK_World(
+        worldMaxDistance,   /* maxDistance -- zFar must be a lot bigger or things will vanish */
+        afk_core.config->subdivisionFactor,
+        afk_core.config->pointSubdivisionFactor,
+        afk_core.config->minCellSize,
+        afk_core.config->startingDetailPitch,
+        afk_core.config->concurrency,
+        clGlMaxAllocSize / 4,
+        clGlMaxAllocSize / 4,
+        clGlMaxAllocSize / 32 /* not much going on in the way of shapes right now */
+        );
+    afk_core.protagonist = new AFK_DisplayedProtagonist();
+
+    /* Make sure that camera is configured to match the window. */
+    afk_core.camera->setWindowDimensions(
+        afk_core.window->getWindowWidth(), afk_core.window->getWindowHeight());
+
+    /* TODO: Move the camera to somewhere above the landscape to
+     * start with.
+     * (A bit unclear how to best do this ... )
+     */
+
+    /* First checkpoint */
+    afk_core.startOfFrameTime = afk_core.lastFrameTime =
+    afk_core.lastCheckpoint = afk_core.lastCalibration =
+        boost::posix_time::microsec_clock::local_time();
+    afk_core.computeDelaysSinceLastCheckpoint =
+        afk_core.graphicsDelaysSinceLastCheckpoint =
+        afk_core.graphicsDelaysSinceLastCalibration = 0;
 
     while (!afk_core.window->windowClosing())
     {
@@ -345,35 +390,6 @@ void AFK_Core::loop(void)
 {
     /* Shader setup. */
     afk_loadShaders(config->shadersDir);
-
-    /* Initialise the starting objects. */
-    float worldMaxDistance = config->zFar / 2.0f;
-
-    world = new AFK_World(
-        worldMaxDistance,   /* maxDistance -- zFar must be a lot bigger or things will vanish */
-        config->subdivisionFactor,
-        config->pointSubdivisionFactor,
-        config->minCellSize,
-        config->startingDetailPitch,
-        config->concurrency
-        );
-    protagonist = new AFK_DisplayedProtagonist();
-
-    /* Make sure that camera is configured to match the window. */
-    camera->setWindowDimensions(
-        window->getWindowWidth(), window->getWindowHeight());
-
-    /* TODO: Move the camera to somewhere above the landscape to
-     * start with.
-     * (A bit unclear how to best do this ... )
-     */
-
-    /* First checkpoint */
-    startOfFrameTime = lastFrameTime = lastCheckpoint = lastCalibration =
-        boost::posix_time::microsec_clock::local_time();
-    computeDelaysSinceLastCheckpoint =
-        graphicsDelaysSinceLastCheckpoint =
-        graphicsDelaysSinceLastCalibration = 0;
 
     renderingFrame.increment();
 

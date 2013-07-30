@@ -7,6 +7,7 @@
 
 #include <vector>
 
+#include "gl_buffer.hpp"
 #include "light.hpp"
 #include "object.hpp"
 #include "shader.hpp"
@@ -35,9 +36,11 @@ class AFK_DisplayedBuffer
 {
 public:
     std::vector<T> t;
+    AFK_GLBufferQueue *bufferSource; /* Where to get new buffers from */
     GLuint buf;
 
-    AFK_DisplayedBuffer(size_t sizeHint): buf(0)
+    AFK_DisplayedBuffer(size_t sizeHint, AFK_GLBufferQueue *_bufferSource):
+        bufferSource(_bufferSource), buf(0)
     {
         t.reserve(sizeHint);
     }
@@ -45,15 +48,20 @@ public:
     virtual ~AFK_DisplayedBuffer()
     {
         /* Because of GLUT wanting all GL calls in the same thread */
-        if (buf) afk_displayedBufferGlBuffersForDeletion(&buf, 1);
+        //if (buf) afk_displayedBufferGlBuffersForDeletion(&buf, 1);
+
+        /* ... No.  I don't delete it any more!  I just push it back
+         * into the source
+         */
+        if (buf) bufferSource->push(buf);
     }
 
     bool bindGLBuffer(GLenum target, GLenum usage)
     {
         bool wasNotBuffered = (buf == 0);
-        if (wasNotBuffered) glGenBuffers(1, &buf);
+        if (wasNotBuffered) buf = bufferSource->pop();
         glBindBuffer(target, buf);
-        if (wasNotBuffered) glBufferData(target, t.size() * sizeof(T), &t[0], usage);
+        //if (wasNotBuffered) glBufferData(target, t.size() * sizeof(T), &t[0], usage);
         return wasNotBuffered;
     }
 };

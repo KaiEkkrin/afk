@@ -8,6 +8,7 @@
 #include "data/render_list.hpp"
 #include "def.hpp"
 #include "display.hpp"
+#include "gl_buffer.hpp"
 #include "light.hpp"
 #include "shader.hpp"
 
@@ -22,6 +23,15 @@
  * LoD splitting and all sorts.  But for now, just this
  * is fine ...
  */
+
+/* This utility function gives the sizes of shape
+ * elements.
+ */
+void afk_getShapeSizes(
+    unsigned int pointSubdivisionFactor,
+    unsigned int& o_shapeVsSize,
+    unsigned int& o_shapeIsSize);
+
 class AFK_Shape
 {
 protected:
@@ -50,7 +60,8 @@ protected:
     unsigned int threadCount;
 
 public:
-    AFK_Shape(size_t vCount, size_t iCount, unsigned int _threadCount);
+    AFK_Shape(size_t vCount, size_t iCount,
+        AFK_GLBufferQueue *vSource, AFK_GLBufferQueue *iSource, unsigned int _threadCount);
     virtual ~AFK_Shape();
 
     /* A kind-of-slow function that resizes all the geometry
@@ -88,7 +99,7 @@ public:
 class AFK_ShapeChevron: public AFK_Shape
 {
 public:
-    AFK_ShapeChevron(unsigned int _threadCount);
+    AFK_ShapeChevron(AFK_GLBufferQueue *vSource, AFK_GLBufferQueue *iSource, unsigned int _threadCount);
 };
 
 #endif /* _AFK_SHAPE_H_ */

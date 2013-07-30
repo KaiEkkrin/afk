@@ -29,6 +29,12 @@ void AFK_DisplayedLandscapeTile::display(
 
     if ((*geometry)->vs.bindGLBuffer(GL_ARRAY_BUFFER, GL_STATIC_DRAW))
     {
+        glBufferData(GL_ARRAY_BUFFER, (*geometry)->vs.t.size() * sizeof(struct AFK_VcolPhongVertex),
+            &((*geometry)->vs.t[0]), GL_DYNAMIC_DRAW);
+        /* TODO Put back the CL testing after I've made sure
+         * that I haven't b0rked this stuff.
+         */
+#if 0
         /* TODO Here's the time to test that cl_gl stuff.
          * Let's bind this bunch of unsuspecting vertices to
          * the CL ...
@@ -51,6 +57,17 @@ void AFK_DisplayedLandscapeTile::display(
          * going to need to do anyway.  But it's a fuckload of
          * code to have to write just in order to verify that
          * cl_gl sharing is working at all :-(
+         * Here's a better thing to try:
+         * - Create a pre-made GL buffers queue wrapper.
+         * Because of the way GL buffers work, it'll be
+         * pre-buffering all of them with zeroes.
+         * - Create a CL program that accepts the original data
+         * (I'll have to make temporary "real" CL buffers) and
+         * the GL buffer objects, and copies the data across
+         * (mangling the colour too just to verify).
+         * - In AFK_DisplayedBuffer, the `vs' buffers become
+         * those pre-made GL buffers, and I run the CL
+         * program to fill them.
          */
         if (error == CL_SUCCESS)
         {
@@ -70,14 +87,19 @@ void AFK_DisplayedLandscapeTile::display(
         else afk_handleClError(error);
             
         afk_core.computer->unlock();
-        ((*geometry)->vs.bindGLBuffer(GL_ARRAY_BUFFER, GL_STATIC_DRAW));
+        ((*geometry)->vs.bindGLBuffer(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW));
+#endif
     }
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), 0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(sizeof(Vec3<float>)));
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(2 * sizeof(Vec3<float>)));
 
-    (*geometry)->is.bindGLBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW);
+    if ((*geometry)->is.bindGLBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_DYNAMIC_DRAW))
+    {
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, (*geometry)->is.t.size() * sizeof(Vec3<unsigned int>),
+            &((*geometry)->is.t[0]), GL_DYNAMIC_DRAW);
+    }
 
     glDrawElements(GL_TRIANGLES, (*geometry)->is.t.size() * 3, GL_UNSIGNED_INT, 0);
 }

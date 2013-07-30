@@ -7,6 +7,7 @@
 #include "core.hpp"
 #include "debug.hpp"
 #include "exception.hpp"
+#include "landscape_tile.hpp"
 #include "rng/boost_taus88.hpp"
 #include "rng/rng.hpp"
 #include "world.hpp"
@@ -121,7 +122,8 @@ void AFK_World::generateLandscapeGeometry(
         landscapeCache);
 
     /* Using that terrain list, compute the landscape geometry. */
-    landscapeTile.computeGeometry(pointSubdivisionFactor, tile, terrainList);
+    landscapeTile.computeGeometry(
+        pointSubdivisionFactor, tile, terrainList, landscapeVsQueue, landscapeIsQueue);
     tilesComputed.fetch_add(1);
 }
 
@@ -404,13 +406,26 @@ bool AFK_World::generateClaimedWorldCell(
     return retval;
 }
 
+/* Utility -- tries to come up with a sensible cache bitness,
+ * given the number of entries.
+ */
+static unsigned int calculateCacheBitness(unsigned int entries)
+{
+    unsigned int bitness;
+    for (bitness = 0; (1u << bitness) < (entries << 1); ++bitness);
+    return bitness;
+}
+
 AFK_World::AFK_World(
     float _maxDistance,
     unsigned int _subdivisionFactor,
     unsigned int _pointSubdivisionFactor,
     float _minCellSize,
     float _startingDetailPitch,
-    unsigned int concurrency):
+    unsigned int concurrency,
+    unsigned int worldCacheSize,
+    unsigned int tileCacheSize,
+    unsigned int maxShapeSize):
         startingDetailPitch(_startingDetailPitch),
         detailPitch(_startingDetailPitch), /* This is a starting point */
         renderDetailPitch(_startingDetailPitch),
@@ -422,27 +437,45 @@ AFK_World::AFK_World(
 {
     /* Set up the caches and generator gang. */
 
-    /* TODO: For the cache sizes, try to compute suitable sizes based
-     * on system memory (and GPU memory for the dwc cache), and derive
-     * bitnesses and contention targets from those values
-     */
-    worldCache = new AFK_WORLD_CACHE(
-        22, 8, AFK_HashCell(), 240000, 0xfffffffeu);
+    unsigned int tileVsSize, tileIsSize;
+    afk_getLandscapeSizes(pointSubdivisionFactor, tileVsSize, tileIsSize);
 
+    unsigned int tileCacheEntrySize = tileVsSize + tileIsSize;
+    unsigned int tileCacheEntries = tileCacheSize / tileCacheEntrySize;
+    unsigned int tileCacheBitness = calculateCacheBitness(tileCacheEntries);
+
+    landscapeVsQueue = new AFK_GLBufferQueue(tileVsSize, tileCacheEntries, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
+    landscapeIsQueue = new AFK_GLBufferQueue(tileIsSize, tileCacheEntries, GL_ELEMENT_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
     landscapeCache = new AFK_LANDSCAPE_CACHE(
-        18, 8, AFK_HashTile(), 24000, 0xfffffffdu);
+        tileCacheBitness, 8, AFK_HashTile(), tileCacheEntries, 0xfffffffdu);
 
-    /* Note that loading lots of extra threads here does not seem
-     * to make us do significantly better than the default of
-     * (machine thread count + 1)
+    /* TODO Right now I don't have a sensible value for the
+     * world cache size, because I'm not doing any exciting
+     * geometry work with it.  When I am, I'll get that.
+     * But for now, just make a guess.
      */
+    unsigned int worldCacheEntrySize = SQUARE(pointSubdivisionFactor);
+    unsigned int worldCacheEntries = worldCacheSize / worldCacheEntrySize;
+    unsigned int worldCacheBitness = calculateCacheBitness(worldCacheEntries);
+
+    worldCache = new AFK_WORLD_CACHE(
+        worldCacheBitness, 8, AFK_HashCell(), worldCacheEntries, 0xfffffffeu);
+
+    unsigned int shapeVsSize, shapeIsSize;
+    afk_getShapeSizes(pointSubdivisionFactor, shapeVsSize, shapeIsSize);
+    unsigned int shapeEntrySize = shapeVsSize + shapeIsSize;
+    unsigned int maxShapes = maxShapeSize / shapeEntrySize;
+
+    shapeVsQueue = new AFK_GLBufferQueue(shapeVsSize, maxShapes, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
+    shapeIsQueue = new AFK_GLBufferQueue(shapeIsSize, maxShapes, GL_ELEMENT_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
+
     genGang = new AFK_AsyncGang<struct AFK_WorldCellGenParam, bool>(
             boost::function<bool (unsigned int, const struct AFK_WorldCellGenParam,
                 AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>&)>(afk_generateWorldCells),
             100, concurrency);
 
     /* Set up the shapes.  TODO more than one ?! */
-    shape = new AFK_ShapeChevron(concurrency);
+    shape = new AFK_ShapeChevron(shapeVsQueue, shapeIsQueue, concurrency);
 
     /* Set up the landscape shader. */
     landscape_shaderProgram = new AFK_ShaderProgram();
@@ -490,6 +523,11 @@ AFK_World::~AFK_World()
     delete landscapeCache;
     delete worldCache;
     delete shape;
+
+    delete landscapeVsQueue;    
+    delete landscapeIsQueue;
+    delete shapeVsQueue;
+    delete shapeIsQueue;
 
     delete landscape_shaderProgram;
     delete landscape_shaderLight;

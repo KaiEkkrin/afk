@@ -165,8 +165,6 @@ AFK_Computer::AFK_Computer():
 
     for (unsigned int pI = 0; pI < platformCount; ++pI)
     {
-        //inspectDevices(platforms[pI], CL_DEVICE_TYPE_GPU);
-        //inspectDevices(platforms[pI], CL_DEVICE_TYPE_CPU);
         if (findClGlDevices(platforms[pI])) break;
     }
 
@@ -228,6 +226,22 @@ void AFK_Computer::loadPrograms(const std::string& programsDir)
     /* Swap back out again. */
     if (!afk_popDir(errStream))
         throw AFK_Exception("AFK_Computer: Unable to switch out of programs dir: " + errStream.str());
+}
+
+unsigned int AFK_Computer::clGlMaxAllocSize(void) const
+{
+    /* For now, I'm going to assume you meant the first device.
+     * After all, that's all there will be usually,
+     * and it's probably not sensible to go overloading
+     * other devices with stuff because of data locality
+     * issues...?
+     */
+    unsigned int maxAllocSize;
+    size_t maxAllocSizeSize = sizeof(unsigned int);
+
+    AFK_CLCHK(clGetDeviceInfo(devices[0], CL_DEVICE_MAX_MEM_ALLOC_SIZE, maxAllocSizeSize, &maxAllocSize, NULL))
+    if (maxAllocSizeSize != sizeof(unsigned int)) throw AFK_Exception("Something weird happened fetching cl_gl max allocsize");
+    return maxAllocSize;
 }
 
 bool AFK_Computer::findKernel(const std::string& kernelName, cl_kernel& o_kernel) const

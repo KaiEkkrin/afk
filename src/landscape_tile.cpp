@@ -15,11 +15,30 @@
 
 /* AFK_LandscapeGeometry implementation */
 
-AFK_LandscapeGeometry::AFK_LandscapeGeometry(size_t vCount, size_t iCount):
-    vs(vCount), is(iCount)
+AFK_LandscapeGeometry::AFK_LandscapeGeometry(
+    size_t vCount, size_t iCount,
+    AFK_GLBufferQueue *vSource, AFK_GLBufferQueue *iSource):
+    vs(vCount, vSource), is(iCount, iSource)
 {
 }
 
+
+void afk_getLandscapeSizes(
+    unsigned int pointSubdivisionFactor,
+    unsigned int& o_landscapeTileVsSize,
+    unsigned int& o_landscapeTileIsSize)
+{
+#if AFK_LANDSCAPE_TYPE == AFK_LANDSCAPE_TYPE_SMOOTH
+    unsigned int landscapeTileVCount = SQUARE(pointSubdivisionFactor + 2);
+#elif AFK_LANDSCAPE_TYPE == AFK_LANDSCAPE_TYPE_FLAT
+    unsigned int landscapeTileVCount = SQUARE(pointSubdivisionFactor + 1);
+#else
+#error "Unrecognised AFK landscape type"
+#endif
+    
+    o_landscapeTileVsSize = landscapeTileVCount * sizeof(struct AFK_VcolPhongVertex);
+    o_landscapeTileIsSize = landscapeTileVCount * sizeof(Vec3<unsigned int>);
+}
 
 /* AFK_LandscapeTile implementation */
 
@@ -103,7 +122,9 @@ void AFK_LandscapeTile::computeSmoothTriangle(
 
 void AFK_LandscapeTile::vertices2FlatTriangles(
     const AFK_Tile& baseTile,
-    unsigned int pointSubdivisionFactor)
+    unsigned int pointSubdivisionFactor,
+    AFK_GLBufferQueue *vSource,
+    AFK_GLBufferQueue *iSource)
 {
     /* Each vertex generates 2 triangles (i.e. 6 triangle vertices) when
      * combined with the 3 vertices adjacent to it.
@@ -117,7 +138,7 @@ void AFK_LandscapeTile::vertices2FlatTriangles(
     }
 
     /* Set things up */
-    geometry = new AFK_LandscapeGeometry(expectedVertexCount, expectedVertexCount);
+    geometry = new AFK_LandscapeGeometry(expectedVertexCount, expectedVertexCount, vSource, iSource);
 
     /* To make the triangles, I chew one row and the next at once.
      * Each triangle pair is:
@@ -161,7 +182,9 @@ void AFK_LandscapeTile::vertices2FlatTriangles(
 
 void AFK_LandscapeTile::vertices2SmoothTriangles(
     const AFK_Tile& baseTile,
-    unsigned int pointSubdivisionFactor)
+    unsigned int pointSubdivisionFactor,
+    AFK_GLBufferQueue *vSource,
+    AFK_GLBufferQueue *iSource)
 {
     /* Because I have excess on all 4 sides of the tile, this is
      * the real size of a dimension of the grid.
@@ -181,7 +204,7 @@ void AFK_LandscapeTile::vertices2SmoothTriangles(
     }
 
     /* Set things up */
-    geometry = new AFK_LandscapeGeometry(expectedVertexCount, expectedIndexCount);
+    geometry = new AFK_LandscapeGeometry(expectedVertexCount, expectedIndexCount, vSource, iSource);
 
     /* In this case, I need to zero the colours and normals,
      * because I'm going to be accumulating into them.  I can
@@ -410,7 +433,9 @@ void AFK_LandscapeTile::makeRawTerrain(
 void AFK_LandscapeTile::computeGeometry(
     unsigned int pointSubdivisionFactor,
     const AFK_Tile& baseTile,
-    const AFK_TerrainList& terrainList)
+    const AFK_TerrainList& terrainList,
+    AFK_GLBufferQueue *vSource,
+    AFK_GLBufferQueue *iSource)
 {
     if (!rawVertices || !rawColours) return;
 
@@ -424,9 +449,9 @@ void AFK_LandscapeTile::computeGeometry(
      * matched with
      */
     if (AFK_LANDSCAPE_TYPE == AFK_LANDSCAPE_TYPE_FLAT)
-        vertices2FlatTriangles(baseTile, pointSubdivisionFactor);
+        vertices2FlatTriangles(baseTile, pointSubdivisionFactor, vSource, iSource);
     else
-        vertices2SmoothTriangles(baseTile, pointSubdivisionFactor);
+        vertices2SmoothTriangles(baseTile, pointSubdivisionFactor, vSource, iSource);
 
     /* We're done! */
     *(futureGeometry.load()) = geometry;

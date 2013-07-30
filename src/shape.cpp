@@ -8,8 +8,23 @@
 
 #include "shape.hpp"
 
-AFK_Shape::AFK_Shape(size_t vCount, size_t iCount, unsigned int _threadCount):
-    vs(vCount), is(iCount), renderList(_threadCount), threadCount(_threadCount)
+void afk_getShapeSizes(
+    unsigned int pointSubdivisionFactor,
+    unsigned int& o_shapeVsSize,
+    unsigned int& o_shapeIsSize)
+{
+    /* TODO Stuck with the static chevron for now.
+     * I want to move to a future in which each shape
+     * (LoD) has a fixed amount of geometry, just like
+     * the landscape tiles.
+     */
+    o_shapeVsSize = 6 * sizeof(struct AFK_VcolPhongVertex);
+    o_shapeIsSize = 8 * sizeof(Vec3<unsigned int>);
+}
+
+AFK_Shape::AFK_Shape(size_t vCount, size_t iCount,
+    AFK_GLBufferQueue *vSource, AFK_GLBufferQueue *iSource, unsigned int _threadCount):
+    vs(vCount, vSource), is(iCount, iSource), renderList(_threadCount), threadCount(_threadCount)
 {
     drawListBuf = new GLuint[threadCount];
     drawListTex = new GLuint[threadCount];
@@ -82,6 +97,12 @@ void AFK_Shape::display(
      * each instance differs!), set up the other globals and
      * then make my instanced render call.
      */
+
+    /* TODO What with the gl buffer queue stuff, I've gone
+     * and broken this.  I need to resurrect it, but for
+     * now these things are disabled anyway, so I will
+     * leave it and work on the landscape again first.
+     */
     for (unsigned int threadId = 0; threadId < renderList.getThreadCount(); ++threadId)
     {
         shaderLight->setupLight(globalLight);
@@ -115,8 +136,8 @@ void AFK_Shape::display(
     }
 }
 
-AFK_ShapeChevron::AFK_ShapeChevron(unsigned int _threadCount):
-    AFK_Shape(6, 8, _threadCount)
+AFK_ShapeChevron::AFK_ShapeChevron(AFK_GLBufferQueue *vSource, AFK_GLBufferQueue *iSource, unsigned int _threadCount):
+    AFK_Shape(6, 8, vSource, iSource, _threadCount)
 {
     /* Stealing the protagonist chevron as an initial
      * test.
