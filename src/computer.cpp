@@ -185,7 +185,7 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
     Display *dpy = glXGetCurrentDisplay();
     GLXContext glxCtx = glXGetCurrentContext();
 
-    const cl_context_properties properties[] = {
+    const cl_context_properties clGlProperties[] = {
         CL_GL_CONTEXT_KHR,      (cl_context_properties)glxCtx,
         CL_GLX_DISPLAY_KHR,     (cl_context_properties)dpy,
         CL_CONTEXT_PLATFORM,    platform,
@@ -201,21 +201,21 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
      */
 #if 0
     AFK_CLCHK((*clGetGLContextInfoKHRFunc)(
-        properties,
+        clGlProperties,
         clGlParamName,
         0, NULL, &devicesSize))
     if (devicesSize > 0)
     {
 #else
-        devicesSize = 8;
+        devicesSize = 64;
 #endif
-        devices = new cl_device_id[devicesSize];
+        devices = new cl_device_id[devicesSize / sizeof(cl_device_id)];
         AFK_CLCHK((*clGetGLContextInfoKHRFunc)(
-            properties,
+            clGlProperties,
             clGlParamName,
             devicesSize, devices, &devicesSize))
 
-        for (size_t dI = 0; dI < devicesSize; ++dI)
+        for (size_t dI = 0; dI < (devicesSize / sizeof(cl_device_id)); ++dI)
         {
             char *deviceName = NULL;
             size_t deviceNameSize;
@@ -237,9 +237,11 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
          * (Lots of buffers to move about...)  Will I even
          * get more than one?
          */
+#if 0
         cl_int error;
         ctxt = clCreateContext(properties, devices, devicesSize, NULL, 0, &error);
         afk_handleClError(error);
+#endif
         return true;
 #if 0
     }
