@@ -185,9 +185,6 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
     Display *dpy = glXGetCurrentDisplay();
     GLXContext glxCtx = glXGetCurrentContext();
 
-    std::cout << std::hex << "Using display: " << dpy << std::endl;
-    std::cout << std::hex << "Using GLX context: " << glxCtx << std::endl;
-
     const cl_context_properties properties[] = {
         CL_GL_CONTEXT_KHR,      (cl_context_properties)glxCtx,
         CL_GLX_DISPLAY_KHR,     (cl_context_properties)dpy,
@@ -199,12 +196,19 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
 #error "cl_gl for other platforms unimplemented"
 #endif
 
+    /* TODO Maybe this function just doesn't like filling out
+     * the size field
+     */
+#if 0
     AFK_CLCHK((*clGetGLContextInfoKHRFunc)(
         properties,
         clGlParamName,
         0, NULL, &devicesSize))
     if (devicesSize > 0)
     {
+#else
+        devicesSize = 8;
+#endif
         devices = new cl_device_id[devicesSize];
         AFK_CLCHK((*clGetGLContextInfoKHRFunc)(
             properties,
@@ -215,12 +219,16 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
         {
             char *deviceName = NULL;
             size_t deviceNameSize;
+            cl_int error;
 
-            AFK_CLCHK(clGetDeviceInfo(devices[dI], CL_DEVICE_NAME, 0, NULL, &deviceNameSize))
-            deviceName = new char[deviceNameSize];
-            AFK_CLCHK(clGetDeviceInfo(devices[dI], CL_DEVICE_NAME, deviceNameSize, deviceName, &deviceNameSize))
+            error = clGetDeviceInfo(devices[dI], CL_DEVICE_NAME, 0, NULL, &deviceNameSize);
+            if (error == CL_SUCCESS)
+            {
+                deviceName = new char[deviceNameSize];
+                AFK_CLCHK(clGetDeviceInfo(devices[dI], CL_DEVICE_NAME, deviceNameSize, deviceName, &deviceNameSize))
 
-            std::cout << "AFK: Found cl_gl device: " << deviceName << std::endl;
+                std::cout << "AFK: Found cl_gl device: " << deviceName << std::endl;
+            }
 
             delete[] deviceName;
         }
@@ -233,12 +241,14 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
         ctxt = clCreateContext(properties, devices, devicesSize, NULL, 0, &error);
         afk_handleClError(error);
         return true;
+#if 0
     }
     else
     {
         std::cout << "No cl_gl devices found for platform " << platform << std::endl;
         return false;
     }
+#endif
 }
 
 void AFK_Computer::loadProgramFromFile(struct AFK_ClProgram *p)
