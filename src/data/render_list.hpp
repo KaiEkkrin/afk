@@ -62,7 +62,7 @@ public:
 
     void updatePush(unsigned int threadId, const Renderable& r)
     {
-        if (threadId >= threadCount) throw new AFK_RenderListException();
+        if (threadId >= threadCount) throw AFK_RenderListException();
         l[updateList][threadId].push_back(r);
     }
 
@@ -73,13 +73,13 @@ public:
 
     Renderable *getDrawListBase(unsigned int threadId) const
     {
-        if (threadId >= threadCount) throw new AFK_RenderListException();
+        if (threadId >= threadCount) throw AFK_RenderListException();
         return &l[drawList][threadId][0];
     }
 
     size_t getDrawListSize(unsigned int threadId) const
     {
-        if (threadId >= threadCount) throw new AFK_RenderListException();
+        if (threadId >= threadCount) throw AFK_RenderListException();
         return l[drawList][threadId].size();
     }
 };

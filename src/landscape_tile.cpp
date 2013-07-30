@@ -113,7 +113,7 @@ void AFK_LandscapeTile::vertices2FlatTriangles(
     /* Sanity check */
     if (geometry)
     {
-        throw new AFK_Exception("Called vertices2FlatTriangles with pre-existing computed vertices");
+        throw AFK_Exception("Called vertices2FlatTriangles with pre-existing computed vertices");
     }
 
     /* Set things up */
@@ -177,7 +177,7 @@ void AFK_LandscapeTile::vertices2SmoothTriangles(
     /* Sanity check */
     if (geometry)
     {
-        throw new AFK_Exception("Called vertices2SmoothTriangles with pre-existing computed vertices");
+        throw AFK_Exception("Called vertices2SmoothTriangles with pre-existing computed vertices");
     }
 
     /* Set things up */
@@ -332,7 +332,7 @@ void AFK_LandscapeTile::buildTerrainList(
         {
             std::ostringstream ss;
             ss << "Unable to claim tile at " << parentTile << ": got status " << claimStatus;
-            throw new AFK_Exception(ss.str());
+            throw AFK_Exception(ss.str());
         }
         parentLandscapeTile.buildTerrainList(threadId, list, parentTile, subdivisionFactor, maxDistance, cache);
         parentLandscapeTile.release(threadId, claimStatus);
@@ -447,13 +447,13 @@ bool AFK_LandscapeTile::hasGeometry() const
 
 float AFK_LandscapeTile::getYBoundLower() const
 {
-    if (!hasGeometry()) throw new AFK_Exception("Tried to call getYBoundLower() without geometry");
+    if (!hasGeometry()) throw AFK_Exception("Tried to call getYBoundLower() without geometry");
     return yBoundLower;
 }
 
 float AFK_LandscapeTile::getYBoundUpper() const
 {
-    if (!hasGeometry()) throw new AFK_Exception("Tried to call getYBoundUpper() without geometry");
+    if (!hasGeometry()) throw AFK_Exception("Tried to call getYBoundUpper() without geometry");
     return yBoundUpper;
 }
 

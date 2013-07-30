@@ -31,7 +31,7 @@ void afk_handleClError(cl_int error)
     {
         std::ostringstream ss;
         ss << "AFK_Computer: Error occurred: " << error;
-        throw new AFK_Exception(ss.str());
+        throw AFK_Exception(ss.str());
     }
 }
 
@@ -134,43 +134,9 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
     std::cout << "Finding cl_gl devices for platform " << platformName << std::endl;
     delete[] platformName;
 
-    /* First, get this platform's info, make sure it
-     * supports cl_gl sharing, and find the cl_gl
-     * context info function.
+    /* Find the cl_gl context info function.
+     * (I can link directly with it OK on AMD, but not on NVIDIA)
      */
-    char *extensions;
-    size_t extensionsSize;
-
-    AFK_CLCHK(clGetPlatformInfo(
-        platform,
-        CL_PLATFORM_EXTENSIONS,
-        0, NULL, &extensionsSize))
-    extensions = new char[extensionsSize];
-    AFK_CLCHK(clGetPlatformInfo(
-        platform,
-        CL_PLATFORM_EXTENSIONS,
-        extensionsSize, extensions, &extensionsSize))
-
-    std::cout << "Platform supports extensions: " << extensions << std::endl;
-
-    bool clGlSharingSupported = false;
-    boost::char_separator<char> sep(" ");
-    std::string extensionsStr(extensions);
-    boost::tokenizer<boost::char_separator<char> > extTok(extensionsStr, sep);
-    BOOST_FOREACH(const std::string& ext, extTok)
-    {
-        if (ext == "cl_khr_gl_sharing")
-        {
-            std::cout << "Platform supports cl_khr_gl_sharing" << std::endl;
-            clGlSharingSupported = true;
-        }
-    }
-
-    delete[] extensions;
-
-    if (!clGlSharingSupported) return false;
-
-    /* Find the cl_gl context info function */
     cl_int (*clGetGLContextInfoKHRFunc)(
         const cl_context_properties *,
         cl_gl_context_info,
@@ -196,61 +162,47 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
 #error "cl_gl for other platforms unimplemented"
 #endif
 
-    /* TODO Maybe this function just doesn't like filling out
-     * the size field
+    /* Looks like clGetGLContextInfoKHR doesn't understand how to fill
+     * out the size field itself when the devices field is NULL,
+     * so I'll supply something sensible
      */
-#if 0
+    devicesSize = 64;
+    devices = new cl_device_id[devicesSize / sizeof(cl_device_id)];
     AFK_CLCHK((*clGetGLContextInfoKHRFunc)(
         clGlProperties,
         clGlParamName,
-        0, NULL, &devicesSize))
-    if (devicesSize > 0)
+        devicesSize, devices, &devicesSize))
+
+    /* TODO For some reason, on AMD, I only get the CPU device here,
+     * even though the GPU device clearly supports cl_gl sharing
+     * :-(
+     */
+    for (size_t dI = 0; dI < (devicesSize / sizeof(cl_device_id)); ++dI)
     {
-#else
-        devicesSize = 64;
-#endif
-        devices = new cl_device_id[devicesSize / sizeof(cl_device_id)];
-        AFK_CLCHK((*clGetGLContextInfoKHRFunc)(
-            clGlProperties,
-            clGlParamName,
-            devicesSize, devices, &devicesSize))
+        char *deviceName = NULL;
+        size_t deviceNameSize;
+        cl_int error;
 
-        for (size_t dI = 0; dI < (devicesSize / sizeof(cl_device_id)); ++dI)
+        error = clGetDeviceInfo(devices[dI], CL_DEVICE_NAME, 0, NULL, &deviceNameSize);
+        if (error == CL_SUCCESS)
         {
-            char *deviceName = NULL;
-            size_t deviceNameSize;
-            cl_int error;
+            deviceName = new char[deviceNameSize];
+            AFK_CLCHK(clGetDeviceInfo(devices[dI], CL_DEVICE_NAME, deviceNameSize, deviceName, &deviceNameSize))
 
-            error = clGetDeviceInfo(devices[dI], CL_DEVICE_NAME, 0, NULL, &deviceNameSize);
-            if (error == CL_SUCCESS)
-            {
-                deviceName = new char[deviceNameSize];
-                AFK_CLCHK(clGetDeviceInfo(devices[dI], CL_DEVICE_NAME, deviceNameSize, deviceName, &deviceNameSize))
-
-                std::cout << "AFK: Found cl_gl device: " << deviceName << std::endl;
-            }
-
-            delete[] deviceName;
+            std::cout << "AFK: Found cl_gl device: " << deviceName << std::endl;
         }
 
-        /* TODO Is there a problem with using all the devices?
-         * (Lots of buffers to move about...)  Will I even
-         * get more than one?
-         */
-#if 0
-        cl_int error;
-        ctxt = clCreateContext(properties, devices, devicesSize, NULL, 0, &error);
-        afk_handleClError(error);
-#endif
-        return true;
-#if 0
+        delete[] deviceName;
     }
-    else
-    {
-        std::cout << "No cl_gl devices found for platform " << platform << std::endl;
-        return false;
-    }
-#endif
+
+    /* TODO Is there a problem with using all the devices?
+     * (Lots of buffers to move about...)  Will I even
+     * get more than one?
+     */
+    cl_int error;
+    ctxt = clCreateContext(clGlProperties, devicesSize / sizeof(cl_device_id), devices, NULL, NULL, &error);
+    afk_handleClError(error);
+    return true;
 }
 
 void AFK_Computer::loadProgramFromFile(struct AFK_ClProgram *p)
@@ -274,7 +226,7 @@ void AFK_Computer::loadProgramFromFile(struct AFK_ClProgram *p)
 }
 
 AFK_Computer::AFK_Computer():
-    devices(NULL), devicesSize(0)
+    devices(NULL), devicesSize(0), ctxt(0), q(0)
 {
     cl_platform_id *platforms;
     unsigned int platformCount;
@@ -306,13 +258,13 @@ AFK_Computer::~AFK_Computer()
     if (devices)
     {
         for (unsigned int i = 0; kernels[i].kernelName.size() != 0; ++i)
-            clReleaseKernel(kernels[i].kernel);
+            if (kernels[i].kernel) clReleaseKernel(kernels[i].kernel);
 
         for (unsigned int i = 0; programs[i].filename.size() != 0; ++i)
-            clReleaseProgram(programs[i].program);
+            if (programs[i].program) clReleaseProgram(programs[i].program);
 
-        clReleaseCommandQueue(q);
-        clReleaseContext(ctxt);
+        if (q) clReleaseCommandQueue(q);
+        if (ctxt) clReleaseContext(ctxt);
 
         delete[] devices;
     }
@@ -325,7 +277,7 @@ void AFK_Computer::loadPrograms(const std::string& programsDir)
 
     /* Swap to the right directory. */
     if (!afk_pushDir(programsDir, errStream))
-        throw new AFK_Exception("AFK_Computer: Unable to switch to programs dir: " + errStream.str());
+        throw AFK_Exception("AFK_Computer: Unable to switch to programs dir: " + errStream.str());
 
     /* Load all the programs I know about. */
     for (unsigned int i = 0; programs[i].filename.size() != 0; ++i)
@@ -350,7 +302,7 @@ void AFK_Computer::loadPrograms(const std::string& programsDir)
 
     /* Swap back out again. */
     if (!afk_popDir(errStream))
-        throw new AFK_Exception("AFK_Computer: Unable to switch out of programs dir: " + errStream.str());
+        throw AFK_Exception("AFK_Computer: Unable to switch out of programs dir: " + errStream.str());
 }
 
 bool AFK_Computer::findKernel(const std::string& kernelName, cl_kernel& o_kernel) const

@@ -72,7 +72,7 @@ void testComputeInternal(AFK_Computer *computer, cl_kernel kernel, unsigned int 
     std::cout << std::endl;
 
     for (int i = 0; i < size; ++i)
-        if (readBack[i] != ((float)id * (float)i * 2.0f)) throw new AFK_Exception("Failed!");
+        if (readBack[i] != ((float)id * (float)i * 2.0f)) throw AFK_Exception("Failed!");
 
     std::cout << "AFK_Computer: Test program completed successfully" << std::endl;
 

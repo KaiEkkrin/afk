@@ -113,7 +113,7 @@ public:
 
     void push(ParameterType parameter)
     {
-        if (!q.push(parameter)) throw new AFK_WorkQueueException(); /* TODO can that happen? */
+        if (!q.push(parameter)) throw AFK_WorkQueueException(); /* TODO can that happen? */
         count.fetch_add(1);
 #if WORK_QUEUE_CONDITION_WAIT
         {

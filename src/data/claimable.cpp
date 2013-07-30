@@ -76,7 +76,7 @@ enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimT
 
         default:
             /* This is a programming error */
-            throw new AFK_ClaimException();
+            throw AFK_ClaimException();
         }
     }
 #if CLAIMABLE_MUTEX
@@ -105,11 +105,11 @@ enum AFK_ClaimStatus AFK_Claimable::upgrade(unsigned int threadId, enum AFK_Clai
         break;
 
     default:
-        throw new AFK_ClaimException();
+        throw AFK_ClaimException();
     }
 #else
     /* Not supported right now */
-    throw new AFK_ClaimException();
+    throw AFK_ClaimException();
 #endif
 
     return status;
@@ -134,7 +134,7 @@ void AFK_Claimable::release(unsigned int threadId, enum AFK_ClaimStatus status)
 
     default:
         /* Another programming error */
-        throw new AFK_ClaimException();
+        throw AFK_ClaimException();
     }
 #else
     if (!claimingThreadId.compare_exchange_strong(threadId, UNCLAIMED))

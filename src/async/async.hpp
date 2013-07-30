@@ -136,7 +136,7 @@ void afk_asyncWorker(
             case AFK_WQ_WAITING:
 #if WORK_QUEUE_CONDITION_WAIT
                 /* I don't expect this. */
-                throw new AFK_AsyncException();
+                throw AFK_AsyncException();
 #else
                 /* Give way so I don't cram the CPU with busy-waits.
                  * This is really important -- the whole system chokes
@@ -153,7 +153,7 @@ void afk_asyncWorker(
 
             default:
                 /* Programming error. */
-                throw new AFK_AsyncException();
+                throw AFK_AsyncException();
             }
         }
 

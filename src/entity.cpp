@@ -106,6 +106,6 @@ bool AFK_Entity::canBeEvicted(void) const
      * Claimable for the frame-tracking claim utility,
      * not as an evictable thing.
      */
-    throw new AFK_Exception("Wanted to evict an Entity");
+    throw AFK_Exception("Wanted to evict an Entity");
 }
 

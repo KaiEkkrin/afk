@@ -27,7 +27,7 @@ AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight
 {
     XInitThreads();
     dpy = XOpenDisplay(NULL);
-    if (!dpy) throw new AFK_Exception("Unable to open X display");
+    if (!dpy) throw AFK_Exception("Unable to open X display");
 
     int screen = DefaultScreen(dpy);
     Window rootWindow = DefaultRootWindow(dpy);
@@ -44,7 +44,7 @@ AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight
     };
 
     visInfo = glXChooseVisual(dpy, screen, glxAttr);
-    if (!visInfo) throw new AFK_Exception("Unable to choose X visuals");
+    if (!visInfo) throw AFK_Exception("Unable to choose X visuals");
  
     /* Make the window */
     XSetWindowAttributes winAttr;
@@ -88,14 +88,14 @@ AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight
 
     /* Now, initialise GLEW. */
     GLenum res = glewInit();
-    if (res != GLEW_OK) throw new AFK_Exception("Unable to initialise GLEW");
+    if (res != GLEW_OK) throw AFK_Exception("Unable to initialise GLEW");
 
     /* Now, make an OpenGL 3.2 context.
      * TODO Different version?  What version is AFK going to need?
      * How does this stuff sit with GLEW?
      */
     glxFbConfig = glXChooseFBConfig(dpy, screen, NULL, &numFbConfigElements);
-    if (!glxFbConfig) throw new AFK_Exception("Unable to get GLX framebuffer config");
+    if (!glxFbConfig) throw AFK_Exception("Unable to get GLX framebuffer config");
 
     realGlxCtx = glXCreateContextAttribsARB(dpy, glxFbConfig[0], NULL, true, glAttr);
 
@@ -162,7 +162,7 @@ void AFK_WindowGlx::shareGLContext(unsigned int threadId)
     if (shadowGlxContexts.find(threadId) == shadowGlxContexts.end())
     {
         shadowGlxContexts[threadId] = glXCreateContextAttribsARB(dpy, glxFbConfig[0], realGlxCtx, true, glAttr);
-        if (!shadowGlxContexts[threadId]) throw new AFK_Exception("Unable to create new shadow GLX context");
+        if (!shadowGlxContexts[threadId]) throw AFK_Exception("Unable to create new shadow GLX context");
     }
 
     glXMakeCurrent(dpy, w, shadowGlxContexts[threadId]);
@@ -185,7 +185,7 @@ void AFK_WindowGlx::releaseGLContext(unsigned int threadId)
 
 void AFK_WindowGlx::shareGLCLContext(AFK_Computer *computer)
 {
-    throw new AFK_Exception("Unimplemented");
+    throw AFK_Exception("Unimplemented");
 }
 
 void AFK_WindowGlx::loopOnEvents(
