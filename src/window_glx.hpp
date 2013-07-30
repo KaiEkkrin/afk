@@ -3,6 +3,8 @@
 #ifndef _AFK_WINDOW_GLX_H_
 #define _AFK_WINDOW_GLX_H_
 
+#ifdef AFK_GLX
+
 #include "afk.hpp"
 
 #include <map>
@@ -65,8 +67,6 @@ public:
     virtual bool windowClosing(void) const;
     virtual void closeWindow(void);
 };
-
-#ifdef AFK_GLX
 
 #endif /* AFK_GLX */
 #endif /* _AFK_WINDOW_GLX_H_ */

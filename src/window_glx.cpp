@@ -1,5 +1,7 @@
 /* AFK (c) Alex Holloway 2013 */
 
+#ifdef AFK_GLX
+
 #include <stdio.h>
 
 #include "exception.hpp"
@@ -310,4 +312,6 @@ void AFK_WindowGlx::closeWindow(void)
 {
     windowClosed = true;
 }
+
+#endif /* AFK_GLX */
 
