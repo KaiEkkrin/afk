@@ -40,62 +40,20 @@ static void enableControl(enum AFK_Controls control)
     else
         AFK_SET_BIT(afk_core.controlsEnabled, control);
 
-#if 0
-    /* Some special handling. */
-    static int oldWindowWidth = -1, oldWindowHeight = -1;
-#endif
-
     switch (control)
     {
     case CTRL_MOUSE_CAPTURE:
         if (AFK_TEST_BIT(afk_core.controlsEnabled, control))
-        {
             afk_core.window->capturePointer();
-        }
         else
-        {
             afk_core.window->letGoOfPointer();
-        }
         break;
 
     case CTRL_FULLSCREEN:
-        /* TODO Fix this when I've figured out how to fullscreen
-         * a window with Xlib.
-         */
-#if 0
         if (AFK_TEST_BIT(afk_core.controlsEnabled, control))
-        {
-            oldWindowWidth = glutGet(GLUT_WINDOW_WIDTH);
-            oldWindowHeight = glutGet(GLUT_WINDOW_HEIGHT);
-            
-            int screenWidth = glutGet(GLUT_SCREEN_WIDTH);
-            int screenHeight = glutGet(GLUT_SCREEN_HEIGHT);
-
-            glutReshapeWindow(screenWidth, screenHeight);
-            glutFullScreen();
-
-            /* TODO When I enter game mode, all subsequent events get swallowed.
-             * I think I might need to debug freeglut3 to figure out what's
-             * going on there.  In the meantime, leaving this bit out.
-             */
-#define USE_GAME_MODE 0
-
-#if USE_GAME_MODE
-            glutEnterGameMode();
-#endif
-        }
+            afk_core.window->switchToFullScreen();
         else
-        {
-#if USE_GAME_MODE
-            glutLeaveGameMode();
-#endif
-
-            if (oldWindowWidth != -1 && oldWindowHeight != -1)
-            {
-                glutReshapeWindow(oldWindowWidth, oldWindowHeight);
-            }
-        }
-#endif
+            afk_core.window->switchAwayFromFullScreen();
         break;
 
     default:

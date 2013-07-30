@@ -45,6 +45,10 @@ public:
     virtual void capturePointer(void) = 0;
     virtual void letGoOfPointer(void) = 0;
 
+    /* Switches to and from full screen. */
+    virtual void switchToFullScreen(void) = 0;
+    virtual void switchAwayFromFullScreen(void) = 0;
+
     /* The obvious buffer swap */
     virtual void swapBuffers(void) = 0;
 
@@ -53,7 +57,6 @@ public:
      */
     virtual bool windowClosing(void) const = 0;
         
-    virtual void toggleFullScreen(void) = 0;
     virtual void closeWindow(void) = 0;
 };
 

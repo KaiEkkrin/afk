@@ -67,6 +67,10 @@ AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight
     XSelectInput(dpy, w, pointerEventMask | keyEventMask | StructureNotifyMask);
     XMapWindow(dpy, w);
 
+    /* Save the fullscreen related atoms for later */
+    wmState = XInternAtom(dpy, "_NET_WM_STATE", 0);
+    wmFullscreen = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", 0);
+
     /* Fix it so that I will actually receive destroy window events,
      * rather than X unceremoniously pulling the plug on me
      */
@@ -264,10 +268,32 @@ void AFK_WindowGlx::letGoOfPointer(void)
     }
 }
 
-void AFK_WindowGlx::toggleFullScreen(void)
+void AFK_WindowGlx::switchToFullScreen(void)
 {
-    /* TODO */
-    throw new AFK_Exception("Unimplemented");
+    XEvent e;
+    e.type                  = ClientMessage;
+    e.xclient.window        = w;
+    e.xclient.message_type  = wmState;
+    e.xclient.format        = 32;
+    e.xclient.data.l[0]     = 1;
+    e.xclient.data.l[1]     = wmFullscreen;
+    e.xclient.data.l[2]     = 0;
+
+    XSendEvent(dpy, DefaultRootWindow(dpy), False, SubstructureNotifyMask, &e);
+}
+
+void AFK_WindowGlx::switchAwayFromFullScreen(void)
+{
+    XEvent e;
+    e.type                  = ClientMessage;
+    e.xclient.window        = w;
+    e.xclient.message_type  = wmState;
+    e.xclient.format        = 32;
+    e.xclient.data.l[0]     = 0;
+    e.xclient.data.l[1]     = wmFullscreen;
+    e.xclient.data.l[2]     = 0;
+
+    XSendEvent(dpy, DefaultRootWindow(dpy), False, SubstructureNotifyMask, &e);
 }
 
 void AFK_WindowGlx::swapBuffers(void)

@@ -21,6 +21,8 @@ protected:
     XVisualInfo *visInfo;
     Window w;
     XWindowAttributes xwa;
+    Atom wmState;
+    Atom wmFullscreen;
     Atom wmDeleteWindow;
     bool pointerCaptured;
     bool windowClosed;
@@ -57,7 +59,8 @@ public:
         boost::function<void (int, int)> motionFunc);
     virtual void capturePointer(void);
     virtual void letGoOfPointer(void);
-    virtual void toggleFullScreen(void);
+    virtual void switchToFullScreen(void);
+    virtual void switchAwayFromFullScreen(void);
     virtual void swapBuffers(void);
     virtual bool windowClosing(void) const;
     virtual void closeWindow(void);
