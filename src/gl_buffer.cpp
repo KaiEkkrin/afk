@@ -19,6 +19,9 @@ AFK_GLBufferQueue::AFK_GLBufferQueue(size_t bufSize, size_t bufCount, GLenum tar
 
     for (size_t i = 0; i < bufCount; ++i)
     {
+        /* Paranoia. */
+        if (bufferNums[i] == 0) throw AFK_Exception("Got zero buffer from glGenBuffers");
+
         glBindBuffer(target, bufferNums[i]);
         glBufferData(target, bufSize, dummy, usage);
         buffers.push(bufferNums[i]);
