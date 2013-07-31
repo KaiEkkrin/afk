@@ -50,8 +50,8 @@ void afk_displayLoop(void)
     afk_core.computer = new AFK_Computer();
     std::string clProgramsDirString(afk_core.config->clProgramsDir);
     afk_core.computer->loadPrograms(clProgramsDirString);
-    if (!afk_core.computer->findKernel("mangle_vs", afk_core.testKernel))
-        throw AFK_Exception("Cannot find mangle_vs test kernel");
+    if (!afk_core.computer->findKernel("vs2SmoothTriangles", afk_core.v2stKernel))
+        throw AFK_Exception("Cannot find vs2SmoothTriangles test kernel");
 
 #if CL_TEST
     afk_testComputeLong(afk_core.computer, afk_core.config->concurrency);

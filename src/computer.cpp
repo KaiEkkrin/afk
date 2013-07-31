@@ -15,17 +15,17 @@
 /* The set of known programs, just like the shaders doodah. */
 
 struct AFK_ClProgram programs[] = {
-    {   0,  "test.cl"               },
-    {   0,  "vs2FlatTriangles.cl",  },
-    {   0,  "vs_test.cl"            },
-    {   0,  ""                      }
+    {   0,  "test.cl"                   },
+    {   0,  "vs2SmoothTriangles.cl",    },
+    {   0,  "vs_test.cl"                },
+    {   0,  ""                          }
 };
 
 struct AFK_ClKernel kernels[] = {
-    {   0,  "test.cl",              "vector_add_gpu"                },
-    {   0,  "vs2FlatTriangles.cl",  "vs2FlatTriangles",             },
-    {   0,  "vs_test.cl",           "mangle_vs"                     },
-    {   0,  "",                     ""                              }
+    {   0,  "test.cl",                  "vector_add_gpu"                },
+    {   0,  "vs2SmoothTriangles.cl",    "vs2SmoothTriangles",           },
+    {   0,  "vs_test.cl",               "mangle_vs"                     },
+    {   0,  "",                         ""                              }
 };
 
 
@@ -269,14 +269,17 @@ void AFK_Computer::lock(cl_context& o_ctxt, cl_command_queue& o_q)
     /* TODO Multiple devices and queues: can I identify
      * the least busy device here, and pass out its
      * queue?
+     * TODO *2: I'm actually temporarily ignoring the mutex
+     * here.  I'm only using one thread for CL right now,
+     * after all.
      */
-    mut.lock();
+    //mut.lock();
     o_ctxt = ctxt;
     o_q = q;
 }
 
 void AFK_Computer::unlock(void)
 {
-    mut.unlock();
+    //mut.unlock();
 }
 

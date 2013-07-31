@@ -41,7 +41,7 @@ public:
     void initGL(void);
 
     /* CL-at-start-of-frame: runs this tile's compute tasks. */
-    void compute(void);
+    void compute(unsigned int pointSubdivisionFactor);
 
     /* This makes the GL render calls.  It assumes the GL is already
      * in the context of the landscape shader program and the

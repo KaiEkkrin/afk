@@ -105,7 +105,7 @@ void AFK_World::generateLandscapeGeometry(
     AFK_LandscapeTile& landscapeTile,
     unsigned int threadId)
 {
-    landscapeTile.makeRawTerrain(AFK_LANDSCAPE_TYPE, tile, pointSubdivisionFactor, minCellSize);
+    landscapeTile.makeRawTerrain(tile, pointSubdivisionFactor, minCellSize);
 
     /* Create the terrain list, which is composed out of
      * the terrain descriptor for this landscape tile, and
@@ -157,7 +157,7 @@ bool AFK_World::generateClaimedWorldCell(
         /* Nothing else to do with it now either. */
         worldCell.release(threadId, AFK_CL_CLAIMED);
     }
-    else
+    else if (cell.coord.v[1] == 0) /* TODO remove this again when I've fixed the y-bounds */
     {
         /* We display geometry at a cell if its detail pitch is at the
          * target detail pitch, or if it's already the smallest
@@ -402,6 +402,12 @@ bool AFK_World::generateClaimedWorldCell(
             delete[] subcells;
         }
     }
+    else
+    {
+        /* TODO REMOVEME (see the check for coord.v[1] == 0 above) */
+        /* We don't need this any more */
+        worldCell.release(threadId, AFK_CL_CLAIMED);
+    }
 
     return retval;
 }
@@ -437,8 +443,8 @@ AFK_World::AFK_World(
 {
     /* Set up the caches and generator gang. */
 
-    unsigned int tileVsSize, tileIsSize;
-    afk_getLandscapeSizes(pointSubdivisionFactor, tileVsSize, tileIsSize);
+    unsigned int tileVsCount, tileIsCount, tileVsSize, tileIsSize;
+    afk_getLandscapeSizes(pointSubdivisionFactor, tileVsCount, tileIsCount, tileVsSize, tileIsSize);
 
     unsigned int tileCacheEntrySize = tileVsSize + tileIsSize;
     unsigned int tileCacheEntries = tileCacheSize / tileCacheEntrySize;
@@ -646,7 +652,7 @@ void AFK_World::doComputeTasks(void)
 
     while (landscapeRenderQueue.draw_pop(dlt))
     {
-        dlt->compute();
+        dlt->compute(pointSubdivisionFactor);
         postClTiles.push_back(dlt);
     }
 }

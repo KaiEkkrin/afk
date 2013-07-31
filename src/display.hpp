@@ -40,12 +40,13 @@ template<typename T>
 class AFK_DisplayedBuffer
 {
 public:
-    std::vector<T> t;
+    std::vector<T> t; /* TODO remove me */
     AFK_GLBufferQueue *bufferSource; /* Where to get new buffers from */
     GLuint buf;
+    size_t sizeHint; /* The number of members -- you need to know what that means */
 
-    AFK_DisplayedBuffer(size_t sizeHint, AFK_GLBufferQueue *_bufferSource):
-        bufferSource(_bufferSource), buf(0)
+    AFK_DisplayedBuffer(size_t _sizeHint, AFK_GLBufferQueue *_bufferSource):
+        bufferSource(_bufferSource), buf(0), sizeHint(_sizeHint)
     {
         t.reserve(sizeHint);
     }

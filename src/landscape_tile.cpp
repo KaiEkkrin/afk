@@ -16,8 +16,10 @@
 /* AFK_LandscapeGeometry implementation */
 
 AFK_LandscapeGeometry::AFK_LandscapeGeometry(
+    Vec3<float> *_rawVertices, Vec3<float> *_rawColours, size_t _rawVertexCount,
     size_t vCount, size_t iCount,
     AFK_GLBufferQueue *vSource, AFK_GLBufferQueue *iSource):
+    rawVertices(_rawVertices), rawColours(_rawColours), rawVertexCount(_rawVertexCount),
     vs(vCount, vSource), is(iCount, iSource)
 {
 }
@@ -25,248 +27,19 @@ AFK_LandscapeGeometry::AFK_LandscapeGeometry(
 
 void afk_getLandscapeSizes(
     unsigned int pointSubdivisionFactor,
+    unsigned int& o_landscapeTileVCount,
+    unsigned int& o_landscapeTileICount,
     unsigned int& o_landscapeTileVsSize,
     unsigned int& o_landscapeTileIsSize)
 {
-#if AFK_LANDSCAPE_TYPE == AFK_LANDSCAPE_TYPE_SMOOTH
-    unsigned int landscapeTileVCount = SQUARE(pointSubdivisionFactor + 2);
-    unsigned int landscapeTileICount = SQUARE(pointSubdivisionFactor + 2) * 6;
-#elif AFK_LANDSCAPE_TYPE == AFK_LANDSCAPE_TYPE_FLAT
-    unsigned int landscapeTileVCount = SQUARE(pointSubdivisionFactor + 1) * 6;
-    unsigned int landscapeTileICount = landscapeTileVCount;
-#else
-#error "Unrecognised AFK landscape type"
-#endif
+    o_landscapeTileVCount = SQUARE(pointSubdivisionFactor + 2);
+    o_landscapeTileICount = SQUARE(pointSubdivisionFactor + 1) * 2;
     
-    o_landscapeTileVsSize = landscapeTileVCount * sizeof(struct AFK_VcolPhongVertex);
-    o_landscapeTileIsSize = landscapeTileICount * sizeof(struct AFK_VcolPhongIndex);
+    o_landscapeTileVsSize = o_landscapeTileVCount * sizeof(struct AFK_VcolPhongVertex);
+    o_landscapeTileIsSize = o_landscapeTileICount * sizeof(struct AFK_VcolPhongIndex);
 }
 
 /* AFK_LandscapeTile implementation */
-
-void AFK_LandscapeTile::computeFlatTriangle(
-    const Vec3<float> *vertices,
-    const Vec3<float> *colours,
-    const Vec3<unsigned int>& indices,
-    unsigned int triangleVOff)
-{
-    unsigned int i;
-
-    Vec3<float> crossP = ((vertices[indices.v[1]] - vertices[indices.v[0]]).cross(
-        vertices[indices.v[2]] - vertices[indices.v[0]]));
-
-    /* Try to sort out the winding order so that under GL_CCW,
-     * all triangles are facing upwards
-     */
-    Vec3<unsigned int> triangle;
-    triangle.v[0] = triangleVOff;
-    if (crossP.v[1] >= 0.0f)
-    {
-        triangle.v[1] = triangleVOff + 2;
-        triangle.v[2] = triangleVOff + 1;
-    }   
-    else
-    {
-        triangle.v[1] = triangleVOff + 1;
-        triangle.v[2] = triangleVOff + 2;
-    }
-
-    struct AFK_VcolPhongIndex index;
-    index.i[0] = triangle.v[0];
-    index.i[1] = triangle.v[1];
-    index.i[2] = triangle.v[2];
-    geometry->is.t.push_back(index);
-
-    /* I always want to compute the flat normal here.
-     * The correct normal for smooth triangles is the
-     * sum of these for all the triangles at a vertex.
-     */
-    Vec3<float> normal = crossP /* .normalise() */; /* TODO I normalise in the FS -- do I need it here too? */
-
-    for (i = 0; i < 3; ++i)
-    {
-        struct AFK_VcolPhongVertex vertex;
-        vertex.location = vertices[indices.v[i]];
-        vertex.colour = colours[indices.v[i]];
-        vertex.normal = normal;
-        geometry->vs.t.push_back(vertex);
-    }
-}
-
-void AFK_LandscapeTile::computeSmoothTriangle(
-    const Vec3<unsigned int>& indices,
-    bool emitIndices)
-{
-    Vec3<float> crossP =
-        ((rawVertices[indices.v[1]] - rawVertices[indices.v[0]]).cross(
-        rawVertices[indices.v[2]] - rawVertices[indices.v[0]]));
-
-    Vec3<float> normal = crossP /* .normalise() */; /* TODO I normalise in the FS -- do I need it here too? */
-
-    /* Update the first triangle with the normal and colour. */
-    geometry->vs.t[indices.v[0]].colour += rawColours[indices.v[1]];
-    geometry->vs.t[indices.v[0]].colour += rawColours[indices.v[2]];
-    geometry->vs.t[indices.v[0]].normal += normal;
-
-    /* Emit indices if requested */
-    if (emitIndices)
-    {
-        /* This winding order reasoning is the same as in
-         * computeFlatTriangle
-         */
-        struct AFK_VcolPhongIndex index;
-        if (crossP.v[1] >= 0.0f)
-        {
-            index.i[0] = indices.v[0];
-            index.i[1] = indices.v[2];
-            index.i[2] = indices.v[1];
-        }
-        else
-        {
-            index.i[0] = indices.v[0];
-            index.i[1] = indices.v[1];
-            index.i[2] = indices.v[2];
-        }
-        geometry->is.t.push_back(index);
-    }
-}
-
-void AFK_LandscapeTile::vertices2FlatTriangles(
-    const AFK_Tile& baseTile,
-    unsigned int pointSubdivisionFactor,
-    AFK_GLBufferQueue *vSource,
-    AFK_GLBufferQueue *iSource)
-{
-    /* Each vertex generates 2 triangles (i.e. 6 triangle vertices) when
-     * combined with the 3 vertices adjacent to it.
-     */
-    size_t expectedVertexCount = SQUARE(pointSubdivisionFactor + 1) * 6;
-
-    /* Sanity check */
-    if (geometry)
-    {
-        throw AFK_Exception("Called vertices2FlatTriangles with pre-existing computed vertices");
-    }
-
-    /* Set things up */
-    geometry = new AFK_LandscapeGeometry(expectedVertexCount, expectedVertexCount, vSource, iSource);
-
-    /* To make the triangles, I chew one row and the next at once.
-     * Each triangle pair is:
-     * ((row2, col1), (row1, col1), (row1, col2)),
-     * ((row2, col1), (row1, col2), (row2, col2)).
-     * The grid given to me goes from 0 to pointSubdivisionFactor+1
-     * in both directions, so as to join up with adjacent cells.
-     */
-    unsigned int triangleVOff = 0;
-    for (unsigned int row = 0; row < pointSubdivisionFactor; ++row)
-    {
-        for (unsigned int col = 0; col < pointSubdivisionFactor; ++col)
-        {
-            unsigned int i_r1c1 = row * (pointSubdivisionFactor+1) + col;
-            unsigned int i_r1c2 = row * (pointSubdivisionFactor+1) + (col + 1);
-            unsigned int i_r2c1 = (row + 1) * (pointSubdivisionFactor+1) + col;
-            unsigned int i_r2c2 = (row + 1) * (pointSubdivisionFactor+1) + (col + 1);
-
-            /* The location of the vertex at the first row governs
-             * which cell the triangle belongs to.
-             */
-
-            Vec3<unsigned int> indices1 = afk_vec3<unsigned int>(i_r2c1, i_r1c1, i_r1c2);
-            computeFlatTriangle(
-                rawVertices, rawColours, indices1, triangleVOff);
-
-            triangleVOff += 3;
-
-            Vec3<unsigned int> indices2 = afk_vec3<unsigned int>(i_r2c1, i_r1c2, i_r2c2);
-            computeFlatTriangle(
-                rawVertices, rawColours, indices2, triangleVOff);
-
-            triangleVOff += 3;
-
-            /* Update the bounds */
-            if (yBoundLower > rawVertices[i_r1c1].v[1]) yBoundLower = rawVertices[i_r1c1].v[1];
-            if (yBoundUpper < rawVertices[i_r1c1].v[1]) yBoundUpper = rawVertices[i_r1c1].v[1];
-        }
-    }
-}
-
-void AFK_LandscapeTile::vertices2SmoothTriangles(
-    const AFK_Tile& baseTile,
-    unsigned int pointSubdivisionFactor,
-    AFK_GLBufferQueue *vSource,
-    AFK_GLBufferQueue *iSource)
-{
-    /* Because I have excess on all 4 sides of the tile, this is
-     * the real size of a dimension of the grid.
-     */
-    unsigned int dimSize = pointSubdivisionFactor + 2;
-
-    /* Each vertex generates 2 triangles (like when I make flat
-     * triangles), but this time there is no vertex amplification.
-     */
-    size_t expectedVertexCount = SQUARE(dimSize);
-    size_t expectedIndexCount = SQUARE(dimSize) * 6;
-
-    /* Sanity check */
-    if (geometry)
-    {
-        throw AFK_Exception("Called vertices2SmoothTriangles with pre-existing computed vertices");
-    }
-
-    /* Set things up */
-    geometry = new AFK_LandscapeGeometry(expectedVertexCount, expectedIndexCount, vSource, iSource);
-
-    /* In this case, I need to zero the colours and normals,
-     * because I'm going to be accumulating into them.  I can
-     * also copy the locations into the vertex array, so that
-     * computeSmoothTriangle() doesn't have to think about
-     * that.
-     */
-    for (unsigned int row = 0; row < dimSize; ++row)
-    {
-        for (unsigned int col = 0; col < dimSize; ++col)
-        {
-            struct AFK_VcolPhongVertex v;
-            v.location = rawVertices[row * dimSize + col];
-            v.colour = rawColours[row * dimSize + col];
-            v.normal = afk_vec3<float>(0.0f, 0.0f, 0.0f);
-            geometry->vs.t.push_back(v);
-
-            /* Update the bounds */
-            if (yBoundLower > rawVertices[row * dimSize + col].v[1]) yBoundLower = rawVertices[row * dimSize + col].v[1];
-            if (yBoundUpper < rawVertices[row * dimSize + col].v[1]) yBoundUpper = rawVertices[row * dimSize + col].v[1];
-        }
-    }
-
-    /* Now, I need to iterate through my new vertex array,
-     * contribute the triangles to the index buffer, and
-     * accumulate the colours and normals.
-     * Like in vertices2FlatTriangles, I chew one row and
-     * the next at once.
-     */
-    for (unsigned int row = 0; row < (pointSubdivisionFactor + 1); ++row)
-    {
-        for (unsigned int col = 0; col < (pointSubdivisionFactor + 1); ++col)
-        {
-            unsigned int i_r1c1 = row * (dimSize) + col;
-            unsigned int i_r1c2 = row * (dimSize) + (col + 1);
-            unsigned int i_r2c1 = (row + 1) * (dimSize) + col;
-            unsigned int i_r2c2 = (row + 1) * (dimSize) + (col + 1);
-            
-            /* I don't want to emit the triangles if I'm on the
-             * lower x or z edges: those are for adjacent tiles,
-             * not mine.  I still want to accumulate colour
-             * and normal though.
-             */
-            Vec3<unsigned int> indices1 = afk_vec3<unsigned int>(i_r2c1, i_r1c1, i_r1c2);
-            computeSmoothTriangle(indices1, (row > 0 && col > 0));
-
-            Vec3<unsigned int> indices2 = afk_vec3<unsigned int>(i_r2c1, i_r1c2, i_r2c2);
-            computeSmoothTriangle(indices2, (row > 0 && col > 0));
-        }
-    }
-}
 
 AFK_LandscapeTile::AFK_LandscapeTile():
     AFK_Claimable(),
@@ -374,7 +147,6 @@ void AFK_LandscapeTile::buildTerrainList(
 }
 
 void AFK_LandscapeTile::makeRawTerrain(
-    enum AFK_LandscapeType type,
     const AFK_Tile& baseTile,
     unsigned int pointSubdivisionFactor,
     float minCellSize)
@@ -382,23 +154,18 @@ void AFK_LandscapeTile::makeRawTerrain(
     Vec3<float> worldTileCoord = baseTile.toWorldSpace(minCellSize);
 
     /* We always need a bit of excess.
-     * The flat landscape type needs excess around the +x and +z in
-     * order to make the edge triangles.
      * The smooth landscape type needs excess around the -x and -z too,
      * in order to make the normals for the x=0 and z=0 vertices.
      */
-    int excessNX = (type == AFK_LANDSCAPE_TYPE_SMOOTH ? -1 : 0);
+    int excessNX = -1;
     int excessPX = 1;
-    int excessNZ = (type == AFK_LANDSCAPE_TYPE_SMOOTH ? -1 : 0);
+    int excessNZ = -1;
     int excessPZ = 1;
 
     /* TODO This is thrashing the heap.  Try making a single
      * scratch place for this in thread-local storage
      */
-    if (type == AFK_LANDSCAPE_TYPE_SMOOTH)
-        rawVertexCount = SQUARE(pointSubdivisionFactor + 2);
-    else
-        rawVertexCount = SQUARE(pointSubdivisionFactor + 1);
+    rawVertexCount = SQUARE(pointSubdivisionFactor + 2);
     rawVertices = new Vec3<float>[rawVertexCount];
     rawColours = new Vec3<float>[rawVertexCount];
 
@@ -455,25 +222,16 @@ void AFK_LandscapeTile::computeGeometry(
      */
     terrainList.compute(rawVertices, rawColours, rawVertexCount);
 
-    /* I've completed my vertex array!  Now, compute the triangles
-     * and choose the actual world cells that they ought to be
-     * matched with
-     */
-    if (AFK_LANDSCAPE_TYPE == AFK_LANDSCAPE_TYPE_FLAT)
-        vertices2FlatTriangles(baseTile, pointSubdivisionFactor, vSource, iSource);
-    else
-        vertices2SmoothTriangles(baseTile, pointSubdivisionFactor, vSource, iSource);
+    /* The rest gets left to the triangle program... */
+    unsigned int vCount, iCount, vSize, iSize;
+    afk_getLandscapeSizes(pointSubdivisionFactor, vCount, iCount, vSize, iSize);
+
+    geometry = new AFK_LandscapeGeometry(
+        rawVertices, rawColours, rawVertexCount,
+        vCount, iCount, vSource, iSource);
 
     /* We're done! */
     *(futureGeometry.load()) = geometry;
-
-    /* I don't need this any more... */
-    delete[] rawVertices;
-    delete[] rawColours;
-
-    rawVertices = NULL;
-    rawColours = NULL;
-    rawVertexCount = 0;
 }
 
 bool AFK_LandscapeTile::hasGeometry() const
@@ -496,7 +254,7 @@ float AFK_LandscapeTile::getYBoundUpper() const
 AFK_DisplayedLandscapeTile *AFK_LandscapeTile::makeDisplayedLandscapeTile(const AFK_Cell& cell, float minCellSize)
 {
     AFK_DisplayedLandscapeTile *dlt = NULL;
-#if 1
+#if 0
     Vec4<float> realCoord = cell.toWorldSpace(minCellSize);
     float cellBoundLower = realCoord.v[1];
     float cellBoundUpper = realCoord.v[1] + realCoord.v[3];
@@ -504,6 +262,7 @@ AFK_DisplayedLandscapeTile *AFK_LandscapeTile::makeDisplayedLandscapeTile(const 
     /* The `<=' operator here: someone needs to own the 0-plane.  I'm
      * going to declare it to be the cell above not the cell below.
      */
+    /* TODO I'm going to need to deal with the y bounds.  :-( */
     if (cellBoundLower <= yBoundUpper && cellBoundUpper > yBoundLower)
         dlt = new AFK_DisplayedLandscapeTile(futureGeometry.load(), cellBoundLower, cellBoundUpper);
 #else

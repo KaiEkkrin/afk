@@ -14,61 +14,151 @@ AFK_DisplayedLandscapeTile::AFK_DisplayedLandscapeTile(
 {
 }
 
-void AFK_DisplayedLandscapeTile::compute(void)
+#define FIRST_DEBUG 0
+
+#if FIRST_DEBUG
+/* TODO Nasty debug !
+ * Fixing it so it ignores everything apart from
+ * the first thing, so I can tell if the hang-up
+ * is a queues-overfull type bug or something
+ * else...
+ * (damn, I wish OpenCL's error conditions were
+ * less mysterious)
+ *
+ * -- okay, even if I only try to compute a single
+ * thing, I'm still hanging on the chrono wait in
+ * the main loop, waiting until we're nearly ready
+ * to flip buffers.
+ * *So weird*
+ * Let's try rendering nothing except the protagonist,
+ * instead.
+ */
+static bool computeFirst = true;
+static bool displayFirst = false;
+#endif
+
+void AFK_DisplayedLandscapeTile::compute(unsigned int pointSubdivisionFactor)
 {
-    static size_t cCount = 0;
+    bool vsNeedBufferPush = (*geometry)->vs.initGLBuffer();
+    bool isNeedBufferPush = (*geometry)->is.initGLBuffer();
+    if (vsNeedBufferPush != isNeedBufferPush) throw AFK_Exception("vs/is inconsistency");
+    if (!vsNeedBufferPush) return;
 
-    bool needBufferPush = (*geometry)->vs.initGLBuffer();
-    if (!needBufferPush) return;
-    if ((cCount & 0x1) == 0)
+    /* Use the CL to turn the raw data into geometry for the
+     * GL.
+     */
+    cl_context ctxt;
+    cl_command_queue q;
+    cl_int error;
+    afk_core.computer->lock(ctxt, q);
+
+#if FIRST_DEBUG
+    /* TODO Diagnosis. */
+    displayFirst = true;
+    //if (!computeFirst) return;
+    if (computeFirst)
     {
-        /* TODO Here's the time to test that cl_gl stuff.
-         * Let's bind this bunch of unsuspecting vertices to
-         * the CL ...
-         */
-
-        cl_context ctxt;
-        cl_command_queue q;
-        cl_int error;
-        afk_core.computer->lock(ctxt, q);
-
-        size_t vsSize = (*geometry)->vs.t.size();
-
-        cl_mem clSourceVs = clCreateBuffer(
-            ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            vsSize * sizeof(struct AFK_VcolPhongVertex),
-            &((*geometry)->vs.t[0]),
-            &error);
-        afk_handleClError(error);
-
-        /* Note that if a previous kernel overwrites its buffer,
-         * the symptom can be a -5 error here when trying to
-         * make the next one (ewch)
-         */
-        cl_mem clVs = clCreateFromGLBuffer(
-            ctxt, CL_MEM_READ_WRITE, (*geometry)->vs.buf, &error);
-        afk_handleClError(error);
-
-        AFK_CLCHK(clEnqueueAcquireGLObjects(q, 1, &clVs, 0, 0, 0))
-        
-        AFK_CLCHK(clSetKernelArg(afk_core.testKernel, 0, sizeof(cl_mem), &clSourceVs))
-        AFK_CLCHK(clSetKernelArg(afk_core.testKernel, 1, sizeof(cl_mem), &clVs))
-
-        int iVsSize = (int)vsSize;
-        AFK_CLCHK(clSetKernelArg(afk_core.testKernel, 2, sizeof(int), &iVsSize))
-        size_t global_ws = vsSize;
-        AFK_CLCHK(clEnqueueNDRangeKernel(q, afk_core.testKernel, 1, NULL, &global_ws, NULL /* &local_ws */, 0, NULL, NULL))
-
-        AFK_CLCHK(clEnqueueReleaseGLObjects(q, 1, &clVs, 0, 0, 0))
-        AFK_CLCHK(clReleaseMemObject(clVs))
-        AFK_CLCHK(clReleaseMemObject(clSourceVs))
-        AFK_CLCHK(clFlush(q))
-            
-        afk_core.computer->unlock();
+        std::cout << "First raw vertices: ";
+        for (unsigned int idx = pointSubdivisionFactor + 4; idx < (2 * pointSubdivisionFactor) + 4; ++idx)
+            std::cout << (*geometry)->rawVertices[idx] << ", ";
+        std::cout << std::endl;
     }
-    else (*geometry)->vs.bindBufferAndPush(true, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
+#endif
 
-    ++cCount;
+    cl_mem rawVerticesMem = clCreateBuffer(
+        ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        (*geometry)->rawVertexCount * sizeof(Vec3<float>),
+        (*geometry)->rawVertices,
+        &error);
+    afk_handleClError(error);
+
+    cl_mem rawColoursMem = clCreateBuffer(
+        ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        (*geometry)->rawVertexCount * sizeof(Vec3<float>),
+        (*geometry)->rawColours,
+        &error);
+    afk_handleClError(error);
+
+    /* TODO I'm actually ignoring the structure members of
+     * `vs' and `is' now.  I'll soon be able to get rid of
+     * them.
+     */
+    cl_mem clVAndI[2];
+
+    clVAndI[0] = clCreateFromGLBuffer(
+        ctxt, CL_MEM_READ_WRITE, (*geometry)->vs.buf, &error);
+    afk_handleClError(error);
+
+    clVAndI[1] = clCreateFromGLBuffer(
+        ctxt, CL_MEM_READ_WRITE, (*geometry)->is.buf, &error);
+    afk_handleClError(error);
+
+    AFK_CLCHK(clEnqueueAcquireGLObjects(q, 2, &clVAndI[0], 0, 0, 0))
+        
+    AFK_CLCHK(clSetKernelArg(afk_core.v2stKernel, 0, sizeof(cl_mem), &rawVerticesMem))
+    AFK_CLCHK(clSetKernelArg(afk_core.v2stKernel, 1, sizeof(cl_mem), &rawColoursMem))
+    AFK_CLCHK(clSetKernelArg(afk_core.v2stKernel, 2, sizeof(cl_mem), &clVAndI[0]))
+    AFK_CLCHK(clSetKernelArg(afk_core.v2stKernel, 3, sizeof(cl_mem), &clVAndI[1]))
+    AFK_CLCHK(clSetKernelArg(afk_core.v2stKernel, 4, sizeof(unsigned int), &pointSubdivisionFactor))
+
+    size_t workDim[2];
+    workDim[0] = workDim[1] = pointSubdivisionFactor + 1;
+
+    AFK_CLCHK(clEnqueueNDRangeKernel(q, afk_core.v2stKernel, 2, NULL, &workDim[0], NULL, 0, NULL, NULL))
+
+#if FIRST_DEBUG
+    if (computeFirst)
+    {
+        /* TODO debugging by enqueueing a read-back. */
+        unsigned int vsCount, isCount, vsSize, isSize;
+        afk_getLandscapeSizes(pointSubdivisionFactor, vsCount, isCount, vsSize, isSize);
+
+        struct AFK_VcolPhongVertex *vsReadback = new struct AFK_VcolPhongVertex[vsCount];
+        struct AFK_VcolPhongIndex *isReadback = new struct AFK_VcolPhongIndex[isCount];
+
+        AFK_CLCHK(clEnqueueReadBuffer(q, clVAndI[0], CL_TRUE, 0, vsSize, vsReadback, 0, NULL, NULL))
+        AFK_CLCHK(clEnqueueReadBuffer(q, clVAndI[1], CL_TRUE, 0, isSize, isReadback, 0, NULL, NULL))
+
+        /* That ought to have made it finish the work ... */
+        std::cout << "First computed vertices: ";
+        for (unsigned int idx = pointSubdivisionFactor + 4; idx < (2 * pointSubdivisionFactor) + 4; ++idx)
+            std::cout << vsReadback[idx].location << ", ";
+        std::cout << std::endl;
+
+        std::cout << "First computed colours: ";
+        for (unsigned int idx = pointSubdivisionFactor + 4; idx < (2 * pointSubdivisionFactor) + 4; ++idx)
+            std::cout << vsReadback[idx].colour << ", ";
+        std::cout << std::endl;
+
+        std::cout << "First computed normals: ";
+        for (unsigned int idx = pointSubdivisionFactor + 4; idx < (2 * pointSubdivisionFactor) + 4; ++idx)
+            std::cout << vsReadback[idx].normal << ", ";
+        std::cout << std::endl;
+
+        std::cout << "First computed indices: ";
+        for (unsigned int idx = 0; idx < pointSubdivisionFactor; ++idx)
+            std::cout << "(" << isReadback[idx].i[0] << ", " << isReadback[idx].i[1] << ", " << isReadback[idx].i[2] << "), ";
+        std::cout << std::endl;
+
+        std::cout << "Last computed indices: ";
+        for (unsigned int idx = isCount - pointSubdivisionFactor; idx < isCount; ++idx)
+            std::cout << "(" << isReadback[idx].i[0] << ", " << isReadback[idx].i[1] << ", " << isReadback[idx].i[2] << "), ";
+        std::cout << std::endl;
+
+        delete[] vsReadback;
+        delete[] isReadback;
+        computeFirst = false;
+    }
+#endif
+
+    AFK_CLCHK(clEnqueueReleaseGLObjects(q, 2, &clVAndI[0], 0, 0, 0))
+    AFK_CLCHK(clReleaseMemObject(clVAndI[0]))
+    AFK_CLCHK(clReleaseMemObject(clVAndI[1]))
+    AFK_CLCHK(clReleaseMemObject(rawColoursMem))
+    AFK_CLCHK(clReleaseMemObject(rawVerticesMem))
+    AFK_CLCHK(clFlush(q))
+            
+    afk_core.computer->unlock();
 }
 
 void AFK_DisplayedLandscapeTile::display(
@@ -79,6 +169,13 @@ void AFK_DisplayedLandscapeTile::display(
     GLuint yCellMaxLocation,
     const Mat4<float>& projection)
 {
+#if FIRST_DEBUG
+    /* TODO remove nasty debug!  :P */
+    computeFirst = true;
+
+    //if (!displayFirst) return;
+#endif
+
     shaderLight->setupLight(globalLight);
     glUniformMatrix4fv(clipTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
     glUniform1f(yCellMinLocation, cellBoundLower);
@@ -90,8 +187,11 @@ void AFK_DisplayedLandscapeTile::display(
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(sizeof(Vec3<float>)));
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(2 * sizeof(Vec3<float>)));
 
-    (*geometry)->is.bindBufferAndPush((*geometry)->is.initGLBuffer(), GL_ELEMENT_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
+    (*geometry)->is.bindBufferAndPush(false, GL_ELEMENT_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
 
-    glDrawElements(GL_TRIANGLES, (*geometry)->is.t.size() * 3, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, (*geometry)->is.sizeHint * 2, GL_UNSIGNED_INT, 0);
+#if FIRST_DEBUG
+    displayFirst = false;
+#endif
 }
 

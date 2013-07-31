@@ -38,24 +38,18 @@ class AFK_LandscapeTileNotPresentException: public std::exception {};
 class AFK_LandscapeGeometry
 {
 public:
+    Vec3<float> *rawVertices;
+    Vec3<float> *rawColours;
+    size_t rawVertexCount;
+
     AFK_DisplayedBuffer<struct AFK_VcolPhongVertex>     vs;
     AFK_DisplayedBuffer<struct AFK_VcolPhongIndex>      is;
 
-    AFK_LandscapeGeometry(size_t vCount, size_t iCount,
+    AFK_LandscapeGeometry(
+        Vec3<float> *_rawVertices, Vec3<float> *_rawColours, size_t _rawVertexCount,
+        size_t vCount, size_t iCount,
         AFK_GLBufferQueue *vSource, AFK_GLBufferQueue *iSource);
 };
-
-enum AFK_LandscapeType
-{
-    AFK_LANDSCAPE_TYPE_FLAT,
-    AFK_LANDSCAPE_TYPE_SMOOTH
-};
-
-/* TODO This really ought to be configurable somehow but I can't find
- * a sane way to do it.  (access config directly?  it IS kind of the
- * right paradigm?)
- */
-#define AFK_LANDSCAPE_TYPE AFK_LANDSCAPE_TYPE_SMOOTH
 
 /* This utility function returns the sizes of the various landscape
  * elements.  So that in AFK_World, I can configure the cache
@@ -63,6 +57,8 @@ enum AFK_LandscapeType
  */
 void afk_getLandscapeSizes(
     unsigned int pointSubdivisionFactor,
+    unsigned int& o_landscapeTileVCount,
+    unsigned int& o_landscapeTileICount,
     unsigned int& o_landscapeTileVsSize,
     unsigned int& o_landscapeTileIsSize);
 
@@ -80,14 +76,16 @@ protected:
     bool haveTerrainDescriptor;
     std::vector<boost::shared_ptr<AFK_TerrainTile> > terrainDescriptor;
 
-    /* This is where I store the raw geometry, while the terrain
-     * is being computed on it.
+    /* The raw geometry data, while I apply the terrain
+     * transform.
+     * TODO This needs to go away when I've ported the
+     * terrain transform to OpenCL.
      */
     Vec3<float> *rawVertices;
     Vec3<float> *rawColours;
-    unsigned int rawVertexCount;
+    size_t rawVertexCount;
 
-    /* Here's the computed geometry data */
+    /* Here's the geometry data */
     AFK_LandscapeGeometry *geometry;
 
     /* These are the lower and upper y-bounds of the vertices in
@@ -105,46 +103,6 @@ protected:
      * render :P
      */
     boost::atomic<AFK_LandscapeGeometry**> futureGeometry;
-
-    /* Internal helper.
-     * Computes a single flat triangle, pushing the results into
-     * the vertex and index buffers.
-     */
-    void computeFlatTriangle(
-        const Vec3<float> *vertices,
-        const Vec3<float> *colours,
-        const Vec3<unsigned int>& indices,
-        unsigned int triangleVOff);
-
-    /* Internal helper.
-     * Computes a single smooth triangle, pushing the results into
-     * the vertex and index buffers.
-     */
-    void computeSmoothTriangle(
-        const Vec3<unsigned int>& indices,
-        bool emitIndices);
-
-    /* Internal helper.
-     * Turns a vertex grid into a world of flat triangles,
-     * filling out `vs' and `is', and updating yBoundLower
-     * and yBoundUpper.
-     */
-    void vertices2FlatTriangles(
-        const AFK_Tile& baseTile,
-        unsigned int pointSubdivisionFactor,
-        AFK_GLBufferQueue *vSource,
-        AFK_GLBufferQueue *iSource);
-
-    /* Internal helper.
-     * Turns a vertex grid into a world of smooth triangles,
-     * filling out `vs' and `is', and updating yBoundLower
-     * and yBoundUpper.
-     */
-    void vertices2SmoothTriangles(
-        const AFK_Tile& baseTile,
-        unsigned int pointSubdivisionFactor,
-        AFK_GLBufferQueue *vSource,
-        AFK_GLBufferQueue *iSource);
     
 public:
     AFK_LandscapeTile();
@@ -189,7 +147,6 @@ public:
      * left.
      */
     void makeRawTerrain(
-        enum AFK_LandscapeType type,
         const AFK_Tile& baseTile,
         unsigned int pointSubdivisionFactor,
         float minCellSize);

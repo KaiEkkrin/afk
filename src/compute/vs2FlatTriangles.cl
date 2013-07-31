@@ -9,6 +9,11 @@
  * involve barrier-ing the normals?)
  */
 
+/* TODO tbh, I think I'm going to drop support for
+ * flat-triangle landscapes.  Irritating, and I won't
+ * be using them long term anyway.
+ */
+
 /* TODO Make sure the shader is aware that it's now
  * getting a buffer with OpenCL vector packing
  * (these float3's are actually 4-vectors in size)

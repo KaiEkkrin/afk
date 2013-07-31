@@ -72,7 +72,7 @@ public:
     AFK_Window          *window;
 
     /* TODO This is for testing compute in the display thread. */
-    cl_kernel testKernel;
+    cl_kernel v2stKernel;
 
     /* The random number generator.
      * TODO: The re-seeding process is serial, and I
