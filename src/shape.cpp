@@ -19,7 +19,7 @@ void afk_getShapeSizes(
      * the landscape tiles.
      */
     o_shapeVsSize = 6 * sizeof(struct AFK_VcolPhongVertex);
-    o_shapeIsSize = 8 * sizeof(Vec3<unsigned int>);
+    o_shapeIsSize = 8 * sizeof(struct AFK_VcolPhongIndex);
 }
 
 AFK_Shape::AFK_Shape(size_t vCount, size_t iCount,
@@ -160,26 +160,26 @@ AFK_ShapeChevron::AFK_ShapeChevron(AFK_GLBufferQueue *vSource, AFK_GLBufferQueue
         {{{  0.0f,   0.0f,   0.0f,  }},  /* 5 */     {{  0.2f, 1.0f, 1.0f,  }},  {{  0.0f, 0.0f, -1.0f, }}},
     };
 
-    unsigned int rawIndices[] = {
+    struct AFK_VcolPhongIndex rawIndices[] = {
         /* bow/top/wingtips */
-        0, 1, 3,
-        0, 4, 1,
+        {{ 0, 1, 3 }},
+        {{ 0, 4, 1 }},
 
         /* bow/bottom/wingtips */
-        0, 3, 2,
-        0, 2, 4,
+        {{ 0, 3, 2 }},
+        {{ 0, 2, 4 }},
 
         /* stern */
-        4, 5, 1,
-        1, 5, 3,
-        3, 5, 2,
-        2, 5, 4,
+        {{ 4, 5, 1 }},
+        {{ 1, 5, 3 }},
+        {{ 3, 5, 2 }},
+        {{ 2, 5, 4 }},
     };
 
     vs.t.resize(6);
     memcpy(&vs.t[0], rawVertices, 6 * sizeof(struct AFK_VcolPhongVertex));
     is.t.resize(8);
-    memcpy(&is.t[0], rawIndices, 8 * 3 * sizeof(unsigned int));
+    memcpy(&is.t[0], rawIndices, 8 * sizeof(struct AFK_VcolPhongIndex));
 
     resizeToShapeSpace();
 }

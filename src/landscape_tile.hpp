@@ -39,7 +39,7 @@ class AFK_LandscapeGeometry
 {
 public:
     AFK_DisplayedBuffer<struct AFK_VcolPhongVertex>     vs;
-    AFK_DisplayedBuffer<Vec3<unsigned int> >            is;
+    AFK_DisplayedBuffer<struct AFK_VcolPhongIndex>      is;
 
     AFK_LandscapeGeometry(size_t vCount, size_t iCount,
         AFK_GLBufferQueue *vSource, AFK_GLBufferQueue *iSource);

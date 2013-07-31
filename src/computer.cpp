@@ -15,13 +15,15 @@
 /* The set of known programs, just like the shaders doodah. */
 
 struct AFK_ClProgram programs[] = {
-    {   0,  "test.cl"           },
-    {   0,  "vs_test.cl"        },
-    {   0,  ""                  }
+    {   0,  "test.cl"               },
+    {   0,  "vs2FlatTriangles.cl",  },
+    {   0,  "vs_test.cl"            },
+    {   0,  ""                      }
 };
 
 struct AFK_ClKernel kernels[] = {
     {   0,  "test.cl",              "vector_add_gpu"                },
+    {   0,  "vs2FlatTriangles.cl",  "vs2FlatTriangles",             },
     {   0,  "vs_test.cl",           "mangle_vs"                     },
     {   0,  "",                     ""                              }
 };
@@ -145,9 +147,12 @@ void AFK_Computer::loadProgramFromFile(struct AFK_ClProgram *p)
     p->program = clCreateProgramWithSource(ctxt, 1, (const char **)&source, &sourceLength, &error);
     afk_handleClError(error);
 
-    AFK_CLCHK(clBuildProgram(p->program, devicesSize, devices, NULL, NULL, NULL))
-    for (size_t dI = 0; dI < devicesSize; ++dI)
-        printBuildLog(std::cout, p->program, devices[dI]);
+    error = clBuildProgram(p->program, devicesSize, devices, NULL, NULL, NULL);
+    if (error == CL_SUCCESS || error == CL_BUILD_PROGRAM_FAILURE)
+        for (size_t dI = 0; dI < devicesSize; ++dI)
+            printBuildLog(std::cout, p->program, devices[dI]);
+
+    afk_handleClError(error);
 }
 
 AFK_Computer::AFK_Computer():

@@ -23,6 +23,11 @@ struct AFK_VcolPhongVertex
     Vec3<float> normal;
 };
 
+struct AFK_VcolPhongIndex
+{
+    unsigned int i[3];
+};
+
 /* Nasty nasty.  I can't refer to the singleton afk_core from
  * inside a template
  */

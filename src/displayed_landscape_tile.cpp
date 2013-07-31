@@ -16,16 +16,11 @@ AFK_DisplayedLandscapeTile::AFK_DisplayedLandscapeTile(
 
 void AFK_DisplayedLandscapeTile::compute(void)
 {
-    /* TODO trying to get around the whole out_of_resources
-     * bollocks -- is there a stupidly low limit on the number of
-     * GL objects that can be acquired?
-     * This sucks.
-     */
     static size_t cCount = 0;
 
     bool needBufferPush = (*geometry)->vs.initGLBuffer();
     if (!needBufferPush) return;
-    if ((cCount & 1) == 0 ) /* TODO This is enough to fix the corruption ... */
+    if ((cCount & 0x1) == 0)
     {
         /* TODO Here's the time to test that cl_gl stuff.
          * Let's bind this bunch of unsuspecting vertices to
@@ -46,6 +41,10 @@ void AFK_DisplayedLandscapeTile::compute(void)
             &error);
         afk_handleClError(error);
 
+        /* Note that if a previous kernel overwrites its buffer,
+         * the symptom can be a -5 error here when trying to
+         * make the next one (ewch)
+         */
         cl_mem clVs = clCreateFromGLBuffer(
             ctxt, CL_MEM_READ_WRITE, (*geometry)->vs.buf, &error);
         afk_handleClError(error);

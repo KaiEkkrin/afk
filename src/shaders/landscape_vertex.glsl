@@ -6,9 +6,10 @@
 
 #version 330
 
-layout (location = 0) in vec3 Position;
-layout (location = 1) in vec3 Vcol;
-layout (location = 2) in vec3 Normal;
+// Input is in vec4 to match the OpenCL 3-vector format.
+layout (location = 0) in vec4 Position;
+layout (location = 1) in vec4 Vcol;
+layout (location = 2) in vec4 Normal;
 
 uniform float yCellMin;
 uniform float yCellMax;
@@ -22,8 +23,8 @@ out VertexData
 
 void main()
 {
-    gl_Position = vec4(Position, 1.0);
-    outData.colour = Vcol;
-    outData.normal = Normal;
+    gl_Position = vec4(Position.xyz, 1.0);
+    outData.colour = Vcol.xyz;
+    outData.normal = Normal.xyz;
     outData.withinBounds = (yCellMin <= Position.y && Position.y < yCellMax);
 }

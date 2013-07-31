@@ -30,14 +30,16 @@ void afk_getLandscapeSizes(
 {
 #if AFK_LANDSCAPE_TYPE == AFK_LANDSCAPE_TYPE_SMOOTH
     unsigned int landscapeTileVCount = SQUARE(pointSubdivisionFactor + 2);
+    unsigned int landscapeTileICount = SQUARE(pointSubdivisionFactor + 2) * 6;
 #elif AFK_LANDSCAPE_TYPE == AFK_LANDSCAPE_TYPE_FLAT
-    unsigned int landscapeTileVCount = SQUARE(pointSubdivisionFactor + 1);
+    unsigned int landscapeTileVCount = SQUARE(pointSubdivisionFactor + 1) * 6;
+    unsigned int landscapeTileICount = landscapeTileVCount;
 #else
 #error "Unrecognised AFK landscape type"
 #endif
     
     o_landscapeTileVsSize = landscapeTileVCount * sizeof(struct AFK_VcolPhongVertex);
-    o_landscapeTileIsSize = landscapeTileVCount * sizeof(Vec3<unsigned int>);
+    o_landscapeTileIsSize = landscapeTileICount * sizeof(struct AFK_VcolPhongIndex);
 }
 
 /* AFK_LandscapeTile implementation */
@@ -69,7 +71,11 @@ void AFK_LandscapeTile::computeFlatTriangle(
         triangle.v[2] = triangleVOff + 2;
     }
 
-    geometry->is.t.push_back(triangle);
+    struct AFK_VcolPhongIndex index;
+    index.i[0] = triangle.v[0];
+    index.i[1] = triangle.v[1];
+    index.i[2] = triangle.v[2];
+    geometry->is.t.push_back(index);
 
     /* I always want to compute the flat normal here.
      * The correct normal for smooth triangles is the
@@ -108,15 +114,20 @@ void AFK_LandscapeTile::computeSmoothTriangle(
         /* This winding order reasoning is the same as in
          * computeFlatTriangle
          */
+        struct AFK_VcolPhongIndex index;
         if (crossP.v[1] >= 0.0f)
         {
-            geometry->is.t.push_back(afk_vec3<unsigned int>(
-                indices.v[0], indices.v[2], indices.v[1]));
+            index.i[0] = indices.v[0];
+            index.i[1] = indices.v[2];
+            index.i[2] = indices.v[1];
         }
         else
         {
-            geometry->is.t.push_back(indices);
+            index.i[0] = indices.v[0];
+            index.i[1] = indices.v[1];
+            index.i[2] = indices.v[2];
         }
+        geometry->is.t.push_back(index);
     }
 }
 

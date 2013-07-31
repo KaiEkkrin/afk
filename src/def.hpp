@@ -52,7 +52,10 @@ template<typename F>
 class Vec3
 {
 public:
-    F v[3];
+    /* use a storage space of 4, to match OpenCL's
+     * 3-vectors.
+     */
+    F v[4];
 
     bool operator==(const Vec3<F>& p) const
     {
