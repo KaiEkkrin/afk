@@ -33,7 +33,7 @@ void afk_getLandscapeSizes(
     unsigned int& o_landscapeTileIsSize)
 {
     o_landscapeTileVCount = SQUARE(pointSubdivisionFactor + 2);
-    o_landscapeTileICount = SQUARE(pointSubdivisionFactor + 1) * 2;
+    o_landscapeTileICount = SQUARE(pointSubdivisionFactor) * 2;
     
     o_landscapeTileVsSize = o_landscapeTileVCount * sizeof(struct AFK_VcolPhongVertex);
     o_landscapeTileIsSize = o_landscapeTileICount * sizeof(struct AFK_VcolPhongIndex);
