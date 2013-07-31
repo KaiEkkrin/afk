@@ -22,11 +22,7 @@ __kernel void mangle_vs(
     if (i < vsSize)
     {
         vs[i].location = sourceVs[i].location;
-        /* make it obvious I did something */
-        vs[i].location.y += 1000.0f;
-
         vs[i].colour = (1.0f, 1.0f, 1.0f);
-
         vs[i].normal = sourceVs[i].normal;
     }
 }

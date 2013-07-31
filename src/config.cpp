@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include <iostream>
+#include <sstream>
 #include <utility>
 
 #include <boost/random/random_device.hpp>
@@ -67,7 +68,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
 
     /* Some hand rolled command line parsing, because it's not very
      * hard, and there's no good cross platform one by default */
-    for (int argi = 0; argi < *argcp; ++argi)
+    for (int argi = 1; argi < *argcp; ++argi)
     {
         if (strcmp(argv[argi], "--shaders-dir") == 0)
         {
@@ -120,8 +121,33 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
             REQUIRE_ARGUMENT("--cl-programs-dir")
             clProgramsDir = strdup(argv[argi]);
         }
-
-        /* Ignore other arguments. */
+        else if (strcmp(argv[argi], "--starting-detail-pitch") == 0)
+        {
+            REQUIRE_ARGUMENT("--starting-detail-pitch")
+            startingDetailPitch = strtof(argv[argi], NULL);
+        }
+        else if (strcmp(argv[argi], "--min-cell-size") == 0)
+        {
+            REQUIRE_ARGUMENT("--min-cell-size")
+            minCellSize = strtof(argv[argi], NULL);
+        }
+        else if (strcmp(argv[argi], "--subdivision-factor") == 0)
+        {
+            REQUIRE_ARGUMENT("--subdivision-factor")
+            subdivisionFactor = strtoul(argv[argi], NULL, 0);
+        }
+        else if (strcmp(argv[argi], "--point-subdivision-factor") == 0)
+        {
+            REQUIRE_ARGUMENT("--point-subdivision-factor")
+            pointSubdivisionFactor = strtoul(argv[argi], NULL, 0);
+        }
+        else
+        {
+            std::ostringstream ss;
+            ss << "Unrecognised argument: " << argv[argi];
+            std::cerr << ss.str() << std::endl;
+            throw AFK_Exception(ss.str());
+        }
     }
 
     /* Apply defaults. */

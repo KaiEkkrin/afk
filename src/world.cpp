@@ -447,7 +447,7 @@ AFK_World::AFK_World(
     landscapeVsQueue = new AFK_GLBufferQueue(tileVsSize, tileCacheEntries, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
     landscapeIsQueue = new AFK_GLBufferQueue(tileIsSize, tileCacheEntries, GL_ELEMENT_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
     landscapeCache = new AFK_LANDSCAPE_CACHE(
-        tileCacheBitness, 8, AFK_HashTile(), tileCacheEntries, 0xfffffffdu);
+        tileCacheBitness, 8, AFK_HashTile(), tileCacheEntries / 2, 0xfffffffdu);
 
     /* TODO Right now I don't have a sensible value for the
      * world cache size, because I'm not doing any exciting
