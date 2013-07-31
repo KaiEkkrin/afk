@@ -40,6 +40,9 @@ public:
      */
     void initGL(void);
 
+    /* CL-at-start-of-frame: runs this tile's compute tasks. */
+    void compute(void);
+
     /* This makes the GL render calls.  It assumes the GL is already
      * in the context of the landscape shader program and the
      * correct set of vertex attribute arrays has been enabled.

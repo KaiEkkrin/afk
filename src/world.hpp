@@ -6,6 +6,7 @@
 #include "afk.hpp"
 
 #include <sstream>
+#include <vector>
 
 #include <boost/atomic.hpp>
 #include <boost/function.hpp>
@@ -146,6 +147,11 @@ protected:
      */
     AFK_RenderQueue<AFK_DisplayedLandscapeTile*> landscapeRenderQueue;
 
+    /* CL-at-start-of-frame: things go through here after coming
+     * out of the render queue.
+     */
+    std::vector<AFK_DisplayedLandscapeTile*> postClTiles;
+
     /* TODO Deal with multiple shapes.  In whatever way.
      * I don't know.  :/  For now, I'll just have one.
      */
@@ -247,6 +253,9 @@ public:
      * when we're done.
      */
     boost::unique_future<bool> updateWorld(void);
+
+    /* CL-tasks-at-start-of-frame function. */
+    void doComputeTasks(void);
 
     /* Draws the world in the current OpenGL context.
      * (There's no AFK_DisplayedObject for the world.)

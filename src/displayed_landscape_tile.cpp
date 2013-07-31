@@ -14,6 +14,64 @@ AFK_DisplayedLandscapeTile::AFK_DisplayedLandscapeTile(
 {
 }
 
+void AFK_DisplayedLandscapeTile::compute(void)
+{
+    /* TODO trying to get around the whole out_of_resources
+     * bollocks -- is there a stupidly low limit on the number of
+     * GL objects that can be acquired?
+     * This sucks.
+     */
+    static size_t cCount = 0;
+
+    bool needBufferPush = (*geometry)->vs.initGLBuffer();
+    if (!needBufferPush) return;
+    if ((cCount & 1) == 0 ) /* TODO This is enough to fix the corruption ... */
+    {
+        /* TODO Here's the time to test that cl_gl stuff.
+         * Let's bind this bunch of unsuspecting vertices to
+         * the CL ...
+         */
+
+        cl_context ctxt;
+        cl_command_queue q;
+        cl_int error;
+        afk_core.computer->lock(ctxt, q);
+
+        size_t vsSize = (*geometry)->vs.t.size();
+
+        cl_mem clSourceVs = clCreateBuffer(
+            ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            vsSize * sizeof(struct AFK_VcolPhongVertex),
+            &((*geometry)->vs.t[0]),
+            &error);
+        afk_handleClError(error);
+
+        cl_mem clVs = clCreateFromGLBuffer(
+            ctxt, CL_MEM_READ_WRITE, (*geometry)->vs.buf, &error);
+        afk_handleClError(error);
+
+        AFK_CLCHK(clEnqueueAcquireGLObjects(q, 1, &clVs, 0, 0, 0))
+        
+        AFK_CLCHK(clSetKernelArg(afk_core.testKernel, 0, sizeof(cl_mem), &clSourceVs))
+        AFK_CLCHK(clSetKernelArg(afk_core.testKernel, 1, sizeof(cl_mem), &clVs))
+
+        int iVsSize = (int)vsSize;
+        AFK_CLCHK(clSetKernelArg(afk_core.testKernel, 2, sizeof(int), &iVsSize))
+        size_t global_ws = vsSize;
+        AFK_CLCHK(clEnqueueNDRangeKernel(q, afk_core.testKernel, 1, NULL, &global_ws, NULL /* &local_ws */, 0, NULL, NULL))
+
+        AFK_CLCHK(clEnqueueReleaseGLObjects(q, 1, &clVs, 0, 0, 0))
+        AFK_CLCHK(clReleaseMemObject(clVs))
+        AFK_CLCHK(clReleaseMemObject(clSourceVs))
+        AFK_CLCHK(clFlush(q))
+            
+        afk_core.computer->unlock();
+    }
+    else (*geometry)->vs.bindBufferAndPush(true, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
+
+    ++cCount;
+}
+
 void AFK_DisplayedLandscapeTile::display(
     AFK_ShaderLight *shaderLight,
     const struct AFK_Light& globalLight,
@@ -27,79 +85,13 @@ void AFK_DisplayedLandscapeTile::display(
     glUniform1f(yCellMinLocation, cellBoundLower);
     glUniform1f(yCellMaxLocation, cellBoundUpper);
 
-    if ((*geometry)->vs.bindGLBuffer(GL_ARRAY_BUFFER, GL_STATIC_DRAW))
-    {
-        glBufferData(GL_ARRAY_BUFFER, (*geometry)->vs.t.size() * sizeof(struct AFK_VcolPhongVertex),
-            &((*geometry)->vs.t[0]), GL_DYNAMIC_DRAW);
-        /* TODO Put back the CL testing after I've made sure
-         * that I haven't b0rked this stuff.
-         */
-#if 0
-        /* TODO Here's the time to test that cl_gl stuff.
-         * Let's bind this bunch of unsuspecting vertices to
-         * the CL ...
-         */
-        cl_context ctxt;
-        cl_command_queue q;
-        cl_int error;
-        afk_core.computer->lock(ctxt, q);
-
-        cl_mem clVs = clCreateFromGLBuffer(
-            ctxt, CL_MEM_READ_WRITE, (*geometry)->vs.buf, &error);
-
-        /* TODO Why is this sometimes failing?
-         * I appear to be getting out-of-resources or
-         * out-of-host-memory :-(
-         *
-         * ...  The problem is quite likely to be incomplete
-         * GL operations.  And the solution to that is, sadly,
-         * pre-allocation of everything.  Which I guess I'm
-         * going to need to do anyway.  But it's a fuckload of
-         * code to have to write just in order to verify that
-         * cl_gl sharing is working at all :-(
-         * Here's a better thing to try:
-         * - Create a pre-made GL buffers queue wrapper.
-         * Because of the way GL buffers work, it'll be
-         * pre-buffering all of them with zeroes.
-         * - Create a CL program that accepts the original data
-         * (I'll have to make temporary "real" CL buffers) and
-         * the GL buffer objects, and copies the data across
-         * (mangling the colour too just to verify).
-         * - In AFK_DisplayedBuffer, the `vs' buffers become
-         * those pre-made GL buffers, and I run the CL
-         * program to fill them.
-         */
-        if (error == CL_SUCCESS)
-        {
-            AFK_CLCHK(clEnqueueAcquireGLObjects(q, 1, &clVs, 0, 0, 0))
-        
-            /* TODO Do an actual thing to it here. */
-            AFK_CLCHK(clSetKernelArg(afk_core.testKernel, 0, sizeof(cl_mem), &clVs))
-            size_t local_ws = (*geometry)->vs.t.size();
-            size_t global_ws = local_ws;
-            AFK_CLCHK(clEnqueueNDRangeKernel(q, afk_core.testKernel, 1, NULL, &global_ws, &local_ws, 0, NULL, NULL))
-
-            AFK_CLCHK(clEnqueueReleaseGLObjects(q, 1, &clVs, 0, 0, 0))
-            AFK_CLCHK(clFlush(q))
-
-            AFK_CLCHK(clReleaseMemObject(clVs))
-        }
-        else afk_handleClError(error);
-            
-        afk_core.computer->unlock();
-        ((*geometry)->vs.bindGLBuffer(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW));
-#endif
-    }
+    (*geometry)->vs.bindBufferAndPush(false, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), 0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(sizeof(Vec3<float>)));
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(2 * sizeof(Vec3<float>)));
 
-    if ((*geometry)->is.bindGLBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_DYNAMIC_DRAW))
-    {
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, (*geometry)->is.t.size() * sizeof(Vec3<unsigned int>),
-            &((*geometry)->is.t[0]), GL_DYNAMIC_DRAW);
-    }
+    (*geometry)->is.bindBufferAndPush((*geometry)->is.initGLBuffer(), GL_ELEMENT_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
 
     glDrawElements(GL_TRIANGLES, (*geometry)->is.t.size() * 3, GL_UNSIGNED_INT, 0);
 }

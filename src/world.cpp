@@ -640,11 +640,20 @@ boost::unique_future<bool> AFK_World::updateWorld(void)
     return genGang->start();
 }
 
+void AFK_World::doComputeTasks(void)
+{
+    AFK_DisplayedLandscapeTile *dlt;
+
+    while (landscapeRenderQueue.draw_pop(dlt))
+    {
+        dlt->compute();
+        postClTiles.push_back(dlt);
+    }
+}
+
 void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLight)
 {
     /* Render the landscape */
-    AFK_DisplayedLandscapeTile *dlt;
-
     glUseProgram(landscape_shaderProgram->program);
 
     /* Put the GL into the right shape to draw a bunch of
@@ -663,17 +672,21 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
      * http://ogldev.atspace.co.uk/www/tutorial32/tutorial32.html
      * !!!
      */
-    while (landscapeRenderQueue.draw_pop(dlt))
+    //while (landscapeRenderQueue.draw_pop(dlt))
+    for (std::vector<AFK_DisplayedLandscapeTile*>::iterator postClTilesIt = postClTiles.begin();
+        postClTilesIt != postClTiles.end(); ++postClTilesIt)
     {
-        dlt->display(
+        (*postClTilesIt)->display(
             landscape_shaderLight,
             globalLight,
             landscape_clipTransformLocation,
             landscape_yCellMinLocation,
             landscape_yCellMaxLocation,
             projection);
-        delete dlt;
+        delete /* dlt */ (*postClTilesIt);
     }
+
+    postClTiles.clear();
 
     glDisableVertexAttribArray(0);
     glDisableVertexAttribArray(1);

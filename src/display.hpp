@@ -56,13 +56,24 @@ public:
         if (buf) bufferSource->push(buf);
     }
 
-    bool bindGLBuffer(GLenum target, GLenum usage)
+    /* Sets up the GL buffer if required.  If it wasn't there
+     * already, returns true; else false.
+     */
+    bool initGLBuffer(void)
     {
         bool wasNotBuffered = (buf == 0);
         if (wasNotBuffered) buf = bufferSource->pop();
-        glBindBuffer(target, buf);
-        //if (wasNotBuffered) glBufferData(target, t.size() * sizeof(T), &t[0], usage);
         return wasNotBuffered;
+    }
+
+    /* Binds the buffer, and pushes the source contents in if
+     * required.
+     * (TODO That last step ought to end up being redundant...)
+     */
+    void bindBufferAndPush(bool push, GLenum target, GLenum usage)
+    {
+        glBindBuffer(target, buf);
+        if (push) glBufferData(target, t.size() * sizeof(T), &t[0], usage);
     }
 };
 

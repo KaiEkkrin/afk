@@ -108,13 +108,13 @@ void AFK_Shape::display(
         shaderLight->setupLight(globalLight);
         glUniformMatrix4fv(projectionTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
 
-        vs.bindGLBuffer(GL_ARRAY_BUFFER, GL_STATIC_DRAW);
+        vs.bindBufferAndPush(vs.initGLBuffer(), GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
 
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), 0);
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(sizeof(Vec3<float>)));
         glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(2 * sizeof(Vec3<float>)));
 
-        is.bindGLBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW);
+        is.bindBufferAndPush(is.initGLBuffer(), GL_ELEMENT_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
 
         /* Maybe (if this turns out slow?) I should try doing
          * this with a uniform array of the matrices.  But
