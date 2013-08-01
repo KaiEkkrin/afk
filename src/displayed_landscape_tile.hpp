@@ -41,7 +41,7 @@ public:
     void initGL(void);
 
     /* CL-at-start-of-frame: runs this tile's compute tasks. */
-    void compute(unsigned int pointSubdivisionFactor);
+    void compute(const AFK_LandscapeSizes& lSizes);
 
     /* This makes the GL render calls.  It assumes the GL is already
      * in the context of the landscape shader program and the
@@ -53,7 +53,8 @@ public:
         GLuint clipTransformLocation,
         GLuint yCellMinLocation,
         GLuint yCellMaxLocation,
-        const Mat4<float>& projection);
+        const Mat4<float>& projection,
+        const AFK_LandscapeSizes& lSizes);
 };
 
 #endif /* _AFK_DISPLAYED_LANDSCAPE_TILE_H_ */

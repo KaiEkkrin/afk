@@ -16,27 +16,24 @@
 /* AFK_LandscapeGeometry implementation */
 
 AFK_LandscapeGeometry::AFK_LandscapeGeometry(
-    Vec3<float> *_rawVertices, Vec3<float> *_rawColours, size_t _rawVertexCount,
+    Vec3<float> *_rawVertices, Vec3<float> *_rawColours,
     size_t vCount, size_t iCount,
     AFK_GLBufferQueue *vSource, AFK_GLBufferQueue *iSource):
-    rawVertices(_rawVertices), rawColours(_rawColours), rawVertexCount(_rawVertexCount),
+    rawVertices(_rawVertices), rawColours(_rawColours),
     vs(vCount, vSource), is(iCount, iSource)
 {
 }
 
 
-void afk_getLandscapeSizes(
-    unsigned int pointSubdivisionFactor,
-    unsigned int& o_landscapeTileVCount,
-    unsigned int& o_landscapeTileICount,
-    unsigned int& o_landscapeTileVsSize,
-    unsigned int& o_landscapeTileIsSize)
+AFK_LandscapeSizes::AFK_LandscapeSizes(unsigned int pointSubdivisionFactor):
+    pointSubdivisionFactor(pointSubdivisionFactor),
+    vDim(pointSubdivisionFactor + 2), /* one extra vertex either side, to smooth colours and normals */
+    iDim(pointSubdivisionFactor),
+    vCount(SQUARE(pointSubdivisionFactor + 2)),
+    iCount(SQUARE(pointSubdivisionFactor) * 2), /* two triangles per vertex */
+    vSize(SQUARE(pointSubdivisionFactor + 2) * sizeof(struct AFK_VcolPhongVertex)),
+    iSize(SQUARE(pointSubdivisionFactor) * 2 * sizeof(struct AFK_VcolPhongIndex))
 {
-    o_landscapeTileVCount = SQUARE(pointSubdivisionFactor + 2);
-    o_landscapeTileICount = SQUARE(pointSubdivisionFactor) * 2;
-    
-    o_landscapeTileVsSize = o_landscapeTileVCount * sizeof(struct AFK_VcolPhongVertex);
-    o_landscapeTileIsSize = o_landscapeTileICount * sizeof(struct AFK_VcolPhongIndex);
 }
 
 /* AFK_LandscapeTile implementation */
@@ -46,7 +43,6 @@ AFK_LandscapeTile::AFK_LandscapeTile():
     haveTerrainDescriptor(false),
     rawVertices(NULL),
     rawColours(NULL),
-    rawVertexCount(0),
     geometry(NULL),
     yBoundLower(FLT_MAX),
     yBoundUpper(-FLT_MAX)
@@ -148,7 +144,7 @@ void AFK_LandscapeTile::buildTerrainList(
 
 void AFK_LandscapeTile::makeRawTerrain(
     const AFK_Tile& baseTile,
-    unsigned int pointSubdivisionFactor,
+    const AFK_LandscapeSizes& lSizes,
     float minCellSize)
 {
     Vec3<float> worldTileCoord = baseTile.toWorldSpace(minCellSize);
@@ -165,22 +161,21 @@ void AFK_LandscapeTile::makeRawTerrain(
     /* TODO This is thrashing the heap.  Try making a single
      * scratch place for this in thread-local storage
      */
-    rawVertexCount = SQUARE(pointSubdivisionFactor + 2);
-    rawVertices = new Vec3<float>[rawVertexCount];
-    rawColours = new Vec3<float>[rawVertexCount];
+    rawVertices = new Vec3<float>[lSizes.vCount];
+    rawColours = new Vec3<float>[lSizes.vCount];
 
     /* Populate the vertex and colour arrays. */
     size_t rawIndex = 0;
 
-    for (int xi = excessNX; xi < (int)pointSubdivisionFactor + excessPX; ++xi)
+    for (int xi = excessNX; xi < (int)lSizes.pointSubdivisionFactor + excessPX; ++xi)
     {
-        for (int zi = excessNZ; zi < (int)pointSubdivisionFactor + excessPZ; ++zi)
+        for (int zi = excessNZ; zi < (int)lSizes.pointSubdivisionFactor + excessPZ; ++zi)
         {
             /* Here I'm going to enumerate geometry between (0,0)
              * and (1,1)...
              */
-            float xf = (float)xi / (float)pointSubdivisionFactor;
-            float zf = (float)zi / (float)pointSubdivisionFactor;
+            float xf = (float)xi / (float)lSizes.pointSubdivisionFactor;
+            float zf = (float)zi / (float)lSizes.pointSubdivisionFactor;
 
             /* Jitter the vertices inside the cell around a bit. 
              * Not the edge ones; that will cause a join-up
@@ -192,10 +187,10 @@ void AFK_LandscapeTile::makeRawTerrain(
             float xdisp = 0.0f, zdisp = 0.0f;
 #if 0
             if (xi > 0 && xi <= pointSubdivisionFactor)
-                xdisp = rng.frand() * worldCell->coord.v[3] / ((float)pointSubdivisionFactor * 2.0f);
+                xdisp = rng.frand() * worldCell->coord.v[3] / ((float)lSizes.pointSubdivisionFactor * 2.0f);
 
             if (zi > 0 && zi <= pointSubdivisionFactor)
-                zdisp = rng.frand() * worldCell->coord.v[3] / ((float)pointSubdivisionFactor * 2.0f);
+                zdisp = rng.frand() * worldCell->coord.v[3] / ((float)lSizes.pointSubdivisionFactor * 2.0f);
 #endif
 
             /* ... and transform it into world space. */
@@ -209,8 +204,8 @@ void AFK_LandscapeTile::makeRawTerrain(
 }
 
 void AFK_LandscapeTile::computeGeometry(
-    unsigned int pointSubdivisionFactor,
     const AFK_Tile& baseTile,
+    const AFK_LandscapeSizes& lSizes,
     const AFK_TerrainList& terrainList,
     AFK_GLBufferQueue *vSource,
     AFK_GLBufferQueue *iSource)
@@ -220,15 +215,11 @@ void AFK_LandscapeTile::computeGeometry(
     /* Apply the terrain transform.
      * TODO This may be slow -- obvious candidate for OpenCL?  * But, the cache may rescue me; profile first!
      */
-    terrainList.compute(rawVertices, rawColours, rawVertexCount);
-
-    /* The rest gets left to the triangle program... */
-    unsigned int vCount, iCount, vSize, iSize;
-    afk_getLandscapeSizes(pointSubdivisionFactor, vCount, iCount, vSize, iSize);
+    terrainList.compute(rawVertices, rawColours, lSizes.vCount);
 
     geometry = new AFK_LandscapeGeometry(
-        rawVertices, rawColours, rawVertexCount,
-        vCount, iCount, vSource, iSource);
+        rawVertices, rawColours,
+        lSizes.vCount, lSizes.iCount, vSource, iSource);
 
     /* We're done! */
     *(futureGeometry.load()) = geometry;
@@ -288,7 +279,6 @@ std::ostream& operator<<(std::ostream& os, const AFK_LandscapeTile& t)
 {
     os << "Landscape tile";
     if (t.haveTerrainDescriptor) os << " (Terrain)";
-    os << " (" << std::dec << t.rawVertexCount << "vertices)";
     if (t.geometry) os << " (Computed with bounds: " << t.yBoundLower << " - " << t.yBoundUpper << ")";
     return os;
 }

@@ -212,6 +212,9 @@ public:
     /* The size of the smallest cell. */
     const float minCellSize;
 
+    /* These parameters define the sizes of the landscape tiles. */
+    AFK_LandscapeSizes lSizes;
+
 
     AFK_World(
         float _maxDistance, 

@@ -40,27 +40,33 @@ class AFK_LandscapeGeometry
 public:
     Vec3<float> *rawVertices;
     Vec3<float> *rawColours;
-    size_t rawVertexCount;
 
     AFK_DisplayedBuffer<struct AFK_VcolPhongVertex>     vs;
     AFK_DisplayedBuffer<struct AFK_VcolPhongIndex>      is;
 
     AFK_LandscapeGeometry(
-        Vec3<float> *_rawVertices, Vec3<float> *_rawColours, size_t _rawVertexCount,
+        Vec3<float> *_rawVertices, Vec3<float> *_rawColours,
         size_t vCount, size_t iCount,
         AFK_GLBufferQueue *vSource, AFK_GLBufferQueue *iSource);
 };
 
 /* This utility function returns the sizes of the various landscape
- * elements.  So that in AFK_World, I can configure the cache
- * correctly.
+ * elements, so that I can configure the cache correctly, and correctly
+ * drive the drawing functions.
  */
-void afk_getLandscapeSizes(
-    unsigned int pointSubdivisionFactor,
-    unsigned int& o_landscapeTileVCount,
-    unsigned int& o_landscapeTileICount,
-    unsigned int& o_landscapeTileVsSize,
-    unsigned int& o_landscapeTileIsSize);
+class AFK_LandscapeSizes
+{
+public:
+    const unsigned int pointSubdivisionFactor;
+    const unsigned int vDim; /* Number of vertices along an edge */
+    const unsigned int iDim; /* Number of triangles along an edge */
+    const unsigned int vCount; /* Total number of vertex structures */
+    const unsigned int iCount; /* Total number of index structures */
+    const unsigned int vSize; /* Size of vertex array in bytes */
+    const unsigned int iSize; /* Size of index array in bytes */
+
+    AFK_LandscapeSizes(unsigned int pointSubdivisionFactor);
+};
 
 /* Describes a landscape tile, including managing its rendered vertex
  * and index buffers.
@@ -83,7 +89,6 @@ protected:
      */
     Vec3<float> *rawVertices;
     Vec3<float> *rawColours;
-    size_t rawVertexCount;
 
     /* Here's the geometry data */
     AFK_LandscapeGeometry *geometry;
@@ -148,15 +153,15 @@ public:
      */
     void makeRawTerrain(
         const AFK_Tile& baseTile,
-        unsigned int pointSubdivisionFactor,
+        const AFK_LandscapeSizes& lSizes,
         float minCellSize);
 
     /* Makes this cell's terrain geometry.  Call right after
      * constructing.
      */
     void computeGeometry(
-        unsigned int pointSubdivisionFactor,
         const AFK_Tile& baseTile,
+        const AFK_LandscapeSizes& lSizes,
         const AFK_TerrainList& terrainList,
         AFK_GLBufferQueue *vSource,
         AFK_GLBufferQueue *iSource);

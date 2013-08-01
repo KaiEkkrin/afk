@@ -105,7 +105,7 @@ void AFK_World::generateLandscapeGeometry(
     AFK_LandscapeTile& landscapeTile,
     unsigned int threadId)
 {
-    landscapeTile.makeRawTerrain(tile, pointSubdivisionFactor, minCellSize);
+    landscapeTile.makeRawTerrain(tile, lSizes, minCellSize);
 
     /* Create the terrain list, which is composed out of
      * the terrain descriptor for this landscape tile, and
@@ -123,7 +123,7 @@ void AFK_World::generateLandscapeGeometry(
 
     /* Using that terrain list, compute the landscape geometry. */
     landscapeTile.computeGeometry(
-        pointSubdivisionFactor, tile, terrainList, landscapeVsQueue, landscapeIsQueue);
+        tile, lSizes, terrainList, landscapeVsQueue, landscapeIsQueue);
     tilesComputed.fetch_add(1);
 }
 
@@ -439,19 +439,17 @@ AFK_World::AFK_World(
         maxDistance(_maxDistance),
         subdivisionFactor(_subdivisionFactor),
         pointSubdivisionFactor(_pointSubdivisionFactor),
-        minCellSize(_minCellSize)
+        minCellSize(_minCellSize),
+        lSizes(_pointSubdivisionFactor)
 {
     /* Set up the caches and generator gang. */
 
-    unsigned int tileVsCount, tileIsCount, tileVsSize, tileIsSize;
-    afk_getLandscapeSizes(pointSubdivisionFactor, tileVsCount, tileIsCount, tileVsSize, tileIsSize);
-
-    unsigned int tileCacheEntrySize = tileVsSize + tileIsSize;
+    unsigned int tileCacheEntrySize = lSizes.vSize + lSizes.iSize;
     unsigned int tileCacheEntries = tileCacheSize / tileCacheEntrySize;
     unsigned int tileCacheBitness = calculateCacheBitness(tileCacheEntries);
 
-    landscapeVsQueue = new AFK_GLBufferQueue(tileVsSize, tileCacheEntries, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
-    landscapeIsQueue = new AFK_GLBufferQueue(tileIsSize, tileCacheEntries, GL_ELEMENT_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
+    landscapeVsQueue = new AFK_GLBufferQueue(lSizes.vSize, tileCacheEntries, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
+    landscapeIsQueue = new AFK_GLBufferQueue(lSizes.iSize, tileCacheEntries, GL_ELEMENT_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
     landscapeCache = new AFK_LANDSCAPE_CACHE(
         tileCacheBitness, 8, AFK_HashTile(), tileCacheEntries / 2, 0xfffffffdu);
 
@@ -467,6 +465,7 @@ AFK_World::AFK_World(
     worldCache = new AFK_WORLD_CACHE(
         worldCacheBitness, 8, AFK_HashCell(), worldCacheEntries, 0xfffffffeu);
 
+    /* TODO change this into a thing like AFK_LandscapeSizes */
     unsigned int shapeVsSize, shapeIsSize;
     afk_getShapeSizes(pointSubdivisionFactor, shapeVsSize, shapeIsSize);
     unsigned int shapeEntrySize = shapeVsSize + shapeIsSize;
@@ -652,7 +651,7 @@ void AFK_World::doComputeTasks(void)
 
     while (landscapeRenderQueue.draw_pop(dlt))
     {
-        dlt->compute(pointSubdivisionFactor);
+        dlt->compute(lSizes);
         postClTiles.push_back(dlt);
     }
 }
@@ -688,7 +687,8 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
             landscape_clipTransformLocation,
             landscape_yCellMinLocation,
             landscape_yCellMaxLocation,
-            projection);
+            projection,
+            lSizes);
         delete /* dlt */ (*postClTilesIt);
     }
 

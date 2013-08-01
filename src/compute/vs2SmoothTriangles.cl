@@ -25,7 +25,7 @@ void computeSmoothTriangle(
     __global struct AFK_VcolPhongVertex *vs,
     __global unsigned int *is,
     int iOffset,
-    bool emitIndices)
+    bool emitTriangle)
 {
     float3 crossP = cross(
         rawVertices[i1] - rawVertices[i0],
@@ -44,11 +44,11 @@ void computeSmoothTriangle(
     vs[i2].colour += rawColours[i0] + rawColours[i1] + rawColours[i2];
     vs[i2].normal += crossP;
     
-    if (emitIndices)
+    /* Try to make all triangles face upwards under
+     * GL_CCW winding order
+     */
+    if (emitTriangle)
     {
-        /* Try to make all triangles face upwards under
-         * GL_CCW winding order
-         */
         is[iOffset] = i0;
         if (crossP.y >= 0.0f)
         {
@@ -78,15 +78,14 @@ __kernel void vs2SmoothTriangles(
     const unsigned int pointSubdivisionFactor)
 {
     /* These will be in the range (0 ... pointSubdivisionFactor+1).
-     * The bottom and left rows should not be used to derive
-     * triangles.  (Those belong to the adjacent tiles.)
      */
     const int xdim = get_global_id(0);
     const int zdim = get_global_id(1);
 
     /* The input grid is (pointSubdivisionFactor + 2) on a
      * side, containing extra vertices all the way around
-     * for the purpose of making smooth triangles.
+     * for the purpose of making smooth triangles and joining
+     * the tiles together.
      */
     const int dimSize = pointSubdivisionFactor + 2;
 
@@ -132,10 +131,15 @@ __kernel void vs2SmoothTriangles(
 
     barrier(CLK_GLOBAL_MEM_FENCE);
 
-    /* There are pointSubdivisionFactor * 2 triangles in
+    /* There are (pointSubdivisionFactor) * 2 triangles in
      * the output indices array, indexed like this.
      */
     int t1 = ((xdim - 1) * pointSubdivisionFactor + (zdim - 1)) * 6;
+
+    /* TODO Don't emit the bottom and left rows of triangles!
+     * Their tile co-ordinates are negative and they'd overlap with
+     * the next tile.
+     */
 
     /* Make the first triangle,
      * including emitting the vertex...
@@ -143,15 +147,16 @@ __kernel void vs2SmoothTriangles(
     computeSmoothTriangle(
         rawVertices, rawColours,
         i_r1c1, i_r1c2, i_r2c1,
-        vs, is, t1, (xdim > 0 && zdim > 0));
+        vs, is, t1, xdim > 0 && zdim > 0);
 
     barrier(CLK_GLOBAL_MEM_FENCE);
 
     /* Now, make the second one */
-    int t2 = ((xdim - 1) * pointSubdivisionFactor + (zdim - 1)) * 6 + 3;
+    int t2 = t1 + 3;
     computeSmoothTriangle(
         rawVertices, rawColours,
-        i_r1c2, i_r2c1, i_r2c2,
-        vs, is, t2, (xdim > 0 && zdim > 0));
+        i_r1c2, i_r2c2, i_r2c1,
+        vs, is, t2, xdim > 0 && zdim > 0);
+     
 }
 
