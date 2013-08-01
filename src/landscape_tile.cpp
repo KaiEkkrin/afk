@@ -27,11 +27,12 @@ AFK_LandscapeGeometry::AFK_LandscapeGeometry(
 
 AFK_LandscapeSizes::AFK_LandscapeSizes(unsigned int pointSubdivisionFactor):
     pointSubdivisionFactor(pointSubdivisionFactor),
-    vDim(pointSubdivisionFactor + 2), /* one extra vertex either side, to smooth colours and normals */
+    vDim(pointSubdivisionFactor + 3), /* one extra vertex either side, to smooth colours and normals; */
+                                      /* another extra vertex on +x and +z, to smooth the join-triangle normals */
     iDim(pointSubdivisionFactor),
-    vCount(SQUARE(pointSubdivisionFactor + 2)),
+    vCount(SQUARE(pointSubdivisionFactor + 3)),
     iCount(SQUARE(pointSubdivisionFactor) * 2), /* two triangles per vertex */
-    vSize(SQUARE(pointSubdivisionFactor + 2) * sizeof(struct AFK_VcolPhongVertex)),
+    vSize(SQUARE(pointSubdivisionFactor + 3) * sizeof(struct AFK_VcolPhongVertex)),
     iSize(SQUARE(pointSubdivisionFactor) * 2 * sizeof(struct AFK_VcolPhongIndex))
 {
 }
@@ -154,9 +155,9 @@ void AFK_LandscapeTile::makeRawTerrain(
      * in order to make the normals for the x=0 and z=0 vertices.
      */
     int excessNX = -1;
-    int excessPX = 1;
+    int excessPX = 2;
     int excessNZ = -1;
-    int excessPZ = 1;
+    int excessPZ = 2;
 
     /* TODO This is thrashing the heap.  Try making a single
      * scratch place for this in thread-local storage

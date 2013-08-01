@@ -77,17 +77,17 @@ __kernel void vs2SmoothTriangles(
     __global unsigned int *is,              /* 3 ints to a triangle */
     const unsigned int pointSubdivisionFactor)
 {
-    /* These will be in the range (0 ... pointSubdivisionFactor+1).
+    /* These will be in the range (0 ... pointSubdivisionFactor+2).
      */
     const int xdim = get_global_id(0);
     const int zdim = get_global_id(1);
 
-    /* The input grid is (pointSubdivisionFactor + 2) on a
+    /* The input grid is (pointSubdivisionFactor + 3) on a
      * side, containing extra vertices all the way around
      * for the purpose of making smooth triangles and joining
      * the tiles together.
      */
-    const int dimSize = pointSubdivisionFactor + 2;
+    const int dimSize = pointSubdivisionFactor + 3;
 
     /* Here are the 4 input vertices that make up
      * those 2 triangles...
@@ -136,10 +136,11 @@ __kernel void vs2SmoothTriangles(
      */
     int t1 = ((xdim - 1) * pointSubdivisionFactor + (zdim - 1)) * 6;
 
-    /* TODO Don't emit the bottom and left rows of triangles!
-     * Their tile co-ordinates are negative and they'd overlap with
-     * the next tile.
+    /* Don't emit the bottom and left rows of triangles,
+     * or the top and right rows of triangles.  They'd overlap
+     * with the adjacent tiles.
      */
+    bool emitTriangle = (xdim > 0 && zdim > 0 && xdim < (pointSubdivisionFactor + 1) && zdim < (pointSubdivisionFactor + 1));
 
     /* Make the first triangle,
      * including emitting the vertex...
@@ -147,7 +148,7 @@ __kernel void vs2SmoothTriangles(
     computeSmoothTriangle(
         rawVertices, rawColours,
         i_r1c1, i_r1c2, i_r2c1,
-        vs, is, t1, xdim > 0 && zdim > 0);
+        vs, is, t1, emitTriangle);
 
     barrier(CLK_GLOBAL_MEM_FENCE);
 
@@ -156,7 +157,7 @@ __kernel void vs2SmoothTriangles(
     computeSmoothTriangle(
         rawVertices, rawColours,
         i_r1c2, i_r2c2, i_r2c1,
-        vs, is, t2, xdim > 0 && zdim > 0);
+        vs, is, t2, emitTriangle);
      
 }
 

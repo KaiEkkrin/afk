@@ -111,7 +111,7 @@ void AFK_DisplayedLandscapeTile::compute(const AFK_LandscapeSizes& lSizes)
     AFK_CLCHK(clSetKernelArg(afk_core.v2stKernel, 4, sizeof(unsigned int), &lSizes.pointSubdivisionFactor))
 
     size_t workDim[2];
-    workDim[0] = workDim[1] = lSizes.pointSubdivisionFactor + 1;
+    workDim[0] = workDim[1] = lSizes.pointSubdivisionFactor + 2;
 
     AFK_CLCHK(clEnqueueNDRangeKernel(q, afk_core.v2stKernel, 2, NULL, &workDim[0], NULL, 0, NULL, NULL))
 
