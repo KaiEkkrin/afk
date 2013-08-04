@@ -35,6 +35,29 @@ void afk_handleClError(cl_int error);
         if (error != CL_SUCCESS) afk_handleClError(error); \
     }
 
+/* A little collection of device properties that might
+ * be useful.
+ */
+class AFK_ClDeviceProperties
+{
+public:
+	cl_ulong 	globalMemSize;
+	cl_ulong 	localMemSize;
+	cl_uint 	maxConstantArgs;
+	cl_uint 	maxConstantBufferSize;
+	cl_ulong 	maxMemAllocSize;
+	size_t		maxParameterSize;
+	size_t		maxWorkGroupSize;
+	cl_uint		maxWorkItemDimensions;
+
+	size_t *	maxWorkItemSizes;
+	
+	AFK_ClDeviceProperties(cl_device_id device);
+	virtual ~AFK_ClDeviceProperties();
+};
+
+std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p);
+
 /* A useful wrapper around the OpenCL stuff (I'm using the
  * C bindings, not the C++ ones, which caused mega-tastic
  * build issues)
@@ -69,6 +92,8 @@ protected:
     cl_device_id *devices;
     unsigned int devicesSize;
 
+	AFK_ClDeviceProperties *firstDeviceProps;
+
     cl_context ctxt;
     cl_command_queue q;
 
@@ -89,10 +114,8 @@ public:
      */
     void loadPrograms(const std::string& programsDir);
 
-    /* Reports the max allocation size of the chosen cl_gl
-     * device.
-     */
-    unsigned int clGlMaxAllocSize(void) const;
+	/* Returns the first device's detected properties. */
+	const AFK_ClDeviceProperties& getFirstDeviceProps(void) const;
 
     /* To use this class, call the following functions
      * to identify where you want to compute, and then do
