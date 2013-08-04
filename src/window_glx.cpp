@@ -8,6 +8,9 @@
 #include "window_glx.hpp"
 
 
+typedef GLXContext (*glXCreateContextAttribsARBProc)(Display*, GLXFBConfig, GLXContext, Bool, const int*);
+typedef GLXFBConfig* (*glXChooseFBConfigProc)(Display*, int, const int*, int*);
+
 /* Attributes used to initialise the GLX context. */
 int glAttr[] = {
     GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
@@ -16,6 +19,17 @@ int glAttr[] = {
     GLX_CONTEXT_PROFILE_MASK_ARB,   GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
     0
 };
+
+/* Simplistic error handling */
+int afk_xErrorHandler(Display *dpy, XErrorEvent *error)
+{
+    char str[1024];
+    std::ostringstream ss;
+
+    XGetErrorText(dpy, error->error_code, str, sizeof(str));
+    ss << "X Error occurred: " << str;
+    throw AFK_Exception(ss.str());
+}
 
 /* AFK_WindowGlx implementation */
 
@@ -26,6 +40,7 @@ AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight
     realGlxCtx(0), glxFbConfig(NULL)
 {
     XInitThreads();
+    XSetErrorHandler(afk_xErrorHandler);
     dpy = XOpenDisplay(NULL);
     if (!dpy) throw AFK_Exception("Unable to open X display");
 
@@ -79,29 +94,34 @@ AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight
     wmDeleteWindow = XInternAtom(dpy, "WM_DELETE_WINDOW", 0);
     XSetWMProtocols(dpy, w, &wmDeleteWindow, 1);
 
-    /* Make a basic OpenGL context.
-     * TODO GLEW -- sort out what extensions I want to use, and
-     * all that shizzle ?
-     */
-    GLXContext basicGlxCtx = glXCreateContext(dpy, visInfo, NULL, true);
-    glXMakeCurrent(dpy, w, basicGlxCtx);
+    glXCreateContextAttribsARBProc ccProc = (glXCreateContextAttribsARBProc)
+        glXGetProcAddressARB((const GLubyte *)"glXCreateContextAttribsARB");
+    
+    if (!ccProc)
+    {
+        throw AFK_Exception("Your GLX doesn't support GLX_ARB_create_context");
+    }
 
-    /* Now, initialise GLEW. */
-    GLenum res = glewInit();
-    if (res != GLEW_OK) throw AFK_Exception("Unable to initialise GLEW");
+    glXChooseFBConfigProc fbcProc = (glXChooseFBConfigProc)
+        glXGetProcAddressARB((const GLubyte *)"glXChooseFBConfig");
+    if (!fbcProc)
+    {
+        throw AFK_Exception("Your GLX doesn't have glXChooseFBConfig");
+    }
 
-    /* Now, make an OpenGL 3.2 context.
-     * TODO Different version?  What version is AFK going to need?
-     * How does this stuff sit with GLEW?
-     */
-    glxFbConfig = glXChooseFBConfig(dpy, screen, NULL, &numFbConfigElements);
+    glxFbConfig = (*fbcProc)(dpy, screen, NULL, &numFbConfigElements);
     if (!glxFbConfig) throw AFK_Exception("Unable to get GLX framebuffer config");
 
-    realGlxCtx = glXCreateContextAttribsARB(dpy, glxFbConfig[0], NULL, true, glAttr);
+    realGlxCtx = (*ccProc)(dpy, glxFbConfig[0], NULL, true, glAttr);
 
-    /* Swap to it. */
-    glXMakeCurrent(dpy, w, realGlxCtx);
-    glXDestroyContext(dpy, basicGlxCtx);
+    if (!glXMakeCurrent(dpy, w, realGlxCtx))
+        throw AFK_Exception("Unable to make real GLX context current");
+
+    /* Now, initialise GLEW, so I never have to do that
+     * awful glXGetProcAddressARB thing ever again
+     */
+    GLenum res = glewInit();
+    if (res != GLEW_OK) throw AFK_Exception("Unable to initialise GLEW");
 
     /* Wait for my X window to become mapped */
     bool windowMapped = false;
