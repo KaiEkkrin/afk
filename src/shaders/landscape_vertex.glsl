@@ -6,10 +6,11 @@
 
 #version 330
 
-// Input is in vec4 to match the OpenCL 3-vector format.
-layout (location = 0) in vec4 Position;
-layout (location = 1) in vec4 Vcol;
-layout (location = 2) in vec4 Normal;
+layout (location = 0) in vec3 Position;
+
+// TODO Turn these into texture buffers, like the
+// Shape instancing stuff.
+uniform vec4 cellCoord;
 
 uniform float yCellMin;
 uniform float yCellMax;
@@ -23,8 +24,10 @@ out VertexData
 
 void main()
 {
-    gl_Position = vec4(Position.xyz, 1.0);
-    outData.colour = Vcol.xyz;
-    outData.normal = Normal.xyz;
+    gl_Position = vec4(Position * cellCoord.w + cellCoord.xyz, 1.0);
+
+    // Temporary values while I test the basics :).
+    outData.colour = vec3(1.0, 1.0, 1.0);
+    outData.normal = vec3(1.0, 1.0, 1.0);
     outData.withinBounds = (yCellMin <= Position.y && Position.y < yCellMax);
 }

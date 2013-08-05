@@ -5,6 +5,7 @@
 
 #include "afk.hpp"
 
+#include "cell.hpp"
 #include "def.hpp"
 #include "landscape_tile.hpp"
 #include "light.hpp"
@@ -19,6 +20,11 @@
 class AFK_DisplayedLandscapeTile
 {
 protected:
+    /* This tile's location, so that I can displace the
+     * instanced base tile onto it.
+     */
+    Vec4<float> coord;
+
     /* This comes from LandscapeTile.  I don't own it. */
     AFK_LandscapeGeometry **geometry;
 
@@ -30,6 +36,7 @@ public:
      * its buffer pointers.
      */
     AFK_DisplayedLandscapeTile(
+        const Vec4<float>& _coord,
         AFK_LandscapeGeometry **_geometry,
         float _cellBoundLower,
         float _cellBoundUpper);
@@ -48,12 +55,9 @@ public:
      * correct set of vertex attribute arrays has been enabled.
      */
     void display(
-        AFK_ShaderLight *shaderLight,
-        const struct AFK_Light& globalLight,
-        GLuint clipTransformLocation,
+        GLuint cellCoordLocation,
         GLuint yCellMinLocation,
         GLuint yCellMaxLocation,
-        const Mat4<float>& projection,
         const AFK_LandscapeSizes& lSizes);
 };
 

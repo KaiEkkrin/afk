@@ -108,6 +108,7 @@ protected:
     AFK_ShaderProgram *landscape_shaderProgram;
     AFK_ShaderLight *landscape_shaderLight;
     GLuint landscape_clipTransformLocation;
+    GLuint landscape_cellCoordLocation;
     GLuint landscape_yCellMinLocation;
     GLuint landscape_yCellMaxLocation;
 
@@ -151,6 +152,10 @@ protected:
      * out of the render queue.
      */
     std::vector<AFK_DisplayedLandscapeTile*> postClTiles;
+
+    /* The basic landscape tile geometry. */
+    GLuint landscapeTileArray;
+    GLuint landscapeTileBufs[2];
 
     /* TODO Deal with multiple shapes.  In whatever way.
      * I don't know.  :/  For now, I'll just have one.

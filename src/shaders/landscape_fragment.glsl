@@ -32,6 +32,9 @@ void main()
     vec3 AmbientColour = gLight.Colour * gLight.Ambient;
     vec3 DiffuseColour = gLight.Colour * gLight.Diffuse * max(dot(normal, -gLight.Direction), 0.0);
     float DiffuseFactor = dot(normal, -gLight.Direction);
-    FragColor = vec4(colour * (AmbientColour + DiffuseColour), 1.0);
+    // TODO fix this when I'm getting all the properties
+    // in once more.
+    //FragColor = vec4(colour * (AmbientColour + DiffuseColour), 1.0);
+    FragColor = vec4(1.0, 1.0, 1.0, 1.0);
 }
 

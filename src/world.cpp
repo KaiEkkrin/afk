@@ -490,6 +490,7 @@ AFK_World::AFK_World(
     landscape_shaderLight = new AFK_ShaderLight(landscape_shaderProgram->program);
 
     landscape_clipTransformLocation = glGetUniformLocation(landscape_shaderProgram->program, "ClipTransform");
+    landscape_cellCoordLocation = glGetUniformLocation(landscape_shaderProgram->program, "cellCoord");
     landscape_yCellMinLocation = glGetUniformLocation(landscape_shaderProgram->program, "yCellMin");
     landscape_yCellMaxLocation = glGetUniformLocation(landscape_shaderProgram->program, "yCellMax");
 
@@ -506,6 +507,61 @@ AFK_World::AFK_World(
 
     entity_shaderLight = new AFK_ShaderLight(entity_shaderProgram->program);
     entity_projectionTransformLocation = glGetUniformLocation(entity_shaderProgram->program, "ProjectionTransform");
+
+    /* Initialise the landscape tile array, encapsulating
+     * the basic unit of landscape drawing.
+     */
+    Vec3<float> tileVertices[lSizes.baseVCount];
+    unsigned short tileIndices[lSizes.iCount * 3];
+
+    for (unsigned int x = 0; x < lSizes.baseVDim; ++x)
+    {
+        for (unsigned int z = 0; z < lSizes.baseVDim; ++z)
+        {
+            tileVertices[x * lSizes.baseVDim + z] = afk_vec3<float>(
+                (float)x / (float)lSizes.pointSubdivisionFactor,
+                0.0f,
+                (float)x / (float)lSizes.pointSubdivisionFactor);
+        }
+    }
+
+    unsigned int i = 0;
+    for (unsigned short x = 0; x < lSizes.pointSubdivisionFactor; ++x)
+    {
+        for (unsigned short z = 0; z < lSizes.pointSubdivisionFactor; ++z)
+        {
+            unsigned short i_r1c1 = x * lSizes.baseVDim + z;
+            unsigned short i_r2c1 = (x + 1) * lSizes.baseVDim + z;
+            unsigned short i_r1c2 = x * lSizes.baseVDim + (z + 1);
+            unsigned short i_r2c2 = (x + 1) * lSizes.baseVDim + (z + 1);
+
+            tileIndices[i++] = i_r1c1;
+            tileIndices[i++] = i_r1c2;
+            tileIndices[i++] = i_r2c1;
+
+            tileIndices[i++] = i_r1c2;
+            tileIndices[i++] = i_r2c2;
+            tileIndices[i++] = i_r2c1;
+        }
+    }
+
+    /* TODO Is is that this VAO crap isn't working for me? */
+    //glGenVertexArrays(1, &landscapeTileArray);
+    //glBindVertexArray(landscapeTileArray);
+    
+    glGenBuffers(2, &landscapeTileBufs[0]);
+
+    glBindBuffer(GL_ARRAY_BUFFER, landscapeTileBufs[0]);
+    glBufferData(GL_ARRAY_BUFFER, lSizes.baseVSize, tileVertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, landscapeTileBufs[1]);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, lSizes.iSize, tileIndices, GL_STATIC_DRAW);
+
+    //glEnableVertexAttribArray(0);
+    //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vec3<float>), 0);
+
+    /* Done. */
+    glBindVertexArray(0);
 
     /* Initialise the statistics. */
     cellsInvisible.store(0);
@@ -539,6 +595,9 @@ AFK_World::~AFK_World()
 
     delete entity_shaderProgram;
     delete entity_shaderLight;
+
+    //glDeleteVertexArrays(1, &landscapeTileArray);
+    glDeleteBuffers(2, &landscapeTileBufs[0]);
 }
 
 void AFK_World::enqueueSubcells(
@@ -651,7 +710,10 @@ void AFK_World::doComputeTasks(void)
 
     while (landscapeRenderQueue.draw_pop(dlt))
     {
-        dlt->compute(lSizes);
+        /* TODO Put this back after I've finished building
+         * the basic instanced-tiles landscape.
+         */
+        //dlt->compute(lSizes);
         postClTiles.push_back(dlt);
     }
 }
@@ -660,45 +722,38 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
 {
     /* Render the landscape */
     glUseProgram(landscape_shaderProgram->program);
+    landscape_shaderLight->setupLight(globalLight);
+    glUniformMatrix4fv(landscape_clipTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
+    AFK_GLCHK("landscape uniforms")
 
-    /* Put the GL into the right shape to draw a bunch of
-     * AFK_VcolPhongVertex structures.  The individual
-     * `display' calls won't do this.
-     */
+    //glBindVertexArray(landscapeTileArray);
+    //AFK_GLCHK("landscape bindVertexArray")
+
+    glBindBuffer(GL_ARRAY_BUFFER, landscapeTileBufs[0]);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, landscapeTileBufs[1]);
+
     glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vec3<float>), 0);
 
-    /* TODO Does it turn out, in fact, that I CAN optimise this
-     * to not be making one draw call per cell using VAOs?  Can
-     * I specify a VAO that contains a list of the GL references
-     * to buffers that I've already cached?  Argh, my brain
-     * hurts :/  Read and understand 
-     * http://ogldev.atspace.co.uk/www/tutorial32/tutorial32.html
-     * !!!
-     */
-    //while (landscapeRenderQueue.draw_pop(dlt))
     for (std::vector<AFK_DisplayedLandscapeTile*>::iterator postClTilesIt = postClTiles.begin();
         postClTilesIt != postClTiles.end(); ++postClTilesIt)
     {
         (*postClTilesIt)->display(
-            landscape_shaderLight,
-            globalLight,
             landscape_clipTransformLocation,
             landscape_yCellMinLocation,
             landscape_yCellMaxLocation,
-            projection,
             lSizes);
         delete /* dlt */ (*postClTilesIt);
     }
 
+    glDisableVertexAttribArray(0);
+
+    //glBindVertexArray(0);
     postClTiles.clear();
 
-    glDisableVertexAttribArray(0);
-    glDisableVertexAttribArray(1);
-    glDisableVertexAttribArray(2);
-
     /* Render the shapes */
+    /* TODO re-enable this later */
+#if 0
     glUseProgram(entity_shaderProgram->program);
 
     glEnableVertexAttribArray(0);
@@ -714,6 +769,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     glDisableVertexAttribArray(0);
     glDisableVertexAttribArray(1);
     glDisableVertexAttribArray(2);
+#endif
 }
 
 /* Worker for the below. */

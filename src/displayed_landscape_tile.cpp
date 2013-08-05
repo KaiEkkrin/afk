@@ -7,14 +7,15 @@
 #include "exception.hpp"
 
 AFK_DisplayedLandscapeTile::AFK_DisplayedLandscapeTile(
+    const Vec4<float>& _coord,
     AFK_LandscapeGeometry **_geometry,
     float _cellBoundLower,
     float _cellBoundUpper):
-        geometry(_geometry), cellBoundLower(_cellBoundLower), cellBoundUpper(_cellBoundUpper)
+        coord(_coord), geometry(_geometry), cellBoundLower(_cellBoundLower), cellBoundUpper(_cellBoundUpper)
 {
 }
 
-#define FIRST_DEBUG 0
+#define FIRST_DEBUG 1
 
 #if FIRST_DEBUG
 /* TODO Nasty debug !
@@ -189,35 +190,30 @@ void AFK_DisplayedLandscapeTile::compute(const AFK_LandscapeSizes& lSizes)
 }
 
 void AFK_DisplayedLandscapeTile::display(
-    AFK_ShaderLight *shaderLight,
-    const struct AFK_Light& globalLight,
-    GLuint clipTransformLocation,
+    GLuint cellCoordLocation,
     GLuint yCellMinLocation,
     GLuint yCellMaxLocation,
-    const Mat4<float>& projection,
     const AFK_LandscapeSizes& lSizes)
 {
+    /* TODO fix fix fix */
+    if (coord.v[1] != 0.0f) return;
+
 #if FIRST_DEBUG
     /* TODO remove nasty debug!  :P */
     computeFirst = true;
 
+    std::cout << "Rendering landscape tile at coord " << coord << std::endl;
+
     //if (!displayFirst) return;
 #endif
-
-    shaderLight->setupLight(globalLight);
-    glUniformMatrix4fv(clipTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
+    glUniform4fv(cellCoordLocation, 1, &coord.v[0]);
     glUniform1f(yCellMinLocation, cellBoundLower);
     glUniform1f(yCellMaxLocation, cellBoundUpper);
 
-    (*geometry)->vs.bindBufferAndPush(false, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
+    AFK_GLCHK("landscape tile uniforms")
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), 0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(sizeof(Vec3<float>)));
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(2 * sizeof(Vec3<float>)));
-
-    (*geometry)->is.bindBufferAndPush(false, GL_ELEMENT_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
-
-    glDrawElements(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0);
+    AFK_GLCHK("landscape drawElements")
 #if FIRST_DEBUG
     displayFirst = false;
 #endif

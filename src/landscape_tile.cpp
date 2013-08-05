@@ -27,13 +27,16 @@ AFK_LandscapeGeometry::AFK_LandscapeGeometry(
 
 AFK_LandscapeSizes::AFK_LandscapeSizes(unsigned int pointSubdivisionFactor):
     pointSubdivisionFactor(pointSubdivisionFactor),
+    baseVDim(pointSubdivisionFactor + 1), /* one extra vertex along the top and right sides to join with the adjacent tile */
     vDim(pointSubdivisionFactor + 3), /* one extra vertex either side, to smooth colours and normals; */
                                       /* another extra vertex on +x and +z, to smooth the join-triangle normals */
     iDim(pointSubdivisionFactor),
+    baseVCount(SQUARE(pointSubdivisionFactor + 1)),
     vCount(SQUARE(pointSubdivisionFactor + 3)),
     iCount(SQUARE(pointSubdivisionFactor) * 2), /* two triangles per vertex */
+    baseVSize(SQUARE(pointSubdivisionFactor + 1) * sizeof(Vec3<float>)),
     vSize(SQUARE(pointSubdivisionFactor + 3) * sizeof(struct AFK_VcolPhongVertex)),
-    iSize(SQUARE(pointSubdivisionFactor) * 2 * sizeof(struct AFK_VcolPhongIndex))
+    iSize(SQUARE(pointSubdivisionFactor) * 2 * 3 * sizeof(unsigned short))
 {
 }
 
@@ -256,9 +259,9 @@ AFK_DisplayedLandscapeTile *AFK_LandscapeTile::makeDisplayedLandscapeTile(const 
      */
     /* TODO I'm going to need to deal with the y bounds.  :-( */
     if (cellBoundLower <= yBoundUpper && cellBoundUpper > yBoundLower)
-        dlt = new AFK_DisplayedLandscapeTile(futureGeometry.load(), cellBoundLower, cellBoundUpper);
+        dlt = new AFK_DisplayedLandscapeTile(cell.toWorldSpace(minCellSize), futureGeometry.load(), cellBoundLower, cellBoundUpper);
 #else
-    dlt = new AFK_DisplayedLandscapeTile(futureGeometry.load(), -32768.0, 32768.0);
+    dlt = new AFK_DisplayedLandscapeTile(cell.toWorldSpace(minCellSize), futureGeometry.load(), -32768.0, 32768.0);
 #endif
 
     return dlt;

@@ -13,8 +13,27 @@
 #include "shader.hpp"
 
 
+/* Enable this to debug OpenGL commands all over everywhere. */
+#define AFK_GL_DEBUG 1
+
+#if AFK_GL_DEBUG
+#define AFK_GLCHK(str) \
+    { \
+        GLenum glErr = glGetError(); \
+        if (glErr != GL_NO_ERROR) \
+        { \
+            std::ostringstream ss; \
+            ss << "AFK: Got GL error from " << str << ": " << gluErrorString(glErr); \
+        } \
+    }
+#else
+#define AFK_GLCHK(str)
+#endif
+
+
 /* Describes the layout of a vertex for the vcol_phong
  * shader sequence.
+ * TODO Remove me?!
  */
 struct AFK_VcolPhongVertex
 {

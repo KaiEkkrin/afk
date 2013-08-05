@@ -50,7 +50,7 @@ public:
         AFK_GLBufferQueue *vSource, AFK_GLBufferQueue *iSource);
 };
 
-/* This utility function returns the sizes of the various landscape
+/* This utility returns the sizes of the various landscape
  * elements, so that I can configure the cache correctly, and correctly
  * drive the drawing functions.
  */
@@ -58,10 +58,13 @@ class AFK_LandscapeSizes
 {
 public:
     const unsigned int pointSubdivisionFactor;
-    const unsigned int vDim; /* Number of vertices along an edge */
+    const unsigned int baseVDim; /* Number of vertices along an edge in the base tile */
+    const unsigned int vDim; /* Number of vertices along an edge, including extras for computation */
     const unsigned int iDim; /* Number of triangles along an edge */
-    const unsigned int vCount; /* Total number of vertex structures */
+    const unsigned int baseVCount; /* Total number of vertex structures in the instanced base tile */
+    const unsigned int vCount; /* Total number of vertex structures in the computed geometry */
     const unsigned int iCount; /* Total number of index structures */
+    const unsigned int baseVSize; /* Size of base tile vertex array in bytes */
     const unsigned int vSize; /* Size of vertex array in bytes */
     const unsigned int iSize; /* Size of index array in bytes */
 
