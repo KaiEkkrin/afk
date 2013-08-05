@@ -206,6 +206,14 @@ void AFK_DisplayedLandscapeTile::display(
 
     //if (!displayFirst) return;
 #endif
+    /* TODO Will it turn out that the uniforms end up the same
+     * between all invocations?  I think it might...
+     * -- yes.
+     * I need to immediately move to instanced mode, with all
+     * the tiles, as done for AFK_Shape.
+     * But, break for now.  Soooooo frustrating :-(
+     */
+    coord = afk_vec4<float>(0.0, 0.0, 0.0, 1.0);
     glUniform4fv(cellCoordLocation, 1, &coord.v[0]);
     glUniform1f(yCellMinLocation, cellBoundLower);
     glUniform1f(yCellMaxLocation, cellBoundUpper);

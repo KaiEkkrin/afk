@@ -521,7 +521,7 @@ AFK_World::AFK_World(
             tileVertices[x * lSizes.baseVDim + z] = afk_vec3<float>(
                 (float)x / (float)lSizes.pointSubdivisionFactor,
                 0.0f,
-                (float)x / (float)lSizes.pointSubdivisionFactor);
+                (float)z / (float)lSizes.pointSubdivisionFactor);
         }
     }
 
@@ -545,9 +545,8 @@ AFK_World::AFK_World(
         }
     }
 
-    /* TODO Is is that this VAO crap isn't working for me? */
-    //glGenVertexArrays(1, &landscapeTileArray);
-    //glBindVertexArray(landscapeTileArray);
+    glGenVertexArrays(1, &landscapeTileArray);
+    glBindVertexArray(landscapeTileArray);
     
     glGenBuffers(2, &landscapeTileBufs[0]);
 
@@ -557,11 +556,12 @@ AFK_World::AFK_World(
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, landscapeTileBufs[1]);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, lSizes.iSize, tileIndices, GL_STATIC_DRAW);
 
-    //glEnableVertexAttribArray(0);
-    //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vec3<float>), 0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vec3<float>), 0);
 
     /* Done. */
     glBindVertexArray(0);
+    glDisableVertexAttribArray(0);
 
     /* Initialise the statistics. */
     cellsInvisible.store(0);
@@ -596,7 +596,7 @@ AFK_World::~AFK_World()
     delete entity_shaderProgram;
     delete entity_shaderLight;
 
-    //glDeleteVertexArrays(1, &landscapeTileArray);
+    glDeleteVertexArrays(1, &landscapeTileArray);
     glDeleteBuffers(2, &landscapeTileBufs[0]);
 }
 
@@ -726,14 +726,8 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     glUniformMatrix4fv(landscape_clipTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
     AFK_GLCHK("landscape uniforms")
 
-    //glBindVertexArray(landscapeTileArray);
-    //AFK_GLCHK("landscape bindVertexArray")
-
-    glBindBuffer(GL_ARRAY_BUFFER, landscapeTileBufs[0]);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, landscapeTileBufs[1]);
-
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vec3<float>), 0);
+    glBindVertexArray(landscapeTileArray);
+    AFK_GLCHK("landscape bindVertexArray")
 
     for (std::vector<AFK_DisplayedLandscapeTile*>::iterator postClTilesIt = postClTiles.begin();
         postClTilesIt != postClTiles.end(); ++postClTilesIt)
@@ -746,9 +740,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
         delete /* dlt */ (*postClTilesIt);
     }
 
-    glDisableVertexAttribArray(0);
-
-    //glBindVertexArray(0);
+    glBindVertexArray(0);
     postClTiles.clear();
 
     /* Render the shapes */
