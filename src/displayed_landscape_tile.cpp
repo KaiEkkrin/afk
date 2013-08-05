@@ -189,6 +189,11 @@ void AFK_DisplayedLandscapeTile::compute(const AFK_LandscapeSizes& lSizes)
     afk_core.computer->unlock();
 }
 
+const Vec4<float>& AFK_DisplayedLandscapeTile::getCoord(void) const
+{
+    return coord;
+}
+
 void AFK_DisplayedLandscapeTile::display(
     GLuint cellCoordLocation,
     GLuint yCellMinLocation,
@@ -201,8 +206,6 @@ void AFK_DisplayedLandscapeTile::display(
 #if FIRST_DEBUG
     /* TODO remove nasty debug!  :P */
     computeFirst = true;
-
-    std::cout << "Rendering landscape tile at coord " << coord << std::endl;
 
     //if (!displayFirst) return;
 #endif

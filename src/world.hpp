@@ -108,9 +108,6 @@ protected:
     AFK_ShaderProgram *landscape_shaderProgram;
     AFK_ShaderLight *landscape_shaderLight;
     GLuint landscape_clipTransformLocation;
-    GLuint landscape_cellCoordLocation;
-    GLuint landscape_yCellMinLocation;
-    GLuint landscape_yCellMaxLocation;
 
     /* Entity shader details. */
     AFK_ShaderProgram *entity_shaderProgram;
@@ -156,6 +153,9 @@ protected:
     /* The basic landscape tile geometry. */
     GLuint landscapeTileArray;
     GLuint landscapeTileBufs[2];
+
+    /* The texture buffers used to describe the landscape */
+    GLuint landscapeCellCoordTBO;
 
     /* TODO Deal with multiple shapes.  In whatever way.
      * I don't know.  :/  For now, I'll just have one.

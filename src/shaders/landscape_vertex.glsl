@@ -8,12 +8,9 @@
 
 layout (location = 0) in vec4 Position;
 
-// TODO Turn these into texture buffers, like the
-// Shape instancing stuff.
-uniform vec4 cellCoord;
-
-uniform float yCellMin;
-uniform float yCellMax;
+// This texture contains the (x, y, z, scale) of the cells
+// to draw.
+uniform samplerBuffer CellCoordTBO;
 
 out VertexData
 {
@@ -24,11 +21,11 @@ out VertexData
 
 void main()
 {
-    //gl_Position = vec4(Position.xyz * cellCoord.w + cellCoord.xyz, 1.0);
-    gl_Position = vec4(Position.xyz, 1.0);
+    vec4 cellCoord = texelFetch(CellCoordTBO, gl_InstanceID);
+    gl_Position = vec4(Position.xyz * cellCoord.w + cellCoord.xyz, 1.0);
 
     // Temporary values while I test the basics :).
-    outData.colour = vec3(1.0, 1.0, 1.0);
+    outData.colour = cellCoord.xzw;
     outData.normal = vec3(0.0, 1.0, 0.0);
     //outData.withinBounds = (yCellMin <= Position.y && Position.y < yCellMax);
     outData.withinBounds = true;

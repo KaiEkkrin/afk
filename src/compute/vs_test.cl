@@ -23,7 +23,7 @@ __kernel void mangle_vs(
     {
         vs[i].location = sourceVs[i].location;
         /* make it obvious I did something */
-        vs[i].location.y += 1000.0f;
+        //vs[i].location.y += 1000.0f;
 
         vs[i].colour = (float3)(1.0f, 1.0f, 1.0f);
 

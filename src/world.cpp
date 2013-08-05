@@ -488,11 +488,7 @@ AFK_World::AFK_World(
     landscape_shaderProgram->Link();
 
     landscape_shaderLight = new AFK_ShaderLight(landscape_shaderProgram->program);
-
     landscape_clipTransformLocation = glGetUniformLocation(landscape_shaderProgram->program, "ClipTransform");
-    landscape_cellCoordLocation = glGetUniformLocation(landscape_shaderProgram->program, "cellCoord");
-    landscape_yCellMinLocation = glGetUniformLocation(landscape_shaderProgram->program, "yCellMin");
-    landscape_yCellMaxLocation = glGetUniformLocation(landscape_shaderProgram->program, "yCellMax");
 
     entity_shaderProgram = new AFK_ShaderProgram();
     /* TODO How much stuff will I need here ? */
@@ -558,6 +554,9 @@ AFK_World::AFK_World(
 
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vec3<float>), 0);
+
+    /* This one will be filled in dynamically */
+    glGenBuffers(1, &landscapeCellCoordTBO);
 
     /* Done. */
     glBindVertexArray(0);
@@ -729,18 +728,53 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     glBindVertexArray(landscapeTileArray);
     AFK_GLCHK("landscape bindVertexArray")
 
+    /* Now that I've set that up, make the texture that describes
+     * where the tiles are in space ...
+     */
+    static std::vector<Vec4<float> > coordList;
+    coordList.clear();
+
     for (std::vector<AFK_DisplayedLandscapeTile*>::iterator postClTilesIt = postClTiles.begin();
         postClTilesIt != postClTiles.end(); ++postClTilesIt)
     {
+        coordList.push_back((*postClTilesIt)->getCoord());
+#if 0
         (*postClTilesIt)->display(
             landscape_clipTransformLocation,
             landscape_yCellMinLocation,
             landscape_yCellMaxLocation,
             lSizes);
-        delete /* dlt */ (*postClTilesIt);
+#endif
     }
 
+    glActiveTexture(GL_TEXTURE0);
+    glBindBuffer(GL_TEXTURE_BUFFER, landscapeCellCoordTBO);
+    glBufferData(
+        GL_TEXTURE_BUFFER,
+        postClTiles.size() * sizeof(Vec4<float>),
+        &coordList[0],
+        GL_STREAM_DRAW);
+    AFK_GLCHK("landscape texture0 bufferData")
+
+    glBindTexture(GL_TEXTURE_BUFFER, landscapeCellCoordTBO);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, landscapeCellCoordTBO);
+    AFK_GLCHK("landscape texture0 texBuffer")
+
+    /* TODO: Further things to buffer:
+     * - y displacements
+     * - y min and max
+     * - normals
+     * - colours.
+     */
+    glDrawElementsInstanced(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0, postClTiles.size());
+
     glBindVertexArray(0);
+
+    for (std::vector<AFK_DisplayedLandscapeTile*>::iterator postClTilesIt = postClTiles.begin();
+        postClTilesIt != postClTiles.end(); ++postClTilesIt)
+    {
+        delete (*postClTilesIt);
+    }
     postClTiles.clear();
 
     /* Render the shapes */

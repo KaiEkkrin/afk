@@ -125,5 +125,8 @@ void AFK_ShaderProgram::Link(void)
         glGetProgramInfoLog(program, sizeof(errorLog), NULL, errorLog);
         throw AFK_Exception(std::string("AFK_Shader: Invalid shader program: ") + errorLog);
     }
+
+    /* It's a good bet I'm about to try to use this for something */
+    glUseProgram(program);
 }
 
