@@ -60,9 +60,7 @@ void afk_displayLoop(void)
     /* Now that I've set that stuff up, find out how much memory
      * I have to play with ...
      */
-    /* TODO I don't know why this barfs :(  Assigning a pretend one for now */
-    //unsigned int clGlMaxAllocSize = afk_core.computer->clGlMaxAllocSize();
-    unsigned int clGlMaxAllocSize = 1024 * 1024 * 256;
+    unsigned int clGlMaxAllocSize = afk_core.computer->getFirstDeviceProps().maxMemAllocSize;
     std::cout << "AFK: Using GPU with " << std::dec << clGlMaxAllocSize << " bytes available to cl_gl";
     std::cout << " (" << clGlMaxAllocSize / (1024 * 1024) << "MB) global memory" << std::endl;
 

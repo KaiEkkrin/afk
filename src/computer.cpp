@@ -54,6 +54,80 @@ static void printBuildLog(std::ostream& s, cl_program program, cl_device_id devi
     delete[] buildLog;
 }
 
+/* For fetching fixed-size device properties. */
+template<typename PropType>
+void getClDeviceInfoFixed(
+    cl_device_id device,
+    cl_device_info paramName,
+    PropType *field,
+    PropType failValue)
+{
+    cl_int error = clGetDeviceInfo(device, paramName, sizeof(PropType), field, 0);
+    if (error != CL_SUCCESS)
+    {
+        std::cout << "getClDeviceInfoFixed: Couldn't get property for param " << std::dec << paramName << ": " << error << std::endl;
+        *field = failValue;
+    }
+}
+
+
+/* AFK_ClDeviceProperties implementation. */
+
+AFK_ClDeviceProperties::AFK_ClDeviceProperties(cl_device_id device):
+    maxWorkItemSizes(NULL)
+{
+    getClDeviceInfoFixed<cl_ulong>(device, CL_DEVICE_GLOBAL_MEM_SIZE, &globalMemSize, 0);
+    getClDeviceInfoFixed<cl_ulong>(device, CL_DEVICE_LOCAL_MEM_SIZE, &localMemSize, 0);
+    getClDeviceInfoFixed<cl_uint>(device, CL_DEVICE_MAX_CONSTANT_ARGS, &maxConstantArgs, 0);
+    getClDeviceInfoFixed<cl_uint>(device, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, &maxConstantBufferSize, 0);
+    getClDeviceInfoFixed<cl_ulong>(device, CL_DEVICE_MAX_MEM_ALLOC_SIZE, &maxMemAllocSize, 0);
+    getClDeviceInfoFixed<size_t>(device, CL_DEVICE_MAX_PARAMETER_SIZE, &maxParameterSize, 0);
+    getClDeviceInfoFixed<size_t>(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, &maxWorkGroupSize, 0);
+    getClDeviceInfoFixed<cl_uint>(device, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, &maxWorkItemDimensions, 0);
+
+    if (maxWorkItemDimensions > 0)
+    {
+        maxWorkItemSizes = new size_t[maxWorkItemDimensions];
+        cl_int error = clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, maxWorkItemDimensions * sizeof(size_t), maxWorkItemSizes, NULL);
+        if (error != CL_SUCCESS)
+        {
+            std::cout << "Couldn't get max work item sizes: " << error << std::endl;
+            memset(maxWorkItemSizes, 0, maxWorkItemDimensions * sizeof(size_t));
+        }
+    }
+}
+
+AFK_ClDeviceProperties::~AFK_ClDeviceProperties()
+{
+    if (maxWorkItemSizes) delete[] maxWorkItemSizes;
+}
+
+std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p)
+{
+    os << std::dec;
+    os << "Global mem size:                 " << p.globalMemSize << std::endl;
+    os << "Local mem size:                  " << p.localMemSize << std::endl;
+    os << "Max constant args:               " << p.maxConstantArgs << std::endl;
+    os << "Max constant buffer size:        " << p.maxConstantBufferSize << std::endl;
+    os << "Max mem alloc size:              " << p.maxMemAllocSize << std::endl;
+    os << "Max parameter size:              " << p.maxParameterSize << std::endl;
+    os << "Max work group size:             " << p.maxWorkGroupSize << std::endl;
+    os << "Max work item dimensions:        " << p.maxWorkItemDimensions << std::endl;
+
+    if (p.maxWorkItemSizes)
+    {
+        os << "Max work item sizes:             [";
+        for (unsigned int i = 0; i < p.maxWorkItemDimensions; ++i)
+        {
+            if (i > 0) os << ", ";
+            os << p.maxWorkItemSizes[i];
+        }
+        os << "]" << std::endl;
+    } 
+
+    return os;
+}
+
 
 /* AFK_Computer implementation */
 
@@ -120,6 +194,19 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
 
         std::cout << "Found " << devicesSize << " GPU devices. " << std::endl;
 
+        char *deviceName;
+        size_t deviceNameSize;
+
+        AFK_CLCHK(clGetDeviceInfo(devices[0], CL_DEVICE_NAME, 0, NULL, &deviceNameSize))
+        deviceName = new char[deviceNameSize];
+        AFK_CLCHK(clGetDeviceInfo(devices[0], CL_DEVICE_NAME, deviceNameSize, deviceName, &deviceNameSize))
+        std::cout << "First device is a " << deviceName << std::endl;
+
+        delete[] deviceName;
+
+        firstDeviceProps = new AFK_ClDeviceProperties(devices[0]);
+        std::cout << "Device properties: " << std::endl << *firstDeviceProps;
+
         /* TODO Try to fall back to un-shared buffers (copying everything)
          * if this fails.  And, err, yeah, that'll probably be wildly
          * slow...  :/
@@ -156,7 +243,7 @@ void AFK_Computer::loadProgramFromFile(struct AFK_ClProgram *p)
 }
 
 AFK_Computer::AFK_Computer():
-    devices(NULL), devicesSize(0), ctxt(0), q(0)
+    devices(NULL), devicesSize(0), firstDeviceProps(NULL), ctxt(0), q(0)
 {
     cl_platform_id *platforms;
     unsigned int platformCount;
@@ -193,6 +280,7 @@ AFK_Computer::~AFK_Computer()
 
         if (q) clReleaseCommandQueue(q);
         if (ctxt) clReleaseContext(ctxt);
+        if (firstDeviceProps) delete firstDeviceProps;
 
         delete[] devices;
     }
@@ -233,20 +321,9 @@ void AFK_Computer::loadPrograms(const std::string& programsDir)
         throw AFK_Exception("AFK_Computer: Unable to switch out of programs dir: " + errStream.str());
 }
 
-unsigned int AFK_Computer::clGlMaxAllocSize(void) const
+const AFK_ClDeviceProperties& AFK_Computer::getFirstDeviceProps(void) const
 {
-    /* For now, I'm going to assume you meant the first device.
-     * After all, that's all there will be usually,
-     * and it's probably not sensible to go overloading
-     * other devices with stuff because of data locality
-     * issues...?
-     */
-    unsigned int maxAllocSize;
-    size_t maxAllocSizeSize = sizeof(unsigned int);
-
-    AFK_CLCHK(clGetDeviceInfo(devices[0], CL_DEVICE_MAX_MEM_ALLOC_SIZE, maxAllocSizeSize, &maxAllocSize, NULL))
-    if (maxAllocSizeSize != sizeof(unsigned int)) throw AFK_Exception("Something weird happened fetching cl_gl max allocsize");
-    return maxAllocSize;
+    return *firstDeviceProps;
 }
 
 bool AFK_Computer::findKernel(const std::string& kernelName, cl_kernel& o_kernel) const
