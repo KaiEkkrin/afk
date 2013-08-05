@@ -59,6 +59,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
 
     concurrency                 = boost::thread::hardware_concurrency() + 1;
     clProgramsDir               = NULL;
+    clGlSharing                 = false; /* TODO hope to default true if I get it reliably working */
 
     startingDetailPitch         = 768.0f;
     minCellSize                 = 1.0f;
@@ -120,6 +121,10 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         {
             REQUIRE_ARGUMENT("--cl-programs-dir")
             clProgramsDir = strdup(argv[argi]);
+        }
+        else if (strcmp(argv[argi], "--cl-gl-sharing") == 0)
+        {
+            clGlSharing = true;
         }
         else if (strcmp(argv[argi], "--starting-detail-pitch") == 0)
         {

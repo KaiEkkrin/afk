@@ -16,15 +16,19 @@
 #include "async/work_queue.hpp"
 #include "camera.hpp"
 #include "cell.hpp"
+#include "computed_landscape_tile.hpp"
+#include "config.hpp"
 #include "data/evictable_cache.hpp"
 #include "data/render_queue.hpp"
 #include "def.hpp"
 #include "displayed_landscape_tile.hpp"
 #include "entity.hpp"
 #include "gl_buffer.hpp"
+#include "jigsaw.hpp"
 #include "landscape_tile.hpp"
 #include "shader.hpp"
 #include "shape.hpp"
+#include "terrain_compute_queue.hpp"
 #include "tile.hpp"
 #include "world_cell.hpp"
 
@@ -121,10 +125,16 @@ protected:
 #endif
     AFK_WORLD_CACHE *worldCache;
 
+    /* These jigsaws form the computed artwork. */
+    AFK_JigsawCollection *landscapeJigsaws;
+
     /* Queues of ready cl_gl objects for rendering into.
+     * TODO Port this to Jigsaw, and delete GLBufferQueue.
+     * Of course -- hah! -- shape doesn't even work at all
+     * right now :P
+     * But yeah, I'll want to switch to that cunning cube
+     * mapped constellation model!
      */
-    AFK_GLBufferQueue *landscapeVsQueue;
-    AFK_GLBufferQueue *landscapeIsQueue;
     AFK_GLBufferQueue *shapeVsQueue;
     AFK_GLBufferQueue *shapeIsQueue;
 
@@ -139,16 +149,14 @@ protected:
 #endif
     AFK_LANDSCAPE_CACHE *landscapeCache;
 
+    /* The terrain computation fairground.  Yeah, yeah. */
+    AFK_TerrainComputeFair terrainComputeFair;
+
     /* The landscape render queue.
      * These are transient objects -- delete them after
      * rendering.
      */
-    AFK_RenderQueue<AFK_DisplayedLandscapeTile*> landscapeRenderQueue;
-
-    /* CL-at-start-of-frame: things go through here after coming
-     * out of the render queue.
-     */
-    std::vector<AFK_DisplayedLandscapeTile*> postClTiles;
+    AFK_RenderQueue<AFK_DisplayedLandscapeTile*> landscapeDisplayQueue;
 
     /* The basic landscape tile geometry. */
     GLuint landscapeTileArray;
@@ -178,7 +186,7 @@ protected:
         bool display);
 
     /* Generates a landscape tile's geometry. */
-    void generateLandscapeGeometry(
+    void generateLandscapeArtwork(
         const AFK_Tile& tile,
         AFK_LandscapeTile& landscapeTile,
         unsigned int threadId);
@@ -222,15 +230,11 @@ public:
 
 
     AFK_World(
-        float _maxDistance, 
-        unsigned int _subdivisionFactor, 
-        unsigned int _pointSubdivisionFactor,
-        float _minCellSize,
-        float _startingDetailPitch,
-        unsigned int concurrency,
+        const AFK_Config *config,
         unsigned int worldCacheSize, /* in bytes */
         unsigned int tileCacheSize, /* also in bytes */
-        unsigned int maxShapeSize); /* likewise */
+        unsigned int maxShapeSize, /* likewise */
+        cl_context ctxt);
     virtual ~AFK_World();
 
     /* Helper for the above -- requests a particular cell

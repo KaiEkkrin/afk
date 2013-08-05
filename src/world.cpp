@@ -89,24 +89,23 @@ bool AFK_World::checkClaimedLandscapeTile(
     /* Tile colour debugging goes here. */
     Vec3<float>* forcedTint = NULL;
     landscapeTile.makeTerrainDescriptor(
-        pointSubdivisionFactor,
+        lSizes.pointSubdivisionFactor,
         subdivisionFactor,
         tile,
         minCellSize,
         forcedTint);
 
-    /* Find out whether I'm going to be computing the geometry */
-    bool haveGeometryRights = (display && landscapeTile.claimGeometryRights());
-    return haveGeometryRights;
+    /* Find out whether I'm going to need to be giving this
+     * tile some artwork
+     */
+    return (display && !landscapeTile.hasArtwork());
 }
 
-void AFK_World::generateLandscapeGeometry(
+void AFK_World::generateLandscapeArtwork(
     const AFK_Tile& tile,
     AFK_LandscapeTile& landscapeTile,
     unsigned int threadId)
 {
-    landscapeTile.makeRawTerrain(tile, lSizes, minCellSize);
-
     /* Create the terrain list, which is composed out of
      * the terrain descriptor for this landscape tile, and
      * those of all the parent tiles (so that child tiles
@@ -121,9 +120,17 @@ void AFK_World::generateLandscapeGeometry(
         maxDistance,
         landscapeCache);
 
-    /* Using that terrain list, compute the landscape geometry. */
-    landscapeTile.computeGeometry(
-        tile, lSizes, terrainList, landscapeVsQueue, landscapeIsQueue);
+    /* Assign a jigsaw piece for this tile, so that the
+     * compute phase has somewhere to paint.
+     */
+    AFK_JigsawPiece jigsawPiece = landscapeTile.getJigsawPiece(landscapeJigsaws);
+
+    /* Now, I need to enqueue the terrain list and the
+     * jigsaw piece into one of the rides at the compute fair...
+     */
+    terrainComputeFair.getUpdateQueue(jigsawPiece, lSizes).extend(
+        terrainList, jigsawPiece.piece);
+
     tilesComputed.fetch_add(1);
 }
 
@@ -181,9 +188,9 @@ bool AFK_World::generateClaimedWorldCell(
         AFK_ClaimStatus landscapeClaimStatus = landscapeTile.claimYieldLoop(
             threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
 
-        bool generateGeometry = false;
+        bool generateArtwork = false;
         if (!landscapeTile.hasTerrainDescriptor() ||
-            ((renderTerrain || display) && !landscapeTile.hasGeometry()))
+            ((renderTerrain || display) && !landscapeTile.hasArtwork()))
         {
             /* In order to generate this tile we need to upgrade
              * our claim if we can.
@@ -193,7 +200,7 @@ bool AFK_World::generateClaimedWorldCell(
 
             if (landscapeClaimStatus == AFK_CL_CLAIMED)
             {
-                generateGeometry = checkClaimedLandscapeTile(
+                generateArtwork = checkClaimedLandscapeTile(
                     tile, landscapeTile, display);
             }
             else
@@ -212,8 +219,8 @@ bool AFK_World::generateClaimedWorldCell(
         }
 
         /* If I was picked to generate the geometry, do that. */
-        if (generateGeometry)
-            generateLandscapeGeometry(tile, landscapeTile, threadId);
+        if (generateArtwork)
+            generateLandscapeArtwork(tile, landscapeTile, threadId);
 
         /* At any rate, I should relinquish my claim on the tile
          * now.
@@ -227,7 +234,7 @@ bool AFK_World::generateClaimedWorldCell(
              * the problem with relinquishing the exclusive lock early is.
              */
 
-            if (landscapeTile.hasGeometry())
+            if (landscapeTile.hasArtwork())
             {
                 /* Get it to make us a DisplayedLandscapeTile to
                  * feed into the display queue.
@@ -240,7 +247,7 @@ bool AFK_World::generateClaimedWorldCell(
 
                 if (dptr)
                 {
-                    landscapeRenderQueue.update_push(dptr);
+                    landscapeDisplayQueue.update_push(dptr);
                     tilesQueued.fetch_add(1);
                 }
             }
@@ -264,7 +271,7 @@ bool AFK_World::generateClaimedWorldCell(
         AFK_Boost_Taus88_RNG staticRng;
         staticRng.seed(cell.rngSeed());
 
-        if (!landscapeTile.hasGeometry() ||
+        if (!landscapeTile.hasArtwork() ||
             worldCell.getRealCoord().v[1] >= landscapeTile.getYBoundUpper())
         {
             /* TODO For now, I'm going to just build entities at 
@@ -280,7 +287,7 @@ bool AFK_World::generateClaimedWorldCell(
                 worldCell.doStartingEntities(
                     shape, /* TODO vary shapes! :P */
                     minCellSize,
-                    pointSubdivisionFactor,
+                    lSizes.pointSubdivisionFactor,
                     subdivisionFactor,
                     staticRng);
             }
@@ -423,33 +430,28 @@ static unsigned int calculateCacheBitness(unsigned int entries)
 }
 
 AFK_World::AFK_World(
+    const AFK_Config *config,
     float _maxDistance,
-    unsigned int _subdivisionFactor,
-    unsigned int _pointSubdivisionFactor,
-    float _minCellSize,
-    float _startingDetailPitch,
-    unsigned int concurrency,
     unsigned int worldCacheSize,
     unsigned int tileCacheSize,
-    unsigned int maxShapeSize):
-        startingDetailPitch(_startingDetailPitch),
-        detailPitch(_startingDetailPitch), /* This is a starting point */
-        renderDetailPitch(_startingDetailPitch),
-        landscapeRenderQueue(10000),
-        maxDistance(_maxDistance),
-        subdivisionFactor(_subdivisionFactor),
-        pointSubdivisionFactor(_pointSubdivisionFactor),
-        minCellSize(_minCellSize),
-        lSizes(_pointSubdivisionFactor)
+    unsigned int maxShapeSize,
+    cl_context ctxt):
+        startingDetailPitch         (config->startingDetailPitch),
+        detailPitch                 (config->startingDetailPitch), /* This is a starting point */
+        renderDetailPitch           (config->startingDetailPitch),
+        landscapeDisplayQueue       (10000),
+        maxDistance                 (_maxDistance),
+        subdivisionFactor           (config->subdivisionFactor),
+        minCellSize                 (config->minCellSize),
+        lSizes                      (config->pointSubdivisionFactor)
 {
     /* Set up the caches and generator gang. */
 
-    unsigned int tileCacheEntrySize = lSizes.vSize + lSizes.iSize;
-    unsigned int tileCacheEntries = tileCacheSize / tileCacheEntrySize;
+    unsigned int tileCacheEntries = tileCacheSize / lSizes.tSize;
     unsigned int tileCacheBitness = calculateCacheBitness(tileCacheEntries);
 
-    landscapeVsQueue = new AFK_GLBufferQueue(lSizes.vSize, tileCacheEntries, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
-    landscapeIsQueue = new AFK_GLBufferQueue(lSizes.iSize, tileCacheEntries, GL_ELEMENT_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
+    landscapeJigsaws = new AFK_JigsawCollection(
+        ctxt, lSizes.tSize, tileCacheEntries, GL_RGBA32F, 4, clGlSharing);
     landscapeCache = new AFK_LANDSCAPE_CACHE(
         tileCacheBitness, 8, AFK_HashTile(), tileCacheEntries / 2, 0xfffffffdu);
 
@@ -458,7 +460,7 @@ AFK_World::AFK_World(
      * geometry work with it.  When I am, I'll get that.
      * But for now, just make a guess.
      */
-    unsigned int worldCacheEntrySize = SQUARE(pointSubdivisionFactor);
+    unsigned int worldCacheEntrySize = SQUARE(lSizes.pointSubdivisionFactor);
     unsigned int worldCacheEntries = worldCacheSize / worldCacheEntrySize;
     unsigned int worldCacheBitness = calculateCacheBitness(worldCacheEntries);
 
@@ -467,7 +469,7 @@ AFK_World::AFK_World(
 
     /* TODO change this into a thing like AFK_LandscapeSizes */
     unsigned int shapeVsSize, shapeIsSize;
-    afk_getShapeSizes(pointSubdivisionFactor, shapeVsSize, shapeIsSize);
+    afk_getShapeSizes(lSizes.pointSubdivisionFactor, shapeVsSize, shapeIsSize);
     unsigned int shapeEntrySize = shapeVsSize + shapeIsSize;
     unsigned int maxShapes = maxShapeSize / shapeEntrySize;
 
@@ -477,7 +479,7 @@ AFK_World::AFK_World(
     genGang = new AFK_AsyncGang<struct AFK_WorldCellGenParam, bool>(
             boost::function<bool (unsigned int, const struct AFK_WorldCellGenParam,
                 AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>&)>(afk_generateWorldCells),
-            100, concurrency);
+            100, config->concurrency);
 
     /* Set up the shapes.  TODO more than one ?! */
     shape = new AFK_ShapeChevron(shapeVsQueue, shapeIsQueue, concurrency);
@@ -507,14 +509,14 @@ AFK_World::AFK_World(
     /* Initialise the landscape tile array, encapsulating
      * the basic unit of landscape drawing.
      */
-    Vec3<float> tileVertices[lSizes.baseVCount];
+    Vec3<float> tileVertices[lSizes.vCount];
     unsigned short tileIndices[lSizes.iCount * 3];
 
-    for (unsigned int x = 0; x < lSizes.baseVDim; ++x)
+    for (unsigned int x = 0; x < lSizes.vDim; ++x)
     {
-        for (unsigned int z = 0; z < lSizes.baseVDim; ++z)
+        for (unsigned int z = 0; z < lSizes.vDim; ++z)
         {
-            tileVertices[x * lSizes.baseVDim + z] = afk_vec3<float>(
+            tileVertices[x * lSizes.vDim + z] = afk_vec3<float>(
                 (float)x / (float)lSizes.pointSubdivisionFactor,
                 0.0f,
                 (float)z / (float)lSizes.pointSubdivisionFactor);
@@ -526,10 +528,10 @@ AFK_World::AFK_World(
     {
         for (unsigned short z = 0; z < lSizes.pointSubdivisionFactor; ++z)
         {
-            unsigned short i_r1c1 = x * lSizes.baseVDim + z;
-            unsigned short i_r2c1 = (x + 1) * lSizes.baseVDim + z;
-            unsigned short i_r1c2 = x * lSizes.baseVDim + (z + 1);
-            unsigned short i_r2c2 = (x + 1) * lSizes.baseVDim + (z + 1);
+            unsigned short i_r1c1 = x * lSizes.vDim + z;
+            unsigned short i_r2c1 = (x + 1) * lSizes.vDim + z;
+            unsigned short i_r1c2 = x * lSizes.vDim + (z + 1);
+            unsigned short i_r2c2 = (x + 1) * lSizes.vDim + (z + 1);
 
             tileIndices[i++] = i_r1c1;
             tileIndices[i++] = i_r1c2;
@@ -547,7 +549,7 @@ AFK_World::AFK_World(
     glGenBuffers(2, &landscapeTileBufs[0]);
 
     glBindBuffer(GL_ARRAY_BUFFER, landscapeTileBufs[0]);
-    glBufferData(GL_ARRAY_BUFFER, lSizes.baseVSize, tileVertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, lSizes.vSize, tileVertices, GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, landscapeTileBufs[1]);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, lSizes.iSize, tileIndices, GL_STATIC_DRAW);
@@ -629,7 +631,8 @@ void AFK_World::flipRenderQueues(void)
     if (!genGang->assertNoQueuedWork())
         threadEscapes.fetch_add(1);
 
-    landscapeRenderQueue.flipQueues();
+    landscapeComputeFair.flipQueues();
+    landscapeDisplayQueue.flipQueues();
 }
 
 void AFK_World::alterDetail(float adjustment)
@@ -705,16 +708,98 @@ boost::unique_future<bool> AFK_World::updateWorld(void)
 
 void AFK_World::doComputeTasks(void)
 {
-    AFK_DisplayedLandscapeTile *dlt;
+    /* The fair organises the terrain lists and jigsaw pieces by
+     * puzzle, so that I can easily batch up work that applies to the
+     * same jigsaw:
+     */
+    static std::vector<boost::shared_ptr<AFK_TerrainComputeQueue> > drawQueues;
+    terrainComputeFair.getDrawQueues(drawQueues);
 
-    while (landscapeRenderQueue.draw_pop(dlt))
+    cl_context ctxt;
+    cl_command_queue q;
+    afk_core.computer->lock(ctxt, q);
+
+    /* The fair's queues are in the same order as the puzzles in
+     * the jigsaw collection.
+     */
+    unsigned int puzzle = 0;
+    for (std::vector<boost::shared_ptr<AFK_TerrainComputeQueue> >::iterator drawQIt = drawQueues.begin();
+        drawQIt != drawQueues.end(); ++drawQIt)
     {
-        /* TODO Put this back after I've finished building
-         * the basic instanced-tiles landscape.
+        cl_mem terrainBufs[3];
+        (*drawQIt)->copyToClBuffers(ctxt, terrainBufs);
+
+        AFK_Jigsaw *jigsaw = landscapeJigsaws->getPuzzle(puzzle);
+        cl_mem *jigsawMem = jigsaw->acquireForCl(ctxt, q);
+
+        /* TODO Set up and enqueue the rest of the computation.
+         * To begin with, I should try processing just a single
+         * tile per call, because that's easier.  (I'll probably
+         * need copious debugging to figure out why nothing
+         * happens regardless!).  Once that's working, I can
+         * figure out how to batch this stuff up!
          */
-        //dlt->compute(lSizes);
-        postClTiles.push_back(dlt);
+        for (unsigned int u = 0; u < (*drawQIt)->getUnitCount(); ++u)
+        {
+            /* TODO The scratch for these should be done in local
+             * memory (which I still need to learn how to use).
+             * The y lower and upper bounds ought to come out in
+             * a single buffer indexed by unit.
+             */
+            cl_mem yLowerBoundsMem = clCreateBuffer(
+                ctxt, CL_MEM_READ_WRITE,
+                (1 << lSizes.reduceOrder) * sizeof(float),
+                NULL,
+                &error);
+
+            cl_mem yUpperBoundsMem = clCreateBuffer(
+                ctxt, CL_MEM_READ_WRITE,
+                (1 << lSizes.reduceOrder) * sizeof(float),
+                NULL,
+                &error);
+
+            AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 0, sizeof(cl_mem), &terrainBufs[0]))
+            AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 1, sizeof(cl_mem), &terrainBufs[1]))
+            AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 2, sizeof(cl_mem), &terrainBufs[2]))
+            AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 3, sizeof(unsigned int), &u))
+            AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 4, sizeof(cl_mem), jigsawMem))
+            AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 5, sizeof(cl_mem), &yLowerBoundsMem))
+            AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 6, sizeof(cl_mem), &yUpperBoundsMem))
+
+            /* TODO Here, make reference to max dimensions, and
+             * work out a subdivision of the work into as few,
+             * wide, calls as possible!
+             */
+            size_t terrainDim[2];
+            terrainDim[0] = terrainDim[1] = lSizes.tDim;
+            AFK_CLCHK(clEnqueueNDRangeKernel(q, afk_core.terrainKernel, 2, NULL, &terrainDim[0], NULL, 0, NULL, NULL))
+
+            /* TODO change this to FALSE, so I don't flush the queue part way, after debugging.
+             * Also, you know, actually put it in the right place.  For now, I'm
+             * going to read it to some temp variables to debug, only.
+             */
+            float yBoundLower, yBoundUpper;
+            AFK_CLCHK(clEnqueueReadBuffer(q, yLowerBoundsMem, CL_TRUE, 0, sizeof(float), &yBoundLower, 0, NULL, NULL))
+            AFK_CLCHK(clEnqueueReadBuffer(q, yUpperBoundsMem, CL_TRUE, 0, sizeof(float), &yBoundUpper, 0, NULL, NULL))
+            std::cout << "Computed y bounds for " << u << ": " << yBoundLower << ", " << yBoundUpper << std::endl;
+
+            AFK_CLCHK(clReleaseMemObject(yLowerBoundsMem))
+            AFK_CLCHK(clReleaseMemObject(yUpperBoundsMem))
+
+            jigsaw->pieceChanged((*drawQIt)->getUnit(u).piece);
+        }
+
+        jigsaw->releaseFromCl(q);
+        ++puzzle;
     }
+
+    for (unsigned int i = 0; i < 3; ++i)
+    {
+        AFK_CLCHK(clReleaseMemObject(terrainBufs[i]))
+    }
+
+    afk_core.computer->unlock(ctxt, q);
+    drawQueues.clear();
 }
 
 void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLight)
@@ -734,24 +819,20 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     static std::vector<Vec4<float> > coordList;
     coordList.clear();
 
-    for (std::vector<AFK_DisplayedLandscapeTile*>::iterator postClTilesIt = postClTiles.begin();
-        postClTilesIt != postClTiles.end(); ++postClTilesIt)
+    AFK_DisplayedLandscapeTile *dlt;
+    unsigned int dltCount = 0;
+    while (landscapeDisplayQueue.draw_pop(dlt))
     {
-        coordList.push_back((*postClTilesIt)->getCoord());
-#if 0
-        (*postClTilesIt)->display(
-            landscape_clipTransformLocation,
-            landscape_yCellMinLocation,
-            landscape_yCellMaxLocation,
-            lSizes);
-#endif
+        coordList.push_back(dlt->getCoord());
+        ++dltCount;
+        delete dlt; /* TODO do I need to do anything else with this? :P */
     }
 
     glActiveTexture(GL_TEXTURE0);
     glBindBuffer(GL_TEXTURE_BUFFER, landscapeCellCoordTBO);
     glBufferData(
         GL_TEXTURE_BUFFER,
-        postClTiles.size() * sizeof(Vec4<float>),
+        dltCount * sizeof(Vec4<float>),
         &coordList[0],
         GL_STREAM_DRAW);
     AFK_GLCHK("landscape texture0 bufferData")
@@ -761,21 +842,19 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     AFK_GLCHK("landscape texture0 texBuffer")
 
     /* TODO: Further things to buffer:
-     * - y displacements
-     * - y min and max
-     * - normals
-     * - colours.
+     * - y min and max  (Expand landscapeCellCoordTBO to 2 texels per tile of GL_RGB.
+     * - normals         First texel is (x, y, z).  Second is (scale, yMin, yMax).
+     * - colours         (landscapeTileTBO will be vCount*2 texels per tile of GL_RGBA. 
+     * - y displacements  First texel is (normal x, y, z, y displacement).
+     *                    Second texel is (colour r, g, b).
+     * - index into landscapeTileTBO:  Third texture is a GL_R32I containing integer
+     * indices into the landscapeTileTBO texture buffer object.
+     * TODO Finesse: Look up the indices into the adjacent tiles in the tile TBO,
+     * so that the shader can blend between them (hopefully seamlessly).
      */
-    glDrawElementsInstanced(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0, postClTiles.size());
+    glDrawElementsInstanced(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0, dltCount);
 
     glBindVertexArray(0);
-
-    for (std::vector<AFK_DisplayedLandscapeTile*>::iterator postClTilesIt = postClTiles.begin();
-        postClTilesIt != postClTiles.end(); ++postClTilesIt)
-    {
-        delete (*postClTilesIt);
-    }
-    postClTiles.clear();
 
     /* Render the shapes */
     /* TODO re-enable this later */

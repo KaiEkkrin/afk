@@ -7,9 +7,7 @@
 
 #include "cell.hpp"
 #include "def.hpp"
-#include "landscape_tile.hpp"
-#include "light.hpp"
-#include "shader.hpp"
+#include "jigsaw.hpp"
 
 /* Enables a render of a pre-prepared landscape tile, as fitting into
  * one world cell.
@@ -25,19 +23,16 @@ protected:
      */
     Vec4<float> coord;
 
-    /* This comes from LandscapeTile.  I don't own it. */
-    AFK_LandscapeGeometry **geometry;
+    /* The jigsaw piece for this tile. */
+    AFK_JigsawPiece jigsawPiece;
 
     float cellBoundLower;
     float cellBoundUpper;
 
 public:
-    /* The LandscapeTile sets up a DisplayedLandscapeTile by sharing
-     * its buffer pointers.
-     */
     AFK_DisplayedLandscapeTile(
         const Vec4<float>& _coord,
-        AFK_LandscapeGeometry **_geometry,
+        const AFK_JigsawPiece& _jigsawPiece;
         float _cellBoundLower,
         float _cellBoundUpper);
 
@@ -48,19 +43,12 @@ public:
     void initGL(void);
 
     /* CL-at-start-of-frame: runs this tile's compute tasks. */
-    void compute(const AFK_LandscapeSizes& lSizes);
+    /* TODO REMOVEME -- goes in computed_landscape_tile instead */
+    void compute(
+        const AFK_LandscapeSizes& lSizes,
+        AFK_JigsawCollection *jigsaws);
 
     const Vec4<float>& getCoord(void) const;
-
-    /* This makes the GL render calls.  It assumes the GL is already
-     * in the context of the landscape shader program and the
-     * correct set of vertex attribute arrays has been enabled.
-     */
-    void display(
-        GLuint cellCoordLocation,
-        GLuint yCellMinLocation,
-        GLuint yCellMaxLocation,
-        const AFK_LandscapeSizes& lSizes);
 };
 
 #endif /* _AFK_DISPLAYED_LANDSCAPE_TILE_H_ */

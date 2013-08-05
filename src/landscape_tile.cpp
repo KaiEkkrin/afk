@@ -13,53 +13,21 @@
 #include "rng/boost_taus88.hpp"
 
 
-/* AFK_LandscapeGeometry implementation */
-
-AFK_LandscapeGeometry::AFK_LandscapeGeometry(
-    Vec3<float> *_rawVertices, Vec3<float> *_rawColours,
-    size_t vCount, size_t iCount,
-    AFK_GLBufferQueue *vSource, AFK_GLBufferQueue *iSource):
-    rawVertices(_rawVertices), rawColours(_rawColours),
-    vs(vCount, vSource), is(iCount, iSource)
-{
-}
-
-
-AFK_LandscapeSizes::AFK_LandscapeSizes(unsigned int pointSubdivisionFactor):
-    pointSubdivisionFactor(pointSubdivisionFactor),
-    baseVDim(pointSubdivisionFactor + 1), /* one extra vertex along the top and right sides to join with the adjacent tile */
-    vDim(pointSubdivisionFactor + 3), /* one extra vertex either side, to smooth colours and normals; */
-                                      /* another extra vertex on +x and +z, to smooth the join-triangle normals */
-    iDim(pointSubdivisionFactor),
-    baseVCount(SQUARE(pointSubdivisionFactor + 1)),
-    vCount(SQUARE(pointSubdivisionFactor + 3)),
-    iCount(SQUARE(pointSubdivisionFactor) * 2), /* two triangles per vertex */
-    baseVSize(SQUARE(pointSubdivisionFactor + 1) * sizeof(Vec3<float>)),
-    vSize(SQUARE(pointSubdivisionFactor + 3) * sizeof(struct AFK_VcolPhongVertex)),
-    iSize(SQUARE(pointSubdivisionFactor) * 2 * 3 * sizeof(unsigned short))
-{
-}
-
 /* AFK_LandscapeTile implementation */
 
 AFK_LandscapeTile::AFK_LandscapeTile():
     AFK_Claimable(),
     haveTerrainDescriptor(false),
-    rawVertices(NULL),
-    rawColours(NULL),
-    geometry(NULL),
+    jigsaws(NULL);
     yBoundLower(FLT_MAX),
     yBoundUpper(-FLT_MAX)
 {
-    futureGeometry.store(NULL);
 }
 
 AFK_LandscapeTile::~AFK_LandscapeTile()
 {
-    if (futureGeometry.load()) delete futureGeometry.load();
-    if (geometry) delete geometry;
-    if (rawVertices) delete[] rawVertices;
-    if (rawColours) delete[] rawColours;
+    if (jigsaws && jigsawPiece != AFK_JigsawPiece())
+        jigsaws->replace(jigsawPiece);
 }
 
 bool AFK_LandscapeTile::hasTerrainDescriptor() const
@@ -101,16 +69,6 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
     }
 }
 
-bool AFK_LandscapeTile::claimGeometryRights(void)
-{
-    AFK_LandscapeGeometry **newFG = new AFK_LandscapeGeometry*();
-    AFK_LandscapeGeometry **expectedFG = NULL;
-
-    bool gotIt = futureGeometry.compare_exchange_strong(expectedFG, newFG);
-    if (!gotIt) delete newFG;
-    return gotIt;
-}
-
 void AFK_LandscapeTile::buildTerrainList(
     unsigned int threadId,
     AFK_TerrainList& list,
@@ -146,103 +104,26 @@ void AFK_LandscapeTile::buildTerrainList(
     }
 }
 
-void AFK_LandscapeTile::makeRawTerrain(
-    const AFK_Tile& baseTile,
-    const AFK_LandscapeSizes& lSizes,
-    float minCellSize)
+AFK_JigsawPiece AFK_LandscapeTile::getJigsawPiece(AFK_JigsawCollection *_jigsaws)
 {
-    Vec3<float> worldTileCoord = baseTile.toWorldSpace(minCellSize);
-
-    /* We always need a bit of excess.
-     * The smooth landscape type needs excess around the -x and -z too,
-     * in order to make the normals for the x=0 and z=0 vertices.
-     */
-    int excessNX = -1;
-    int excessPX = 2;
-    int excessNZ = -1;
-    int excessPZ = 2;
-
-    /* TODO This is thrashing the heap.  Try making a single
-     * scratch place for this in thread-local storage
-     */
-    rawVertices = new Vec3<float>[lSizes.vCount];
-    rawColours = new Vec3<float>[lSizes.vCount];
-
-    /* Populate the vertex and colour arrays. */
-    size_t rawIndex = 0;
-
-    for (int xi = excessNX; xi < (int)lSizes.pointSubdivisionFactor + excessPX; ++xi)
-    {
-        for (int zi = excessNZ; zi < (int)lSizes.pointSubdivisionFactor + excessPZ; ++zi)
-        {
-            /* Here I'm going to enumerate geometry between (0,0)
-             * and (1,1)...
-             */
-            float xf = (float)xi / (float)lSizes.pointSubdivisionFactor;
-            float zf = (float)zi / (float)lSizes.pointSubdivisionFactor;
-
-            /* Jitter the vertices inside the cell around a bit. 
-             * Not the edge ones; that will cause a join-up
-             * headache (especially at different levels of detail).
-             * TODO Of course, I'm going to have a headache on a
-             * transition between LoDs anyway, but I'm trying not
-             * to think about that too hard right now :P
-             */ 
-            float xdisp = 0.0f, zdisp = 0.0f;
-#if 0
-            if (xi > 0 && xi <= pointSubdivisionFactor)
-                xdisp = rng.frand() * worldCell->coord.v[3] / ((float)lSizes.pointSubdivisionFactor * 2.0f);
-
-            if (zi > 0 && zi <= pointSubdivisionFactor)
-                zdisp = rng.frand() * worldCell->coord.v[3] / ((float)lSizes.pointSubdivisionFactor * 2.0f);
-#endif
-
-            /* ... and transform it into world space. */
-            rawVertices[rawIndex] = afk_vec3<float>(xf + xdisp, 0.0f, zf + zdisp) * worldTileCoord.v[2] +
-                afk_vec3<float>(worldTileCoord.v[0], 0.0f, worldTileCoord.v[1]);
-            rawColours[rawIndex] = afk_vec3<float>(0.1f, 0.1f, 0.1f);
-
-            ++rawIndex;
-        }
-    }
+    if (hasArtwork()) throw AFK_Exception("Tried to overwrite a tile's artwork");
+    jigsaws = _jigsaws;
+    jigsawPiece = jigsaws->grab();
+    return jigsawPiece;
 }
 
-void AFK_LandscapeTile::computeGeometry(
-    const AFK_Tile& baseTile,
-    const AFK_LandscapeSizes& lSizes,
-    const AFK_TerrainList& terrainList,
-    AFK_GLBufferQueue *vSource,
-    AFK_GLBufferQueue *iSource)
+bool AFK_LandscapeTile::hasArtwork() const
 {
-    if (!rawVertices || !rawColours) return;
-
-    /* Apply the terrain transform.
-     * TODO This may be slow -- obvious candidate for OpenCL?  * But, the cache may rescue me; profile first!
-     */
-    terrainList.compute(rawVertices, rawColours, lSizes.vCount);
-
-    geometry = new AFK_LandscapeGeometry(
-        rawVertices, rawColours,
-        lSizes.vCount, lSizes.iCount, vSource, iSource);
-
-    /* We're done! */
-    *(futureGeometry.load()) = geometry;
-}
-
-bool AFK_LandscapeTile::hasGeometry() const
-{
-    return (futureGeometry.load() != NULL);
+    return (jigsawPiece != AFK_JigsawPiece());
 }
 
 float AFK_LandscapeTile::getYBoundLower() const
 {
-    if (!hasGeometry()) throw AFK_Exception("Tried to call getYBoundLower() without geometry");
     return yBoundLower;
 }
 
 float AFK_LandscapeTile::getYBoundUpper() const
 {
-    if (!hasGeometry()) throw AFK_Exception("Tried to call getYBoundUpper() without geometry");
     return yBoundUpper;
 }
 
@@ -259,9 +140,9 @@ AFK_DisplayedLandscapeTile *AFK_LandscapeTile::makeDisplayedLandscapeTile(const 
      */
     /* TODO I'm going to need to deal with the y bounds.  :-( */
     if (cellBoundLower <= yBoundUpper && cellBoundUpper > yBoundLower)
-        dlt = new AFK_DisplayedLandscapeTile(cell.toWorldSpace(minCellSize), futureGeometry.load(), cellBoundLower, cellBoundUpper);
+        dlt = new AFK_DisplayedLandscapeTile(cell.toWorldSpace(minCellSize), jigsawPiece, cellBoundLower, cellBoundUpper);
 #else
-    dlt = new AFK_DisplayedLandscapeTile(cell.toWorldSpace(minCellSize), futureGeometry.load(), -32768.0, 32768.0);
+    dlt = new AFK_DisplayedLandscapeTile(cell.toWorldSpace(minCellSize), jigsawPiece, -32768.0, 32768.0);
 #endif
 
     return dlt;
@@ -283,7 +164,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_LandscapeTile& t)
 {
     os << "Landscape tile";
     if (t.haveTerrainDescriptor) os << " (Terrain)";
-    if (t.geometry) os << " (Computed with bounds: " << t.yBoundLower << " - " << t.yBoundUpper << ")";
+    if (t.hasArtwork()) os << " (Computed with bounds: " << t.yBoundLower << " - " << t.yBoundUpper << ")";
     return os;
 }
 

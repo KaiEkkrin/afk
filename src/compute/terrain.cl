@@ -1,0 +1,299 @@
+/* AFK (c) Alex Holloway 2013 */
+
+/* This program computes the terrain across a tile. */
+
+/* This is what the jigsaw looks like inside... */
+struct AFK_TerrainTexel
+{
+    float           normalX;
+    float           normalY;
+    float           normalZ;
+    float           yDisp;
+
+    float3          colour;
+};
+
+/* Some data types that need to be kept in
+ * sync with terrain.hpp ...
+ */
+#define AFK_TERRAIN_CONE        2
+#define AFK_TERRAIN_SPIKE       3
+#define AFK_TERRAIN_HUMP        4
+
+struct AFK_TerrainFeature
+{
+    float3                      tint;
+    float3                      scale;
+    float2                      location; /* x, z */
+    int                         fType;
+};
+
+void computeCone(
+    float3 *vl,
+    float3 *vc,
+    __global const struct AFK_TerrainFeature *feature)
+{
+    float radius = (feature->scale.x < feature->scale.z ?
+        feature->scale.x : feature->scale.z);
+
+    float distanceX = (feature->location.x - vl->x);
+    float distanceZ = (feature->location.y - vl->z);
+    float distanceToCentreSquared =
+        (distanceX * distanceX) + (distanceZ * distanceZ);
+    float distanceToCentre = sqrt(distanceToCentreSquared);
+
+    if (distanceToCentre < radius)
+    {
+        float dispX = (radius - distanceToCentre) *
+            (feature->scale.y / radius);
+        vl->y += dispX;
+        *vc += feature->tint * feature->scale.z * distanceToCentre;
+    }
+}
+
+void computeSpike(
+    float3 *vl,
+    float3 *vc,
+    __global const struct AFK_TerrainFeature *feature)
+{
+    float radius = (feature->scale.x < feature->scale.z ?
+        feature->scale.x : feature->scale.z);
+
+    float distanceX = (feature->location.x - vl->x);
+    float distanceZ = (feature->location.y - vl->z);
+    float distanceToCentreSquared =
+        (distanceX * distanceX) + (distanceZ * distanceZ);
+    float distanceToCentre = sqrt(distanceToCentreSquared);
+
+    /* A spike is a hump without the rounded-off section. */
+    if (distanceToCentre < radius)
+    {
+        float dispX = (radius - distanceToCentre) *
+            (radius - distanceToCentre) *
+            (feature->scale.y / (radius * radius));
+        vl->y += dispX;
+        *vc += feature->tint * feature->scale.z * distanceToCentre;
+    }
+}
+
+void computeHump(
+    float3 *vl,
+    float3 *vc,
+    __global const struct AFK_TerrainFeature *feature)
+{
+    float radius = (feature->scale.x < feature->scale.z ?
+        feature->scale.x : feature->scale.z);
+
+    float distanceX = (feature->location.x - vl->x);
+    float distanceZ = (feature->location.y - vl->z);
+    float distanceToCentreSquared =
+        (distanceX * distanceX) + (distanceZ * distanceZ);
+    float distanceToCentre = sqrt(distanceToCentreSquared);
+
+    if (distanceToCentre < (radius / 2.0f))
+    {
+        /* A hump is always based off of twice the spike height at
+         * distanceToCentre == (radius / 2.0f) .
+         */
+        float dispX = ((radius / 2.0f) * (radius / 2.0f) *
+            (2.0f * feature->scale.y / (radius * radius)));
+
+        /* From there, we subtract the inverse curve. */
+        dispX -= (distanceToCentreSquared * feature->scale.y / (radius * radius));
+
+        vl->y += dispX;
+        *vc += feature->tint * feature->scale.z * distanceToCentre;
+    }
+    else if (distanceToCentre < radius)
+    {
+        float dispX = (radius - distanceToCentre) *
+            (radius - distanceToCentre) *
+            (feature->scale.y / (radius * radius));
+
+        vl->y += dispX;
+        *vc += feature->tint * feature->scale.z * distanceToCentre;
+    }
+}
+
+void computeTerrainFeature(
+    float3 *vl,
+    float3 *vc,
+    __global const struct AFK_TerrainFeature *feature)
+{
+    switch (feature->fType)
+    {
+    case AFK_TERRAIN_CONE:
+        computeCone(vl, vc, feature);
+        break;
+
+    case AFK_TERRAIN_SPIKE:
+        computeSpike(vl, vc, feature);
+        break;
+
+    case AFK_TERRAIN_HUMP:
+        computeHump(vl, vc, feature);
+        break;
+    }
+}
+
+struct AFK_TerrainTile
+{
+    float                       tileX;
+    float                       tileZ;
+    float                       tileScale;
+    unsigned int                featureCount;
+};
+
+float4 getCellCoord(__global const struct AFK_TerrainTile *tiles, unsigned int t)
+{
+    return (float4)(tiles[t].tileX, 0.0f, tiles[t].tileZ, tiles[t].tileScale);
+}
+
+void transformTileToTile(
+    float3 *vl,
+    float3 *vc,
+    unsigned int tFrom,
+    unsigned int tTo)
+{
+    float4 fromCoord = getCellCoord(tiles, tFrom);
+    float4 toCoord = getCellCoord(tiles, tTo);
+
+    *vl = (*vl * fromCoord.w + fromCoord.xyz - toCoord.xyz) / toCoord.w;
+    *vc = *vc * fromCoord.w / toCoord.w;
+}
+
+struct AFK_TerrainComputeUnit
+{
+    unsigned int tileOffset;
+    unsigned int tileCount;
+    unsigned int piece;
+};
+
+/* `makeTerrain' operates across the 2 dimensions of
+ * a terrain tile.
+ */
+__kernel void makeTerrain(
+    __global const struct AFK_TerrainFeature *features,
+    __global const struct AFK_TerrainTile *tiles,
+    __global const struct AFK_TerrainComputeUnit *units,
+    unsigned int unitOffset, /* TODO turn to `unitCount' and process all */
+    __global struct AFK_TerrainTexel *jigsaw,
+    __global float *yLowerBounds,
+    __global float *yUpperBounds)
+{
+    const int xdim = get_global_id(0);
+    const int zdim = get_global_id(1);
+
+    /* Work out where we are inside the inputs, and inside
+     * the jigsaw...
+     */
+    __global const struct AFK_TerrainComputeUnit *unit = units + unitOffset;
+    __global struct AFK_TerrainTexel *tt = jigsaw + unit->piece * TCOUNT * sizeof(struct AFK_TerrainTexel);
+
+    /* Here's where we are inside the jigsaw piece. */
+    const int v = (xdim * TDIM) + zdim;
+
+    /* And here's the tile co-ordinate that corresponds to my
+     * assigned texel.
+     */
+    float3 vl = (float3)(
+        ((float)(xdim + DIM_START)) / ((float)POINT_SUBDIVISION_FACTOR),
+        0.0f,
+        ((float)(zdim + DIM_START)) / ((float)POINT_SUBDIVISION_FACTOR));
+
+    /* Initialise that jigsaw piece's colour field, which I'll
+     * be updating as I go
+     */
+    tt[v].colour = (float3)(0.0, 0.0, 0.0);
+
+    /* Iterate through the terrain tiles, applying
+     * each tile's modification in turn.
+     */
+    for (int i = unit->tileOffset; i < (unit->tileOffset + unit->tileCount); ++i)
+    {
+        if (i > 0)
+        {
+            /* Transform up to next cell space. */
+            transformTileToTile(&vl, tiles, i-1, i);
+        }
+
+        for (unsigned int j = 0; j < tiles[i].featureCount; ++j)
+            computeTerrainFeature(&vl, &(tt[v].colour),
+                &features[i * FEATURE_COUNT_PER_TILE + j]);
+    }
+
+    /* Make that colour space halfway sane */
+    tt[v].colour = normalize(vs[v].colour) - 0.4f;
+
+    /* Fill out the rest of the texel.
+     * The normal will be handled by something else ...
+     */
+    tt[v].normalX = 0.0f;
+    tt[v].normalY = 1.0f;
+    tt[v].normalZ = 0.0f;
+    tt[v].yDisp = vl.y;
+
+    /* Now, reduce out this tile's y-bounds. */
+    /* TODO: Fix this to work in the local workspace only,
+     * if I change this kernel so that it hits multiple tiles
+     * at once
+     */
+
+    /* TODO *2: The first one below isn't quite correct; the second one
+     * is.  However, adding this functionality has made the OpenCL variant
+     * go from "quite slow" to "devastatingly slow".  The thing I notice
+     * is it caused me to allocate two extra buffers before each enqueue.
+     * Could it be that buffer allocation is slow?
+     * (Which brings me back to trying to cram all tasks into one really
+     * big heapified buffer!)
+     */
+#if 0
+    yLowerBounds[v + 1 << (REDUCE_ORDER - 1)] = FLT_MAX;
+    yUpperBounds[v + 1 << (REDUCE_ORDER - 1)] = -FLT_MAX;
+    barrier(CLK_GLOBAL_MEM_FENCE);
+    yLowerBounds[v] = tt[v].yDisp;
+    yUpperBounds[v] = tt[v].yDisp;
+
+    /* The conclusions should end up in the very first fields
+     * of each.
+     */
+    for (unsigned int redO = 1; redO < REDUCE_ORDER; ++redO)
+    {
+        barrier(CLK_GLOBAL_MEM_FENCE);
+        if ((v & ((1 << redO) - 1)) == 0)
+        {
+            float lowerOne = yLowerBounds[v];
+            float lowerTwo = yLowerBounds[v - (1 << (redO - 1))];
+
+            float upperOne = yUpperBounds[v];
+            float upperTwo = yUpperBounds[v - (1 << (redO - 1))];
+
+            yLowerBounds[v] = (lowerOne < lowerTwo) ? lowerOne : lowerTwo;
+            yUpperBounds[v] = (upperOne > upperTwo) ? upperOne : upperTwo;
+        }
+    }
+#else
+    if (zdim == 0)
+    {
+        yLowerBounds[xdim] = FLT_MAX;
+        yUpperBounds[xdim] = -FLT_MAX;
+        for (int z = 0; z < TDIM; ++z)
+        {
+            int w = (xdim * TDIM) + z;
+            if (tt[w].yDisp < yLowerBounds[xdim]) yLowerBounds[xdim] = tt[w].yDisp;
+            else if (tt[w].yDisp > yUpperBounds[xdim]) yUpperBounds[xdim] = tt[w].yDisp;
+        }
+
+        barrier(CLK_GLOBAL_MEM_FENCE);
+        if (xdim == 0)
+        {
+            for (int x = 1; x < TDIM; ++x)
+            {
+                if (yLowerBounds[x] < yLowerBounds[0]) yLowerBounds[0] = yLowerBounds[x];
+                if (yUpperBounds[x] > yUpperBounds[0]) yUpperBounds[0] = yUpperBounds[x];
+            }
+        }
+    }
+#endif
+}
+

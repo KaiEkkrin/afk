@@ -70,17 +70,17 @@ void afk_displayLoop(void)
     /* For now, I'll try allocating 1/8th mem for the tile cache,
      * and another 1/8th for the world cache.
      */
+    cl_context ctxt;
+    cl_command_queue q;
+    afk_core.computer->lock(ctxt, q);
     afk_core.world = new AFK_World(
+        afk_core.config,
         worldMaxDistance,   /* maxDistance -- zFar must be a lot bigger or things will vanish */
-        afk_core.config->subdivisionFactor,
-        afk_core.config->pointSubdivisionFactor,
-        afk_core.config->minCellSize,
-        afk_core.config->startingDetailPitch,
-        afk_core.config->concurrency,
         clGlMaxAllocSize / 4,
         clGlMaxAllocSize / 4,
-        clGlMaxAllocSize / 32 /* not much going on in the way of shapes right now */
-        );
+        clGlMaxAllocSize / 32, /* not much going on in the way of shapes right now */
+        ctxt);
+    afk_core.computer->unlock();
     afk_core.protagonist = new AFK_DisplayedProtagonist();
 
     /* Make sure that camera is configured to match the window. */

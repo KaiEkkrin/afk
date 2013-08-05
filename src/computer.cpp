@@ -234,7 +234,28 @@ void AFK_Computer::loadProgramFromFile(struct AFK_ClProgram *p)
     p->program = clCreateProgramWithSource(ctxt, 1, (const char **)&source, &sourceLength, &error);
     afk_handleClError(error);
 
-    error = clBuildProgram(p->program, devicesSize, devices, NULL, NULL, NULL);
+    /* Compiler arguments here... */
+    std::ostringstream args;
+    if (p->filename == "surface.cl" || /* TODO think about that one */
+        p->filename == "terrain.cl")
+    {
+        AFK_LandscapeSizes lSizes(config->pointSubdivisionFactor);
+        args << "-D POINT_SUBDIVISION_FACTOR="  << lSizes.pointSubdivisionFactor << " ";
+        args << "-D TDIM="                      << lSizes.tDim                   << " ";
+        args << "-D TCOUNT="                    << lSizes.tCount                 << " ";
+    }
+
+    if (p->filename == "terrain.cl")
+    {
+        AFK_LandscapeSizes lSizes(config->pointSubdivisionFactor);
+        args << "-D FEATURE_COUNT_PER_TILE="    << lSizes.featureCountPerTile    << " ";
+        args << "-D REDUCE_ORDER="              << lSizes.reduceOrder            << " ";
+    }
+
+    std::string argsStr = args.str();
+    if (argsStr.size() > 0)
+        std::cout << "AFK: Passing compiler arguments: " << argsStr << std::endl;
+    error = clBuildProgram(p->program, devicesSize, devices, argsStr.size() > 0 ? argsStr.c_str() : NULL, NULL, NULL);
     if (error == CL_SUCCESS || error == CL_BUILD_PROGRAM_FAILURE)
         for (size_t dI = 0; dI < devicesSize; ++dI)
             printBuildLog(std::cout, p->program, devices[dI]);

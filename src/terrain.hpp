@@ -13,9 +13,11 @@
 
 #include <vector>
 
-#include <boost/shared_ptr.hpp>
+#include <boost/type_traits/has_trivial_assign.hpp>
+#include <boost/type_traits/has_trivial_destructor.hpp>
 
 #include "def.hpp"
+#include "landscape_sizes.hpp"
 #include "rng/rng.hpp"
 
 /* The list of possible terrain features.
@@ -23,17 +25,10 @@
  */
 enum AFK_TerrainType
 {
-    AFK_TERRAIN_SQUARE_PYRAMID          = 0,
-    AFK_TERRAIN_MYSTERY                 = 1,
     AFK_TERRAIN_CONE                    = 2,
     AFK_TERRAIN_SPIKE                   = 3,
     AFK_TERRAIN_HUMP                    = 4
 };
-
-/* TODO Keep this updated with the current feature
- * count.
- */
-#define AFK_TERRAIN_FEATURE_TYPES 1
 
 /* The encapsulation of any terrain feature.
  * A feature is computed at a particular location
@@ -58,63 +53,52 @@ enum AFK_TerrainType
 class AFK_TerrainFeature
 {
 protected:
-    enum AFK_TerrainType    type;
-    Vec2<float>             location; /* x-z */
     Vec3<float>             tint; /* TODO Make location and tint features separate things? */
     Vec3<float>             scale;
-
-    /* The methods for computing each individual
-     * terrain type.
-     */
-    void compute_squarePyramid(Vec3<float>* positions, Vec3<float>* colours, size_t length) const;
-    void compute_mystery(Vec3<float>* positions, Vec3<float>* colours, size_t length) const;
-    void compute_cone(Vec3<float>* positions, Vec3<float>* colours, size_t length) const;
-    void compute_spike(Vec3<float>* positions, Vec3<float>* colours, size_t length) const;
-    void compute_hump(Vec3<float>* positions, Vec3<float>* colours, size_t length) const;
+    Vec2<float>             location; /* x-z */
+    enum AFK_TerrainType    type;
 
 public:
     AFK_TerrainFeature() {}
-    AFK_TerrainFeature(const AFK_TerrainFeature& f);
     AFK_TerrainFeature(
-        const enum AFK_TerrainType _type,
-        const Vec2<float>& _location,
         const Vec3<float>& _tint,
-        const Vec3<float>& _scale);
-
-    AFK_TerrainFeature& operator=(const AFK_TerrainFeature& f);
-
-    /* Computes in cell co-ordinates, updating the
-     * y co-ordinate.
-     */
-    void compute(Vec3<float>* positions, Vec3<float>* colours, size_t length) const;
+        const Vec3<float>& _scale,
+        const Vec2<float>& _location,
+        const enum AFK_TerrainType _type);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_TerrainFeature& feature);
-};
+} __attribute__((aligned(16)));
 
 std::ostream& operator<<(std::ostream& os, const AFK_TerrainFeature& feature);
 
-/* This describes a tile containing a collection of
+/* This describes a tile with a collection of
  * terrain features.  It provides a method for computing
  * the total displacement applied by these features in
  * world co-ordinates.
+ * Note that the structure, itself, does not in fact
+ * contain the features, due to the difficulty of properly
+ * packing them for OpenCL.  Instead you must keep the
+ * feature list alongside the tile list, in the same
+ * order.
  */
 
-#define TERRAIN_FEATURE_COUNT_PER_TILE 12
 class AFK_TerrainTile
 {
 protected:
-    Vec3<float>         tileCoord;
-    AFK_TerrainFeature  features[TERRAIN_FEATURE_COUNT_PER_TILE];
+    /* Packing the tile co-ordinates like this lets me
+     * halve the size of the structure when aligned for
+     * OpenCL, which seems worthwhile, since I don't
+     * directly compute on `tileCoord'
+     */
+    float               tileX;
+    float               tileZ;
+    float               tileScale;
     unsigned int        featureCount;
 
 public:
     AFK_TerrainTile();
-    AFK_TerrainTile(const AFK_TerrainTile& c);
 
-    AFK_TerrainTile& operator=(const AFK_TerrainTile& c);
-
-    const Vec3<float>& getTileCoord(void) const;
-    Vec4<float> getCellCoord(void) const; /* y=0 */
+    Vec3<float> getTileCoord(void) const;
 
     /* Assumes the RNG to have been seeded correctly for
      * the tile.
@@ -123,45 +107,44 @@ public:
      * of the RNG.
      */
     void make(
+        struct AFK_TerrainFeature *features, /* Must have enough slots for this tile.
+                                              * We will expect `featureCountPerTile' slots
+                                              * (see AFK_LandscapeSizes) */
         const Vec3<float>& _tileCoord,
-        unsigned int pointSubdivisionFactor,
+        const AFK_LandscapeSizes &lSizes,
         unsigned int subdivisionFactor,
         float minCellSize,
         AFK_RNG& rng,
         const Vec3<float> *forcedTint);
-
-    /* Transforms positions from this tile's co-ordinates to
-     * the given one.
-     */
-    void transformTileToTile(Vec3<float> *positions, Vec3<float> *colours, size_t length, const AFK_TerrainTile& other) const;
-
-    /* Computes in cell co-ordinates each of the
-     * terrain features and puts them together.
-     */
-    void compute(Vec3<float> *positions, Vec3<float> *colours, size_t length) const;
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_TerrainTile& tile);
 };
 
 std::ostream& operator<<(std::ostream& os, const AFK_TerrainTile& tile);
 
+/* Important for being able to copy them around and
+ * into the OpenCL buffers easily.
+ */
+BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_TerrainTile>::value));
+BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_TerrainTile>::value));
+
 /* Encompasses the terrain as computed on a particular tile. */
 class AFK_TerrainList
 {
 protected:
-    std::vector<boost::shared_ptr<AFK_TerrainTile> > t;
+    std::vector<AFK_TerrainFeature> f;
+    std::vector<AFK_TerrainTile> t;
 
 public:
-    AFK_TerrainList();
+    AFK_TerrainList(const AFK_LandscapeSizes& lSizes);
 
-    /* Adds a new TerrainTile to the list. */
-    void add(boost::shared_ptr<AFK_TerrainTile> tile);
-
-    /* Computes in world co-ordinates the terrain at the
-     * given positions, transforming through the list as
-     * it goes.
+    /* Adds new TerrainTiles and TerrainFeatures to the list.
+     * Make sure they're in order!  This function preserves the
+     * mutual ordering.
      */
-    void compute(Vec3<float> *positions, Vec3<float> *colours, size_t length) const;
+    void extend(const std::vector<AFK_TerrainFeature>& features, const std::vector<AFK_TerrainTile>& tiles);
+
+    unsigned int tileCount(void) const;
 };
 
 #endif /* _AFK_TERRAIN_H_ */

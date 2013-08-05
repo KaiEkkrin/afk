@@ -16,7 +16,8 @@
 #include "data/frame.hpp"
 #include "def.hpp"
 #include "display.hpp"
-#include "gl_buffer.hpp"
+#include "jigsaw.hpp"
+#include "landscape_sizes.hpp"
 #include "terrain.hpp"
 #include "tile.hpp"
 #include "world.hpp"
@@ -34,43 +35,6 @@ class AFK_DisplayedLandscapeTile;
  */
 class AFK_LandscapeTileNotPresentException: public std::exception {};
 
-/* This contains a Landscape Tile's geometry buffers. */
-class AFK_LandscapeGeometry
-{
-public:
-    Vec3<float> *rawVertices;
-    Vec3<float> *rawColours;
-
-    AFK_DisplayedBuffer<struct AFK_VcolPhongVertex>     vs;
-    AFK_DisplayedBuffer<struct AFK_VcolPhongIndex>      is;
-
-    AFK_LandscapeGeometry(
-        Vec3<float> *_rawVertices, Vec3<float> *_rawColours,
-        size_t vCount, size_t iCount,
-        AFK_GLBufferQueue *vSource, AFK_GLBufferQueue *iSource);
-};
-
-/* This utility returns the sizes of the various landscape
- * elements, so that I can configure the cache correctly, and correctly
- * drive the drawing functions.
- */
-class AFK_LandscapeSizes
-{
-public:
-    const unsigned int pointSubdivisionFactor;
-    const unsigned int baseVDim; /* Number of vertices along an edge in the base tile */
-    const unsigned int vDim; /* Number of vertices along an edge, including extras for computation */
-    const unsigned int iDim; /* Number of triangles along an edge */
-    const unsigned int baseVCount; /* Total number of vertex structures in the instanced base tile */
-    const unsigned int vCount; /* Total number of vertex structures in the computed geometry */
-    const unsigned int iCount; /* Total number of index structures */
-    const unsigned int baseVSize; /* Size of base tile vertex array in bytes */
-    const unsigned int vSize; /* Size of vertex array in bytes */
-    const unsigned int iSize; /* Size of index array in bytes */
-
-    AFK_LandscapeSizes(unsigned int pointSubdivisionFactor);
-};
-
 /* Describes a landscape tile, including managing its rendered vertex
  * and index buffers.
  */
@@ -85,32 +49,26 @@ protected:
     bool haveTerrainDescriptor;
     std::vector<boost::shared_ptr<AFK_TerrainTile> > terrainDescriptor;
 
-    /* The raw geometry data, while I apply the terrain
-     * transform.
-     * TODO This needs to go away when I've ported the
-     * terrain transform to OpenCL.
+    /* The jigsaw piece for this tile, or the null piece if it hasn't
+     * been assigned yet.
      */
-    Vec3<float> *rawVertices;
-    Vec3<float> *rawColours;
+    AFK_JigsawPiece jigsawPiece;
 
-    /* Here's the geometry data */
-    AFK_LandscapeGeometry *geometry;
+    /* What jigsaws that piece comes from.  (This is just a cross-
+     * reference, we don't own it.  But we need to be able to put
+     * our piece back upon delete.)
+     */
+    AFK_JigsawCollection *jigsaws;
 
     /* These are the lower and upper y-bounds of the vertices in
      * world space.
+     * TODO I'm about to kill of my way of updating these with the
+     * computed results, and I need to put that back -- it's useful
+     * to have this result here to keep the display queue
+     * un-cluttered.
      */
     float yBoundLower;
     float yBoundUpper;
-
-    /* Here's the overall promise of a computed landscape tile that
-     * can be displayed.  With this, I can enqueue a future landscape
-     * tile into the render queue before I've finished computing it.
-     * This was going to be a future, but I can't make shared_future
-     * work, so right now it's just a horrible expectation
-     * that the pointer will stop being NULL at some point before
-     * render :P
-     */
-    boost::atomic<AFK_LandscapeGeometry**> futureGeometry;
     
 public:
     AFK_LandscapeTile();
@@ -126,16 +84,6 @@ public:
         float minCellSize,
         const Vec3<float> *forcedTint);
 
-    /* Returns true if there is geometry here that needs making and
-     * you are the thread chosen to make it.  Otherwise, returns
-     * false.
-     * (Call hasGeometry() to find out if there will be geometry here
-     * by the time it's needed; another thread might be making it.)
-     */
-    bool claimGeometryRights(void);
-
-    /* --- Begin functions you should call if you got geometry rights --- */
-
     /* Builds the terrain list for this tile.  Call it with
      * an empty list.
      */
@@ -147,31 +95,10 @@ public:
         float maxDistance,
         const AFK_LANDSCAPE_CACHE *cache) const;
 
-    /* Makes this landscape tile's
-     * raw terrain data (vertices and colours).
-     * It has a `type' parameter because the smooth
-     * terrain needs an extra row of vertices in
-     * order to make the normals for the bottom and
-     * left.
-     */
-    void makeRawTerrain(
-        const AFK_Tile& baseTile,
-        const AFK_LandscapeSizes& lSizes,
-        float minCellSize);
+    /* Assigns a jigsaw piece to this tile. */
+    AFK_JigsawPiece getJigsawPiece(AFK_JigsawCollection *_jigsaws);
 
-    /* Makes this cell's terrain geometry.  Call right after
-     * constructing.
-     */
-    void computeGeometry(
-        const AFK_Tile& baseTile,
-        const AFK_LandscapeSizes& lSizes,
-        const AFK_TerrainList& terrainList,
-        AFK_GLBufferQueue *vSource,
-        AFK_GLBufferQueue *iSource);
-
-    /* --- End functions you should call if you got geometry rights --- */
-
-    bool hasGeometry() const;
+    bool hasArtwork() const;
     float getYBoundLower() const;
     float getYBoundUpper() const;
 

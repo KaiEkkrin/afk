@@ -7,6 +7,11 @@
 
 #include <boost/lockfree/queue.hpp>
 
+/* TODO DELETE ME.
+ * This class is deprecated in this branch in favour of
+ * "jigsaw", which will, you know, actually work.
+ */
+
 /* Makes a queue of GL buffers, pre-populated with the desired
  * amount of data (in zeroes).
  * Once you pop a buffer off the queue, you're responsible for

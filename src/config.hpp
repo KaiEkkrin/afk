@@ -86,6 +86,7 @@ public:
     /* Computing setup */
     unsigned int concurrency;
     char        *clProgramsDir;
+    bool         clGlSharing;
 
     /* World setup */
     float startingDetailPitch;
