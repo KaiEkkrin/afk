@@ -523,6 +523,7 @@ AFK_World::AFK_World(
      * into a GL_TRIANGLES_ADJACENCY with vertex dimensions
      * more like tDim !
      */
+#error The below isn't going to work until I also include the (jigsaw) texture coords (piece-relative).
     Vec3<float> tileVertices[lSizes.vCount];
     unsigned short tileIndices[lSizes.iCount * 3];
 
@@ -897,6 +898,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
          * away when I sort the displayed landscape queue
          * out to make the lists for me anyway?
          */
+#error Change the above right away, not hard and the current state is too error prone
         jigsawPieceUVs.clear();
         cellDetails.clear();
     }
