@@ -13,6 +13,8 @@
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
+#include "def.hpp"
+
 /* This module encapsulates the idea of having a large, "heapified"
  * texture (collection of textures in fact) that I feed to the shaders
  * and access indirectly via another texture describing which offsets
@@ -21,7 +23,7 @@
  * Whilst it might notionally be lovely to use the OpenGL mip-mapping
  * features here, that doesn't really seem to play well with an
  * infinite landscape and the juggled caching model that I'm using.
- * So for now, this will just be a flat buffer.
+ * So for now, this will be a flat 2D texture with no mip levels.
  */
 
 /* This token represents which "piece" of the jigsaw an object might
@@ -30,7 +32,7 @@
 class AFK_JigsawPiece
 {
 public:
-    const unsigned int piece;   /* offset within the identified jigsaw buffer */
+    const Vec2<unsigned int> piece;   /* u, v within the identified jigsaw texture */
     const unsigned int puzzle;  /* which jigsaw buffer */
 
     /* This constructor makes the "null" jigsaw piece, which isn't in
@@ -39,7 +41,7 @@ public:
      */
     AFK_JigsawPiece();
 
-    AFK_JigsawPiece(unsigned int _piece, unsigned int _puzzle);
+    AFK_JigsawPiece(const Vec2<unsigned int>& _piece, unsigned int _puzzle);
 
     bool operator==(const AFK_JigsawPiece& other) const;
 
@@ -52,14 +54,17 @@ BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_JigsawPiece>::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_JigsawPiece>::value));
 
 
-/* This encapsulates a single jigsawed buffer. */
+/* This encapsulates a single jigsawed texture. */
 class AFK_Jigsaw
 {
 protected:
-    GLuint glBuf;
-    cl_mem clBuf;
-    unsigned int pieceSize, pieceCount;
-    GLenum texFormat;
+    GLuint glTex;
+    cl_mem clTex;
+    Vec2<unsigned int> pieceSize;
+    Vec2<unsigned int> jigsawSize; /* number of pieces horizontally and vertically */
+    GLenum glTexFormat;
+    cl_image_format clTexFormat;
+    size_t texelSize;
     bool clGlSharing;
 
     /* If clGlSharing is disabled, this is the list of pieces that
@@ -67,17 +72,19 @@ protected:
      * along with the change data that I've read out (in the same
      * order).
      */
-    std::vector<unsigned int> changedPieces;
+    std::vector<Vec2<unsigned int> > changedPieces;
     std::vector<unsigned char> changes;
 
 public:
     AFK_Jigsaw(
         cl_context ctxt,
-        unsigned int _pieceSize,
-        unsigned int _pieceCount,
-        GLenum _texFormat,
+        const Vec2<unsigned int>& _pieceSize,
+        const Vec2<unsigned int>& _jigsawSize,
+        GLenum _glTexFormat,
+        const cl_image_format& _clTexFormat, /* not actually used if clGlSharing is enabled.  must match glTexFormat */
+        size_t _texelSize, /* Likewise */
         bool _clGlSharing,
-        unsigned char *zeroMem /* enough zeroes to initialise with glBufferData */);
+        unsigned char *zeroMem /* enough zeroes to initialise with glTexImage2D */);
     virtual ~AFK_Jigsaw();
 
     /* Acquires the buffer for the CL. */
@@ -87,7 +94,7 @@ public:
      * buffer sharing, that means we will need to sync.)
      * TODO I think I'm going to want to end up supplying a list...
      */
-    void pieceChanged(unsigned int piece);
+    void pieceChanged(const Vec2<unsigned int>& piece);
 
     /* Releases the buffer from the CL. */
     void releaseFromCl(cl_command_queue q);
@@ -96,15 +103,18 @@ public:
     void bindTexture(void);
 };
 
-/* This encapsulates a collection of jigsawed buffers, which are used
+/* This encapsulates a collection of jigsawed textures, which are used
  * to give out pieces of the same size and usage.
  * You may get a piece in any of the puzzles.
  */
 class AFK_JigsawCollection
 {
 protected:
-    unsigned int pieceSize, pieceCount;
-    GLenum texFormat;
+    Vec2<unsigned int> pieceSize;
+    unsigned int pieceCount;
+    GLenum glTexFormat;
+    cl_image_format clTexFormat;
+    size_t texelSize;
     bool clGlSharing;
 
     std::vector<AFK_Jigsaw*> puzzles;
@@ -117,10 +127,11 @@ protected:
 public:
     AFK_JigsawCollection(
         cl_context ctxt,
-        unsigned int _pieceSize,
+        const Vec2<unsigned int>& _pieceSize,
         unsigned int _pieceCount,
-        GLenum _texFormat,
-        unsigned int texelSize, /* Yes I could derive this from _texFormat but only with a huge switch block */
+        GLenum _glTexFormat,
+        const cl_image_format& _clTexFormat,
+        size_t texelSize, /* Yes I could derive this from _texFormat but only with a huge switch block */
         bool _clGlSharing);
     virtual ~AFK_JigsawCollection();
 

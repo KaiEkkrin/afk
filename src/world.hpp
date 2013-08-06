@@ -18,8 +18,9 @@
 #include "cell.hpp"
 #include "computed_landscape_tile.hpp"
 #include "config.hpp"
+#include "data/clearable_queue.hpp"
 #include "data/evictable_cache.hpp"
-#include "data/render_queue.hpp"
+#include "data/fair.hpp"
 #include "def.hpp"
 #include "displayed_landscape_tile.hpp"
 #include "entity.hpp"
@@ -150,20 +151,22 @@ protected:
     AFK_LANDSCAPE_CACHE *landscapeCache;
 
     /* The terrain computation fairground.  Yeah, yeah. */
-    AFK_TerrainComputeFair terrainComputeFair;
+    AFK_Fair<AFK_TerrainComputeQueue> terrainComputeFair;
 
+#define AFK_DISPLAYED_LANDSCAPE_QUEUE AFK_ClearableQueue<AFK_DisplayedLandscapeTile*, 100> /* note trailing space */  
     /* The landscape render queue.
      * These are transient objects -- delete them after
      * rendering.
      */
-    AFK_RenderQueue<AFK_DisplayedLandscapeTile*> landscapeDisplayQueue;
+    AFK_Fair<AFK_DISPLAYED_LANDSCAPE_QUEUE> landscapeDisplayFair;
 
     /* The basic landscape tile geometry. */
     GLuint landscapeTileArray;
     GLuint landscapeTileBufs[2];
 
     /* The texture buffers used to describe the landscape */
-    GLuint landscapeCellCoordTBO;
+    GLuint landscapeJigsawPieceTBO;
+    GLuint landscapeCellTBO;
 
     /* TODO Deal with multiple shapes.  In whatever way.
      * I don't know.  :/  For now, I'll just have one.

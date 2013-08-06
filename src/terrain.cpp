@@ -126,16 +126,6 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainTile& tile)
 
 /* AFK_TerrainList implementation. */
 
-AFK_TerrainList::AFK_TerrainList(const AFK_LandscapeSizes& lSizes)
-{
-    /* Stop us from doing lots of small resizes when creating
-     * the list.
-     */
-    const unsigned int reserveSize = 16;
-    f.reserve(reserveSize * lSizes.featureCountPerTile);
-    t.reserve(16);
-}
-
 void AFK_TerrainList::extend(const std::vector<AFK_TerrainFeature>& features, const std::vector<AFK_TerrainTile>& tiles)
 {
     f.resize(f.size() + features.size());

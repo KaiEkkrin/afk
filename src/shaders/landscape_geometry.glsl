@@ -4,15 +4,13 @@
 // It accepts VertexData as produced by the landscape vertex
 // shader and culls triangles that are outside of the
 // world cell boundaries.
-// TODO: Can I come up with a cunning data format to pass into
-// this geometry shader, such that it can create the stitch
-// triangles where needed (in the places where I'm crossing a
-// level of detail)?
-// Because maintaining stitch structures on the CPU side would
-// be an embuggerance...
-// For now, though, I'm going to continue to produce triangles on
-// the CPU side and just use this shader to cull outside-of-cell
-// triangles.
+// TODO Adapt this to accept GL_TRIANGLES_ADJACENCY, and
+// calculate the correct normal for each vertex as well.
+// TODO *2: Stop the nasty stitching when two different LoDs
+// cross at a y boundary by splitting the triangle into two
+// here, each stopping at said y boundary.
+// TODO *3: Throw away the current base geometry entirely,
+// and use the tessellator!
 
 #version 330
 
@@ -22,8 +20,7 @@ layout (max_vertices = 3) out;
 
 in VertexData
 {
-    vec3 colour;
-    vec3 normal;
+    vec2 jigsawCoord;
     bool withinBounds;
 } inData[];
 
@@ -31,8 +28,8 @@ uniform mat4 ClipTransform;
 
 out GeometryData
 {
-    vec3 colour;
     vec3 normal;
+    vec2 jigsawCoord;
 } outData;
 
 void main()
@@ -43,8 +40,8 @@ void main()
         for (i = 0; i < 3; ++i)
         {
             gl_Position = ClipTransform * gl_in[i].gl_Position;
-            outData.colour = inData[i].colour;
-            outData.normal = inData[i].normal;
+            outData.normal = vec3(0.0, 1.0, 0.0); // TODO Needs fixing :P
+            outData.jigsawCoord = inData.jigsawCoord;
             EmitVertex();
         }
         EndPrimitive();

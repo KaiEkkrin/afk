@@ -6,10 +6,12 @@
 
 AFK_LandscapeSizes::AFK_LandscapeSizes(unsigned int pointSubdivisionFactor):
     pointSubdivisionFactor(pointSubdivisionFactor),
+    /* TODO vDim and iDim are going to change when I move to GL_TRIANGLES_ADJACENCY base geometry :P */
     vDim(pointSubdivisionFactor + 1), /* one extra vertex along the top and right sides to join with the adjacent tile */
     iDim(pointSubdivisionFactor),
     tDim(pointSubdivisionFactor + 3), /* one extra vertex either side, to smooth colours and normals; */
                                       /* another extra vertex on +x and +z, to smooth the join-triangle normals */
+    tDimStart(-1),                    /* begin one index before the origin to do the bottom and left smoothing */
     vCount(SQUARE(pointSubdivisionFactor + 1)),
     iCount(SQUARE(pointSubdivisionFactor) * 2), /* two triangles per vertex */
     tCount(SQUARE(pointSubdivisionFactor + 3)),

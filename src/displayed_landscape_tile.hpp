@@ -17,19 +17,18 @@
  */
 class AFK_DisplayedLandscapeTile
 {
-protected:
+public:
     /* This tile's location, so that I can displace the
      * instanced base tile onto it.
      */
-    Vec4<float> coord;
+    const Vec4<float> coord;
 
     /* The jigsaw piece for this tile. */
-    AFK_JigsawPiece jigsawPiece;
+    const AFK_JigsawPiece jigsawPiece;
 
     float cellBoundLower;
     float cellBoundUpper;
 
-public:
     AFK_DisplayedLandscapeTile(
         const Vec4<float>& _coord,
         const AFK_JigsawPiece& _jigsawPiece;
@@ -47,8 +46,6 @@ public:
     void compute(
         const AFK_LandscapeSizes& lSizes,
         AFK_JigsawCollection *jigsaws);
-
-    const Vec4<float>& getCoord(void) const;
 };
 
 #endif /* _AFK_DISPLAYED_LANDSCAPE_TILE_H_ */

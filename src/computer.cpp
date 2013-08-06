@@ -236,18 +236,12 @@ void AFK_Computer::loadProgramFromFile(struct AFK_ClProgram *p)
 
     /* Compiler arguments here... */
     std::ostringstream args;
-    if (p->filename == "surface.cl" || /* TODO think about that one */
-        p->filename == "terrain.cl")
+    if (p->filename == "terrain.cl")
     {
         AFK_LandscapeSizes lSizes(config->pointSubdivisionFactor);
         args << "-D POINT_SUBDIVISION_FACTOR="  << lSizes.pointSubdivisionFactor << " ";
         args << "-D TDIM="                      << lSizes.tDim                   << " ";
-        args << "-D TCOUNT="                    << lSizes.tCount                 << " ";
-    }
-
-    if (p->filename == "terrain.cl")
-    {
-        AFK_LandscapeSizes lSizes(config->pointSubdivisionFactor);
+        args << "-D TDIMSTART="                 << lSizes.tDimStart              << " ";
         args << "-D FEATURE_COUNT_PER_TILE="    << lSizes.featureCountPerTile    << " ";
         args << "-D REDUCE_ORDER="              << lSizes.reduceOrder            << " ";
     }

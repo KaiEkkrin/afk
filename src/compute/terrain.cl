@@ -2,17 +2,6 @@
 
 /* This program computes the terrain across a tile. */
 
-/* This is what the jigsaw looks like inside... */
-struct AFK_TerrainTexel
-{
-    float           normalX;
-    float           normalY;
-    float           normalZ;
-    float           yDisp;
-
-    float3          colour;
-};
-
 /* Some data types that need to be kept in
  * sync with terrain.hpp ...
  */
@@ -31,7 +20,7 @@ struct AFK_TerrainFeature
 void computeCone(
     float3 *vl,
     float3 *vc,
-    __global const struct AFK_TerrainFeature *feature)
+    __read_only const struct AFK_TerrainFeature *feature)
 {
     float radius = (feature->scale.x < feature->scale.z ?
         feature->scale.x : feature->scale.z);
@@ -54,7 +43,7 @@ void computeCone(
 void computeSpike(
     float3 *vl,
     float3 *vc,
-    __global const struct AFK_TerrainFeature *feature)
+    __read_only const struct AFK_TerrainFeature *feature)
 {
     float radius = (feature->scale.x < feature->scale.z ?
         feature->scale.x : feature->scale.z);
@@ -79,7 +68,7 @@ void computeSpike(
 void computeHump(
     float3 *vl,
     float3 *vc,
-    __global const struct AFK_TerrainFeature *feature)
+    __read_only const struct AFK_TerrainFeature *feature)
 {
     float radius = (feature->scale.x < feature->scale.z ?
         feature->scale.x : feature->scale.z);
@@ -118,7 +107,7 @@ void computeHump(
 void computeTerrainFeature(
     float3 *vl,
     float3 *vc,
-    __global const struct AFK_TerrainFeature *feature)
+    __read_only const struct AFK_TerrainFeature *feature)
 {
     switch (feature->fType)
     {
@@ -144,7 +133,7 @@ struct AFK_TerrainTile
     unsigned int                featureCount;
 };
 
-float4 getCellCoord(__global const struct AFK_TerrainTile *tiles, unsigned int t)
+float4 getCellCoord(__read_only const struct AFK_TerrainTile *tiles, unsigned int t)
 {
     return (float4)(tiles[t].tileX, 0.0f, tiles[t].tileZ, tiles[t].tileScale);
 }
@@ -166,18 +155,18 @@ struct AFK_TerrainComputeUnit
 {
     unsigned int tileOffset;
     unsigned int tileCount;
-    unsigned int piece;
+    uint2 piece;
 };
 
 /* `makeTerrain' operates across the 2 dimensions of
  * a terrain tile.
  */
 __kernel void makeTerrain(
-    __global const struct AFK_TerrainFeature *features,
-    __global const struct AFK_TerrainTile *tiles,
-    __global const struct AFK_TerrainComputeUnit *units,
+    __read_only const struct AFK_TerrainFeature *features,
+    __read_only const struct AFK_TerrainTile *tiles,
+    __read_only const struct AFK_TerrainComputeUnit *units,
     unsigned int unitOffset, /* TODO turn to `unitCount' and process all */
-    __global struct AFK_TerrainTexel *jigsaw,
+    __write_only image2d_t jigsaw, /* 4 floats per texel: (colour, y displacement) */
     __global float *yLowerBounds,
     __global float *yUpperBounds)
 {
@@ -185,26 +174,19 @@ __kernel void makeTerrain(
     const int zdim = get_global_id(1);
 
     /* Work out where we are inside the inputs, and inside
-     * the jigsaw...
+     * the jigsaw piece...
      */
-    __global const struct AFK_TerrainComputeUnit *unit = units + unitOffset;
-    __global struct AFK_TerrainTexel *tt = jigsaw + unit->piece * TCOUNT * sizeof(struct AFK_TerrainTexel);
+    __read_only const struct AFK_TerrainComputeUnit *unit = units + unitOffset;
 
-    /* Here's where we are inside the jigsaw piece. */
-    const int v = (xdim * TDIM) + zdim;
-
-    /* And here's the tile co-ordinate that corresponds to my
-     * assigned texel.
+    /* Initialise the tile co-ordinate that corresponds to my texels
      */
     float3 vl = (float3)(
-        ((float)(xdim + DIM_START)) / ((float)POINT_SUBDIVISION_FACTOR),
+        ((float)(xdim + TDIM_START)) / ((float)POINT_SUBDIVISION_FACTOR),
         0.0f,
-        ((float)(zdim + DIM_START)) / ((float)POINT_SUBDIVISION_FACTOR));
+        ((float)(zdim + TDIM_START)) / ((float)POINT_SUBDIVISION_FACTOR));
 
-    /* Initialise that jigsaw piece's colour field, which I'll
-     * be updating as I go
-     */
-    tt[v].colour = (float3)(0.0, 0.0, 0.0);
+    /* Initialise the colour of this co-ordinate */
+    float3 vc = (float3)(0.0f, 0.0f, 0.0f);
 
     /* Iterate through the terrain tiles, applying
      * each tile's modification in turn.
@@ -218,20 +200,16 @@ __kernel void makeTerrain(
         }
 
         for (unsigned int j = 0; j < tiles[i].featureCount; ++j)
-            computeTerrainFeature(&vl, &(tt[v].colour),
+            computeTerrainFeature(&vl, &vc,
                 &features[i * FEATURE_COUNT_PER_TILE + j]);
     }
 
     /* Make that colour space halfway sane */
-    tt[v].colour = normalize(vs[v].colour) - 0.4f;
+    vc = normalize(vc) - 0.4f;
 
-    /* Fill out the rest of the texel.
-     * The normal will be handled by something else ...
-     */
-    tt[v].normalX = 0.0f;
-    tt[v].normalY = 1.0f;
-    tt[v].normalZ = 0.0f;
-    tt[v].yDisp = vl.y;
+    /* Fill out the texels from my computed values. */
+    int2 jigsawCoord = unit->piece + (int2)(xdim, zdim);
+    write_image(jigsaw, jigsawCoord, (float4)(vc, vl.y));
 
     /* Now, reduce out this tile's y-bounds. */
     /* TODO: Fix this to work in the local workspace only,
@@ -251,8 +229,8 @@ __kernel void makeTerrain(
     yLowerBounds[v + 1 << (REDUCE_ORDER - 1)] = FLT_MAX;
     yUpperBounds[v + 1 << (REDUCE_ORDER - 1)] = -FLT_MAX;
     barrier(CLK_GLOBAL_MEM_FENCE);
-    yLowerBounds[v] = tt[v].yDisp;
-    yUpperBounds[v] = tt[v].yDisp;
+    yLowerBounds[v] = vl.y;
+    yUpperBounds[v] = vl.y;
 
     /* The conclusions should end up in the very first fields
      * of each.
@@ -280,8 +258,8 @@ __kernel void makeTerrain(
         for (int z = 0; z < TDIM; ++z)
         {
             int w = (xdim * TDIM) + z;
-            if (tt[w].yDisp < yLowerBounds[xdim]) yLowerBounds[xdim] = tt[w].yDisp;
-            else if (tt[w].yDisp > yUpperBounds[xdim]) yUpperBounds[xdim] = tt[w].yDisp;
+            if (vl.y < yLowerBounds[xdim]) yLowerBounds[xdim] = vl.y;
+            else if (vl.y > yUpperBounds[xdim]) yUpperBounds[xdim] = vl.y;
         }
 
         barrier(CLK_GLOBAL_MEM_FENCE);

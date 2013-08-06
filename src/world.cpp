@@ -247,7 +247,9 @@ bool AFK_World::generateClaimedWorldCell(
 
                 if (dptr)
                 {
-                    landscapeDisplayQueue.update_push(dptr);
+                    boost::shared_ptr<AFK_DISPLAYED_LANDSCAPE_QUEUE> dlq =
+                        landscapeDisplayFair.getUpdateQueue(dptr->jigsawPiece.puzzle);
+                    dlq->push(dptr);
                     tilesQueued.fetch_add(1);
                 }
             }
@@ -439,7 +441,6 @@ AFK_World::AFK_World(
         startingDetailPitch         (config->startingDetailPitch),
         detailPitch                 (config->startingDetailPitch), /* This is a starting point */
         renderDetailPitch           (config->startingDetailPitch),
-        landscapeDisplayQueue       (10000),
         maxDistance                 (_maxDistance),
         subdivisionFactor           (config->subdivisionFactor),
         minCellSize                 (config->minCellSize),
@@ -450,10 +451,20 @@ AFK_World::AFK_World(
     unsigned int tileCacheEntries = tileCacheSize / lSizes.tSize;
     unsigned int tileCacheBitness = calculateCacheBitness(tileCacheEntries);
 
+    Vec2<unsigned int> pieceSize = afk_vec2<unsigned int>(lSizes.tDim);
+    cl_image_format landscapeJigsawTexFormat;
+    landscapeJigsawTexFormat.image_channel_order        = CL_RGBA;
+    landscapeJigsawTexFormat.image_channel_data_type    = CL_FLOAT;
+
     landscapeJigsaws = new AFK_JigsawCollection(
-        ctxt, lSizes.tSize, tileCacheEntries, GL_RGBA32F, 4, clGlSharing);
-    landscapeCache = new AFK_LANDSCAPE_CACHE(
-        tileCacheBitness, 8, AFK_HashTile(), tileCacheEntries / 2, 0xfffffffdu);
+        ctxt,
+        pieceSize,
+        tileCacheEntries,
+        GL_RGBA32F,
+        landscapeJigsawTexFormat,
+        sizeof(float) * 4,
+        config->clGlSharing);
+
 
     /* TODO Right now I don't have a sensible value for the
      * world cache size, because I'm not doing any exciting
@@ -508,6 +519,9 @@ AFK_World::AFK_World(
 
     /* Initialise the landscape tile array, encapsulating
      * the basic unit of landscape drawing.
+     * TODO In order to compute correct normals, turn this
+     * into a GL_TRIANGLES_ADJACENCY with vertex dimensions
+     * more like tDim !
      */
     Vec3<float> tileVertices[lSizes.vCount];
     unsigned short tileIndices[lSizes.iCount * 3];
@@ -632,7 +646,7 @@ void AFK_World::flipRenderQueues(void)
         threadEscapes.fetch_add(1);
 
     landscapeComputeFair.flipQueues();
-    landscapeDisplayQueue.flipQueues();
+    landscapeDisplayFair.flipQueues();
 }
 
 void AFK_World::alterDetail(float adjustment)
@@ -816,43 +830,76 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     /* Now that I've set that up, make the texture that describes
      * where the tiles are in space ...
      */
-    static std::vector<Vec4<float> > coordList;
-    coordList.clear();
+    static std::vector<boost::shared_ptr<AFK_DISPLAYED_LANDSCAPE_QUEUE> > drawQueues;
+    landscapeDisplayFair.getDrawQueues(drawQueues);
 
-    AFK_DisplayedLandscapeTile *dlt;
-    unsigned int dltCount = 0;
-    while (landscapeDisplayQueue.draw_pop(dlt))
+    /* Those queues are in puzzle order. */
+    for (unsigned int puzzle = 0; puzzle < drawQueues.size(); ++puzzle)
     {
-        coordList.push_back(dlt->getCoord());
-        ++dltCount;
-        delete dlt; /* TODO do I need to do anything else with this? :P */
+        /* The first texture is the jigsaw. */
+        glActiveTexture(GL_TEXTURE0);
+        landscapeJigsaws->getPuzzle(puzzle)->bindTexture();
+
+        /* The second texture is a buffer of the jigsaw piece
+         * (u, v)s, and the third is a buffer of the cell
+         * scales and y min-maxes.
+         * TODO Wouldn't it be great if the landscape display
+         * queue naturally accumulated this for me?  And then
+         * I could maybe throw away that DisplayedLandscapeTile
+         * class entirely.
+         */
+        static std::vector<Vec2<unsigned int> > jigsawPieceUVs;
+        static std::vector<float> cellDetails;
+        AFK_DisplayedLandscapeTile *dlt;
+        while (drawQueues[puzzle].pop(dlt))
+        {
+            jigsawPieceUVs.push_back(jigsawPiece.piece);
+            cellDetails.push_back(dlt->coord.v[0]);
+            cellDetails.push_back(dlt->coord.v[1]);
+            cellDetails.push_back(dlt->coord.v[2]);
+            cellDetails.push_back(dlt->coord.v[3]);
+            cellDetails.push_back(dlt->cellBoundLower);
+            cellDetails.push_back(dlt->cellBoundUpper);
+        }
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindBuffer(GL_TEXTURE_BUFFER, landscapeJigsawPieceTBO);
+        glBufferData(
+            GL_TEXTURE_BUFFER,
+            jigsawPieceUVs.size() * sizeof(Vec2<unsigned int>),
+            &jigsawPieceUVs[0],
+            GL_STREAM_DRAW);
+        glTexBuffer(
+            GL_TEXTURE_BUFFER,
+            GL_RG16UI, /* TODO surely wrong.  Go understand texture u,v / s,t */
+            landscapeJigsawPieceTBO);
+        AFK_GLCHK("landscape jigsaw piece TBO texBuffer")
+
+        glActiveTexture(GL_TEXTURE2);
+        glBindBuffer(GL_TEXTURE_BUFFER, landscapeCellTBO);
+        glBufferData(
+            GL_TEXTURE_BUFFER,
+            cellDetails.size() * sizeof(float),
+            &cellDetails[0],
+            GL_STREAM_DRAW);
+        glTexBuffer(
+            GL_TEXTURE_BUFFER,
+            GL_RGB32F,
+            landscapeCellTBO);
+        AFK_GLCHK("landscape cell TBO texBuffer")
+
+        glDrawElementsInstanced(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0, jigsawPieceUVs.size());
+        glFlush();
+        AFK_GLCHK("landscape cell drawElementsInstanced")
+
+        /* TODO Am I doing this too early?  Is it going to
+         * end up buffering rubbish?  Will the problem go
+         * away when I sort the displayed landscape queue
+         * out to make the lists for me anyway?
+         */
+        jigsawPieceUVs.clear();
+        cellDetails.clear();
     }
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindBuffer(GL_TEXTURE_BUFFER, landscapeCellCoordTBO);
-    glBufferData(
-        GL_TEXTURE_BUFFER,
-        dltCount * sizeof(Vec4<float>),
-        &coordList[0],
-        GL_STREAM_DRAW);
-    AFK_GLCHK("landscape texture0 bufferData")
-
-    glBindTexture(GL_TEXTURE_BUFFER, landscapeCellCoordTBO);
-    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, landscapeCellCoordTBO);
-    AFK_GLCHK("landscape texture0 texBuffer")
-
-    /* TODO: Further things to buffer:
-     * - y min and max  (Expand landscapeCellCoordTBO to 2 texels per tile of GL_RGB.
-     * - normals         First texel is (x, y, z).  Second is (scale, yMin, yMax).
-     * - colours         (landscapeTileTBO will be vCount*2 texels per tile of GL_RGBA. 
-     * - y displacements  First texel is (normal x, y, z, y displacement).
-     *                    Second texel is (colour r, g, b).
-     * - index into landscapeTileTBO:  Third texture is a GL_R32I containing integer
-     * indices into the landscapeTileTBO texture buffer object.
-     * TODO Finesse: Look up the indices into the adjacent tiles in the tile TBO,
-     * so that the shader can blend between them (hopefully seamlessly).
-     */
-    glDrawElementsInstanced(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0, dltCount);
 
     glBindVertexArray(0);
 

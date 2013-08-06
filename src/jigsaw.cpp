@@ -10,11 +10,11 @@
 /* AFK_JigsawPiece implementation */
 
 AFK_JigsawPiece::AFK_JigsawPiece():
-    piece(0xffffffffu), puzzle(0xffffffffu)
+    piece(afk_vec2<unsigned int>(0xffffffffu, 0xffffffffu)), puzzle(0xffffffffu)
 {
 }
 
-AFK_JigsawPiece::AFK_JigsawPiece(unsigned int _piece, unsigned int _puzzle):
+AFK_JigsawPiece::AFK_JigsawPiece(const Vec2<unsigned int>& _piece, unsigned int _puzzle):
     piece(_piece), puzzle(_puzzle)
 {
 }
@@ -33,26 +33,30 @@ std::ostream& operator<<(std::ostream& os, const AFK_JigsawPiece& piece)
 /* AFK_Jigsaw implementation */
 AFK_Jigsaw::AFK_Jigsaw(
     cl_context ctxt,
-    unsigned int _pieceSize,
-    unsigned int _pieceCount,
-    GLenum _texFormat,
+    const AFK_Vec2<unsigned int>& _pieceSize,
+    const AFK_Vec2<unsigned int>& _jigsawSize,
+    GLenum _glTexFormat,
+    const cl_image_format& _clTexFormat,
+    size_t _texelSize,
     bool _clGlSharing,
     unsigned char *zeroMem):
         pieceSize(_pieceSize),
-        pieceCount(_pieceCount),
-        texFormat(_texFormat),
+        jigsawSize(_jigsawSize),
+        glTexFormat(_glTexFormat),
+        clTexFormat(_clTexFormat),
+        texelSize(_texelSize),
         clGlSharing(_clGlSharing)
 {
-    glGenBuffers(1, &glBuf);
-    glBindBuffer(GL_TEXTURE_BUFFER, glBuf);
-    glBufferData(GL_TEXTURE_BUFFER, pieceSize * pieceCount, zeroMem, GL_DYNAMIC_DRAW);
-    AFK_GLCHK("AFK_JigSaw bufferData")
+    glGenTextures(1, &glTex);
+    glBindTexture(GL_TEXTURE_2D, glTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, _texFormat, pieceSize.v[0] * jigsawSize.v[0], pieceSize.v[1] * jigsawSize.v[1], 0, _texFormat, GL_FLOAT, zeroMem);
+    AFK_GLCHK("AFK_JigSaw texImage2D")
 
     cl_int error;
     if (clGlSharing)
     {
-        clBuf = clCreateFromGLBuffer(
-            ctxt, CL_MEM_READ_WRITE, glBuf, &error);
+        clTex = clCreateFromGLTexture2D(
+            ctxt, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, glTex, &error);
     }
     else
     {
@@ -61,28 +65,28 @@ AFK_Jigsaw::AFK_Jigsaw(
          * I have the zeroes is because OpenGL sizes buffers like
          * that.
          */
-        clBuf = clCreateBuffer(
-            ctxt, CL_MEM_READ_WRITE, pieceSize * pieceCount, NULL, &error);
+        clTex = clCreateImage2D(
+            ctxt, CL_MEM_WRITE_ONLY, &clTexFormat, pieceSize.v[0] * jigsawSize.v[0], pieceSize.v[1] * jigsawSize.v[1], 0, zeroMem, &error);
     }
     afk_handleClError(error);
 }
 
 AFK_Jigsaw::~AFK_Jigsaw()
 {
-    clReleaseMemObject(clBuf);
-    glDeleteBuffers(1, &glBuf);
+    clReleaseMemObject(clTex);
+    glDeleteTextures(1, &glTex);
 }
 
 cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q)
 {
     if (clGlSharing)
     {
-        AFK_CLCHK(clEnqueueAcquireGLObjects(q, 1, &clBuf, 0, 0, 0))
+        AFK_CLCHK(clEnqueueAcquireGLObjects(q, 1, &clTex, 0, 0, 0))
     }
-    return &clBuf;
+    return &clTex;
 }
 
-void AFK_Jigsaw::pieceChanged(unsigned int piece)
+void AFK_Jigsaw::pieceChanged(const Vec2<unsigned int>& piece)
 {
     if (!clGlSharing) changedPieces.push_back(piece);
 }
@@ -91,7 +95,7 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
 {
     if (clGlSharing)
     {
-        AFK_CLCHK(clEnqueueReleaseGLObjects(q, 1, &clBuf, 0, 0, 0))
+        AFK_CLCHK(clEnqueueReleaseGLObjects(q, 1, &clTex, 0, 0, 0))
     }
     else
     {
@@ -100,21 +104,56 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
          * as they get reported to me, and then wait on the read-backs
          * here.  But that's harder, so I'll do it like this first
          */
-        if (changes.size() < (changedPieces.size() * pieceSize))
-            changes.resize(changedPieces.size() * pieceSize);
+        size_t pieceSizeInBytes = texelSize * pieceSize.v[0] * pieceSize.v[1];
+        size_t requiredChangedPiecesSize = (pieceSizeInBytes * changedPieces.size());
+        if (changes.size() < requiredChangedPiecesSize)
+            changes.resize(requiredChangedPiecesSize);
 
         for (unsigned int s = 0; s < changedPieces.size(); ++s)
         {
-            AFK_CLCHK(clEnqueueReadBuffer(q, clBuf, CL_TRUE, changedPieces[s] * pieceSize, pieceSize, &changes[s * pieceSize], 0, NULL, NULL))
+            size_t origin[3];
+            size_t region[3];
+
+            origin[0] = changedPieces[s].v[0] * pieceSize.v[0];
+            origin[1] = changedPieces[s].v[1] * pieceSize.v[1];
+            origin[2] = 0;
+
+            region[0] = pieceSize.v[0];
+            region[1] = pieceSize.v[1];
+            region[2] = 0;
+
+            AFK_CLCHK(clEnqueueReadImage(q, clTex, CL_TRUE, origin, region, 0, 0, &changes[s * pieceSizeInBytes], 0, NULL, NULL))
         }
     }
 }
 
 void AFK_Jigsaw::bindTexture(void)
 {
-    glBindBuffer(GL_TEXTURE_BUFFER, glBuf);
-    glBindTexture(GL_TEXTURE_BUFFER, glBuf);
-    glTexBuffer(GL_TEXTURE_BUFFER, texFormat, glBuf);
+    glBindBuffer(GL_TEXTURE_BUFFER, glTex);
+    glBindTexture(GL_TEXTURE_BUFFER, glTex);
+
+    if (!clGlSharing)
+    {
+        /* Push all the changed pieces into the GL texture. */
+        size_t pieceSizeInBytes = texelSize * pieceSize.v[0] * pieceSize.v[1];
+        for (unsigned int s = 0; s < changedPieces.size(); ++s)
+        {
+            glTexSubImage2D(
+                GL_TEXTURE_BUFFER, 0,
+                changedPieces[s].v[0] * pieceSize.v[0],
+                changedPieces[s].v[1] * pieceSize.v[1],
+                pieceSize.v[0],
+                pieceSize.v[1],
+                glTexFormat,
+                GL_FLOAT, /* TODO will I need other? */
+                &changes[s.pieceSizeInBytes]);
+        }
+
+        changedPieces.clear();
+        changes.clear();
+    }
+
+    glTexBuffer(GL_TEXTURE_BUFFER, glTexFormat, glTex);
 }
 
 
@@ -122,41 +161,40 @@ void AFK_Jigsaw::bindTexture(void)
 
 AFK_JigsawCollection::AFK_JigsawCollection(
     cl_context ctxt,
-    unsigned int _pieceSize,
+    const Vec2<unsigned int>& _pieceSize,
     unsigned int _pieceCount,
-    GLenum _texFormat,
-    unsigned int texelSize,
+    GLenum _glTexFormat,
+    const cl_image_format& _clTexFormat,
+    size_t _texelSize,
     bool _clGlSharing):
         pieceSize(_pieceSize),
         pieceCount(_pieceCount),
-        texFormat(_texFormat),
+        glTexFormat(_glTexFormat),
+        clTexFormat(_clTexFormat),
+        texelSize(_texelSize),
         clGlSharing(_clGlSharing),
         box(_pieceCount)
 {
     std::cout << "AFK_JigsawCollection: With " << std::dec << pieceCount << " pieces of size " << pieceSize << ": " << std::endl;
 
-    /* Work out the largest possible jigsaw...
-     * TODO Am I going to need to involve some of the
-     * CL parameters in this calculation, too?
+    /* TODO What I need to do here is figure out how many pieces will
+     * fit into the largest jigsaw that I can make on this hardware.
+     * Which I can do by experimentally making textures of type
+     * GL_PROXY_TEXTURE_2D, and then requesting some simple properties
+     * and checking for non-zero.
+     * However, in order to verify the rest of this stuff, for now I'm
+     * going to use the degenerate case and have only one piece per
+     * jigsaw :P
      */
-    GLint maxTextureBufferSize;
-    glGetIntegerv(GL_MAX_TEXTURE_BUFFER_SIZE, &maxTextureBufferSize);
+    Vec2<unsigned int> jigsawSize = afk_vec2<unsigned int>(1, 1);
+    unsigned int jigsawCount = pieceCount;
 
-    unsigned int texelCount = pieceSize * pieceCount / texelSize;
-    unsigned int jigsawCount = 1;
-
-    unsigned int texelCountPerJigsaw;
-    for (texelCountPerJigsaw = texelCount;
-        texelCountPerJigsaw > maxTextureBufferSize;
-        texelCountPerJigsaw = texelCountPerJigsaw / 2, jigsawCount = jigsawCount * 2);
-
-    unsigned int pieceCountPerJigsaw = texelCountPerJigsaw * texelSize / pieceSize;
-    std::cout << "AFK_JigsawCollection: Making " << jigsawCount << " jigsaws with " << pieceCountPerJigsaw << " pieces each" << std::endl;
+    std::cout << "AFK_JigsawCollection: Making " << jigsawCount << " jigsaws with " << jigsawSize << " pieces each" << std::endl;
 
     /* TODO consider making one as a spare and filling the box up
      * as an async task?
      */
-    zeroMem = new unsigned char[pieceCountPerJigsaw * pieceSize];
+    zeroMem = new unsigned char[pieceCountPerJigsaw * pieceSize.v[0] * pieceSize.v[1] * texelSize];
     memset(zeroMem, 0, pieceCountPerJigsaw * pieceSize);
 
     for (unsigned int j = 0; j < jigsawCount; ++j)
@@ -165,12 +203,15 @@ AFK_JigsawCollection::AFK_JigsawCollection(
             ctxt,
             pieceSize,
             pieceCountPerJigsaw,
-            texFormat,
+            glTexFormat,
+            clTexFormat,
+            texelSize,
             clGlSharing,
             zeroMem));
 
-        for (unsigned int p = 0; p < pieceCountPerJigsaw; ++p)
-            box.push(AFK_JigsawPiece(p, j));
+        for (unsigned int x = 0; x < jigsawSize.v[0]; ++x)
+            for (unsigned int y = 0; y < jigsawSize.v[1]; ++y)
+                box.push(AFK_JigsawPiece(afk_vec2<unsigned int>(x, y), j));
     }
 }
 

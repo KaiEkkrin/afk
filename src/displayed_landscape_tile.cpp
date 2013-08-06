@@ -11,7 +11,10 @@ AFK_DisplayedLandscapeTile::AFK_DisplayedLandscapeTile(
     const AFK_JigsawPiece& _jigsawPiece,
     float _cellBoundLower,
     float _cellBoundUpper):
-        coord(_coord), jigsawPiece(_jigsawPiece), cellBoundLower(_cellBoundLower), cellBoundUpper(_cellBoundUpper)
+        coord(_coord),
+        jigsawPiece(_jigsawPiece),
+        cellBoundLower(_cellBoundLower),
+        cellBoundUpper(_cellBoundUpper)
 {
 }
 

@@ -136,8 +136,6 @@ protected:
     std::vector<AFK_TerrainTile> t;
 
 public:
-    AFK_TerrainList(const AFK_LandscapeSizes& lSizes);
-
     /* Adds new TerrainTiles and TerrainFeatures to the list.
      * Make sure they're in order!  This function preserves the
      * mutual ordering.

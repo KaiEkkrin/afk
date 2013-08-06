@@ -14,6 +14,7 @@ public:
     const unsigned int vDim; /* Number of vertices along an edge in the base tile */
     const unsigned int iDim; /* Number of triangles along an edge */
     const unsigned int tDim; /* Number of vertices along an edge in a jigsaw piece */
+    const int          tDimStart; /* What index to start the jigsaw pieces at in relation to the tile */
     const unsigned int vCount; /* Total number of vertex structures in the instanced base tile */
     const unsigned int iCount; /* Total number of index structures */
     const unsigned int tCount; /* Total number of vertex structures in a jigsaw piece */
