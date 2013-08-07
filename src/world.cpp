@@ -128,7 +128,7 @@ void AFK_World::generateLandscapeArtwork(
     /* Now, I need to enqueue the terrain list and the
      * jigsaw piece into one of the rides at the compute fair...
      */
-    terrainComputeFair.getUpdateQueue(jigsawPiece, lSizes).extend(
+    landscapeComputeFair.getUpdateQueue(jigsawPiece.puzzle)->extend(
         terrainList, jigsawPiece.piece);
 
     tilesComputed.fetch_add(1);
@@ -451,7 +451,7 @@ AFK_World::AFK_World(
     unsigned int tileCacheEntries = tileCacheSize / lSizes.tSize;
     unsigned int tileCacheBitness = calculateCacheBitness(tileCacheEntries);
 
-    Vec2<unsigned int> pieceSize = afk_vec2<unsigned int>(lSizes.tDim);
+    Vec2<unsigned int> pieceSize = afk_vec2<unsigned int>(lSizes.tDim, lSizes.tDim);
     cl_image_format landscapeJigsawTexFormat;
     landscapeJigsawTexFormat.image_channel_order        = CL_RGBA;
     landscapeJigsawTexFormat.image_channel_data_type    = CL_FLOAT;
@@ -464,6 +464,9 @@ AFK_World::AFK_World(
         landscapeJigsawTexFormat,
         sizeof(float) * 4,
         config->clGlSharing);
+
+    landscapeCache = new AFK_LANDSCAPE_CACHE(
+        tileCacheBitness, 8, AFK_HashTile(), tileCacheEntries / 2, 0xffffffffu);
 
 
     /* TODO Right now I don't have a sensible value for the
@@ -493,7 +496,7 @@ AFK_World::AFK_World(
             100, config->concurrency);
 
     /* Set up the shapes.  TODO more than one ?! */
-    shape = new AFK_ShapeChevron(shapeVsQueue, shapeIsQueue, concurrency);
+    shape = new AFK_ShapeChevron(shapeVsQueue, shapeIsQueue, config->concurrency);
 
     /* Set up the landscape shader. */
     landscape_shaderProgram = new AFK_ShaderProgram();
@@ -517,67 +520,17 @@ AFK_World::AFK_World(
     entity_shaderLight = new AFK_ShaderLight(entity_shaderProgram->program);
     entity_projectionTransformLocation = glGetUniformLocation(entity_shaderProgram->program, "ProjectionTransform");
 
-    /* Initialise the landscape tile array, encapsulating
-     * the basic unit of landscape drawing.
-     * TODO In order to compute correct normals, turn this
-     * into a GL_TRIANGLES_ADJACENCY with vertex dimensions
-     * more like tDim !
-     */
-#error The below isn't going to work until I also include the (jigsaw) texture coords (piece-relative).
-    Vec3<float> tileVertices[lSizes.vCount];
-    unsigned short tileIndices[lSizes.iCount * 3];
-
-    for (unsigned int x = 0; x < lSizes.vDim; ++x)
-    {
-        for (unsigned int z = 0; z < lSizes.vDim; ++z)
-        {
-            tileVertices[x * lSizes.vDim + z] = afk_vec3<float>(
-                (float)x / (float)lSizes.pointSubdivisionFactor,
-                0.0f,
-                (float)z / (float)lSizes.pointSubdivisionFactor);
-        }
-    }
-
-    unsigned int i = 0;
-    for (unsigned short x = 0; x < lSizes.pointSubdivisionFactor; ++x)
-    {
-        for (unsigned short z = 0; z < lSizes.pointSubdivisionFactor; ++z)
-        {
-            unsigned short i_r1c1 = x * lSizes.vDim + z;
-            unsigned short i_r2c1 = (x + 1) * lSizes.vDim + z;
-            unsigned short i_r1c2 = x * lSizes.vDim + (z + 1);
-            unsigned short i_r2c2 = (x + 1) * lSizes.vDim + (z + 1);
-
-            tileIndices[i++] = i_r1c1;
-            tileIndices[i++] = i_r1c2;
-            tileIndices[i++] = i_r2c1;
-
-            tileIndices[i++] = i_r1c2;
-            tileIndices[i++] = i_r2c2;
-            tileIndices[i++] = i_r2c1;
-        }
-    }
-
     glGenVertexArrays(1, &landscapeTileArray);
     glBindVertexArray(landscapeTileArray);
-    
-    glGenBuffers(2, &landscapeTileBufs[0]);
+    landscapeTerrainBase = new AFK_TerrainBaseTile(lSizes);
+    landscapeTerrainBase->initGL();
 
-    glBindBuffer(GL_ARRAY_BUFFER, landscapeTileBufs[0]);
-    glBufferData(GL_ARRAY_BUFFER, lSizes.vSize, tileVertices, GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, landscapeTileBufs[1]);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, lSizes.iSize, tileIndices, GL_STATIC_DRAW);
-
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vec3<float>), 0);
-
-    /* This one will be filled in dynamically */
-    glGenBuffers(1, &landscapeCellCoordTBO);
+    glGenBuffers(1, &landscapeJigsawPieceTBO);
+    glGenBuffers(1, &landscapeCellTBO);
 
     /* Done. */
     glBindVertexArray(0);
-    glDisableVertexAttribArray(0);
+    landscapeTerrainBase->teardownGL();
 
     /* Initialise the statistics. */
     cellsInvisible.store(0);
@@ -601,8 +554,7 @@ AFK_World::~AFK_World()
     delete worldCache;
     delete shape;
 
-    delete landscapeVsQueue;    
-    delete landscapeIsQueue;
+    delete landscapeJigsaws;
     delete shapeVsQueue;
     delete shapeIsQueue;
 
@@ -612,8 +564,10 @@ AFK_World::~AFK_World()
     delete entity_shaderProgram;
     delete entity_shaderLight;
 
+    delete landscapeTerrainBase;
     glDeleteVertexArrays(1, &landscapeTileArray);
-    glDeleteBuffers(2, &landscapeTileBufs[0]);
+    glDeleteBuffers(1, &landscapeJigsawPieceTBO);
+    glDeleteBuffers(1, &landscapeCellTBO);
 }
 
 void AFK_World::enqueueSubcells(
@@ -728,7 +682,7 @@ void AFK_World::doComputeTasks(void)
      * same jigsaw:
      */
     static std::vector<boost::shared_ptr<AFK_TerrainComputeQueue> > drawQueues;
-    terrainComputeFair.getDrawQueues(drawQueues);
+    landscapeComputeFair.getDrawQueues(drawQueues);
 
     cl_context ctxt;
     cl_command_queue q;
@@ -756,6 +710,8 @@ void AFK_World::doComputeTasks(void)
          */
         for (unsigned int u = 0; u < (*drawQIt)->getUnitCount(); ++u)
         {
+            cl_int error;
+
             /* TODO The scratch for these should be done in local
              * memory (which I still need to learn how to use).
              * The y lower and upper bounds ought to come out in
@@ -763,15 +719,17 @@ void AFK_World::doComputeTasks(void)
              */
             cl_mem yLowerBoundsMem = clCreateBuffer(
                 ctxt, CL_MEM_READ_WRITE,
-                (1 << lSizes.reduceOrder) * sizeof(float),
+                (1 << lSizes.getReduceOrder()) * sizeof(float),
                 NULL,
                 &error);
+            afk_handleClError(error);
 
             cl_mem yUpperBoundsMem = clCreateBuffer(
                 ctxt, CL_MEM_READ_WRITE,
-                (1 << lSizes.reduceOrder) * sizeof(float),
+                (1 << lSizes.getReduceOrder()) * sizeof(float),
                 NULL,
                 &error);
+            afk_handleClError(error);
 
             AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 0, sizeof(cl_mem), &terrainBufs[0]))
             AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 1, sizeof(cl_mem), &terrainBufs[1]))
@@ -804,16 +762,16 @@ void AFK_World::doComputeTasks(void)
             jigsaw->pieceChanged((*drawQIt)->getUnit(u).piece);
         }
 
+        for (unsigned int i = 0; i < 3; ++i)
+        {
+            AFK_CLCHK(clReleaseMemObject(terrainBufs[i]))
+        }
+
         jigsaw->releaseFromCl(q);
         ++puzzle;
     }
 
-    for (unsigned int i = 0; i < 3; ++i)
-    {
-        AFK_CLCHK(clReleaseMemObject(terrainBufs[i]))
-    }
-
-    afk_core.computer->unlock(ctxt, q);
+    afk_core.computer->unlock();
     drawQueues.clear();
 }
 
@@ -852,9 +810,9 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
         static std::vector<Vec2<unsigned int> > jigsawPieceUVs;
         static std::vector<float> cellDetails;
         AFK_DisplayedLandscapeTile *dlt;
-        while (drawQueues[puzzle].pop(dlt))
+        while (drawQueues[puzzle]->pop(dlt))
         {
-            jigsawPieceUVs.push_back(jigsawPiece.piece);
+            jigsawPieceUVs.push_back(dlt->jigsawPiece.piece);
             cellDetails.push_back(dlt->coord.v[0]);
             cellDetails.push_back(dlt->coord.v[1]);
             cellDetails.push_back(dlt->coord.v[2]);

@@ -47,7 +47,8 @@ protected:
      * the terrain here and the terrain at all the ancestral tiles.)
      */
     bool haveTerrainDescriptor;
-    std::vector<boost::shared_ptr<AFK_TerrainTile> > terrainDescriptor;
+    std::vector<AFK_TerrainFeature> terrainFeatures; /* landscapeSizes->featureCountPerTile features per tile, in order */
+    std::vector<AFK_TerrainTile> terrainTiles;
 
     /* The jigsaw piece for this tile, or the null piece if it hasn't
      * been assigned yet.

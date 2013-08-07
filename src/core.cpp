@@ -48,10 +48,9 @@ void afk_displayLoop(void)
      * into each thread, hah!
      */
     afk_core.computer = new AFK_Computer();
-    std::string clProgramsDirString(afk_core.config->clProgramsDir);
-    afk_core.computer->loadPrograms(clProgramsDirString);
-    if (!afk_core.computer->findKernel("vs2SmoothTriangles", afk_core.v2stKernel))
-        throw AFK_Exception("Cannot find vs2SmoothTriangles test kernel");
+    afk_core.computer->loadPrograms(afk_core.config);
+    if (!afk_core.computer->findKernel("terrain", afk_core.terrainKernel))
+        throw AFK_Exception("Cannot find terrain kernel");
 
 #if CL_TEST
     afk_testComputeLong(afk_core.computer, afk_core.config->concurrency);
@@ -366,22 +365,6 @@ void AFK_Core::configure(int *argcp, char **argv)
 void AFK_Core::initGraphics(void)
 {
     window = new AFK_WindowGlx(config->windowWidth, config->windowHeight);
-}
-
-void AFK_Core::initCompute(void)
-{
-#if 0
-    computer = new AFK_Computer();
-    std::string clProgramsDirStr(config->clProgramsDir);
-    computer->loadPrograms(clProgramsDirStr);
-#endif
-}
-
-void AFK_Core::testCompute(void)
-{
-#if 0
-    afk_testComputeLong(computer, config->concurrency);
-#endif
 }
 
 void AFK_Core::loop(void)

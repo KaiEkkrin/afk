@@ -38,7 +38,7 @@ Vec3<float> AFK_TerrainTile::getTileCoord(void) const
 }
 
 void AFK_TerrainTile::make(
-    AFK_TerrainFeature *features,
+    std::vector<AFK_TerrainFeature>& features,
     const Vec3<float>& _tileCoord,
     const AFK_LandscapeSizes& lSizes,
     unsigned int subdivisionFactor,
@@ -112,8 +112,9 @@ void AFK_TerrainTile::make(
         /* For now, I'm going to include one spike per tile,
          * and make the others humps.
          */
-        features[i] = AFK_TerrainFeature(
+        AFK_TerrainFeature feature(
             tint, scale, location, i == 0 ? AFK_TERRAIN_SPIKE : AFK_TERRAIN_HUMP);
+        features.push_back(feature);
     }
 } 
 
@@ -133,6 +134,11 @@ void AFK_TerrainList::extend(const std::vector<AFK_TerrainFeature>& features, co
 
     t.resize(t.size() + tiles.size());
     std::copy(tiles.rbegin(), tiles.rend(), t.rbegin());
+}
+
+void AFK_TerrainList::extend(const AFK_TerrainList& list)
+{
+    extend(list.f, list.t);
 }
 
 unsigned int AFK_TerrainList::tileCount(void) const

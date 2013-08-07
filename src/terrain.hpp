@@ -107,9 +107,7 @@ public:
      * of the RNG.
      */
     void make(
-        struct AFK_TerrainFeature *features, /* Must have enough slots for this tile.
-                                              * We will expect `featureCountPerTile' slots
-                                              * (see AFK_LandscapeSizes) */
+        std::vector<AFK_TerrainFeature>& features, /* We will append features to this */
         const Vec3<float>& _tileCoord,
         const AFK_LandscapeSizes &lSizes,
         unsigned int subdivisionFactor,
@@ -141,6 +139,7 @@ public:
      * mutual ordering.
      */
     void extend(const std::vector<AFK_TerrainFeature>& features, const std::vector<AFK_TerrainTile>& tiles);
+    void extend(const AFK_TerrainList& list);
 
     unsigned int tileCount(void) const;
 };

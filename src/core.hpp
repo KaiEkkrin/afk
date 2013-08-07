@@ -71,8 +71,7 @@ public:
     AFK_Computer        *computer;
     AFK_Window          *window;
 
-    /* TODO This is for testing compute in the display thread. */
-    cl_kernel v2stKernel;
+    cl_kernel           terrainKernel;
 
     /* The random number generator.
      * TODO: The re-seeding process is serial, and I
@@ -149,8 +148,6 @@ public:
      */
     void configure(int *argcp, char **argv);
     void initGraphics(void);
-    void initCompute(void);
-    void testCompute(void); /* test mode only */
     
     void loop(void);
 

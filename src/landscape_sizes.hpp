@@ -9,6 +9,9 @@
  */
 class AFK_LandscapeSizes
 {
+protected:
+    unsigned int reduceOrder; /* 1<<reduceOrder is the power of two above tDim*tDim */
+
 public:
     const unsigned int pointSubdivisionFactor;
     const unsigned int vDim; /* Number of vertices along an edge in the base tile */
@@ -22,9 +25,10 @@ public:
     const unsigned int iSize; /* Size of index array in bytes */
     const unsigned int tSize; /* Size of a jigsaw piece in bytes */
     const unsigned int featureCountPerTile; /* Number of terrain features per tile */
-    const unsigned int reduceOrder; /* 1<<reduceOrder is the power of two above tDim*tDim */
 
     AFK_LandscapeSizes(unsigned int pointSubdivisionFactor);
+
+    unsigned int getReduceOrder(void) const;
 };
 
 #endif /* _AFK_LANDSCAPE_SIZES_H_ */

@@ -20,6 +20,15 @@ class Vec2
 public:
     F v[2];
 
+    bool operator==(const Vec2<F>& p) const
+    {
+        return v[0] == p.v[0] && v[1] == p.v[1];
+    }
+
+    bool operator!=(const Vec2<F>& p) const
+    {
+        return v[0] != p.v[0] || v[1] != p.v[1];
+    }
 };
 
 template<typename F>

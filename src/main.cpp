@@ -69,14 +69,6 @@ int main(int argc, char **argv)
         std::cout << "AFK initalising graphics" << std::endl;
         afk_core.initGraphics();
 
-#if 0
-        std::cout << "AFK initialising compute" << std::endl;
-        afk_core.initCompute();
-#if TEST_CL
-        afk_core.testCompute();
-#endif
-#endif
-
         std::cout << "AFK starting loop" << std::endl;
         afk_core.loop();
     }

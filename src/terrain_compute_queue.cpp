@@ -2,6 +2,7 @@
 
 #include "afk.hpp"
 
+#include "computer.hpp"
 #include "terrain_compute_queue.hpp"
 
 
@@ -25,21 +26,21 @@ void AFK_TerrainComputeQueue::extend(const AFK_TerrainList& list, const Vec2<uns
     boost::unique_lock<boost::mutex> lock(mut);
 
     AFK_TerrainComputeUnit newUnit(
-        t.size(),
-        list.t.size(),
+        AFK_TerrainList::tileCount(),
+        list.tileCount(),
         piece);
-    AFK_TerrainList::extend(list.f, list.t);
+    AFK_TerrainList::extend(list);
     units.push_back(newUnit);
 }
 
-unsigned int AFK_TerrainComputeQueue::getUnitCount(void) const
+unsigned int AFK_TerrainComputeQueue::getUnitCount(void)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
     return units.size();
 }
 
-AFK_TerrainComputeUnit AFK_TerrainComputeQueue::getUnit(unsigned int unitIndex) const
+AFK_TerrainComputeUnit AFK_TerrainComputeQueue::getUnit(unsigned int unitIndex)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
@@ -74,7 +75,7 @@ void AFK_TerrainComputeQueue::copyToClBuffers(cl_context ctxt, cl_mem *mem)
     afk_handleClError(error);
 }
 
-void AFK_LandscapeQueue::clear(void)
+void AFK_TerrainComputeQueue::clear(void)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 

@@ -31,21 +31,9 @@ public:
 
     AFK_DisplayedLandscapeTile(
         const Vec4<float>& _coord,
-        const AFK_JigsawPiece& _jigsawPiece;
+        const AFK_JigsawPiece& _jigsawPiece,
         float _cellBoundLower,
         float _cellBoundUpper);
-
-    /* The world display step initialises this object with OpenGL
-     * (if necessary) by calling this.
-     * Calling it again doesn't do anything bad.
-     */
-    void initGL(void);
-
-    /* CL-at-start-of-frame: runs this tile's compute tasks. */
-    /* TODO REMOVEME -- goes in computed_landscape_tile instead */
-    void compute(
-        const AFK_LandscapeSizes& lSizes,
-        AFK_JigsawCollection *jigsaws);
 };
 
 #endif /* _AFK_DISPLAYED_LANDSCAPE_TILE_H_ */

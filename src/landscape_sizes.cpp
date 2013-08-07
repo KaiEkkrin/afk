@@ -18,9 +18,13 @@ AFK_LandscapeSizes::AFK_LandscapeSizes(unsigned int pointSubdivisionFactor):
     vSize(SQUARE(pointSubdivisionFactor + 1) * sizeof(Vec3<float>)),
     iSize(SQUARE(pointSubdivisionFactor) * 2 * 3 * sizeof(unsigned short)),
     tSize(SQUARE(pointSubdivisionFactor + 3) * 2 * sizeof(Vec4<float>)), /* normal + y disp., colour */
-
     featureCountPerTile(SQUARE(pointSubdivisionFactor / 2)) /* this seems about right */
 {
     for (reduceOrder = 1; (1u << reduceOrder) < SQUARE(tDim); ++reduceOrder);
+}
+
+unsigned int AFK_LandscapeSizes::getReduceOrder(void) const
+{
+    return reduceOrder;
 }
 

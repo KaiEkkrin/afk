@@ -18,7 +18,7 @@
 AFK_LandscapeTile::AFK_LandscapeTile():
     AFK_Claimable(),
     haveTerrainDescriptor(false),
-    jigsaws(NULL);
+    jigsaws(NULL),
     yBoundLower(FLT_MAX),
     yBoundUpper(-FLT_MAX)
 {
@@ -51,18 +51,19 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
 
         /* I'm going to make 5 terrain tiles. */
         AFK_Tile descriptorTiles[5];
-        terrainDescriptor.reserve(5);
         tile.enumerateDescriptorTiles(&descriptorTiles[0], 5, subdivisionFactor);
 
         for (unsigned int i = 0; i < 5; ++i)
         {
             rng.seed(descriptorTiles[i].rngSeed());
-            boost::shared_ptr<AFK_TerrainTile> t(new AFK_TerrainTile());
             Vec3<float> tileCoord = descriptorTiles[i].toWorldSpace(minCellSize);
-            t->make(tileCoord,
+            AFK_TerrainTile t;
+            t.make(
+                terrainFeatures,
+                tileCoord,
                 pointSubdivisionFactor * (descriptorTiles[i].coord.v[2] / tile.coord.v[2]),
                 subdivisionFactor, minCellSize, rng, forcedTint);
-            terrainDescriptor.push_back(t);
+            terrainTiles.push_back(t);
         }
 
         haveTerrainDescriptor = true;
@@ -78,11 +79,7 @@ void AFK_LandscapeTile::buildTerrainList(
     const AFK_LANDSCAPE_CACHE *cache) const
 {
     /* Add the local terrain tiles to the list. */
-    for (std::vector<boost::shared_ptr<AFK_TerrainTile> >::const_iterator it = terrainDescriptor.begin();
-        it != terrainDescriptor.end(); ++it)
-    {
-        list.add(*it);
-    }
+    list.extend(terrainFeatures, terrainTiles);
 
     /* If this isn't the top level cell... */
     if (tile.coord.v[2] < maxDistance)

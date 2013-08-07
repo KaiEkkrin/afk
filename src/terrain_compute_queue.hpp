@@ -30,12 +30,11 @@
 
 class AFK_TerrainComputeUnit
 {
-protected:
+public:
     unsigned int tileOffset;
     unsigned int tileCount;
     Vec2<unsigned int> piece;
 
-public:
     AFK_TerrainComputeUnit(
         unsigned int _tileOffset,
         unsigned int _tileCount,
@@ -75,8 +74,8 @@ public:
      */
     void copyToClBuffers(cl_context ctxt, cl_mem *mem);
 
-    unsigned int getUnitCount(void) const;
-    AFK_TerrainComputeUnit getUnit(unsigned int unitIndex) const;
+    unsigned int getUnitCount(void);
+    AFK_TerrainComputeUnit getUnit(unsigned int unitIndex);
 
     /* Clears everything out ready for the next evaluation phase.
      * Make sure the CL tasks are finished first! :P

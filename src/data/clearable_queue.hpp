@@ -16,17 +16,17 @@
 class AFK_ClearableQueueNotEmptyException: public std::exception {};
 
 template<typename T, size_t size>
-class AFK_ClearableQueue<T>: public boost::lockfree::queue<T>
+class AFK_ClearableQueue: public boost::lockfree::queue<T>
 {
 public:
-    AFK_ClearableQueue<T>(): boost::lockfree::queue<T>(size) {}
+    AFK_ClearableQueue(): boost::lockfree::queue<T>(size) {}
 
     void clear(void)
     {
         /* Because of the queue semantics, if the caller has
          * used the contents, it should be empty already
          */
-        if (!empty()) throw AFK_ClearableQueueNotEmptyException();
+        if (!boost::lockfree::queue<T>::empty()) throw AFK_ClearableQueueNotEmptyException();
     }
 };
 

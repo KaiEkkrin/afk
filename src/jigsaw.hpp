@@ -32,8 +32,8 @@
 class AFK_JigsawPiece
 {
 public:
-    const Vec2<unsigned int> piece;   /* u, v within the identified jigsaw texture */
-    const unsigned int puzzle;  /* which jigsaw buffer */
+    Vec2<unsigned int> piece;   /* u, v within the identified jigsaw texture */
+    unsigned int puzzle;  /* which jigsaw buffer */
 
     /* This constructor makes the "null" jigsaw piece, which isn't in
      * any puzzle.  Compare against this to decide if a piece has
@@ -44,6 +44,7 @@ public:
     AFK_JigsawPiece(const Vec2<unsigned int>& _piece, unsigned int _puzzle);
 
     bool operator==(const AFK_JigsawPiece& other) const;
+    bool operator!=(const AFK_JigsawPiece& other) const;
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_JigsawPiece& piece);
 };
@@ -131,7 +132,7 @@ public:
         unsigned int _pieceCount,
         GLenum _glTexFormat,
         const cl_image_format& _clTexFormat,
-        size_t texelSize, /* Yes I could derive this from _texFormat but only with a huge switch block */
+        size_t _texelSize, /* Yes I could derive this from _texFormat but only with a huge switch block */
         bool _clGlSharing);
     virtual ~AFK_JigsawCollection();
 

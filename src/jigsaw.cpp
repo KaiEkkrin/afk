@@ -1,5 +1,6 @@
 /* AFK (c) Alex Holloway 2013 */
 
+#include "computer.hpp"
 #include "display.hpp"
 #include "exception.hpp"
 #include "jigsaw.hpp"
@@ -24,6 +25,11 @@ bool AFK_JigsawPiece::operator==(const AFK_JigsawPiece& other) const
     return (piece == other.piece && puzzle == other.puzzle);
 }
 
+bool AFK_JigsawPiece::operator!=(const AFK_JigsawPiece& other) const
+{
+    return (piece != other.piece || puzzle != other.puzzle);
+}
+
 std::ostream& operator<<(std::ostream& os, const AFK_JigsawPiece& piece)
 {
     return os << "JigsawPiece(piece=" << std::dec << piece.piece << ", puzzle=" << piece.puzzle << ")";
@@ -33,8 +39,8 @@ std::ostream& operator<<(std::ostream& os, const AFK_JigsawPiece& piece)
 /* AFK_Jigsaw implementation */
 AFK_Jigsaw::AFK_Jigsaw(
     cl_context ctxt,
-    const AFK_Vec2<unsigned int>& _pieceSize,
-    const AFK_Vec2<unsigned int>& _jigsawSize,
+    const Vec2<unsigned int>& _pieceSize,
+    const Vec2<unsigned int>& _jigsawSize,
     GLenum _glTexFormat,
     const cl_image_format& _clTexFormat,
     size_t _texelSize,
@@ -49,24 +55,41 @@ AFK_Jigsaw::AFK_Jigsaw(
 {
     glGenTextures(1, &glTex);
     glBindTexture(GL_TEXTURE_2D, glTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, _texFormat, pieceSize.v[0] * jigsawSize.v[0], pieceSize.v[1] * jigsawSize.v[1], 0, _texFormat, GL_FLOAT, zeroMem);
+    glTexImage2D(GL_TEXTURE_2D, 0, _glTexFormat, pieceSize.v[0] * jigsawSize.v[0], pieceSize.v[1] * jigsawSize.v[1], 0, _glTexFormat, GL_FLOAT, zeroMem);
     AFK_GLCHK("AFK_JigSaw texImage2D")
 
     cl_int error;
     if (clGlSharing)
     {
-        clTex = clCreateFromGLTexture2D(
-            ctxt, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, glTex, &error);
+        clTex = clCreateFromGLTexture(
+            ctxt,
+            CL_MEM_WRITE_ONLY, /* TODO Ooh!  Look at the docs for this function: will it turn out I can read/write the same texture in one compute kernel after all? */
+            GL_TEXTURE_2D,
+            0,
+            glTex,
+            &error);
     }
     else
     {
+        cl_image_desc imageDesc;
+        memset(&imageDesc, 0, sizeof(cl_image_desc));
+        imageDesc.image_type        = CL_MEM_OBJECT_IMAGE2D;
+        imageDesc.image_width       = pieceSize.v[0] * jigsawSize.v[0];
+        imageDesc.image_height      = pieceSize.v[1] * jigsawSize.v[1];
+        imageDesc.image_row_pitch   = imageDesc.image_width * _texelSize;
+
         /* I don't bother initialising this.  It's supposed to be
          * initialised on first compute anyway -- the only reason
          * I have the zeroes is because OpenGL sizes buffers like
          * that.
          */
-        clTex = clCreateImage2D(
-            ctxt, CL_MEM_WRITE_ONLY, &clTexFormat, pieceSize.v[0] * jigsawSize.v[0], pieceSize.v[1] * jigsawSize.v[1], 0, zeroMem, &error);
+        clTex = clCreateImage(
+            ctxt,
+            CL_MEM_WRITE_ONLY, /* TODO As above! */
+            &clTexFormat,
+            &imageDesc,
+            NULL,
+            &error);
     }
     afk_handleClError(error);
 }
@@ -146,7 +169,7 @@ void AFK_Jigsaw::bindTexture(void)
                 pieceSize.v[1],
                 glTexFormat,
                 GL_FLOAT, /* TODO will I need other? */
-                &changes[s.pieceSizeInBytes]);
+                &changes[s * pieceSizeInBytes]);
         }
 
         changedPieces.clear();
@@ -186,6 +209,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
      * going to use the degenerate case and have only one piece per
      * jigsaw :P
      */
+    unsigned int pieceCountPerJigsaw = 1;
     Vec2<unsigned int> jigsawSize = afk_vec2<unsigned int>(1, 1);
     unsigned int jigsawCount = pieceCount;
 
@@ -194,15 +218,16 @@ AFK_JigsawCollection::AFK_JigsawCollection(
     /* TODO consider making one as a spare and filling the box up
      * as an async task?
      */
-    zeroMem = new unsigned char[pieceCountPerJigsaw * pieceSize.v[0] * pieceSize.v[1] * texelSize];
-    memset(zeroMem, 0, pieceCountPerJigsaw * pieceSize);
+    size_t zeroMemSize = texelSize * pieceSize.v[0] * pieceSize.v[1] * pieceCountPerJigsaw;
+    zeroMem = new unsigned char[zeroMemSize];
+    memset(zeroMem, 0, zeroMemSize);
 
     for (unsigned int j = 0; j < jigsawCount; ++j)
     {
         puzzles.push_back(new AFK_Jigsaw(
             ctxt,
             pieceSize,
-            pieceCountPerJigsaw,
+            jigsawSize,
             glTexFormat,
             clTexFormat,
             texelSize,
@@ -234,6 +259,8 @@ AFK_JigsawPiece AFK_JigsawCollection::grab(void)
         /* TODO Add another puzzle to the collection. */
         throw AFK_Exception("Ran out of pieces");
     }
+
+    return piece;
 }
 
 void AFK_JigsawCollection::replace(AFK_JigsawPiece piece)

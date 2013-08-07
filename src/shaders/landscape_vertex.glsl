@@ -6,7 +6,7 @@
 
 #version 330
 
-layout (location = 0) in vec4 Position;
+layout (location = 0) in vec3 Position;
 layout (location = 1) in vec2 TexCoord;
 
 // This is the jigsaw.  It's a float4: (3 colours, y displacement).

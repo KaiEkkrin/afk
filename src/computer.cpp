@@ -10,6 +10,7 @@
 #include "computer.hpp"
 #include "exception.hpp"
 #include "file/readfile.hpp"
+#include "landscape_sizes.hpp"
 
 
 /* The set of known programs, just like the shaders doodah. */
@@ -219,7 +220,7 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
     else return false;
 }
 
-void AFK_Computer::loadProgramFromFile(struct AFK_ClProgram *p)
+void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClProgram *p)
 {
     char *source;
     size_t sourceLength;
@@ -243,7 +244,7 @@ void AFK_Computer::loadProgramFromFile(struct AFK_ClProgram *p)
         args << "-D TDIM="                      << lSizes.tDim                   << " ";
         args << "-D TDIMSTART="                 << lSizes.tDimStart              << " ";
         args << "-D FEATURE_COUNT_PER_TILE="    << lSizes.featureCountPerTile    << " ";
-        args << "-D REDUCE_ORDER="              << lSizes.reduceOrder            << " ";
+        args << "-D REDUCE_ORDER="              << lSizes.getReduceOrder()       << " ";
     }
 
     std::string argsStr = args.str();
@@ -301,18 +302,18 @@ AFK_Computer::~AFK_Computer()
     }
 }
 
-void AFK_Computer::loadPrograms(const std::string& programsDir)
+void AFK_Computer::loadPrograms(const AFK_Config *config)
 {
     cl_int error;
     std::ostringstream errStream;
 
     /* Swap to the right directory. */
-    if (!afk_pushDir(programsDir, errStream))
+    if (!afk_pushDir(config->clProgramsDir, errStream))
         throw AFK_Exception("AFK_Computer: Unable to switch to programs dir: " + errStream.str());
 
     /* Load all the programs I know about. */
     for (unsigned int i = 0; programs[i].filename.size() != 0; ++i)
-        loadProgramFromFile(&programs[i]);
+        loadProgramFromFile(config, &programs[i]);
 
     /* ...and all the kernels... */
     for (unsigned int i = 0; kernels[i].kernelName.size() != 0; ++i)

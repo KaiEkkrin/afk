@@ -16,7 +16,6 @@
 #include "async/work_queue.hpp"
 #include "camera.hpp"
 #include "cell.hpp"
-#include "computed_landscape_tile.hpp"
 #include "config.hpp"
 #include "data/clearable_queue.hpp"
 #include "data/evictable_cache.hpp"
@@ -29,6 +28,7 @@
 #include "landscape_tile.hpp"
 #include "shader.hpp"
 #include "shape.hpp"
+#include "terrain_base_tile.hpp"
 #include "terrain_compute_queue.hpp"
 #include "tile.hpp"
 #include "world_cell.hpp"
@@ -151,20 +151,18 @@ protected:
     AFK_LANDSCAPE_CACHE *landscapeCache;
 
     /* The terrain computation fairground.  Yeah, yeah. */
-    AFK_Fair<AFK_TerrainComputeQueue> terrainComputeFair;
+    AFK_Fair<AFK_TerrainComputeQueue> landscapeComputeFair;
 
 #define AFK_DISPLAYED_LANDSCAPE_QUEUE AFK_ClearableQueue<AFK_DisplayedLandscapeTile*, 100> /* note trailing space */  
     /* The landscape render queue.
      * These are transient objects -- delete them after
-     * rendering.
-     */
+     * rendering.     */
     AFK_Fair<AFK_DISPLAYED_LANDSCAPE_QUEUE> landscapeDisplayFair;
 
     /* The basic landscape tile geometry. */
     GLuint landscapeTileArray;
-    GLuint landscapeTileBufs[2];
+    AFK_TerrainBaseTile *landscapeTerrainBase;
 
-    /* The texture buffers used to describe the landscape */
     GLuint landscapeJigsawPieceTBO;
     GLuint landscapeCellTBO;
 
@@ -218,13 +216,6 @@ public:
      */
     const unsigned int subdivisionFactor;
 
-    /* The number of rendered points each cell edge is
-     * subdivided into.
-     * With cubic cells, (pointSubdivisionFactor**2) is the
-     * number of points per cell.
-     */
-    const unsigned int pointSubdivisionFactor;
-
     /* The size of the smallest cell. */
     const float minCellSize;
 
@@ -234,6 +225,7 @@ public:
 
     AFK_World(
         const AFK_Config *config,
+        float _maxDistance,
         unsigned int worldCacheSize, /* in bytes */
         unsigned int tileCacheSize, /* also in bytes */
         unsigned int maxShapeSize, /* likewise */

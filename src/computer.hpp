@@ -9,6 +9,7 @@
 
 #include <boost/thread/mutex.hpp>
 
+#include "config.hpp"
 #include "exception.hpp"
 
 /* This defines a list of programs that I know about. */
@@ -41,19 +42,19 @@ void afk_handleClError(cl_int error);
 class AFK_ClDeviceProperties
 {
 public:
-	cl_ulong 	globalMemSize;
-	cl_ulong 	localMemSize;
-	cl_uint 	maxConstantArgs;
-	cl_uint 	maxConstantBufferSize;
-	cl_ulong 	maxMemAllocSize;
-	size_t		maxParameterSize;
-	size_t		maxWorkGroupSize;
-	cl_uint		maxWorkItemDimensions;
+    cl_ulong     globalMemSize;
+    cl_ulong     localMemSize;
+    cl_uint     maxConstantArgs;
+    cl_uint     maxConstantBufferSize;
+    cl_ulong     maxMemAllocSize;
+    size_t        maxParameterSize;
+    size_t        maxWorkGroupSize;
+    cl_uint        maxWorkItemDimensions;
 
-	size_t *	maxWorkItemSizes;
-	
-	AFK_ClDeviceProperties(cl_device_id device);
-	virtual ~AFK_ClDeviceProperties();
+    size_t *    maxWorkItemSizes;
+    
+    AFK_ClDeviceProperties(cl_device_id device);
+    virtual ~AFK_ClDeviceProperties();
 };
 
 std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p);
@@ -92,7 +93,7 @@ protected:
     cl_device_id *devices;
     unsigned int devicesSize;
 
-	AFK_ClDeviceProperties *firstDeviceProps;
+    AFK_ClDeviceProperties *firstDeviceProps;
 
     cl_context ctxt;
     cl_command_queue q;
@@ -104,7 +105,7 @@ protected:
     void inspectDevices(cl_platform_id platform, cl_device_type deviceType);
 #endif
     bool findClGlDevices(cl_platform_id platform);
-    void loadProgramFromFile(struct AFK_ClProgram *p);
+    void loadProgramFromFile(const AFK_Config *config, struct AFK_ClProgram *p);
 public:
     AFK_Computer();
     virtual ~AFK_Computer();
@@ -112,10 +113,10 @@ public:
     /* Loads all CL programs from disk.  Call before doing
      * anything else.
      */
-    void loadPrograms(const std::string& programsDir);
+    void loadPrograms(const AFK_Config *config);
 
-	/* Returns the first device's detected properties. */
-	const AFK_ClDeviceProperties& getFirstDeviceProps(void) const;
+    /* Returns the first device's detected properties. */
+    const AFK_ClDeviceProperties& getFirstDeviceProps(void) const;
 
     /* To use this class, call the following functions
      * to identify where you want to compute, and then do
