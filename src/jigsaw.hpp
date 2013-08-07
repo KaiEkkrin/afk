@@ -84,9 +84,16 @@ public:
         GLenum _glTexFormat,
         const cl_image_format& _clTexFormat, /* not actually used if clGlSharing is enabled.  must match glTexFormat */
         size_t _texelSize, /* Likewise */
-        bool _clGlSharing,
-        unsigned char *zeroMem /* enough zeroes to initialise with glTexImage2D */);
+        bool _clGlSharing);
     virtual ~AFK_Jigsaw();
+
+    /* Returns the (s, t) texture co-ordinates for a given piece
+     * within the jigsaw.  These will be in the range (0, 1).
+     */
+    Vec2<float> getTexCoordST(const AFK_JigsawPiece& piece) const;
+
+    /* Returns the (s, t) dimensions of one piece within the jigsaw. */
+    Vec2<float> getPiecePitchST(void) const;
 
     /* Acquires the buffer for the CL. */
     cl_mem *acquireForCl(cl_context ctxt, cl_command_queue q);

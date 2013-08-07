@@ -1,20 +1,17 @@
 /* AFK (c) Alex Holloway 2013 */
 
-#ifndef _AFK_LANDSCAPE_COMPUTE_QUEUE_H_
-#define _AFK_LANDSCAPE_COMPUTE_QUEUE_H_
+#ifndef _AFK_TERRAIN_COMPUTE_QUEUE_H_
+#define _AFK_TERRAIN_COMPUTE_QUEUE_H_
 
 #include "afk.hpp"
 
 #include <vector>
 
-#include <boost/iterator/indirect_iterator.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
 #include "def.hpp"
-#include "jigsaw.hpp"
 #include "terrain.hpp"
 
 /* This module make something like a render list, but rather more
@@ -83,5 +80,5 @@ public:
     void clear(void);
 };
 
-#endif /* _AFK_LANDSCAPE_COMPUTE_QUEUE_H_ */
+#endif /* _AFK_TERRAIN_COMPUTE_QUEUE_H_ */
 

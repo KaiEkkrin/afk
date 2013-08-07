@@ -17,14 +17,13 @@
 #include "camera.hpp"
 #include "cell.hpp"
 #include "config.hpp"
-#include "data/clearable_queue.hpp"
 #include "data/evictable_cache.hpp"
 #include "data/fair.hpp"
 #include "def.hpp"
-#include "displayed_landscape_tile.hpp"
 #include "entity.hpp"
 #include "gl_buffer.hpp"
 #include "jigsaw.hpp"
+#include "landscape_display_queue.hpp"
 #include "landscape_tile.hpp"
 #include "shader.hpp"
 #include "shape.hpp"
@@ -112,6 +111,7 @@ protected:
     /* Landscape shader details. */
     AFK_ShaderProgram *landscape_shaderProgram;
     AFK_ShaderLight *landscape_shaderLight;
+    GLuint landscape_jigsawPiecePitchLocation;
     GLuint landscape_clipTransformLocation;
 
     /* Entity shader details. */
@@ -150,21 +150,19 @@ protected:
 #endif
     AFK_LANDSCAPE_CACHE *landscapeCache;
 
-    /* The terrain computation fairground.  Yeah, yeah. */
+    /* The terrain computation fair.  Yeah, yeah. */
     AFK_Fair<AFK_TerrainComputeQueue> landscapeComputeFair;
 
-#define AFK_DISPLAYED_LANDSCAPE_QUEUE AFK_ClearableQueue<AFK_DisplayedLandscapeTile*, 100> /* note trailing space */  
-    /* The landscape render queue.
+    /* The landscape render fair.  In jigsaw order, just
+     * like the terrain compute fair, above.
      * These are transient objects -- delete them after
-     * rendering.     */
-    AFK_Fair<AFK_DISPLAYED_LANDSCAPE_QUEUE> landscapeDisplayFair;
+     * rendering.
+     */
+    AFK_Fair<AFK_LandscapeDisplayQueue> landscapeDisplayFair;
 
     /* The basic landscape tile geometry. */
     GLuint landscapeTileArray;
     AFK_TerrainBaseTile *landscapeTerrainBase;
-
-    GLuint landscapeJigsawPieceTBO;
-    GLuint landscapeCellTBO;
 
     /* TODO Deal with multiple shapes.  In whatever way.
      * I don't know.  :/  For now, I'll just have one.

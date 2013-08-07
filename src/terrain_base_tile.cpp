@@ -19,13 +19,17 @@ AFK_TerrainBaseTile::AFK_TerrainBaseTile(const AFK_LandscapeSizes& lSizes):
             float xCoord = (float)x / (float)lSizes.pointSubdivisionFactor;
             float zCoord = (float)z / (float)lSizes.pointSubdivisionFactor;
 
-            
-            /* TODO This second field is almost certainly wrong.  I need to
-             * go read up on texture UVs/STs.
+            /* The texture co-ordinates for each jigsaw piece range
+             * from (0, 1), with tDim texels along each side, including
+             * the padding all the way round.  Therefore, to access the
+             * correct texels, I need to skip the padding, like so:
              */
+            float xTex = (float)x - (float)lSizes.tDimStart / (float)lSizes.tDim;
+            float zTex = (float)z - (float)lSizes.tDimStart / (float)lSizes.tDim;
+
             vertices.push_back(AFK_TerrainBaseTileVertex(
                 afk_vec3<float>(xCoord, 0.0f, zCoord),
-                afk_vec2<float>(xCoord, zCoord)));
+                afk_vec2<float>(xTex, zTex)));
         }
     }
     

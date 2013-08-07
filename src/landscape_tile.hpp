@@ -17,6 +17,7 @@
 #include "def.hpp"
 #include "display.hpp"
 #include "jigsaw.hpp"
+#include "landscape_display_queue.hpp"
 #include "landscape_sizes.hpp"
 #include "terrain.hpp"
 #include "tile.hpp"
@@ -27,8 +28,6 @@
 #ifndef AFK_LANDSCAPE_CACHE
 #define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile>
 #endif
-
-class AFK_DisplayedLandscapeTile;
 
 /* This occurs if we can't find a tile while trying to chain
  * together the terrain.
@@ -103,14 +102,16 @@ public:
     float getYBoundLower() const;
     float getYBoundUpper() const;
 
-    /* Produces a displayed landscape tile that will render the portion
-     * of this landscape tile that fits into the given cell.
-     * You own the returned pointer and should delete it after
-     * rendering.
-     * Returns NULL if there is no landscape to be displayed
-     * in that cell.
+    /* Checks whether this landscape tile has anything to render in
+     * the given cell (by y-bounds).  If not, returns false.  If so,
+     * fills out `o_unit' with an enqueueable display unit, `o_jigsawPiece'
+     * with the relevant jigsaw piece, and returns true.
      */
-    AFK_DisplayedLandscapeTile *makeDisplayedLandscapeTile(const AFK_Cell& cell, float minCellSize);
+    bool makeDisplayUnit(
+        const AFK_Cell& cell,
+        float minCellSize,
+        AFK_JigsawPiece& o_jigsawPiece,
+        AFK_LandscapeDisplayUnit& o_unit);
 
     /* For handling claiming and eviction. */
     virtual AFK_Frame getCurrentFrame(void) const;

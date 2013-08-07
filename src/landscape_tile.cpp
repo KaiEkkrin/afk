@@ -7,7 +7,6 @@
 
 #include "core.hpp"
 #include "debug.hpp"
-#include "displayed_landscape_tile.hpp"
 #include "exception.hpp"
 #include "landscape_tile.hpp"
 #include "rng/boost_taus88.hpp"
@@ -124,11 +123,15 @@ float AFK_LandscapeTile::getYBoundUpper() const
     return yBoundUpper;
 }
 
-AFK_DisplayedLandscapeTile *AFK_LandscapeTile::makeDisplayedLandscapeTile(const AFK_Cell& cell, float minCellSize)
+bool AFK_LandscapeTile::makeDisplayUnit(
+    const AFK_Cell& cell,
+    float minCellSize,
+    AFK_JigsawPiece& o_jigsawPiece,
+    AFK_LandscapeDisplayUnit& o_unit)
 {
-    AFK_DisplayedLandscapeTile *dlt = NULL;
-#if 0
+    bool displayed = false;
     Vec4<float> realCoord = cell.toWorldSpace(minCellSize);
+#if 0
     float cellBoundLower = realCoord.v[1];
     float cellBoundUpper = realCoord.v[1] + realCoord.v[3];
 
@@ -137,12 +140,22 @@ AFK_DisplayedLandscapeTile *AFK_LandscapeTile::makeDisplayedLandscapeTile(const 
      */
     /* TODO I'm going to need to deal with the y bounds.  :-( */
     if (cellBoundLower <= yBoundUpper && cellBoundUpper > yBoundLower)
-        dlt = new AFK_DisplayedLandscapeTile(cell.toWorldSpace(minCellSize), jigsawPiece, cellBoundLower, cellBoundUpper);
+        displayed = true;
 #else
-    dlt = new AFK_DisplayedLandscapeTile(cell.toWorldSpace(minCellSize), jigsawPiece, -32768.0, 32768.0);
+    displayed = true;
 #endif
+    
+    if (displayed)
+    {
+        o_jigsawPiece = jigsawPiece;
+        o_unit = AFK_LandscapeDisplayUnit(
+            realCoord,
+            jigsaws->getPuzzle(jigsawPiece)->getTexCoordST(jigsawPiece),
+            yBoundLower,
+            yBoundUpper);
+    }
 
-    return dlt;
+    return displayed;
 }
 
 AFK_Frame AFK_LandscapeTile::getCurrentFrame(void) const

@@ -236,20 +236,24 @@ bool AFK_World::generateClaimedWorldCell(
 
             if (landscapeTile.hasArtwork())
             {
-                /* Get it to make us a DisplayedLandscapeTile to
+                /* Get it to make us a unit to
                  * feed into the display queue.
+                 * The reason I go through the landscape tile here is so
+                 * that it has the opportunity to reject the tile for display
+                 * because the cell is entirely outside the y bounds.
                  */
                 landscapeClaimStatus = landscapeTile.claimYieldLoop(
                     threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
-                AFK_DisplayedLandscapeTile *dptr =
-                    landscapeTile.makeDisplayedLandscapeTile(cell, minCellSize);
+                AFK_JigsawPiece jigsawPiece;
+                AFK_LandscapeDisplayUnit unit;
+                bool displayThisTile = landscapeTile.makeDisplayUnit(cell, minCellSize, jigsawPiece, unit);
                 landscapeTile.release(threadId, landscapeClaimStatus);
 
-                if (dptr)
+                if (displayThisTile)
                 {
-                    boost::shared_ptr<AFK_DISPLAYED_LANDSCAPE_QUEUE> dlq =
-                        landscapeDisplayFair.getUpdateQueue(dptr->jigsawPiece.puzzle);
-                    dlq->push(dptr);
+                    boost::shared_ptr<AFK_LandscapeDisplayQueue> ldq =
+                        landscapeDisplayFair.getUpdateQueue(jigsawPiece.puzzle);
+                    ldq->add(unit);
                     tilesQueued.fetch_add(1);
                 }
             }
@@ -504,6 +508,7 @@ AFK_World::AFK_World(
     landscape_shaderProgram->Link();
 
     landscape_shaderLight = new AFK_ShaderLight(landscape_shaderProgram->program);
+    landscape_jigsawPiecePitchLocation = glGetUniformLocation(landscape_shaderProgram->program, "JigsawPiecePitch");
     landscape_clipTransformLocation = glGetUniformLocation(landscape_shaderProgram->program, "ClipTransform");
 
     entity_shaderProgram = new AFK_ShaderProgram();
@@ -524,9 +529,6 @@ AFK_World::AFK_World(
     glBindVertexArray(landscapeTileArray);
     landscapeTerrainBase = new AFK_TerrainBaseTile(lSizes);
     landscapeTerrainBase->initGL();
-
-    glGenBuffers(1, &landscapeJigsawPieceTBO);
-    glGenBuffers(1, &landscapeCellTBO);
 
     /* Done. */
     glBindVertexArray(0);
@@ -566,8 +568,6 @@ AFK_World::~AFK_World()
 
     delete landscapeTerrainBase;
     glDeleteVertexArrays(1, &landscapeTileArray);
-    glDeleteBuffers(1, &landscapeJigsawPieceTBO);
-    glDeleteBuffers(1, &landscapeCellTBO);
 }
 
 void AFK_World::enqueueSubcells(
@@ -789,76 +789,33 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     /* Now that I've set that up, make the texture that describes
      * where the tiles are in space ...
      */
-    static std::vector<boost::shared_ptr<AFK_DISPLAYED_LANDSCAPE_QUEUE> > drawQueues;
+    static std::vector<boost::shared_ptr<AFK_LandscapeDisplayQueue> > drawQueues;
     landscapeDisplayFair.getDrawQueues(drawQueues);
 
     /* Those queues are in puzzle order. */
     for (unsigned int puzzle = 0; puzzle < drawQueues.size(); ++puzzle)
     {
+        AFK_Jigsaw *jigsaw = landscapeJigsaws->getPuzzle(puzzle);
+
+        /* Fill out ye olde uniform variable with the jigsaw
+         * piece pitch.
+         */
+        Vec2<float> jigsawPiecePitchST = jigsaw->getPiecePitchST();
+        glUniform2fv(landscape_jigsawPiecePitchLocation, 1, &jigsawPiecePitchST.v[0]);
+
         /* The first texture is the jigsaw. */
         glActiveTexture(GL_TEXTURE0);
-        landscapeJigsaws->getPuzzle(puzzle)->bindTexture();
+        jigsaw->bindTexture();
 
-        /* The second texture is a buffer of the jigsaw piece
-         * (u, v)s, and the third is a buffer of the cell
-         * scales and y min-maxes.
-         * TODO Wouldn't it be great if the landscape display
-         * queue naturally accumulated this for me?  And then
-         * I could maybe throw away that DisplayedLandscapeTile
-         * class entirely.
+        /* The second texture is the landscape display texbuf,
+         * which explains to the vertex shader which tile it's
+         * drawing and where in the jigsaw to look.
          */
-        static std::vector<Vec2<unsigned int> > jigsawPieceUVs;
-        static std::vector<float> cellDetails;
-        AFK_DisplayedLandscapeTile *dlt;
-        while (drawQueues[puzzle]->pop(dlt))
-        {
-            jigsawPieceUVs.push_back(dlt->jigsawPiece.piece);
-            cellDetails.push_back(dlt->coord.v[0]);
-            cellDetails.push_back(dlt->coord.v[1]);
-            cellDetails.push_back(dlt->coord.v[2]);
-            cellDetails.push_back(dlt->coord.v[3]);
-            cellDetails.push_back(dlt->cellBoundLower);
-            cellDetails.push_back(dlt->cellBoundUpper);
-        }
-
         glActiveTexture(GL_TEXTURE1);
-        glBindBuffer(GL_TEXTURE_BUFFER, landscapeJigsawPieceTBO);
-        glBufferData(
-            GL_TEXTURE_BUFFER,
-            jigsawPieceUVs.size() * sizeof(Vec2<unsigned int>),
-            &jigsawPieceUVs[0],
-            GL_STREAM_DRAW);
-        glTexBuffer(
-            GL_TEXTURE_BUFFER,
-            GL_RG16UI, /* TODO surely wrong.  Go understand texture u,v / s,t */
-            landscapeJigsawPieceTBO);
-        AFK_GLCHK("landscape jigsaw piece TBO texBuffer")
+        drawQueues[puzzle]->copyToGl();
 
-        glActiveTexture(GL_TEXTURE2);
-        glBindBuffer(GL_TEXTURE_BUFFER, landscapeCellTBO);
-        glBufferData(
-            GL_TEXTURE_BUFFER,
-            cellDetails.size() * sizeof(float),
-            &cellDetails[0],
-            GL_STREAM_DRAW);
-        glTexBuffer(
-            GL_TEXTURE_BUFFER,
-            GL_RGB32F,
-            landscapeCellTBO);
-        AFK_GLCHK("landscape cell TBO texBuffer")
-
-        glDrawElementsInstanced(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0, jigsawPieceUVs.size());
-        glFlush();
+        glDrawElementsInstanced(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0, drawQueues[puzzle]->getUnitCount());
         AFK_GLCHK("landscape cell drawElementsInstanced")
-
-        /* TODO Am I doing this too early?  Is it going to
-         * end up buffering rubbish?  Will the problem go
-         * away when I sort the displayed landscape queue
-         * out to make the lists for me anyway?
-         */
-#error Change the above right away, not hard and the current state is too error prone
-        jigsawPieceUVs.clear();
-        cellDetails.clear();
     }
 
     glBindVertexArray(0);
