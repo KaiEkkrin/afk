@@ -455,7 +455,7 @@ AFK_World::AFK_World(
     unsigned int tileCacheEntries = tileCacheSize / lSizes.tSize;
     unsigned int tileCacheBitness = calculateCacheBitness(tileCacheEntries);
 
-    Vec2<unsigned int> pieceSize = afk_vec2<unsigned int>(lSizes.tDim, lSizes.tDim);
+    Vec2<int> pieceSize = afk_vec2<int>((int)lSizes.tDim, (int)lSizes.tDim);
     cl_image_format landscapeJigsawTexFormat;
     landscapeJigsawTexFormat.image_channel_order        = CL_RGBA;
     landscapeJigsawTexFormat.image_channel_data_type    = CL_FLOAT;
@@ -463,7 +463,7 @@ AFK_World::AFK_World(
     landscapeJigsaws = new AFK_JigsawCollection(
         ctxt,
         pieceSize,
-        tileCacheEntries,
+        (int)tileCacheEntries,
         GL_RGBA32F,
         landscapeJigsawTexFormat,
         sizeof(float) * 4,
@@ -708,7 +708,7 @@ void AFK_World::doComputeTasks(void)
          * happens regardless!).  Once that's working, I can
          * figure out how to batch this stuff up!
          */
-        for (unsigned int u = 0; u < (*drawQIt)->getUnitCount(); ++u)
+        for (int u = 0; u < (*drawQIt)->getUnitCount(); ++u)
         {
             cl_int error;
 

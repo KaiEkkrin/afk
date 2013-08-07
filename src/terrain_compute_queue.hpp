@@ -28,14 +28,14 @@
 class AFK_TerrainComputeUnit
 {
 public:
-    unsigned int tileOffset;
-    unsigned int tileCount;
-    Vec2<unsigned int> piece;
+    int tileOffset;
+    int tileCount;
+    Vec2<int> piece;
 
     AFK_TerrainComputeUnit(
-        unsigned int _tileOffset,
-        unsigned int _tileCount,
-        const Vec2<unsigned int>& _piece);
+        int _tileOffset,
+        int _tileCount,
+        const Vec2<int>& _piece);
 };
 
 /* Important for being able to copy them around and
@@ -62,7 +62,7 @@ protected:
     boost::mutex mut;
 
 public:
-    void extend(const AFK_TerrainList& list, const Vec2<unsigned int>& piece);
+    void extend(const AFK_TerrainList& list, const Vec2<int>& piece);
 
     /* Call this with a `mem' array of size 3, for:
      * - features
@@ -71,8 +71,8 @@ public:
      */
     void copyToClBuffers(cl_context ctxt, cl_mem *mem);
 
-    unsigned int getUnitCount(void);
-    AFK_TerrainComputeUnit getUnit(unsigned int unitIndex);
+    int getUnitCount(void);
+    AFK_TerrainComputeUnit getUnit(int unitIndex);
 
     /* Clears everything out ready for the next evaluation phase.
      * Make sure the CL tasks are finished first! :P

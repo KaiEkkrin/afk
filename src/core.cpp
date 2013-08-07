@@ -49,7 +49,7 @@ void afk_displayLoop(void)
      */
     afk_core.computer = new AFK_Computer();
     afk_core.computer->loadPrograms(afk_core.config);
-    if (!afk_core.computer->findKernel("terrain", afk_core.terrainKernel))
+    if (!afk_core.computer->findKernel("makeTerrain", afk_core.terrainKernel))
         throw AFK_Exception("Cannot find terrain kernel");
 
 #if CL_TEST

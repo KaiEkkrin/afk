@@ -20,7 +20,7 @@ struct AFK_TerrainFeature
 void computeCone(
     float3 *vl,
     float3 *vc,
-    __read_only const struct AFK_TerrainFeature *feature)
+    __global const struct AFK_TerrainFeature *feature)
 {
     float radius = (feature->scale.x < feature->scale.z ?
         feature->scale.x : feature->scale.z);
@@ -43,7 +43,7 @@ void computeCone(
 void computeSpike(
     float3 *vl,
     float3 *vc,
-    __read_only const struct AFK_TerrainFeature *feature)
+    __global const struct AFK_TerrainFeature *feature)
 {
     float radius = (feature->scale.x < feature->scale.z ?
         feature->scale.x : feature->scale.z);
@@ -68,7 +68,7 @@ void computeSpike(
 void computeHump(
     float3 *vl,
     float3 *vc,
-    __read_only const struct AFK_TerrainFeature *feature)
+    __global const struct AFK_TerrainFeature *feature)
 {
     float radius = (feature->scale.x < feature->scale.z ?
         feature->scale.x : feature->scale.z);
@@ -107,7 +107,7 @@ void computeHump(
 void computeTerrainFeature(
     float3 *vl,
     float3 *vc,
-    __read_only const struct AFK_TerrainFeature *feature)
+    __global const struct AFK_TerrainFeature *feature)
 {
     switch (feature->fType)
     {
@@ -133,7 +133,7 @@ struct AFK_TerrainTile
     unsigned int                featureCount;
 };
 
-float4 getCellCoord(__read_only const struct AFK_TerrainTile *tiles, unsigned int t)
+float4 getCellCoord(__global const struct AFK_TerrainTile *tiles, unsigned int t)
 {
     return (float4)(tiles[t].tileX, 0.0f, tiles[t].tileZ, tiles[t].tileScale);
 }
@@ -141,6 +141,7 @@ float4 getCellCoord(__read_only const struct AFK_TerrainTile *tiles, unsigned in
 void transformTileToTile(
     float3 *vl,
     float3 *vc,
+    __global const struct AFK_TerrainTile *tiles,
     unsigned int tFrom,
     unsigned int tTo)
 {
@@ -153,20 +154,20 @@ void transformTileToTile(
 
 struct AFK_TerrainComputeUnit
 {
-    unsigned int tileOffset;
-    unsigned int tileCount;
-    uint2 piece;
+    int tileOffset;
+    int tileCount;
+    int2 piece;
 };
 
 /* `makeTerrain' operates across the 2 dimensions of
  * a terrain tile.
  */
 __kernel void makeTerrain(
-    __read_only const struct AFK_TerrainFeature *features,
-    __read_only const struct AFK_TerrainTile *tiles,
-    __read_only const struct AFK_TerrainComputeUnit *units,
+    __global const struct AFK_TerrainFeature *features,
+    __global const struct AFK_TerrainTile *tiles,
+    __global const struct AFK_TerrainComputeUnit *units,
     unsigned int unitOffset, /* TODO turn to `unitCount' and process all */
-    __write_only image2d_t jigsaw, /* 4 floats per texel: (colour, y displacement) */
+    __global __write_only image2d_t jigsaw, /* 4 floats per texel: (colour, y displacement) */
     __global float *yLowerBounds,
     __global float *yUpperBounds)
 {
@@ -176,7 +177,7 @@ __kernel void makeTerrain(
     /* Work out where we are inside the inputs, and inside
      * the jigsaw piece...
      */
-    __read_only const struct AFK_TerrainComputeUnit *unit = units + unitOffset;
+    __global const struct AFK_TerrainComputeUnit *unit = units + unitOffset;
 
     /* Initialise the tile co-ordinate that corresponds to my texels
      */
@@ -196,7 +197,7 @@ __kernel void makeTerrain(
         if (i > 0)
         {
             /* Transform up to next cell space. */
-            transformTileToTile(&vl, tiles, i-1, i);
+            transformTileToTile(&vl, &vc, tiles, i-1, i);
         }
 
         for (unsigned int j = 0; j < tiles[i].featureCount; ++j)
@@ -209,7 +210,7 @@ __kernel void makeTerrain(
 
     /* Fill out the texels from my computed values. */
     int2 jigsawCoord = unit->piece + (int2)(xdim, zdim);
-    write_image(jigsaw, jigsawCoord, (float4)(vc, vl.y));
+    write_imagef(jigsaw, jigsawCoord, (float4)(vc, vl.y));
 
     /* Now, reduce out this tile's y-bounds. */
     /* TODO: Fix this to work in the local workspace only,

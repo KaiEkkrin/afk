@@ -38,13 +38,13 @@ void main()
     vec4 cellCoord = texelFetch(DisplayTBO, gl_InstanceID * 2);
     vec4 jigsawSTAndYBounds = texelFetch(DisplayTBO, gl_InstanceID * 2 + 1);
 
-    outData.jigsawCoord = JigsawSTAndYBounds.xy + (jigsawPiecePitch * TexCoord);
+    outData.jigsawCoord = jigsawSTAndYBounds.xy + (JigsawPiecePitch * TexCoord);
     vec4 jigsawTexel = textureLod(JigsawTex, outData.jigsawCoord, 0);
 
     // Apply the y displacement now.  The rest is for the fragment
     // shader.
     vec3 dispPosition = vec3(Position.x, Position.y + jigsawTexel.w, Position.z);
-    gl_Position = vec4(dispPosition * cellScale.x + cellLocation, 1.0);
+    gl_Position = vec4(dispPosition * cellCoord.w + cellCoord.xyz, 1.0);
 
     // Temporary values while I test the basics :).
     //outData.withinBounds = (jigsawSTAndYBounds.z <= Position.y && Position.y < jigsawSTAndYBounds.w);

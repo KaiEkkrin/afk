@@ -16,15 +16,15 @@
 /* The set of known programs, just like the shaders doodah. */
 
 struct AFK_ClProgram programs[] = {
+    {   0,  "terrain.cl"                },
     {   0,  "test.cl"                   },
-    {   0,  "vs2SmoothTriangles.cl",    },
     {   0,  "vs_test.cl"                },
     {   0,  ""                          }
 };
 
 struct AFK_ClKernel kernels[] = {
+    {   0,  "terrain.cl",               "makeTerrain"                   },
     {   0,  "test.cl",                  "vector_add_gpu"                },
-    {   0,  "vs2SmoothTriangles.cl",    "vs2SmoothTriangles",           },
     {   0,  "vs_test.cl",               "mangle_vs"                     },
     {   0,  "",                         ""                              }
 };
@@ -242,7 +242,7 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
         AFK_LandscapeSizes lSizes(config->pointSubdivisionFactor);
         args << "-D POINT_SUBDIVISION_FACTOR="  << lSizes.pointSubdivisionFactor << " ";
         args << "-D TDIM="                      << lSizes.tDim                   << " ";
-        args << "-D TDIMSTART="                 << lSizes.tDimStart              << " ";
+        args << "-D TDIM_START="                << lSizes.tDimStart              << " ";
         args << "-D FEATURE_COUNT_PER_TILE="    << lSizes.featureCountPerTile    << " ";
         args << "-D REDUCE_ORDER="              << lSizes.getReduceOrder()       << " ";
     }

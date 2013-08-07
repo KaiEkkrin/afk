@@ -32,8 +32,8 @@
 class AFK_JigsawPiece
 {
 public:
-    Vec2<unsigned int> piece;   /* u, v within the identified jigsaw texture */
-    unsigned int puzzle;  /* which jigsaw buffer */
+    Vec2<int> piece;   /* u, v within the identified jigsaw texture */
+    int puzzle;  /* which jigsaw buffer */
 
     /* This constructor makes the "null" jigsaw piece, which isn't in
      * any puzzle.  Compare against this to decide if a piece has
@@ -41,7 +41,7 @@ public:
      */
     AFK_JigsawPiece();
 
-    AFK_JigsawPiece(const Vec2<unsigned int>& _piece, unsigned int _puzzle);
+    AFK_JigsawPiece(const Vec2<int>& _piece, int _puzzle);
 
     bool operator==(const AFK_JigsawPiece& other) const;
     bool operator!=(const AFK_JigsawPiece& other) const;
@@ -61,8 +61,8 @@ class AFK_Jigsaw
 protected:
     GLuint glTex;
     cl_mem clTex;
-    Vec2<unsigned int> pieceSize;
-    Vec2<unsigned int> jigsawSize; /* number of pieces horizontally and vertically */
+    Vec2<int> pieceSize;
+    Vec2<int> jigsawSize; /* number of pieces horizontally and vertically */
     GLenum glTexFormat;
     cl_image_format clTexFormat;
     size_t texelSize;
@@ -73,14 +73,14 @@ protected:
      * along with the change data that I've read out (in the same
      * order).
      */
-    std::vector<Vec2<unsigned int> > changedPieces;
+    std::vector<Vec2<int> > changedPieces;
     std::vector<unsigned char> changes;
 
 public:
     AFK_Jigsaw(
         cl_context ctxt,
-        const Vec2<unsigned int>& _pieceSize,
-        const Vec2<unsigned int>& _jigsawSize,
+        const Vec2<int>& _pieceSize,
+        const Vec2<int>& _jigsawSize,
         GLenum _glTexFormat,
         const cl_image_format& _clTexFormat, /* not actually used if clGlSharing is enabled.  must match glTexFormat */
         size_t _texelSize, /* Likewise */
@@ -102,7 +102,7 @@ public:
      * buffer sharing, that means we will need to sync.)
      * TODO I think I'm going to want to end up supplying a list...
      */
-    void pieceChanged(const Vec2<unsigned int>& piece);
+    void pieceChanged(const Vec2<int>& piece);
 
     /* Releases the buffer from the CL. */
     void releaseFromCl(cl_command_queue q);
@@ -118,8 +118,8 @@ public:
 class AFK_JigsawCollection
 {
 protected:
-    Vec2<unsigned int> pieceSize;
-    unsigned int pieceCount;
+    Vec2<int> pieceSize;
+    int pieceCount;
     GLenum glTexFormat;
     cl_image_format clTexFormat;
     size_t texelSize;
@@ -135,8 +135,8 @@ protected:
 public:
     AFK_JigsawCollection(
         cl_context ctxt,
-        const Vec2<unsigned int>& _pieceSize,
-        unsigned int _pieceCount,
+        const Vec2<int>& _pieceSize,
+        int _pieceCount,
         GLenum _glTexFormat,
         const cl_image_format& _clTexFormat,
         size_t _texelSize, /* Yes I could derive this from _texFormat but only with a huge switch block */
@@ -156,7 +156,7 @@ public:
     AFK_Jigsaw *getPuzzle(const AFK_JigsawPiece& piece) const;
 
     /* Gets you a numbered puzzle. */
-    AFK_Jigsaw *getPuzzle(unsigned int puzzle) const;
+    AFK_Jigsaw *getPuzzle(int puzzle) const;
 };
 
 

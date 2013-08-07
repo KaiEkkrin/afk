@@ -9,9 +9,9 @@
 /* AFK_TerrainComputeUnit implementation */
 
 AFK_TerrainComputeUnit::AFK_TerrainComputeUnit(
-    unsigned int _tileOffset,
-    unsigned int _tileCount,
-    const Vec2<unsigned int>& _piece):
+    int _tileOffset,
+    int _tileCount,
+    const Vec2<int>& _piece):
         tileOffset(_tileOffset),
         tileCount(_tileCount),
         piece(_piece)
@@ -21,7 +21,7 @@ AFK_TerrainComputeUnit::AFK_TerrainComputeUnit(
 
 /* AFK_TerrainComputeQueue implementation */
 
-void AFK_TerrainComputeQueue::extend(const AFK_TerrainList& list, const Vec2<unsigned int>& piece)
+void AFK_TerrainComputeQueue::extend(const AFK_TerrainList& list, const Vec2<int>& piece)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
@@ -33,14 +33,14 @@ void AFK_TerrainComputeQueue::extend(const AFK_TerrainList& list, const Vec2<uns
     units.push_back(newUnit);
 }
 
-unsigned int AFK_TerrainComputeQueue::getUnitCount(void)
+int AFK_TerrainComputeQueue::getUnitCount(void)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
     return units.size();
 }
 
-AFK_TerrainComputeUnit AFK_TerrainComputeQueue::getUnit(unsigned int unitIndex)
+AFK_TerrainComputeUnit AFK_TerrainComputeQueue::getUnit(int unitIndex)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 

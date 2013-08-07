@@ -5,17 +5,18 @@
 #include "exception.hpp"
 #include "jigsaw.hpp"
 
+#include <climits>
 #include <cstring>
 
 
 /* AFK_JigsawPiece implementation */
 
 AFK_JigsawPiece::AFK_JigsawPiece():
-    piece(afk_vec2<unsigned int>(0xffffffffu, 0xffffffffu)), puzzle(0xffffffffu)
+    piece(afk_vec2<int>(INT_MIN, INT_MIN)), puzzle(INT_MIN)
 {
 }
 
-AFK_JigsawPiece::AFK_JigsawPiece(const Vec2<unsigned int>& _piece, unsigned int _puzzle):
+AFK_JigsawPiece::AFK_JigsawPiece(const Vec2<int>& _piece, int _puzzle):
     piece(_piece), puzzle(_puzzle)
 {
 }
@@ -39,8 +40,8 @@ std::ostream& operator<<(std::ostream& os, const AFK_JigsawPiece& piece)
 /* AFK_Jigsaw implementation */
 AFK_Jigsaw::AFK_Jigsaw(
     cl_context ctxt,
-    const Vec2<unsigned int>& _pieceSize,
-    const Vec2<unsigned int>& _jigsawSize,
+    const Vec2<int>& _pieceSize,
+    const Vec2<int>& _jigsawSize,
     GLenum _glTexFormat,
     const cl_image_format& _clTexFormat,
     size_t _texelSize,
@@ -124,7 +125,7 @@ cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q)
     return &clTex;
 }
 
-void AFK_Jigsaw::pieceChanged(const Vec2<unsigned int>& piece)
+void AFK_Jigsaw::pieceChanged(const Vec2<int>& piece)
 {
     if (!clGlSharing) changedPieces.push_back(piece);
 }
@@ -199,8 +200,8 @@ void AFK_Jigsaw::bindTexture(void)
 
 AFK_JigsawCollection::AFK_JigsawCollection(
     cl_context ctxt,
-    const Vec2<unsigned int>& _pieceSize,
-    unsigned int _pieceCount,
+    const Vec2<int>& _pieceSize,
+    int _pieceCount,
     GLenum _glTexFormat,
     const cl_image_format& _clTexFormat,
     size_t _texelSize,
@@ -224,15 +225,15 @@ AFK_JigsawCollection::AFK_JigsawCollection(
      * going to use the degenerate case and have only one piece per
      * jigsaw :P
      */
-    Vec2<unsigned int> jigsawSize = afk_vec2<unsigned int>(1, 1);
-    unsigned int jigsawCount = pieceCount;
+    Vec2<int> jigsawSize = afk_vec2<int>(1, 1);
+    int jigsawCount = pieceCount;
 
     std::cout << "AFK_JigsawCollection: Making " << jigsawCount << " jigsaws with " << jigsawSize << " pieces each" << std::endl;
 
     /* TODO consider making one as a spare and filling the box up
      * as an async task?
      */
-    for (unsigned int j = 0; j < jigsawCount; ++j)
+    for (int j = 0; j < jigsawCount; ++j)
     {
         puzzles.push_back(new AFK_Jigsaw(
             ctxt,
@@ -243,9 +244,9 @@ AFK_JigsawCollection::AFK_JigsawCollection(
             texelSize,
             clGlSharing));
 
-        for (unsigned int x = 0; x < jigsawSize.v[0]; ++x)
-            for (unsigned int y = 0; y < jigsawSize.v[1]; ++y)
-                box.push(AFK_JigsawPiece(afk_vec2<unsigned int>(x, y), j));
+        for (int x = 0; x < jigsawSize.v[0]; ++x)
+            for (int y = 0; y < jigsawSize.v[1]; ++y)
+                box.push(AFK_JigsawPiece(afk_vec2<int>(x, y), j));
     }
 }
 
@@ -284,7 +285,7 @@ AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(const AFK_JigsawPiece& piece) const
     return puzzles[piece.puzzle];
 }
 
-AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(unsigned int puzzle) const
+AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(int puzzle) const
 {
     return puzzles[puzzle];
 }

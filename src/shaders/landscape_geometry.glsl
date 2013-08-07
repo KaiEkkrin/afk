@@ -41,7 +41,7 @@ void main()
         {
             gl_Position = ClipTransform * gl_in[i].gl_Position;
             outData.normal = vec3(0.0, 1.0, 0.0); // TODO Needs fixing :P
-            outData.jigsawCoord = inData.jigsawCoord;
+            outData.jigsawCoord = inData[i].jigsawCoord;
             EmitVertex();
         }
         EndPrimitive();
