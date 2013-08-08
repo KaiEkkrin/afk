@@ -162,7 +162,6 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
             region[1] = pieceSize.v[1];
             region[2] = 1;
 
-            /* TODO This is periodically aborting with error -30 ... */
             AFK_CLCHK(clEnqueueReadImage(q, clTex, CL_TRUE, origin, region, 0, 0, &changes[s * pieceSizeInBytes], 0, NULL, NULL))
         }
     }

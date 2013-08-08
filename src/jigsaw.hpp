@@ -5,6 +5,8 @@
 
 #include "afk.hpp"
 
+#include <algorithm>
+#include <cstring>
 #include <sstream>
 #include <vector>
 
@@ -107,6 +109,31 @@ public:
 
     /* Releases the buffer from the CL. */
     void releaseFromCl(cl_command_queue q);
+
+    /* If clGlSharing is disabled, this function debugs the changed
+     * pieces as read back from the CL, interpreting them as
+     * templated.
+     */
+    template<typename TexelType>
+    void debugChanges(
+        std::vector<Vec2<int> >& _changedPieces,
+        std::vector<TexelType>& _changes)
+    {
+        if (sizeof(TexelType) != texelSize)
+        {
+            std::ostringstream ss;
+            ss << "jigsaw debugChanges: have texelSize " << std::dec << texelSize << " and sizeof(TexelType) " << sizeof(TexelType);
+            throw AFK_Exception(ss.str());
+        }
+
+        _changedPieces.resize(changedPieces.size());
+        _changes.resize(changes.size() / sizeof(TexelType));
+        std::copy(changedPieces.begin(), changedPieces.end(), _changedPieces.begin());
+
+        size_t pieceSizeInTexels = pieceSize.v[0] * pieceSize.v[1];
+        size_t pieceSizeInBytes = texelSize * pieceSizeInTexels;
+        memcpy(&_changes[0], &changes[0], pieceSizeInBytes * changedPieces.size());
+    }
 
     /* Binds the buffer to the GL as a texture. */
     void bindTexture(void);

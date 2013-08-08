@@ -765,6 +765,26 @@ void AFK_World::doComputeTasks(void)
         }
 
         jigsaw->releaseFromCl(q);
+
+        /* TODO REMOVEME (somehow)
+         * Debug this a little bit.
+         */
+        std::vector<Vec2<int> > changedPiecesDebug;
+        std::vector<Vec4<float> > changesDebug;
+        jigsaw->debugChanges<Vec4<float> >(changedPiecesDebug, changesDebug);
+        for (unsigned int cp = 0; cp < changedPiecesDebug.size(); ++cp)
+        {
+            std::cout << "Computed piece " << changedPiecesDebug[cp] << " from jigsaw puzzle " << puzzle << std::endl;
+            for (int x = 0; x < 3; ++x)
+            {
+                for (int z = 0; z < 3; ++z)
+                {
+                    std::cout << "(" << x << ", " << z << "): ";
+                    std::cout << changesDebug[x * lSizes.tDim + z] << std::endl;
+                }
+            }
+        }
+
         ++puzzle;
     }
 
