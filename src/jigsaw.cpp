@@ -56,6 +56,12 @@ AFK_Jigsaw::AFK_Jigsaw(
 {
     glGenTextures(1, &glTex);
     glBindTexture(GL_TEXTURE_2D, glTex);
+
+    /* TODO Next debug: fill this thing out with some test data and
+     * bludgeon the texture sampler into working correctly.  I'm
+     * sure it isn't.
+     */
+
     glTexStorage2D(GL_TEXTURE_2D, 1, _glTexFormat, pieceSize.v[0] * jigsawSize.v[0], pieceSize.v[1] * jigsawSize.v[1]);
     AFK_GLCHK("AFK_JigSaw texStorage2D")
 
@@ -178,7 +184,7 @@ void AFK_Jigsaw::bindTexture(void)
         for (unsigned int s = 0; s < changedPieces.size(); ++s)
         {
             glTexSubImage2D(
-                GL_TEXTURE_BUFFER, 0,
+                GL_TEXTURE_2D, 0,
                 changedPieces[s].v[0] * pieceSize.v[0],
                 changedPieces[s].v[1] * pieceSize.v[1],
                 pieceSize.v[0],

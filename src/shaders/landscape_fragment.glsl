@@ -30,9 +30,9 @@ uniform Light gLight;
 void main()
 {
     // TODO Testing
-    //vec4 jigsawTexel = textureLod(JigsawTex, inData.jigsawCoord, 0);
-    //vec4 jigsawTexel = textureLod(JigsawTex, vec2(0.0, 0.0), 0);
-    vec4 jigsawTexel = vec4(inData.jigsawCoord.x, inData.jigsawCoord.y, 0.0, 1.0);
+    vec4 jigsawTexel = textureLod(JigsawTex, inData.jigsawCoord.st, 0);
+    //vec4 jigsawTexel = textureLod(JigsawTex, vec2(0.5, 0.5), 0);
+    //vec4 jigsawTexel = vec4(inData.jigsawCoord.x, inData.jigsawCoord.y, 0.0, 1.0);
     vec3 colour = normalize(jigsawTexel.xyz);
     vec3 normal = normalize(inData.normal);
 
