@@ -84,7 +84,8 @@ public:
         GLenum _glTexFormat,
         const cl_image_format& _clTexFormat, /* not actually used if clGlSharing is enabled.  must match glTexFormat */
         size_t _texelSize, /* Likewise */
-        bool _clGlSharing);
+        bool _clGlSharing,
+        unsigned char *zeroMem);
     virtual ~AFK_Jigsaw();
 
     /* Returns the (s, t) texture co-ordinates for a given piece
@@ -127,7 +128,10 @@ protected:
 
     std::vector<AFK_Jigsaw*> puzzles;
     boost::mutex mut;
+
+    /* For filling new jigsaws. */
     unsigned char *zeroMem;
+    size_t zeroMemSize;
 
     /* The pieces that are free to be given out. */
     boost::lockfree::queue<AFK_JigsawPiece> box;

@@ -45,7 +45,8 @@ AFK_Jigsaw::AFK_Jigsaw(
     GLenum _glTexFormat,
     const cl_image_format& _clTexFormat,
     size_t _texelSize,
-    bool _clGlSharing):
+    bool _clGlSharing,
+    unsigned char *zeroMem):
         pieceSize(_pieceSize),
         jigsawSize(_jigsawSize),
         glTexFormat(_glTexFormat),
@@ -76,19 +77,19 @@ AFK_Jigsaw::AFK_Jigsaw(
         imageDesc.image_type        = CL_MEM_OBJECT_IMAGE2D;
         imageDesc.image_width       = pieceSize.v[0] * jigsawSize.v[0];
         imageDesc.image_height      = pieceSize.v[1] * jigsawSize.v[1];
-        imageDesc.image_row_pitch   = imageDesc.image_width * _texelSize;
+        // "must be 0 if host_ptr is null"
+        //imageDesc.image_row_pitch   = imageDesc.image_width * _texelSize;
 
-        /* I don't bother initialising this.  It's supposed to be
-         * initialised on first compute anyway -- the only reason
-         * I have the zeroes is because OpenGL sizes buffers like
-         * that.
+        /* TODO This segfaults.  I've got a feeling it might not be
+         * implemented on Nvidia, and I need to use the old
+         * clCreateImage2D() instead ...?
          */
         clTex = clCreateImage(
             ctxt,
-            CL_MEM_WRITE_ONLY, /* TODO As above! */
+            CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, /* TODO As above! */
             &clTexFormat,
             &imageDesc,
-            NULL,
+            zeroMem,
             &error);
     }
     afk_handleClError(error);
@@ -230,6 +231,13 @@ AFK_JigsawCollection::AFK_JigsawCollection(
 
     std::cout << "AFK_JigsawCollection: Making " << jigsawCount << " jigsaws with " << jigsawSize << " pieces each" << std::endl;
 
+    /* Make a large enough buffer to fill one of the jigsaws from */
+    zeroMemSize =
+        pieceSize.v[0] * pieceSize.v[1] *
+        jigsawSize.v[0] * jigsawSize.v[1] *
+        texelSize;
+    zeroMem = new unsigned char[zeroMemSize];
+
     /* TODO consider making one as a spare and filling the box up
      * as an async task?
      */
@@ -242,7 +250,8 @@ AFK_JigsawCollection::AFK_JigsawCollection(
             glTexFormat,
             clTexFormat,
             texelSize,
-            clGlSharing));
+            clGlSharing,
+            zeroMem));
 
         for (int x = 0; x < jigsawSize.v[0]; ++x)
             for (int y = 0; y < jigsawSize.v[1]; ++y)
