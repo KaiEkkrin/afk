@@ -612,7 +612,12 @@ void AFK_World::alterDetail(float adjustment)
     if (adj > 1.0f || !(worldCache->wayOutsideTargetSize() || landscapeCache->wayOutsideTargetSize()))
         detailPitch = detailPitch * adjustment;
 
-    renderDetailPitch = detailPitch - fmod(detailPitch, 16.0f);
+    /* TODO pegging detail pitch for now to stop that infernal
+     * AMD graphics problem where it just gets increased
+     * constantly
+     */
+    //renderDetailPitch = detailPitch - fmod(detailPitch, 16.0f);
+    renderDetailPitch = 512.0f;
 }
 
 boost::unique_future<bool> AFK_World::updateWorld(void)
@@ -751,7 +756,7 @@ void AFK_World::doComputeTasks(void)
             float yBoundLower, yBoundUpper;
             AFK_CLCHK(clEnqueueReadBuffer(q, yLowerBoundsMem, CL_TRUE, 0, sizeof(float), &yBoundLower, 0, NULL, NULL))
             AFK_CLCHK(clEnqueueReadBuffer(q, yUpperBoundsMem, CL_TRUE, 0, sizeof(float), &yBoundUpper, 0, NULL, NULL))
-            std::cout << "Computed y bounds for " << (*drawQIt)->getUnit(u) << ": " << yBoundLower << ", " << yBoundUpper << std::endl;
+            //std::cout << "Computed y bounds for " << (*drawQIt)->getUnit(u) << ": " << yBoundLower << ", " << yBoundUpper << std::endl;
 
             AFK_CLCHK(clReleaseMemObject(yLowerBoundsMem))
             AFK_CLCHK(clReleaseMemObject(yUpperBoundsMem))
@@ -802,13 +807,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     glBindVertexArray(landscapeTileArray);
     AFK_GLCHK("landscape bindVertexArray")
 
-    /* TODO Debug the base tile.  Remove this when it's okay.  */
-#if AFK_GL_DEBUG
-        landscape_shaderProgram->Validate();
-#endif
-        glDrawElements(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0);
 
-#if 0
     /* Now that I've set that up, make the texture that describes
      * where the tiles are in space ...
      */
@@ -845,7 +844,6 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
         glDrawElementsInstanced(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0, drawQueues[puzzle]->getUnitCount());
         AFK_GLCHK("landscape cell drawElementsInstanced")
     }
-#endif
 
     glBindVertexArray(0);
 

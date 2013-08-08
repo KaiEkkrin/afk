@@ -7,7 +7,7 @@
 #version 330
 
 // This is the jigsaw.  It's a float4: (3 colours, y displacement).
-//uniform sampler2D JigsawTex;
+uniform sampler2D JigsawTex;
 
 in GeometryData
 {
@@ -31,7 +31,8 @@ void main()
 {
     // TODO Testing
     //vec4 jigsawTexel = textureLod(JigsawTex, inData.jigsawCoord, 0);
-    vec4 jigsawTexel = (1.0, 1.0, 1.0, 0.0);
+    //vec4 jigsawTexel = textureLod(JigsawTex, vec2(0.0, 0.0), 0);
+    vec4 jigsawTexel = vec4(inData.jigsawCoord.x, inData.jigsawCoord.y, 0.0, 1.0);
     vec3 colour = normalize(jigsawTexel.xyz);
     vec3 normal = normalize(inData.normal);
 
@@ -40,7 +41,6 @@ void main()
     float DiffuseFactor = dot(normal, -gLight.Direction);
     // TODO fix this when I'm getting all the properties
     // in once more.
-    //FragColor = vec4(colour * (AmbientColour + DiffuseColour), 1.0);
-    FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+    FragColor = vec4(colour * (AmbientColour + DiffuseColour), 1.0);
 }
 

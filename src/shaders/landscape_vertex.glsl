@@ -15,17 +15,17 @@ layout (location = 1) in vec2 TexCoord;
 // be fine as 8-bit normalized.  Therefore, it might be worthwhile
 // splitting this into a colour jigsaw (8-bit normalized RGB) and
 // a y jigsaw (32-bit float R).
-//uniform sampler2D JigsawTex;
+uniform sampler2D JigsawTex;
 
 // This is the landscape display queue.  It's a float4, and there
 // are 2 (consecutive) texels per instance: cell coord, then
 // (jigsaw piece s, jigsaw piece t, lower y-bound, upper y-bound)
 // as defined in landscape_display_queue.
-//uniform samplerBuffer DisplayTBO;
+uniform samplerBuffer DisplayTBO;
 
 // This is the size of an individual jigsaw piece
 // in (s, t) co-ordinates.
-//uniform vec2 JigsawPiecePitch;
+uniform vec2 JigsawPiecePitch;
 
 out VertexData
 {
@@ -35,21 +35,16 @@ out VertexData
 
 void main()
 {
-    // TODO Testing...
-    //vec4 cellCoord = texelFetch(DisplayTBO, gl_InstanceID * 2);
-    //vec4 jigsawSTAndYBounds = texelFetch(DisplayTBO, gl_InstanceID * 2 + 1);
-    vec4 cellCoord = (0.0, 0.0, 0.0, 2.0);
-    vec4 jigsawSTAndYBounds = (0.0, 0.0, -32768.0, 32768.0);
+    vec4 cellCoord = texelFetch(DisplayTBO, gl_InstanceID * 2);
+    vec4 jigsawSTAndYBounds = texelFetch(DisplayTBO, gl_InstanceID * 2 + 1);
 
-    // TODO Testing...
-    //outData.jigsawCoord = jigsawSTAndYBounds.xy + (JigsawPiecePitch * TexCoord.st);
-    //vec4 jigsawTexel = textureLod(JigsawTex, outData.jigsawCoord, 0);
-    outData.jigsawCoord = TexCoord.st;
-    vec4 jigsawTexel = (1.0f, 1.0f, 1.0f, 0.0f);
+    outData.jigsawCoord = jigsawSTAndYBounds.xy + (JigsawPiecePitch * TexCoord.st);
+    vec4 jigsawTexel = textureLod(JigsawTex, outData.jigsawCoord, 0);
 
     // Apply the y displacement now.  The rest is for the fragment
     // shader.
-    vec3 dispPosition = vec3(Position.x, Position.y + jigsawTexel.w, Position.z);
+    //vec3 dispPosition = vec3(Position.x, Position.y + jigsawTexel.w, Position.z);
+    vec3 dispPosition = vec3(Position.x, Position.y, Position.z);
     gl_Position = vec4(dispPosition * cellCoord.w + cellCoord.xyz, 1.0);
 
     // Temporary values while I test the basics :).
