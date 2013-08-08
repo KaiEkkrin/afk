@@ -802,6 +802,13 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     glBindVertexArray(landscapeTileArray);
     AFK_GLCHK("landscape bindVertexArray")
 
+    /* TODO Debug the base tile.  Remove this when it's okay.  */
+#if AFK_GL_DEBUG
+        landscape_shaderProgram->Validate();
+#endif
+        glDrawElements(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0);
+
+#if 0
     /* Now that I've set that up, make the texture that describes
      * where the tiles are in space ...
      */
@@ -838,6 +845,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
         glDrawElementsInstanced(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0, drawQueues[puzzle]->getUnitCount());
         AFK_GLCHK("landscape cell drawElementsInstanced")
     }
+#endif
 
     glBindVertexArray(0);
 

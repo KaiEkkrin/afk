@@ -83,7 +83,7 @@ void AFK_TerrainBaseTile::initGL()
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bufs[1]);
     if (needBufferPush)
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned short), &vertices[0], GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned short), &indices[0], GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);

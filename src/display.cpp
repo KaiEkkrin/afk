@@ -142,7 +142,10 @@ void afk_display(void)
      * involves complicated task tracking rather than just a clFinish()
      * call, so doing this first.
      */
-    afk_core.world->doComputeTasks();
+    // TODO Temporarily disabling the compute tasks so that I can verify
+    // that the basic shader logic is correct in this branch without
+    // worrying about how much time this thing is eating.
+    //afk_core.world->doComputeTasks();
 
     cl_context ctxt;
     cl_command_queue q;
