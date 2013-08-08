@@ -225,8 +225,8 @@ __kernel void makeTerrain(
      * (Which brings me back to trying to cram all tasks into one really
      * big heapified buffer!)
      */
-#if 0
-    /* TODO fix for `v' */
+#if 1
+    int v = xdim * TDIM + zdim;
     yLowerBounds[v + 1 << (REDUCE_ORDER - 1)] = FLT_MAX;
     yUpperBounds[v + 1 << (REDUCE_ORDER - 1)] = -FLT_MAX;
     barrier(CLK_GLOBAL_MEM_FENCE);
@@ -251,7 +251,7 @@ __kernel void makeTerrain(
             yUpperBounds[v] = (upperOne > upperTwo) ? upperOne : upperTwo;
         }
     }
-//#else
+#else
     if (zdim == 0)
     {
         yLowerBounds[xdim] = FLT_MAX;

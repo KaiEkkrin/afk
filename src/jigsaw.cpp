@@ -160,8 +160,9 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
 
             region[0] = pieceSize.v[0];
             region[1] = pieceSize.v[1];
-            region[2] = 0;
+            region[2] = 1;
 
+            /* TODO This is periodically aborting with error -30 ... */
             AFK_CLCHK(clEnqueueReadImage(q, clTex, CL_TRUE, origin, region, 0, 0, &changes[s * pieceSizeInBytes], 0, NULL, NULL))
         }
     }
@@ -169,8 +170,7 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
 
 void AFK_Jigsaw::bindTexture(void)
 {
-    glBindBuffer(GL_TEXTURE_BUFFER, glTex);
-    glBindTexture(GL_TEXTURE_BUFFER, glTex);
+    glBindTexture(GL_TEXTURE_2D, glTex);
 
     if (!clGlSharing)
     {
@@ -193,7 +193,8 @@ void AFK_Jigsaw::bindTexture(void)
         changes.clear();
     }
 
-    glTexBuffer(GL_TEXTURE_BUFFER, glTexFormat, glTex);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
 
 

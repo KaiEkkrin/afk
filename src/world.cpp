@@ -510,6 +510,8 @@ AFK_World::AFK_World(
     landscape_shaderLight = new AFK_ShaderLight(landscape_shaderProgram->program);
     landscape_jigsawPiecePitchLocation = glGetUniformLocation(landscape_shaderProgram->program, "JigsawPiecePitch");
     landscape_clipTransformLocation = glGetUniformLocation(landscape_shaderProgram->program, "ClipTransform");
+    landscape_jigsawTexSamplerLocation = glGetUniformLocation(landscape_shaderProgram->program, "JigsawTex");
+    landscape_displayTBOSamplerLocation = glGetUniformLocation(landscape_shaderProgram->program, "DisplayTBO");
 
     entity_shaderProgram = new AFK_ShaderProgram();
     /* TODO How much stuff will I need here ? */
@@ -806,6 +808,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
         /* The first texture is the jigsaw. */
         glActiveTexture(GL_TEXTURE0);
         jigsaw->bindTexture();
+        glUniform1i(landscape_jigsawTexSamplerLocation, 0);
 
         /* The second texture is the landscape display texbuf,
          * which explains to the vertex shader which tile it's
@@ -813,6 +816,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
          */
         glActiveTexture(GL_TEXTURE1);
         drawQueues[puzzle]->copyToGl();
+        glUniform1i(landscape_displayTBOSamplerLocation, 1);
 
 #if AFK_GL_DEBUG
         landscape_shaderProgram->Validate();

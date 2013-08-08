@@ -56,6 +56,10 @@ void AFK_TerrainComputeQueue::copyToClBuffers(cl_context ctxt, cl_mem *mem)
     /* TODO try both USE and COPY, but only once I'm
      * batching and trying to squeeze more performance out
      */
+    /* TODO BUG I'm observing a NULL f (well, a zero backing
+     * buffer) here.  How did this occur?  Obviously it
+     * barfs.
+     */
     mem[0] = clCreateBuffer(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR,
         f.size() * sizeof(AFK_TerrainFeature),
