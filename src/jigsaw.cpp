@@ -9,6 +9,9 @@
 #include <cstring>
 
 
+#define FIXED_TEST_TEXTURE_DATA 1
+
+
 /* AFK_JigsawPiece implementation */
 
 AFK_JigsawPiece::AFK_JigsawPiece():
@@ -61,8 +64,41 @@ AFK_Jigsaw::AFK_Jigsaw(
      * bludgeon the texture sampler into working correctly.  I'm
      * sure it isn't.
      */
-
+#if FIXED_TEST_TEXTURE_DATA
+    /* This is awful, I'm going to suddenly make a huge assumption
+     * about the texture format -- but it's for a good debug cause
+     * honest! :P
+     * This code assumes jigsawSize to be {1, 1} for expediency
+     */
+    Vec4<unsigned char> testData[pieceSize.v[0]][pieceSize.v[1]];
+    for (int a = 0; a < pieceSize.v[0]; ++a)
+    {
+        for (int b = 0; b < pieceSize.v[1]; ++b)
+        {
+            testData[a][b] = afk_vec4<unsigned char>(
+                255,
+                a * 10,
+                b * 10,
+                0);
+        }
+    }
+    //glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    //glPixelStorei(GL_PACK_ROW_LENGTH, pieceSize.v[0]);
+    //glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    //glPixelStorei(GL_UNPACK_ROW_LENGTH, pieceSize.v[0]);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        glTexFormat,
+        pieceSize.v[0],
+        pieceSize.v[1],
+        0,
+        glTexFormat,
+        GL_UNSIGNED_BYTE,
+        &testData[0]);
+#else
     glTexStorage2D(GL_TEXTURE_2D, 1, _glTexFormat, pieceSize.v[0] * jigsawSize.v[0], pieceSize.v[1] * jigsawSize.v[1]);
+#endif
     AFK_GLCHK("AFK_JigSaw texStorage2D")
 
     cl_int error;
@@ -145,6 +181,8 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
     }
     else
     {
+#if FIXED_TEST_TEXTURE_DATA
+#else
         /* Read back all the changed pieces.
          * TODO It would be best to enqueue these as async read-backs
          * as they get reported to me, and then wait on the read-backs
@@ -170,6 +208,7 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
 
             AFK_CLCHK(clEnqueueReadImage(q, clTex, CL_TRUE, origin, region, 0, 0, &changes[s * pieceSizeInBytes], 0, NULL, NULL))
         }
+#endif
     }
 }
 
@@ -179,6 +218,8 @@ void AFK_Jigsaw::bindTexture(void)
 
     if (!clGlSharing)
     {
+#if FIXED_TEST_TEXTURE_DATA
+#else
         /* Push all the changed pieces into the GL texture. */
         size_t pieceSizeInBytes = texelSize * pieceSize.v[0] * pieceSize.v[1];
         for (unsigned int s = 0; s < changedPieces.size(); ++s)
@@ -196,10 +237,18 @@ void AFK_Jigsaw::bindTexture(void)
 
         changedPieces.clear();
         changes.clear();
+#endif
     }
 
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    /* TODO Testing whether I'm even sampling this damn thing at all */
+    Vec4<float> borderColour = afk_vec4<float>(1.0f, 0.8f, 0.6f, 1.0f);
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, &borderColour.v[0]);
 }
 
 

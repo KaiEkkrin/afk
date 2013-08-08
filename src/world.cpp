@@ -455,11 +455,16 @@ AFK_World::AFK_World(
     landscapeJigsawTexFormat.image_channel_order        = CL_RGBA;
     landscapeJigsawTexFormat.image_channel_data_type    = CL_FLOAT;
 
+    /* TODO: The below switch from GL_RGBA32F to GL_RGBA fixed things.
+     * I get the impression that having more than 32 bits per pixel
+     * might be unwise.  So next, I should try splitting the jigsaw
+     * into one RGB colour jigsaw and one R32F y-displacement jigsaw.
+     */
     landscapeJigsaws = new AFK_JigsawCollection(
         ctxt,
         pieceSize,
         (int)tileCacheEntries,
-        GL_RGBA32F,
+        /* GL_RGBA32F */ GL_RGBA /* This will knacker the real thing but, for debugging */,
         landscapeJigsawTexFormat,
         sizeof(float) * 4,
         config->clGlSharing);
@@ -774,9 +779,10 @@ void AFK_World::doComputeTasks(void)
         /* TODO REMOVEME (somehow)
          * Debug this a little bit.
          */
+#if 0
         std::vector<Vec2<int> > changedPiecesDebug;
         std::vector<Vec4<float> > changesDebug;
-        jigsaw->debugChanges<Vec4<float> >(changedPiecesDebug, changesDebug);
+        jigsaw->debugReadChanges<Vec4<float> >(changedPiecesDebug, changesDebug);
         for (unsigned int cp = 0; cp < changedPiecesDebug.size(); ++cp)
         {
             std::cout << "Computed piece " << changedPiecesDebug[cp] << " from jigsaw puzzle " << puzzle << std::endl;
@@ -789,6 +795,7 @@ void AFK_World::doComputeTasks(void)
                 }
             }
         }
+#endif
 
         ++puzzle;
     }

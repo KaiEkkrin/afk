@@ -115,14 +115,14 @@ public:
      * templated.
      */
     template<typename TexelType>
-    void debugChanges(
+    void debugReadChanges(
         std::vector<Vec2<int> >& _changedPieces,
         std::vector<TexelType>& _changes)
     {
         if (sizeof(TexelType) != texelSize)
         {
             std::ostringstream ss;
-            ss << "jigsaw debugChanges: have texelSize " << std::dec << texelSize << " and sizeof(TexelType) " << sizeof(TexelType);
+            ss << "jigsaw debugReadChanges: have texelSize " << std::dec << texelSize << " and sizeof(TexelType) " << sizeof(TexelType);
             throw AFK_Exception(ss.str());
         }
 
@@ -133,6 +133,28 @@ public:
         size_t pieceSizeInTexels = pieceSize.v[0] * pieceSize.v[1];
         size_t pieceSizeInBytes = texelSize * pieceSizeInTexels;
         memcpy(&_changes[0], &changes[0], pieceSizeInBytes * changedPieces.size());
+    }
+
+    /* This does the obvious opposite. */
+    template<typename TexelType>
+    void debugWriteChanges(
+        const std::vector<Vec2<int> >& _changedPieces,
+        const std::vector<TexelType>& _changes)
+    {
+        if (sizeof(TexelType) != texelSize)
+        {
+            std::ostringstream ss;
+            ss << "jigsaw debugWriteChanges: have texelSize " << std::dec << texelSize << " and sizeof(TexelType) " << sizeof(TexelType);
+            throw AFK_Exception(ss.str());
+        }
+
+        changedPieces.resize(changedPieces.size());
+        changes.resize(changes.size() * sizeof(TexelType));
+        std::copy(_changedPieces.begin(), _changedPieces.end(), changedPieces.begin());
+
+        size_t pieceSizeInTexels = pieceSize.v[0] * pieceSize.v[1];
+        size_t pieceSizeInBytes = texelSize * pieceSizeInTexels;
+        memcpy(&changes[0], &_changes[0], pieceSizeInBytes * changedPieces.size());
     }
 
     /* Binds the buffer to the GL as a texture. */
