@@ -89,7 +89,7 @@ AFK_Jigsaw::AFK_Jigsaw(
             CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, /* TODO As above! */
             &clTexFormat,
             &imageDesc,
-            zeroMem,
+            NULL,
             &error);
     }
     afk_handleClError(error);

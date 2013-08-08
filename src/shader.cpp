@@ -119,14 +119,20 @@ void AFK_ShaderProgram::Link(void)
         throw AFK_Exception(std::string("AFK_Shader: Error linking program: ") + errorLog);
     }
 
+    /* It's a good bet I'm about to try to use this for something */
+    glUseProgram(program);
+}
+
+void AFK_ShaderProgram::Validate(void)
+{
+    int success = 0;
+    GLchar errorLog[1024] = { 0 };
+
     glValidateProgram(program);
     glGetProgramiv(program, GL_VALIDATE_STATUS, &success);
     if (!success) {
         glGetProgramInfoLog(program, sizeof(errorLog), NULL, errorLog);
         throw AFK_Exception(std::string("AFK_Shader: Invalid shader program: ") + errorLog);
     }
-
-    /* It's a good bet I'm about to try to use this for something */
-    glUseProgram(program);
 }
 

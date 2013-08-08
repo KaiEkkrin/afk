@@ -38,6 +38,11 @@ public:
 
     AFK_ShaderProgram& operator<<(const std::string& shaderName);
     void Link(void);
+
+    /* Call right before drawing -- the validate is dependent on
+     * how uniform variables, textures, samplers are set up
+     */
+    void Validate(void);
 };
 
 #endif /* _AFK_SHADER_H_ */

@@ -38,7 +38,7 @@ void main()
     vec4 cellCoord = texelFetch(DisplayTBO, gl_InstanceID * 2);
     vec4 jigsawSTAndYBounds = texelFetch(DisplayTBO, gl_InstanceID * 2 + 1);
 
-    outData.jigsawCoord = jigsawSTAndYBounds.xy + (JigsawPiecePitch * TexCoord);
+    outData.jigsawCoord = jigsawSTAndYBounds.xy + (JigsawPiecePitch * TexCoord.st);
     vec4 jigsawTexel = textureLod(JigsawTex, outData.jigsawCoord, 0);
 
     // Apply the y displacement now.  The rest is for the fragment

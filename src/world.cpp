@@ -814,6 +814,9 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
         glActiveTexture(GL_TEXTURE1);
         drawQueues[puzzle]->copyToGl();
 
+#if AFK_GL_DEBUG
+        landscape_shaderProgram->Validate();
+#endif
         glDrawElementsInstanced(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0, drawQueues[puzzle]->getUnitCount());
         AFK_GLCHK("landscape cell drawElementsInstanced")
     }

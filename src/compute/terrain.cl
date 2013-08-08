@@ -17,6 +17,16 @@ struct AFK_TerrainFeature
     int                         fType;
 };
 
+float calcDistanceToCentre(float3 *vl, float2 locationXZ)
+{
+    float3 location = (float3)(locationXZ.x, 0.0f, locationXZ.y);
+    float3 distance = location - *vl;
+    float distanceToCentreSquared =
+        (distance.x * distance.x) + (distance.z * distance.z);
+    float distanceToCentre = sqrt(distanceToCentreSquared);
+    return distanceToCentre;
+}
+
 void computeCone(
     float3 *vl,
     float3 *vc,
@@ -25,17 +35,13 @@ void computeCone(
     float radius = (feature->scale.x < feature->scale.z ?
         feature->scale.x : feature->scale.z);
 
-    float distanceX = (feature->location.x - vl->x);
-    float distanceZ = (feature->location.y - vl->z);
-    float distanceToCentreSquared =
-        (distanceX * distanceX) + (distanceZ * distanceZ);
-    float distanceToCentre = sqrt(distanceToCentreSquared);
+    float distanceToCentre = calcDistanceToCentre(vl, feature->location);
 
     if (distanceToCentre < radius)
     {
-        float dispX = (radius - distanceToCentre) *
+        float dispY = (radius - distanceToCentre) *
             (feature->scale.y / radius);
-        vl->y += dispX;
+        *vl += (float3)(0.0f, dispY, 0.0f);
         *vc += feature->tint * feature->scale.z * distanceToCentre;
     }
 }
@@ -48,19 +54,15 @@ void computeSpike(
     float radius = (feature->scale.x < feature->scale.z ?
         feature->scale.x : feature->scale.z);
 
-    float distanceX = (feature->location.x - vl->x);
-    float distanceZ = (feature->location.y - vl->z);
-    float distanceToCentreSquared =
-        (distanceX * distanceX) + (distanceZ * distanceZ);
-    float distanceToCentre = sqrt(distanceToCentreSquared);
+    float distanceToCentre = calcDistanceToCentre(vl, feature->location);
 
     /* A spike is a hump without the rounded-off section. */
     if (distanceToCentre < radius)
     {
-        float dispX = (radius - distanceToCentre) *
+        float dispY = (radius - distanceToCentre) *
             (radius - distanceToCentre) *
             (feature->scale.y / (radius * radius));
-        vl->y += dispX;
+        *vl += (float3)(0.0f, dispY, 0.0f);
         *vc += feature->tint * feature->scale.z * distanceToCentre;
     }
 }
@@ -73,33 +75,30 @@ void computeHump(
     float radius = (feature->scale.x < feature->scale.z ?
         feature->scale.x : feature->scale.z);
 
-    float distanceX = (feature->location.x - vl->x);
-    float distanceZ = (feature->location.y - vl->z);
-    float distanceToCentreSquared =
-        (distanceX * distanceX) + (distanceZ * distanceZ);
-    float distanceToCentre = sqrt(distanceToCentreSquared);
+    float distanceToCentre = calcDistanceToCentre(vl, feature->location);
 
+    float3 disp = (float3)(0.0f, 0.0f, 0.0f);
     if (distanceToCentre < (radius / 2.0f))
     {
         /* A hump is always based off of twice the spike height at
          * distanceToCentre == (radius / 2.0f) .
          */
-        float dispX = ((radius / 2.0f) * (radius / 2.0f) *
+        disp.y = ((radius / 2.0f) * (radius / 2.0f) *
             (2.0f * feature->scale.y / (radius * radius)));
 
         /* From there, we subtract the inverse curve. */
-        dispX -= (distanceToCentreSquared * feature->scale.y / (radius * radius));
+        disp.y -= (distanceToCentre * distanceToCentre * feature->scale.y / (radius * radius));
 
-        vl->y += dispX;
+        *vl += disp;
         *vc += feature->tint * feature->scale.z * distanceToCentre;
     }
     else if (distanceToCentre < radius)
     {
-        float dispX = (radius - distanceToCentre) *
+        disp.y = (radius - distanceToCentre) *
             (radius - distanceToCentre) *
             (feature->scale.y / (radius * radius));
 
-        vl->y += dispX;
+        *vl += disp;
         *vc += feature->tint * feature->scale.z * distanceToCentre;
     }
 }
@@ -167,7 +166,7 @@ __kernel void makeTerrain(
     __global const struct AFK_TerrainTile *tiles,
     __global const struct AFK_TerrainComputeUnit *units,
     unsigned int unitOffset, /* TODO turn to `unitCount' and process all */
-    __global __write_only image2d_t jigsaw, /* 4 floats per texel: (colour, y displacement) */
+    __write_only image2d_t jigsaw, /* 4 floats per texel: (colour, y displacement) */
     __global float *yLowerBounds,
     __global float *yUpperBounds)
 {
@@ -227,6 +226,7 @@ __kernel void makeTerrain(
      * big heapified buffer!)
      */
 #if 0
+    /* TODO fix for `v' */
     yLowerBounds[v + 1 << (REDUCE_ORDER - 1)] = FLT_MAX;
     yUpperBounds[v + 1 << (REDUCE_ORDER - 1)] = -FLT_MAX;
     barrier(CLK_GLOBAL_MEM_FENCE);
@@ -251,13 +251,16 @@ __kernel void makeTerrain(
             yUpperBounds[v] = (upperOne > upperTwo) ? upperOne : upperTwo;
         }
     }
-#else
+//#else
     if (zdim == 0)
     {
         yLowerBounds[xdim] = FLT_MAX;
         yUpperBounds[xdim] = -FLT_MAX;
         for (int z = 0; z < TDIM; ++z)
         {
+            /* TODO The below is wrong -- I can't use `w' to read, it's
+             * a write-only image !
+             */
             int w = (xdim * TDIM) + z;
             if (vl.y < yLowerBounds[xdim]) yLowerBounds[xdim] = vl.y;
             else if (vl.y > yUpperBounds[xdim]) yUpperBounds[xdim] = vl.y;
