@@ -2,7 +2,10 @@
 
 #include "afk.hpp"
 
+#include <sstream>
+
 #include "computer.hpp"
+#include "exception.hpp"
 #include "terrain_compute_queue.hpp"
 
 
@@ -18,12 +21,30 @@ AFK_TerrainComputeUnit::AFK_TerrainComputeUnit(
 {
 }
 
+std::ostream& operator<<(std::ostream& os, const AFK_TerrainComputeUnit& unit)
+{
+    os << "(TCU: ";
+    os << "tileOffset=" << std::dec << unit.tileOffset;
+    os << ", tileCount=" << std::dec << unit.tileCount;
+    os << ", piece=" << std::dec << unit.piece;
+    os << ")";
+    return os;
+}
+
 
 /* AFK_TerrainComputeQueue implementation */
 
 void AFK_TerrainComputeQueue::extend(const AFK_TerrainList& list, const Vec2<int>& piece)
 {
     boost::unique_lock<boost::mutex> lock(mut);
+
+    /* Make sure we're not pushing empties, that's a bug. */
+    if (list.tileCount() == 0)
+    {
+        std::ostringstream ss;
+        ss << "Pushed empty list to terrain compute queue for piece " << std::dec << piece;
+        throw AFK_Exception(ss.str());
+    }
 
     AFK_TerrainComputeUnit newUnit(
         AFK_TerrainList::tileCount(),
@@ -45,6 +66,13 @@ AFK_TerrainComputeUnit AFK_TerrainComputeQueue::getUnit(int unitIndex)
     boost::unique_lock<boost::mutex> lock(mut);
 
     return units[unitIndex];
+}
+
+bool AFK_TerrainComputeQueue::empty(void)
+{
+    boost::unique_lock<boost::mutex> lock(mut);
+
+    return units.empty();
 }
 
 void AFK_TerrainComputeQueue::copyToClBuffers(cl_context ctxt, cl_mem *mem)

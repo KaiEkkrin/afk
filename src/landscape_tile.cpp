@@ -110,7 +110,7 @@ AFK_JigsawPiece AFK_LandscapeTile::getJigsawPiece(AFK_JigsawCollection *_jigsaws
 
 bool AFK_LandscapeTile::hasArtwork() const
 {
-    return (jigsawPiece != AFK_JigsawPiece());
+    return (hasTerrainDescriptor() && jigsawPiece != AFK_JigsawPiece());
 }
 
 float AFK_LandscapeTile::getYBoundLower() const
@@ -127,7 +127,7 @@ bool AFK_LandscapeTile::makeDisplayUnit(
     const AFK_Cell& cell,
     float minCellSize,
     AFK_JigsawPiece& o_jigsawPiece,
-    AFK_LandscapeDisplayUnit& o_unit)
+    AFK_LandscapeDisplayUnit& o_unit) const
 {
     bool displayed = false;
     Vec4<float> realCoord = cell.toWorldSpace(minCellSize);

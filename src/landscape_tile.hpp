@@ -111,7 +111,7 @@ public:
         const AFK_Cell& cell,
         float minCellSize,
         AFK_JigsawPiece& o_jigsawPiece,
-        AFK_LandscapeDisplayUnit& o_unit);
+        AFK_LandscapeDisplayUnit& o_unit) const;
 
     /* For handling claiming and eviction. */
     virtual AFK_Frame getCurrentFrame(void) const;

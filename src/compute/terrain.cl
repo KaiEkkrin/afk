@@ -247,8 +247,11 @@ __kernel void makeTerrain(
             float upperOne = yUpperBounds[v];
             float upperTwo = yUpperBounds[v - (1 << (redO - 1))];
 
-            yLowerBounds[v] = (lowerOne < lowerTwo) ? lowerOne : lowerTwo;
-            yUpperBounds[v] = (upperOne > upperTwo) ? upperOne : upperTwo;
+            /* TODO Make sure I'm reading the y bounds properly. */
+            //yLowerBounds[v] = (lowerOne < lowerTwo) ? lowerOne : lowerTwo;
+            //yUpperBounds[v] = (upperOne > upperTwo) ? upperOne : upperTwo;
+            yLowerBounds[v] = 6.66f;
+            yUpperBounds[v] = 7.77f;
         }
     }
 #else

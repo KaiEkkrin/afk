@@ -12,6 +12,11 @@
  * It maintains a mirrored set of queues, one for the update
  * phase and one for the draw phase, which can be flipped
  * with flipQueues().
+ * The underlying queue type must:
+ * - have a sensible default constructor (no arguments)
+ * - have a clear() function to clear it
+ * - have an empty() function that returns true if the
+ * queue is empty.
  */
 template<typename QueueType>
 class AFK_Fair
@@ -49,8 +54,9 @@ public:
     {
         boost::unique_lock<boost::mutex> lock(mut);
 
+        o_drawQueues.reserve(queues.size() / 2);
         for (unsigned int dI = drawInc; dI < queues.size(); dI += 2)
-            o_drawQueues.push_back(queues[dI]);
+            if (!queues[dI]->empty()) o_drawQueues.push_back(queues[dI]);
     }
         
     void flipQueues(void)

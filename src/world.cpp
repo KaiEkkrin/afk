@@ -224,16 +224,11 @@ bool AFK_World::generateClaimedWorldCell(
 
         /* At any rate, I should relinquish my claim on the tile
          * now.
-         * TODO Why can't I do that earlier?
          */
         landscapeTile.release(threadId, landscapeClaimStatus);
 
         if (display)
         {
-            /* TODO Putting some metrics in here to try to understand what
-             * the problem with relinquishing the exclusive lock early is.
-             */
-
             if (landscapeTile.hasArtwork())
             {
                 /* Get it to make us a unit to
@@ -683,7 +678,7 @@ void AFK_World::doComputeTasks(void)
      * puzzle, so that I can easily batch up work that applies to the
      * same jigsaw:
      */
-    static std::vector<boost::shared_ptr<AFK_TerrainComputeQueue> > drawQueues;
+    std::vector<boost::shared_ptr<AFK_TerrainComputeQueue> > drawQueues;
     landscapeComputeFair.getDrawQueues(drawQueues);
 
     cl_context ctxt;
@@ -756,7 +751,7 @@ void AFK_World::doComputeTasks(void)
             float yBoundLower, yBoundUpper;
             AFK_CLCHK(clEnqueueReadBuffer(q, yLowerBoundsMem, CL_TRUE, 0, sizeof(float), &yBoundLower, 0, NULL, NULL))
             AFK_CLCHK(clEnqueueReadBuffer(q, yUpperBoundsMem, CL_TRUE, 0, sizeof(float), &yBoundUpper, 0, NULL, NULL))
-            std::cout << "Computed y bounds for " << u << ": " << yBoundLower << ", " << yBoundUpper << std::endl;
+            std::cout << "Computed y bounds for " << (*drawQIt)->getUnit(u) << ": " << yBoundLower << ", " << yBoundUpper << std::endl;
 
             AFK_CLCHK(clReleaseMemObject(yLowerBoundsMem))
             AFK_CLCHK(clReleaseMemObject(yUpperBoundsMem))
@@ -774,7 +769,6 @@ void AFK_World::doComputeTasks(void)
     }
 
     afk_core.computer->unlock();
-    drawQueues.clear();
 }
 
 void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLight)
@@ -791,7 +785,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     /* Now that I've set that up, make the texture that describes
      * where the tiles are in space ...
      */
-    static std::vector<boost::shared_ptr<AFK_LandscapeDisplayQueue> > drawQueues;
+    std::vector<boost::shared_ptr<AFK_LandscapeDisplayQueue> > drawQueues;
     landscapeDisplayFair.getDrawQueues(drawQueues);
 
     /* Those queues are in puzzle order. */

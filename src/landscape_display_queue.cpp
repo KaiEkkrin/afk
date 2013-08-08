@@ -14,6 +14,17 @@ AFK_LandscapeDisplayUnit::AFK_LandscapeDisplayUnit(
 {
 }
 
+std::ostream& operator<<(std::ostream& os, const AFK_LandscapeDisplayUnit& unit)
+{
+    os << "(LDU: ";
+    os << "cellCoord=" << std::dec << unit.cellCoord;
+    os << ", jigsawPieceST=" << unit.jigsawPieceST;
+    os << ", yBoundLower=" << unit.yBoundLower;
+    os << ", yBoundUpper=" << unit.yBoundUpper;
+    os << ")";
+    return os;
+}
+
 
 AFK_LandscapeDisplayQueue::AFK_LandscapeDisplayQueue():
     buf(0)
@@ -55,6 +66,20 @@ unsigned int AFK_LandscapeDisplayQueue::getUnitCount(void)
     boost::unique_lock<boost::mutex> lock(mut);
 
     return queue.size();
+}
+
+AFK_LandscapeDisplayUnit AFK_LandscapeDisplayQueue::getUnit(unsigned int u)
+{
+    boost::unique_lock<boost::mutex> lock(mut);
+
+    return queue[u];
+}
+
+bool AFK_LandscapeDisplayQueue::empty(void)
+{
+    boost::unique_lock<boost::mutex> lock(mut);
+
+    return queue.empty();
 }
 
 void AFK_LandscapeDisplayQueue::clear(void)

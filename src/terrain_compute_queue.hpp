@@ -5,6 +5,7 @@
 
 #include "afk.hpp"
 
+#include <sstream>
 #include <vector>
 
 #include <boost/thread/mutex.hpp>
@@ -36,7 +37,11 @@ public:
         int _tileOffset,
         int _tileCount,
         const Vec2<int>& _piece);
+
+    friend std::ostream& operator<<(std::ostream& os, const AFK_TerrainComputeUnit& unit);
 };
+
+std::ostream& operator<<(std::ostream& os, const AFK_TerrainComputeUnit& unit);
 
 /* Important for being able to copy them around and
  * into the OpenCL buffers easily.
@@ -73,6 +78,8 @@ public:
 
     int getUnitCount(void);
     AFK_TerrainComputeUnit getUnit(int unitIndex);
+
+    bool empty(void);
 
     /* Clears everything out ready for the next evaluation phase.
      * Make sure the CL tasks are finished first! :P

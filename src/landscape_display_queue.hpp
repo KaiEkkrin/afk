@@ -5,6 +5,7 @@
 
 #include "afk.hpp"
 
+#include <sstream>
 #include <vector>
 
 #include <boost/thread/mutex.hpp>
@@ -35,7 +36,11 @@ public:
         const Vec2<float>& _jigsawPieceST,
         float _yBoundLower,
         float _yBoundUpper);
+
+    friend std::ostream& operator<<(std::ostream& os, const AFK_LandscapeDisplayUnit& unit);
 };
+
+std::ostream& operator<<(std::ostream& os, const AFK_LandscapeDisplayUnit& unit);
 
 BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_LandscapeDisplayUnit>::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_LandscapeDisplayUnit>::value));
@@ -63,6 +68,8 @@ public:
     void copyToGl(void);
 
     unsigned int getUnitCount(void);
+    AFK_LandscapeDisplayUnit getUnit(unsigned int u);
+    bool empty(void);
 
     void clear(void);
 };
