@@ -93,7 +93,7 @@ AFK_Jigsaw::AFK_Jigsaw(
         pieceSize.v[0],
         pieceSize.v[1],
         0,
-        glTexFormat,
+        glTexFormat /* TODO See http://www.opengl.org/discussion_boards/showthread.php/177713-Problem-with-HDR-rendering : looks like I need GL_R / GL_RGB / GL_RGBA here, and not something with a `32F' or similar on the end */,
         GL_UNSIGNED_BYTE,
         &testData[0]);
 #else
