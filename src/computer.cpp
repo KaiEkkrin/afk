@@ -95,6 +95,8 @@ AFK_ClDeviceProperties::AFK_ClDeviceProperties(cl_device_id device):
     maxWorkItemSizes(NULL)
 {
     getClDeviceInfoFixed<cl_ulong>(device, CL_DEVICE_GLOBAL_MEM_SIZE, &globalMemSize, 0);
+    getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE2D_MAX_WIDTH, &image2DMaxWidth, 0);
+    getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE2D_MAX_HEIGHT, &image2DMaxHeight, 0);
     getClDeviceInfoFixed<cl_ulong>(device, CL_DEVICE_LOCAL_MEM_SIZE, &localMemSize, 0);
     getClDeviceInfoFixed<cl_uint>(device, CL_DEVICE_MAX_CONSTANT_ARGS, &maxConstantArgs, 0);
     getClDeviceInfoFixed<cl_uint>(device, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, &maxConstantBufferSize, 0);
@@ -124,6 +126,8 @@ std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p)
 {
     os << std::dec;
     os << "Global mem size:                 " << p.globalMemSize << std::endl;
+    os << "2D image maximum width:          " << p.image2DMaxWidth << std::endl;
+    os << "2D image maximum height:         " << p.image2DMaxHeight << std::endl;
     os << "Local mem size:                  " << p.localMemSize << std::endl;
     os << "Max constant args:               " << p.maxConstantArgs << std::endl;
     os << "Max constant buffer size:        " << p.maxConstantBufferSize << std::endl;

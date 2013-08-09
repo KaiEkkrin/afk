@@ -451,6 +451,7 @@ static unsigned int calculateCacheBitness(unsigned int entries)
 
 AFK_World::AFK_World(
     const AFK_Config *config,
+    const AFK_ClDeviceProperties& clDeviceProps,
     float _maxDistance,
     unsigned int worldCacheSize,
     unsigned int tileCacheSize,
@@ -481,6 +482,7 @@ AFK_World::AFK_World(
         pieceSize,
         (int)tileCacheEntries,
         AFK_JIGSAW_4FLOAT32,
+        clDeviceProps,
         config->clGlSharing);
 
     landscapeCache = new AFK_LANDSCAPE_CACHE(
@@ -724,8 +726,10 @@ void AFK_World::doComputeTasks(void)
          * happens regardless!).  Once that's working, I can
          * figure out how to batch this stuff up!
          */
-        for (int u = 0; u < computeQueues[puzzle]->getUnitCount(); ++u)
+        for (int u = 0; u < /* computeQueues[puzzle]->getUnitCount() */ 1; ++u)
         {
+            std::cout << "Processing unit " << u << ": " << computeQueues[puzzle]->getUnit(u) << std::endl;
+
             cl_int error;
 
             /* TODO The scratch for these should be done in local
@@ -788,7 +792,7 @@ void AFK_World::doComputeTasks(void)
         /* TODO REMOVEME (somehow)
          * Debug this a little bit.
          */
-#if 0
+#if 1
         std::vector<Vec2<int> > changedPiecesDebug;
         std::vector<Vec4<float> > changesDebug;
         jigsaw->debugReadChanges<Vec4<float> >(changedPiecesDebug, changesDebug);

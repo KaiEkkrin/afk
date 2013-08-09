@@ -151,6 +151,11 @@ AFK_Jigsaw::AFK_Jigsaw(
     cl_int error;
     if (clGlSharing)
     {
+        /* TODO This segfaults right now.  Perhaps I need to have pre-
+         * initialised the texture with glTexImage2D...?
+         * Perhaps I need to read an example of doing this by one of
+         * the GPU vendors. :P
+         */
         clTex = clCreateFromGLTexture(
             ctxt,
             CL_MEM_WRITE_ONLY, /* TODO Ooh!  Look at the docs for this function: will it turn out I can read/write the same texture in one compute kernel after all? */
@@ -169,10 +174,6 @@ AFK_Jigsaw::AFK_Jigsaw(
         // "must be 0 if host_ptr is null"
         //imageDesc.image_row_pitch   = imageDesc.image_width * _texelSize;
 
-        /* TODO This segfaults.  I've got a feeling it might not be
-         * implemented on Nvidia, and I need to use the old
-         * clCreateImage2D() instead ...?
-         */
         if (afk_core.computer->testVersion(1, 2))
         {
             clTex = clCreateImage(
@@ -271,7 +272,7 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
             region[1] = pieceSize.v[1];
             region[2] = 1;
 
-            AFK_CLCHK(clEnqueueReadImage(q, clTex, CL_TRUE, origin, region, 0, 0, &changes[s * pieceSizeInBytes], 0, NULL, NULL))
+            AFK_CLCHK(clEnqueueReadImage(q, clTex, CL_TRUE, origin, region, pieceSize.v[0] * format.texelSize, 0, &changes[s * pieceSizeInBytes], 0, NULL, NULL))
         }
 #endif
     }
@@ -320,6 +321,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
     const Vec2<int>& _pieceSize,
     int _pieceCount,
     enum AFK_JigsawFormat _texFormat,
+    const AFK_ClDeviceProperties& _clDeviceProps,
     bool _clGlSharing):
         pieceSize(_pieceSize),
         pieceCount(_pieceCount),
@@ -329,17 +331,46 @@ AFK_JigsawCollection::AFK_JigsawCollection(
 {
     std::cout << "AFK_JigsawCollection: With " << std::dec << pieceCount << " pieces of size " << pieceSize << ": " << std::endl;
 
-    /* TODO What I need to do here is figure out how many pieces will
-     * fit into the largest jigsaw that I can make on this hardware.
-     * Which I can do by experimentally making textures of type
-     * GL_PROXY_TEXTURE_2D, and then requesting some simple properties
-     * and checking for non-zero.
-     * However, in order to verify the rest of this stuff, for now I'm
-     * going to use the degenerate case and have only one piece per
-     * jigsaw :P
-     */
-    Vec2<int> jigsawSize = afk_vec2<int>(1, 1);
-    int jigsawCount = pieceCount;
+    /* Figure out a jigsaw size. */
+    jigsawSize = afk_vec2<int>(1, 1);
+    GLuint glProxyTex;
+    glGenTextures(1, &glProxyTex);
+    glBindTexture(GL_PROXY_TEXTURE_2D, glProxyTex);
+    GLint texWidth;
+    bool dimensionsOK = true;
+    for (Vec2<int> testJigsawSize = jigsawSize;
+        dimensionsOK && jigsawSize.v[0] * jigsawSize.v[1] < pieceCount;
+        testJigsawSize = testJigsawSize * 2)
+    {
+        /* Try to make a pretend texture of the current jigsaw size */
+        glTexImage2D(
+            GL_PROXY_TEXTURE_2D,
+            0,
+            format.glInternalFormat,
+            pieceSize.v[0] * testJigsawSize.v[0],
+            pieceSize.v[1] * testJigsawSize.v[1],
+            0,
+            format.glFormat,
+            format.glDataType,
+            NULL);
+
+        /* See if it worked */
+        glGetTexLevelParameteriv(
+            GL_PROXY_TEXTURE_2D,
+            0,
+            GL_TEXTURE_WIDTH,
+            &texWidth);
+
+        dimensionsOK = (texWidth != 0 &&
+            testJigsawSize.v[0] <= (int)_clDeviceProps.image2DMaxWidth &&
+            testJigsawSize.v[1] <= (int)_clDeviceProps.image2DMaxHeight &&
+            (testJigsawSize.v[0] * testJigsawSize.v[1] * pieceSize.v[0] * pieceSize.v[1] * format.texelSize) < _clDeviceProps.maxMemAllocSize);
+        if (dimensionsOK) jigsawSize = testJigsawSize;
+    }
+
+    glDeleteTextures(1, &glProxyTex);
+
+    int jigsawCount = pieceCount / (jigsawSize.v[0] * jigsawSize.v[1]) + 1;
 
     std::cout << "AFK_JigsawCollection: Making " << jigsawCount << " jigsaws with " << jigsawSize << " pieces each" << std::endl;
 

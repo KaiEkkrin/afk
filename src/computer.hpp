@@ -53,14 +53,16 @@ public:
 class AFK_ClDeviceProperties
 {
 public:
-    cl_ulong     globalMemSize;
-    cl_ulong     localMemSize;
+    cl_ulong    globalMemSize;
+    size_t      image2DMaxWidth;
+    size_t      image2DMaxHeight;
+    cl_ulong    localMemSize;
     cl_uint     maxConstantArgs;
     cl_uint     maxConstantBufferSize;
-    cl_ulong     maxMemAllocSize;
-    size_t        maxParameterSize;
-    size_t        maxWorkGroupSize;
-    cl_uint        maxWorkItemDimensions;
+    cl_ulong    maxMemAllocSize;
+    size_t      maxParameterSize;
+    size_t      maxWorkGroupSize;
+    cl_uint     maxWorkItemDimensions;
 
     size_t *    maxWorkItemSizes;
     

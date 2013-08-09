@@ -176,7 +176,7 @@ __kernel void makeTerrain(
     /* Work out where we are inside the inputs, and inside
      * the jigsaw piece...
      */
-    __global const struct AFK_TerrainComputeUnit *unit = units + unitOffset;
+    unsigned int myUnitOffset = unitOffset;
 
     /* Initialise the tile co-ordinate that corresponds to my texels
      */
@@ -191,7 +191,7 @@ __kernel void makeTerrain(
     /* Iterate through the terrain tiles, applying
      * each tile's modification in turn.
      */
-    for (int i = unit->tileOffset; i < (unit->tileOffset + unit->tileCount); ++i)
+    for (int i = units[myUnitOffset].tileOffset; i < (units[myUnitOffset].tileOffset + units[myUnitOffset].tileCount); ++i)
     {
         if (i > 0)
         {
@@ -205,13 +205,13 @@ __kernel void makeTerrain(
     }
 
     /* Swap back into original tile space */
-    transformTileToTile(&vl, &vc, tiles, unit->tileOffset + unit->tileCount - 1, unit->tileOffset);
+    transformTileToTile(&vl, &vc, tiles, units[myUnitOffset].tileOffset + units[myUnitOffset].tileCount - 1, units[myUnitOffset].tileOffset);
 
     /* Make that colour space halfway sane */
     vc = normalize(vc) - 0.4f;
 
     /* Fill out the texels from my computed values. */
-    int2 jigsawCoord = unit->piece + (int2)(xdim, zdim);
+    int2 jigsawCoord = units[myUnitOffset].piece * TDIM + (int2)(xdim, zdim);
     write_imagef(jigsaw, jigsawCoord, (float4)(vc, vl.y));
     /* Debug colours here. */
 #if 0

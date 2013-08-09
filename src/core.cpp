@@ -74,6 +74,7 @@ void afk_displayLoop(void)
     afk_core.computer->lock(ctxt, q);
     afk_core.world = new AFK_World(
         afk_core.config,
+        afk_core.computer->getFirstDeviceProps(),
         worldMaxDistance,   /* maxDistance -- zFar must be a lot bigger or things will vanish */
         clGlMaxAllocSize / 4,
         clGlMaxAllocSize / 4,

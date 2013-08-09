@@ -16,6 +16,7 @@
 #include "async/work_queue.hpp"
 #include "camera.hpp"
 #include "cell.hpp"
+#include "computer.hpp"
 #include "config.hpp"
 #include "data/evictable_cache.hpp"
 #include "data/fair.hpp"
@@ -225,6 +226,7 @@ public:
 
     AFK_World(
         const AFK_Config *config,
+        const AFK_ClDeviceProperties& clDeviceProps,
         float _maxDistance,
         unsigned int worldCacheSize, /* in bytes */
         unsigned int tileCacheSize, /* also in bytes */

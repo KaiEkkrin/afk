@@ -29,6 +29,13 @@ public:
     {
         return v[0] != p.v[0] || v[1] != p.v[1];
     }
+
+    Vec2<F> operator*(F f) const
+    {
+        Vec2<F> r;
+        r.v[0] = v[0] * f; r.v[1] = v[1] * f;
+        return r;
+    }
 };
 
 template<typename F>

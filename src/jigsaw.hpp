@@ -15,6 +15,7 @@
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
+#include "computer.hpp"
 #include "def.hpp"
 
 /* This module encapsulates the idea of having a large, "heapified"
@@ -57,7 +58,7 @@ public:
 class AFK_JigsawPiece
 {
 public:
-    Vec2<int> piece;   /* u, v within the identified jigsaw texture */
+    Vec2<int> piece;   /* u, v of the jigsaw piece within the jigsaw, in piece units */
     int puzzle;  /* which jigsaw buffer */
 
     /* This constructor makes the "null" jigsaw piece, which isn't in
@@ -188,6 +189,7 @@ class AFK_JigsawCollection
 {
 protected:
     Vec2<int> pieceSize;
+    Vec2<int> jigsawSize;
     int pieceCount;
     AFK_JigsawFormatDescriptor format;
     bool clGlSharing;
@@ -208,6 +210,7 @@ public:
         const Vec2<int>& _pieceSize,
         int _pieceCount,
         enum AFK_JigsawFormat _texFormat,
+        const AFK_ClDeviceProperties& _clDeviceProps,
         bool _clGlSharing);
     virtual ~AFK_JigsawCollection();
 
