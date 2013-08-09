@@ -144,25 +144,46 @@ AFK_Jigsaw::AFK_Jigsaw(
         format.glDataType,
         &testData[0]);
 #else
-    glTexStorage2D(GL_TEXTURE_2D, 1, format.glInternalFormat, pieceSize.v[0] * jigsawSize.v[0], pieceSize.v[1] * jigsawSize.v[1]);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        format.glInternalFormat,
+        pieceSize.v[0] * jigsawSize.v[0],
+        pieceSize.v[1] * jigsawSize.v[1],
+        0,
+        format.glFormat,
+        format.glDataType,
+        zeroMem);
+    //glTexStorage2D(GL_TEXTURE_2D, 1, format.glInternalFormat, pieceSize.v[0] * jigsawSize.v[0], pieceSize.v[1] * jigsawSize.v[1]);
 #endif
     AFK_GLCHK("AFK_JigSaw texStorage2D")
 
     cl_int error;
     if (clGlSharing)
     {
-        /* TODO This segfaults right now.  Perhaps I need to have pre-
-         * initialised the texture with glTexImage2D...?
-         * Perhaps I need to read an example of doing this by one of
-         * the GPU vendors. :P
-         */
-        clTex = clCreateFromGLTexture(
-            ctxt,
-            CL_MEM_WRITE_ONLY, /* TODO Ooh!  Look at the docs for this function: will it turn out I can read/write the same texture in one compute kernel after all? */
-            GL_TEXTURE_2D,
-            0,
-            glTex,
-            &error);
+        if (afk_core.computer->testVersion(1, 2))
+        {
+            clTex = clCreateFromGLTexture(
+                ctxt,
+                CL_MEM_WRITE_ONLY, /* TODO Ooh!  Look at the docs for this function: will it turn out I can read/write the same texture in one compute kernel after all? */
+                GL_TEXTURE_2D,
+                0,
+                glTex,
+                &error);
+        }
+        else
+        {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+            clTex = clCreateFromGLTexture2D(
+                ctxt,
+                CL_MEM_WRITE_ONLY,
+                GL_TEXTURE_2D,
+                0,
+                glTex,
+                &error);           
+#pragma GCC diagnostic pop
+        }
     }
     else
     {
@@ -272,7 +293,7 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
             region[1] = pieceSize.v[1];
             region[2] = 1;
 
-            AFK_CLCHK(clEnqueueReadImage(q, clTex, CL_TRUE, origin, region, pieceSize.v[0] * format.texelSize, 0, &changes[s * pieceSizeInBytes], 0, NULL, NULL))
+            AFK_CLCHK(clEnqueueReadImage(q, clTex, CL_TRUE, origin, region, 0 /* pieceSize.v[0] * format.texelSize */, 0, &changes[s * pieceSizeInBytes], 0, NULL, NULL))
         }
 #endif
     }

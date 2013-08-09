@@ -105,7 +105,7 @@ bool AFK_World::checkClaimedLandscapeTile(
 #define DEBUG_JIGSAW_ASSOCIATION 0
 #define DEBUG_JIGSAW_ASSOCIATION_GL 0
 
-#define DEBUG_TERRAIN_COMPUTE_QUEUE 0
+#define DEBUG_TERRAIN_COMPUTE_QUEUE 1
 
 void AFK_World::generateLandscapeArtwork(
     const AFK_Tile& tile,
@@ -711,7 +711,8 @@ void AFK_World::doComputeTasks(void)
      */
     for (unsigned int puzzle = 0; puzzle < computeQueues.size(); ++puzzle)
     {
-        if (computeQueues[puzzle]->getUnitCount() == 0) continue;
+        unsigned int unitCount = computeQueues[puzzle]->getUnitCount();
+        if (unitCount == 0) continue;
 
         cl_mem terrainBufs[3];
         computeQueues[puzzle]->copyToClBuffers(ctxt, terrainBufs);
@@ -719,68 +720,61 @@ void AFK_World::doComputeTasks(void)
         AFK_Jigsaw *jigsaw = landscapeJigsaws->getPuzzle(puzzle);
         cl_mem *jigsawMem = jigsaw->acquireForCl(ctxt, q);
 
-        /* TODO Set up and enqueue the rest of the computation.
-         * To begin with, I should try processing just a single
-         * tile per call, because that's easier.  (I'll probably
-         * need copious debugging to figure out why nothing
-         * happens regardless!).  Once that's working, I can
-         * figure out how to batch this stuff up!
+        /* Set up and enqueue the rest of the computation. */
+
+        /* TODO The scratch for these should be done in local
+         * memory (which I still need to learn how to use).
+         * The y lower and upper bounds ought to come out in
+         * a single buffer indexed by unit.
+         * For now, y bounds computation is disabled
+         * entirely.
          */
-        for (int u = 0; u < /* computeQueues[puzzle]->getUnitCount() */ 1; ++u)
-        {
-            std::cout << "Processing unit " << u << ": " << computeQueues[puzzle]->getUnit(u) << std::endl;
+#if 0
+        cl_mem yLowerBoundsMem = clCreateBuffer(
+            ctxt, CL_MEM_READ_WRITE,
+            (1 << lSizes.getReduceOrder()) * sizeof(float),
+            NULL,
+            &error);
+        afk_handleClError(error);
 
-            cl_int error;
+        cl_mem yUpperBoundsMem = clCreateBuffer(
+            ctxt, CL_MEM_READ_WRITE,
+            (1 << lSizes.getReduceOrder()) * sizeof(float),
+            NULL,
+            &error);
+        afk_handleClError(error);
+#endif
 
-            /* TODO The scratch for these should be done in local
-             * memory (which I still need to learn how to use).
-             * The y lower and upper bounds ought to come out in
-             * a single buffer indexed by unit.
-             */
-            cl_mem yLowerBoundsMem = clCreateBuffer(
-                ctxt, CL_MEM_READ_WRITE,
-                (1 << lSizes.getReduceOrder()) * sizeof(float),
-                NULL,
-                &error);
-            afk_handleClError(error);
+        AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 0, sizeof(cl_mem), &terrainBufs[0]))
+        AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 1, sizeof(cl_mem), &terrainBufs[1]))
+        AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 2, sizeof(cl_mem), &terrainBufs[2]))
+        AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 3, sizeof(cl_mem), jigsawMem))
+#if 0
+        AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 5, sizeof(cl_mem), &yLowerBoundsMem))
+        AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 6, sizeof(cl_mem), &yUpperBoundsMem))
+#endif
 
-            cl_mem yUpperBoundsMem = clCreateBuffer(
-                ctxt, CL_MEM_READ_WRITE,
-                (1 << lSizes.getReduceOrder()) * sizeof(float),
-                NULL,
-                &error);
-            afk_handleClError(error);
+        size_t terrainDim[3];
+        terrainDim[0] = unitCount;
+        terrainDim[1] = terrainDim[2] = lSizes.tDim;
+        AFK_CLCHK(clEnqueueNDRangeKernel(q, afk_core.terrainKernel, 3, NULL, &terrainDim[0], NULL, 0, NULL, NULL))
 
-            AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 0, sizeof(cl_mem), &terrainBufs[0]))
-            AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 1, sizeof(cl_mem), &terrainBufs[1]))
-            AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 2, sizeof(cl_mem), &terrainBufs[2]))
-            AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 3, sizeof(unsigned int), &u))
-            AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 4, sizeof(cl_mem), jigsawMem))
-            AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 5, sizeof(cl_mem), &yLowerBoundsMem))
-            AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 6, sizeof(cl_mem), &yUpperBoundsMem))
+        /* TODO change this to FALSE, so I don't flush the queue part way, after debugging.
+         * Also, you know, actually put it in the right place.  For now, I'm
+         * going to read it to some temp variables to debug, only.
+         */
+#if 0
+        float yBoundLower, yBoundUpper;
+        AFK_CLCHK(clEnqueueReadBuffer(q, yLowerBoundsMem, CL_TRUE, 0, sizeof(float), &yBoundLower, 0, NULL, NULL))
+        AFK_CLCHK(clEnqueueReadBuffer(q, yUpperBoundsMem, CL_TRUE, 0, sizeof(float), &yBoundUpper, 0, NULL, NULL))
+        //std::cout << "Computed y bounds for " << computeQueues[puzzle]->getUnit(u) << ": " << yBoundLower << ", " << yBoundUpper << std::endl;
 
-            /* TODO Here, make reference to max dimensions, and
-             * work out a subdivision of the work into as few,
-             * wide, calls as possible!
-             */
-            size_t terrainDim[2];
-            terrainDim[0] = terrainDim[1] = lSizes.tDim;
-            AFK_CLCHK(clEnqueueNDRangeKernel(q, afk_core.terrainKernel, 2, NULL, &terrainDim[0], NULL, 0, NULL, NULL))
+        AFK_CLCHK(clReleaseMemObject(yLowerBoundsMem))
+        AFK_CLCHK(clReleaseMemObject(yUpperBoundsMem))
+#endif
 
-            /* TODO change this to FALSE, so I don't flush the queue part way, after debugging.
-             * Also, you know, actually put it in the right place.  For now, I'm
-             * going to read it to some temp variables to debug, only.
-             */
-            float yBoundLower, yBoundUpper;
-            AFK_CLCHK(clEnqueueReadBuffer(q, yLowerBoundsMem, CL_TRUE, 0, sizeof(float), &yBoundLower, 0, NULL, NULL))
-            AFK_CLCHK(clEnqueueReadBuffer(q, yUpperBoundsMem, CL_TRUE, 0, sizeof(float), &yBoundUpper, 0, NULL, NULL))
-            //std::cout << "Computed y bounds for " << computeQueues[puzzle]->getUnit(u) << ": " << yBoundLower << ", " << yBoundUpper << std::endl;
-
-            AFK_CLCHK(clReleaseMemObject(yLowerBoundsMem))
-            AFK_CLCHK(clReleaseMemObject(yUpperBoundsMem))
-
+        for (unsigned int u = 0; u < unitCount; ++u)
             jigsaw->pieceChanged(computeQueues[puzzle]->getUnit(u).piece);
-        }
 
         for (unsigned int i = 0; i < 3; ++i)
         {

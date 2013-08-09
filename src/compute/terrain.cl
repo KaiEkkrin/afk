@@ -30,52 +30,55 @@ float calcDistanceToCentre(float3 *vl, float2 locationXZ)
 void computeCone(
     float3 *vl,
     float3 *vc,
-    __global const struct AFK_TerrainFeature *feature)
+    __global const struct AFK_TerrainFeature *features,
+    int i)
 {
-    float radius = (feature->scale.x < feature->scale.z ?
-        feature->scale.x : feature->scale.z);
+    float radius = (features[i].scale.x < features[i].scale.z ?
+        features[i].scale.x : features[i].scale.z);
 
-    float distanceToCentre = calcDistanceToCentre(vl, feature->location);
+    float distanceToCentre = calcDistanceToCentre(vl, features[i].location);
 
     if (distanceToCentre < radius)
     {
         float dispY = (radius - distanceToCentre) *
-            (feature->scale.y / radius);
+            (features[i].scale.y / radius);
         *vl += (float3)(0.0f, dispY, 0.0f);
-        *vc += feature->tint * feature->scale.z * distanceToCentre;
+        *vc += features[i].tint * features[i].scale.z * distanceToCentre;
     }
 }
 
 void computeSpike(
     float3 *vl,
     float3 *vc,
-    __global const struct AFK_TerrainFeature *feature)
+    __global const struct AFK_TerrainFeature *features,
+    int i)
 {
-    float radius = (feature->scale.x < feature->scale.z ?
-        feature->scale.x : feature->scale.z);
+    float radius = (features[i].scale.x < features[i].scale.z ?
+        features[i].scale.x : features[i].scale.z);
 
-    float distanceToCentre = calcDistanceToCentre(vl, feature->location);
+    float distanceToCentre = calcDistanceToCentre(vl, features[i].location);
 
     /* A spike is a hump without the rounded-off section. */
     if (distanceToCentre < radius)
     {
         float dispY = (radius - distanceToCentre) *
             (radius - distanceToCentre) *
-            (feature->scale.y / (radius * radius));
+            (features[i].scale.y / (radius * radius));
         *vl += (float3)(0.0f, dispY, 0.0f);
-        *vc += feature->tint * feature->scale.z * distanceToCentre;
+        *vc += features[i].tint * features[i].scale.z * distanceToCentre;
     }
 }
 
 void computeHump(
     float3 *vl,
     float3 *vc,
-    __global const struct AFK_TerrainFeature *feature)
+    __global const struct AFK_TerrainFeature *features,
+    int i)
 {
-    float radius = (feature->scale.x < feature->scale.z ?
-        feature->scale.x : feature->scale.z);
+    float radius = (features[i].scale.x < features[i].scale.z ?
+        features[i].scale.x : features[i].scale.z);
 
-    float distanceToCentre = calcDistanceToCentre(vl, feature->location);
+    float distanceToCentre = calcDistanceToCentre(vl, features[i].location);
 
     float3 disp = (float3)(0.0f, 0.0f, 0.0f);
     if (distanceToCentre < (radius / 2.0f))
@@ -84,42 +87,43 @@ void computeHump(
          * distanceToCentre == (radius / 2.0f) .
          */
         disp.y = ((radius / 2.0f) * (radius / 2.0f) *
-            (2.0f * feature->scale.y / (radius * radius)));
+            (2.0f * features[i].scale.y / (radius * radius)));
 
         /* From there, we subtract the inverse curve. */
-        disp.y -= (distanceToCentre * distanceToCentre * feature->scale.y / (radius * radius));
+        disp.y -= (distanceToCentre * distanceToCentre * features[i].scale.y / (radius * radius));
 
         *vl += disp;
-        *vc += feature->tint * feature->scale.z * distanceToCentre;
+        *vc += features[i].tint * features[i].scale.z * distanceToCentre;
     }
     else if (distanceToCentre < radius)
     {
         disp.y = (radius - distanceToCentre) *
             (radius - distanceToCentre) *
-            (feature->scale.y / (radius * radius));
+            (features[i].scale.y / (radius * radius));
 
         *vl += disp;
-        *vc += feature->tint * feature->scale.z * distanceToCentre;
+        *vc += features[i].tint * features[i].scale.z * distanceToCentre;
     }
 }
 
 void computeTerrainFeature(
     float3 *vl,
     float3 *vc,
-    __global const struct AFK_TerrainFeature *feature)
+    __global const struct AFK_TerrainFeature *features,
+    int i)
 {
-    switch (feature->fType)
+    switch (features[i].fType)
     {
     case AFK_TERRAIN_CONE:
-        computeCone(vl, vc, feature);
+        computeCone(vl, vc, features, i);
         break;
 
     case AFK_TERRAIN_SPIKE:
-        computeSpike(vl, vc, feature);
+        computeSpike(vl, vc, features, i);
         break;
 
     case AFK_TERRAIN_HUMP:
-        computeHump(vl, vc, feature);
+        computeHump(vl, vc, features, i);
         break;
     }
 }
@@ -165,18 +169,21 @@ __kernel void makeTerrain(
     __global const struct AFK_TerrainFeature *features,
     __global const struct AFK_TerrainTile *tiles,
     __global const struct AFK_TerrainComputeUnit *units,
-    unsigned int unitOffset, /* TODO turn to `unitCount' and process all */
-    __write_only image2d_t jigsaw, /* 4 floats per texel: (colour, y displacement) */
+    __write_only image2d_t jigsaw /* 4 floats per texel: (colour, y displacement) */
+#if 0
     __global float *yLowerBounds,
-    __global float *yUpperBounds)
+    __global float *yUpperBounds
+#endif
+    )
 {
-    const int xdim = get_global_id(0);
-    const int zdim = get_global_id(1);
+    const int unitOffset = get_global_id(0);
+    const int xdim = get_global_id(1);
+    const int zdim = get_global_id(2);
 
     /* Work out where we are inside the inputs, and inside
      * the jigsaw piece...
      */
-    unsigned int myUnitOffset = unitOffset;
+    int myUnitOffset = unitOffset;
 
     /* Initialise the tile co-ordinate that corresponds to my texels
      */
@@ -193,15 +200,14 @@ __kernel void makeTerrain(
      */
     for (int i = units[myUnitOffset].tileOffset; i < (units[myUnitOffset].tileOffset + units[myUnitOffset].tileCount); ++i)
     {
-        if (i > 0)
+        if (i > units[myUnitOffset].tileOffset)
         {
             /* Transform up to next cell space. */
             transformTileToTile(&vl, &vc, tiles, i-1, i);
         }
 
         for (unsigned int j = 0; j < tiles[i].featureCount; ++j)
-            computeTerrainFeature(&vl, &vc,
-                &features[i * FEATURE_COUNT_PER_TILE + j]);
+            computeTerrainFeature(&vl, &vc, features, i * FEATURE_COUNT_PER_TILE + j);
     }
 
     /* Swap back into original tile space */
@@ -237,7 +243,9 @@ __kernel void makeTerrain(
      * (Which brings me back to trying to cram all tasks into one really
      * big heapified buffer!)
      */
-#if 1
+
+    /* TODO *3: Put the y-bounds back.  Later.  */
+#if 0
     int v = xdim * TDIM + zdim;
     yLowerBounds[v + 1 << (REDUCE_ORDER - 1)] = FLT_MAX;
     yUpperBounds[v + 1 << (REDUCE_ORDER - 1)] = -FLT_MAX;
@@ -266,7 +274,9 @@ __kernel void makeTerrain(
             yUpperBounds[v] = 7.77f;
         }
     }
-#else
+
+    /* ... Other implementation follows ... */
+
     if (zdim == 0)
     {
         yLowerBounds[xdim] = FLT_MAX;

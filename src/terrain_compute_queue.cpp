@@ -60,7 +60,7 @@ std::string AFK_TerrainComputeQueue::debugTerrain(const AFK_TerrainComputeUnit& 
     std::ostringstream ss;
     for (int i = unit.tileOffset; i < (unit.tileOffset + unit.tileCount); ++i)
     {
-        if (i > 0) ss << ", ";
+        if (i > unit.tileOffset) ss << ", ";
         ss << t[i];
     }
 
