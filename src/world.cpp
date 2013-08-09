@@ -142,7 +142,7 @@ void AFK_World::generateLandscapeArtwork(
     AFK_TerrainComputeUnit unit = computeQueue->extend(
         terrainList, jigsawPiece.piece, lSizes);
     AFK_DEBUG_PRINTL("Pushed to queue for " << tile << ": " << unit << ": " << std::endl)
-    AFK_DEBUG_PRINTL(computeQueue->debugTerrain(unit, lSizes))
+    //AFK_DEBUG_PRINTL(computeQueue->debugTerrain(unit, lSizes))
 #else
     computeQueue->extend(terrainList, jigsawPiece.piece, lSizes);
 #endif
@@ -634,7 +634,9 @@ void AFK_World::alterDetail(float adjustment)
     if (adj > 1.0f || !(worldCache->wayOutsideTargetSize() || landscapeCache->wayOutsideTargetSize()))
         detailPitch = detailPitch * adjustment;
 
-    renderDetailPitch = detailPitch - fmod(detailPitch, 16.0f);
+    // Infernal AMD thing
+    //renderDetailPitch = detailPitch - fmod(detailPitch, 16.0f);
+    renderDetailPitch = 512.0f;
 }
 
 boost::unique_future<bool> AFK_World::updateWorld(void)
@@ -775,7 +777,11 @@ void AFK_World::doComputeTasks(void)
 #endif
 
         for (unsigned int u = 0; u < unitCount; ++u)
+        {
             jigsaw->pieceChanged(computeQueues[puzzle]->getUnit(u).piece);
+            // TODO remove debug
+            std::cout << "Flagging piece as changed: " << computeQueues[puzzle]->getUnit(u) << std::endl;
+        }
 
         for (unsigned int i = 0; i < 3; ++i)
         {
@@ -787,7 +793,7 @@ void AFK_World::doComputeTasks(void)
         /* TODO REMOVEME (somehow)
          * Debug this a little bit.
          */
-#if 1
+#if 0
         std::vector<Vec2<int> > changedPiecesDebug;
         std::vector<Vec4<float> > changesDebug;
         jigsaw->debugReadChanges<Vec4<float> >(changedPiecesDebug, changesDebug);

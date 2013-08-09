@@ -383,6 +383,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
             &texWidth);
 
         dimensionsOK = (texWidth != 0 &&
+            testJigsawSize.v[0] <= 2 &&
             testJigsawSize.v[0] <= (int)_clDeviceProps.image2DMaxWidth &&
             testJigsawSize.v[1] <= (int)_clDeviceProps.image2DMaxHeight &&
             (testJigsawSize.v[0] * testJigsawSize.v[1] * pieceSize.v[0] * pieceSize.v[1] * format.texelSize) < _clDeviceProps.maxMemAllocSize);

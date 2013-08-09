@@ -186,11 +186,6 @@ __kernel void makeTerrain(
     const int xdim = get_global_id(1);
     const int zdim = get_global_id(2);
 
-    /* Work out where we are inside the inputs, and inside
-     * the jigsaw piece...
-     */
-    int myUnitOffset = unitOffset;
-
     /* Initialise the tile co-ordinate that corresponds to my texels
      */
     float3 vl = (float3)(
@@ -204,9 +199,9 @@ __kernel void makeTerrain(
     /* Iterate through the terrain tiles, applying
      * each tile's modification in turn.
      */
-    for (int i = units[myUnitOffset].tileOffset; i < (units[myUnitOffset].tileOffset + units[myUnitOffset].tileCount); ++i)
+    for (int i = units[unitOffset].tileOffset; i < (units[unitOffset].tileOffset + units[unitOffset].tileCount); ++i)
     {
-        if (i > units[myUnitOffset].tileOffset)
+        if (i > units[unitOffset].tileOffset)
         {
             /* Transform up to next cell space. */
             transformTileToTile(&vl, &vc, tiles, i-1, i);
@@ -219,21 +214,21 @@ __kernel void makeTerrain(
     }
 
     /* Swap back into original tile space */
-    transformTileToTile(&vl, &vc, tiles, units[myUnitOffset].tileOffset + units[myUnitOffset].tileCount - 1, units[myUnitOffset].tileOffset);
+    transformTileToTile(&vl, &vc, tiles, units[unitOffset].tileOffset + units[unitOffset].tileCount - 1, units[unitOffset].tileOffset);
 
     /* Make that colour space halfway sane */
     vc = normalize(vc) - 0.4f;
 
     /* Fill out the texels from my computed values. */
-    int2 jigsawCoord = units[myUnitOffset].piece * TDIM + (int2)(xdim, zdim);
-    write_imagef(jigsaw, jigsawCoord, (float4)(vc, vl.y));
+    int2 jigsawCoord = units[unitOffset].piece * TDIM + (int2)(xdim, zdim);
+    //write_imagef(jigsaw, jigsawCoord, (float4)(vc, vl.y));
     /* Debug colours here. */
-#if 0
+#if 1
     write_imagef(jigsaw, jigsawCoord, (float4)(
-        xdim + TDIM * tiles[0].tileX,
-        zdim + TDIM * tiles[0].tileZ,
-        0.0f,
-        vl.y));
+        units[unitOffset].piece.x == 0 ? xdim : 0.0f,
+        zdim,
+        units[unitOffset].piece.x == 1 ? xdim : 0.0f,
+        0.0f));
 #endif
         
 
