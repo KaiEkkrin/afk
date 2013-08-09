@@ -13,9 +13,6 @@
 #include "shader.hpp"
 
 
-/* Enable this to debug OpenGL commands all over everywhere. */
-#define AFK_GL_DEBUG 1
-
 #if AFK_GL_DEBUG
 #define AFK_GLCHK(str) \
     { \

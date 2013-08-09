@@ -29,6 +29,7 @@ if GetOption('dbg'):
         extra_ccflags = ['-g']
         extra_ldflags = []
         variant_dir = 'build/debug'
+    extra_ccflags.append('-DAFK_GL_DEBUG=1')
 else:
     if GetOption('pg'):
         extra_ccflags = ['-O3', '-pg', '-g']
