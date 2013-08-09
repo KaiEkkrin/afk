@@ -71,10 +71,10 @@ public:
      * The Unit goes in too, but we return it as well so you can
      * instantly debug.
      */
-    AFK_TerrainComputeUnit extend(const AFK_TerrainList& list, const Vec2<int>& piece);
+    AFK_TerrainComputeUnit extend(const AFK_TerrainList& list, const Vec2<int>& piece, const AFK_LandscapeSizes& lSizes);
 
     /* This prints lots of debug info about the given terrain unit. */
-    std::string debugTerrain(const AFK_TerrainComputeUnit& unit) const;
+    std::string debugTerrain(const AFK_TerrainComputeUnit& unit, const AFK_LandscapeSizes& lSizes) const;
 
     /* Call this with a `mem' array of size 3, for:
      * - features

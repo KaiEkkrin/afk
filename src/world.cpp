@@ -140,10 +140,11 @@ void AFK_World::generateLandscapeArtwork(
     boost::shared_ptr<AFK_TerrainComputeQueue> computeQueue = landscapeComputeFair.getUpdateQueue(jigsawPiece.puzzle);
 #if DEBUG_TERRAIN_COMPUTE_QUEUE
     AFK_TerrainComputeUnit unit = computeQueue->extend(
-        terrainList, jigsawPiece.piece);
-    AFK_DEBUG_PRINTL("Pushed to queue for " << tile << ": " << unit << ": " << computeQueue->debugTerrain(unit))
+        terrainList, jigsawPiece.piece, lSizes);
+    AFK_DEBUG_PRINTL("Pushed to queue for " << tile << ": " << unit << ": " << std::endl)
+    AFK_DEBUG_PRINTL(computeQueue->debugTerrain(unit, lSizes))
 #else
-    computeQueue->extend(terrainList, jigsawPiece.piece);
+    computeQueue->extend(terrainList, jigsawPiece.piece, lSizes);
 #endif
 
     tilesComputed.fetch_add(1);

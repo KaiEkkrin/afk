@@ -34,7 +34,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainComputeUnit& unit)
 
 /* AFK_TerrainComputeQueue implementation */
 
-AFK_TerrainComputeUnit AFK_TerrainComputeQueue::extend(const AFK_TerrainList& list, const Vec2<int>& piece)
+AFK_TerrainComputeUnit AFK_TerrainComputeQueue::extend(const AFK_TerrainList& list, const Vec2<int>& piece, const AFK_LandscapeSizes& lSizes)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
@@ -46,6 +46,13 @@ AFK_TerrainComputeUnit AFK_TerrainComputeQueue::extend(const AFK_TerrainList& li
         throw AFK_Exception(ss.str());
     }
 
+    /* Make sure the list is sensible */
+    if (list.featureCount() != (list.tileCount() * lSizes.featureCountPerTile)) throw AFK_Exception("Insane terrain list found");
+
+    /* Make sure *WE* are sensible */
+    if (AFK_TerrainList::featureCount() != (AFK_TerrainList::tileCount() * lSizes.featureCountPerTile))
+        throw AFK_Exception("Insane self found");
+
     AFK_TerrainComputeUnit newUnit(
         AFK_TerrainList::tileCount(),
         list.tileCount(),
@@ -55,13 +62,19 @@ AFK_TerrainComputeUnit AFK_TerrainComputeQueue::extend(const AFK_TerrainList& li
     return newUnit;
 }
 
-std::string AFK_TerrainComputeQueue::debugTerrain(const AFK_TerrainComputeUnit& unit) const
+std::string AFK_TerrainComputeQueue::debugTerrain(const AFK_TerrainComputeUnit& unit, const AFK_LandscapeSizes& lSizes) const
 {
     std::ostringstream ss;
+    ss << std::endl;
     for (int i = unit.tileOffset; i < (unit.tileOffset + unit.tileCount); ++i)
     {
-        if (i > unit.tileOffset) ss << ", ";
-        ss << t[i];
+        ss << "  " << t[i] << ":" << std::endl;
+        for (unsigned int j = i * lSizes.featureCountPerTile;
+            j < ((i + 1) * lSizes.featureCountPerTile);
+            ++j)
+        {
+            ss << "    " << f[j] << std::endl;
+        }
     }
 
     return ss.str();

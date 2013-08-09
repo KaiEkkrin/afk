@@ -11,6 +11,12 @@
 
 struct AFK_TerrainFeature
 {
+    /* TODO remove debug */
+    float                       tileX;
+    float                       tileZ;
+    float                       tileScale;
+    unsigned int                featureCount;
+
     float3                      tint;
     float3                      scale;
     float2                      location; /* x, z */
@@ -206,8 +212,10 @@ __kernel void makeTerrain(
             transformTileToTile(&vl, &vc, tiles, i-1, i);
         }
 
-        for (unsigned int j = 0; j < tiles[i].featureCount; ++j)
-            computeTerrainFeature(&vl, &vc, features, i * FEATURE_COUNT_PER_TILE + j);
+        for (int j = i * FEATURE_COUNT_PER_TILE; j < ((i + 1) * FEATURE_COUNT_PER_TILE); ++j)
+        {
+            computeTerrainFeature(&vl, &vc, features, j);
+        }
     }
 
     /* Swap back into original tile space */

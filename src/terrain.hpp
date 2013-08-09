@@ -53,6 +53,12 @@ enum AFK_TerrainType
 class AFK_TerrainFeature
 {
 protected:
+    /* TODO REMOVEME Including for debug purposes. */
+    float               tileX;
+    float               tileZ;
+    float               tileScale;
+    unsigned int        featureCount;
+
     Vec3<float>             tint; /* TODO Make location and tint features separate things? */
     Vec3<float>             scale;
     Vec2<float>             location; /* x-z */
@@ -61,6 +67,10 @@ protected:
 public:
     AFK_TerrainFeature() {}
     AFK_TerrainFeature(
+        float _tileX,
+        float _tileZ,
+        float _tileScale,
+        unsigned int _featureCount,
         const Vec3<float>& _tint,
         const Vec3<float>& _scale,
         const Vec2<float>& _location,
@@ -141,6 +151,7 @@ public:
     void extend(const std::vector<AFK_TerrainFeature>& features, const std::vector<AFK_TerrainTile>& tiles);
     void extend(const AFK_TerrainList& list);
 
+    unsigned int featureCount(void) const;
     unsigned int tileCount(void) const;
 };
 

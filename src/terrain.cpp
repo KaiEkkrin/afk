@@ -12,17 +12,22 @@
 #include "terrain.hpp"
 
 AFK_TerrainFeature::AFK_TerrainFeature(
+    float _tileX,
+    float _tileZ,
+    float _tileScale,
+    unsigned int _featureCount,
     const Vec3<float>& _tint,
     const Vec3<float>& _scale,
     const Vec2<float>& _location,
     const enum AFK_TerrainType _type):
+        tileX(_tileX), tileZ(_tileZ), tileScale(_tileScale), featureCount(_featureCount),
         tint(_tint), scale(_scale), location(_location), type(_type)
 {
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_TerrainFeature& feature)
 {
-    return os << "Feature(Location=" << feature.location << ", Scale=" << feature.scale << ")";
+    return os << "Feature(X=" << feature.tileX << ", Z=" << feature.tileZ << ", Scale=" << feature.tileScale << ", Location=" << feature.location << ", Scale=" << feature.scale << ")";
 }
 
 
@@ -122,6 +127,7 @@ void AFK_TerrainTile::make(
          * and make the others humps.
          */
         AFK_TerrainFeature feature(
+            tileX, tileZ, tileScale, featureCount,
             tint, scale, location, i == 0 ? AFK_TERRAIN_SPIKE : AFK_TERRAIN_HUMP);
         features.push_back(feature);
     }
@@ -148,6 +154,11 @@ void AFK_TerrainList::extend(const std::vector<AFK_TerrainFeature>& features, co
 void AFK_TerrainList::extend(const AFK_TerrainList& list)
 {
     extend(list.f, list.t);
+}
+
+unsigned int AFK_TerrainList::featureCount(void) const
+{
+    return f.size();
 }
 
 unsigned int AFK_TerrainList::tileCount(void) const
