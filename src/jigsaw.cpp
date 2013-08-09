@@ -12,6 +12,60 @@
 #define FIXED_TEST_TEXTURE_DATA 1
 
 
+/* AFK_JigsawFormatDescriptor implementation */
+
+AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat e)
+{
+    switch (e)
+    {
+    case AFK_JIGSAW_FLOAT32:
+        glInternalFormat                    = GL_R32F;
+        glFormat                            = GL_R;
+        glDataType                          = GL_FLOAT;
+        clFormat.image_channel_order        = CL_R;
+        clFormat.image_channel_data_type    = CL_FLOAT;
+        texelSize                           = sizeof(float);
+        break;
+
+    case AFK_JIGSAW_4FLOAT8:
+        glInternalFormat                    = GL_RGBA;
+        glFormat                            = GL_RGBA;
+        glDataType                          = GL_UNSIGNED_BYTE;
+        clFormat.image_channel_order        = CL_RGBA;
+        clFormat.image_channel_data_type    = CL_UNSIGNED_INT8;
+        texelSize                           = sizeof(unsigned char) * 4;
+        break;
+
+    case AFK_JIGSAW_4FLOAT32:
+        glInternalFormat                    = GL_RGBA32F;
+        glFormat                            = GL_RGBA;
+        glDataType                          = GL_FLOAT;
+        clFormat.image_channel_order        = CL_RGBA;
+        clFormat.image_channel_data_type    = CL_FLOAT;
+        texelSize                           = sizeof(float) * 4;
+        break;
+
+    default:
+        {
+            std::ostringstream ss;
+            ss << "Unrecognised jigsaw format: " << e;
+            throw AFK_Exception(ss.str());
+        }
+    }
+}
+
+AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(
+    const AFK_JigsawFormatDescriptor& _fd)
+{
+    glInternalFormat                    = _fd.glInternalFormat;
+    glFormat                            = _fd.glFormat;
+    glDataType                          = _fd.glDataType;
+    clFormat.image_channel_order        = _fd.clFormat.image_channel_order;
+    clFormat.image_channel_data_type    = _fd.clFormat.image_channel_data_type;
+    texelSize                           = _fd.texelSize;
+}
+
+
 /* AFK_JigsawPiece implementation */
 
 AFK_JigsawPiece::AFK_JigsawPiece():
@@ -45,16 +99,12 @@ AFK_Jigsaw::AFK_Jigsaw(
     cl_context ctxt,
     const Vec2<int>& _pieceSize,
     const Vec2<int>& _jigsawSize,
-    GLenum _glTexFormat,
-    const cl_image_format& _clTexFormat,
-    size_t _texelSize,
+    const AFK_JigsawFormatDescriptor& _format,
     bool _clGlSharing,
     unsigned char *zeroMem):
         pieceSize(_pieceSize),
         jigsawSize(_jigsawSize),
-        glTexFormat(_glTexFormat),
-        clTexFormat(_clTexFormat),
-        texelSize(_texelSize),
+        format(_format),
         clGlSharing(_clGlSharing)
 {
     glGenTextures(1, &glTex);
@@ -70,34 +120,30 @@ AFK_Jigsaw::AFK_Jigsaw(
      * honest! :P
      * This code assumes jigsawSize to be {1, 1} for expediency
      */
-    Vec4<unsigned char> testData[pieceSize.v[0]][pieceSize.v[1]];
+    Vec4<float> testData[pieceSize.v[0]][pieceSize.v[1]];
     for (int a = 0; a < pieceSize.v[0]; ++a)
     {
         for (int b = 0; b < pieceSize.v[1]; ++b)
         {
-            testData[a][b] = afk_vec4<unsigned char>(
-                255,
-                a * 10,
-                b * 10,
+            testData[a][b] = afk_vec4<float>(
+                1.0f,
+                (float)a / (float)pieceSize.v[0],
+                (float)b / (float)pieceSize.v[1],
                 0);
         }
     }
-    //glPixelStorei(GL_PACK_ALIGNMENT, 1);
-    //glPixelStorei(GL_PACK_ROW_LENGTH, pieceSize.v[0]);
-    //glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    //glPixelStorei(GL_UNPACK_ROW_LENGTH, pieceSize.v[0]);
     glTexImage2D(
         GL_TEXTURE_2D,
         0,
-        glTexFormat,
+        format.glInternalFormat,
         pieceSize.v[0],
         pieceSize.v[1],
         0,
-        glTexFormat /* TODO See http://www.opengl.org/discussion_boards/showthread.php/177713-Problem-with-HDR-rendering : looks like I need GL_R / GL_RGB / GL_RGBA here, and not something with a `32F' or similar on the end */,
-        GL_UNSIGNED_BYTE,
+        format.glFormat /* TODO See http://www.opengl.org/discussion_boards/showthread.php/177713-Problem-with-HDR-rendering : looks like I need GL_R / GL_RGB / GL_RGBA here, and not something with a `32F' or similar on the end */,
+        format.glDataType,
         &testData[0]);
 #else
-    glTexStorage2D(GL_TEXTURE_2D, 1, _glTexFormat, pieceSize.v[0] * jigsawSize.v[0], pieceSize.v[1] * jigsawSize.v[1]);
+    glTexStorage2D(GL_TEXTURE_2D, 1, format.glInternalFormat, pieceSize.v[0] * jigsawSize.v[0], pieceSize.v[1] * jigsawSize.v[1]);
 #endif
     AFK_GLCHK("AFK_JigSaw texStorage2D")
 
@@ -129,7 +175,7 @@ AFK_Jigsaw::AFK_Jigsaw(
         clTex = clCreateImage(
             ctxt,
             CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, /* TODO As above! */
-            &clTexFormat,
+            &format.clFormat,
             &imageDesc,
             NULL,
             &error);
@@ -188,7 +234,7 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
          * as they get reported to me, and then wait on the read-backs
          * here.  But that's harder, so I'll do it like this first
          */
-        size_t pieceSizeInBytes = texelSize * pieceSize.v[0] * pieceSize.v[1];
+        size_t pieceSizeInBytes = format.texelSize * pieceSize.v[0] * pieceSize.v[1];
         size_t requiredChangedPiecesSize = (pieceSizeInBytes * changedPieces.size());
         if (changes.size() < requiredChangedPiecesSize)
             changes.resize(requiredChangedPiecesSize);
@@ -221,7 +267,7 @@ void AFK_Jigsaw::bindTexture(void)
 #if FIXED_TEST_TEXTURE_DATA
 #else
         /* Push all the changed pieces into the GL texture. */
-        size_t pieceSizeInBytes = texelSize * pieceSize.v[0] * pieceSize.v[1];
+        size_t pieceSizeInBytes = format.texelSize * pieceSize.v[0] * pieceSize.v[1];
         for (unsigned int s = 0; s < changedPieces.size(); ++s)
         {
             glTexSubImage2D(
@@ -230,8 +276,8 @@ void AFK_Jigsaw::bindTexture(void)
                 changedPieces[s].v[1] * pieceSize.v[1],
                 pieceSize.v[0],
                 pieceSize.v[1],
-                glTexFormat,
-                GL_FLOAT, /* TODO will I need other? */
+                format.glFormat,
+                format.glDataType,
                 &changes[s * pieceSizeInBytes]);
         }
 
@@ -254,15 +300,11 @@ AFK_JigsawCollection::AFK_JigsawCollection(
     cl_context ctxt,
     const Vec2<int>& _pieceSize,
     int _pieceCount,
-    GLenum _glTexFormat,
-    const cl_image_format& _clTexFormat,
-    size_t _texelSize,
+    enum AFK_JigsawFormat _texFormat,
     bool _clGlSharing):
         pieceSize(_pieceSize),
         pieceCount(_pieceCount),
-        glTexFormat(_glTexFormat),
-        clTexFormat(_clTexFormat),
-        texelSize(_texelSize),
+        format(_texFormat),
         clGlSharing(_clGlSharing),
         box(_pieceCount)
 {
@@ -286,8 +328,9 @@ AFK_JigsawCollection::AFK_JigsawCollection(
     zeroMemSize =
         pieceSize.v[0] * pieceSize.v[1] *
         jigsawSize.v[0] * jigsawSize.v[1] *
-        texelSize;
+        format.texelSize;
     zeroMem = new unsigned char[zeroMemSize];
+    memset(zeroMem, 0, zeroMemSize);
 
     /* TODO consider making one as a spare and filling the box up
      * as an async task?
@@ -298,9 +341,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
             ctxt,
             pieceSize,
             jigsawSize,
-            glTexFormat,
-            clTexFormat,
-            texelSize,
+            format,
             clGlSharing,
             zeroMem));
 

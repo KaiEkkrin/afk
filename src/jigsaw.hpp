@@ -28,6 +28,29 @@
  * So for now, this will be a flat 2D texture with no mip levels.
  */
 
+/* This enumeration describes the jigsaw's texture format.  I'll
+ * need to add more here as I support more formats.
+ */
+enum AFK_JigsawFormat
+{
+    AFK_JIGSAW_FLOAT32,
+    AFK_JIGSAW_4FLOAT8,
+    AFK_JIGSAW_4FLOAT32
+};
+
+class AFK_JigsawFormatDescriptor
+{
+public:
+    GLint glInternalFormat;
+    GLenum glFormat;
+    GLenum glDataType;
+    cl_image_format clFormat;
+    size_t texelSize;
+
+    AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat);
+    AFK_JigsawFormatDescriptor(const AFK_JigsawFormatDescriptor& _fd);
+};
+
 /* This token represents which "piece" of the jigsaw an object might
  * be associated with.
  */
@@ -65,9 +88,7 @@ protected:
     cl_mem clTex;
     Vec2<int> pieceSize;
     Vec2<int> jigsawSize; /* number of pieces horizontally and vertically */
-    GLenum glTexFormat;
-    cl_image_format clTexFormat;
-    size_t texelSize;
+    AFK_JigsawFormatDescriptor format;
     bool clGlSharing;
 
     /* If clGlSharing is disabled, this is the list of pieces that
@@ -83,9 +104,7 @@ public:
         cl_context ctxt,
         const Vec2<int>& _pieceSize,
         const Vec2<int>& _jigsawSize,
-        GLenum _glTexFormat,
-        const cl_image_format& _clTexFormat, /* not actually used if clGlSharing is enabled.  must match glTexFormat */
-        size_t _texelSize, /* Likewise */
+        const AFK_JigsawFormatDescriptor& _format,
         bool _clGlSharing,
         unsigned char *zeroMem);
     virtual ~AFK_Jigsaw();
@@ -119,10 +138,10 @@ public:
         std::vector<Vec2<int> >& _changedPieces,
         std::vector<TexelType>& _changes)
     {
-        if (sizeof(TexelType) != texelSize)
+        if (sizeof(TexelType) != format.texelSize)
         {
             std::ostringstream ss;
-            ss << "jigsaw debugReadChanges: have texelSize " << std::dec << texelSize << " and sizeof(TexelType) " << sizeof(TexelType);
+            ss << "jigsaw debugReadChanges: have texelSize " << std::dec << format.texelSize << " and sizeof(TexelType) " << sizeof(TexelType);
             throw AFK_Exception(ss.str());
         }
 
@@ -131,7 +150,7 @@ public:
         std::copy(changedPieces.begin(), changedPieces.end(), _changedPieces.begin());
 
         size_t pieceSizeInTexels = pieceSize.v[0] * pieceSize.v[1];
-        size_t pieceSizeInBytes = texelSize * pieceSizeInTexels;
+        size_t pieceSizeInBytes = format.texelSize * pieceSizeInTexels;
         memcpy(&_changes[0], &changes[0], pieceSizeInBytes * changedPieces.size());
     }
 
@@ -141,10 +160,10 @@ public:
         const std::vector<Vec2<int> >& _changedPieces,
         const std::vector<TexelType>& _changes)
     {
-        if (sizeof(TexelType) != texelSize)
+        if (sizeof(TexelType) != format.texelSize)
         {
             std::ostringstream ss;
-            ss << "jigsaw debugWriteChanges: have texelSize " << std::dec << texelSize << " and sizeof(TexelType) " << sizeof(TexelType);
+            ss << "jigsaw debugWriteChanges: have texelSize " << std::dec << format.texelSize << " and sizeof(TexelType) " << sizeof(TexelType);
             throw AFK_Exception(ss.str());
         }
 
@@ -153,7 +172,7 @@ public:
         std::copy(_changedPieces.begin(), _changedPieces.end(), changedPieces.begin());
 
         size_t pieceSizeInTexels = pieceSize.v[0] * pieceSize.v[1];
-        size_t pieceSizeInBytes = texelSize * pieceSizeInTexels;
+        size_t pieceSizeInBytes = format.texelSize * pieceSizeInTexels;
         memcpy(&changes[0], &_changes[0], pieceSizeInBytes * changedPieces.size());
     }
 
@@ -170,9 +189,7 @@ class AFK_JigsawCollection
 protected:
     Vec2<int> pieceSize;
     int pieceCount;
-    GLenum glTexFormat;
-    cl_image_format clTexFormat;
-    size_t texelSize;
+    AFK_JigsawFormatDescriptor format;
     bool clGlSharing;
 
     std::vector<AFK_Jigsaw*> puzzles;
@@ -190,9 +207,7 @@ public:
         cl_context ctxt,
         const Vec2<int>& _pieceSize,
         int _pieceCount,
-        GLenum _glTexFormat,
-        const cl_image_format& _clTexFormat,
-        size_t _texelSize, /* Yes I could derive this from _texFormat but only with a huge switch block */
+        enum AFK_JigsawFormat _texFormat,
         bool _clGlSharing);
     virtual ~AFK_JigsawCollection();
 

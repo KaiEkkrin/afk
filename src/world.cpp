@@ -451,9 +451,6 @@ AFK_World::AFK_World(
     unsigned int tileCacheBitness = calculateCacheBitness(tileCacheEntries);
 
     Vec2<int> pieceSize = afk_vec2<int>((int)lSizes.tDim, (int)lSizes.tDim);
-    cl_image_format landscapeJigsawTexFormat;
-    landscapeJigsawTexFormat.image_channel_order        = CL_RGBA;
-    landscapeJigsawTexFormat.image_channel_data_type    = CL_FLOAT;
 
     /* TODO: The below switch from GL_RGBA32F to GL_RGBA fixed things.
      * I get the impression that having more than 32 bits per pixel
@@ -464,9 +461,7 @@ AFK_World::AFK_World(
         ctxt,
         pieceSize,
         (int)tileCacheEntries,
-        /* GL_RGBA32F */ GL_RGBA /* This will knacker the real thing but, for debugging */,
-        landscapeJigsawTexFormat,
-        sizeof(float) * 4,
+        AFK_JIGSAW_4FLOAT32 /* AFK_JIGSAW_4FLOAT8 */ /*r debugging */,
         config->clGlSharing);
 
     landscapeCache = new AFK_LANDSCAPE_CACHE(
