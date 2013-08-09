@@ -221,9 +221,9 @@ __kernel void makeTerrain(
 
     /* Fill out the texels from my computed values. */
     int2 jigsawCoord = units[unitOffset].piece * TDIM + (int2)(xdim, zdim);
-    //write_imagef(jigsaw, jigsawCoord, (float4)(vc, vl.y));
+    write_imagef(jigsaw, jigsawCoord, (float4)(vc, vl.y));
     /* Debug colours here. */
-#if 1
+#if 0
     write_imagef(jigsaw, jigsawCoord, (float4)(
         units[unitOffset].piece.x == 0 ? xdim : 0.0f,
         zdim,

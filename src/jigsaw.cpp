@@ -232,11 +232,17 @@ AFK_Jigsaw::~AFK_Jigsaw()
 
 Vec2<float> AFK_Jigsaw::getTexCoordST(const AFK_JigsawPiece& piece) const
 {
+#if 0
     float jigsawSizeX = (float)pieceSize.v[0] * (float)jigsawSize.v[0];
     float jigsawSizeZ = (float)pieceSize.v[1] * (float)jigsawSize.v[1];
     return afk_vec2<float>(
         (float)piece.piece.v[0] / jigsawSizeX,
         (float)piece.piece.v[1] / jigsawSizeZ);
+#else
+    return afk_vec2<float>(
+        (float)piece.piece.v[0] / (float)jigsawSize.v[0],
+        (float)piece.piece.v[1] / (float)jigsawSize.v[1]);
+#endif
 }
 
 Vec2<float> AFK_Jigsaw::getPiecePitchST(void) const
@@ -383,7 +389,6 @@ AFK_JigsawCollection::AFK_JigsawCollection(
             &texWidth);
 
         dimensionsOK = (texWidth != 0 &&
-            testJigsawSize.v[0] <= 2 &&
             testJigsawSize.v[0] <= (int)_clDeviceProps.image2DMaxWidth &&
             testJigsawSize.v[1] <= (int)_clDeviceProps.image2DMaxHeight &&
             (testJigsawSize.v[0] * testJigsawSize.v[1] * pieceSize.v[0] * pieceSize.v[1] * format.texelSize) < _clDeviceProps.maxMemAllocSize);

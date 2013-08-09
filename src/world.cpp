@@ -105,7 +105,7 @@ bool AFK_World::checkClaimedLandscapeTile(
 #define DEBUG_JIGSAW_ASSOCIATION 0
 #define DEBUG_JIGSAW_ASSOCIATION_GL 0
 
-#define DEBUG_TERRAIN_COMPUTE_QUEUE 1
+#define DEBUG_TERRAIN_COMPUTE_QUEUE 0
 
 void AFK_World::generateLandscapeArtwork(
     const AFK_Tile& tile,
@@ -634,9 +634,7 @@ void AFK_World::alterDetail(float adjustment)
     if (adj > 1.0f || !(worldCache->wayOutsideTargetSize() || landscapeCache->wayOutsideTargetSize()))
         detailPitch = detailPitch * adjustment;
 
-    // Infernal AMD thing
-    //renderDetailPitch = detailPitch - fmod(detailPitch, 16.0f);
-    renderDetailPitch = 512.0f;
+    renderDetailPitch = detailPitch - fmod(detailPitch, 16.0f);
 }
 
 boost::unique_future<bool> AFK_World::updateWorld(void)
@@ -779,8 +777,6 @@ void AFK_World::doComputeTasks(void)
         for (unsigned int u = 0; u < unitCount; ++u)
         {
             jigsaw->pieceChanged(computeQueues[puzzle]->getUnit(u).piece);
-            // TODO remove debug
-            std::cout << "Flagging piece as changed: " << computeQueues[puzzle]->getUnit(u) << std::endl;
         }
 
         for (unsigned int i = 0; i < 3; ++i)
