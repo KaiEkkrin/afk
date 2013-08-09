@@ -631,12 +631,7 @@ void AFK_World::alterDetail(float adjustment)
     if (adj > 1.0f || !(worldCache->wayOutsideTargetSize() || landscapeCache->wayOutsideTargetSize()))
         detailPitch = detailPitch * adjustment;
 
-    /* TODO pegging detail pitch for now to stop that infernal
-     * AMD graphics problem where it just gets increased
-     * constantly
-     */
-    //renderDetailPitch = detailPitch - fmod(detailPitch, 16.0f);
-    renderDetailPitch = 512.0f;
+    renderDetailPitch = detailPitch - fmod(detailPitch, 16.0f);
 }
 
 boost::unique_future<bool> AFK_World::updateWorld(void)

@@ -15,7 +15,7 @@ layout (location = 1) in vec2 TexCoord;
 // be fine as 8-bit normalized.  Therefore, it might be worthwhile
 // splitting this into a colour jigsaw (8-bit normalized RGB) and
 // a y jigsaw (32-bit float R).
-//uniform sampler2D JigsawTex;
+uniform sampler2D JigsawTex;
 
 // This is the landscape display queue.  It's a float4, and there
 // are 2 (consecutive) texels per instance: cell coord, then
@@ -39,12 +39,11 @@ void main()
     vec4 jigsawSTAndYBounds = texelFetch(DisplayTBO, gl_InstanceID * 2 + 1);
 
     outData.jigsawCoord = jigsawSTAndYBounds.xy + (JigsawPiecePitch * TexCoord.st);
-    //vec4 jigsawTexel = textureLod(JigsawTex, outData.jigsawCoord, 0);
+    vec4 jigsawTexel = textureLod(JigsawTex, outData.jigsawCoord, 0);
 
     // Apply the y displacement now.  The rest is for the fragment
     // shader.
-    //vec3 dispPosition = vec3(Position.x, Position.y + jigsawTexel.w, Position.z);
-    vec3 dispPosition = vec3(Position.x, Position.y, Position.z);
+    vec3 dispPosition = vec3(Position.x, Position.y + jigsawTexel.w, Position.z);
     gl_Position = vec4(dispPosition * cellCoord.w + cellCoord.xyz, 1.0);
 
     // Temporary values while I test the basics :).

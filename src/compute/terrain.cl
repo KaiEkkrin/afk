@@ -192,7 +192,6 @@ __kernel void makeTerrain(
      * each tile's modification in turn.
      */
     for (int i = unit->tileOffset; i < (unit->tileOffset + unit->tileCount); ++i)
-    //for (int i = unit->tileOffset; i < (unit->tileOffset + 2); ++i)
     {
         if (i > 0)
         {
@@ -204,6 +203,9 @@ __kernel void makeTerrain(
             computeTerrainFeature(&vl, &vc,
                 &features[i * FEATURE_COUNT_PER_TILE + j]);
     }
+
+    /* Swap back into original tile space */
+    transformTileToTile(&vl, &vc, tiles, unit->tileOffset + unit->tileCount - 1, unit->tileOffset);
 
     /* Make that colour space halfway sane */
     vc = normalize(vc) - 0.4f;
