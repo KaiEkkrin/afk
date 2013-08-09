@@ -101,6 +101,10 @@ bool AFK_World::checkClaimedLandscapeTile(
     return (display && !landscapeTile.hasArtwork());
 }
 
+/* TODO this will make mega spam */
+#define DEBUG_JIGSAW_ASSOCIATION 0
+#define DEBUG_JIGSAW_ASSOCIATION_GL 0
+
 void AFK_World::generateLandscapeArtwork(
     const AFK_Tile& tile,
     AFK_LandscapeTile& landscapeTile,
@@ -124,6 +128,9 @@ void AFK_World::generateLandscapeArtwork(
      * compute phase has somewhere to paint.
      */
     AFK_JigsawPiece jigsawPiece = landscapeTile.getJigsawPiece(landscapeJigsaws);
+#if DEBUG_JIGSAW_ASSOCIATION
+    AFK_DEBUG_PRINTL("Compute: " << tile << " -> " << jigsawPiece)
+#endif
 
     /* Now, I need to enqueue the terrain list and the
      * jigsaw piece into one of the rides at the compute fair...
@@ -246,6 +253,10 @@ bool AFK_World::generateClaimedWorldCell(
 
                 if (displayThisTile)
                 {
+#if DEBUG_JIGSAW_ASSOCIATION
+                    AFK_DEBUG_PRINTL("Display: " << tile << " -> " << jigsawPiece << " -> " << unit)
+#endif
+
                     boost::shared_ptr<AFK_LandscapeDisplayQueue> ldq =
                         landscapeDisplayFair.getUpdateQueue(jigsawPiece.puzzle);
                     ldq->add(unit);
@@ -461,7 +472,7 @@ AFK_World::AFK_World(
         ctxt,
         pieceSize,
         (int)tileCacheEntries,
-        AFK_JIGSAW_4FLOAT32 /* AFK_JIGSAW_4FLOAT8 */ /*r debugging */,
+        AFK_JIGSAW_4FLOAT32,
         config->clGlSharing);
 
     landscapeCache = new AFK_LANDSCAPE_CACHE(
@@ -683,8 +694,8 @@ void AFK_World::doComputeTasks(void)
      * puzzle, so that I can easily batch up work that applies to the
      * same jigsaw:
      */
-    std::vector<boost::shared_ptr<AFK_TerrainComputeQueue> > drawQueues;
-    landscapeComputeFair.getDrawQueues(drawQueues);
+    std::vector<boost::shared_ptr<AFK_TerrainComputeQueue> > computeQueues;
+    landscapeComputeFair.getDrawQueues(computeQueues);
 
     cl_context ctxt;
     cl_command_queue q;
@@ -693,12 +704,12 @@ void AFK_World::doComputeTasks(void)
     /* The fair's queues are in the same order as the puzzles in
      * the jigsaw collection.
      */
-    unsigned int puzzle = 0;
-    for (std::vector<boost::shared_ptr<AFK_TerrainComputeQueue> >::iterator drawQIt = drawQueues.begin();
-        drawQIt != drawQueues.end(); ++drawQIt)
+    for (unsigned int puzzle = 0; puzzle < computeQueues.size(); ++puzzle)
     {
+        if (computeQueues[puzzle]->getUnitCount() == 0) continue;
+
         cl_mem terrainBufs[3];
-        (*drawQIt)->copyToClBuffers(ctxt, terrainBufs);
+        computeQueues[puzzle]->copyToClBuffers(ctxt, terrainBufs);
 
         AFK_Jigsaw *jigsaw = landscapeJigsaws->getPuzzle(puzzle);
         cl_mem *jigsawMem = jigsaw->acquireForCl(ctxt, q);
@@ -710,7 +721,7 @@ void AFK_World::doComputeTasks(void)
          * happens regardless!).  Once that's working, I can
          * figure out how to batch this stuff up!
          */
-        for (int u = 0; u < (*drawQIt)->getUnitCount(); ++u)
+        for (int u = 0; u < computeQueues[puzzle]->getUnitCount(); ++u)
         {
             cl_int error;
 
@@ -756,12 +767,12 @@ void AFK_World::doComputeTasks(void)
             float yBoundLower, yBoundUpper;
             AFK_CLCHK(clEnqueueReadBuffer(q, yLowerBoundsMem, CL_TRUE, 0, sizeof(float), &yBoundLower, 0, NULL, NULL))
             AFK_CLCHK(clEnqueueReadBuffer(q, yUpperBoundsMem, CL_TRUE, 0, sizeof(float), &yBoundUpper, 0, NULL, NULL))
-            //std::cout << "Computed y bounds for " << (*drawQIt)->getUnit(u) << ": " << yBoundLower << ", " << yBoundUpper << std::endl;
+            //std::cout << "Computed y bounds for " << computeQueues[puzzle]->getUnit(u) << ": " << yBoundLower << ", " << yBoundUpper << std::endl;
 
             AFK_CLCHK(clReleaseMemObject(yLowerBoundsMem))
             AFK_CLCHK(clReleaseMemObject(yUpperBoundsMem))
 
-            jigsaw->pieceChanged((*drawQIt)->getUnit(u).piece);
+            jigsaw->pieceChanged(computeQueues[puzzle]->getUnit(u).piece);
         }
 
         for (unsigned int i = 0; i < 3; ++i)
@@ -791,8 +802,6 @@ void AFK_World::doComputeTasks(void)
             }
         }
 #endif
-
-        ++puzzle;
     }
 
     afk_core.computer->unlock();
@@ -819,6 +828,8 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     /* Those queues are in puzzle order. */
     for (unsigned int puzzle = 0; puzzle < drawQueues.size(); ++puzzle)
     {
+        if (drawQueues[puzzle]->getUnitCount() == 0) continue;
+
         AFK_Jigsaw *jigsaw = landscapeJigsaws->getPuzzle(puzzle);
 
         /* Fill out ye olde uniform variable with the jigsaw
@@ -839,6 +850,10 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
         glActiveTexture(GL_TEXTURE1);
         drawQueues[puzzle]->copyToGl();
         glUniform1i(landscape_displayTBOSamplerLocation, 1);
+
+#if DEBUG_JIGSAW_ASSOCIATION_GL
+        AFK_DEBUG_PRINTL("Drawing cell 0: " << drawQueues[puzzle]->getUnit(0) << " of puzzle=" << puzzle)
+#endif
 
 #if AFK_GL_DEBUG
         landscape_shaderProgram->Validate();

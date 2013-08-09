@@ -10,7 +10,7 @@
 #include <cstring>
 
 
-#define FIXED_TEST_TEXTURE_DATA 1
+#define FIXED_TEST_TEXTURE_DATA 0
 
 
 /* AFK_JigsawFormatDescriptor implementation */

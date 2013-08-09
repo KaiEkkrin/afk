@@ -56,7 +56,7 @@ public:
 
         o_drawQueues.reserve(queues.size() / 2);
         for (unsigned int dI = drawInc; dI < queues.size(); dI += 2)
-            if (!queues[dI]->empty()) o_drawQueues.push_back(queues[dI]);
+            o_drawQueues.push_back(queues[dI]);
     }
         
     void flipQueues(void)

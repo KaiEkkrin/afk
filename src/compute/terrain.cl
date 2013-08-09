@@ -209,7 +209,13 @@ __kernel void makeTerrain(
 
     /* Fill out the texels from my computed values. */
     int2 jigsawCoord = unit->piece + (int2)(xdim, zdim);
-    write_imagef(jigsaw, jigsawCoord, (float4)(vc, vl.y));
+    //write_imagef(jigsaw, jigsawCoord, (float4)(vc, vl.y));
+    write_imagef(jigsaw, jigsawCoord, (float4)(
+        xdim + TDIM * tiles[0].tileX,
+        zdim + TDIM * tiles[0].tileZ,
+        0.0f,
+        vl.y));
+        
 
     /* Now, reduce out this tile's y-bounds. */
     /* TODO: Fix this to work in the local workspace only,
