@@ -1,6 +1,7 @@
 /* AFK (c) Alex Holloway 2013 */
 
 #include "computer.hpp"
+#include "core.hpp"
 #include "display.hpp"
 #include "exception.hpp"
 #include "jigsaw.hpp"
@@ -172,13 +173,31 @@ AFK_Jigsaw::AFK_Jigsaw(
          * implemented on Nvidia, and I need to use the old
          * clCreateImage2D() instead ...?
          */
-        clTex = clCreateImage(
-            ctxt,
-            CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, /* TODO As above! */
-            &format.clFormat,
-            &imageDesc,
-            NULL,
-            &error);
+        if (afk_core.computer->testVersion(1, 2))
+        {
+            clTex = clCreateImage(
+                ctxt,
+                CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, /* TODO As above! */
+                &format.clFormat,
+                &imageDesc,
+                NULL,
+                &error);
+        }
+        else
+        {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+            clTex = clCreateImage2D(
+                ctxt,
+                CL_MEM_WRITE_ONLY,
+                &format.clFormat,
+                imageDesc.image_width,
+                imageDesc.image_height,
+                imageDesc.image_row_pitch,
+                NULL,
+                &error);
+#pragma GCC diagnostic pop
+        }
     }
     afk_handleClError(error);
 }

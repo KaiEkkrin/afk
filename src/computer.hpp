@@ -36,9 +36,20 @@ void afk_handleClError(cl_int error);
         if (error != CL_SUCCESS) afk_handleClError(error); \
     }
 
-/* A little collection of device properties that might
- * be useful.
+/* Collections of properties that might be useful.
  */
+class AFK_ClPlatformProperties
+{
+public:
+    char *versionStr;
+    size_t versionStrSize;
+    unsigned int majorVersion;
+    unsigned int minorVersion;
+
+    AFK_ClPlatformProperties(cl_platform_id platform);
+    ~AFK_ClPlatformProperties();
+};
+
 class AFK_ClDeviceProperties
 {
 public:
@@ -88,6 +99,10 @@ std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p);
 class AFK_Computer
 {
 protected:
+    cl_platform_id platform;
+
+    AFK_ClPlatformProperties *platformProps;
+
     /* The IDs of the devices that I'm using.
      */
     cl_device_id *devices;
@@ -124,6 +139,11 @@ public:
      */
     bool findKernel(const std::string& kernelName, cl_kernel& o_kernel) const;
 
+    /* Tests the CL version, returning true if it's at
+     * least the one you asked for, else false.
+     */
+    bool testVersion(unsigned int majorVersion, unsigned int minorVersion) const;
+
     /* Locks the CL and gives you back the context and
      * queue.  Be quick, enqueue your thing and release
      * it!
@@ -133,6 +153,7 @@ public:
     /* Release it when you're done with this. */
     void unlock(void);
 };
+
 
 #endif /* _AFK_COMPUTER_H_ */
 

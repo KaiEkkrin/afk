@@ -1,5 +1,6 @@
 /* AFK (c) Alex Holloway 2013 */
 
+#include <cstdio>
 #include <cstring>
 #include <iostream>
 #include <sstream>
@@ -71,6 +72,22 @@ void getClDeviceInfoFixed(
     }
 }
 
+
+/* AFK_ClPlatformProperties implementation */
+
+AFK_ClPlatformProperties::AFK_ClPlatformProperties(cl_platform_id platform)
+{
+    AFK_CLCHK(clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 0, NULL, &versionStrSize))
+    versionStr = new char[versionStrSize];
+    AFK_CLCHK(clGetPlatformInfo(platform, CL_PLATFORM_VERSION, versionStrSize, versionStr, &versionStrSize))
+
+    if (sscanf(versionStr, "OpenCL %d.%d", &majorVersion, &minorVersion) != 2)
+    {
+        std::ostringstream ss;
+        ss << "Incomprehensible OpenCL platform version: " << versionStr;
+        throw AFK_Exception(ss.str());
+    }
+}
 
 /* AFK_ClDeviceProperties implementation. */
 
@@ -259,7 +276,7 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
 }
 
 AFK_Computer::AFK_Computer():
-    devices(NULL), devicesSize(0), firstDeviceProps(NULL), ctxt(0), q(0)
+    platform(0), platformProps(NULL), devices(NULL), devicesSize(0), firstDeviceProps(NULL), ctxt(0), q(0)
 {
     cl_platform_id *platforms;
     unsigned int platformCount;
@@ -273,7 +290,13 @@ AFK_Computer::AFK_Computer():
 
     for (unsigned int pI = 0; pI < platformCount; ++pI)
     {
-        if (findClGlDevices(platforms[pI])) break;
+        if (findClGlDevices(platforms[pI]))
+        {
+            platform = platforms[pI];
+            platformProps = new AFK_ClPlatformProperties(platform);
+            std::cout << "AFK: Using OpenCL platform version " << platformProps->majorVersion << "." << platformProps->minorVersion << std::endl;
+            break;
+        }
     }
 
     if (!devices) throw AFK_Exception("No cl_gl devices found");
@@ -355,6 +378,12 @@ bool AFK_Computer::findKernel(const std::string& kernelName, cl_kernel& o_kernel
     }
 
     return found;
+}
+
+bool AFK_Computer::testVersion(unsigned int majorVersion, unsigned int minorVersion) const
+{
+    return (platformProps->majorVersion > majorVersion ||
+        (platformProps->majorVersion == majorVersion && platformProps->minorVersion >= minorVersion));
 }
 
 void AFK_Computer::lock(cl_context& o_ctxt, cl_command_queue& o_q)
