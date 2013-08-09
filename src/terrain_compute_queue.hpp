@@ -67,7 +67,14 @@ protected:
     boost::mutex mut;
 
 public:
-    void extend(const AFK_TerrainList& list, const Vec2<int>& piece);
+    /* Pushes a terrain list into the queue, making a Unit for it.
+     * The Unit goes in too, but we return it as well so you can
+     * instantly debug.
+     */
+    AFK_TerrainComputeUnit extend(const AFK_TerrainList& list, const Vec2<int>& piece);
+
+    /* This prints lots of debug info about the given terrain unit. */
+    std::string debugTerrain(const AFK_TerrainComputeUnit& unit) const;
 
     /* Call this with a `mem' array of size 3, for:
      * - features

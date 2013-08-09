@@ -105,6 +105,8 @@ bool AFK_World::checkClaimedLandscapeTile(
 #define DEBUG_JIGSAW_ASSOCIATION 0
 #define DEBUG_JIGSAW_ASSOCIATION_GL 0
 
+#define DEBUG_TERRAIN_COMPUTE_QUEUE 0
+
 void AFK_World::generateLandscapeArtwork(
     const AFK_Tile& tile,
     AFK_LandscapeTile& landscapeTile,
@@ -135,8 +137,14 @@ void AFK_World::generateLandscapeArtwork(
     /* Now, I need to enqueue the terrain list and the
      * jigsaw piece into one of the rides at the compute fair...
      */
-    landscapeComputeFair.getUpdateQueue(jigsawPiece.puzzle)->extend(
+    boost::shared_ptr<AFK_TerrainComputeQueue> computeQueue = landscapeComputeFair.getUpdateQueue(jigsawPiece.puzzle);
+#if DEBUG_TERRAIN_COMPUTE_QUEUE
+    AFK_TerrainComputeUnit unit = computeQueue->extend(
         terrainList, jigsawPiece.piece);
+    AFK_DEBUG_PRINTL("Pushed to queue for " << tile << ": " << unit << ": " << computeQueue->debugTerrain(unit))
+#else
+    computeQueue->extend(terrainList, jigsawPiece.piece);
+#endif
 
     tilesComputed.fetch_add(1);
 }

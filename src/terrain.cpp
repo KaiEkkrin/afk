@@ -7,6 +7,7 @@
 #include <sstream>
 
 #include "computer.hpp"
+#include "debug.hpp"
 #include "exception.hpp"
 #include "terrain.hpp"
 
@@ -79,9 +80,17 @@ void AFK_TerrainTile::make(
      */
     float minFeatureSize = maxFeatureSize / (float)subdivisionFactor;
 
+    /* TODO For now I'm always going to apply `featureCountPerTile'
+     * features instead, to avoid having padding issues in the
+     * terrain compute queue.
+     */
+#if 0
     /* I want between 1 and `featureCountPerTile' features. */
     featureCount = (descriptor % lSizes.featureCountPerTile) + 1;
     descriptor = descriptor / lSizes.featureCountPerTile;
+#else
+    featureCount = lSizes.featureCountPerTile;
+#endif
     for (unsigned int i = 0; i < featureCount; ++i)
     {
         /* Pick our feature scale.

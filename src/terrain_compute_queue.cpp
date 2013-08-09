@@ -34,7 +34,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainComputeUnit& unit)
 
 /* AFK_TerrainComputeQueue implementation */
 
-void AFK_TerrainComputeQueue::extend(const AFK_TerrainList& list, const Vec2<int>& piece)
+AFK_TerrainComputeUnit AFK_TerrainComputeQueue::extend(const AFK_TerrainList& list, const Vec2<int>& piece)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
@@ -52,6 +52,19 @@ void AFK_TerrainComputeQueue::extend(const AFK_TerrainList& list, const Vec2<int
         piece);
     AFK_TerrainList::extend(list);
     units.push_back(newUnit);
+    return newUnit;
+}
+
+std::string AFK_TerrainComputeQueue::debugTerrain(const AFK_TerrainComputeUnit& unit) const
+{
+    std::ostringstream ss;
+    for (int i = unit.tileOffset; i < (unit.tileOffset + unit.tileCount); ++i)
+    {
+        if (i > 0) ss << ", ";
+        ss << t[i];
+    }
+
+    return ss.str();
 }
 
 int AFK_TerrainComputeQueue::getUnitCount(void)
