@@ -37,7 +37,7 @@ struct AFK_TerrainComputeUnit
 
 __kernel void makeSurface(
     __global const struct AFK_TerrainComputeUnit *units,
-    __global image2d_t jigsawYDisp,
+    __read_only image2d_t jigsawYDisp,
     sampler_t yDispSampler,
     __write_only image2d_t jigsawNormal)
 {

@@ -241,7 +241,7 @@ AFK_Jigsaw::AFK_Jigsaw(
             {
                 clTex[tex] = clCreateImage(
                     ctxt,
-                    CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY, /* TODO As above! */
+                    CL_MEM_READ_WRITE,
                     &format[tex].clFormat,
                     &imageDesc,
                     NULL,
