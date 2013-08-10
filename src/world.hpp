@@ -125,6 +125,7 @@ protected:
     GLuint landscape_clipTransformLocation;
     GLuint landscape_jigsawYDispTexSamplerLocation;
     GLuint landscape_jigsawColourTexSamplerLocation;
+    GLuint landscape_jigsawNormalTexSamplerLocation;
     GLuint landscape_displayTBOSamplerLocation;
 
     /* Entity shader details. */

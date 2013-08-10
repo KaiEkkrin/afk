@@ -17,6 +17,7 @@
 /* The set of known programs, just like the shaders doodah. */
 
 struct AFK_ClProgram programs[] = {
+    {   0,  "surface.cl"                },
     {   0,  "terrain.cl"                },
     {   0,  "test.cl"                   },
     {   0,  "vs_test.cl"                },
@@ -24,6 +25,7 @@ struct AFK_ClProgram programs[] = {
 };
 
 struct AFK_ClKernel kernels[] = {
+    {   0,  "surface.cl",               "makeSurface"                   },
     {   0,  "terrain.cl",               "makeTerrain"                   },
     {   0,  "test.cl",                  "vector_add_gpu"                },
     {   0,  "vs_test.cl",               "mangle_vs"                     },
@@ -258,7 +260,7 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
 
     /* Compiler arguments here... */
     std::ostringstream args;
-    if (p->filename == "terrain.cl")
+    if (p->filename == "terrain.cl" || p->filename == "surface.cl")
     {
         AFK_LandscapeSizes lSizes(config->pointSubdivisionFactor);
         args << "-D POINT_SUBDIVISION_FACTOR="  << lSizes.pointSubdivisionFactor << " ";

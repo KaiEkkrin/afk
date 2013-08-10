@@ -183,9 +183,9 @@ __kernel void makeTerrain(
 #endif
     )
 {
-    const int unitOffset = get_global_id(0);
-    const int xdim = get_global_id(1);
-    const int zdim = get_global_id(2);
+    const int xdim = get_global_id(0);
+    const int zdim = get_global_id(1);
+    const int unitOffset = get_global_id(2);
 
     /* Initialise the tile co-ordinate that corresponds to my texels
      */
@@ -227,10 +227,11 @@ __kernel void makeTerrain(
     /* Debug colours here. */
 #if 0
     write_imagef(jigsawYDisp, jigsawCoord, 0.0f);
-    write_imagef(jigsawColour, jigsawCoord, (float3)(
+    write_imagef(jigsawColour, jigsawCoord, (float4)(
         units[unitOffset].piece.x == 0 ? xdim : 0.0f,
         zdim,
-        units[unitOffset].piece.x == 1 ? xdim : 0.0f));
+        units[unitOffset].piece.x == 1 ? xdim : 0.0f,
+        0.0f));
 #endif
         
 

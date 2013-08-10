@@ -476,16 +476,17 @@ AFK_World::AFK_World( const AFK_Config *config,
      * might be unwise.  So next, I should try splitting the jigsaw
      * into one RGB colour jigsaw and one R32F y-displacement jigsaw.
      */
-    enum AFK_JigsawFormat texFormat[2];
+    enum AFK_JigsawFormat texFormat[3];
     texFormat[0] = AFK_JIGSAW_FLOAT32;          /* Y displacement */
     texFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;    /* Colour */
+    texFormat[2] = AFK_JIGSAW_4FLOAT8_SNORM;    /* Normal */
 
     landscapeJigsaws = new AFK_JigsawCollection(
         ctxt,
         pieceSize,
         (int)tileCacheEntries,
         texFormat,
-        2,
+        3,
         clDeviceProps,
         config->clGlSharing);
 
@@ -536,6 +537,7 @@ AFK_World::AFK_World( const AFK_Config *config,
     landscape_clipTransformLocation = glGetUniformLocation(landscape_shaderProgram->program, "ClipTransform");
     landscape_jigsawYDispTexSamplerLocation = glGetUniformLocation(landscape_shaderProgram->program, "JigsawYDispTex");
     landscape_jigsawColourTexSamplerLocation = glGetUniformLocation(landscape_shaderProgram->program, "JigsawColourTex");
+    landscape_jigsawNormalTexSamplerLocation = glGetUniformLocation(landscape_shaderProgram->program, "JigsawNormalTex");
     landscape_displayTBOSamplerLocation = glGetUniformLocation(landscape_shaderProgram->program, "DisplayTBO");
 
     entity_shaderProgram = new AFK_ShaderProgram();
@@ -720,6 +722,7 @@ void AFK_World::doComputeTasks(void)
      */
     for (unsigned int puzzle = 0; puzzle < computeQueues.size(); ++puzzle)
     {
+        cl_int error;
         unsigned int unitCount = computeQueues[puzzle]->getUnitCount();
         if (unitCount == 0) continue;
 
@@ -765,8 +768,8 @@ void AFK_World::doComputeTasks(void)
 #endif
 
         size_t terrainDim[3];
-        terrainDim[0] = unitCount;
-        terrainDim[1] = terrainDim[2] = lSizes.tDim;
+        terrainDim[0] = terrainDim[1] = lSizes.tDim;
+        terrainDim[2] = unitCount;
         AFK_CLCHK(clEnqueueNDRangeKernel(q, afk_core.terrainKernel, 3, NULL, &terrainDim[0], NULL, 0, NULL, NULL))
 
         /* TODO change this to FALSE, so I don't flush the queue part way, after debugging.
@@ -782,6 +785,38 @@ void AFK_World::doComputeTasks(void)
         AFK_CLCHK(clReleaseMemObject(yLowerBoundsMem))
         AFK_CLCHK(clReleaseMemObject(yUpperBoundsMem))
 #endif
+
+        /* Now, I need to run the second kernel to bake the surface normals.
+         * This needs a nearest-neighbour sampler of the jigsaw y-displacement texture
+         */
+        cl_sampler jigsawYDispSampler = clCreateSampler(
+            ctxt,
+            CL_FALSE,
+            CL_ADDRESS_CLAMP_TO_EDGE,
+            CL_FILTER_NEAREST,
+            &error);
+        afk_handleClError(error);
+
+        AFK_CLCHK(clSetKernelArg(afk_core.surfaceKernel, 0, sizeof(cl_mem), &terrainBufs[2]))
+        AFK_CLCHK(clSetKernelArg(afk_core.surfaceKernel, 1, sizeof(cl_mem), &jigsawMem[0]))
+        AFK_CLCHK(clSetKernelArg(afk_core.surfaceKernel, 2, sizeof(cl_sampler), &jigsawYDispSampler))
+        AFK_CLCHK(clSetKernelArg(afk_core.surfaceKernel, 3, sizeof(cl_mem), &jigsawMem[2]))
+
+        size_t surfaceGlobalDim[3];
+        surfaceGlobalDim[0] = surfaceGlobalDim[1] = lSizes.tDim - 1;
+        surfaceGlobalDim[2] = unitCount;
+
+        size_t surfaceLocalDim[3];
+        surfaceLocalDim[0] = surfaceLocalDim[1] = lSizes.tDim - 1;
+        surfaceLocalDim[2] = 1;
+
+        /* TODO This kernel must execute after the previous one has finished --
+         * should I put an event in the wait lists ?
+         */
+        AFK_CLCHK(clEnqueueNDRangeKernel(q, afk_core.surfaceKernel, 3, 0, &surfaceGlobalDim[0], &surfaceLocalDim[0], 0, NULL, NULL))
+
+        /* TODO Can I keep this thing lying around long term ? */
+        AFK_CLCHK(clReleaseSampler(jigsawYDispSampler))
 
         for (unsigned int u = 0; u < unitCount; ++u)
         {
@@ -865,11 +900,18 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glUniform1i(landscape_jigsawColourTexSamplerLocation, 1);
 
-        /* The third texture is the landscape display texbuf,
+        /* The third texture is the jigsaw normal */
+        glActiveTexture(GL_TEXTURE2);
+        jigsaw->bindTexture(2);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glUniform1i(landscape_jigsawNormalTexSamplerLocation, 2);
+
+        /* The fourth texture is the landscape display texbuf,
          * which explains to the vertex shader which tile it's
          * drawing and where in the jigsaw to look.
          */
-        glActiveTexture(GL_TEXTURE2);
+        glActiveTexture(GL_TEXTURE3);
         drawQueues[puzzle]->copyToGl();
         glUniform1i(landscape_displayTBOSamplerLocation, 2);
 

@@ -71,6 +71,7 @@ public:
     AFK_Computer        *computer;
     AFK_Window          *window;
 
+    cl_kernel           surfaceKernel;
     cl_kernel           terrainKernel;
 
     /* The random number generator.

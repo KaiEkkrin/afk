@@ -9,9 +9,11 @@
 // This is the jigsaw colour texture.
 uniform sampler2D JigsawColourTex;
 
+// ...and the normal
+uniform sampler2D JigsawNormalTex;
+
 in GeometryData
 {
-    vec3 normal;
     vec2 jigsawCoord;
 } inData;
 
@@ -30,7 +32,7 @@ uniform Light gLight;
 void main()
 {
     vec3 colour = textureLod(JigsawColourTex, inData.jigsawCoord, 0).xyz;
-    vec3 normal = normalize(inData.normal);
+    vec3 normal = textureLod(JigsawNormalTex, inData.jigsawCoord, 0).xyz;
 
     vec3 AmbientColour = gLight.Colour * gLight.Ambient;
     vec3 DiffuseColour = gLight.Colour * gLight.Diffuse * max(dot(normal, -gLight.Direction), 0.0);

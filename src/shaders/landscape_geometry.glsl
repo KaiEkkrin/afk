@@ -28,7 +28,6 @@ uniform mat4 ClipTransform;
 
 out GeometryData
 {
-    vec3 normal;
     vec2 jigsawCoord;
 } outData;
 
@@ -40,7 +39,6 @@ void main()
         for (i = 0; i < 3; ++i)
         {
             gl_Position = ClipTransform * gl_in[i].gl_Position;
-            outData.normal = vec3(0.0, 1.0, 0.0); // TODO Needs fixing :P
             outData.jigsawCoord = inData[i].jigsawCoord;
             EmitVertex();
         }
