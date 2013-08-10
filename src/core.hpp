@@ -71,9 +71,6 @@ public:
     AFK_Computer        *computer;
     AFK_Window          *window;
 
-    cl_kernel           surfaceKernel;
-    cl_kernel           terrainKernel;
-
     /* The random number generator.
      * TODO: The re-seeding process is serial, and I
      * don't want to be making these on the fly.

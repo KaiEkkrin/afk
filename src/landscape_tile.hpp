@@ -29,6 +29,8 @@
 #define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile>
 #endif
 
+class AFK_LandscapeDisplayUnit;
+
 /* This occurs if we can't find a tile while trying to chain
  * together the terrain.
  */

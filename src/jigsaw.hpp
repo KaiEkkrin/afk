@@ -1,3 +1,4 @@
+/* AFK (c) Alex Holloway 2013 */
 
 #ifndef _AFK_JIGSAW_H_
 #define _AFK_JIGSAW_H_

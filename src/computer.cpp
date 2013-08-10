@@ -19,6 +19,7 @@
 struct AFK_ClProgram programs[] = {
     {   0,  "surface.cl"                },
     {   0,  "terrain.cl"                },
+    {   0,  "yreduce.cl"                },
     {   0,  "test.cl"                   },
     {   0,  "vs_test.cl"                },
     {   0,  ""                          }
@@ -27,6 +28,7 @@ struct AFK_ClProgram programs[] = {
 struct AFK_ClKernel kernels[] = {
     {   0,  "surface.cl",               "makeSurface"                   },
     {   0,  "terrain.cl",               "makeTerrain"                   },
+    {   0,  "yreduce.cl",               "yReduce"                       },
     {   0,  "test.cl",                  "vector_add_gpu"                },
     {   0,  "vs_test.cl",               "mangle_vs"                     },
     {   0,  "",                         ""                              }
@@ -267,6 +269,11 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
         args << "-D TDIM="                      << lSizes.tDim                   << " ";
         args << "-D TDIM_START="                << lSizes.tDimStart              << " ";
         args << "-D FEATURE_COUNT_PER_TILE="    << lSizes.featureCountPerTile    << " ";
+    }
+    else if (p->filename == "yreduce.cl")
+    {
+        AFK_LandscapeSizes lSizes(config->pointSubdivisionFactor);
+        args << "-D TDIM="                      << lSizes.tDim                   << " ";
         args << "-D REDUCE_ORDER="              << lSizes.getReduceOrder()       << " ";
     }
 
@@ -274,9 +281,8 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
     if (argsStr.size() > 0)
         std::cout << "AFK: Passing compiler arguments: " << argsStr << std::endl;
     error = clBuildProgram(p->program, devicesSize, devices, argsStr.size() > 0 ? argsStr.c_str() : NULL, NULL, NULL);
-    if (error == CL_SUCCESS || error == CL_BUILD_PROGRAM_FAILURE)
-        for (size_t dI = 0; dI < devicesSize; ++dI)
-            printBuildLog(std::cout, p->program, devices[dI]);
+    for (size_t dI = 0; dI < devicesSize; ++dI)
+        printBuildLog(std::cout, p->program, devices[dI]);
 
     afk_handleClError(error);
 }

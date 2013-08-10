@@ -120,7 +120,7 @@ void AFK_TerrainComputeQueue::copyToClBuffers(cl_context ctxt, cl_mem *mem)
     afk_handleClError(error);
 
     mem[2] = clCreateBuffer(
-        ctxt, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR,
+        ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         units.size() * sizeof(AFK_TerrainComputeUnit),
         &units[0], &error);
     afk_handleClError(error);

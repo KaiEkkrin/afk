@@ -451,7 +451,7 @@ static unsigned int calculateCacheBitness(unsigned int entries)
 }
 
 AFK_World::AFK_World( const AFK_Config *config,
-    const AFK_ClDeviceProperties& clDeviceProps,
+    const AFK_Computer *computer,
     float _maxDistance,
     unsigned int worldCacheSize,
     unsigned int tileCacheSize,
@@ -487,7 +487,7 @@ AFK_World::AFK_World( const AFK_Config *config,
         (int)tileCacheEntries,
         texFormat,
         3,
-        clDeviceProps,
+        computer->getFirstDeviceProps(),
         config->clGlSharing);
 
     /* Make sure I'm making best use of the jigsaw I got */
@@ -496,7 +496,6 @@ AFK_World::AFK_World( const AFK_Config *config,
 
     landscapeCache = new AFK_LANDSCAPE_CACHE(
         tileCacheBitness, 8, AFK_HashTile(), tileCacheEntries / 2, 0xffffffffu);
-
 
     /* TODO Right now I don't have a sensible value for the
      * world cache size, because I'm not doing any exciting
@@ -563,6 +562,14 @@ AFK_World::AFK_World( const AFK_Config *config,
     glBindVertexArray(0);
     landscapeTerrainBase->teardownGL();
 
+    /* Sort out the compute kernels */
+    if (!computer->findKernel("makeSurface", surfaceKernel))
+        throw AFK_Exception("Cannot find surface kernel");
+    if (!computer->findKernel("makeTerrain", terrainKernel))
+        throw AFK_Exception("Cannot find terrain kernel");
+
+    landscapeYReduce = new AFK_YReduce(computer);
+
     /* Initialise the statistics. */
     cellsInvisible.store(0);
     tilesQueued.store(0);
@@ -597,6 +604,8 @@ AFK_World::~AFK_World()
 
     delete landscapeTerrainBase;
     glDeleteVertexArrays(1, &landscapeTileArray);
+
+    delete landscapeYReduce;
 }
 
 void AFK_World::enqueueSubcells(
@@ -732,62 +741,20 @@ void AFK_World::doComputeTasks(void)
         AFK_Jigsaw *jigsaw = landscapeJigsaws->getPuzzle(puzzle);
         cl_mem *jigsawMem = jigsaw->acquireForCl(ctxt, q);
 
-        /* Set up and enqueue the rest of the computation. */
-
-        /* TODO The scratch for these should be done in local
-         * memory (which I still need to learn how to use).
-         * The y lower and upper bounds ought to come out in
-         * a single buffer indexed by unit.
-         * For now, y bounds computation is disabled
-         * entirely.
-         */
-#if 0
-        cl_mem yLowerBoundsMem = clCreateBuffer(
-            ctxt, CL_MEM_READ_WRITE,
-            (1 << lSizes.getReduceOrder()) * sizeof(float),
-            NULL,
-            &error);
-        afk_handleClError(error);
-
-        cl_mem yUpperBoundsMem = clCreateBuffer(
-            ctxt, CL_MEM_READ_WRITE,
-            (1 << lSizes.getReduceOrder()) * sizeof(float),
-            NULL,
-            &error);
-        afk_handleClError(error);
-#endif
-
-        AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 0, sizeof(cl_mem), &terrainBufs[0]))
-        AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 1, sizeof(cl_mem), &terrainBufs[1]))
-        AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 2, sizeof(cl_mem), &terrainBufs[2]))
-        AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 3, sizeof(cl_mem), &jigsawMem[0]))
-        AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 4, sizeof(cl_mem), &jigsawMem[1]))
-#if 0
-        AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 5, sizeof(cl_mem), &yLowerBoundsMem))
-        AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 6, sizeof(cl_mem), &yUpperBoundsMem))
-#endif
+        AFK_CLCHK(clSetKernelArg(terrainKernel, 0, sizeof(cl_mem), &terrainBufs[0]))
+        AFK_CLCHK(clSetKernelArg(terrainKernel, 1, sizeof(cl_mem), &terrainBufs[1]))
+        AFK_CLCHK(clSetKernelArg(terrainKernel, 2, sizeof(cl_mem), &terrainBufs[2]))
+        AFK_CLCHK(clSetKernelArg(terrainKernel, 3, sizeof(cl_mem), &jigsawMem[0]))
+        AFK_CLCHK(clSetKernelArg(terrainKernel, 4, sizeof(cl_mem), &jigsawMem[1]))
 
         size_t terrainDim[3];
         terrainDim[0] = terrainDim[1] = lSizes.tDim;
         terrainDim[2] = unitCount;
-        AFK_CLCHK(clEnqueueNDRangeKernel(q, afk_core.terrainKernel, 3, NULL, &terrainDim[0], NULL, 0, NULL, NULL))
+        AFK_CLCHK(clEnqueueNDRangeKernel(q, terrainKernel, 3, NULL, &terrainDim[0], NULL, 0, NULL, NULL))
 
-        /* TODO change this to FALSE, so I don't flush the queue part way, after debugging.
-         * Also, you know, actually put it in the right place.  For now, I'm
-         * going to read it to some temp variables to debug, only.
-         */
-#if 0
-        float yBoundLower, yBoundUpper;
-        AFK_CLCHK(clEnqueueReadBuffer(q, yLowerBoundsMem, CL_TRUE, 0, sizeof(float), &yBoundLower, 0, NULL, NULL))
-        AFK_CLCHK(clEnqueueReadBuffer(q, yUpperBoundsMem, CL_TRUE, 0, sizeof(float), &yBoundUpper, 0, NULL, NULL))
-        //std::cout << "Computed y bounds for " << computeQueues[puzzle]->getUnit(u) << ": " << yBoundLower << ", " << yBoundUpper << std::endl;
-
-        AFK_CLCHK(clReleaseMemObject(yLowerBoundsMem))
-        AFK_CLCHK(clReleaseMemObject(yUpperBoundsMem))
-#endif
-
-        /* Now, I need to run the second kernel to bake the surface normals.
-         * This needs a nearest-neighbour sampler of the jigsaw y-displacement texture
+        /* For the next two I'm going to need this ...
+         * TODO Things are broken on AMD right now.  Is it because
+         * it refuses to read back from this image?
          */
         cl_sampler jigsawYDispSampler = clCreateSampler(
             ctxt,
@@ -797,10 +764,12 @@ void AFK_World::doComputeTasks(void)
             &error);
         afk_handleClError(error);
 
-        AFK_CLCHK(clSetKernelArg(afk_core.surfaceKernel, 0, sizeof(cl_mem), &terrainBufs[2]))
-        AFK_CLCHK(clSetKernelArg(afk_core.surfaceKernel, 1, sizeof(cl_mem), &jigsawMem[0]))
-        AFK_CLCHK(clSetKernelArg(afk_core.surfaceKernel, 2, sizeof(cl_sampler), &jigsawYDispSampler))
-        AFK_CLCHK(clSetKernelArg(afk_core.surfaceKernel, 3, sizeof(cl_mem), &jigsawMem[2]))
+        /* Now, I need to run the kernel to bake the surface normals.
+         */
+        AFK_CLCHK(clSetKernelArg(surfaceKernel, 0, sizeof(cl_mem), &terrainBufs[2]))
+        AFK_CLCHK(clSetKernelArg(surfaceKernel, 1, sizeof(cl_mem), &jigsawMem[0]))
+        AFK_CLCHK(clSetKernelArg(surfaceKernel, 2, sizeof(cl_sampler), &jigsawYDispSampler))
+        AFK_CLCHK(clSetKernelArg(surfaceKernel, 3, sizeof(cl_mem), &jigsawMem[2]))
 
         size_t surfaceGlobalDim[3];
         surfaceGlobalDim[0] = surfaceGlobalDim[1] = lSizes.tDim - 1;
@@ -810,10 +779,18 @@ void AFK_World::doComputeTasks(void)
         surfaceLocalDim[0] = surfaceLocalDim[1] = lSizes.tDim - 1;
         surfaceLocalDim[2] = 1;
 
-        /* TODO This kernel must execute after the previous one has finished --
-         * should I put an event in the wait lists ?
-         */
-        AFK_CLCHK(clEnqueueNDRangeKernel(q, afk_core.surfaceKernel, 3, 0, &surfaceGlobalDim[0], &surfaceLocalDim[0], 0, NULL, NULL))
+        AFK_CLCHK(clEnqueueNDRangeKernel(q, surfaceKernel, 3, 0, &surfaceGlobalDim[0], &surfaceLocalDim[0], 0, NULL, NULL))
+
+        /* Finally, do the y reduce. */
+        landscapeYReduce->compute(
+            ctxt,
+            q,
+            puzzle,
+            unitCount,
+            &terrainBufs[2],
+            &jigsawMem[0],
+            &jigsawYDispSampler,
+            lSizes);
 
         /* TODO Can I keep this thing lying around long term ? */
         AFK_CLCHK(clReleaseSampler(jigsawYDispSampler))

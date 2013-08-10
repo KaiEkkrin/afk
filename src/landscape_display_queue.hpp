@@ -13,6 +13,7 @@
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
 #include "def.hpp"
+#include "landscape_tile.hpp"
 
 /* This module is like terrain_compute_queue, but for queueing up
  * the cell-specific landscape details -- cell coord, jigsaw STs,
@@ -64,6 +65,9 @@ public:
     /* The world display function should call this, having made the
      * appropriate texture active, to get the queue bound as a
      * texture buffer.
+     * TODO This function will accept a pointer to the landscape cache so
+     * that it can do a last-minute update to the Y bounds,
+     * some of which may only just have been computed.
      */
     void copyToGl(void);
 

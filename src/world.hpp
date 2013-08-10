@@ -33,12 +33,14 @@
 #include "terrain_compute_queue.hpp"
 #include "tile.hpp"
 #include "world_cell.hpp"
+#include "yreduce.hpp"
 
 /* The world of AFK. */
 
-class AFK_DisplayedLandscapeTile;
+class AFK_LandscapeDisplayQueue;
 class AFK_LandscapeTile;
 class AFK_World;
+class AFK_YReduce;
 
 struct AFK_WorldCellGenParam;
 
@@ -164,6 +166,10 @@ protected:
 #endif
     AFK_LANDSCAPE_CACHE *landscapeCache;
 
+    /* Terrain compute kernels. */
+    cl_kernel terrainKernel;
+    cl_kernel surfaceKernel;
+
     /* The terrain computation fair.  Yeah, yeah. */
     AFK_Fair<AFK_TerrainComputeQueue> landscapeComputeFair;
 
@@ -173,6 +179,9 @@ protected:
      * rendering.
      */
     AFK_Fair<AFK_LandscapeDisplayQueue> landscapeDisplayFair;
+
+    /* This is used to sort out the landscape tile y-bounds. */
+    AFK_YReduce *landscapeYReduce;
 
     /* The basic landscape tile geometry. */
     GLuint landscapeTileArray;
@@ -237,7 +246,7 @@ public:
 
     AFK_World(
         const AFK_Config *config,
-        const AFK_ClDeviceProperties& clDeviceProps,
+        const AFK_Computer *computer,
         float _maxDistance,
         unsigned int worldCacheSize, /* in bytes */
         unsigned int tileCacheSize, /* also in bytes */

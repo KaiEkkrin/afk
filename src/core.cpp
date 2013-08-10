@@ -37,22 +37,8 @@ void afk_displayLoop(void)
 {
     afk_core.window->shareGLContext(DISPLAY_THREAD_ID);
 
-    /* TODO For initial testing purposes, I'm going to make the
-     * display loop own the OpenCL stuff.
-     * For real, I'd love if I had shared access across all
-     * threads, but there might be some interesting context
-     * related problems with that.
-     * At any rate, whilst it would be nice to move the
-     * program loading back to main(), I can't if I need
-     * one context per thread, each program must be loaded
-     * into each thread, hah!
-     */
     afk_core.computer = new AFK_Computer();
     afk_core.computer->loadPrograms(afk_core.config);
-    if (!afk_core.computer->findKernel("makeSurface", afk_core.surfaceKernel))
-        throw AFK_Exception("Cannot find surface kernel");
-    if (!afk_core.computer->findKernel("makeTerrain", afk_core.terrainKernel))
-        throw AFK_Exception("Cannot find terrain kernel");
 
 #if CL_TEST
     afk_testComputeLong(afk_core.computer, afk_core.config->concurrency);
@@ -76,7 +62,7 @@ void afk_displayLoop(void)
     afk_core.computer->lock(ctxt, q);
     afk_core.world = new AFK_World(
         afk_core.config,
-        afk_core.computer->getFirstDeviceProps(),
+        afk_core.computer,
         worldMaxDistance,   /* maxDistance -- zFar must be a lot bigger or things will vanish */
         clGlMaxAllocSize / 4,
         clGlMaxAllocSize / 4,
