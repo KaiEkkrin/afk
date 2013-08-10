@@ -1,0 +1,26 @@
+New-Age LoD Stitching
+=====================
+
+Horizontal Stitching -- Same Cell LoD
+-------------------------------------
+
+Sample the y-displacement texture (which should be made separate from the others) as `nearest', not `linear'.  May need some arithmetic tweak to cause values to not have small errors.  It *ought* to end up lining up.
+
+Horizontal Stitching -- Different Cell LoD
+------------------------------------------
+
+Make two different cell mip levels for everything (y displacement, colour, normal).
+When doing cell enumeration: test each cell against detail pitch differently for all 6 faces of the cell.  I should end up seeing 1 or 2 different detail pitches (not 3).  The highest one is the one that qualifies for render; however, faces that sampled at the lower detail pitch need to be tagged with that.
+When computing the terrain, make 2 mip levels.
+When displaying the terrain, sample the texture on a gradient between the 2 mip levels.  This may or may not play nicely with the fixed tile geometry; I might need to move to using the tessellator to make it work.
+
+Vertical Stitching -- Same Cell LoD
+-----------------------------------
+
+When a triangle straddles the y-boundary, have the geometry shader split it into 2 triangles that both stop at said y-boundary.
+
+Vertical Stitching -- Different Cell LoD
+----------------------------------------
+
+Maybe the above suggestion for horizontal stitching -- different cell LoD will "just fix" this too ?
+
