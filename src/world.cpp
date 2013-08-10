@@ -469,7 +469,6 @@ AFK_World::AFK_World(
     /* Set up the caches and generator gang. */
 
     unsigned int tileCacheEntries = tileCacheSize / lSizes.tSize;
-    unsigned int tileCacheBitness = calculateCacheBitness(tileCacheEntries);
 
     Vec2<int> pieceSize = afk_vec2<int>((int)lSizes.tDim, (int)lSizes.tDim);
 
@@ -478,13 +477,21 @@ AFK_World::AFK_World(
      * might be unwise.  So next, I should try splitting the jigsaw
      * into one RGB colour jigsaw and one R32F y-displacement jigsaw.
      */
+    enum AFK_JigsawFormat texFormat[1];
+    texFormat[0] = AFK_JIGSAW_4FLOAT32;
+
     landscapeJigsaws = new AFK_JigsawCollection(
         ctxt,
         pieceSize,
         (int)tileCacheEntries,
-        AFK_JIGSAW_4FLOAT32,
+        texFormat,
+        1,
         clDeviceProps,
         config->clGlSharing);
+
+    /* Make sure I'm making best use of the jigsaw I got */
+    tileCacheEntries = landscapeJigsaws->getPieceCount();
+    unsigned int tileCacheBitness = calculateCacheBitness(tileCacheEntries);
 
     landscapeCache = new AFK_LANDSCAPE_CACHE(
         tileCacheBitness, 8, AFK_HashTile(), tileCacheEntries / 2, 0xffffffffu);
@@ -844,7 +851,9 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
 
         /* The first texture is the jigsaw. */
         glActiveTexture(GL_TEXTURE0);
-        jigsaw->bindTexture();
+        jigsaw->bindTexture(0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glUniform1i(landscape_jigsawTexSamplerLocation, 0);
 
         /* The second texture is the landscape display texbuf,

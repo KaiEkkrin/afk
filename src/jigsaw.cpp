@@ -100,138 +100,151 @@ AFK_Jigsaw::AFK_Jigsaw(
     cl_context ctxt,
     const Vec2<int>& _pieceSize,
     const Vec2<int>& _jigsawSize,
-    const AFK_JigsawFormatDescriptor& _format,
+    const AFK_JigsawFormatDescriptor *_format,
+    unsigned int _texCount,
     bool _clGlSharing):
+        format(_format),
+        texCount(_texCount),
         pieceSize(_pieceSize),
         jigsawSize(_jigsawSize),
-        format(_format),
         clGlSharing(_clGlSharing)
 {
-    glGenTextures(1, &glTex);
-    glBindTexture(GL_TEXTURE_2D, glTex);
+    glTex = new GLuint[texCount];
+    clTex = new cl_mem[texCount];
+    changes = new std::vector<unsigned char>[texCount];
 
-    /* TODO Next debug: fill this thing out with some test data and
-     * bludgeon the texture sampler into working correctly.  I'm
-     * sure it isn't.
-     */
+    glGenTextures(texCount, glTex);
+
+    for (unsigned int tex = 0; tex < texCount; ++tex)
+    {
+        glBindTexture(GL_TEXTURE_2D, glTex[tex]);
+
+        /* Next debug: fill this thing out with some test data and
+         * bludgeon the texture sampler into working correctly.  I'm
+         * sure it isn't.
+         * I'm keeping this around in case it becomes useful again
+         * at some point.
+         */
 #if FIXED_TEST_TEXTURE_DATA
-    /* This is awful, I'm going to suddenly make a huge assumption
-     * about the texture format -- but it's for a good debug cause
-     * honest! :P
-     * This code assumes jigsawSize to be {1, 1} for expediency
-     */
-    Vec4<float> testData[pieceSize.v[0]][pieceSize.v[1]];
-    for (int a = 0; a < pieceSize.v[0]; ++a)
-    {
-        for (int b = 0; b < pieceSize.v[1]; ++b)
+        /* This is awful, I'm going to suddenly make a huge assumption
+         * about the texture format -- but it's for a good debug cause
+         * honest! :P
+         * This code assumes jigsawSize to be {1, 1} for expediency
+         */
+        Vec4<float> testData[pieceSize.v[0]][pieceSize.v[1]];
+        for (int a = 0; a < pieceSize.v[0]; ++a)
         {
-            testData[a][b] = afk_vec4<float>(
-                1.0f,
-                (float)a / (float)pieceSize.v[0],
-                (float)b / (float)pieceSize.v[1],
-                0);
+            for (int b = 0; b < pieceSize.v[1]; ++b)
+            {
+                testData[a][b] = afk_vec4<float>(
+                    1.0f,
+                    (float)a / (float)pieceSize.v[0],
+                    (float)b / (float)pieceSize.v[1],
+                    0);
+            }
         }
-    }
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        format.glInternalFormat,
-        pieceSize.v[0],
-        pieceSize.v[1],
-        0,
-        format.glFormat /* TODO See http://www.opengl.org/discussion_boards/showthread.php/177713-Problem-with-HDR-rendering : looks like I need GL_R / GL_RGB / GL_RGBA here, and not something with a `32F' or similar on the end */,
-        format.glDataType,
-        &testData[0]);
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            format.glInternalFormat,
+            pieceSize.v[0],
+            pieceSize.v[1],
+            0,
+            format[tex].glFormat /* TODO See http://www.opengl.org/discussion_boards/showthread.php/177713-Problem-with-HDR-rendering : looks like I need GL_R / GL_RGB / GL_RGBA here, and not something with a `32F' or similar on the end */,
+            format[tex].glDataType,
+            &testData[0]);
 #else
-    glTexStorage2D(GL_TEXTURE_2D, 1, format.glInternalFormat, pieceSize.v[0] * jigsawSize.v[0], pieceSize.v[1] * jigsawSize.v[1]);
+        glTexStorage2D(GL_TEXTURE_2D, 1, format[tex].glInternalFormat, pieceSize.v[0] * jigsawSize.v[0], pieceSize.v[1] * jigsawSize.v[1]);
 #endif
-    AFK_GLCHK("AFK_JigSaw texStorage2D")
+        AFK_GLCHK("AFK_JigSaw texStorage2D")
 
-    cl_int error;
-    if (clGlSharing)
-    {
-        if (afk_core.computer->testVersion(1, 2))
+        cl_int error;
+        if (clGlSharing)
         {
-            clTex = clCreateFromGLTexture(
-                ctxt,
-                CL_MEM_WRITE_ONLY, /* TODO Ooh!  Look at the docs for this function: will it turn out I can read/write the same texture in one compute kernel after all? */
-                GL_TEXTURE_2D,
-                0,
-                glTex,
-                &error);
+            if (afk_core.computer->testVersion(1, 2))
+            {
+                clTex[tex] = clCreateFromGLTexture(
+                    ctxt,
+                    CL_MEM_WRITE_ONLY, /* TODO Ooh!  Look at the docs for this function: will it turn out I can read/write the same texture in one compute kernel after all? */
+                    GL_TEXTURE_2D,
+                    0,
+                    glTex[tex],
+                    &error);
+            }
+            else
+            {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+                clTex[tex] = clCreateFromGLTexture2D(
+                    ctxt,
+                    CL_MEM_WRITE_ONLY,
+                    GL_TEXTURE_2D,
+                    0,
+                    glTex[tex],
+                    &error);           
+#pragma GCC diagnostic pop
+            }
         }
         else
         {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-            clTex = clCreateFromGLTexture2D(
-                ctxt,
-                CL_MEM_WRITE_ONLY,
-                GL_TEXTURE_2D,
-                0,
-                glTex,
-                &error);           
-#pragma GCC diagnostic pop
-        }
-    }
-    else
-    {
-        cl_image_desc imageDesc;
-        memset(&imageDesc, 0, sizeof(cl_image_desc));
-        imageDesc.image_type        = CL_MEM_OBJECT_IMAGE2D;
-        imageDesc.image_width       = pieceSize.v[0] * jigsawSize.v[0];
-        imageDesc.image_height      = pieceSize.v[1] * jigsawSize.v[1];
-        // "must be 0 if host_ptr is null"
-        //imageDesc.image_row_pitch   = imageDesc.image_width * _texelSize;
+            cl_image_desc imageDesc;
+            memset(&imageDesc, 0, sizeof(cl_image_desc));
+            imageDesc.image_type        = CL_MEM_OBJECT_IMAGE2D;
+            imageDesc.image_width       = pieceSize.v[0] * jigsawSize.v[0];
+            imageDesc.image_height      = pieceSize.v[1] * jigsawSize.v[1];
 
-        if (afk_core.computer->testVersion(1, 2))
-        {
-            clTex = clCreateImage(
-                ctxt,
-                CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, /* TODO As above! */
-                &format.clFormat,
-                &imageDesc,
-                NULL,
-                &error);
-        }
-        else
-        {
+            if (afk_core.computer->testVersion(1, 2))
+            {
+                clTex[tex] = clCreateImage(
+                    ctxt,
+                    CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY, /* TODO As above! */
+                    &format[tex].clFormat,
+                    &imageDesc,
+                    NULL,
+                    &error);
+            }
+            else
+            {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-            clTex = clCreateImage2D(
-                ctxt,
-                CL_MEM_WRITE_ONLY,
-                &format.clFormat,
-                imageDesc.image_width,
-                imageDesc.image_height,
-                imageDesc.image_row_pitch,
-                NULL,
-                &error);
+                clTex[tex] = clCreateImage2D(
+                    ctxt,
+                    CL_MEM_READ_WRITE,
+                    &format[tex].clFormat,
+                    imageDesc.image_width,
+                    imageDesc.image_height,
+                    imageDesc.image_row_pitch,
+                    NULL,
+                    &error);
 #pragma GCC diagnostic pop
+            }
         }
+        afk_handleClError(error);
     }
-    afk_handleClError(error);
 }
 
 AFK_Jigsaw::~AFK_Jigsaw()
 {
-    clReleaseMemObject(clTex);
-    glDeleteTextures(1, &glTex);
+    for (unsigned int tex = 0; tex < texCount; ++tex)
+        clReleaseMemObject(clTex[tex]);
+
+    glDeleteTextures(texCount, glTex);
+
+    delete[] changes;
+    delete[] clTex;
+    delete[] glTex;
+}
+
+unsigned int AFK_Jigsaw::getTexCount(void) const
+{
+    return texCount;
 }
 
 Vec2<float> AFK_Jigsaw::getTexCoordST(const AFK_JigsawPiece& piece) const
 {
-#if 0
-    float jigsawSizeX = (float)pieceSize.v[0] * (float)jigsawSize.v[0];
-    float jigsawSizeZ = (float)pieceSize.v[1] * (float)jigsawSize.v[1];
-    return afk_vec2<float>(
-        (float)piece.piece.v[0] / jigsawSizeX,
-        (float)piece.piece.v[1] / jigsawSizeZ);
-#else
     return afk_vec2<float>(
         (float)piece.piece.v[0] / (float)jigsawSize.v[0],
         (float)piece.piece.v[1] / (float)jigsawSize.v[1]);
-#endif
 }
 
 Vec2<float> AFK_Jigsaw::getPiecePitchST(void) const
@@ -245,9 +258,18 @@ cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q)
 {
     if (clGlSharing)
     {
-        AFK_CLCHK(clEnqueueAcquireGLObjects(q, 1, &clTex, 0, 0, 0))
+        AFK_CLCHK(clEnqueueAcquireGLObjects(q, texCount, clTex, 0, 0, 0))
     }
-    return &clTex;
+    else
+    {
+        /* Make sure the change state is reset so that I can start
+         * accumulating new changes
+         */
+        changedPieces.clear();
+        for (unsigned int tex = 0; tex < texCount; ++tex)
+            changes[tex].clear();
+    }
+    return clTex;
 }
 
 void AFK_Jigsaw::pieceChanged(const Vec2<int>& piece)
@@ -259,7 +281,7 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
 {
     if (clGlSharing)
     {
-        AFK_CLCHK(clEnqueueReleaseGLObjects(q, 1, &clTex, 0, 0, 0))
+        AFK_CLCHK(clEnqueueReleaseGLObjects(q, texCount, clTex, 0, 0, 0))
     }
     else
     {
@@ -270,40 +292,43 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
          * as they get reported to me, and then wait on the read-backs
          * here.  But that's harder, so I'll do it like this first
          */
-        size_t pieceSizeInBytes = format.texelSize * pieceSize.v[0] * pieceSize.v[1];
-        size_t requiredChangedPiecesSize = (pieceSizeInBytes * changedPieces.size());
-        if (changes.size() < requiredChangedPiecesSize)
-            changes.resize(requiredChangedPiecesSize);
-
-        for (unsigned int s = 0; s < changedPieces.size(); ++s)
+        for (unsigned int tex = 0; tex < texCount; ++tex)
         {
-            size_t origin[3];
-            size_t region[3];
+            size_t pieceSizeInBytes = format[tex].texelSize * pieceSize.v[0] * pieceSize.v[1];
+            size_t requiredChangedPiecesSize = (pieceSizeInBytes * changedPieces.size());
+            if (changes[tex].size() < requiredChangedPiecesSize)
+                changes[tex].resize(requiredChangedPiecesSize);
 
-            origin[0] = changedPieces[s].v[0] * pieceSize.v[0];
-            origin[1] = changedPieces[s].v[1] * pieceSize.v[1];
-            origin[2] = 0;
+            for (unsigned int s = 0; s < changedPieces.size(); ++s)
+            {
+                size_t origin[3];
+                size_t region[3];
 
-            region[0] = pieceSize.v[0];
-            region[1] = pieceSize.v[1];
-            region[2] = 1;
+                origin[0] = changedPieces[s].v[0] * pieceSize.v[0];
+                origin[1] = changedPieces[s].v[1] * pieceSize.v[1];
+                origin[2] = 0;
 
-            AFK_CLCHK(clEnqueueReadImage(q, clTex, CL_TRUE, origin, region, 0 /* pieceSize.v[0] * format.texelSize */, 0, &changes[s * pieceSizeInBytes], 0, NULL, NULL))
+                region[0] = pieceSize.v[0];
+                region[1] = pieceSize.v[1];
+                region[2] = 1;
+
+                AFK_CLCHK(clEnqueueReadImage(q, clTex[tex], CL_TRUE, origin, region, 0 /* pieceSize.v[0] * format.texelSize */, 0, &changes[tex][s * pieceSizeInBytes], 0, NULL, NULL))
+            }
         }
 #endif
     }
 }
 
-void AFK_Jigsaw::bindTexture(void)
+void AFK_Jigsaw::bindTexture(unsigned int tex)
 {
-    glBindTexture(GL_TEXTURE_2D, glTex);
+    glBindTexture(GL_TEXTURE_2D, glTex[tex]);
 
     if (!clGlSharing)
     {
 #if FIXED_TEST_TEXTURE_DATA
 #else
         /* Push all the changed pieces into the GL texture. */
-        size_t pieceSizeInBytes = format.texelSize * pieceSize.v[0] * pieceSize.v[1];
+        size_t pieceSizeInBytes = format[tex].texelSize * pieceSize.v[0] * pieceSize.v[1];
         for (unsigned int s = 0; s < changedPieces.size(); ++s)
         {
             glTexSubImage2D(
@@ -312,21 +337,21 @@ void AFK_Jigsaw::bindTexture(void)
                 changedPieces[s].v[1] * pieceSize.v[1],
                 pieceSize.v[0],
                 pieceSize.v[1],
-                format.glFormat,
-                format.glDataType,
-                &changes[s * pieceSizeInBytes]);
+                format[tex].glFormat,
+                format[tex].glDataType,
+                &changes[tex][s * pieceSizeInBytes]);
         }
-
-        changedPieces.clear();
-        changes.clear();
 #endif
     }
 
+    /* TODO Move this into world -- it'll be texture specific */
+#if 0
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+#endif
 }
 
 
@@ -336,59 +361,80 @@ AFK_JigsawCollection::AFK_JigsawCollection(
     cl_context ctxt,
     const Vec2<int>& _pieceSize,
     int _pieceCount,
-    enum AFK_JigsawFormat _texFormat,
+    enum AFK_JigsawFormat *texFormat,
+    unsigned int _texCount,
     const AFK_ClDeviceProperties& _clDeviceProps,
     bool _clGlSharing):
+        texCount(_texCount),
         pieceSize(_pieceSize),
         pieceCount(_pieceCount),
-        format(_texFormat),
         clGlSharing(_clGlSharing),
         box(_pieceCount)
 {
-    std::cout << "AFK_JigsawCollection: With " << std::dec << pieceCount << " pieces of size " << pieceSize << ": " << std::endl;
+    std::cout << "AFK_JigsawCollection: Requested " << std::dec << pieceCount << " pieces of size " << pieceSize << ": " << std::endl;
 
-    /* Figure out a jigsaw size. */
+    /* Figure out the texture formats. */
+    for (unsigned int tex = 0; tex < texCount; ++tex)
+        format.push_back(AFK_JigsawFormatDescriptor(texFormat[tex]));
+
+    /* Figure out a jigsaw size. 
+     * For this I need to try all the formats: I stop testing
+     * when any one of the formats fails, because all the
+     * jigsaw textures need to be identical aside from their
+     * texels
+     */
     jigsawSize = afk_vec2<int>(1, 1);
-    GLuint glProxyTex;
-    glGenTextures(1, &glProxyTex);
-    glBindTexture(GL_PROXY_TEXTURE_2D, glProxyTex);
+    GLuint glProxyTex[texCount];
+    glGenTextures(texCount, glProxyTex);
     GLint texWidth;
     bool dimensionsOK = true;
     for (Vec2<int> testJigsawSize = jigsawSize;
         dimensionsOK && jigsawSize.v[0] * jigsawSize.v[1] < pieceCount;
         testJigsawSize = testJigsawSize * 2)
     {
-        /* Try to make a pretend texture of the current jigsaw size */
-        glTexImage2D(
-            GL_PROXY_TEXTURE_2D,
-            0,
-            format.glInternalFormat,
-            pieceSize.v[0] * testJigsawSize.v[0],
-            pieceSize.v[1] * testJigsawSize.v[1],
-            0,
-            format.glFormat,
-            format.glDataType,
-            NULL);
-
-        /* See if it worked */
-        glGetTexLevelParameteriv(
-            GL_PROXY_TEXTURE_2D,
-            0,
-            GL_TEXTURE_WIDTH,
-            &texWidth);
-
-        dimensionsOK = (texWidth != 0 &&
+        dimensionsOK = (
             testJigsawSize.v[0] <= (int)_clDeviceProps.image2DMaxWidth &&
-            testJigsawSize.v[1] <= (int)_clDeviceProps.image2DMaxHeight &&
-            (testJigsawSize.v[0] * testJigsawSize.v[1] * pieceSize.v[0] * pieceSize.v[1] * format.texelSize) < _clDeviceProps.maxMemAllocSize);
+            testJigsawSize.v[1] <= (int)_clDeviceProps.image2DMaxHeight);
+
+        /* Try to make pretend textures of the current jigsaw size */
+        for (unsigned int tex = 0; tex < texCount && dimensionsOK; ++tex)
+        {
+            dimensionsOK &= ((testJigsawSize.v[0] * testJigsawSize.v[1] * pieceSize.v[0] * pieceSize.v[1] * format[tex].texelSize) < _clDeviceProps.maxMemAllocSize);
+            if (!dimensionsOK) break;
+
+            glBindTexture(GL_PROXY_TEXTURE_2D, glProxyTex[tex]);
+            glTexImage2D(
+                GL_PROXY_TEXTURE_2D,
+                0,
+                format[tex].glInternalFormat,
+                pieceSize.v[0] * testJigsawSize.v[0],
+                pieceSize.v[1] * testJigsawSize.v[1],
+                0,
+                format[tex].glFormat,
+                format[tex].glDataType,
+                NULL);
+
+            /* See if it worked */
+            glGetTexLevelParameteriv(
+                GL_PROXY_TEXTURE_2D,
+                0,
+                GL_TEXTURE_WIDTH,
+                &texWidth);
+
+            dimensionsOK &= (texWidth != 0);
+        }
+
         if (dimensionsOK) jigsawSize = testJigsawSize;
     }
 
-    glDeleteTextures(1, &glProxyTex);
+    glDeleteTextures(texCount, glProxyTex);
+    glGetError(); /* Throw away any error that might have popped up */
 
+    /* Update the dimensions and actual piece count to reflect what I found */
     int jigsawCount = pieceCount / (jigsawSize.v[0] * jigsawSize.v[1]) + 1;
+    pieceCount = jigsawCount * jigsawSize.v[0] * jigsawSize.v[1];
 
-    std::cout << "AFK_JigsawCollection: Making " << jigsawCount << " jigsaws with " << jigsawSize << " pieces each" << std::endl;
+    std::cout << "AFK_JigsawCollection: Making " << jigsawCount << " jigsaws with " << jigsawSize << " pieces each (actually " << pieceCount << " pieces)" << std::endl;
 
     /* TODO consider making one as a spare and filling the box up
      * as an async task?
@@ -399,7 +445,8 @@ AFK_JigsawCollection::AFK_JigsawCollection(
             ctxt,
             pieceSize,
             jigsawSize,
-            format,
+            &format[0],
+            texCount,
             clGlSharing));
 
         for (int x = 0; x < jigsawSize.v[0]; ++x)
@@ -415,6 +462,11 @@ AFK_JigsawCollection::~AFK_JigsawCollection()
     {
         delete *pIt;
     }
+}
+
+int AFK_JigsawCollection::getPieceCount(void) const
+{
+    return pieceCount;
 }
 
 AFK_JigsawPiece AFK_JigsawCollection::grab(void)
