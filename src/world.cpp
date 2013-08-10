@@ -187,7 +187,7 @@ bool AFK_World::generateClaimedWorldCell(
          * possible cell
          */
         bool display = (cell.coord.v[3] == MIN_CELL_PITCH ||
-            worldCell.testDetailPitch(renderDetailPitch, *camera, viewerLocation));
+            worldCell.testDetailPitch(averageDetailPitch.get(), *camera, viewerLocation));
 
         /* TODO: Non-landscape stuff goes here.  :-) */
 
@@ -460,7 +460,7 @@ AFK_World::AFK_World(
     cl_context ctxt):
         startingDetailPitch         (config->startingDetailPitch),
         detailPitch                 (config->startingDetailPitch), /* This is a starting point */
-        renderDetailPitch           (config->startingDetailPitch),
+        averageDetailPitch          (config->startingDetailPitch),
         maxDistance                 (_maxDistance),
         subdivisionFactor           (config->subdivisionFactor),
         minCellSize                 (config->minCellSize),
@@ -634,7 +634,7 @@ void AFK_World::alterDetail(float adjustment)
     if (adj > 1.0f || !(worldCache->wayOutsideTargetSize() || landscapeCache->wayOutsideTargetSize()))
         detailPitch = detailPitch * adjustment;
 
-    renderDetailPitch = detailPitch - fmod(detailPitch, 16.0f);
+    averageDetailPitch.push(detailPitch);
 }
 
 boost::unique_future<bool> AFK_World::updateWorld(void)

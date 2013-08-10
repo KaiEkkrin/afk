@@ -20,6 +20,7 @@
 #include "config.hpp"
 #include "data/evictable_cache.hpp"
 #include "data/fair.hpp"
+#include "data/moving_average.hpp"
 #include "def.hpp"
 #include "entity.hpp"
 #include "gl_buffer.hpp"
@@ -94,10 +95,18 @@ protected:
     float startingDetailPitch;
     float detailPitch;
 
-    /* An aliased one that we try to use for rendering so
-     * the terrain doesn't flicker
+    /* Let's try averaging it for the render.
+     * TODO: This is an experiment to replace `renderDetailPitch'
+     * with something that better smoothes the detail pitch.
+     * It might just produce oscillation; I need to try it on
+     * several different platforms.
+     * The biggest insight from experimenting with this is just
+     * to set point-subdivision-factor on the command line to 4
+     * on systems with slow GPUs, because of how badly the
+     * landscape behaves when the detail pitch goes above about
+     * 500.
      */
-    float renderDetailPitch;
+    AFK_MovingAverage<float, 8> averageDetailPitch;
 
     /* Gather statistics.  (Useful.)
      */

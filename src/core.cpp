@@ -155,7 +155,7 @@ void afk_displayLoop(void)
              * otherwise result in a negative detail factor, making us
              * crash
              */
-            normalisedError = std::max(std::min(normalisedError, 1.0f), -1.0f);
+            normalisedError = 0.5f * std::max(std::min(normalisedError, 1.0f), -1.0f);
 
             float detailFactor = -(1.0f / (normalisedError / 2.0f - 1.0f)); /* between 0.5 and 2? */
             //std::cout << "calibration error " << std::dec << afk_core.calibrationError << ": applying detail factor " << detailFactor << std::endl;
