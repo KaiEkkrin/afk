@@ -13,7 +13,6 @@
 #include "shader.hpp"
 
 
-#if AFK_GL_DEBUG
 #define AFK_GLCHK(str) \
     { \
         GLenum glErr = glGetError(); \
@@ -23,9 +22,6 @@
             ss << "AFK: Got GL error from " << str << ": " << gluErrorString(glErr); \
         } \
     }
-#else
-#define AFK_GLCHK(str)
-#endif
 
 
 /* Describes the layout of a vertex for the vcol_phong
