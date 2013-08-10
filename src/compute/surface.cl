@@ -116,20 +116,20 @@ __kernel void makeSurface(
     /* `normal' now contains nicely accumulated normals that I can
      * write out to the normal jigsaw.
      */
-    write_imagef(jigsawNormal, jigsawOffset + i_r1c1, (float4)(normal[flatTDimCoord(i_r1c1)], 0.0f));
+    write_imagef(jigsawNormal, jigsawOffset + i_r1c1, (float4)(normalize(normal[flatTDimCoord(i_r1c1)]), 0.0f));
     if (xdim == TDIM - 2)
     {
-        write_imagef(jigsawNormal, jigsawOffset + i_r2c1, (float4)(normal[flatTDimCoord(i_r2c1)], 0.0f));
+        write_imagef(jigsawNormal, jigsawOffset + i_r2c1, (float4)(normalize(normal[flatTDimCoord(i_r2c1)]), 0.0f));
     }
 
     if (zdim == TDIM - 2)
     {
-        write_imagef(jigsawNormal, jigsawOffset + i_r1c2, (float4)(normal[flatTDimCoord(i_r1c2)], 0.0f));
+        write_imagef(jigsawNormal, jigsawOffset + i_r1c2, (float4)(normalize(normal[flatTDimCoord(i_r1c2)]), 0.0f));
     }
 
     if (xdim == TDIM - 2 && zdim == TDIM - 2)
     {
-        write_imagef(jigsawNormal, jigsawOffset + i_r2c2, (float4)(normal[flatTDimCoord(i_r2c2)], 0.0f));
+        write_imagef(jigsawNormal, jigsawOffset + i_r2c2, (float4)(normalize(normal[flatTDimCoord(i_r2c2)]), 0.0f));
     }
 }
 

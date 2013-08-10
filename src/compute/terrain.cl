@@ -217,7 +217,9 @@ __kernel void makeTerrain(
     /* Swap back into original tile space */
     transformTileToTile(&vl, &vc, tiles, units[unitOffset].tileOffset + units[unitOffset].tileCount - 1, units[unitOffset].tileOffset);
 
-    /* Make that colour space halfway sane */
+    /* I need to do this, otherwise brightness ends up dependent
+     * on how many terrain tiles you had
+     */
     vc = normalize(vc);
 
     /* Fill out the texels from my computed values. */
