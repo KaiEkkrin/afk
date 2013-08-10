@@ -106,8 +106,7 @@ public:
         const Vec2<int>& _pieceSize,
         const Vec2<int>& _jigsawSize,
         const AFK_JigsawFormatDescriptor& _format,
-        bool _clGlSharing,
-        unsigned char *zeroMem);
+        bool _clGlSharing);
     virtual ~AFK_Jigsaw();
 
     /* Returns the (s, t) texture co-ordinates for a given piece
@@ -196,10 +195,6 @@ protected:
 
     std::vector<AFK_Jigsaw*> puzzles;
     boost::mutex mut;
-
-    /* For filling new jigsaws. */
-    unsigned char *zeroMem;
-    size_t zeroMemSize;
 
     /* The pieces that are free to be given out. */
     boost::lockfree::queue<AFK_JigsawPiece> box;

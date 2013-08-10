@@ -101,8 +101,7 @@ AFK_Jigsaw::AFK_Jigsaw(
     const Vec2<int>& _pieceSize,
     const Vec2<int>& _jigsawSize,
     const AFK_JigsawFormatDescriptor& _format,
-    bool _clGlSharing,
-    unsigned char *zeroMem):
+    bool _clGlSharing):
         pieceSize(_pieceSize),
         jigsawSize(_jigsawSize),
         format(_format),
@@ -144,17 +143,7 @@ AFK_Jigsaw::AFK_Jigsaw(
         format.glDataType,
         &testData[0]);
 #else
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        format.glInternalFormat,
-        pieceSize.v[0] * jigsawSize.v[0],
-        pieceSize.v[1] * jigsawSize.v[1],
-        0,
-        format.glFormat,
-        format.glDataType,
-        zeroMem);
-    //glTexStorage2D(GL_TEXTURE_2D, 1, format.glInternalFormat, pieceSize.v[0] * jigsawSize.v[0], pieceSize.v[1] * jigsawSize.v[1]);
+    glTexStorage2D(GL_TEXTURE_2D, 1, format.glInternalFormat, pieceSize.v[0] * jigsawSize.v[0], pieceSize.v[1] * jigsawSize.v[1]);
 #endif
     AFK_GLCHK("AFK_JigSaw texStorage2D")
 
@@ -401,14 +390,6 @@ AFK_JigsawCollection::AFK_JigsawCollection(
 
     std::cout << "AFK_JigsawCollection: Making " << jigsawCount << " jigsaws with " << jigsawSize << " pieces each" << std::endl;
 
-    /* Make a large enough buffer to fill one of the jigsaws from */
-    zeroMemSize =
-        pieceSize.v[0] * pieceSize.v[1] *
-        jigsawSize.v[0] * jigsawSize.v[1] *
-        format.texelSize;
-    zeroMem = new unsigned char[zeroMemSize];
-    memset(zeroMem, 0, zeroMemSize);
-
     /* TODO consider making one as a spare and filling the box up
      * as an async task?
      */
@@ -419,8 +400,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
             pieceSize,
             jigsawSize,
             format,
-            clGlSharing,
-            zeroMem));
+            clGlSharing));
 
         for (int x = 0; x < jigsawSize.v[0]; ++x)
             for (int y = 0; y < jigsawSize.v[1]; ++y)
@@ -430,8 +410,6 @@ AFK_JigsawCollection::AFK_JigsawCollection(
 
 AFK_JigsawCollection::~AFK_JigsawCollection()
 {
-    delete[] zeroMem;
-
     for (std::vector<AFK_Jigsaw*>::iterator pIt = puzzles.begin();
         pIt != puzzles.end(); ++pIt)
     {
