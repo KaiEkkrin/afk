@@ -33,12 +33,6 @@ AFK_TerrainBaseTile::AFK_TerrainBaseTile(const AFK_LandscapeSizes& lSizes):
         }
     }
     
-    /* TODO In order to compute correct normals, turn this
-     * into a GL_TRIANGLES_ADJACENCY with vertex dimensions
-     * more like tDim !
-     * (Or, figure out how to read/write a texture in OpenCL
-     * after all.)
-     */
     for (unsigned short x = 0; x < lSizes.pointSubdivisionFactor; ++x)
     {
         for (unsigned short z = 0; z < lSizes.pointSubdivisionFactor; ++z)

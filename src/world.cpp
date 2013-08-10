@@ -479,7 +479,7 @@ AFK_World::AFK_World( const AFK_Config *config,
     enum AFK_JigsawFormat texFormat[3];
     texFormat[0] = AFK_JIGSAW_FLOAT32;          /* Y displacement */
     texFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;    /* Colour */
-    texFormat[2] = AFK_JIGSAW_4FLOAT8_SNORM;    /* Normal */
+    texFormat[2] = AFK_JIGSAW_4HALF32;          /* Normal */
 
     landscapeJigsaws = new AFK_JigsawCollection(
         ctxt,

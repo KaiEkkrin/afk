@@ -63,6 +63,7 @@ AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat e)
         texelSize                           = sizeof(unsigned char) * 4;
         break;
 
+    /* TODO cl_gl sharing seems to barf with this one ... */
     case AFK_JIGSAW_4FLOAT8_SNORM:
         glInternalFormat                    = GL_RGBA8_SNORM;
         glFormat                            = GL_RGBA;
@@ -71,6 +72,14 @@ AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat e)
         clFormat.image_channel_data_type    = CL_SNORM_INT8;
         texelSize                           = sizeof(unsigned char) * 4;
         break;
+
+    case AFK_JIGSAW_4HALF32:
+        glInternalFormat                    = GL_RGBA16F;
+        glFormat                            = GL_RGBA;
+        glDataType                          = GL_FLOAT;
+        clFormat.image_channel_order        = CL_RGBA;
+        clFormat.image_channel_data_type    = CL_HALF_FLOAT;
+        texelSize                           = sizeof(float) * 2;
 
     case AFK_JIGSAW_4FLOAT32:
         glInternalFormat                    = GL_RGBA32F;
@@ -200,7 +209,7 @@ AFK_Jigsaw::AFK_Jigsaw(
             {
                 clTex[tex] = clCreateFromGLTexture(
                     ctxt,
-                    CL_MEM_WRITE_ONLY, /* TODO Ooh!  Look at the docs for this function: will it turn out I can read/write the same texture in one compute kernel after all? */
+                    CL_MEM_READ_WRITE,
                     GL_TEXTURE_2D,
                     0,
                     glTex[tex],
@@ -212,7 +221,7 @@ AFK_Jigsaw::AFK_Jigsaw(
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
                 clTex[tex] = clCreateFromGLTexture2D(
                     ctxt,
-                    CL_MEM_WRITE_ONLY,
+                    CL_MEM_READ_WRITE,
                     GL_TEXTURE_2D,
                     0,
                     glTex[tex],
