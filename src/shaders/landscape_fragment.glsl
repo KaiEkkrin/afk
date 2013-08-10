@@ -6,8 +6,8 @@
 
 #version 330
 
-// This is the jigsaw.  It's a float4: (3 colours, y displacement).
-uniform sampler2D JigsawTex;
+// This is the jigsaw colour texture.
+uniform sampler2D JigsawColourTex;
 
 in GeometryData
 {
@@ -29,10 +29,7 @@ uniform Light gLight;
 
 void main()
 {
-    vec4 jigsawTexel = textureLod(JigsawTex, inData.jigsawCoord, 0);
-    //vec4 jigsawTexel = textureLod(JigsawTex, vec2(0.5, 0.5), 0);
-    //vec4 jigsawTexel = vec4(inData.jigsawCoord.x, inData.jigsawCoord.y, 0.0, 1.0);
-    vec3 colour = normalize(jigsawTexel.xyz);
+    vec3 colour = textureLod(JigsawColourTex, inData.jigsawCoord, 0).xyz;
     vec3 normal = normalize(inData.normal);
 
     vec3 AmbientColour = gLight.Colour * gLight.Ambient;

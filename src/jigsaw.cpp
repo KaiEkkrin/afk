@@ -21,19 +21,54 @@ AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat e)
     {
     case AFK_JIGSAW_FLOAT32:
         glInternalFormat                    = GL_R32F;
-        glFormat                            = GL_R;
+        glFormat                            = GL_RED;
         glDataType                          = GL_FLOAT;
         clFormat.image_channel_order        = CL_R;
         clFormat.image_channel_data_type    = CL_FLOAT;
         texelSize                           = sizeof(float);
         break;
 
-    case AFK_JIGSAW_4FLOAT8:
-        glInternalFormat                    = GL_RGBA;
+    /* Note that OpenCL doesn't support 3-byte formats.
+     * TODO I'd love to manage to make the packed formats (below) line up
+     * between OpenCL and OpenGL, but right now I can't.  It looks like the
+     * internal representations might be different (ewww)
+     * So for RGB textures, you're stuck with using
+     * 4FLOAT8_UNORM and 4FLOAT8_SNORM for now.
+     */
+
+    case AFK_JIGSAW_555A1:
+        glInternalFormat                    = GL_RGB5;
+        glFormat                            = GL_RGB;
+        glDataType                          = GL_UNSIGNED_SHORT_5_5_5_1;
+        clFormat.image_channel_order        = CL_RGB;
+        clFormat.image_channel_data_type    = CL_UNORM_SHORT_555;
+        texelSize                           = sizeof(unsigned short);
+        break;
+
+    case AFK_JIGSAW_101010A2:
+        glInternalFormat                    = GL_RGB10;
+        glFormat                            = GL_RGB;
+        glDataType                          = GL_UNSIGNED_INT_10_10_10_2;
+        clFormat.image_channel_order        = CL_RGB;
+        clFormat.image_channel_data_type    = CL_UNORM_INT_101010;
+        texelSize                           = sizeof(unsigned int);
+        break;
+
+    case AFK_JIGSAW_4FLOAT8_UNORM:
+        glInternalFormat                    = GL_RGBA8;
         glFormat                            = GL_RGBA;
         glDataType                          = GL_UNSIGNED_BYTE;
         clFormat.image_channel_order        = CL_RGBA;
-        clFormat.image_channel_data_type    = CL_UNSIGNED_INT8;
+        clFormat.image_channel_data_type    = CL_UNORM_INT8;
+        texelSize                           = sizeof(unsigned char) * 4;
+        break;
+
+    case AFK_JIGSAW_4FLOAT8_SNORM:
+        glInternalFormat                    = GL_RGBA8_SNORM;
+        glFormat                            = GL_RGBA;
+        glDataType                          = GL_BYTE;
+        clFormat.image_channel_order        = CL_RGBA;
+        clFormat.image_channel_data_type    = CL_SNORM_INT8;
         texelSize                           = sizeof(unsigned char) * 4;
         break;
 

@@ -123,7 +123,8 @@ protected:
     AFK_ShaderLight *landscape_shaderLight;
     GLuint landscape_jigsawPiecePitchLocation;
     GLuint landscape_clipTransformLocation;
-    GLuint landscape_jigsawTexSamplerLocation;
+    GLuint landscape_jigsawYDispTexSamplerLocation;
+    GLuint landscape_jigsawColourTexSamplerLocation;
     GLuint landscape_displayTBOSamplerLocation;
 
     /* Entity shader details. */

@@ -450,8 +450,7 @@ static unsigned int calculateCacheBitness(unsigned int entries)
     return bitness;
 }
 
-AFK_World::AFK_World(
-    const AFK_Config *config,
+AFK_World::AFK_World( const AFK_Config *config,
     const AFK_ClDeviceProperties& clDeviceProps,
     float _maxDistance,
     unsigned int worldCacheSize,
@@ -477,15 +476,16 @@ AFK_World::AFK_World(
      * might be unwise.  So next, I should try splitting the jigsaw
      * into one RGB colour jigsaw and one R32F y-displacement jigsaw.
      */
-    enum AFK_JigsawFormat texFormat[1];
-    texFormat[0] = AFK_JIGSAW_4FLOAT32;
+    enum AFK_JigsawFormat texFormat[2];
+    texFormat[0] = AFK_JIGSAW_FLOAT32;          /* Y displacement */
+    texFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;    /* Colour */
 
     landscapeJigsaws = new AFK_JigsawCollection(
         ctxt,
         pieceSize,
         (int)tileCacheEntries,
         texFormat,
-        1,
+        2,
         clDeviceProps,
         config->clGlSharing);
 
@@ -534,7 +534,8 @@ AFK_World::AFK_World(
     landscape_shaderLight = new AFK_ShaderLight(landscape_shaderProgram->program);
     landscape_jigsawPiecePitchLocation = glGetUniformLocation(landscape_shaderProgram->program, "JigsawPiecePitch");
     landscape_clipTransformLocation = glGetUniformLocation(landscape_shaderProgram->program, "ClipTransform");
-    landscape_jigsawTexSamplerLocation = glGetUniformLocation(landscape_shaderProgram->program, "JigsawTex");
+    landscape_jigsawYDispTexSamplerLocation = glGetUniformLocation(landscape_shaderProgram->program, "JigsawYDispTex");
+    landscape_jigsawColourTexSamplerLocation = glGetUniformLocation(landscape_shaderProgram->program, "JigsawColourTex");
     landscape_displayTBOSamplerLocation = glGetUniformLocation(landscape_shaderProgram->program, "DisplayTBO");
 
     entity_shaderProgram = new AFK_ShaderProgram();
@@ -756,7 +757,8 @@ void AFK_World::doComputeTasks(void)
         AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 0, sizeof(cl_mem), &terrainBufs[0]))
         AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 1, sizeof(cl_mem), &terrainBufs[1]))
         AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 2, sizeof(cl_mem), &terrainBufs[2]))
-        AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 3, sizeof(cl_mem), jigsawMem))
+        AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 3, sizeof(cl_mem), &jigsawMem[0]))
+        AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 4, sizeof(cl_mem), &jigsawMem[1]))
 #if 0
         AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 5, sizeof(cl_mem), &yLowerBoundsMem))
         AFK_CLCHK(clSetKernelArg(afk_core.terrainKernel, 6, sizeof(cl_mem), &yUpperBoundsMem))
@@ -849,20 +851,27 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
         Vec2<float> jigsawPiecePitchST = jigsaw->getPiecePitchST();
         glUniform2fv(landscape_jigsawPiecePitchLocation, 1, &jigsawPiecePitchST.v[0]);
 
-        /* The first texture is the jigsaw. */
+        /* The first texture is the jigsaw Y-displacement */
         glActiveTexture(GL_TEXTURE0);
         jigsaw->bindTexture(0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glUniform1i(landscape_jigsawYDispTexSamplerLocation, 0);
+
+        /* The second texture is the jigsaw colour */
+        glActiveTexture(GL_TEXTURE1);
+        jigsaw->bindTexture(1);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glUniform1i(landscape_jigsawTexSamplerLocation, 0);
+        glUniform1i(landscape_jigsawColourTexSamplerLocation, 1);
 
-        /* The second texture is the landscape display texbuf,
+        /* The third texture is the landscape display texbuf,
          * which explains to the vertex shader which tile it's
          * drawing and where in the jigsaw to look.
          */
-        glActiveTexture(GL_TEXTURE1);
+        glActiveTexture(GL_TEXTURE2);
         drawQueues[puzzle]->copyToGl();
-        glUniform1i(landscape_displayTBOSamplerLocation, 1);
+        glUniform1i(landscape_displayTBOSamplerLocation, 2);
 
 #if DEBUG_JIGSAW_ASSOCIATION_GL
         AFK_DEBUG_PRINTL("Drawing cell 0: " << drawQueues[puzzle]->getUnit(0) << " of puzzle=" << puzzle)

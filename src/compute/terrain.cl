@@ -175,7 +175,8 @@ __kernel void makeTerrain(
     __global const struct AFK_TerrainFeature *features,
     __global const struct AFK_TerrainTile *tiles,
     __global const struct AFK_TerrainComputeUnit *units,
-    __write_only image2d_t jigsaw /* 4 floats per texel: (colour, y displacement) */
+    __write_only image2d_t jigsawYDisp,
+    __write_only image2d_t jigsawColour
 #if 0
     __global float *yLowerBounds,
     __global float *yUpperBounds
@@ -217,18 +218,19 @@ __kernel void makeTerrain(
     transformTileToTile(&vl, &vc, tiles, units[unitOffset].tileOffset + units[unitOffset].tileCount - 1, units[unitOffset].tileOffset);
 
     /* Make that colour space halfway sane */
-    vc = normalize(vc) - 0.4f;
+    vc = normalize(vc);
 
     /* Fill out the texels from my computed values. */
     int2 jigsawCoord = units[unitOffset].piece * TDIM + (int2)(xdim, zdim);
-    write_imagef(jigsaw, jigsawCoord, (float4)(vc, vl.y));
+    write_imagef(jigsawYDisp, jigsawCoord, vl.y);
+    write_imagef(jigsawColour, jigsawCoord, (float4)(vc, 0.0f));
     /* Debug colours here. */
 #if 0
-    write_imagef(jigsaw, jigsawCoord, (float4)(
+    write_imagef(jigsawYDisp, jigsawCoord, 0.0f);
+    write_imagef(jigsawColour, jigsawCoord, (float3)(
         units[unitOffset].piece.x == 0 ? xdim : 0.0f,
         zdim,
-        units[unitOffset].piece.x == 1 ? xdim : 0.0f,
-        0.0f));
+        units[unitOffset].piece.x == 1 ? xdim : 0.0f));
 #endif
         
 
