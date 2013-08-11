@@ -123,27 +123,36 @@ float AFK_LandscapeTile::getYBoundUpper() const
     return yBoundUpper;
 }
 
+void AFK_LandscapeTile::setYBounds(float _yBoundLower, float _yBoundUpper)
+{
+    /* Convert these bounds into world space.
+     * The native tile is the first one in the list
+     */
+    float tileScale = terrainTiles[0].getTileCoord().v[2];
+    yBoundLower = _yBoundLower * tileScale;
+    yBoundUpper = _yBoundUpper * tileScale;
+}
+
+bool AFK_LandscapeTile::realCellWithinYBounds(const Vec4<float>& coord) const
+{
+    float cellBoundLower = coord.v[1];
+    float cellBoundUpper = coord.v[1] + coord.v[3];
+
+    /* The `<=' operator here: someone needs to own the 0-plane.  I'm
+     * going to declare it to be the cell above not the cell below.
+     */
+    return (cellBoundLower <= yBoundUpper && cellBoundUpper > yBoundLower);
+}
+
 bool AFK_LandscapeTile::makeDisplayUnit(
     const AFK_Cell& cell,
     float minCellSize,
     AFK_JigsawPiece& o_jigsawPiece,
     AFK_LandscapeDisplayUnit& o_unit) const
 {
-    bool displayed = false;
     Vec4<float> realCoord = cell.toWorldSpace(minCellSize);
-#if 0
-    float cellBoundLower = realCoord.v[1];
-    float cellBoundUpper = realCoord.v[1] + realCoord.v[3];
-
-    /* The `<=' operator here: someone needs to own the 0-plane.  I'm
-     * going to declare it to be the cell above not the cell below.
-     */
-    /* TODO I'm going to need to deal with the y bounds.  :-( */
-    if (cellBoundLower <= yBoundUpper && cellBoundUpper > yBoundLower)
-        displayed = true;
-#else
-    displayed = true;
-#endif
+    /* TODO temporarily removing non-0 y cells, trying to debug */
+    bool displayed = /* realCellWithinYBounds(realCoord) */ true;
     
     if (displayed)
     {

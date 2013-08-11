@@ -140,11 +140,11 @@ void AFK_World::generateLandscapeArtwork(
     boost::shared_ptr<AFK_TerrainComputeQueue> computeQueue = landscapeComputeFair.getUpdateQueue(jigsawPiece.puzzle);
 #if DEBUG_TERRAIN_COMPUTE_QUEUE
     AFK_TerrainComputeUnit unit = computeQueue->extend(
-        terrainList, jigsawPiece.piece, lSizes);
+        terrainList, jigsawPiece.piece, &landscapeTile, lSizes);
     AFK_DEBUG_PRINTL("Pushed to queue for " << tile << ": " << unit << ": " << std::endl)
     //AFK_DEBUG_PRINTL(computeQueue->debugTerrain(unit, lSizes))
 #else
-    computeQueue->extend(terrainList, jigsawPiece.piece, lSizes);
+    computeQueue->extend(terrainList, jigsawPiece.piece, &landscapeTile, lSizes);
 #endif
 
     tilesComputed.fetch_add(1);
@@ -180,7 +180,14 @@ bool AFK_World::generateClaimedWorldCell(
         /* Nothing else to do with it now either. */
         worldCell.release(threadId, AFK_CL_CLAIMED);
     }
-    else if (cell.coord.v[1] == 0) /* TODO remove this again when I've fixed the y-bounds */
+    else if (cell.coord.v[1] == 0) /* TODO when I remove this, I get bits of landscape
+                                    * floating around at different heights -- looks like
+                                    * I've managed to let the height I enumerate a tile at
+                                    * have an effect on where it's computed or something.
+                                    * Eww.  Try to track through the places `cell' and
+                                    * `tile' might be accidentally swapped.
+                                    * I'm reasonably confident the last minute y-cull
+                                    * is correct. */
     {
         /* We display geometry at a cell if its detail pitch is at the
          * target detail pitch, or if it's already the smallest
@@ -268,7 +275,7 @@ bool AFK_World::generateClaimedWorldCell(
 
                     boost::shared_ptr<AFK_LandscapeDisplayQueue> ldq =
                         landscapeDisplayFair.getUpdateQueue(jigsawPiece.puzzle);
-                    ldq->add(unit);
+                    ldq->add(unit, &landscapeTile);
                     tilesQueued.fetch_add(1);
                 }
             }
@@ -432,8 +439,6 @@ bool AFK_World::generateClaimedWorldCell(
     }
     else
     {
-        /* TODO REMOVEME (see the check for coord.v[1] == 0 above) */
-        /* We don't need this any more */
         worldCell.release(threadId, AFK_CL_CLAIMED);
     }
 
@@ -790,6 +795,7 @@ void AFK_World::doComputeTasks(void)
             &terrainBufs[2],
             &jigsawMem[0],
             &jigsawYDispSampler,
+            &computeQueues[puzzle]->landscapeTiles,
             lSizes);
 
         /* TODO Can I keep this thing lying around long term ? */
@@ -834,6 +840,21 @@ void AFK_World::doComputeTasks(void)
 
 void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLight)
 {
+    /* TODO In this function, don't render cells that were
+     * completely culled by a y-bound computation that
+     * happened this frame.
+     * I need to:
+     * - Pass the landscape tile pointer into the displayed
+     * landscape queue at enumeration time
+     * - At this point, before drawing, iterate through the
+     * displayed landscape queue and update the y-bounds
+     * from the tile objects
+     * - Don't begin render of any tiles that are entirely
+     * excluded.  That means copying the list before upload,
+     * because there's no glDrawRangeElementsInstanced.
+     * I'm sure I'll cope.
+     */
+
     /* Render the landscape */
     glUseProgram(landscape_shaderProgram->program);
     landscape_shaderLight->setupLight(globalLight);
@@ -889,8 +910,11 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
          * drawing and where in the jigsaw to look.
          */
         glActiveTexture(GL_TEXTURE3);
-        drawQueues[puzzle]->copyToGl();
-        glUniform1i(landscape_displayTBOSamplerLocation, 2);
+        unsigned int instanceCount = drawQueues[puzzle]->copyToGl();
+        glUniform1i(landscape_displayTBOSamplerLocation, 3);
+
+        /* TODO remove debug */
+        std::cout << "copyToGl() reduced " << std::dec << drawQueues[puzzle]->getUnitCount() << " units to " << instanceCount << std::endl;
 
 #if DEBUG_JIGSAW_ASSOCIATION_GL
         AFK_DEBUG_PRINTL("Drawing cell 0: " << drawQueues[puzzle]->getUnit(0) << " of puzzle=" << puzzle)
@@ -899,7 +923,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
 #if AFK_GL_DEBUG
         landscape_shaderProgram->Validate();
 #endif
-        glDrawElementsInstanced(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0, drawQueues[puzzle]->getUnitCount());
+        glDrawElementsInstanced(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0, instanceCount);
         AFK_GLCHK("landscape cell drawElementsInstanced")
     }
 

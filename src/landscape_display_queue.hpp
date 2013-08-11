@@ -13,7 +13,8 @@
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
 #include "def.hpp"
-#include "landscape_tile.hpp"
+
+class AFK_LandscapeTile;
 
 /* This module is like terrain_compute_queue, but for queueing up
  * the cell-specific landscape details -- cell coord, jigsaw STs,
@@ -50,8 +51,14 @@ class AFK_LandscapeDisplayQueue
 {
 protected:
     std::vector<AFK_LandscapeDisplayUnit> queue;
+    std::vector<const AFK_LandscapeTile*> landscapeTiles; /* for last-moment y bounds fetch */
     GLuint buf;
     boost::mutex mut;
+
+    /* After culling cells that are entirely outside y-bounds, the shortened
+     * queue goes here
+     */
+    std::vector<AFK_LandscapeDisplayUnit> culledQueue;
 
 public:
     AFK_LandscapeDisplayQueue();
@@ -60,16 +67,14 @@ public:
     /* The cell enumerator workers should call this to add a unit
      * for rendering.
      */
-    void add(const AFK_LandscapeDisplayUnit& _unit);
+    void add(const AFK_LandscapeDisplayUnit& _unit, const AFK_LandscapeTile *landscapeTile);
 
     /* The world display function should call this, having made the
      * appropriate texture active, to get the queue bound as a
      * texture buffer.
-     * TODO This function will accept a pointer to the landscape cache so
-     * that it can do a last-minute update to the Y bounds,
-     * some of which may only just have been computed.
+     * Returns the number of units actually copied into the buffer.
      */
-    void copyToGl(void);
+    unsigned int copyToGl(void);
 
     unsigned int getUnitCount(void);
     AFK_LandscapeDisplayUnit getUnit(unsigned int u);

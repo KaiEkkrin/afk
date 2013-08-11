@@ -9,7 +9,8 @@
 
 #include "computer.hpp"
 #include "landscape_sizes.hpp"
-#include "landscape_tile.hpp"
+
+class AFK_LandscapeTile;
 
 /* This object manages the reduction of the y-bounds out of the y-displacement
  * texture.
@@ -41,6 +42,7 @@ public:
         cl_mem *units,
         cl_mem *jigsawYDisp,
         cl_sampler *yDispSampler,
+        std::vector<AFK_LandscapeTile*> *landscapeTiles,
         AFK_LandscapeSizes& lSizes);
 };
 

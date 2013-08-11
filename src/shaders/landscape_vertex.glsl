@@ -41,7 +41,6 @@ void main()
     vec3 dispPosition = vec3(Position.x, Position.y + jigsawYDisp, Position.z);
     gl_Position = vec4(dispPosition * cellCoord.w + cellCoord.xyz, 1.0);
 
-    // Temporary values while I test the basics :).
     //outData.withinBounds = (jigsawSTAndYBounds.z <= Position.y && Position.y < jigsawSTAndYBounds.w);
     outData.withinBounds = true;
 }

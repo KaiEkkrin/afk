@@ -176,12 +176,7 @@ __kernel void makeTerrain(
     __global const struct AFK_TerrainTile *tiles,
     __global const struct AFK_TerrainComputeUnit *units,
     __write_only image2d_t jigsawYDisp,
-    __write_only image2d_t jigsawColour
-#if 0
-    __global float *yLowerBounds,
-    __global float *yUpperBounds
-#endif
-    )
+    __write_only image2d_t jigsawColour)
 {
     const int xdim = get_global_id(0);
     const int zdim = get_global_id(1);
@@ -234,81 +229,6 @@ __kernel void makeTerrain(
         zdim,
         units[unitOffset].piece.x == 1 ? xdim : 0.0f,
         0.0f));
-#endif
-        
-
-    /* Now, reduce out this tile's y-bounds. */
-    /* TODO: Fix this to work in the local workspace only,
-     * if I change this kernel so that it hits multiple tiles
-     * at once
-     */
-
-    /* TODO *2: The first one below isn't quite correct; the second one
-     * is.  However, adding this functionality has made the OpenCL variant
-     * go from "quite slow" to "devastatingly slow".  The thing I notice
-     * is it caused me to allocate two extra buffers before each enqueue.
-     * Could it be that buffer allocation is slow?
-     * (Which brings me back to trying to cram all tasks into one really
-     * big heapified buffer!)
-     */
-
-    /* TODO *3: Put the y-bounds back.  Later.  */
-#if 0
-    int v = xdim * TDIM + zdim;
-    yLowerBounds[v + 1 << (REDUCE_ORDER - 1)] = FLT_MAX;
-    yUpperBounds[v + 1 << (REDUCE_ORDER - 1)] = -FLT_MAX;
-    barrier(CLK_GLOBAL_MEM_FENCE);
-    yLowerBounds[v] = vl.y;
-    yUpperBounds[v] = vl.y;
-
-    /* The conclusions should end up in the very first fields
-     * of each.
-     */
-    for (unsigned int redO = 1; redO < REDUCE_ORDER; ++redO)
-    {
-        barrier(CLK_GLOBAL_MEM_FENCE);
-        if ((v & ((1 << redO) - 1)) == 0)
-        {
-            float lowerOne = yLowerBounds[v];
-            float lowerTwo = yLowerBounds[v - (1 << (redO - 1))];
-
-            float upperOne = yUpperBounds[v];
-            float upperTwo = yUpperBounds[v - (1 << (redO - 1))];
-
-            /* TODO Make sure I'm reading the y bounds properly. */
-            //yLowerBounds[v] = (lowerOne < lowerTwo) ? lowerOne : lowerTwo;
-            //yUpperBounds[v] = (upperOne > upperTwo) ? upperOne : upperTwo;
-            yLowerBounds[v] = 6.66f;
-            yUpperBounds[v] = 7.77f;
-        }
-    }
-
-    /* ... Other implementation follows ... */
-
-    if (zdim == 0)
-    {
-        yLowerBounds[xdim] = FLT_MAX;
-        yUpperBounds[xdim] = -FLT_MAX;
-        for (int z = 0; z < TDIM; ++z)
-        {
-            /* TODO The below is wrong -- I can't use `w' to read, it's
-             * a write-only image !
-             */
-            int w = (xdim * TDIM) + z;
-            if (vl.y < yLowerBounds[xdim]) yLowerBounds[xdim] = vl.y;
-            else if (vl.y > yUpperBounds[xdim]) yUpperBounds[xdim] = vl.y;
-        }
-
-        barrier(CLK_GLOBAL_MEM_FENCE);
-        if (xdim == 0)
-        {
-            for (int x = 1; x < TDIM; ++x)
-            {
-                if (yLowerBounds[x] < yLowerBounds[0]) yLowerBounds[0] = yLowerBounds[x];
-                if (yUpperBounds[x] > yUpperBounds[0]) yUpperBounds[0] = yUpperBounds[x];
-            }
-        }
-    }
 #endif
 }
 

@@ -104,6 +104,16 @@ public:
     float getYBoundLower() const;
     float getYBoundUpper() const;
 
+    /* Supply new y bounds _in tile space_ (that's easiest
+     * for the yReduce kernel)
+     */
+    void setYBounds(float _yBoundLower, float _yBoundUpper);
+
+    /* Returns true if any of the given real cell co-ordinates
+     * are within y bounds, else false.
+     */
+    bool realCellWithinYBounds(const Vec4<float>& coord) const;
+
     /* Checks whether this landscape tile has anything to render in
      * the given cell (by y-bounds).  If not, returns false.  If so,
      * fills out `o_unit' with an enqueueable display unit, `o_jigsawPiece'

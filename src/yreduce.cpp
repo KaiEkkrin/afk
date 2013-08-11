@@ -1,6 +1,7 @@
 /* AFK (c) Alex Holloway 2013 */
 
 #include "exception.hpp"
+#include "landscape_tile.hpp"
 #include "yreduce.hpp"
 
 AFK_YReduce::AFK_YReduce(const AFK_Computer *computer):
@@ -29,6 +30,7 @@ void AFK_YReduce::compute(
     cl_mem *units,
     cl_mem *jigsawYDisp,
     cl_sampler *yDispSampler,
+	std::vector<AFK_LandscapeTile*> *landscapeTiles,
     AFK_LandscapeSizes& lSizes)
 {
     cl_int error;
@@ -86,10 +88,7 @@ void AFK_YReduce::compute(
 
     AFK_CLCHK(clEnqueueReadBuffer(q, bufs[puzzle], CL_TRUE, 0, bufSizes[puzzle], readback, 0, NULL, NULL))
 
-    /* TODO do something proper with the y bounds.  For now
-     * I'll just print them to make sure they're coming out
-     * looking sensible.
-     */
+#if 0
     std::cout << "Computed y bounds: ";
     for (unsigned int i = 0; i < 4 && i < unitCount; ++i)
     {
@@ -97,5 +96,12 @@ void AFK_YReduce::compute(
         std::cout << "(" << readback[i * 2] << ", " << readback[i * 2 + 1] << ")";
     }
     std::cout << std::endl;
+#endif
+
+	for (unsigned int i = 0; i < unitCount; ++i)
+	{
+		(*landscapeTiles)[i]->setYBounds(
+			readback[i * 2], readback[i * 2 + 1]);
+	}
 }
 

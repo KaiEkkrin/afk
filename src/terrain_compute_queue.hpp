@@ -15,6 +15,8 @@
 #include "def.hpp"
 #include "terrain.hpp"
 
+class AFK_LandscapeTile;
+
 /* This module make something like a render list, but rather more
  * complicated, for the purpose of queueing up the terrain
  * computation tasks into a form suitable for shoveling straight
@@ -67,11 +69,17 @@ protected:
     boost::mutex mut;
 
 public:
+    /* In this vector, we store the in-order list of pointers
+     * to the source LandscapeTiles, so that the yreduce
+     * module can feed the computed y bounds back in easily.
+     */
+    std::vector<AFK_LandscapeTile*> landscapeTiles;
+
     /* Pushes a terrain list into the queue, making a Unit for it.
      * The Unit goes in too, but we return it as well so you can
      * instantly debug.
      */
-    AFK_TerrainComputeUnit extend(const AFK_TerrainList& list, const Vec2<int>& piece, const AFK_LandscapeSizes& lSizes);
+    AFK_TerrainComputeUnit extend(const AFK_TerrainList& list, const Vec2<int>& piece, AFK_LandscapeTile *landscapeTile, const AFK_LandscapeSizes& lSizes);
 
     /* This prints lots of debug info about the given terrain unit. */
     std::string debugTerrain(const AFK_TerrainComputeUnit& unit, const AFK_LandscapeSizes& lSizes) const;

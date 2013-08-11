@@ -6,6 +6,7 @@
 
 #include "computer.hpp"
 #include "exception.hpp"
+#include "landscape_tile.hpp"
 #include "terrain_compute_queue.hpp"
 
 
@@ -34,7 +35,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainComputeUnit& unit)
 
 /* AFK_TerrainComputeQueue implementation */
 
-AFK_TerrainComputeUnit AFK_TerrainComputeQueue::extend(const AFK_TerrainList& list, const Vec2<int>& piece, const AFK_LandscapeSizes& lSizes)
+AFK_TerrainComputeUnit AFK_TerrainComputeQueue::extend(const AFK_TerrainList& list, const Vec2<int>& piece, AFK_LandscapeTile *landscapeTile, const AFK_LandscapeSizes& lSizes)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
@@ -59,6 +60,7 @@ AFK_TerrainComputeUnit AFK_TerrainComputeQueue::extend(const AFK_TerrainList& li
         piece);
     AFK_TerrainList::extend(list);
     units.push_back(newUnit);
+	landscapeTiles.push_back(landscapeTile);
     return newUnit;
 }
 
@@ -133,5 +135,6 @@ void AFK_TerrainComputeQueue::clear(void)
     f.clear();
     t.clear();
     units.clear();
+	landscapeTiles.clear();
 }
 
