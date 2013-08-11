@@ -18,8 +18,8 @@ AFK_LandscapeTile::AFK_LandscapeTile():
     AFK_Claimable(),
     haveTerrainDescriptor(false),
     jigsaws(NULL),
-    yBoundLower(FLT_MAX),
-    yBoundUpper(-FLT_MAX)
+    yBoundLower(-FLT_MAX),
+    yBoundUpper(FLT_MAX)
 {
 }
 
@@ -151,8 +151,7 @@ bool AFK_LandscapeTile::makeDisplayUnit(
     AFK_LandscapeDisplayUnit& o_unit) const
 {
     Vec4<float> realCoord = cell.toWorldSpace(minCellSize);
-    /* TODO temporarily removing non-0 y cells, trying to debug */
-    bool displayed = /* realCellWithinYBounds(realCoord) */ true;
+    bool displayed = realCellWithinYBounds(realCoord);
     
     if (displayed)
     {

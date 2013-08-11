@@ -11,11 +11,13 @@
 
 struct AFK_TerrainFeature
 {
-    /* TODO remove debug */
+    /* TILE_IN_FEATURE_DEBUG */
+#if 0
     float                       tileX;
     float                       tileZ;
     float                       tileScale;
     unsigned int                featureCount;
+#endif
 
     float3                      tint;
     float3                      scale;

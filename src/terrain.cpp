@@ -12,22 +12,30 @@
 #include "terrain.hpp"
 
 AFK_TerrainFeature::AFK_TerrainFeature(
+#if TILE_IN_FEATURE_DEBUG
     float _tileX,
     float _tileZ,
     float _tileScale,
     unsigned int _featureCount,
+#endif
     const Vec3<float>& _tint,
     const Vec3<float>& _scale,
     const Vec2<float>& _location,
     const enum AFK_TerrainType _type):
+#if TILE_IN_FEATURE_DEBUG
         tileX(_tileX), tileZ(_tileZ), tileScale(_tileScale), featureCount(_featureCount),
+#endif
         tint(_tint), scale(_scale), location(_location), type(_type)
 {
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_TerrainFeature& feature)
 {
-    return os << "Feature(X=" << feature.tileX << ", Z=" << feature.tileZ << ", Scale=" << feature.tileScale << ", Location=" << feature.location << ", Scale=" << feature.scale << ")";
+    return os << "Feature(" <<
+#if TILE_IN_FEATURE_DEBUG
+        "X=" << feature.tileX << ", Z=" << feature.tileZ << ", Scale=" << feature.tileScale << ", " <<
+#endif
+        "Location=" << feature.location << ", Scale=" << feature.scale << ")";
 }
 
 
@@ -127,7 +135,9 @@ void AFK_TerrainTile::make(
          * and make the others humps.
          */
         AFK_TerrainFeature feature(
+#if TILE_IN_FEATURE_DEBUG
             tileX, tileZ, tileScale, featureCount,
+#endif
             tint, scale, location, i == 0 ? AFK_TERRAIN_SPIKE : AFK_TERRAIN_HUMP);
         features.push_back(feature);
     }

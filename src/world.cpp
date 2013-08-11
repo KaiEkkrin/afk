@@ -180,7 +180,7 @@ bool AFK_World::generateClaimedWorldCell(
         /* Nothing else to do with it now either. */
         worldCell.release(threadId, AFK_CL_CLAIMED);
     }
-    else if (cell.coord.v[1] == 0) /* TODO when I remove this, I get bits of landscape
+    else /* if (cell.coord.v[1] == 0) */ /* TODO when I remove this, I get bits of landscape
                                     * floating around at different heights -- looks like
                                     * I've managed to let the height I enumerate a tile at
                                     * have an effect on where it's computed or something.
@@ -437,10 +437,12 @@ bool AFK_World::generateClaimedWorldCell(
             delete[] subcells;
         }
     }
+#if 0
     else
     {
         worldCell.release(threadId, AFK_CL_CLAIMED);
     }
+#endif
 
     return retval;
 }
@@ -914,7 +916,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
         glUniform1i(landscape_displayTBOSamplerLocation, 3);
 
         /* TODO remove debug */
-        std::cout << "copyToGl() reduced " << std::dec << drawQueues[puzzle]->getUnitCount() << " units to " << instanceCount << std::endl;
+        //std::cout << "copyToGl() reduced " << std::dec << drawQueues[puzzle]->getUnitCount() << " units to " << instanceCount << std::endl;
 
 #if DEBUG_JIGSAW_ASSOCIATION_GL
         AFK_DEBUG_PRINTL("Drawing cell 0: " << drawQueues[puzzle]->getUnit(0) << " of puzzle=" << puzzle)

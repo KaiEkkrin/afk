@@ -29,7 +29,7 @@ class AFK_LandscapeDisplayUnit
 public:
     Vec4<float>     cellCoord;
     Vec2<float>     jigsawPieceST; /* between 0 and 1 in jigsaw space */
-    float           yBoundLower;
+    float           yBoundLower; /* TODO do I actually want this and the next ? */
     float           yBoundUpper;
 
     AFK_LandscapeDisplayUnit();

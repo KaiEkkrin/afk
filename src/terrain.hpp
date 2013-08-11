@@ -50,14 +50,19 @@ enum AFK_TerrainType
  * the x or z co-ordinates, only the y co-ordinate.
  * I want a different system for objects.
  */
+
+/* If you enable this, you also need to uncomment it in terrain.cl */
+#define TILE_IN_FEATURE_DEBUG 0
+
 class AFK_TerrainFeature
 {
 protected:
-    /* TODO REMOVEME Including for debug purposes. */
+#if TILE_IN_FEATURE_DEBUG
     float               tileX;
     float               tileZ;
     float               tileScale;
     unsigned int        featureCount;
+#endif
 
     Vec3<float>             tint; /* TODO Make location and tint features separate things? */
     Vec3<float>             scale;
@@ -67,10 +72,12 @@ protected:
 public:
     AFK_TerrainFeature() {}
     AFK_TerrainFeature(
+#if TILE_IN_FEATURE_DEBUG
         float _tileX,
         float _tileZ,
         float _tileScale,
         unsigned int _featureCount,
+#endif
         const Vec3<float>& _tint,
         const Vec3<float>& _scale,
         const Vec2<float>& _location,

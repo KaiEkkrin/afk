@@ -45,13 +45,17 @@ void AFK_LandscapeDisplayQueue::add(const AFK_LandscapeDisplayUnit& _unit, const
     landscapeTiles.push_back(landscapeTile);
 }
 
+#define COPY_TO_GL_CULLING 1
+
 unsigned int AFK_LandscapeDisplayQueue::copyToGl(void)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
+#if COPY_TO_GL_CULLING
     /* I won't upload the full queue, but only a culled queue with any
      * landscape tiles that suddenly became out of y-bounds removed.
      */
+#if 0
     for (unsigned int i = 0; i < queue.size(); ++i)
     {
         queue[i].yBoundLower = landscapeTiles[i]->getYBoundLower();
@@ -60,13 +64,26 @@ unsigned int AFK_LandscapeDisplayQueue::copyToGl(void)
         //if (landscapeTiles[i]->realCellWithinYBounds(queue[i].cellCoord))
             culledQueue.push_back(queue[i]);
     }
+#else
+    for (unsigned int i = 0; i < queue.size(); ++i)
+    {
+        if (landscapeTiles[i]->realCellWithinYBounds(queue[i].cellCoord))
+            culledQueue.push_back(queue[i]);
+    }
+#endif
+#endif
 
     if (!buf) glGenBuffers(1, &buf);
     glBindBuffer(GL_TEXTURE_BUFFER, buf);
     glBufferData(
         GL_TEXTURE_BUFFER,
+#if COPY_TO_GL_CULLING
         culledQueue.size() * sizeof(AFK_LandscapeDisplayUnit),
         &culledQueue[0],
+#else
+        queue.size() * sizeof(AFK_LandscapeDisplayUnit),
+        &queue[0],
+#endif
         GL_STREAM_DRAW);
     glTexBuffer(
         GL_TEXTURE_BUFFER,
@@ -74,7 +91,11 @@ unsigned int AFK_LandscapeDisplayQueue::copyToGl(void)
         buf);
     AFK_GLCHK("landscape display queue texBuffer")
 
+#if COPY_TO_GL_CULLING
     return culledQueue.size();
+#else
+    return queue.size();
+#endif
 }
 
 unsigned int AFK_LandscapeDisplayQueue::getUnitCount(void)

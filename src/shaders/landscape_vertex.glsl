@@ -38,9 +38,21 @@ void main()
 
     // Apply the y displacement now.  The rest is for the fragment
     // shader.
-    vec3 dispPosition = vec3(Position.x, Position.y + jigsawYDisp, Position.z);
-    gl_Position = vec4(dispPosition * cellCoord.w + cellCoord.xyz, 1.0);
+    vec4 dispPosition = vec4(
+        Position.x * cellCoord.w + cellCoord.x,
+        (Position.y + jigsawYDisp) * cellCoord.w,
+        Position.z * cellCoord.w + cellCoord.z,
+        1.0);
 
-    //outData.withinBounds = (jigsawSTAndYBounds.z <= Position.y && Position.y < jigsawSTAndYBounds.w);
-    outData.withinBounds = true;
+    // TODO The y-bound cell choice isn't working right, no doubt to do with
+    // some LoD induced subtlety.  I don't really care, because I'm pretty
+    // sure now that I should throw it away and replace it by strictly
+    // y-bounded geometry (rebound at top and bottom when calculating,
+    // in order to be able to support arbitrary shapes with the same algorithm.
+    // But for now, I'm going to apply a bodge in order to draw a landscape
+    // without too many holes in.
+    outData.withinBounds = ((cellCoord.y - cellCoord.w) <= dispPosition.y && dispPosition.y <= (cellCoord.y + 2.0 * cellCoord.w));
+    //outData.withinBounds = true;
+
+    gl_Position = dispPosition;
 }
