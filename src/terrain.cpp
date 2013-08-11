@@ -2,8 +2,8 @@
 
 #include "afk.hpp"
 
-#include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <sstream>
 
 #include "computer.hpp"
@@ -154,11 +154,13 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainTile& tile)
 
 void AFK_TerrainList::extend(const std::vector<AFK_TerrainFeature>& features, const std::vector<AFK_TerrainTile>& tiles)
 {
+    unsigned int fOldSize = f.size();
     f.resize(f.size() + features.size());
-    std::copy(features.rbegin(), features.rend(), f.rbegin());
+    memcpy(&f[fOldSize], &features[0], features.size() * sizeof(AFK_TerrainFeature));
 
+    unsigned int tOldSize = t.size();
     t.resize(t.size() + tiles.size());
-    std::copy(tiles.rbegin(), tiles.rend(), t.rbegin());
+    memcpy(&t[tOldSize], &tiles[0], tiles.size() * sizeof(AFK_TerrainTile));
 }
 
 void AFK_TerrainList::extend(const AFK_TerrainList& list)

@@ -110,13 +110,13 @@ void AFK_TerrainComputeQueue::copyToClBuffers(cl_context ctxt, cl_mem *mem)
     cl_int error;
 
     mem[0] = clCreateBuffer(
-        ctxt, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR,
+        ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         f.size() * sizeof(AFK_TerrainFeature),
         &f[0], &error);
     afk_handleClError(error);
 
     mem[1] = clCreateBuffer(
-        ctxt, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR,
+        ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         t.size() * sizeof(AFK_TerrainTile),
         &t[0], &error);
     afk_handleClError(error);

@@ -64,8 +64,8 @@ void afk_displayLoop(void)
         afk_core.config,
         afk_core.computer,
         worldMaxDistance,   /* maxDistance -- zFar must be a lot bigger or things will vanish */
-        clGlMaxAllocSize / 4,
-        clGlMaxAllocSize / 4,
+        clGlMaxAllocSize / 2,
+        clGlMaxAllocSize / 2,
         clGlMaxAllocSize / 32, /* not much going on in the way of shapes right now */
         ctxt);
     afk_core.computer->unlock();
@@ -146,6 +146,15 @@ void afk_displayLoop(void)
             normalisedError = 0.5f * std::max(std::min(normalisedError, 1.0f), -1.0f);
 
             float detailFactor = -(1.0f / (normalisedError / 2.0f - 1.0f)); /* between 0.5 and 2? */
+
+            /* TODO If I put a detail nudge in here, the render quality
+             * when moving quickly is greatly improved right now, but we
+             * hitch horribly at low speeds.
+             * I don't really understand what's going on, although detail
+             * nudges are bad :P
+             */
+            //if (detailFactor > 1.0f) detailFactor -= 0.02f;
+
             //std::cout << "calibration error " << std::dec << afk_core.calibrationError << ": applying detail factor " << detailFactor << std::endl;
             afk_core.world->alterDetail(detailFactor);
 
