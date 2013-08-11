@@ -167,14 +167,8 @@ void afk_display(void)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glEnable(GL_DEPTH_TEST);
-
-    /* TODO Re-enable these after I've done correct winding
-     * in the geometry shader...
-     */
-#if 0
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
-#endif
 
     afk_core.world->display(projection, afk_core.sun);
 

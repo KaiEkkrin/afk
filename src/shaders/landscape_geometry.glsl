@@ -31,17 +31,38 @@ out GeometryData
     vec2 jigsawCoord;
 } outData;
 
+void emitTriangle(int one, int two, int three)
+{
+    gl_Position = ClipTransform * gl_in[one].gl_Position;
+    outData.jigsawCoord = inData[one].jigsawCoord;
+    EmitVertex();
+
+    gl_Position = ClipTransform * gl_in[two].gl_Position;
+    outData.jigsawCoord = inData[two].jigsawCoord;
+    EmitVertex();
+
+    gl_Position = ClipTransform * gl_in[three].gl_Position;
+    outData.jigsawCoord = inData[three].jigsawCoord;
+    EmitVertex();
+}
+
 void main()
 {
     if (inData[0].withinBounds || inData[1].withinBounds || inData[2].withinBounds)
     {
-        int i;
-        for (i = 0; i < 3; ++i)
+        // Fix the winding order.
+        vec3 crossP = cross(gl_in[1].gl_Position.xyz - gl_in[0].gl_Position.xyz,
+            gl_in[2].gl_Position.xyz - gl_in[0].gl_Position.xyz);
+
+        if (crossP.y >= 0.0)
         {
-            gl_Position = ClipTransform * gl_in[i].gl_Position;
-            outData.jigsawCoord = inData[i].jigsawCoord;
-            EmitVertex();
+            emitTriangle(0, 2, 1);
         }
+        else
+        {
+            emitTriangle(0, 1, 2);
+        }
+
         EndPrimitive();
     }
 }
