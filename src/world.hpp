@@ -21,6 +21,7 @@
 #include "data/evictable_cache.hpp"
 #include "data/fair.hpp"
 #include "data/moving_average.hpp"
+#include "data/stage_timer.hpp"
 #include "def.hpp"
 #include "entity.hpp"
 #include "gl_buffer.hpp"
@@ -108,7 +109,7 @@ protected:
      * landscape behaves when the detail pitch goes above about
      * 500.
      */
-    AFK_MovingAverage<float, 8> averageDetailPitch;
+    AFK_MovingAverage<float> averageDetailPitch;
 
     /* Gather statistics.  (Useful.)
      */
@@ -186,6 +187,11 @@ protected:
     /* The basic landscape tile geometry. */
     GLuint landscapeTileArray;
     AFK_TerrainBaseTile *landscapeTerrainBase;
+
+    /* I'm adding this to evaluate the performance of the
+     * display phase.
+     */
+    AFK_StageTimer *displayTimer;
 
     /* TODO Deal with multiple shapes.  In whatever way.
      * I don't know.  :/  For now, I'll just have one.

@@ -12,6 +12,11 @@
 #include "rng/rng.hpp"
 #include "world.hpp"
 
+
+#define PRINT_CHECKPOINTS 0
+#define PRINT_CACHE_STATS 0
+
+
 /* TODO remove debug?  (or something) */
 #define PROTAGONIST_CELL_DEBUG 1
 
@@ -466,7 +471,7 @@ AFK_World::AFK_World( const AFK_Config *config,
     cl_context ctxt):
         startingDetailPitch         (config->startingDetailPitch),
         detailPitch                 (config->startingDetailPitch), /* This is a starting point */
-        averageDetailPitch          (config->startingDetailPitch),
+        averageDetailPitch          (config->framesPerCalibration, config->startingDetailPitch),
         maxDistance                 (_maxDistance),
         subdivisionFactor           (config->subdivisionFactor),
         minCellSize                 (config->minCellSize),
@@ -577,6 +582,19 @@ AFK_World::AFK_World( const AFK_Config *config,
 
     landscapeYReduce = new AFK_YReduce(computer);
 
+    /* Set up that stage timer.
+     * TODO With the way it's set up right now,
+     * I can only have one puzzle
+     */
+    std::vector<std::string> stageNames;
+    stageNames.push_back("acquire for cl"); /* 0 */
+    stageNames.push_back("terrain");        /* 1 */
+    stageNames.push_back("surface");        /* 2 */
+    stageNames.push_back("y reduce");       /* 3 */
+    stageNames.push_back("copy to gl");     /* 4 */
+    stageNames.push_back("draw elements");  /* 5 */
+    displayTimer = new AFK_StageTimer("Display", stageNames, 60);
+
     /* Initialise the statistics. */
     cellsInvisible.store(0);
     tilesQueued.store(0);
@@ -613,6 +631,8 @@ AFK_World::~AFK_World()
     glDeleteVertexArrays(1, &landscapeTileArray);
 
     delete landscapeYReduce;
+
+    delete displayTimer;
 }
 
 void AFK_World::enqueueSubcells(
@@ -722,6 +742,8 @@ boost::unique_future<bool> AFK_World::updateWorld(void)
 
 void AFK_World::doComputeTasks(void)
 {
+    displayTimer->restart();
+
     /* The fair organises the terrain lists and jigsaw pieces by
      * puzzle, so that I can easily batch up work that applies to the
      * same jigsaw:
@@ -748,6 +770,8 @@ void AFK_World::doComputeTasks(void)
         AFK_Jigsaw *jigsaw = landscapeJigsaws->getPuzzle(puzzle);
         cl_mem *jigsawMem = jigsaw->acquireForCl(ctxt, q);
 
+        displayTimer->hitStage(0);
+
         AFK_CLCHK(clSetKernelArg(terrainKernel, 0, sizeof(cl_mem), &terrainBufs[0]))
         AFK_CLCHK(clSetKernelArg(terrainKernel, 1, sizeof(cl_mem), &terrainBufs[1]))
         AFK_CLCHK(clSetKernelArg(terrainKernel, 2, sizeof(cl_mem), &terrainBufs[2]))
@@ -758,6 +782,8 @@ void AFK_World::doComputeTasks(void)
         terrainDim[0] = terrainDim[1] = lSizes.tDim;
         terrainDim[2] = unitCount;
         AFK_CLCHK(clEnqueueNDRangeKernel(q, terrainKernel, 3, NULL, &terrainDim[0], NULL, 0, NULL, NULL))
+
+        displayTimer->hitStage(1);
 
         /* For the next two I'm going to need this ...
          * TODO Things are broken on AMD right now.  Is it because
@@ -788,6 +814,8 @@ void AFK_World::doComputeTasks(void)
 
         AFK_CLCHK(clEnqueueNDRangeKernel(q, surfaceKernel, 3, 0, &surfaceGlobalDim[0], &surfaceLocalDim[0], 0, NULL, NULL))
 
+        displayTimer->hitStage(2);
+
         /* Finally, do the y reduce. */
         landscapeYReduce->compute(
             ctxt,
@@ -814,6 +842,8 @@ void AFK_World::doComputeTasks(void)
         }
 
         jigsaw->releaseFromCl(q);
+
+        displayTimer->hitStage(3);
 
         /* TODO REMOVEME (somehow)
          * Debug this a little bit.
@@ -915,6 +945,8 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
         unsigned int instanceCount = drawQueues[puzzle]->copyToGl();
         glUniform1i(landscape_displayTBOSamplerLocation, 3);
 
+        displayTimer->hitStage(4);
+
         /* TODO remove debug */
         //std::cout << "copyToGl() reduced " << std::dec << drawQueues[puzzle]->getUnitCount() << " units to " << instanceCount << std::endl;
 
@@ -927,6 +959,8 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
 #endif
         glDrawElementsInstanced(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0, instanceCount);
         AFK_GLCHK("landscape cell drawElementsInstanced")
+
+        displayTimer->hitStage(5);
     }
 
     glBindVertexArray(0);
@@ -953,6 +987,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
 }
 
 /* Worker for the below. */
+#if PRINT_CHECKPOINTS
 static float toRatePerSecond(unsigned long long quantity, boost::posix_time::time_duration& interval)
 {
     return (float)quantity * 1000.0f / (float)interval.total_milliseconds();
@@ -960,9 +995,11 @@ static float toRatePerSecond(unsigned long long quantity, boost::posix_time::tim
 
 #define PRINT_RATE_AND_RESET(s, v) std::cout << s << toRatePerSecond((v).load(), timeSinceLastCheckpoint) << "/second" << std::endl; \
     (v).store(0);
+#endif
 
 void AFK_World::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint)
 {
+#if PRINT_CHECKPOINTS
     std::cout << "Detail pitch:             " << detailPitch << std::endl;
     PRINT_RATE_AND_RESET("Cells found invisible:    ", cellsInvisible)
     PRINT_RATE_AND_RESET("Tiles queued:             ", tilesQueued)
@@ -971,11 +1008,14 @@ void AFK_World::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckp
     PRINT_RATE_AND_RESET("Entities queued:          ", entitiesQueued)
     PRINT_RATE_AND_RESET("Entities moved:           ", entitiesMoved)
     std::cout <<         "Cumulative thread escapes:" << threadEscapes.load() << std::endl;
+#endif
 }
 
 void AFK_World::printCacheStats(std::ostream& ss, const std::string& prefix)
 {
+#if PRINT_CACHE_STATS
     worldCache->printStats(ss, "World cache");
     landscapeCache->printStats(ss, "Landscape cache");
+#endif
 }
 

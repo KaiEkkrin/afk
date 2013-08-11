@@ -1,23 +1,25 @@
 /* AFK (c) Alex Holloway 2013 */
 
-#ifndef _AFK_MOVING_AVERAGE_H_
-#define _AFK_MOVING_AVERAGE_H_
+#ifndef _AFK_DATA_MOVING_AVERAGE_H_
+#define _AFK_DATA_MOVING_AVERAGE_H_
 
 #include <vector>
 
 /* Does what it says on the tin. */
 
-template<typename T, int count>
+template<typename T>
 class AFK_MovingAverage
 {
 protected:
     typename std::vector<T> vals;
     typename std::vector<T>::iterator head;
 
+    unsigned int count;
     T total;
 
 public:
-    AFK_MovingAverage(T startingVal)
+    AFK_MovingAverage(unsigned int _count, T startingVal):
+        count(_count)
     {
         for (unsigned int i = 0; i < count; ++i)
             vals.push_back(startingVal);
