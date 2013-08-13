@@ -77,7 +77,7 @@ public:
     /* Engine calibration */
     unsigned int targetFrameTimeMicros;
     unsigned int framesPerCalibration;
-    bool assumeVsync;
+    bool vsync;
 
     /* Graphics setup */
     unsigned int windowWidth;

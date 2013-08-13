@@ -33,7 +33,7 @@ int afk_xErrorHandler(Display *dpy, XErrorEvent *error)
 
 /* AFK_WindowGlx implementation */
 
-AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight):
+AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight, bool vsync):
     dpy(NULL), visInfo(NULL), pointerCaptured(false), windowClosed(false),
     pointerEventMask(ButtonPressMask | ButtonReleaseMask | PointerMotionMask | ButtonMotionMask),
     keyEventMask(KeyPressMask | KeyReleaseMask),
@@ -123,7 +123,16 @@ AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight
     GLenum res = glewInit();
     if (res != GLEW_OK) throw AFK_Exception("Unable to initialise GLEW");
 
-    /* Wait for my X window to become mapped */
+    /* Fix the Vsync setting */
+    if (vsync)
+        glXSwapIntervalEXT(dpy, glXGetCurrentDrawable(), 1);
+    else
+        glXSwapIntervalEXT(dpy, glXGetCurrentDrawable(), 0);
+
+    /* Wait for my X window to become mapped
+     * TODO Do I really need this?
+     */
+#if 0
     bool windowMapped = false;
     do
     {
@@ -137,6 +146,7 @@ AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight
     } while (!windowMapped);
 
     /* We are now set up! */
+#endif
 }
 
 AFK_WindowGlx::~AFK_WindowGlx()
@@ -255,6 +265,7 @@ void AFK_WindowGlx::loopOnEvents(
             break;
 
         case ConfigureNotify:
+        case MapNotify:
             /* Update my copy of the window attributes. */
             XGetWindowAttributes(dpy, w, &xwa);
             break;

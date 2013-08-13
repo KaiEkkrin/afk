@@ -44,7 +44,7 @@ protected:
     boost::mutex shadowCtxMut;
 
 public:
-    AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight);
+    AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight, bool vsync);
     virtual ~AFK_WindowGlx();
 
     virtual unsigned int getWindowWidth(void) const;

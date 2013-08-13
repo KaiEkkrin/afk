@@ -101,7 +101,7 @@ void afk_displayLoop(void)
          * more properly.
          */
         unsigned int wholeFrameTime = (startOfFrameTime - afk_core.startOfFrameTime).total_microseconds();
-        if (!afk_core.config->assumeVsync && wholeFrameTime < FRAME_REFRESH_TIME)
+        if (!afk_core.config->vsync && wholeFrameTime < FRAME_REFRESH_TIME)
         {
             afk_core.calibrationError -= (FRAME_REFRESH_TIME - wholeFrameTime);
         }
@@ -362,7 +362,7 @@ void AFK_Core::configure(int *argcp, char **argv)
 
 void AFK_Core::initGraphics(void)
 {
-    window = new AFK_WindowGlx(config->windowWidth, config->windowHeight);
+    window = new AFK_WindowGlx(config->windowWidth, config->windowHeight, config->vsync);
 }
 
 void AFK_Core::loop(void)

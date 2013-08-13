@@ -52,7 +52,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
      */
     targetFrameTimeMicros       = 16500;
     framesPerCalibration        = 8;
-    assumeVsync                 = false;
+    vsync                       = false;
 
     windowWidth                 = 1920;
     windowHeight                = 1080;
@@ -109,9 +109,9 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
             REQUIRE_ARGUMENT("--frames-per-calibration")
             framesPerCalibration = strtoul(argv[argi], NULL, 0);
         }
-        else if (strcmp(argv[argi], "--assume-vsync") == 0)
+        else if (strcmp(argv[argi], "--vsync") == 0)
         {
-            assumeVsync = true;
+            vsync = true;
         }
         else if (strcmp(argv[argi], "--window-width") == 0)
         {
