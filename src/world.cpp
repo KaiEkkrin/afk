@@ -592,8 +592,9 @@ AFK_World::AFK_World( const AFK_Config *config,
     stageNames.push_back("terrain");        /* 1 */
     stageNames.push_back("surface");        /* 2 */
     stageNames.push_back("y reduce");       /* 3 */
-    stageNames.push_back("copy to gl");     /* 4 */
-    stageNames.push_back("draw elements");  /* 5 */
+    stageNames.push_back("release from cl");/* 4 */
+    stageNames.push_back("copy to gl");     /* 5 */
+    stageNames.push_back("draw elements");  /* 6 */
     displayTimer = new AFK_StageTimer("Display", stageNames, 60);
 
     /* Initialise the statistics. */
@@ -832,6 +833,8 @@ void AFK_World::doComputeTasks(void)
         /* TODO Can I keep this thing lying around long term ? */
         AFK_CLCHK(clReleaseSampler(jigsawYDispSampler))
 
+        displayTimer->hitStage(3);
+
         for (unsigned int u = 0; u < unitCount; ++u)
         {
             jigsaw->pieceChanged(computeQueues[puzzle]->getUnit(u).piece);
@@ -844,7 +847,7 @@ void AFK_World::doComputeTasks(void)
 
         jigsaw->releaseFromCl(q);
 
-        displayTimer->hitStage(3);
+        displayTimer->hitStage(4);
 
         /* TODO REMOVEME (somehow)
          * Debug this a little bit.
@@ -946,7 +949,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
         unsigned int instanceCount = drawQueues[puzzle]->copyToGl();
         glUniform1i(landscape_displayTBOSamplerLocation, 3);
 
-        displayTimer->hitStage(4);
+        displayTimer->hitStage(5);
 
         /* TODO remove debug */
         //std::cout << "copyToGl() reduced " << std::dec << drawQueues[puzzle]->getUnitCount() << " units to " << instanceCount << std::endl;
@@ -961,7 +964,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
         glDrawElementsInstanced(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0, instanceCount);
         AFK_GLCHK("landscape cell drawElementsInstanced")
 
-        displayTimer->hitStage(5);
+        displayTimer->hitStage(6);
     }
 
     glBindVertexArray(0);
