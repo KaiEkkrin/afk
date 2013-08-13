@@ -50,7 +50,7 @@ void AFK_YReduce::compute(
             AFK_CLCHK(clReleaseMemObject(bufs[puzzle]))
 
         bufs[puzzle] = clCreateBuffer(
-            ctxt, CL_MEM_READ_WRITE,
+            ctxt, CL_MEM_WRITE_ONLY,
             requiredSize,
             NULL,
             &error);

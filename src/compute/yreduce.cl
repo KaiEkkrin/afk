@@ -42,7 +42,7 @@ __kernel void yReduce(
     }
 
     /* Now, reduce across the z axis. */
-    for (int red = (REDUCE_ORDER - 1); red <= 0; --red)
+    for (int red = (REDUCE_ORDER - 1); red >= 0; --red)
     {
         barrier(CLK_LOCAL_MEM_FENCE);
 

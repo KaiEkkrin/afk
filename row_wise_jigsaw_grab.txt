@@ -1,0 +1,9 @@
+ o Each frame, the jigsaw picks one new row per thread (so `concurrency' becomes a parameter to the jigsaw constructor).
+ o Each enumerator thread gets its jigsaw pieces assigned out of that row (so the thread id becomes a parameter to grab() ).
+ o Each jigsaw row gets a `lastUsed' parameter added to it, which is the last frame it was used in.
+ o The landscape evictor thread, rather than walking through the landscape hash map, walks through the jigsaw finding qualifying not-recently-used entire rows, and discards the entire row at once.
+ o When bits of the jigsaw are copied for computation and rendering: the rectangle that encompasses the relevant per-thread rows is copied in a single call.  (That means the jigsaw may waste some space in order to line up the thread start points when choosing a row with existing population.)
+ o The jigsaw can track the moving average of the number of columns that get used up on each enumeration in order to decide whether to continue a current row or whether to start a new one.  (I aspire to ending up chewing a whole row at a go, of course.)
+ o If a thread hits the end of a row, of course, the jigsaw needs to immediately assign (concurrency) new rows...
+
+
