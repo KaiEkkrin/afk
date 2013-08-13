@@ -90,6 +90,7 @@ public:
 
     /* World setup */
     float startingDetailPitch;
+    float maxDetailPitch;
     float minCellSize;
     unsigned int subdivisionFactor;
     unsigned int pointSubdivisionFactor;

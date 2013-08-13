@@ -95,7 +95,8 @@ protected:
      * TODO: Can I use this and zNear to calculate the
      * maximum number of subdivisions?  I bet I can.
      */
-    float startingDetailPitch;
+    const float startingDetailPitch;
+    const float maxDetailPitch;
     float detailPitch;
 
     /* Let's try averaging it for the render.
@@ -247,7 +248,7 @@ public:
     const float minCellSize;
 
     /* These parameters define the sizes of the landscape tiles. */
-    AFK_LandscapeSizes lSizes;
+    const AFK_LandscapeSizes lSizes;
 
 
     AFK_World(

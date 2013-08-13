@@ -15,7 +15,7 @@ struct AFK_TerrainComputeUnit
 
 __kernel void yReduce(
     __global const struct AFK_TerrainComputeUnit *units,
-    __global image2d_t jigsawYDisp,
+    __read_only image2d_t jigsawYDisp,
     sampler_t yDispSampler,
     __global float *yBounds /* 2 consecutive values per unit: (lower, upper) */
     )

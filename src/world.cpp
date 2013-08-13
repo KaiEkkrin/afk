@@ -470,6 +470,7 @@ AFK_World::AFK_World( const AFK_Config *config,
     unsigned int maxShapeSize,
     cl_context ctxt):
         startingDetailPitch         (config->startingDetailPitch),
+        maxDetailPitch              (config->maxDetailPitch),
         detailPitch                 (config->startingDetailPitch), /* This is a starting point */
         averageDetailPitch          (config->framesPerCalibration, config->startingDetailPitch),
         maxDistance                 (_maxDistance),
@@ -678,7 +679,7 @@ void AFK_World::alterDetail(float adjustment)
     float adj = std::max(std::min(adjustment, 1.2f), 0.85f);
 
     if (adj > 1.0f || !(worldCache->wayOutsideTargetSize() || landscapeCache->wayOutsideTargetSize()))
-        detailPitch = detailPitch * adjustment;
+        detailPitch = std::min(detailPitch * adjustment, maxDetailPitch);
 
     averageDetailPitch.push(detailPitch);
 }

@@ -61,7 +61,8 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     clProgramsDir               = NULL;
     clGlSharing                 = false; /* TODO hope to default true if I get it reliably working */
 
-    startingDetailPitch         = 768.0f;
+    startingDetailPitch         = 512.0f;
+    maxDetailPitch              = 4096.0f;
     minCellSize                 = 1.0f;
     subdivisionFactor           = 2;
     pointSubdivisionFactor      = 8;
@@ -98,6 +99,16 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
             REQUIRE_ARGUMENT("--zFar")
             zFar = strtof(argv[argi], NULL);
         }
+        else if (strcmp(argv[argi], "--target-frame-time-micros") == 0)
+        {
+            REQUIRE_ARGUMENT("--target-frame-time-micros")
+            targetFrameTimeMicros = strtoul(argv[argi], NULL, 0);
+        }
+        else if (strcmp(argv[argi], "--frames-per-calibration") == 0)
+        {
+            REQUIRE_ARGUMENT("--frames-per-calibration")
+            framesPerCalibration = strtoul(argv[argi], NULL, 0);
+        }
         else if (strcmp(argv[argi], "--assume-vsync") == 0)
         {
             assumeVsync = true;
@@ -130,6 +141,11 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         {
             REQUIRE_ARGUMENT("--starting-detail-pitch")
             startingDetailPitch = strtof(argv[argi], NULL);
+        }
+        else if (strcmp(argv[argi], "--max-detail-pitch") == 0)
+        {
+            REQUIRE_ARGUMENT("--max-detail-pitch")
+            maxDetailPitch = strtof(argv[argi], NULL);
         }
         else if (strcmp(argv[argi], "--min-cell-size") == 0)
         {

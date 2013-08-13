@@ -31,7 +31,7 @@ void AFK_YReduce::compute(
     cl_mem *jigsawYDisp,
     cl_sampler *yDispSampler,
 	std::vector<AFK_LandscapeTile*> *landscapeTiles,
-    AFK_LandscapeSizes& lSizes)
+    const AFK_LandscapeSizes& lSizes)
 {
     cl_int error;
 

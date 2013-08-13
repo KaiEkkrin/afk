@@ -43,7 +43,7 @@ public:
         cl_mem *jigsawYDisp,
         cl_sampler *yDispSampler,
         std::vector<AFK_LandscapeTile*> *landscapeTiles,
-        AFK_LandscapeSizes& lSizes);
+        const AFK_LandscapeSizes& lSizes);
 };
 
 #endif /* _AFK_YREDUCE_H_ */
