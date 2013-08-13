@@ -298,6 +298,11 @@ public:
      */
     void display(const Mat4<float>& projection, const AFK_Light &globalLight);
 
+    /* Completes anything pending from this frame's compute tasks
+     * and cleans up.
+     */
+    void finaliseComputeTasks(void);
+
     /* Takes a world checkpoint. */
     void checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint);
 

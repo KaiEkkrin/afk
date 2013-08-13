@@ -30,6 +30,9 @@ protected:
     float *readback;
     size_t readbackSize; /* in floats */
 
+    /* This event signals that the readback is ready. */
+    cl_event readbackEvent;
+
 public:
     AFK_YReduce(const AFK_Computer *computer);
     virtual ~AFK_YReduce();
@@ -42,8 +45,11 @@ public:
         cl_mem *units,
         cl_mem *jigsawYDisp,
         cl_sampler *yDispSampler,
-        std::vector<AFK_LandscapeTile*> *landscapeTiles,
         const AFK_LandscapeSizes& lSizes);
+
+    void readBack(
+        unsigned int unitCount,
+        std::vector<AFK_LandscapeTile*> *landscapeTiles);
 };
 
 #endif /* _AFK_YREDUCE_H_ */

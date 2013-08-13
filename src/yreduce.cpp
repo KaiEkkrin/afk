@@ -30,7 +30,6 @@ void AFK_YReduce::compute(
     cl_mem *units,
     cl_mem *jigsawYDisp,
     cl_sampler *yDispSampler,
-	std::vector<AFK_LandscapeTile*> *landscapeTiles,
     const AFK_LandscapeSizes& lSizes)
 {
     cl_int error;
@@ -74,10 +73,6 @@ void AFK_YReduce::compute(
 
     AFK_CLCHK(clEnqueueNDRangeKernel(q, yReduceKernel, 2, 0, &yReduceGlobalDim[0], &yReduceLocalDim[0], 0, NULL, NULL))
 
-    /* TODO I'm sure there's a better (less synchronous) way to
-     * do this, but it's complicated and when I've only got
-     * one puzzle (the typical case) benefits will be marginal.
-     */
     size_t requiredReadbackSize = bufSizes[puzzle] / sizeof(float);
     if (readbackSize < requiredReadbackSize)
     {
@@ -86,7 +81,14 @@ void AFK_YReduce::compute(
         readbackSize = requiredReadbackSize;
     }
 
-    AFK_CLCHK(clEnqueueReadBuffer(q, bufs[puzzle], CL_TRUE, 0, bufSizes[puzzle], readback, 0, NULL, NULL))
+    AFK_CLCHK(clEnqueueReadBuffer(q, bufs[puzzle], CL_FALSE, 0, bufSizes[puzzle], readback, 0, NULL, &readbackEvent))
+}
+
+void AFK_YReduce::readBack(
+    unsigned int unitCount,
+    std::vector<AFK_LandscapeTile*> *landscapeTiles)
+{
+    AFK_CLCHK(clWaitForEvents(1, &readbackEvent))
 
 #if 0
     std::cout << "Computed y bounds: ";

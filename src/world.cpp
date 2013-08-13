@@ -13,7 +13,7 @@
 #include "world.hpp"
 
 
-#define PRINT_CHECKPOINTS 0
+#define PRINT_CHECKPOINTS 1
 #define PRINT_CACHE_STATS 0
 
 
@@ -788,8 +788,6 @@ void AFK_World::doComputeTasks(void)
         displayTimer->hitStage(1);
 
         /* For the next two I'm going to need this ...
-         * TODO Things are broken on AMD right now.  Is it because
-         * it refuses to read back from this image?
          */
         cl_sampler jigsawYDispSampler = clCreateSampler(
             ctxt,
@@ -827,13 +825,12 @@ void AFK_World::doComputeTasks(void)
             &terrainBufs[2],
             &jigsawMem[0],
             &jigsawYDispSampler,
-            &computeQueues[puzzle]->landscapeTiles,
             lSizes);
+
+        displayTimer->hitStage(3);
 
         /* TODO Can I keep this thing lying around long term ? */
         AFK_CLCHK(clReleaseSampler(jigsawYDispSampler))
-
-        displayTimer->hitStage(3);
 
         for (unsigned int u = 0; u < unitCount; ++u)
         {
@@ -988,6 +985,22 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     glDisableVertexAttribArray(1);
     glDisableVertexAttribArray(2);
 #endif
+}
+
+void AFK_World::finaliseComputeTasks(void)
+{
+    std::vector<boost::shared_ptr<AFK_TerrainComputeQueue> > computeQueues;
+    landscapeComputeFair.getDrawQueues(computeQueues);
+
+    for (unsigned int puzzle = 0; puzzle < computeQueues.size(); ++puzzle)
+    {
+        unsigned int unitCount = computeQueues[puzzle]->getUnitCount();
+        if (unitCount == 0) continue;
+
+        landscapeYReduce->readBack(
+            unitCount,
+            &computeQueues[puzzle]->landscapeTiles);
+    }
 }
 
 /* Worker for the below. */

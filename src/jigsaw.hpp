@@ -110,6 +110,11 @@ protected:
     std::vector<Vec2<int> > changedPieces;
     std::vector<unsigned char> *changes; /* one per texture */
 
+    /* If clGlSharing is disabled, this is the list of read events
+     * I need to wait on before I can push data to the GL.
+     */
+    std::vector<cl_event> changeEvents;
+
 public:
     AFK_Jigsaw(
         cl_context ctxt,

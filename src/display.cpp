@@ -137,17 +137,12 @@ void AFK_DisplayedProtagonist::display(const Mat4<float>& projection)
 
 void afk_display(void)
 {
-    /* TODO I want the compute tasks to be able to spill across from
-     * the previous frame (to better fill available GPU time), but that
-     * involves complicated task tracking rather than just a clFinish()
-     * call, so doing this first.
-     */
     afk_core.world->doComputeTasks();
 
     cl_context ctxt;
     cl_command_queue q;
     afk_core.computer->lock(ctxt, q);
-    AFK_CLCHK(clFinish(q))
+    AFK_CLCHK(clFlush(q))
     afk_core.computer->unlock();
 
     Mat4<float> projection = afk_core.camera->getProjection();
@@ -181,6 +176,9 @@ void afk_display(void)
      */
     afk_core.protagonist->display(projection);
 
+    /* glFinish here behaves *very* badly along with vsync,
+     * entirely screws up the detail calibrator
+     */
     glFlush();
 
     GLenum glErr = glGetError();
@@ -191,5 +189,7 @@ void afk_display(void)
         ss << "AFK: Got GL error: " << gluErrorString(glErr);
         throw AFK_Exception(ss.str());
     }
+
+    afk_core.world->finaliseComputeTasks();
 }
 

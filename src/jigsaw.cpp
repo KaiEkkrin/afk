@@ -311,7 +311,10 @@ cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q)
          */
         changedPieces.clear();
         for (unsigned int tex = 0; tex < texCount; ++tex)
+        {
             changes[tex].clear();
+        }
+        changeEvents.clear();
     }
     return clTex;
 }
@@ -336,6 +339,9 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
          * as they get reported to me, and then wait on the read-backs
          * here.  But that's harder, so I'll do it like this first
          */
+        if (changeEvents.size() < changedPieces.size())
+            changeEvents.resize(changedPieces.size());
+
         for (unsigned int tex = 0; tex < texCount; ++tex)
         {
             size_t pieceSizeInBytes = format[tex].texelSize * pieceSize.v[0] * pieceSize.v[1];
@@ -356,7 +362,7 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
                 region[1] = pieceSize.v[1];
                 region[2] = 1;
 
-                AFK_CLCHK(clEnqueueReadImage(q, clTex[tex], CL_TRUE, origin, region, 0 /* pieceSize.v[0] * format.texelSize */, 0, &changes[tex][s * pieceSizeInBytes], 0, NULL, NULL))
+                AFK_CLCHK(clEnqueueReadImage(q, clTex[tex], CL_FALSE, origin, region, 0 /* pieceSize.v[0] * format.texelSize */, 0, &changes[tex][s * pieceSizeInBytes], 0, NULL, &changeEvents[s]))
             }
         }
 #endif
@@ -371,6 +377,9 @@ void AFK_Jigsaw::bindTexture(unsigned int tex)
     {
 #if FIXED_TEST_TEXTURE_DATA
 #else
+        /* Wait for the change readbacks to be finished. */
+        clWaitForEvents(changeEvents.size(), &changeEvents[0]);
+
         /* Push all the changed pieces into the GL texture. */
         size_t pieceSizeInBytes = format[tex].texelSize * pieceSize.v[0] * pieceSize.v[1];
         for (unsigned int s = 0; s < changedPieces.size(); ++s)
