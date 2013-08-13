@@ -31,10 +31,12 @@ public:
     /* Loops on window event input.  Leave this going in one
      * thread.
      * Pass in the callback functions to use upon various
-     * events.
+     * events.  The idle function is called whenever there
+     * aren't any events left to handle.
      * Exits when the window gets closed.
      */
     virtual void loopOnEvents(
+        boost::function<void (void)> idleFunc,
         boost::function<void (unsigned int)> keyboardUpFunc,
         boost::function<void (unsigned int)> keyboardDownFunc,
         boost::function<void (unsigned int)> mouseUpFunc,

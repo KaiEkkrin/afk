@@ -76,35 +76,26 @@ static void disableControl(enum AFK_Controls control)
 
 void afk_keyboard(unsigned int key)
 {
-    afk_core.inputMut.lock();
     enableControl(afk_core.config->keyboardMapping[key]);
-    afk_core.inputMut.unlock();
 }
 
 void afk_keyboardUp(unsigned int key)
 {
-    afk_core.inputMut.lock();
     disableControl(afk_core.config->keyboardMapping[key]);
-    afk_core.inputMut.unlock();
 }
 
 void afk_mouse(unsigned int button)
 {
-    afk_core.inputMut.lock();
     enableControl(afk_core.config->mouseMapping[button]);
-    afk_core.inputMut.unlock();
 }
 
 void afk_mouseUp(unsigned int button)
 {
-    afk_core.inputMut.lock();
     disableControl(afk_core.config->mouseMapping[button]);
-    afk_core.inputMut.unlock();
 }
 
 void afk_motion(int x, int y)
 {
-    afk_core.inputMut.lock();
     if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_MOUSE_CAPTURE))
     {
         displaceAxis(afk_core.config->mouseAxisMapping[MOUSE_AXIS_X],
@@ -112,6 +103,5 @@ void afk_motion(int x, int y)
         displaceAxis(afk_core.config->mouseAxisMapping[MOUSE_AXIS_Y],
             afk_core.config->mouseAxisSensitivity * (float)y);
     }
-    afk_core.inputMut.unlock();
 }
 

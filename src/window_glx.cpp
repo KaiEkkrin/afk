@@ -219,6 +219,7 @@ void AFK_WindowGlx::shareGLCLContext(AFK_Computer *computer)
 }
 
 void AFK_WindowGlx::loopOnEvents(
+    boost::function<void (void)> idleFunc,
     boost::function<void (unsigned int)> keyboardUpFunc,
     boost::function<void (unsigned int)> keyboardDownFunc,
     boost::function<void (unsigned int)> mouseUpFunc,
@@ -227,59 +228,64 @@ void AFK_WindowGlx::loopOnEvents(
 {
     while (!windowClosed)
     {
-        XEvent e;
-        XNextEvent(dpy, &e);
-        switch (e.type)
+        while (XPending(dpy))
         {
-        case ButtonPress:
-            mouseDownFunc(e.xbutton.button);
-            break;
-
-        case ButtonRelease:
-            mouseUpFunc(e.xbutton.button);
-            break;
-
-        case KeyPress:
-            keyboardDownFunc(e.xkey.keycode);
-            break;
-
-        case KeyRelease:
-            keyboardUpFunc(e.xkey.keycode);
-            break;
-
-        case MotionNotify:
-            if (pointerCaptured)
+            XEvent e;
+            XNextEvent(dpy, &e);
+            switch (e.type)
             {
-                int wMidX = xwa.width / 2;
-                int wMidY = xwa.height / 2;
+            case ButtonPress:
+                mouseDownFunc(e.xbutton.button);
+                break;
 
-                if (e.xmotion.x != wMidX || e.xmotion.y != wMidY)
+            case ButtonRelease:
+                mouseUpFunc(e.xbutton.button);
+                break;
+
+            case KeyPress:
+                keyboardDownFunc(e.xkey.keycode);
+                break;
+
+            case KeyRelease:
+                keyboardUpFunc(e.xkey.keycode);
+                break;
+
+            case MotionNotify:
+                if (pointerCaptured)
                 {
-                    motionFunc(e.xmotion.x - wMidX, e.xmotion.y - wMidY);
-
-                    XWarpPointer(dpy, w, w, 0, 0, 0, 0, xwa.width / 2, xwa.height / 2);
-                    XFlush(dpy);
-                    fflush(stdout); /* Why is this necessary?  But it is!  Freaky!  */
+                    int wMidX = xwa.width / 2;
+                    int wMidY = xwa.height / 2;
+    
+                    if (e.xmotion.x != wMidX || e.xmotion.y != wMidY)
+                    {
+                        motionFunc(e.xmotion.x - wMidX, e.xmotion.y - wMidY);
+    
+                        XWarpPointer(dpy, w, w, 0, 0, 0, 0, xwa.width / 2, xwa.height / 2);
+                        //XFlush(dpy);
+                        fflush(stdout); /* Why is this necessary?  But it is!  Freaky!  */
+                    }
                 }
-            }
-            break;
+                break;
 
-        case ConfigureNotify:
-        case MapNotify:
-            /* Update my copy of the window attributes. */
-            XGetWindowAttributes(dpy, w, &xwa);
-            break;
+            case ConfigureNotify:
+            case MapNotify:
+                /* Update my copy of the window attributes. */
+                XGetWindowAttributes(dpy, w, &xwa);
+                break;
 
-        case ClientMessage:
-            if ((Atom)e.xclient.data.l[0] == wmDeleteWindow)
-            {
-                windowClosed = true;
+            case ClientMessage:
+                if ((Atom)e.xclient.data.l[0] == wmDeleteWindow)
+                {
+                    windowClosed = true;
+                    break;
+                }
+
+            default:
                 break;
             }
-
-        default:
-            break;
         }
+
+        idleFunc();
     }
 }
 

@@ -54,6 +54,7 @@ public:
     virtual void releaseGLContext(unsigned int threadId);
     virtual void shareGLCLContext(AFK_Computer *computer);
     virtual void loopOnEvents(
+        boost::function<void (void)> idleFunc,
         boost::function<void (unsigned int)> keyboardUpFunc,
         boost::function<void (unsigned int)> keyboardDownFunc,
         boost::function<void (unsigned int)> mouseUpFunc,
