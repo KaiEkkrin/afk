@@ -4,6 +4,8 @@
 
 #include <stdio.h>
 
+#include <boost/tokenizer.hpp>
+
 #include "exception.hpp"
 #include "window_glx.hpp"
 
@@ -124,10 +126,26 @@ AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight
     if (res != GLEW_OK) throw AFK_Exception("Unable to initialise GLEW");
 
     /* Fix the Vsync setting */
-    if (vsync)
-        glXSwapIntervalEXT(dpy, glXGetCurrentDrawable(), 1);
-    else
-        glXSwapIntervalEXT(dpy, glXGetCurrentDrawable(), 0);
+    bool haveSwapControl = false;
+    std::string extstr = std::string(glXQueryExtensionsString(dpy, screen));
+    boost::tokenizer<> extTok(extstr);
+    for (boost::tokenizer<>::iterator extIt = extTok.begin();
+        extIt != extTok.end(); ++extIt)
+    {
+        if (*extIt == "GLX_EXT_swap_control")
+        {
+            haveSwapControl = true;
+            break;
+        }
+    }
+
+    if (haveSwapControl)
+    {
+        if (vsync)
+            glXSwapIntervalEXT(dpy, glXGetCurrentDrawable(), 1);
+        else
+            glXSwapIntervalEXT(dpy, glXGetCurrentDrawable(), 0);
+    }
 
     /* Wait for my X window to become mapped
      * TODO Do I really need this?

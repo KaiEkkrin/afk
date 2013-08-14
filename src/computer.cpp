@@ -5,9 +5,6 @@
 #include <iostream>
 #include <sstream>
 
-#include <boost/foreach.hpp>
-#include <boost/tokenizer.hpp>
-
 #include "computer.hpp"
 #include "exception.hpp"
 #include "file/readfile.hpp"
