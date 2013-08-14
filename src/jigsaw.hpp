@@ -10,12 +10,15 @@
 #include <sstream>
 #include <vector>
 
+#include <boost/function.hpp>
 #include <boost/lockfree/queue.hpp>
+#include <boost/shared_ptr.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
 #include "computer.hpp"
+#include "data/moving_average.hpp"
 #include "def.hpp"
 
 /* This module encapsulates the idea of having a large, "heapified"
@@ -85,6 +88,38 @@ BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_JigsawPiece>::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_JigsawPiece>::value));
 
 
+/* This abstract class encapsulates the metadata associated with a
+ * jigsaw piece.  The code that interfaces with the Jigsaw needs to
+ * supply appropriate objects.
+ */
+class AFK_JigsawMetadata
+{
+public:
+    virtual void assigned(const Vec2<int>& uv) = 0;
+    virtual bool canEvict(const AFK_Frame& frame) = 0;
+
+    /* All pieces with u=row are evicted. */
+    virtual void evicted(const int row) = 0;
+};
+
+
+/* This class encapsulates a sub-rectangle within the jigsaw that
+ * contains all the updates from a frame (we write to it) or all
+ * the draws (we use it to sort out rectangular reads and writes
+ * of the texture itself).
+ */
+class AFK_JigsawSubRect
+{
+public:
+    /* These co-ordinates are in piece units. */
+    int x, y, rows, columns;
+
+    boost::mutex mut;
+
+    AFK_JigsawSubRect();
+};
+
+
 /* This encapsulates a single jigsawed texture, which may contain
  * multiple textures, one for each format in the list: they will all
  * have identical layouts and be referenced with the same jigsaw
@@ -102,18 +137,47 @@ protected:
     const Vec2<int> jigsawSize; /* number of pieces horizontally and vertically */
     const bool clGlSharing;
 
-    /* If clGlSharing is disabled, this is the list of pieces that
-     * have been changed in the CL and need to be pushed to the GL,
-     * along with the change data that I've read out (in the same
-     * order).
+    /* Each row of the jigsaw is associated with the frame it was
+     * last seen, so that I can decide whether I can evict a row.
      */
-    std::vector<Vec2<int> > changedPieces;
-    std::vector<unsigned char> *changes; /* one per texture */
+    std::vector<AFK_Frame> rowLastSeen;
 
-    /* If clGlSharing is disabled, this is the list of read events
-     * I need to wait on before I can push data to the GL.
+    /* We fill each jigsaw row left to right, and only ever clear
+     * an entire row at a time.  This stops me from having to track
+     * the occupancy of individual pieces.  This list associates
+     * each row of the jigsaw with the number of pieces in it that
+     * are occupied, starting from the left.
+     * In order to make neat rectangles, the flipRects() function
+     * needs to add pretend usage to all short rows that were in the
+     * most recent update's rectangle, of course...
      */
-    std::vector<cl_event> changeEvents;
+    std::vector<int> rowUsage;
+
+    /* Here's the jigsaw metadata. */
+    boost::shared_ptr<AFK_JigsawMetadata> meta;
+
+    /* Each frame, we assign new pieces out of sub-rectangles of
+     * the jigsaw.  We try to make it `concurrency' rows high by
+     * as many columns wide as is necessary.  (Hopefully the multi-
+     * threading model will cause the rows to be of similar widths.)
+     * These are the current updating and drawing rectangles in piece
+     * units.
+     * These things are lists, just in case I need to start a new
+     * sub-rectangle at any point.
+     */
+    std::vector<AFK_JigsawSubRect> rects[2];
+    unsigned int updateRect;
+    unsigned int drawRect;
+
+    /* If clGlSharing is disabled, this is the event I need to wait on
+     * before I can push data to the GL.
+     */
+    cl_event changeEvent;
+
+    /* This utility function returns the actual jigsaw row at a
+     * given rectangle x origin and offset (including wrapping).
+     */
+    int wrapRows(int origin, int offset) const;
 
 public:
     AFK_Jigsaw(
@@ -122,8 +186,20 @@ public:
         const Vec2<int>& _jigsawSize,
         const AFK_JigsawFormatDescriptor *_format,
         unsigned int _texCount,
-        bool _clGlSharing);
+        bool _clGlSharing,
+        boost::shared_ptr<AFK_JigsawMetadata> _meta);
     virtual ~AFK_Jigsaw();
+
+    /* Acquires a new piece for your thread
+     * If this function returns false, this jigsaw has run out of
+     * space and the JigsawCollection needs to use a different one.
+     * This function should be thread safe so long as you don't
+     * lie about your thread ID
+     * TODO: The JigsawCollection ought to cache this function's
+     * returning false each frame, so that it doesn't send threads
+     * back to the wrong jigsaw after it ran out of space.
+     */
+    bool grab(unsigned int threadId, Vec2<int>& o_uv);
 
     unsigned int getTexCount(void) const;
 
@@ -138,74 +214,19 @@ public:
     /* Acquires the buffers for the CL. */
     cl_mem *acquireForCl(cl_context ctxt, cl_command_queue q);
 
-    /* Tells the jigsaw you've changed a piece (if we're not doing
-     * buffer sharing, that means we will need to sync.)
-     * TODO I think I'm going to want to end up supplying a list...
-     */
-    void pieceChanged(const Vec2<int>& piece);
-
     /* Releases the buffer from the CL. */
     void releaseFromCl(cl_command_queue q);
-
-    /* If clGlSharing is disabled, this function debugs the changed
-     * pieces as read back from the CL, interpreting them as
-     * templated.
-     */
-    template<typename TexelType>
-    void debugReadChanges(
-        std::vector<Vec2<int> >& _changedPieces,
-        std::vector<TexelType>& _changes,
-        unsigned int tex)
-    {
-        if (sizeof(TexelType) != format[tex].texelSize)
-        {
-            std::ostringstream ss;
-            ss << "jigsaw debugReadChanges: have texelSize " << std::dec << format[tex].texelSize << " and sizeof(TexelType) " << sizeof(TexelType);
-            throw AFK_Exception(ss.str());
-        }
-
-        _changedPieces.resize(changedPieces.size());
-        _changes.resize(changes[tex].size() / sizeof(TexelType));
-        std::copy(changedPieces.begin(), changedPieces.end(), _changedPieces.begin());
-
-        size_t pieceSizeInTexels = pieceSize.v[0] * pieceSize.v[1];
-        size_t pieceSizeInBytes = format[tex].texelSize * pieceSizeInTexels;
-        memcpy(&_changes[0], &changes[tex][0], pieceSizeInBytes * changedPieces.size());
-    }
-
-    /* This does the obvious opposite.
-     * The caller is responsible for calling it once for each texture,
-     * otherwise things will get out of sync and pigeons will smoke
-     * cigars and dragons will land on your rooftop and light it on
-     * fire.
-     */
-    template<typename TexelType>
-    void debugWriteChanges(
-        const std::vector<Vec2<int> >& _changedPieces,
-        const std::vector<TexelType>& _changes,
-        unsigned int tex)
-    {
-        if (sizeof(TexelType) != format[tex].texelSize)
-        {
-            std::ostringstream ss;
-            ss << "jigsaw debugWriteChanges: have texelSize " << std::dec << format[tex].texelSize << " and sizeof(TexelType) " << sizeof(TexelType);
-            throw AFK_Exception(ss.str());
-        }
-
-        changedPieces.resize(changedPieces.size());
-        changes[tex].resize(changes[tex].size() * sizeof(TexelType));
-        std::copy(_changedPieces.begin(), _changedPieces.end(), changedPieces.begin());
-
-        size_t pieceSizeInTexels = pieceSize.v[0] * pieceSize.v[1];
-        size_t pieceSizeInBytes = format[tex].texelSize * pieceSizeInTexels;
-        memcpy(&changes[tex][0], &_changes[tex][0], pieceSizeInBytes * changedPieces.size());
-    }
 
     /* Binds a buffer to the GL as a texture.
      * Call once for each texture, having set glActiveTexture()
      * appropriately each time.
      */
     void bindTexture(unsigned int tex);
+
+    /* Signals to the jigsaw to flip the rectangles over and start off
+     * a new update rectangle.
+     */
+    void flipRects(void);
 };
 
 /* This encapsulates a collection of jigsawed textures, which are used
@@ -226,8 +247,8 @@ protected:
     std::vector<AFK_Jigsaw*> puzzles;
     boost::mutex mut;
 
-    /* The pieces that are free to be given out. */
-    boost::lockfree::queue<AFK_JigsawPiece> box;
+    /* How to make a new metadata object for a new puzzle. */
+    boost::function<boost::shared_ptr<AFK_JigsawMetadata> (void)> newMeta;
 
 public:
     AFK_JigsawCollection(
@@ -237,19 +258,15 @@ public:
         enum AFK_JigsawFormat *texFormat,
         unsigned int _texCount,
         const AFK_ClDeviceProperties& _clDeviceProps,
-        bool _clGlSharing);
+        bool _clGlSharing,
+        boost::function<boost::shared_ptr<AFK_JigsawMetadata> (void)> _newMeta);
     virtual ~AFK_JigsawCollection();
-
-    int getPieceCount(void) const;
 
     /* Gives you a piece.  This will usually be quick,
      * but it may stall if we need to add a new jigsaw
      * to the collection.
      */
-    AFK_JigsawPiece grab(void);
-
-    /* Returns a piece to the box. */
-    void replace(AFK_JigsawPiece piece);
+    AFK_JigsawPiece grab(unsigned int threadId);
 
     /* Gets you the puzzle that matches a particular piece. */
     AFK_Jigsaw *getPuzzle(const AFK_JigsawPiece& piece) const;

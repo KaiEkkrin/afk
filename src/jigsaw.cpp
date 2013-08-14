@@ -139,23 +139,42 @@ std::ostream& operator<<(std::ostream& os, const AFK_JigsawPiece& piece)
 }
 
 
+/* AFK_JigsawSubRect implementation */
+
+AFK_JigsawSubRect():
+    x(0), y(0), rows(0), columns(0)
+{
+}
+
+
 /* AFK_Jigsaw implementation */
+
+int AFK_Jigsaw::wrapRows(int origin, int offset) const
+{
+    int row = origin + offset;
+    while (row >= jigsawSize.v[0]) row -= jigsawSize.v[0];
+    return row;
+}
+
 AFK_Jigsaw::AFK_Jigsaw(
     cl_context ctxt,
     const Vec2<int>& _pieceSize,
     const Vec2<int>& _jigsawSize,
     const AFK_JigsawFormatDescriptor *_format,
     unsigned int _texCount,
-    bool _clGlSharing):
+    bool _clGlSharing,
+    boost::shared_ptr<AFK_JigsawMetadata> _meta):
         format(_format),
         texCount(_texCount),
         pieceSize(_pieceSize),
         jigsawSize(_jigsawSize),
-        clGlSharing(_clGlSharing)
+        clGlSharing(_clGlSharing),
+        meta(_meta),
+        updateRect(0),
+        drawRect(1)
 {
     glTex = new GLuint[texCount];
     clTex = new cl_mem[texCount];
-    changes = new std::vector<unsigned char>[texCount];
 
     glGenTextures(texCount, glTex);
 
@@ -194,7 +213,7 @@ AFK_Jigsaw::AFK_Jigsaw(
             pieceSize.v[0],
             pieceSize.v[1],
             0,
-            format[tex].glFormat /* TODO See http://www.opengl.org/discussion_boards/showthread.php/177713-Problem-with-HDR-rendering : looks like I need GL_R / GL_RGB / GL_RGBA here, and not something with a `32F' or similar on the end */,
+            format[tex].glFormat,
             format[tex].glDataType,
             &testData[0]);
 #else
@@ -265,6 +284,13 @@ AFK_Jigsaw::AFK_Jigsaw(
         }
         afk_handleClError(error);
     }
+
+    /* Now that I've got the textures, fill out the jigsaw state. */
+    for (int row = 0; row < jigsawSize.v[0]; ++row)
+    {
+        rowLastSeen.push_back(AFK_Frame());
+        rowUsage.push_back(0);
+    }
 }
 
 AFK_Jigsaw::~AFK_Jigsaw()
@@ -277,6 +303,45 @@ AFK_Jigsaw::~AFK_Jigsaw()
     delete[] changes;
     delete[] clTex;
     delete[] glTex;
+}
+
+bool AFK_Jigsaw::grab(unsigned int threadId, const AFK_Frame& frame, Vec2<int>& o_uv)
+{
+    /* TODO: The below is wrong too.  I need to iterate through the
+     * possible rectangles, of which there are several.  Maybe I should
+     * pull the single sub-rectangle out into a subclass for ease.
+     * (Maybe I did it already ...)
+     */
+
+    if (threadId >= rects[updateRect].rows)
+    {
+        /* I need to try to get more rows into this rectangle. */
+        boost::unique_lock<boost::mutex> lock(rects[updateRect].mut);
+        if (threadId >= rects[updateRect].rows)
+        {
+            for (int newRowOffset = rects[updateRect].rows; newRowOffset <= threadId; ++newRowOffset)
+            {
+                int newRow = wrapRows(rects[updaterect].x, newRowOffset);
+
+                if (meta->canEvict(rowLastSeen[newRow]))
+                {
+                    meta->evicted(newRow);
+                    rowLastSeen[newRow] = frame;
+                    rects[updateRect].rows = newRowOffset;
+                }
+                else
+                {
+                    /* I can't make the rectangle any bigger, the collection will
+                     * have to use a different jigsaw instead.
+                     */
+                    return false;
+                }
+            }
+        }
+    }
+
+    
+
 }
 
 unsigned int AFK_Jigsaw::getTexCount(void) const
