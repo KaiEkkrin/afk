@@ -97,7 +97,7 @@ class AFK_JigsawMetadata
 {
 public:
     virtual void assigned(const Vec2<int>& uv) = 0;
-    virtual bool canEvict(const AFK_Frame& frame) = 0;
+    virtual bool canEvict(const int row, const AFK_Frame& frame) = 0;
 
     /* All pieces with u=row are evicted. */
     virtual void evicted(const int row) = 0;
@@ -112,13 +112,14 @@ public:
 class AFK_JigsawSubRect
 {
 public:
-    /* These co-ordinates are in piece units. */
-    int r, c, rows;
+    /* These co-ordinates are in piece units.
+     * During usage, a rectangle can't grow in rows, but it
+     * can grow in columns.
+     */
+    const int r, c, rows;
     boost::atomic<int> columns;
 
-    boost::mutex mut;
-
-    AFK_JigsawSubRect();
+    AFK_JigsawSubRect(int _r, int _c, int _rows);
 };
 
 
@@ -179,9 +180,22 @@ protected:
      * These things are lists, just in case I need to start a new
      * sub-rectangle at any point.
      */
+    const unsigned int concurrency;
     std::vector<AFK_JigsawSubRect> rects[2];
     unsigned int updateRs;
     unsigned int drawRs;
+
+    /* This is the average number of columns that rectangles seem to
+     * be using.  It's used as a heuristic to decide whether to start
+     * rectangles on new rows or not.
+     * Update it in flipRects().
+     */
+    AFK_MovingAverage<unsigned int> columnCounts;
+
+    /* If clGlSharing is disabled, this is the rectangle data I've
+     * read back from the CL and that needs to go into the GL.
+     */
+    std::vector<unsigned char> changeData;
 
     /* If clGlSharing is disabled, this is the event I need to wait on
      * before I can push data to the GL.
@@ -200,7 +214,21 @@ protected:
      * (you should try making a new rectangle at the bottom)
      * - AFK_JIGSAW_RECT_GRABBED if it succeeded.
      */
-    enum AFK_JigsawPieceGrabStatus grabPieceFromRect(unsigned int rect, unsigned int threadId, const AFK_Frame& currentFrame);
+    enum AFK_JigsawPieceGrabStatus grabPieceFromRect(unsigned int rect, unsigned int threadId, const AFK_Frame& currentFrame, Vec2<int>& o_uv);
+
+    /* This utility function attempts to start a new rectangle,
+     * pushing it back onto rects[updateRs], evicting anything
+     * if required.
+     * Set `startNewRow' to false if you'd like it to try to
+     * continue the row that has the last rectangle on it.  You
+     * should probably only be setting that if you're the flipRects()
+     * call trying to pack the texture nicely, rather than if you're
+     * a grab() call that's just run out of room!
+     * May return fewer rows than `rowsRequired' if it hits the top.
+     * Only actually returns an error if it can't get any rows at all.
+     * Returns true on success, else false.
+     */
+    bool startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRow, const AFK_Frame& currentFrame);
 
 public:
     AFK_Jigsaw(
@@ -210,7 +238,9 @@ public:
         const AFK_JigsawFormatDescriptor *_format,
         unsigned int _texCount,
         bool _clGlSharing,
-        boost::shared_ptr<AFK_JigsawMetadata> _meta);
+        boost::shared_ptr<AFK_JigsawMetadata> _meta,
+        unsigned int _concurrency,
+        const AFK_Frame& currentFrame);
     virtual ~AFK_Jigsaw();
 
     /* Acquires a new piece for your thread
@@ -222,7 +252,7 @@ public:
      * returning false each frame, so that it doesn't send threads
      * back to the wrong jigsaw after it ran out of space.
      */
-    bool grab(unsigned int threadId, Vec2<int>& o_uv);
+    bool grab(unsigned int threadId, const AFK_Frame& frame, Vec2<int>& o_uv);
 
     unsigned int getTexCount(void) const;
 
@@ -249,7 +279,7 @@ public:
     /* Signals to the jigsaw to flip the rectangles over and start off
      * a new update rectangle.
      */
-    void flipRects(void);
+    void flipRects(const AFK_Frame& currentFrame);
 };
 
 /* This encapsulates a collection of jigsawed textures, which are used

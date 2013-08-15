@@ -149,60 +149,14 @@ AFK_JigsawSubRect():
 
 /* AFK_Jigsaw implementation */
 
-enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromRect(unsigned int rect, unsigned int threadId, const AFK_Frame& currentFrame)
+enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromRect(unsigned int rect, unsigned int threadId, const AFK_Frame& currentFrame, Vec2<int>& o_uv)
 {
-    /* TODO This is wrong too.  I should not be trying to do the
-     * below business of grabbing new rows of rectangle whenever
-     * a thread ID I haven't seen before comes in, because if I'm
-     * doing that, when a thread runs out of columns instead the
-     * operation to make a new rectangle will cut off growth room
-     * for the first one.
-     * Instead, I should have `concurrency' as a parameter, and
-     * use it to establish the row count for each rectangle
-     * upon initialisation.
-     */
-
     if (threadId >= rects[updateRs][rect].rows)
     {
-        /* Try to grab enough rows for this rectangle to match the
-         * thread ID.
-         * This is clearly a contended operation because I'll be
-         * running across the rows for any intermediate threads.
+        /* There aren't enough rows in this rectangle, try the
+         * next one.
          */
-        boost::unique_lock<boost::mutex> lock(rects[updateRs].mut);
-        if (threadId >= rects[updateRs][rect].rows)
-        {
-            for (int newRowOffset = rects[updateRs][rect].rows; newRowOffset <= threadId; ++newRowOffset)
-            {
-                int row = rects[updateRs][rect].r + newRowOffset;
-
-                if (row == jigsawSize.v[0])
-                    return AFK_JIGSAW_RECT_WRAPPED;
-
-                /* Obviously if we've never seen this row before we can use it.
-                 * Otherwise...
-                 */
-                if (!rowLastSeen[row] == AFK_Frame())
-                {
-                    /* Can we evict what's currently there? */
-                    if (meta->canEvict(rowLastSeen[newRow]))
-                    {
-                        meta->evicted(newRow);
-                        rowLastSeen[newRow] = currentFrame;
-
-                        /* We'd better occupy that (even if it's not this thread's) */
-                        rects[updateRect].rows = newRowOffset;
-                    }
-                    else
-                    {
-                        /* I can't make the rectangle any bigger, you will
-                         * have to use a different jigsaw instead.
-                         */
-                        return AFK_JIGSAW_RECT_OUT_OF_ROWS;
-                    }
-                }
-            }
-        }
+        return AFK_JIGSAW_RECT_OUT_OF_ROWS;
     }
 
     /* If I get here, `threadId' is a valid row within the current
@@ -232,6 +186,60 @@ enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromRect(unsigned int rect, 
     }
 }
 
+bool AFK_Jigsaw::startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRow, const AFK_Frame& currentFrame)
+{
+    if (startNewRow ||
+        columnCounts.get() > (jigsawSize.v[1] - (lastRect.c + lastRect.columns.load())))
+    {
+        /* Try starting a new rectangle on the row after this one. */
+        int newRow, newRowCount;
+        newRow = lastRect.r + lastRect.rows;
+        if (newRow == jigsawSize.v[0]) newRow = 0;
+
+        for (newRowCount = 0;
+            newRowCount < concurrency &&
+                (newRow + newRowCount) < jigsawSize.v[0] &&
+                meta->canEvict(rowLastSeen[newRow + newRowCount], currentFrame);
+            ++newRowCount);
+
+        if (newRowCount == 0) return false;
+
+        for (unsigned int evictRow = newRow; evictRow < newRow + newRowCount; ++evictRow)
+        {
+            meta->evicted(evictRow);
+            rowLastSeen[evictRow] = currentFrame;
+            rowUsage[evictRow] = 0;
+        }
+
+        rects[updateRs].push_back(rect);
+    }
+    else
+    {
+        /* I'm going to pack a new rectangle onto the same rows as the existing one.
+         * I don't need to do eviction checks, because eviction happens row-at-a-time.
+         * This operation also closes down the last rectangle (if you add columns to
+         * it you'll trample the new one).
+         */
+        AFK_JigsawSubRect newRect = AFK_JigsawSubRect(
+            lastRect.r,
+            lastRect.c + lastRect.columns,
+            lastRect.rows,
+            0);
+        rects[updateRs].push_back(newRect);
+
+        /* Make sure the current frames are up to date, and that the row usage
+         * array is re-aligned to the start of this new rectangle.
+         */
+        for (unsigned int row = newRect.r; row < (newRect.r + newRect.rows); ++row)
+        {
+            rowLastSeen[row] = currentFrame;
+            rowUsage[row] = newRect.c;
+        }
+    }
+
+    return true;
+}
+
 AFK_Jigsaw::AFK_Jigsaw(
     cl_context ctxt,
     const Vec2<int>& _pieceSize,
@@ -239,15 +247,19 @@ AFK_Jigsaw::AFK_Jigsaw(
     const AFK_JigsawFormatDescriptor *_format,
     unsigned int _texCount,
     bool _clGlSharing,
-    boost::shared_ptr<AFK_JigsawMetadata> _meta):
+    boost::shared_ptr<AFK_JigsawMetadata> _meta,
+    unsigned int _concurrency,
+    const AFK_Frame& currentFrame):
         format(_format),
         texCount(_texCount),
         pieceSize(_pieceSize),
         jigsawSize(_jigsawSize),
         clGlSharing(_clGlSharing),
         meta(_meta),
-        updateRect(0),
-        drawRect(1)
+        concurrency(_concurrency),
+        updateRs(0),
+        drawRs(1),
+        columnCounts(8, 0)
 {
     glTex = new GLuint[texCount];
     clTex = new cl_mem[texCount];
@@ -367,6 +379,13 @@ AFK_Jigsaw::AFK_Jigsaw(
         rowLastSeen.push_back(AFK_Frame());
         rowUsage.push_back(0);
     }
+
+    /* Make a starting update rectangle. */
+    if (!startNewRect(
+        AFK_JigsawSubRect(0, 0, 0, 0), false, currentFrame))
+    {
+        throw AFK_Exception("Cannot make starting rectangle");
+    }
 }
 
 AFK_Jigsaw::~AFK_Jigsaw()
@@ -383,23 +402,35 @@ AFK_Jigsaw::~AFK_Jigsaw()
 
 bool AFK_Jigsaw::grab(unsigned int threadId, const AFK_Frame& frame, Vec2<int>& o_uv)
 {
-    /* TODO: The below is wrong too.  I need to iterate through the
-     * possible rectangles, of which there are several.  Maybe I should
-     * pull the single sub-rectangle out into a subclass for ease.
-     * (Maybe I did it already ...)
-     */
+    /* TODO Sort out the locking situation here. */
 
-    if (threadId >= rects[updateRect].rows)
+    /* Let's see if I can use an existing rectangle. */
+    unsigned int rect;
+    for (rect = 0; rect < rects[updateRs].size(); ++rect)
     {
-        /* I need to try to get more rows into this rectangle. */
-        boost::unique_lock<boost::mutex> lock(rects[updateRect].mut);
-        if (threadId >= rects[updateRect].rows)
+        switch (grabPieceFromRect(rect, threadId, frame, o_uv))
         {
+        case AFK_JIGSAW_RECT_OUT_OF_ROWS:
+            /* This means I'm out of room in the jigsaw. */
+            return false;
+
+        case AFK_JIGSAW_RECT_GRABBED:
+            /* I got one! */
+            return true;
+
+        default:
+            /* Keep looking. */
+            break;
         }
     }
 
-    
+    /* I ran out of rectangles.  Try to start a new one. */
+    if (startNewRect(rects[updateRs][rect-1], concurrency, true, frame))
+    {
+        if (grabPieceFromRect(rect, threadId, frame, o_uv) == AFK_JIGSAW_RECT_GRABBED) return true;
+    }
 
+    return false;
 }
 
 unsigned int AFK_Jigsaw::getTexCount(void) const
@@ -432,11 +463,7 @@ cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q)
         /* Make sure the change state is reset so that I can start
          * accumulating new changes
          */
-        changedPieces.clear();
-        for (unsigned int tex = 0; tex < texCount; ++tex)
-        {
-            changes[tex].clear();
-        }
+        changeData.clear();
         changeEvents.clear();
     }
     return clTex;
@@ -457,6 +484,12 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
     {
 #if FIXED_TEST_TEXTURE_DATA
 #else
+        /* TODO I just did this completely wrong, change it and try again.
+         * Maybe make one changeData vector for each tex, and have a
+         * utility function that enqueues the rectangle reads (and another
+         * that does the rectangle writes) for a single tex?
+         */
+
         /* Read back all the changed pieces.
          * TODO It would be best to enqueue these as async read-backs
          * as they get reported to me, and then wait on the read-backs
@@ -528,6 +561,18 @@ void AFK_Jigsaw::bindTexture(unsigned int tex)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 #endif
+}
+
+void AFK_Jigsaw::flipRects(const AFK_Frame& currentFrame)
+{
+    updateRs = (updateRs == 0 ? 1 : 0);
+    drawRs = (drawRs == 0 ? 1 : 0);
+
+    /* Clear out the old draw rectangles, and create a new update
+     * rectangle following on from the last one.
+     */
+    rects[updateRs].clear();
+    startNewRect(*(rects[drawRs].rbegin()), false, currentFrame);
 }
 
 
