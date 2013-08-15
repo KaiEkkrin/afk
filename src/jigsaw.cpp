@@ -142,18 +142,94 @@ std::ostream& operator<<(std::ostream& os, const AFK_JigsawPiece& piece)
 /* AFK_JigsawSubRect implementation */
 
 AFK_JigsawSubRect():
-    x(0), y(0), rows(0), columns(0)
+    r(0), c(0), rows(0), columns(0)
 {
 }
 
 
 /* AFK_Jigsaw implementation */
 
-int AFK_Jigsaw::wrapRows(int origin, int offset) const
+enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromRect(unsigned int rect, unsigned int threadId, const AFK_Frame& currentFrame)
 {
-    int row = origin + offset;
-    while (row >= jigsawSize.v[0]) row -= jigsawSize.v[0];
-    return row;
+    /* TODO This is wrong too.  I should not be trying to do the
+     * below business of grabbing new rows of rectangle whenever
+     * a thread ID I haven't seen before comes in, because if I'm
+     * doing that, when a thread runs out of columns instead the
+     * operation to make a new rectangle will cut off growth room
+     * for the first one.
+     * Instead, I should have `concurrency' as a parameter, and
+     * use it to establish the row count for each rectangle
+     * upon initialisation.
+     */
+
+    if (threadId >= rects[updateRs][rect].rows)
+    {
+        /* Try to grab enough rows for this rectangle to match the
+         * thread ID.
+         * This is clearly a contended operation because I'll be
+         * running across the rows for any intermediate threads.
+         */
+        boost::unique_lock<boost::mutex> lock(rects[updateRs].mut);
+        if (threadId >= rects[updateRs][rect].rows)
+        {
+            for (int newRowOffset = rects[updateRs][rect].rows; newRowOffset <= threadId; ++newRowOffset)
+            {
+                int row = rects[updateRs][rect].r + newRowOffset;
+
+                if (row == jigsawSize.v[0])
+                    return AFK_JIGSAW_RECT_WRAPPED;
+
+                /* Obviously if we've never seen this row before we can use it.
+                 * Otherwise...
+                 */
+                if (!rowLastSeen[row] == AFK_Frame())
+                {
+                    /* Can we evict what's currently there? */
+                    if (meta->canEvict(rowLastSeen[newRow]))
+                    {
+                        meta->evicted(newRow);
+                        rowLastSeen[newRow] = currentFrame;
+
+                        /* We'd better occupy that (even if it's not this thread's) */
+                        rects[updateRect].rows = newRowOffset;
+                    }
+                    else
+                    {
+                        /* I can't make the rectangle any bigger, you will
+                         * have to use a different jigsaw instead.
+                         */
+                        return AFK_JIGSAW_RECT_OUT_OF_ROWS;
+                    }
+                }
+            }
+        }
+    }
+
+    /* If I get here, `threadId' is a valid row within the current
+     * rectangle.
+     * Let's see if I've got enough columns left...
+     */
+    int row = threadId + rects[updateRs][rect].r;
+    if (rowUsage[row] < jigsawSize.v[1])
+    {
+        /* We have!  Grab one. */
+        o_uv = afk_vec2<int>(row, rowUsage[row]++);
+
+        /* If I just gave the rectangle another column, update its columns
+         * field to match
+         * (I can do this atomically and don't need the lock)
+         */
+        int rectColumns = o_uv.v[1] - rects[updateRs][rect].c;
+        rects[updateRs][rect].columns.compare_exchange_strong(rectColumns, rectColumns + 1);
+
+        return AFK_JIGSAW_RECT_GRABBED;
+    }
+    else
+    {
+        /* We ran out of columns, you need to start a new rectangle.
+         */
+        return AFK_JIGSAW_RECT_OUT_OF_COLUMNS;
+    }
 }
 
 AFK_Jigsaw::AFK_Jigsaw(
@@ -319,24 +395,6 @@ bool AFK_Jigsaw::grab(unsigned int threadId, const AFK_Frame& frame, Vec2<int>& 
         boost::unique_lock<boost::mutex> lock(rects[updateRect].mut);
         if (threadId >= rects[updateRect].rows)
         {
-            for (int newRowOffset = rects[updateRect].rows; newRowOffset <= threadId; ++newRowOffset)
-            {
-                int newRow = wrapRows(rects[updaterect].x, newRowOffset);
-
-                if (meta->canEvict(rowLastSeen[newRow]))
-                {
-                    meta->evicted(newRow);
-                    rowLastSeen[newRow] = frame;
-                    rects[updateRect].rows = newRowOffset;
-                }
-                else
-                {
-                    /* I can't make the rectangle any bigger, the collection will
-                     * have to use a different jigsaw instead.
-                     */
-                    return false;
-                }
-            }
         }
     }
 

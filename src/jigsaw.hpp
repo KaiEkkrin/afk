@@ -10,6 +10,7 @@
 #include <sstream>
 #include <vector>
 
+#include <boost/atomic.hpp>
 #include <boost/function.hpp>
 #include <boost/lockfree/queue.hpp>
 #include <boost/shared_ptr.hpp>
@@ -112,11 +113,24 @@ class AFK_JigsawSubRect
 {
 public:
     /* These co-ordinates are in piece units. */
-    int x, y, rows, columns;
+    int r, c, rows;
+    boost::atomic<int> columns;
 
     boost::mutex mut;
 
     AFK_JigsawSubRect();
+};
+
+
+/* This is an internal thing for indicating whether we grabbed a
+ * rectangle piece.
+ */
+enum AFK_JigsawPieceGrabStatus
+{
+    AFK_JIGSAW_RECT_OUT_OF_COLUMNS,
+    AFK_JIGSAW_RECT_OUT_OF_ROWS,
+    AFK_JIGSAW_RECT_WRAPPED,
+    AFK_JIGSAW_RECT_GRABBED
 };
 
 
@@ -166,18 +180,27 @@ protected:
      * sub-rectangle at any point.
      */
     std::vector<AFK_JigsawSubRect> rects[2];
-    unsigned int updateRect;
-    unsigned int drawRect;
+    unsigned int updateRs;
+    unsigned int drawRs;
 
     /* If clGlSharing is disabled, this is the event I need to wait on
      * before I can push data to the GL.
      */
     cl_event changeEvent;
 
-    /* This utility function returns the actual jigsaw row at a
-     * given rectangle x origin and offset (including wrapping).
+    /* This utility function attempts to assign a piece out of the
+     * current rectangle.
+     * It returns:
+     * - AFK_JIGSAW_RECT_OUT_OF_COLUMNS if it ran out of columns
+     * (you should start a new rectangle)
+     * - AFK_JIGSAW_RECT_OUT_OF_ROWS if it ran out of rows to use
+     * (you should give up and tell the collection to use the next
+     * jigsaw)
+     * - AFK_JIGSAW_RECT_WRAPPED if we hit the top of the jigsaw
+     * (you should try making a new rectangle at the bottom)
+     * - AFK_JIGSAW_RECT_GRABBED if it succeeded.
      */
-    int wrapRows(int origin, int offset) const;
+    enum AFK_JigsawPieceGrabStatus grabPieceFromRect(unsigned int rect, unsigned int threadId, const AFK_Frame& currentFrame);
 
 public:
     AFK_Jigsaw(
