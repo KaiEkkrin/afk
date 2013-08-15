@@ -134,7 +134,7 @@ void AFK_World::generateLandscapeArtwork(
     /* Assign a jigsaw piece for this tile, so that the
      * compute phase has somewhere to paint.
      */
-    AFK_JigsawPiece jigsawPiece = landscapeTile.getJigsawPiece(landscapeJigsaws);
+    AFK_JigsawPiece jigsawPiece = landscapeTile.getJigsawPiece(threadId, landscapeJigsaws);
 #if DEBUG_JIGSAW_ASSOCIATION
     AFK_DEBUG_PRINTL("Compute: " << tile << " -> " << jigsawPiece)
 #endif
@@ -501,14 +501,17 @@ AFK_World::AFK_World( const AFK_Config *config,
         texFormat,
         3,
         computer->getFirstDeviceProps(),
-        config->clGlSharing);
+        config->clGlSharing,
+        config->concurrency,
+        afk_newLandscapeJigsawMeta,
+        afk_core.computingFrame);
 
     /* Make sure I'm making best use of the jigsaw I got */
     tileCacheEntries = landscapeJigsaws->getPieceCount();
     unsigned int tileCacheBitness = calculateCacheBitness(tileCacheEntries);
 
     landscapeCache = new AFK_LANDSCAPE_CACHE(
-        tileCacheBitness, 8, AFK_HashTile(), tileCacheEntries / 2, 0xffffffffu);
+        tileCacheBitness, 8, AFK_HashTile());
 
     /* TODO Right now I don't have a sensible value for the
      * world cache size, because I'm not doing any exciting
@@ -679,7 +682,7 @@ void AFK_World::alterDetail(float adjustment)
      */
     float adj = std::max(std::min(adjustment, 1.2f), 0.85f);
 
-    if (adj > 1.0f || !(worldCache->wayOutsideTargetSize() || landscapeCache->wayOutsideTargetSize()))
+    if (adj > 1.0f || !worldCache->wayOutsideTargetSize())
         detailPitch = std::min(detailPitch * adjustment, maxDetailPitch);
 
     averageDetailPitch.push(detailPitch);
@@ -689,7 +692,6 @@ boost::unique_future<bool> AFK_World::updateWorld(void)
 {
     /* Maintenance. */
     worldCache->doEvictionIfNecessary();
-    landscapeCache->doEvictionIfNecessary();
 
     /* First, transform the protagonist location and its facing
      * into integer cell-space.
@@ -831,11 +833,6 @@ void AFK_World::doComputeTasks(void)
 
         /* TODO Can I keep this thing lying around long term ? */
         AFK_CLCHK(clReleaseSampler(jigsawYDispSampler))
-
-        for (unsigned int u = 0; u < unitCount; ++u)
-        {
-            jigsaw->pieceChanged(computeQueues[puzzle]->getUnit(u).piece);
-        }
 
         for (unsigned int i = 0; i < 3; ++i)
         {

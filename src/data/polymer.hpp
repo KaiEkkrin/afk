@@ -148,6 +148,15 @@ public:
         return chain[offset].compare_exchange_weak(expected, monomer);
     }
 
+    /* Erases a monomer from a specific place.
+     * Returns true if successful, else false.
+     */
+    bool erase(unsigned int hops, size_t baseHash, AFK_Monomer<KeyType, ValueType> *monomer)
+    {
+        size_t offset = chainOffset(hops, baseHash);
+        return chain[offset].compare_exchange_strong(monomer, NULL);
+    }
+
     /* Returns the next chain, or NULL if we're at the end. */
     AFK_PolymerChain<KeyType, ValueType> *next(void) const
     {
@@ -462,6 +471,34 @@ public:
         }
 
         return monomer->value;
+    }
+
+    /* Erases a map entry if it can find it.  Returns true if an entry
+     * was erased, else false.
+     * Unlike eraseSlot() below, this function does free the monomer.
+     */
+    bool erase(const KeyType& key)
+    {
+        size_t hash = wring(hasher(key));
+
+        for (unsigned int hops = 0; hops < targetContention; ++hops)
+        {
+            for (AFK_PolymerChain<KeyType, ValueType> *chain = chains;
+                chain; chain = chain->next())
+            {
+                AFK_Monomer<KeyType, ValueType> *candidateMonomer = chain->at(hops, hash);
+                if (candidateMonomer && candidateMonomer->key == key)
+                {
+                    if (chain->erase(hops, hash, candidateMonomer))
+                    {
+                        delete candidateMonomer;
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     /* TODO: Other functions I need to support:

@@ -27,6 +27,7 @@
 #include "gl_buffer.hpp"
 #include "jigsaw.hpp"
 #include "landscape_display_queue.hpp"
+#include "landscape_jigsaw.hpp"
 #include "landscape_tile.hpp"
 #include "shader.hpp"
 #include "shape.hpp"
@@ -164,7 +165,7 @@ protected:
      * I'm going to get a bit of overload?
      */
 #ifndef AFK_LANDSCAPE_CACHE
-#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile>
+#define AFK_LANDSCAPE_CACHE AFK_PolymerCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile>
 #endif
     AFK_LANDSCAPE_CACHE *landscapeCache;
 
@@ -312,6 +313,9 @@ public:
         unsigned int threadId,
         struct AFK_WorldCellGenParam param,
         AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>& queue);
+
+    friend boost::shared_ptr<AFK_JigsawMetadata> afk_newLandscapeJigsawMeta(
+        const Vec2<int>& _jigsawSize);
 };
 
 #endif /* _AFK_WORLD_H_ */

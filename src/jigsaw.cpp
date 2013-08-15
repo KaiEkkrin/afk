@@ -141,9 +141,25 @@ std::ostream& operator<<(std::ostream& os, const AFK_JigsawPiece& piece)
 
 /* AFK_JigsawSubRect implementation */
 
-AFK_JigsawSubRect():
-    r(0), c(0), rows(0), columns(0)
+AFK_JigsawSubRect::AFK_JigsawSubRect(int _r, int _c, int _rows):
+    r(_r), c(_c), rows(_rows)
 {
+    columns.store(0);
+}
+
+AFK_JigsawSubRect::AFK_JigsawSubRect(const AFK_JigsawSubRect& other):
+    r(other.r), c(other.c), rows(other.rows)
+{
+    columns.store(other.columns.load());
+}
+
+AFK_JigsawSubRect AFK_JigsawSubRect::operator=(const AFK_JigsawSubRect& other)
+{
+    r = other.r;
+    c = other.c;
+    rows = other.rows;
+    columns.store(other.columns.load());
+    return *this;
 }
 
 
@@ -151,7 +167,7 @@ AFK_JigsawSubRect():
 
 enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromRect(unsigned int rect, unsigned int threadId, const AFK_Frame& currentFrame, Vec2<int>& o_uv)
 {
-    if (threadId >= rects[updateRs][rect].rows)
+    if ((int)threadId >= rects[updateRs][rect].rows)
     {
         /* There aren't enough rows in this rectangle, try the
          * next one.
@@ -163,7 +179,7 @@ enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromRect(unsigned int rect, 
      * rectangle.
      * Let's see if I've got enough columns left...
      */
-    int row = threadId + rects[updateRs][rect].r;
+    int row = (int)threadId + rects[updateRs][rect].r;
     if (rowUsage[row] < jigsawSize.v[1])
     {
         /* We have!  Grab one. */
@@ -171,7 +187,7 @@ enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromRect(unsigned int rect, 
 
         /* If I just gave the rectangle another column, update its columns
          * field to match
-         * (I can do this atomically and don't need the lock)
+         * (I can do this atomically and don't need a lock)
          */
         int rectColumns = o_uv.v[1] - rects[updateRs][rect].c;
         rects[updateRs][rect].columns.compare_exchange_strong(rectColumns, rectColumns + 1);
@@ -188,6 +204,9 @@ enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromRect(unsigned int rect, 
 
 bool AFK_Jigsaw::startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRow, const AFK_Frame& currentFrame)
 {
+    /* Update the column counts with the last rectangle's. */
+    columnCounts.push(lastRect.columns.load());
+
     if (startNewRow ||
         columnCounts.get() > (jigsawSize.v[1] - (lastRect.c + lastRect.columns.load())))
     {
@@ -197,21 +216,23 @@ bool AFK_Jigsaw::startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRo
         if (newRow == jigsawSize.v[0]) newRow = 0;
 
         for (newRowCount = 0;
-            newRowCount < concurrency &&
+            newRowCount < (int)concurrency &&
                 (newRow + newRowCount) < jigsawSize.v[0] &&
                 meta->canEvict(rowLastSeen[newRow + newRowCount], currentFrame);
             ++newRowCount);
 
         if (newRowCount == 0) return false;
 
-        for (unsigned int evictRow = newRow; evictRow < newRow + newRowCount; ++evictRow)
+        for (int evictRow = newRow; evictRow < newRow + newRowCount; ++evictRow)
         {
             meta->evicted(evictRow);
             rowLastSeen[evictRow] = currentFrame;
             rowUsage[evictRow] = 0;
         }
 
-        rects[updateRs].push_back(rect);
+        AFK_JigsawSubRect newRect(
+            newRow, 0, newRow + newRowCount);
+        rects[updateRs].push_back(newRect);
     }
     else
     {
@@ -220,17 +241,16 @@ bool AFK_Jigsaw::startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRo
          * This operation also closes down the last rectangle (if you add columns to
          * it you'll trample the new one).
          */
-        AFK_JigsawSubRect newRect = AFK_JigsawSubRect(
+        AFK_JigsawSubRect newRect(
             lastRect.r,
             lastRect.c + lastRect.columns,
-            lastRect.rows,
-            0);
+            lastRect.rows);
         rects[updateRs].push_back(newRect);
 
         /* Make sure the current frames are up to date, and that the row usage
          * array is re-aligned to the start of this new rectangle.
          */
-        for (unsigned int row = newRect.r; row < (newRect.r + newRect.rows); ++row)
+        for (int row = newRect.r; row < (newRect.r + newRect.rows); ++row)
         {
             rowLastSeen[row] = currentFrame;
             rowUsage[row] = newRect.c;
@@ -382,10 +402,13 @@ AFK_Jigsaw::AFK_Jigsaw(
 
     /* Make a starting update rectangle. */
     if (!startNewRect(
-        AFK_JigsawSubRect(0, 0, 0, 0), false, currentFrame))
+        AFK_JigsawSubRect(0, 0, 0), false, currentFrame))
     {
         throw AFK_Exception("Cannot make starting rectangle");
     }
+
+    changeData = new std::vector<unsigned char>[texCount];
+    changeEvents = new std::vector<cl_event>[texCount];
 }
 
 AFK_Jigsaw::~AFK_Jigsaw()
@@ -395,15 +418,14 @@ AFK_Jigsaw::~AFK_Jigsaw()
 
     glDeleteTextures(texCount, glTex);
 
-    delete[] changes;
+    delete[] changeEvents;
+    delete[] changeData;
     delete[] clTex;
     delete[] glTex;
 }
 
 bool AFK_Jigsaw::grab(unsigned int threadId, const AFK_Frame& frame, Vec2<int>& o_uv)
 {
-    /* TODO Sort out the locking situation here. */
-
     /* Let's see if I can use an existing rectangle. */
     unsigned int rect;
     for (rect = 0; rect < rects[updateRs].size(); ++rect)
@@ -425,12 +447,13 @@ bool AFK_Jigsaw::grab(unsigned int threadId, const AFK_Frame& frame, Vec2<int>& 
     }
 
     /* I ran out of rectangles.  Try to start a new one. */
-    if (startNewRect(rects[updateRs][rect-1], concurrency, true, frame))
+    boost::unique_lock<boost::mutex> lock(updateRMut);
+    if (rect == rects[updateRs].size())
     {
-        if (grabPieceFromRect(rect, threadId, frame, o_uv) == AFK_JIGSAW_RECT_GRABBED) return true;
+        if (!startNewRect(rects[updateRs][rect-1], true, frame)) return false;
     }
 
-    return false;
+    return grabPieceFromRect(rect, threadId, frame, o_uv) == AFK_JIGSAW_RECT_GRABBED;
 }
 
 unsigned int AFK_Jigsaw::getTexCount(void) const
@@ -463,15 +486,13 @@ cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q)
         /* Make sure the change state is reset so that I can start
          * accumulating new changes
          */
-        changeData.clear();
-        changeEvents.clear();
+        for (unsigned int tex = 0; tex < texCount; ++tex)
+        {
+            changeData[tex].clear();
+            changeEvents[tex].clear();
+        }
     }
     return clTex;
-}
-
-void AFK_Jigsaw::pieceChanged(const Vec2<int>& piece)
-{
-    if (!clGlSharing) changedPieces.push_back(piece);
 }
 
 void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
@@ -490,35 +511,51 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
          * that does the rectangle writes) for a single tex?
          */
 
-        /* Read back all the changed pieces.
-         * TODO It would be best to enqueue these as async read-backs
-         * as they get reported to me, and then wait on the read-backs
-         * here.  But that's harder, so I'll do it like this first
-         */
-        if (changeEvents.size() < changedPieces.size())
-            changeEvents.resize(changedPieces.size());
-
+        /* Work out how much space I need to store all the changed data. */
         for (unsigned int tex = 0; tex < texCount; ++tex)
         {
+            unsigned int requiredChangeEventCount = 0;
+            size_t requiredChangeDataSize = 0;
             size_t pieceSizeInBytes = format[tex].texelSize * pieceSize.v[0] * pieceSize.v[1];
-            size_t requiredChangedPiecesSize = (pieceSizeInBytes * changedPieces.size());
-            if (changes[tex].size() < requiredChangedPiecesSize)
-                changes[tex].resize(requiredChangedPiecesSize);
 
-            for (unsigned int s = 0; s < changedPieces.size(); ++s)
+            for (unsigned int rect = 0; rect < rects[drawRs].size(); ++rect)
             {
+                size_t rectSizeInBytes = pieceSizeInBytes *
+                    rects[drawRs][rect].rows * rects[drawRs][rect].columns.load();
+                requiredChangeDataSize += rectSizeInBytes;
+                ++requiredChangeEventCount;
+            }
+
+            changeEvents[tex].resize(requiredChangeEventCount);
+            changeData[tex].resize(requiredChangeDataSize);
+
+            /* Now, read back all the pieces, appending the data to `changeData'
+             * in order.
+             * So long as `bindTexture' writes them in the same order everything
+             * will be okay!
+             */
+            unsigned int changeEvent = 0;
+            size_t changeDataOffset = 0;
+            for (unsigned int rect = 0; rect < rects[drawRs].size(); ++rect)
+            {
+                size_t rectSizeInBytes = pieceSizeInBytes *
+                    rects[drawRs][rect].rows * rects[drawRs][rect].columns.load();
+
                 size_t origin[3];
                 size_t region[3];
 
-                origin[0] = changedPieces[s].v[0] * pieceSize.v[0];
-                origin[1] = changedPieces[s].v[1] * pieceSize.v[1];
+                origin[0] = rects[drawRs][rect].r * pieceSize.v[0];
+                origin[1] = rects[drawRs][rect].c * pieceSize.v[1];
                 origin[2] = 0;
 
-                region[0] = pieceSize.v[0];
-                region[1] = pieceSize.v[1];
+                region[0] = rects[drawRs][rect].rows * pieceSize.v[0];
+                region[1] = rects[drawRs][rect].columns.load() * pieceSize.v[1];
                 region[2] = 1;
 
-                AFK_CLCHK(clEnqueueReadImage(q, clTex[tex], CL_FALSE, origin, region, 0 /* pieceSize.v[0] * format.texelSize */, 0, &changes[tex][s * pieceSizeInBytes], 0, NULL, &changeEvents[s]))
+                AFK_CLCHK(clEnqueueReadImage(
+                    q, clTex[tex], CL_FALSE, origin, region, 0, 0, &changeData[tex][changeDataOffset], 0, NULL, &changeEvents[tex][changeEvent]))
+                ++changeEvent;
+                changeDataOffset += rectSizeInBytes;
             }
         }
 #endif
@@ -534,33 +571,30 @@ void AFK_Jigsaw::bindTexture(unsigned int tex)
 #if FIXED_TEST_TEXTURE_DATA
 #else
         /* Wait for the change readbacks to be finished. */
-        clWaitForEvents(changeEvents.size(), &changeEvents[0]);
+        clWaitForEvents(changeEvents[tex].size(), &changeEvents[tex][0]);
 
         /* Push all the changed pieces into the GL texture. */
         size_t pieceSizeInBytes = format[tex].texelSize * pieceSize.v[0] * pieceSize.v[1];
-        for (unsigned int s = 0; s < changedPieces.size(); ++s)
+        size_t changeDataOffset = 0;
+        for (unsigned int rect = 0; rect < rects[drawRs].size(); ++rect)
         {
+            size_t rectSizeInBytes = pieceSizeInBytes *
+                rects[drawRs][rect].rows * rects[drawRs][rect].columns.load();
+
             glTexSubImage2D(
                 GL_TEXTURE_2D, 0,
-                changedPieces[s].v[0] * pieceSize.v[0],
-                changedPieces[s].v[1] * pieceSize.v[1],
-                pieceSize.v[0],
-                pieceSize.v[1],
+                rects[drawRs][rect].r * pieceSize.v[0],
+                rects[drawRs][rect].c * pieceSize.v[1],
+                rects[drawRs][rect].rows * pieceSize.v[0],
+                rects[drawRs][rect].columns.load() * pieceSize.v[1],
                 format[tex].glFormat,
                 format[tex].glDataType,
-                &changes[tex][s * pieceSizeInBytes]);
+                &changeData[tex][changeDataOffset]);
+
+            changeDataOffset += rectSizeInBytes;
         }
 #endif
     }
-
-    /* TODO Move this into world -- it'll be texture specific */
-#if 0
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-#endif
 }
 
 void AFK_Jigsaw::flipRects(const AFK_Frame& currentFrame)
@@ -585,12 +619,16 @@ AFK_JigsawCollection::AFK_JigsawCollection(
     enum AFK_JigsawFormat *texFormat,
     unsigned int _texCount,
     const AFK_ClDeviceProperties& _clDeviceProps,
-    bool _clGlSharing):
+    bool _clGlSharing,
+    unsigned int _concurrency,
+    boost::function<boost::shared_ptr<AFK_JigsawMetadata> (const Vec2<int>&)> _newMeta,
+    const AFK_Frame& currentFrame):
         texCount(_texCount),
         pieceSize(_pieceSize),
         pieceCount(_pieceCount),
         clGlSharing(_clGlSharing),
-        box(_pieceCount)
+        concurrency(_concurrency),
+        newMeta(_newMeta)
 {
     std::cout << "AFK_JigsawCollection: Requested " << std::dec << pieceCount << " pieces of size " << pieceSize << ": " << std::endl;
 
@@ -598,20 +636,23 @@ AFK_JigsawCollection::AFK_JigsawCollection(
     for (unsigned int tex = 0; tex < texCount; ++tex)
         format.push_back(AFK_JigsawFormatDescriptor(texFormat[tex]));
 
-    /* Figure out a jigsaw size. 
+    /* Figure out a jigsaw size.  I want the rows to always be a
+     * round multiple of `concurrency' to avoid breaking rectangles
+     * apart.
      * For this I need to try all the formats: I stop testing
      * when any one of the formats fails, because all the
      * jigsaw textures need to be identical aside from their
      * texels
      */
-    jigsawSize = afk_vec2<int>(1, 1);
+    Vec2<int> startingJigsawSize = afk_vec2<int>(concurrency, concurrency);
+    jigsawSize = startingJigsawSize;
     GLuint glProxyTex[texCount];
     glGenTextures(texCount, glProxyTex);
     GLint texWidth;
     bool dimensionsOK = true;
     for (Vec2<int> testJigsawSize = jigsawSize;
         dimensionsOK && jigsawSize.v[0] * jigsawSize.v[1] < pieceCount;
-        testJigsawSize = testJigsawSize * 2)
+        testJigsawSize += startingJigsawSize)
     {
         dimensionsOK = (
             testJigsawSize.v[0] <= (int)_clDeviceProps.image2DMaxWidth &&
@@ -668,11 +709,10 @@ AFK_JigsawCollection::AFK_JigsawCollection(
             jigsawSize,
             &format[0],
             texCount,
-            clGlSharing));
-
-        for (int x = 0; x < jigsawSize.v[0]; ++x)
-            for (int y = 0; y < jigsawSize.v[1]; ++y)
-                box.push(AFK_JigsawPiece(afk_vec2<int>(x, y), j));
+            clGlSharing,
+            newMeta(jigsawSize),
+            concurrency,
+            currentFrame));
     }
 }
 
@@ -690,22 +730,48 @@ int AFK_JigsawCollection::getPieceCount(void) const
     return pieceCount;
 }
 
-AFK_JigsawPiece AFK_JigsawCollection::grab(void)
+AFK_JigsawPiece AFK_JigsawCollection::grab(unsigned int threadId, const AFK_Frame& frame)
 {
-    AFK_JigsawPiece piece;
-    if (!box.pop(piece))
+    Vec2<int> uv;
+
+    int puzzle;
+    for (puzzle = 0; puzzle < (int)puzzles.size(); ++puzzle)
     {
-        /* TODO Add another puzzle to the collection. */
-        throw AFK_Exception("Ran out of pieces");
+        if (puzzles[puzzle]->grab(threadId, frame, uv))
+        {
+            return AFK_JigsawPiece(uv, puzzle);
+        }
     }
 
-    return piece;
-}
+    /* If we get here, I need to add a new jigsaw.
+     * TODO This operation needs an OpenCL context, which I
+     * currently don't have in the enumerator threads.
+     * More plumbing will be required to add one.
+     * For now I'm just going to hope the original
+     * jigsaw(s) don't run out of room, and throw here.
+     */
+    throw AFK_Exception("grab() ran out of jigsaws");
+#if 0
+    boost::unique_lock<boost::mutex> lock(mut);
+    if (puzzle == (int)puzzles.size())
+    {
+        AFK_Jigsaw *newJigsaw = new AFK_Jigsaw(
+            ctxt,
+            pieceSize,
+            jigsawSize,
+            &format[0],
+            texCount,
+            clGlSharing,
+            newMeta(jigsawSize),
+            concurrency,
+            currentFrame);
 
-void AFK_JigsawCollection::replace(AFK_JigsawPiece piece)
-{
-    if (piece == AFK_JigsawPiece()) throw AFK_Exception("AFK_JigsawCollection: Called replace() with the null piece");
-    box.push(piece);
+        puzzles.push_back(newJigsaw);
+    }
+    if (!puzzles[puzzle]->grab(threadId, frame, uv))
+        throw AFK_Exception("Unable to grab piece from new jigsaw");
+    return AFK_JigsawPiece(uv, puzzle);
+#endif
 }
 
 AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(const AFK_JigsawPiece& piece) const

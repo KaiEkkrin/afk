@@ -14,6 +14,7 @@
 
 #include "data/claimable.hpp"
 #include "data/frame.hpp"
+#include "data/polymer_cache.hpp"
 #include "def.hpp"
 #include "display.hpp"
 #include "jigsaw.hpp"
@@ -26,7 +27,7 @@
 #define TERRAIN_TILES_PER_TILE 5
 
 #ifndef AFK_LANDSCAPE_CACHE
-#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile>
+#define AFK_LANDSCAPE_CACHE AFK_PolymerCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile>
 #endif
 
 class AFK_LandscapeDisplayUnit;
@@ -98,7 +99,7 @@ public:
         const AFK_LANDSCAPE_CACHE *cache) const;
 
     /* Assigns a jigsaw piece to this tile. */
-    AFK_JigsawPiece getJigsawPiece(AFK_JigsawCollection *_jigsaws);
+    AFK_JigsawPiece getJigsawPiece(unsigned int threadId, AFK_JigsawCollection *_jigsaws);
 
     bool hasArtwork() const;
     float getYBoundLower() const;

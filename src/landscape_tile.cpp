@@ -25,8 +25,6 @@ AFK_LandscapeTile::AFK_LandscapeTile():
 
 AFK_LandscapeTile::~AFK_LandscapeTile()
 {
-    if (jigsaws && jigsawPiece != AFK_JigsawPiece())
-        jigsaws->replace(jigsawPiece);
 }
 
 bool AFK_LandscapeTile::hasTerrainDescriptor() const
@@ -100,11 +98,11 @@ void AFK_LandscapeTile::buildTerrainList(
     }
 }
 
-AFK_JigsawPiece AFK_LandscapeTile::getJigsawPiece(AFK_JigsawCollection *_jigsaws)
+AFK_JigsawPiece AFK_LandscapeTile::getJigsawPiece(unsigned int threadId, AFK_JigsawCollection *_jigsaws)
 {
     if (hasArtwork()) throw AFK_Exception("Tried to overwrite a tile's artwork");
     jigsaws = _jigsaws;
-    jigsawPiece = jigsaws->grab();
+    jigsawPiece = jigsaws->grab(threadId, afk_core.computingFrame);
     return jigsawPiece;
 }
 

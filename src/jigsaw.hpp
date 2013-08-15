@@ -96,8 +96,7 @@ BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_JigsawPiece>::value));
 class AFK_JigsawMetadata
 {
 public:
-    virtual void assigned(const Vec2<int>& uv) = 0;
-    virtual bool canEvict(const int row, const AFK_Frame& frame) = 0;
+    virtual bool canEvict(const AFK_Frame& lastSeen, const AFK_Frame& currentFrame) = 0;
 
     /* All pieces with u=row are evicted. */
     virtual void evicted(const int row) = 0;
@@ -116,10 +115,13 @@ public:
      * During usage, a rectangle can't grow in rows, but it
      * can grow in columns.
      */
-    const int r, c, rows;
+    int r, c, rows;
     boost::atomic<int> columns;
 
     AFK_JigsawSubRect(int _r, int _c, int _rows);
+
+    AFK_JigsawSubRect(const AFK_JigsawSubRect& other);
+    AFK_JigsawSubRect operator=(const AFK_JigsawSubRect& other);
 };
 
 
@@ -185,22 +187,27 @@ protected:
     unsigned int updateRs;
     unsigned int drawRs;
 
+    /* This is used to control access to the update rectangles. */
+    boost::mutex updateRMut;
+
     /* This is the average number of columns that rectangles seem to
      * be using.  It's used as a heuristic to decide whether to start
      * rectangles on new rows or not.
      * Update it in flipRects().
      */
-    AFK_MovingAverage<unsigned int> columnCounts;
+    AFK_MovingAverage<int> columnCounts;
 
     /* If clGlSharing is disabled, this is the rectangle data I've
      * read back from the CL and that needs to go into the GL.
+     * There is one vector per texture.
      */
-    std::vector<unsigned char> changeData;
+    std::vector<unsigned char> *changeData;
 
-    /* If clGlSharing is disabled, this is the event I need to wait on
-     * before I can push data to the GL.
+    /* If clGlSharing is disabled, these are the events I need to
+     * wait on before I can push data to the GL.
+     * Again, there is one vector per texture.
      */
-    cl_event changeEvent;
+    std::vector<cl_event> *changeEvents;
 
     /* This utility function attempts to assign a piece out of the
      * current rectangle.
@@ -296,12 +303,13 @@ protected:
     Vec2<int> jigsawSize;
     int pieceCount;
     const bool clGlSharing;
+    const unsigned int concurrency;
 
     std::vector<AFK_Jigsaw*> puzzles;
     boost::mutex mut;
 
     /* How to make a new metadata object for a new puzzle. */
-    boost::function<boost::shared_ptr<AFK_JigsawMetadata> (void)> newMeta;
+    boost::function<boost::shared_ptr<AFK_JigsawMetadata> (const Vec2<int>&)> newMeta;
 
 public:
     AFK_JigsawCollection(
@@ -312,14 +320,18 @@ public:
         unsigned int _texCount,
         const AFK_ClDeviceProperties& _clDeviceProps,
         bool _clGlSharing,
-        boost::function<boost::shared_ptr<AFK_JigsawMetadata> (void)> _newMeta);
+        unsigned int concurrency,
+        boost::function<boost::shared_ptr<AFK_JigsawMetadata> (const Vec2<int>&)> _newMeta,
+        const AFK_Frame& currentFrame);
     virtual ~AFK_JigsawCollection();
+
+    int getPieceCount(void) const;
 
     /* Gives you a piece.  This will usually be quick,
      * but it may stall if we need to add a new jigsaw
      * to the collection.
      */
-    AFK_JigsawPiece grab(unsigned int threadId);
+    AFK_JigsawPiece grab(unsigned int threadId, const AFK_Frame& frame);
 
     /* Gets you the puzzle that matches a particular piece. */
     AFK_Jigsaw *getPuzzle(const AFK_JigsawPiece& piece) const;

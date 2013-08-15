@@ -42,6 +42,11 @@ public:
         return polymer[key];
     }
 
+    virtual bool erase(const Key& key)
+    {
+        return polymer.erase(key);
+    }
+
     /* I'll want to try this some day ? */
 #if 0
     virtual bool findDuplicate(const Key& key, const Value& value, Value& o_duplicateValue)
