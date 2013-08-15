@@ -2,15 +2,20 @@
 
 #include "computer.hpp"
 #include "core.hpp"
+#include "debug.hpp"
 #include "display.hpp"
 #include "exception.hpp"
 #include "jigsaw.hpp"
 
 #include <climits>
 #include <cstring>
+#include <iostream>
 
 
 #define FIXED_TEST_TEXTURE_DATA 0
+
+#define GRAB_DEBUG 0
+#define RECT_DEBUG 1
 
 
 /* AFK_JigsawFormatDescriptor implementation */
@@ -162,16 +167,28 @@ AFK_JigsawSubRect AFK_JigsawSubRect::operator=(const AFK_JigsawSubRect& other)
     return *this;
 }
 
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawSubRect& sr)
+{
+    return os << "JigsawSubRect(r=" << std::dec << sr.r << ", c=" << sr.c << ", rows=" << sr.rows << ", columns=" << sr.columns.load() << ")";
+}
+
 
 /* AFK_Jigsaw implementation */
 
 enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromRect(unsigned int rect, unsigned int threadId, const AFK_Frame& currentFrame, Vec2<int>& o_uv)
 {
+#if GRAB_DEBUG
+    AFK_DEBUG_PRINTL("grabPieceFromRect: with rect " << rect << "( " << rects[updateRs][rect] << " and threadId " << threadId)
+#endif
+
     if ((int)threadId >= rects[updateRs][rect].rows)
     {
         /* There aren't enough rows in this rectangle, try the
          * next one.
          */
+#if GRAB_DEBUG
+        AFK_DEBUG_PRINTL("  out of rows")
+#endif
         return AFK_JIGSAW_RECT_OUT_OF_ROWS;
     }
 
@@ -192,18 +209,29 @@ enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromRect(unsigned int rect, 
         int rectColumns = o_uv.v[1] - rects[updateRs][rect].c;
         rects[updateRs][rect].columns.compare_exchange_strong(rectColumns, rectColumns + 1);
 
+#if GRAB_DEBUG
+        AFK_DEBUG_PRINTL("  grabbed: " << o_uv)
+#endif
+
         return AFK_JIGSAW_RECT_GRABBED;
     }
     else
     {
         /* We ran out of columns, you need to start a new rectangle.
          */
+#if GRAB_DEBUG
+        AFK_DEBUG_PRINTL("  out of columns")
+#endif
         return AFK_JIGSAW_RECT_OUT_OF_COLUMNS;
     }
 }
 
 bool AFK_Jigsaw::startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRow, const AFK_Frame& currentFrame)
 {
+#if RECT_DEBUG
+    AFK_DEBUG_PRINTL("startNewRect: starting new rectangle after " << lastRect)
+#endif
+
     /* Update the column counts with the last rectangle's. */
     columnCounts.push(lastRect.columns.load());
 
@@ -221,7 +249,13 @@ bool AFK_Jigsaw::startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRo
                 meta->canEvict(rowLastSeen[newRow + newRowCount], currentFrame);
             ++newRowCount);
 
-        if (newRowCount == 0) return false;
+        if (newRowCount < (int)concurrency)
+        {
+#if RECT_DEBUG
+            AFK_DEBUG_PRINTL("  only " << newRowCount << " rows available: no new rectangle for you")
+#endif
+            return false;
+        }
 
         for (int evictRow = newRow; evictRow < newRow + newRowCount; ++evictRow)
         {
@@ -231,7 +265,10 @@ bool AFK_Jigsaw::startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRo
         }
 
         AFK_JigsawSubRect newRect(
-            newRow, 0, newRow + newRowCount);
+            newRow, 0, newRowCount);
+#if RECT_DEBUG
+        AFK_DEBUG_PRINTL("  new rectangle at: " << newRect)
+#endif
         rects[updateRs].push_back(newRect);
     }
     else
@@ -244,7 +281,10 @@ bool AFK_Jigsaw::startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRo
         AFK_JigsawSubRect newRect(
             lastRect.r,
             lastRect.c + lastRect.columns,
-            lastRect.rows);
+            concurrency);
+#if RECT_DEBUG
+            AFK_DEBUG_PRINTL("  new rectangle at: " << newRect)
+#endif
         rects[updateRs].push_back(newRect);
 
         /* Make sure the current frames are up to date, and that the row usage
@@ -783,5 +823,11 @@ AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(const AFK_JigsawPiece& piece) const
 AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(int puzzle) const
 {
     return puzzles[puzzle];
+}
+
+void AFK_JigsawCollection::flipRects(const AFK_Frame& currentFrame)
+{
+    for (int puzzle = 0; puzzle < (int)puzzles.size(); ++puzzle)
+        puzzles[puzzle]->flipRects(currentFrame);
 }
 

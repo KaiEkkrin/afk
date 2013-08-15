@@ -467,8 +467,7 @@ AFK_World::AFK_World( const AFK_Config *config,
     float _maxDistance,
     unsigned int worldCacheSize,
     unsigned int tileCacheSize,
-    unsigned int maxShapeSize,
-    cl_context ctxt):
+    unsigned int maxShapeSize):
         startingDetailPitch         (config->startingDetailPitch),
         maxDetailPitch              (config->maxDetailPitch),
         detailPitch                 (config->startingDetailPitch), /* This is a starting point */
@@ -480,34 +479,7 @@ AFK_World::AFK_World( const AFK_Config *config,
 {
     /* Set up the caches and generator gang. */
 
-    unsigned int tileCacheEntries = tileCacheSize / lSizes.tSize;
-
-    Vec2<int> pieceSize = afk_vec2<int>((int)lSizes.tDim, (int)lSizes.tDim);
-
-    /* TODO: The below switch from GL_RGBA32F to GL_RGBA fixed things.
-     * I get the impression that having more than 32 bits per pixel
-     * might be unwise.  So next, I should try splitting the jigsaw
-     * into one RGB colour jigsaw and one R32F y-displacement jigsaw.
-     */
-    enum AFK_JigsawFormat texFormat[3];
-    texFormat[0] = AFK_JIGSAW_FLOAT32;          /* Y displacement */
-    texFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;    /* Colour */
-    texFormat[2] = AFK_JIGSAW_4HALF32;          /* Normal */
-
-    landscapeJigsaws = new AFK_JigsawCollection(
-        ctxt,
-        pieceSize,
-        (int)tileCacheEntries,
-        texFormat,
-        3,
-        computer->getFirstDeviceProps(),
-        config->clGlSharing,
-        config->concurrency,
-        afk_newLandscapeJigsawMeta,
-        afk_core.computingFrame);
-
-    /* Make sure I'm making best use of the jigsaw I got */
-    tileCacheEntries = landscapeJigsaws->getPieceCount();
+    tileCacheEntries = tileCacheSize / lSizes.tSize;
     unsigned int tileCacheBitness = calculateCacheBitness(tileCacheEntries);
 
     landscapeCache = new AFK_LANDSCAPE_CACHE(
@@ -618,11 +590,11 @@ AFK_World::~AFK_World()
      */
     delete genGang;
 
+    if (landscapeJigsaws) delete landscapeJigsaws;
     delete landscapeCache;
     delete worldCache;
     delete shape;
 
-    delete landscapeJigsaws;
     delete shapeVsQueue;
     delete shapeIsQueue;
 
@@ -638,6 +610,33 @@ AFK_World::~AFK_World()
     delete landscapeYReduce;
 
     delete displayTimer;
+}
+
+void AFK_World::initJigsaw(cl_context ctxt, const AFK_Computer *computer, const AFK_Config *config)
+{
+    Vec2<int> pieceSize = afk_vec2<int>((int)lSizes.tDim, (int)lSizes.tDim);
+
+    /* TODO: The below switch from GL_RGBA32F to GL_RGBA fixed things.
+     * I get the impression that having more than 32 bits per pixel
+     * might be unwise.  So next, I should try splitting the jigsaw
+     * into one RGB colour jigsaw and one R32F y-displacement jigsaw.
+     */
+    enum AFK_JigsawFormat texFormat[3];
+    texFormat[0] = AFK_JIGSAW_FLOAT32;          /* Y displacement */
+    texFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;    /* Colour */
+    texFormat[2] = AFK_JIGSAW_4HALF32;          /* Normal */
+
+    landscapeJigsaws = new AFK_JigsawCollection(
+        ctxt,
+        pieceSize,
+        (int)tileCacheEntries,
+        texFormat,
+        3,
+        computer->getFirstDeviceProps(),
+        config->clGlSharing,
+        config->concurrency,
+        afk_newLandscapeJigsawMeta,
+        afk_core.computingFrame);
 }
 
 void AFK_World::enqueueSubcells(
@@ -662,7 +661,7 @@ void AFK_World::enqueueSubcells(
     (*genGang) << cellParam;
 }
 
-void AFK_World::flipRenderQueues(void)
+void AFK_World::flipRenderQueues(const AFK_Frame& newFrame)
 {
     /* Verify that the concurrency control business has done
      * its job correctly.
@@ -672,6 +671,7 @@ void AFK_World::flipRenderQueues(void)
 
     landscapeComputeFair.flipQueues();
     landscapeDisplayFair.flipQueues();
+    landscapeJigsaws->flipRects(newFrame);
 }
 
 void AFK_World::alterDetail(float adjustment)

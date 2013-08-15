@@ -60,6 +60,7 @@ public:
     }
 
     const long long get() const { return id; }
+    const bool getNever() const { return never; }
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_Frame& frame);
 };

@@ -122,8 +122,11 @@ public:
 
     AFK_JigsawSubRect(const AFK_JigsawSubRect& other);
     AFK_JigsawSubRect operator=(const AFK_JigsawSubRect& other);
+
+    friend std::ostream& operator<<(std::ostream& os, const AFK_JigsawSubRect& sr);
 };
 
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawSubRect& sr);
 
 /* This is an internal thing for indicating whether we grabbed a
  * rectangle piece.
@@ -338,6 +341,9 @@ public:
 
     /* Gets you a numbered puzzle. */
     AFK_Jigsaw *getPuzzle(int puzzle) const;
+
+    /* Flips the rectangles in all the jigsaws. */
+    void flipRects(const AFK_Frame& currentFrame);
 };
 
 

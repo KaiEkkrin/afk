@@ -191,7 +191,7 @@ void afk_idle(void)
 
             /* Flip the buffers and bump the computing frame */
             afk_core.window->swapBuffers();
-            afk_core.world->flipRenderQueues();
+            afk_core.world->flipRenderQueues(afk_core.renderingFrame);
             afk_core.computingUpdateDelayed = false;
             afk_core.computingFrame = afk_core.renderingFrame;
             afk_core.renderingFrame.increment();
@@ -337,8 +337,8 @@ void AFK_Core::loop(void)
         worldMaxDistance,   /* maxDistance -- zFar must be a lot bigger or things will vanish */
         clGlMaxAllocSize / 4,
         clGlMaxAllocSize / 4,
-        clGlMaxAllocSize / 32, /* not much going on in the way of shapes right now */
-        ctxt);
+        clGlMaxAllocSize / 32); /* not much going on in the way of shapes right now */
+    world->initJigsaw(ctxt, computer, config);
     computer->unlock();
     protagonist = new AFK_DisplayedProtagonist();
 

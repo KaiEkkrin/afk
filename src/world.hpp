@@ -168,6 +168,7 @@ protected:
 #define AFK_LANDSCAPE_CACHE AFK_PolymerCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile>
 #endif
     AFK_LANDSCAPE_CACHE *landscapeCache;
+    unsigned int tileCacheEntries;
 
     /* Terrain compute kernels. */
     cl_kernel terrainKernel;
@@ -258,11 +259,19 @@ public:
         float _maxDistance,
         unsigned int worldCacheSize, /* in bytes */
         unsigned int tileCacheSize, /* also in bytes */
-        unsigned int maxShapeSize, /* likewise */
-        cl_context ctxt);
+        unsigned int maxShapeSize); /* likewise */
     virtual ~AFK_World();
 
-    /* Helper for the above -- requests a particular cell
+    /* Initialises the jigsaw.  I can't do this at constructor
+     * time because the meta callback requires afk_core.world
+     * to exist.
+     */
+    void initJigsaw(
+        cl_context ctxt,
+        const AFK_Computer *computer,
+        const AFK_Config *config);
+
+    /* Helper for the below -- requests a particular cell
      * at an offset (in cell scale multiples) from the
      * supplied one.
      */
@@ -273,7 +282,7 @@ public:
         const AFK_Camera& camera);
 
     /* Call when we're about to start a new frame. */
-    void flipRenderQueues(void);
+    void flipRenderQueues(const AFK_Frame& newFrame);
 
     /* For changing the level of detail.  Values >1 decrease
      * it.  Values <1 increase it.
