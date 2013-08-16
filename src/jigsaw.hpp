@@ -13,7 +13,6 @@
 #include <boost/atomic.hpp>
 #include <boost/function.hpp>
 #include <boost/lockfree/queue.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
@@ -89,20 +88,6 @@ BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_JigsawPiece>::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_JigsawPiece>::value));
 
 
-/* This abstract class encapsulates the metadata associated with a
- * jigsaw piece.  The code that interfaces with the Jigsaw needs to
- * supply appropriate objects.
- */
-class AFK_JigsawMetadata
-{
-public:
-    virtual bool canEvict(const AFK_Frame& lastSeen, const AFK_Frame& currentFrame) = 0;
-
-    /* All pieces with u=row are evicted. */
-    virtual void evicted(const int row) = 0;
-};
-
-
 /* This class encapsulates a sub-rectangle within the jigsaw that
  * contains all the updates from a frame (we write to it) or all
  * the draws (we use it to sort out rectangular reads and writes
@@ -135,7 +120,6 @@ enum AFK_JigsawPieceGrabStatus
 {
     AFK_JIGSAW_RECT_OUT_OF_COLUMNS,
     AFK_JIGSAW_RECT_OUT_OF_ROWS,
-    AFK_JIGSAW_RECT_WRAPPED,
     AFK_JIGSAW_RECT_GRABBED
 };
 
@@ -157,10 +141,14 @@ protected:
     const Vec2<int> jigsawSize; /* number of pieces horizontally and vertically */
     const bool clGlSharing;
 
-    /* Each row of the jigsaw is associated with the frame it was
-     * last seen, so that I can decide whether I can evict a row.
+    /* Each row of the jigsaw has a timestamp.  When the sweep
+     * comes around and updates it, that indicates that any old
+     * tiles holding pieces with an old timestamp should drop them
+     * and re-generate their tiles: the row is about to be re-used.
+     * (If I don't do forced eviction from the jigsaw like this,
+     * I'll end up with jigsaw fragmentation problems.)
      */
-    std::vector<AFK_Frame> rowLastSeen;
+    std::vector<AFK_Frame> rowTimestamp;
 
     /* We fill each jigsaw row left to right, and only ever clear
      * an entire row at a time.  This stops me from having to track
@@ -172,9 +160,6 @@ protected:
      * most recent update's rectangle, of course...
      */
     std::vector<int> rowUsage;
-
-    /* Here's the jigsaw metadata. */
-    boost::shared_ptr<AFK_JigsawMetadata> meta;
 
     /* Each frame, we assign new pieces out of sub-rectangles of
      * the jigsaw.  We try to make it `concurrency' rows high by
@@ -189,6 +174,14 @@ protected:
     std::vector<AFK_JigsawSubRect> rects[2];
     unsigned int updateRs;
     unsigned int drawRs;
+
+    /* This is the sweep position, which tracks ahead of the update
+     * rectangles.  Every flip, we should move the sweep position up
+     * and re-timestamp all the rows it passes, telling the enumerators
+     * to-regenerate the pieces of any tiles that still have pieces
+     * within the sweep.
+     */
+    int sweepRow;
 
     /* This is used to control access to the update rectangles. */
     boost::mutex updateRMut;
@@ -220,11 +213,19 @@ protected:
      * - AFK_JIGSAW_RECT_OUT_OF_ROWS if it ran out of rows to use
      * (you should give up and tell the collection to use the next
      * jigsaw)
-     * - AFK_JIGSAW_RECT_WRAPPED if we hit the top of the jigsaw
-     * (you should try making a new rectangle at the bottom)
      * - AFK_JIGSAW_RECT_GRABBED if it succeeded.
      */
-    enum AFK_JigsawPieceGrabStatus grabPieceFromRect(unsigned int rect, unsigned int threadId, const AFK_Frame& currentFrame, Vec2<int>& o_uv);
+    enum AFK_JigsawPieceGrabStatus grabPieceFromRect(
+        unsigned int rect,
+        unsigned int threadId,
+        Vec2<int>& o_uv,
+        AFK_Frame& o_timestamp);
+
+    /* Helper for the below -- having picked a new rectangle,
+     * pushes it onto the update list and sets the row usage
+     * properly.
+     */
+    void pushNewRect(AFK_JigsawSubRect rect);
 
     /* This utility function attempts to start a new rectangle,
      * pushing it back onto rects[updateRs], evicting anything
@@ -238,7 +239,13 @@ protected:
      * Only actually returns an error if it can't get any rows at all.
      * Returns true on success, else false.
      */
-    bool startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRow, const AFK_Frame& currentFrame);
+    bool startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRow);
+
+    /* This utility function returns the new sweep target that I
+     * should hit for this frame.  Give it the row after the latest
+     * update rectangle.
+     */
+    int getSweepTarget(int latestRow) const;
 
 public:
     AFK_Jigsaw(
@@ -248,12 +255,10 @@ public:
         const AFK_JigsawFormatDescriptor *_format,
         unsigned int _texCount,
         bool _clGlSharing,
-        boost::shared_ptr<AFK_JigsawMetadata> _meta,
-        unsigned int _concurrency,
-        const AFK_Frame& currentFrame);
+        unsigned int _concurrency);
     virtual ~AFK_Jigsaw();
 
-    /* Acquires a new piece for your thread
+    /* Acquires a new piece for your thread.
      * If this function returns false, this jigsaw has run out of
      * space and the JigsawCollection needs to use a different one.
      * This function should be thread safe so long as you don't
@@ -262,7 +267,13 @@ public:
      * returning false each frame, so that it doesn't send threads
      * back to the wrong jigsaw after it ran out of space.
      */
-    bool grab(unsigned int threadId, const AFK_Frame& frame, Vec2<int>& o_uv);
+    bool grab(unsigned int threadId, Vec2<int>& o_uv, AFK_Frame& o_timestamp);
+
+    /* Returns the time your piece was last swept.
+     * If you retrieved it at that time or later, you're OK and you
+     * can hang on to it.
+     */
+    AFK_Frame getTimestamp(const Vec2<int>& uv) const;
 
     unsigned int getTexCount(void) const;
 
@@ -315,9 +326,6 @@ protected:
 
     boost::mutex mut;
 
-    /* How to make a new metadata object for a new puzzle. */
-    boost::function<boost::shared_ptr<AFK_JigsawMetadata> (const Vec2<int>&)> newMeta;
-
 public:
     AFK_JigsawCollection(
         cl_context ctxt,
@@ -327,9 +335,7 @@ public:
         unsigned int _texCount,
         const AFK_ClDeviceProperties& _clDeviceProps,
         bool _clGlSharing,
-        unsigned int concurrency,
-        boost::function<boost::shared_ptr<AFK_JigsawMetadata> (const Vec2<int>&)> _newMeta,
-        const AFK_Frame& currentFrame);
+        unsigned int concurrency);
     virtual ~AFK_JigsawCollection();
 
     int getPieceCount(void) const;
@@ -337,8 +343,11 @@ public:
     /* Gives you a piece.  This will usually be quick,
      * but it may stall if we need to add a new jigsaw
      * to the collection.
+     * Also fills out `o_timestamp' with the timestamp of the row
+     * your piece came from so you can find out when it's
+     * going to be swept.
      */
-    AFK_JigsawPiece grab(unsigned int threadId, const AFK_Frame& frame);
+    AFK_JigsawPiece grab(unsigned int threadId, AFK_Frame& o_timestamp);
 
     /* Gets you the puzzle that matches a particular piece. */
     AFK_Jigsaw *getPuzzle(const AFK_JigsawPiece& piece) const;

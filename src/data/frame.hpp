@@ -33,6 +33,12 @@ public:
         else return id == f.id;
     }
 
+    bool operator!=(const AFK_Frame& f) const
+    {
+        if (never) return !f.never;
+        else return (f.never || id != f.id);
+    }
+
     /* Returns true if our frame is less recent than the operand frame.
      * Because of rotating frame IDs, this means that any frame ID not
      * equal to the operand frame ID is assumed to be earlier (just

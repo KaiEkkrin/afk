@@ -27,7 +27,6 @@
 #include "gl_buffer.hpp"
 #include "jigsaw.hpp"
 #include "landscape_display_queue.hpp"
-#include "landscape_jigsaw.hpp"
 #include "landscape_tile.hpp"
 #include "shader.hpp"
 #include "shape.hpp"
@@ -165,7 +164,7 @@ protected:
      * I'm going to get a bit of overload?
      */
 #ifndef AFK_LANDSCAPE_CACHE
-#define AFK_LANDSCAPE_CACHE AFK_PolymerCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile>
+#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile>
 #endif
     AFK_LANDSCAPE_CACHE *landscapeCache;
     unsigned int tileCacheEntries;
@@ -259,17 +258,9 @@ public:
         float _maxDistance,
         unsigned int worldCacheSize, /* in bytes */
         unsigned int tileCacheSize, /* also in bytes */
-        unsigned int maxShapeSize); /* likewise */
+        unsigned int maxShapeSize, /* likewise */
+        cl_context ctxt);
     virtual ~AFK_World();
-
-    /* Initialises the jigsaw.  I can't do this at constructor
-     * time because the meta callback requires afk_core.world
-     * to exist.
-     */
-    void initJigsaw(
-        cl_context ctxt,
-        const AFK_Computer *computer,
-        const AFK_Config *config);
 
     /* Helper for the below -- requests a particular cell
      * at an offset (in cell scale multiples) from the
@@ -322,9 +313,6 @@ public:
         unsigned int threadId,
         struct AFK_WorldCellGenParam param,
         AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>& queue);
-
-    friend boost::shared_ptr<AFK_JigsawMetadata> afk_newLandscapeJigsawMeta(
-        const Vec2<int>& _jigsawSize);
 };
 
 #endif /* _AFK_WORLD_H_ */

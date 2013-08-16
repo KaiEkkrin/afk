@@ -102,13 +102,23 @@ AFK_JigsawPiece AFK_LandscapeTile::getJigsawPiece(unsigned int threadId, AFK_Jig
 {
     if (hasArtwork()) throw AFK_Exception("Tried to overwrite a tile's artwork");
     jigsaws = _jigsaws;
-    jigsawPiece = jigsaws->grab(threadId, afk_core.computingFrame);
+    jigsawPiece = jigsaws->grab(threadId, jigsawPieceTimestamp);
     return jigsawPiece;
 }
 
 bool AFK_LandscapeTile::hasArtwork() const
 {
-    return (hasTerrainDescriptor() && jigsawPiece != AFK_JigsawPiece());
+    if (!hasTerrainDescriptor() || jigsawPiece == AFK_JigsawPiece()) return false;
+
+    AFK_Frame rowTimestamp = jigsaws->getPuzzle(jigsawPiece)->getTimestamp(jigsawPiece.piece);
+    /* TODO remove debug */
+    if (rowTimestamp != jigsawPieceTimestamp)
+    {
+        /* TODO remove debug */
+        AFK_DEBUG_PRINTL("Tile " << terrainTiles[0].getTileCoord() << ": timestamp expired (Old piece: " << jigsawPiece << ")")
+    }
+
+    return (rowTimestamp == jigsawPieceTimestamp);
 }
 
 float AFK_LandscapeTile::getYBoundLower() const
@@ -129,6 +139,12 @@ void AFK_LandscapeTile::setYBounds(float _yBoundLower, float _yBoundUpper)
     float tileScale = terrainTiles[0].getTileCoord().v[2];
     yBoundLower = _yBoundLower * tileScale;
     yBoundUpper = _yBoundUpper * tileScale;
+
+    /* TODO remove debug */
+    /* Debugging here because it's a good indicator that the tile
+     * has been computed now.
+     */
+    AFK_DEBUG_PRINTL("Tile " << terrainTiles[0].getTileCoord() << ": new y-bounds appeared: " << yBoundLower << ", " << yBoundUpper)
 }
 
 bool AFK_LandscapeTile::realCellWithinYBounds(const Vec4<float>& coord) const

@@ -175,7 +175,11 @@ std::ostream& operator<<(std::ostream& os, const AFK_JigsawSubRect& sr)
 
 /* AFK_Jigsaw implementation */
 
-enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromRect(unsigned int rect, unsigned int threadId, const AFK_Frame& currentFrame, Vec2<int>& o_uv)
+enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromRect(
+    unsigned int rect,
+    unsigned int threadId,
+    Vec2<int>& o_uv,
+    AFK_Frame& o_timestamp)
 {
 #if GRAB_DEBUG
     AFK_DEBUG_PRINTL("grabPieceFromRect: with rect " << rect << "( " << rects[updateRs][rect] << " and threadId " << threadId)
@@ -201,6 +205,7 @@ enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromRect(unsigned int rect, 
     {
         /* We have!  Grab one. */
         o_uv = afk_vec2<int>(row, rowUsage[row]++);
+        o_timestamp = rowTimestamp[row];
 
         /* If I just gave the rectangle another column, update its columns
          * field to match
@@ -226,7 +231,20 @@ enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromRect(unsigned int rect, 
     }
 }
 
-bool AFK_Jigsaw::startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRow, const AFK_Frame& currentFrame)
+void AFK_Jigsaw::pushNewRect(AFK_JigsawSubRect rect)
+{
+    rects[updateRs].push_back(rect);
+    for (int row = rect.r; row < (rect.r + rect.rows); ++row)
+    {
+        rowUsage[row] = rect.c;
+    }
+
+#if RECT_DEBUG
+    AFK_DEBUG_PRINTL("  new rectangle at: " << rect)
+#endif
+}
+
+bool AFK_Jigsaw::startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRow)
 {
 #if RECT_DEBUG
     AFK_DEBUG_PRINTL("startNewRect: starting new rectangle after " << lastRect)
@@ -246,7 +264,7 @@ bool AFK_Jigsaw::startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRo
         for (newRowCount = 0;
             newRowCount < (int)concurrency &&
                 (newRow + newRowCount) < jigsawSize.v[0] &&
-                meta->canEvict(rowLastSeen[newRow + newRowCount], currentFrame);
+                (newRow + newRowCount) < sweepRow;
             ++newRowCount);
 
         if (newRowCount < (int)concurrency)
@@ -257,47 +275,30 @@ bool AFK_Jigsaw::startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRo
             return false;
         }
 
-        for (int evictRow = newRow; evictRow < (newRow + newRowCount); ++evictRow)
-        {
-            meta->evicted(evictRow);
-            rowLastSeen[evictRow] = currentFrame;
-            rowUsage[evictRow] = 0;
-        }
-
-        AFK_JigsawSubRect newRect(
-            newRow, 0, newRowCount);
-#if RECT_DEBUG
-        AFK_DEBUG_PRINTL("  new rectangle at: " << newRect)
-#endif
-        rects[updateRs].push_back(newRect);
+        pushNewRect(AFK_JigsawSubRect(newRow, 0, newRowCount));
     }
     else
     {
         /* I'm going to pack a new rectangle onto the same rows as the existing one.
-         * I don't need to do eviction checks, because eviction happens row-at-a-time.
          * This operation also closes down the last rectangle (if you add columns to
          * it you'll trample the new one).
          */
-        AFK_JigsawSubRect newRect(
-            lastRect.r,
-            lastRect.c + lastRect.columns.load(),
-            concurrency);
-#if RECT_DEBUG
-            AFK_DEBUG_PRINTL("  new rectangle at: " << newRect)
-#endif
-        rects[updateRs].push_back(newRect);
-
-        /* Make sure the current frames are up to date, and that the row usage
-         * array is re-aligned to the start of this new rectangle.
-         */
-        for (int row = newRect.r; row < (newRect.r + newRect.rows); ++row)
-        {
-            rowLastSeen[row] = currentFrame;
-            rowUsage[row] = newRect.c;
-        }
+        pushNewRect(AFK_JigsawSubRect(lastRect.r, lastRect.c + lastRect.columns.load(), concurrency));
     }
 
     return true;
+}
+
+int AFK_Jigsaw::getSweepTarget(int latestRow) const
+{
+    int target = latestRow + (jigsawSize.v[0] / 8);
+    target += (concurrency - (target % concurrency));
+    if (target >= jigsawSize.v[0]) target -= jigsawSize.v[0];
+
+    /* TODO remove debug */
+    std::cerr << "sweepTarget: " << sweepRow << " -> " << target << " (latestRow: " << latestRow << ", jigsawSize " << jigsawSize << ", concurrency " << concurrency << ")" << std::endl;
+
+    return target;
 }
 
 AFK_Jigsaw::AFK_Jigsaw(
@@ -307,15 +308,12 @@ AFK_Jigsaw::AFK_Jigsaw(
     const AFK_JigsawFormatDescriptor *_format,
     unsigned int _texCount,
     bool _clGlSharing,
-    boost::shared_ptr<AFK_JigsawMetadata> _meta,
-    unsigned int _concurrency,
-    const AFK_Frame& currentFrame):
+    unsigned int _concurrency):
         format(_format),
         texCount(_texCount),
         pieceSize(_pieceSize),
         jigsawSize(_jigsawSize),
         clGlSharing(_clGlSharing),
-        meta(_meta),
         concurrency(_concurrency),
         updateRs(0),
         drawRs(1),
@@ -436,13 +434,15 @@ AFK_Jigsaw::AFK_Jigsaw(
     /* Now that I've got the textures, fill out the jigsaw state. */
     for (int row = 0; row < jigsawSize.v[0]; ++row)
     {
-        rowLastSeen.push_back(AFK_Frame());
+        rowTimestamp.push_back(AFK_Frame());
         rowUsage.push_back(0);
     }
 
+    sweepRow = getSweepTarget(0);
+
     /* Make a starting update rectangle. */
     if (!startNewRect(
-        AFK_JigsawSubRect(0, 0, 0), false, currentFrame))
+        AFK_JigsawSubRect(0, 0, concurrency), false))
     {
         throw AFK_Exception("Cannot make starting rectangle");
     }
@@ -464,13 +464,13 @@ AFK_Jigsaw::~AFK_Jigsaw()
     delete[] glTex;
 }
 
-bool AFK_Jigsaw::grab(unsigned int threadId, const AFK_Frame& frame, Vec2<int>& o_uv)
+bool AFK_Jigsaw::grab(unsigned int threadId, Vec2<int>& o_uv, AFK_Frame& o_timestamp)
 {
     /* Let's see if I can use an existing rectangle. */
     unsigned int rect;
     for (rect = 0; rect < rects[updateRs].size(); ++rect)
     {
-        switch (grabPieceFromRect(rect, threadId, frame, o_uv))
+        switch (grabPieceFromRect(rect, threadId, o_uv, o_timestamp))
         {
         case AFK_JIGSAW_RECT_OUT_OF_ROWS:
             /* This means I'm out of room in the jigsaw. */
@@ -492,10 +492,15 @@ bool AFK_Jigsaw::grab(unsigned int threadId, const AFK_Frame& frame, Vec2<int>& 
     boost::unique_lock<boost::mutex> lock(updateRMut);
     if (rect == rects[updateRs].size())
     {
-        if (!startNewRect(rects[updateRs][rect-1], true, frame)) return false;
+        if (!startNewRect(rects[updateRs][rect-1], true)) return false;
     }
 
-    return grabPieceFromRect(rect, threadId, frame, o_uv) == AFK_JIGSAW_RECT_GRABBED;
+    return grabPieceFromRect(rect, threadId, o_uv, o_timestamp) == AFK_JIGSAW_RECT_GRABBED;
+}
+
+AFK_Frame AFK_Jigsaw::getTimestamp(const Vec2<int>& uv) const
+{
+    return rowTimestamp[uv.v[0]];
 }
 
 unsigned int AFK_Jigsaw::getTexCount(void) const
@@ -644,9 +649,10 @@ void AFK_Jigsaw::flipRects(const AFK_Frame& currentFrame)
     rects[updateRs].clear();
 
     /* Do we have an existing rectangle to continue from? */
+    bool continued = false;
     if (rects[drawRs].size() > 0)
     {
-        startNewRect(*(rects[drawRs].rbegin()), false, currentFrame);
+        continued = startNewRect(*(rects[drawRs].rbegin()), false);
     }
     else
     {
@@ -655,8 +661,36 @@ void AFK_Jigsaw::flipRects(const AFK_Frame& currentFrame)
          * Pick a place to try to start from (this may not succeed).
          * I need to ask for a new row to trigger the eviction stuff.
          */
-        startNewRect(AFK_JigsawSubRect(0, 0, concurrency), true, currentFrame);
+        continued = startNewRect(AFK_JigsawSubRect(0, 0, concurrency), true);
     }
+
+    /* This shouldn't happen, *but* ... */
+    if (!continued) throw AFK_Exception("flipRects() failed");
+
+#if 1
+    int nextFreeRow = rects[updateRs][0].r + rects[updateRs][0].rows;
+    if (nextFreeRow == sweepRow)
+    {
+        /* Do the sweep. */
+        int sweepTarget = getSweepTarget(nextFreeRow);
+        if (sweepTarget < sweepRow)
+        {
+            /* TODO remove debug */
+            std::cerr << "SWEEP ROLLOVER (" << sweepRow << " -> " << sweepTarget << ")" << std::endl;
+
+            /* I need to roll up to the top of the jigsaw and then wrap
+             * around to the bottom again.
+             */
+            for (; sweepRow < jigsawSize.v[0]; ++sweepRow)
+                rowTimestamp[sweepRow] = currentFrame;
+
+            sweepRow = 0;
+        }
+
+        for (; sweepRow < sweepTarget; ++sweepRow)
+            rowTimestamp[sweepRow] = currentFrame;
+    }
+#endif
 }
 
 
@@ -670,15 +704,12 @@ AFK_JigsawCollection::AFK_JigsawCollection(
     unsigned int _texCount,
     const AFK_ClDeviceProperties& _clDeviceProps,
     bool _clGlSharing,
-    unsigned int _concurrency,
-    boost::function<boost::shared_ptr<AFK_JigsawMetadata> (const Vec2<int>&)> _newMeta,
-    const AFK_Frame& currentFrame):
+    unsigned int _concurrency):
         texCount(_texCount),
         pieceSize(_pieceSize),
         pieceCount(_pieceCount),
         clGlSharing(_clGlSharing),
-        concurrency(_concurrency),
-        newMeta(_newMeta)
+        concurrency(_concurrency)
 {
     std::cout << "AFK_JigsawCollection: Requested " << std::dec << pieceCount << " pieces of size " << pieceSize << ": " << std::endl;
 
@@ -760,9 +791,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
             &format[0],
             texCount,
             clGlSharing,
-            newMeta(jigsawSize),
-            concurrency,
-            currentFrame));
+            concurrency));
     }
 
     /* Also make a spare. */
@@ -773,9 +802,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
         &format[0],
         texCount,
         clGlSharing,
-        newMeta(jigsawSize),
-        concurrency,
-        currentFrame);
+        concurrency);
 }
 
 AFK_JigsawCollection::~AFK_JigsawCollection()
@@ -794,14 +821,14 @@ int AFK_JigsawCollection::getPieceCount(void) const
     return pieceCount;
 }
 
-AFK_JigsawPiece AFK_JigsawCollection::grab(unsigned int threadId, const AFK_Frame& frame)
+AFK_JigsawPiece AFK_JigsawCollection::grab(unsigned int threadId, AFK_Frame& o_timestamp)
 {
     Vec2<int> uv;
 
     int puzzle;
     for (puzzle = 0; puzzle < (int)puzzles.size(); ++puzzle)
     {
-        if (puzzles[puzzle]->grab(threadId, frame, uv))
+        if (puzzles[puzzle]->grab(threadId, uv, o_timestamp))
         {
             /* TODO Paranoia */
             if (uv.v[0] < 0 || uv.v[0] >= jigsawSize.v[0] ||
@@ -833,7 +860,7 @@ AFK_JigsawPiece AFK_JigsawCollection::grab(unsigned int threadId, const AFK_Fram
 
     for (; puzzle < (int)puzzles.size(); ++puzzle)
     {
-        if (puzzles[puzzle]->grab(threadId, frame, uv))
+        if (puzzles[puzzle]->grab(threadId, uv, o_timestamp))
             return AFK_JigsawPiece(uv, puzzle);
     }
 
@@ -865,9 +892,7 @@ void AFK_JigsawCollection::flipRects(cl_context ctxt, const AFK_Frame& currentFr
             &format[0],
             texCount,
             clGlSharing,
-            newMeta(jigsawSize),
-            concurrency,
-            currentFrame);
+            concurrency);
     }
 }
 

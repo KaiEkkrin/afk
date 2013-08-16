@@ -18,7 +18,7 @@
 
 
 /* TODO remove debug?  (or something) */
-#define PROTAGONIST_CELL_DEBUG 1
+#define PROTAGONIST_CELL_DEBUG 0
 
 
 /* The AFK_WorldCellGenParam flags. */
@@ -297,7 +297,7 @@ bool AFK_World::generateClaimedWorldCell(
         AFK_Boost_Taus88_RNG staticRng;
         staticRng.seed(cell.rngSeed());
 
-        if (!landscapeTile.hasArtwork() ||
+        if (/* !landscapeTile.hasArtwork() || */
             worldCell.getRealCoord().v[1] >= landscapeTile.getYBoundUpper())
         {
             /* TODO For now, I'm going to just build entities at 
@@ -455,12 +455,14 @@ static unsigned int calculateCacheBitness(unsigned int entries)
     return bitness;
 }
 
-AFK_World::AFK_World( const AFK_Config *config,
+AFK_World::AFK_World(
+    const AFK_Config *config,
     const AFK_Computer *computer,
     float _maxDistance,
     unsigned int worldCacheSize,
     unsigned int tileCacheSize,
-    unsigned int maxShapeSize):
+    unsigned int maxShapeSize,
+    cl_context ctxt):
         startingDetailPitch         (config->startingDetailPitch),
         maxDetailPitch              (config->maxDetailPitch),
         detailPitch                 (config->startingDetailPitch), /* This is a starting point */
@@ -472,11 +474,34 @@ AFK_World::AFK_World( const AFK_Config *config,
 {
     /* Set up the caches and generator gang. */
 
-    tileCacheEntries = tileCacheSize / lSizes.tSize;
+    unsigned int tileCacheEntries = tileCacheSize / lSizes.tSize;
+    Vec2<int> pieceSize = afk_vec2<int>((int)lSizes.tDim, (int)lSizes.tDim);
+
+    /* TODO: The below switch from GL_RGBA32F to GL_RGBA fixed things.
+     * I get the impression that having more than 32 bits per pixel
+     * might be unwise.  So next, I should try splitting the jigsaw
+     * into one RGB colour jigsaw and one R32F y-displacement jigsaw.
+     */
+    enum AFK_JigsawFormat texFormat[3];
+    texFormat[0] = AFK_JIGSAW_FLOAT32;          /* Y displacement */
+    texFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;    /* Colour */
+    texFormat[2] = AFK_JIGSAW_4HALF32;          /* Normal */
+
+    landscapeJigsaws = new AFK_JigsawCollection(
+        ctxt,
+        pieceSize,
+        (int)tileCacheEntries,
+        texFormat,
+        3,
+        computer->getFirstDeviceProps(),
+        config->clGlSharing,
+        config->concurrency);
+
+    tileCacheEntries = landscapeJigsaws->getPieceCount();
     unsigned int tileCacheBitness = calculateCacheBitness(tileCacheEntries);
 
     landscapeCache = new AFK_LANDSCAPE_CACHE(
-        tileCacheBitness, 8, AFK_HashTile());
+        tileCacheBitness, 8, AFK_HashTile(), tileCacheEntries / 2, 0xffffffffu);
 
     /* TODO Right now I don't have a sensible value for the
      * world cache size, because I'm not doing any exciting
@@ -605,33 +630,6 @@ AFK_World::~AFK_World()
     delete displayTimer;
 }
 
-void AFK_World::initJigsaw(cl_context ctxt, const AFK_Computer *computer, const AFK_Config *config)
-{
-    Vec2<int> pieceSize = afk_vec2<int>((int)lSizes.tDim, (int)lSizes.tDim);
-
-    /* TODO: The below switch from GL_RGBA32F to GL_RGBA fixed things.
-     * I get the impression that having more than 32 bits per pixel
-     * might be unwise.  So next, I should try splitting the jigsaw
-     * into one RGB colour jigsaw and one R32F y-displacement jigsaw.
-     */
-    enum AFK_JigsawFormat texFormat[3];
-    texFormat[0] = AFK_JIGSAW_FLOAT32;          /* Y displacement */
-    texFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;    /* Colour */
-    texFormat[2] = AFK_JIGSAW_4HALF32;          /* Normal */
-
-    landscapeJigsaws = new AFK_JigsawCollection(
-        ctxt,
-        pieceSize,
-        (int)tileCacheEntries,
-        texFormat,
-        3,
-        computer->getFirstDeviceProps(),
-        config->clGlSharing,
-        config->concurrency,
-        afk_newLandscapeJigsawMeta,
-        afk_core.computingFrame);
-}
-
 void AFK_World::enqueueSubcells(
     const AFK_Cell& cell,
     const Vec3<long long>& modifier,
@@ -684,6 +682,7 @@ void AFK_World::alterDetail(float adjustment)
 boost::unique_future<bool> AFK_World::updateWorld(void)
 {
     /* Maintenance. */
+    //landscapeCache->doEvictionIfNecessary();
     worldCache->doEvictionIfNecessary();
 
     /* First, transform the protagonist location and its facing
@@ -897,6 +896,10 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     /* Those queues are in puzzle order. */
     for (unsigned int puzzle = 0; puzzle < drawQueues.size(); ++puzzle)
     {
+        /* TODO remove debug */
+        //if (puzzle > 0) std::cout << "  DRAWING PUZZLE " << puzzle << std::endl;
+        //if (drawQueues.size() > 1 && puzzle == 0) continue;
+
         if (drawQueues[puzzle]->getUnitCount() == 0) continue;
 
         AFK_Jigsaw *jigsaw = landscapeJigsaws->getPuzzle(puzzle);

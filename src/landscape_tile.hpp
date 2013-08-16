@@ -27,7 +27,7 @@
 #define TERRAIN_TILES_PER_TILE 5
 
 #ifndef AFK_LANDSCAPE_CACHE
-#define AFK_LANDSCAPE_CACHE AFK_PolymerCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile>
+#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile>
 #endif
 
 class AFK_LandscapeDisplayUnit;
@@ -63,12 +63,15 @@ protected:
      */
     AFK_JigsawCollection *jigsaws;
 
+    /* The frame when we got that jigsaw piece.  Jigsaw pieces expire
+     * as the new-piece creation row rolls around; when we query the
+     * jigsaw for the timestamp of our piece and it turns out to be
+     * newer than this, we need to re-generate the piece.
+     */
+    AFK_Frame jigsawPieceTimestamp;
+
     /* These are the lower and upper y-bounds of the vertices in
      * world space.
-     * TODO I'm about to kill of my way of updating these with the
-     * computed results, and I need to put that back -- it's useful
-     * to have this result here to keep the display queue
-     * un-cluttered.
      */
     float yBoundLower;
     float yBoundUpper;

@@ -341,8 +341,8 @@ void AFK_Core::loop(void)
         worldMaxDistance,   /* maxDistance -- zFar must be a lot bigger or things will vanish */
         clGlMaxAllocSize / 4,
         clGlMaxAllocSize / 4,
-        clGlMaxAllocSize / 32); /* not much going on in the way of shapes right now */
-    world->initJigsaw(ctxt, computer, config);
+        clGlMaxAllocSize / 32, /* not much going on in the way of shapes right now */
+        ctxt);
     computer->unlock();
     protagonist = new AFK_DisplayedProtagonist();
 
