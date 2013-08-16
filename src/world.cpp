@@ -654,7 +654,7 @@ void AFK_World::enqueueSubcells(
     (*genGang) << cellParam;
 }
 
-void AFK_World::flipRenderQueues(const AFK_Frame& newFrame)
+void AFK_World::flipRenderQueues(cl_context ctxt, const AFK_Frame& newFrame)
 {
     /* Verify that the concurrency control business has done
      * its job correctly.
@@ -664,7 +664,7 @@ void AFK_World::flipRenderQueues(const AFK_Frame& newFrame)
 
     landscapeComputeFair.flipQueues();
     landscapeDisplayFair.flipQueues();
-    landscapeJigsaws->flipRects(newFrame);
+    landscapeJigsaws->flipRects(ctxt, newFrame);
 }
 
 void AFK_World::alterDetail(float adjustment)

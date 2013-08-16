@@ -76,7 +76,9 @@ void AFK_LandscapeJigsawMetadata::assign(const Vec2<int>& uv, const AFK_Tile& ti
 bool AFK_LandscapeJigsawMetadata::canEvict(const AFK_Frame& lastSeen, const AFK_Frame& currentFrame)
 {
     /* We can evict a landscape slot if it's more than 10 frames old */
-    return (lastSeen.getNever() || (currentFrame - lastSeen) > 10);
+    /* TODO Re-allow this after I've tested the multiple jigsaws thing. */
+    //return (lastSeen.getNever() || (currentFrame - lastSeen) > 10);
+    return (lastSeen.getNever());
 }
 
 void AFK_LandscapeJigsawMetadata::evicted(const int row)

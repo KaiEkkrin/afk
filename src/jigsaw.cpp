@@ -15,7 +15,7 @@
 #define FIXED_TEST_TEXTURE_DATA 0
 
 #define GRAB_DEBUG 0
-#define RECT_DEBUG 1
+#define RECT_DEBUG 0
 
 
 /* AFK_JigsawFormatDescriptor implementation */
@@ -487,6 +487,8 @@ bool AFK_Jigsaw::grab(unsigned int threadId, const AFK_Frame& frame, Vec2<int>& 
     }
 
     /* I ran out of rectangles.  Try to start a new one. */
+    if (rect == 0) return false;
+
     boost::unique_lock<boost::mutex> lock(updateRMut);
     if (rect == rects[updateRs].size())
     {
@@ -640,7 +642,21 @@ void AFK_Jigsaw::flipRects(const AFK_Frame& currentFrame)
      * rectangle following on from the last one.
      */
     rects[updateRs].clear();
-    startNewRect(*(rects[drawRs].rbegin()), false, currentFrame);
+
+    /* Do we have an existing rectangle to continue from? */
+    if (rects[drawRs].size() > 0)
+    {
+        startNewRect(*(rects[drawRs].rbegin()), false, currentFrame);
+    }
+    else
+    {
+        /* This should be a rare case: I previously ran out of
+         * rectangles in this jigsaw.
+         * Pick a place to try to start from (this may not succeed).
+         * I need to ask for a new row to trigger the eviction stuff.
+         */
+        startNewRect(AFK_JigsawSubRect(0, 0, concurrency), true, currentFrame);
+    }
 }
 
 
@@ -748,6 +764,18 @@ AFK_JigsawCollection::AFK_JigsawCollection(
             concurrency,
             currentFrame));
     }
+
+    /* Also make a spare. */
+    spare = new AFK_Jigsaw(
+        ctxt,
+        pieceSize,
+        jigsawSize,
+        &format[0],
+        texCount,
+        clGlSharing,
+        newMeta(jigsawSize),
+        concurrency,
+        currentFrame);
 }
 
 AFK_JigsawCollection::~AFK_JigsawCollection()
@@ -757,6 +785,8 @@ AFK_JigsawCollection::~AFK_JigsawCollection()
     {
         delete *pIt;
     }
+
+    if (spare) delete spare;
 }
 
 int AFK_JigsawCollection::getPieceCount(void) const
@@ -786,44 +816,28 @@ AFK_JigsawPiece AFK_JigsawCollection::grab(unsigned int threadId, const AFK_Fram
         }
     }
 
-    /* TODO I think I need to work out whether the current
-     * gaps problem is caused by eviction, by implementing
-     * new jigsaws here (we can make sure there's always a
-     * spare enqueued at flipRects time, to avoid having to
-     * give CL contexts to the enumerator threads), and
-     * temporarily disabling all forms of piece re-use
-     * :-(
-     */
-
-    /* If we get here, I need to add a new jigsaw.
-     * TODO This operation needs an OpenCL context, which I
-     * currently don't have in the enumerator threads.
-     * More plumbing will be required to add one.
-     * For now I'm just going to hope the original
-     * jigsaw(s) don't run out of room, and throw here.
-     */
-    throw AFK_Exception("grab() ran out of jigsaws");
-#if 0
+    /* If I get here, see if there's a spare I can use... */
     boost::unique_lock<boost::mutex> lock(mut);
     if (puzzle == (int)puzzles.size())
     {
-        AFK_Jigsaw *newJigsaw = new AFK_Jigsaw(
-            ctxt,
-            pieceSize,
-            jigsawSize,
-            &format[0],
-            texCount,
-            clGlSharing,
-            newMeta(jigsawSize),
-            concurrency,
-            currentFrame);
-
-        puzzles.push_back(newJigsaw);
+        if (spare)
+        {
+            puzzles.push_back(spare);
+            spare = NULL;
+        }
+        else
+        {
+            throw AFK_Exception("grab() ran out of jigsaws");
+        }
     }
-    if (!puzzles[puzzle]->grab(threadId, frame, uv))
-        throw AFK_Exception("Unable to grab piece from new jigsaw");
-    return AFK_JigsawPiece(uv, puzzle);
-#endif
+
+    for (; puzzle < (int)puzzles.size(); ++puzzle)
+    {
+        if (puzzles[puzzle]->grab(threadId, frame, uv))
+            return AFK_JigsawPiece(uv, puzzle);
+    }
+
+    throw AFK_Exception("Unable to grab piece from new jigsaw");
 }
 
 AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(const AFK_JigsawPiece& piece) const
@@ -837,9 +851,23 @@ AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(int puzzle) const
     return puzzles[puzzle];
 }
 
-void AFK_JigsawCollection::flipRects(const AFK_Frame& currentFrame)
+void AFK_JigsawCollection::flipRects(cl_context ctxt, const AFK_Frame& currentFrame)
 {
     for (int puzzle = 0; puzzle < (int)puzzles.size(); ++puzzle)
         puzzles[puzzle]->flipRects(currentFrame);
+
+    if (!spare)
+    {
+        spare = new AFK_Jigsaw(
+            ctxt,
+            pieceSize,
+            jigsawSize,
+            &format[0],
+            texCount,
+            clGlSharing,
+            newMeta(jigsawSize),
+            concurrency,
+            currentFrame);
+    }
 }
 

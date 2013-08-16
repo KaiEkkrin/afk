@@ -282,7 +282,7 @@ public:
         const AFK_Camera& camera);
 
     /* Call when we're about to start a new frame. */
-    void flipRenderQueues(const AFK_Frame& newFrame);
+    void flipRenderQueues(cl_context ctxt, const AFK_Frame& newFrame);
 
     /* For changing the level of detail.  Values >1 decrease
      * it.  Values <1 increase it.

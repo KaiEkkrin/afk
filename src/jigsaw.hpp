@@ -309,6 +309,10 @@ protected:
     const unsigned int concurrency;
 
     std::vector<AFK_Jigsaw*> puzzles;
+
+    /* This is a spare jigsaw to slot in if I run out. */
+    AFK_Jigsaw *spare;
+
     boost::mutex mut;
 
     /* How to make a new metadata object for a new puzzle. */
@@ -343,7 +347,7 @@ public:
     AFK_Jigsaw *getPuzzle(int puzzle) const;
 
     /* Flips the rectangles in all the jigsaws. */
-    void flipRects(const AFK_Frame& currentFrame);
+    void flipRects(cl_context ctxt, const AFK_Frame& currentFrame);
 };
 
 

@@ -191,7 +191,11 @@ void afk_idle(void)
 
             /* Flip the buffers and bump the computing frame */
             afk_core.window->swapBuffers();
-            afk_core.world->flipRenderQueues(afk_core.renderingFrame);
+            cl_context ctxt;
+            cl_command_queue q;
+            afk_core.computer->lock(ctxt, q);
+            afk_core.world->flipRenderQueues(ctxt, afk_core.renderingFrame);
+            afk_core.computer->unlock();
             afk_core.computingUpdateDelayed = false;
             afk_core.computingFrame = afk_core.renderingFrame;
             afk_core.renderingFrame.increment();
