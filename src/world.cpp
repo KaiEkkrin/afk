@@ -185,14 +185,7 @@ bool AFK_World::generateClaimedWorldCell(
         /* Nothing else to do with it now either. */
         worldCell.release(threadId, AFK_CL_CLAIMED);
     }
-    else /* if (cell.coord.v[1] == 0) */ /* TODO when I remove this, I get bits of landscape
-                                    * floating around at different heights -- looks like
-                                    * I've managed to let the height I enumerate a tile at
-                                    * have an effect on where it's computed or something.
-                                    * Eww.  Try to track through the places `cell' and
-                                    * `tile' might be accidentally swapped.
-                                    * I'm reasonably confident the last minute y-cull
-                                    * is correct. */
+    else /* if (cell.coord.v[1] == 0) */
     {
         /* We display geometry at a cell if its detail pitch is at the
          * target detail pitch, or if it's already the smallest

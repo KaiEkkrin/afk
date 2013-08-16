@@ -257,7 +257,7 @@ bool AFK_Jigsaw::startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRo
             return false;
         }
 
-        for (int evictRow = newRow; evictRow < newRow + newRowCount; ++evictRow)
+        for (int evictRow = newRow; evictRow < (newRow + newRowCount); ++evictRow)
         {
             meta->evicted(evictRow);
             rowLastSeen[evictRow] = currentFrame;
@@ -280,7 +280,7 @@ bool AFK_Jigsaw::startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRo
          */
         AFK_JigsawSubRect newRect(
             lastRect.r,
-            lastRect.c + lastRect.columns,
+            lastRect.c + lastRect.columns.load(),
             concurrency);
 #if RECT_DEBUG
             AFK_DEBUG_PRINTL("  new rectangle at: " << newRect)
@@ -545,12 +545,6 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
     {
 #if FIXED_TEST_TEXTURE_DATA
 #else
-        /* TODO I just did this completely wrong, change it and try again.
-         * Maybe make one changeData vector for each tex, and have a
-         * utility function that enqueues the rectangle reads (and another
-         * that does the rectangle writes) for a single tex?
-         */
-
         /* Work out how much space I need to store all the changed data. */
         for (unsigned int tex = 0; tex < texCount; ++tex)
         {
@@ -779,9 +773,27 @@ AFK_JigsawPiece AFK_JigsawCollection::grab(unsigned int threadId, const AFK_Fram
     {
         if (puzzles[puzzle]->grab(threadId, frame, uv))
         {
+            /* TODO Paranoia */
+            if (uv.v[0] < 0 || uv.v[0] >= jigsawSize.v[0] ||
+                uv.v[1] < 0 || uv.v[1] >= jigsawSize.v[1])
+            {
+                std::ostringstream ss;
+                ss << "Got erroneous piece: " << uv << " (jigsaw size: " << jigsawSize << ")";
+                throw AFK_Exception(ss.str());
+            }
+
             return AFK_JigsawPiece(uv, puzzle);
         }
     }
+
+    /* TODO I think I need to work out whether the current
+     * gaps problem is caused by eviction, by implementing
+     * new jigsaws here (we can make sure there's always a
+     * spare enqueued at flipRects time, to avoid having to
+     * give CL contexts to the enumerator threads), and
+     * temporarily disabling all forms of piece re-use
+     * :-(
+     */
 
     /* If we get here, I need to add a new jigsaw.
      * TODO This operation needs an OpenCL context, which I
