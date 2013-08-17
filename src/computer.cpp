@@ -230,10 +230,6 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
         firstDeviceProps = new AFK_ClDeviceProperties(devices[0]);
         std::cout << "Device properties: " << std::endl << *firstDeviceProps;
 
-        /* TODO Try to fall back to un-shared buffers (copying everything)
-         * if this fails.  And, err, yeah, that'll probably be wildly
-         * slow...  :/
-         */
         cl_int error;
         ctxt = clCreateContext(clGlProperties, devicesSize, devices, NULL, NULL, &error);
         afk_handleClError(error);

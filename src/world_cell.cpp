@@ -100,7 +100,6 @@ void AFK_WorldCell::testVisibility(const AFK_Camera& camera, bool& io_someVisibl
 {
     /* Check whether this cell is actually visible, by
      * testing all 8 vertices and its midpoint.
-     * TODO Is that enough?
      */
     testPointVisible(afk_vec3<float>(
         realCoord.v[0],
@@ -241,7 +240,6 @@ bool AFK_WorldCell::canBeEvicted(void) const
 
 std::ostream& operator<<(std::ostream& os, const AFK_WorldCell& worldCell)
 {
-    /* TODO Something more descriptive might be nice */
     return os << "World cell (last seen " << worldCell.lastSeen << ")";
 }
 

@@ -92,23 +92,12 @@ protected:
      * value to get the right number to pass to the points
      * generator, but hopefully I'll only have to do that
      * once per world cell)
-     * TODO: Can I use this and zNear to calculate the
-     * maximum number of subdivisions?  I bet I can.
      */
     const float startingDetailPitch;
     const float maxDetailPitch;
     float detailPitch;
 
     /* Let's try averaging it for the render.
-     * TODO: This is an experiment to replace `renderDetailPitch'
-     * with something that better smoothes the detail pitch.
-     * It might just produce oscillation; I need to try it on
-     * several different platforms.
-     * The biggest insight from experimenting with this is just
-     * to set point-subdivision-factor on the command line to 4
-     * on systems with slow GPUs, because of how badly the
-     * landscape behaves when the detail pitch goes above about
-     * 500.
      */
     AFK_MovingAverage<float> averageDetailPitch;
 

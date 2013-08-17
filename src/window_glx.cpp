@@ -146,25 +146,6 @@ AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight
         else
             glXSwapIntervalEXT(dpy, glXGetCurrentDrawable(), 0);
     }
-
-    /* Wait for my X window to become mapped
-     * TODO Do I really need this?
-     */
-#if 0
-    bool windowMapped = false;
-    do
-    {
-        XEvent e;
-        XNextEvent(dpy, &e);
-        if (e.type == MapNotify)
-        {
-            XGetWindowAttributes(dpy, w, &xwa);
-            windowMapped = true;
-        }
-    } while (!windowMapped);
-
-    /* We are now set up! */
-#endif
 }
 
 AFK_WindowGlx::~AFK_WindowGlx()

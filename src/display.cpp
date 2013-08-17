@@ -58,10 +58,6 @@ void AFK_DisplayedProtagonist::initGL(void)
     /* For now, I'm going to make a simple flat chevron
      * facing in the travel direction, because I can't
      * generate cool ones yet.
-     * TODO: To test vcol_phong, I'm going to set it up
-     * with some static colour and highly phony normals.
-     * This will look weird but it should serve as a
-     * test.
      */
     struct AFK_VcolPhongVertex rawVertices[] = {
         /* location ...                             colour ...                  normal */

@@ -93,7 +93,7 @@ void AFK_TerrainTile::make(
      */
     float minFeatureSize = maxFeatureSize / (float)subdivisionFactor;
 
-    /* TODO For now I'm always going to apply `featureCountPerTile'
+    /* For now I'm always going to apply `featureCountPerTile'
      * features instead, to avoid having padding issues in the
      * terrain compute queue.
      */

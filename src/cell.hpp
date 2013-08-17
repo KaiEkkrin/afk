@@ -112,23 +112,6 @@ public:
         const size_t subCellsSize,
         unsigned int subdivisionFactor) const;
 
-/* TODO I don't think I need this */
-#define AUGMENTED_SUBCELLS 0
-
-#if AUGMENTED_SUBCELLS
-    /* This does the same, except it also includes the
-     * nearest subcells of the adjacent cells + along
-     * each axis.  The idea is that each cell is described
-     * by its lowest vertex (along each axis) and like this,
-     * I'll enumerate all subcell vertices.
-     * This function will want to fill out
-     * ((subdivisionFactor+1)^3) cells.
-     * Returns 0 if we're at the smallest subdivision
-     * already, else the number of subcells made.
-     */
-    unsigned int augmentedSubdivide(AFK_Cell *augmentedSubcells, const size_t augmentedSubcellsSize) const;
-#endif
-
     /* Returns the parent cell to this one. */
     AFK_Cell parent(unsigned int subdivisionFactor) const;
 

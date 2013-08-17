@@ -83,19 +83,6 @@ unsigned int AFK_Cell::subdivide(AFK_Cell *subCells, const size_t subCellsSize, 
         subdivisionFactor);
 }
 
-/* TODO I don't think I need this */
-#if AUGMENTED_SUBCELLS
-unsigned int AFK_Cell::augmentedSubdivide(AFK_Cell *augmentedSubcells, const size_t augmentedSubcellsSize) const
-{
-    return subdivide(
-        augmentedSubcells,
-        augmentedSubcellsSize,
-        afk_core.world->subdivisionFactor,
-        coord.v[3] / afk_core.world->subdivisionFactor,
-        afk_core.world->subdivisionFactor + 1);
-}
-#endif
-
 AFK_Cell AFK_Cell::parent(unsigned int subdivisionFactor) const
 {
     long long parentCellScale = coord.v[3] * subdivisionFactor;

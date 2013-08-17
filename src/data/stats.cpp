@@ -11,7 +11,7 @@ AFK_StructureStats::AFK_StructureStats()
 
 void AFK_StructureStats::insertedOne(unsigned int tries)
 {
-    /* TODO Right now this doesn't guard against concurrent
+    /* Right now this doesn't guard against concurrent
      * access of separate fields, but I don't think I really
      * need that level of accuracy (?)
      */

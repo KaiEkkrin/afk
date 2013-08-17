@@ -27,7 +27,7 @@ AFK_RNG_Value AFK_C_RNG::rand(void)
 {
     AFK_RNG_Value v;
 
-    /* TODO This is only ever making positive integers,
+    /* This is only ever making positive integers,
      * i.e. I only get 31 random bits not 32.  ARGH
      */
     random_r(&buf, &v.v.i[0]);

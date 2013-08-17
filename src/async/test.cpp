@@ -44,7 +44,7 @@ void enqueueFilter(struct primeFilterParam param, AFK_WorkQueue<struct primeFilt
     }
 }
 
-/* TODO: I'm going to need an atomically assigned map class.
+/* I'm going to need an atomically assigned map class.
  * Here would be a good test of its performance, and maybe also that it is
  * working at all:
  * - Make `struct primeFilterParam' keyable

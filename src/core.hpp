@@ -75,13 +75,6 @@ public:
      */
     AFK_RNG             *rng;
 
-    /* TODO Compute for the previous frame while rendering the
-     * current one, and track a "computingFrame" as well, here
-     * and maybe even more at some point! :P
-     * Although I only really seem to need that to manage
-     * cache eviction...
-     */
-
     /* This is the frame currently being rendered. */
     AFK_Frame           renderingFrame;
 

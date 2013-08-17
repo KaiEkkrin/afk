@@ -92,7 +92,6 @@ AFK_RNG_Value AFK_HMAC_RNG::rand(void)
     }
     else
     {
-        /* TODO deal with ... */
         exit(1);
     }
 #endif

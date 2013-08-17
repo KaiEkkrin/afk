@@ -16,8 +16,6 @@
 #define PRINT_CHECKPOINTS 1
 #define PRINT_CACHE_STATS 0
 
-
-/* TODO remove debug?  (or something) */
 #define PROTAGONIST_CELL_DEBUG 0
 
 
@@ -132,7 +130,8 @@ bool AFK_World::checkClaimedLandscapeTile(
     return needsArtwork;
 }
 
-/* TODO this will make mega spam */
+
+/* Don't enable these unless you want mega spam */
 #define DEBUG_JIGSAW_ASSOCIATION 0
 #define DEBUG_JIGSAW_ASSOCIATION_GL 0
 
@@ -219,8 +218,6 @@ bool AFK_World::generateClaimedWorldCell(
          */
         bool display = (cell.coord.v[3] == MIN_CELL_PITCH ||
             worldCell.testDetailPitch(averageDetailPitch.get(), *camera, viewerLocation));
-
-        /* TODO: Non-landscape stuff goes here.  :-) */
 
         /* Find the tile where any landscape at this cell would be
          * homed
@@ -503,15 +500,10 @@ AFK_World::AFK_World(
     unsigned int tileCacheEntries = tileCacheSize / lSizes.tSize;
     Vec2<int> pieceSize = afk_vec2<int>((int)lSizes.tDim, (int)lSizes.tDim);
 
-    /* TODO: The below switch from GL_RGBA32F to GL_RGBA fixed things.
-     * I get the impression that having more than 32 bits per pixel
-     * might be unwise.  So next, I should try splitting the jigsaw
-     * into one RGB colour jigsaw and one R32F y-displacement jigsaw.
-     */
     enum AFK_JigsawFormat texFormat[3];
     texFormat[0] = AFK_JIGSAW_FLOAT32;          /* Y displacement */
     texFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;    /* Colour */
-    texFormat[2] = AFK_JIGSAW_4HALF32;          /* Normal */
+    texFormat[2] = AFK_JIGSAW_4HALF16;          /* Normal */
 
     landscapeJigsaws = new AFK_JigsawCollection(
         ctxt,
@@ -572,13 +564,6 @@ AFK_World::AFK_World(
     landscape_displayTBOSamplerLocation = glGetUniformLocation(landscape_shaderProgram->program, "DisplayTBO");
 
     entity_shaderProgram = new AFK_ShaderProgram();
-    /* TODO How much stuff will I need here ? */
-    /* TODO I'm going to need to change this to its own
-     * program.  And sort out the whole ruddy business
-     * with the uniform buffer into which I pass the
-     * transformation matrices (and pretty soon, the
-     * light list).  Narghle narghle!!
-     */
     *entity_shaderProgram << "shape_fragment" << "shape_vertex";
     entity_shaderProgram->Link();
 
@@ -694,10 +679,6 @@ void AFK_World::flipRenderQueues(cl_context ctxt, const AFK_Frame& newFrame)
 
 void AFK_World::alterDetail(float adjustment)
 {
-    /* TODO Better way of stopping afk from hogging the entirety
-     * of system memory?
-     * :(
-     */
     float adj = std::max(std::min(adjustment, 1.2f), 0.85f);
 
     if (adj > 1.0f || !worldCache->wayOutsideTargetSize())
@@ -751,9 +732,6 @@ boost::unique_future<bool> AFK_World::updateWorld(void)
         cell = parentCell, parentCell = cell.parent(subdivisionFactor));
 
     /* Draw that cell and the other cells around it.
-     * TODO Can I optimise this?  It's going to attempt
-     * cells that are very very far away.  Mind you,
-     * that might be okay.
      */
     for (long long i = -1; i <= 1; ++i)
         for (long long j = -1; j <= 1; ++j)
@@ -889,21 +867,6 @@ void AFK_World::doComputeTasks(void)
 
 void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLight)
 {
-    /* TODO In this function, don't render cells that were
-     * completely culled by a y-bound computation that
-     * happened this frame.
-     * I need to:
-     * - Pass the landscape tile pointer into the displayed
-     * landscape queue at enumeration time
-     * - At this point, before drawing, iterate through the
-     * displayed landscape queue and update the y-bounds
-     * from the tile objects
-     * - Don't begin render of any tiles that are entirely
-     * excluded.  That means copying the list before upload,
-     * because there's no glDrawRangeElementsInstanced.
-     * I'm sure I'll cope.
-     */
-
     /* Render the landscape */
     glUseProgram(landscape_shaderProgram->program);
     landscape_shaderLight->setupLight(globalLight);
@@ -923,10 +886,6 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     /* Those queues are in puzzle order. */
     for (unsigned int puzzle = 0; puzzle < drawQueues.size(); ++puzzle)
     {
-        /* TODO remove debug */
-        //if (puzzle > 0) std::cout << "  DRAWING PUZZLE " << puzzle << std::endl;
-        //if (drawQueues.size() > 1 && puzzle == 0) continue;
-
         if (drawQueues[puzzle]->getUnitCount() == 0) continue;
 
         AFK_Jigsaw *jigsaw = landscapeJigsaws->getPuzzle(puzzle);

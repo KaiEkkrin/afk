@@ -123,8 +123,6 @@ public:
 
     /* The "Object" describes how this object is scaled,
      * rotated and transformed, etc.
-     * TODO: With instancing, I'm no doubt going to end
-     * up wanting many of these sometimes; consider this.
      */
     AFK_Object object;
 

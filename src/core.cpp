@@ -27,10 +27,6 @@
 #define CL_TEST 0
 
 
-/* TODO Maybe move these statics that are governing the calibrator
- * into configuration?
- * Oh God, I've got fixed bits of configuration *everywhere* now :(
- */
 #define CALIBRATION_INTERVAL_MICROS (afk_core.config->targetFrameTimeMicros * afk_core.config->framesPerCalibration)
 
 void afk_displayInit(void)
@@ -44,10 +40,6 @@ void afk_idle(void)
     /* If we just took less than FRAME_REFRESH_TIME for the entire
      * cycle, we're showing too little detail if we're not on a
      * Vsync system.
-     * TODO I could really do with being able to detect that, or
-     * being in control of it, or something.  Maybe at some point
-     * I should try monitoring and understanding all these delays
-     * more properly.
      */
     unsigned int wholeFrameTime = (startOfFrameTime - afk_core.startOfFrameTime).total_microseconds();
     if (!afk_core.config->vsync && wholeFrameTime < FRAME_REFRESH_TIME)

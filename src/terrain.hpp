@@ -5,12 +5,6 @@
 
 /* Terrain-describing functions. */
 
-/* TODO: Feature computation is an obvious candidate for
- * doing in a geometry shader, or in OpenCL.  Consider
- * this.  I'd need to build a long queue of features to
- * be computed, I guess.
- */
-
 #include <vector>
 
 #include <boost/type_traits/has_trivial_assign.hpp>
@@ -44,11 +38,6 @@ enum AFK_TerrainType
  * heap making new objects for each feature.  This
  * restricts all features to the same parameters,
  * but I think that's okay.
- *
- * TODO:
- * Right now the feature is not allowed to displace
- * the x or z co-ordinates, only the y co-ordinate.
- * I want a different system for objects.
  */
 
 /* If you enable this, you also need to uncomment it in terrain.cl */
@@ -64,6 +53,11 @@ protected:
     unsigned int        featureCount;
 #endif
 
+    /* TODO: This needs compressing.  However, I'm not
+     * sure right now what a sensible scheme would be.
+     * Work on getting random shapes and entities working
+     * next, and come back to it.
+     */
     Vec3<float>             tint; /* TODO Make location and tint features separate things? */
     Vec3<float>             scale;
     Vec2<float>             location; /* x-z */

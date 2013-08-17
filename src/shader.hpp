@@ -7,8 +7,6 @@
 
 #include <string>
 
-/* TODO Sort out detecting support for required OpenGL features / extensions ... */
-
 /* This is a list of all the shaders that I know about.
  * To ask for particular shaders to be compiled into a
  * program, make a new AFK_ShaderProgram(), push the

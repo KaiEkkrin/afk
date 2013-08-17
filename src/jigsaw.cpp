@@ -78,7 +78,7 @@ AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat e)
         texelSize                           = sizeof(unsigned char) * 4;
         break;
 
-    case AFK_JIGSAW_4HALF32:
+    case AFK_JIGSAW_4HALF16:
         glInternalFormat                    = GL_RGBA16F;
         glFormat                            = GL_RGBA;
         glDataType                          = GL_FLOAT;
@@ -308,9 +308,6 @@ void AFK_Jigsaw::sweep(int sweepTarget, const AFK_Frame& currentFrame)
 {
     if (sweepTarget < sweepRow)
     {
-        /* TODO remove debug */
-        AFK_DEBUG_PRINTL("SWEEP ROLLOVER (" << sweepRow << " -> " << sweepTarget << ")")
-
         /* I need to roll up to the top of the jigsaw and then wrap
          * around to the bottom again.
          */
@@ -802,9 +799,6 @@ AFK_JigsawCollection::AFK_JigsawCollection(
 
     std::cout << "AFK_JigsawCollection: Making " << jigsawCount << " jigsaws with " << jigsawSize << " pieces each (actually " << pieceCount << " pieces)" << std::endl;
 
-    /* TODO consider making one as a spare and filling the box up
-     * as an async task?
-     */
     for (int j = 0; j < jigsawCount; ++j)
     {
         puzzles.push_back(new AFK_Jigsaw(

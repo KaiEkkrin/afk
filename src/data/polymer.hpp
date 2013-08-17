@@ -501,20 +501,6 @@ public:
         return false;
     }
 
-    /* TODO: Other functions I need to support:
-     * - Iteration through all elements
-     * - Removal of a specific element
-     * It would seem helpful to be able to return the internal
-     * location to a caller of these functions, so that they
-     * don't have to do any further searching of the map.  An
-     * iterator value, in fact.  How do I make one of those?
-     * - The boost iterator stuff is probably what I want here;
-     * it appears that std::iterator is insane.
-     * See http://www.boost.org/doc/libs/1_54_0/libs/iterator/doc/iterator_facade.html#tutorial-example
-     * and http://www.boost.org/doc/libs/1_54_0/libs/iterator/doc/iterator_adaptor.html#tutorial-example
-     * I should perhaps test these things on a trivial class first.
-     */
-
     typename AFK_PolymerChain<KeyType, ValueType>::iterator begin() const
     {
         return typename AFK_PolymerChain<KeyType, ValueType>::iterator(chains);

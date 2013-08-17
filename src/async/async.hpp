@@ -290,8 +290,6 @@ public:
     }
 };
 
-/* TODO: I need a bigass test suite for the above :P */
-
 
 #endif /* _AFK_ASYNC_ASYNC_H_ */
 

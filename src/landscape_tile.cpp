@@ -114,7 +114,6 @@ enum AFK_LandscapeTileArtworkState AFK_LandscapeTile::artworkState() const
 #if 0
     if (rowTimestamp != jigsawPieceTimestamp)
     {
-        /* TODO remove debug */
         AFK_DEBUG_PRINTL("Tile " << terrainTiles[0].getTileCoord() << ": timestamp expired (Old piece: " << jigsawPiece << ")")
     }
 #endif
@@ -141,7 +140,6 @@ void AFK_LandscapeTile::setYBounds(float _yBoundLower, float _yBoundUpper)
     yBoundLower = _yBoundLower * tileScale;
     yBoundUpper = _yBoundUpper * tileScale;
 
-    /* TODO remove debug */
     /* Debugging here because it's a good indicator that the tile
      * has been computed now.
      */
