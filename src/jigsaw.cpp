@@ -474,7 +474,13 @@ AFK_Jigsaw::AFK_Jigsaw(
 AFK_Jigsaw::~AFK_Jigsaw()
 {
     for (unsigned int tex = 0; tex < texCount; ++tex)
+    {
         clReleaseMemObject(clTex[tex]);
+        for (unsigned int e = 0; e < changeEvents[tex].size(); ++e)
+        {
+            clReleaseEvent(changeEvents[tex][e]);
+        }
+    }
 
     glDeleteTextures(texCount, glTex);
 
@@ -631,8 +637,16 @@ void AFK_Jigsaw::bindTexture(unsigned int tex)
     {
 #if FIXED_TEST_TEXTURE_DATA
 #else
-        /* Wait for the change readbacks to be finished. */
-        clWaitForEvents(changeEvents[tex].size(), &changeEvents[tex][0]);
+        /* Wait for the change readback to be finished. */
+        if (changeEvents[tex].size() == 0) return;
+
+        AFK_CLCHK(clWaitForEvents(changeEvents[tex].size(), &changeEvents[tex][0]))
+        for (unsigned int e = 0; e < changeEvents[tex].size(); ++e)
+        {
+            AFK_CLCHK(clReleaseEvent(changeEvents[tex][e]))
+        }
+
+        changeEvents[tex].clear();
 
         /* Push all the changed pieces into the GL texture. */
         size_t pieceSizeInBytes = format[tex].texelSize * pieceSize.v[0] * pieceSize.v[1];

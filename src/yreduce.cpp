@@ -5,7 +5,7 @@
 #include "yreduce.hpp"
 
 AFK_YReduce::AFK_YReduce(const AFK_Computer *computer):
-    readback(NULL), readbackSize(0)
+    readback(NULL), readbackSize(0), readbackEvent(0)
 {
     if (!computer->findKernel("yReduce", yReduceKernel))
         throw AFK_Exception("Cannot find Y-reduce kernel");
@@ -18,6 +18,8 @@ AFK_YReduce::~AFK_YReduce()
     {
         if (*bufIt) AFK_CLCHK(clReleaseMemObject(*bufIt))
     }
+
+    if (readbackEvent) AFK_CLCHK(clReleaseEvent(readbackEvent))
 
     if (readback != NULL) delete[] readback;
 }
@@ -88,7 +90,11 @@ void AFK_YReduce::readBack(
     unsigned int unitCount,
     std::vector<AFK_LandscapeTile*> *landscapeTiles)
 {
-    AFK_CLCHK(clWaitForEvents(1, &readbackEvent))
+    if (!readbackEvent) return;
+
+    clWaitForEvents(1, &readbackEvent);
+    clReleaseEvent(readbackEvent);
+    readbackEvent = 0;
 
 #if 0
     std::cout << "Computed y bounds: ";

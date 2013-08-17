@@ -23,7 +23,7 @@
  - protagonist as an entity.
  - proper protagonist/camera relationship (use quaternions to track orientation?  proper inverse matrix to get camera angle?)
  - use OpenCL to bake terrain.  mostly OK
- - optimised landscape rendering derived from the above.
+ - optimised landscape rendering derived from the above. OK
  - shapes split into LoD cubes with random shapes.  (use OpenCL?)
  - actual entity LoD and stitched rendering.
  - collision-based vertex lighting model.  ("collide" light source, travelling from origin, to target, with entities and terrain en route).
