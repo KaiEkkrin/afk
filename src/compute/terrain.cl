@@ -17,10 +17,47 @@ struct AFK_TerrainFeature
     int                         fType;
 };
 
-float calcDistanceToCentre(float3 *vl, float2 locationXZ)
+/* The maximum size of a feature is equal to the cell size
+ * divided by the feature subdivision factor.  Like that, I
+ * shouldn't get humongous feature pop-in when changing LoDs:
+ * all features are minimally visible at greatest zoom.
+ * The feature subdivision factor should be something like the
+ * point subdivision factor for the local tile (which isn't
+ * necessarily the tile its features are homed to...)
+ */
+__constant float maxFeatureSize = 1.0f / ((float)POINT_SUBDIVISION_FACTOR);
+
+/* ... and the *minimum* size of a feature is equal
+ * to that divided by the cell subdivision factor;
+ * features smaller than that should be in subcells
+ */
+__constant float minFeatureSize = (1.0f / ((float)POINT_SUBDIVISION_FACTOR)) / ((float)SUBDIVISION_FACTOR);
+
+float getRadius(__global const struct AFK_TerrainFeature *features, int i)
 {
-    float3 location = (float3)(locationXZ.x, 0.0f, locationXZ.y);
-    float3 distance = location - *vl;
+    return features[i].scale.x * (maxFeatureSize - minFeatureSize) + minFeatureSize;
+}
+
+float getYScale(__global const struct AFK_TerrainFeature *features, int i)
+{
+    float yBase = features[i].scale.y * (maxFeatureSize - minFeatureSize);
+    return (yBase > 0.0f ? (yBase + minFeatureSize) : (yBase - minFeatureSize));
+}
+
+float3 getLocation(__global const struct AFK_TerrainFeature *features, int i, float radius)
+{
+    float minFeatureLocation = radius;
+    float maxFeatureLocation = 1.0f - radius;
+
+    return (float3)(
+        features[i].location.x * (maxFeatureLocation - minFeatureLocation) + minFeatureLocation,
+        0.0f,
+        features[i].location.y * (maxFeatureLocation - minFeatureLocation) + minFeatureLocation);
+}
+
+float calcDistanceToCentre(float3 *vl, __global const struct AFK_TerrainFeature *features, int i, float radius)
+{
+    float3 distance = getLocation(features, i, radius) - *vl;
     float distanceToCentreSquared =
         (distance.x * distance.x) + (distance.z * distance.z);
     float distanceToCentre = sqrt(distanceToCentreSquared);
@@ -33,17 +70,15 @@ void computeCone(
     __global const struct AFK_TerrainFeature *features,
     int i)
 {
-    float radius = (features[i].scale.x < features[i].scale.z ?
-        features[i].scale.x : features[i].scale.z);
-
-    float distanceToCentre = calcDistanceToCentre(vl, features[i].location);
+    float radius = getRadius(features, i);
+    float distanceToCentre = calcDistanceToCentre(vl, features, i, radius);
 
     if (distanceToCentre < radius)
     {
         float dispY = (radius - distanceToCentre) *
-            (features[i].scale.y / radius);
+            (getYScale(features, i) / radius);
         *vl += (float3)(0.0f, dispY, 0.0f);
-        *vc += features[i].tint * features[i].scale.z * distanceToCentre;
+        *vc += features[i].tint * radius * distanceToCentre;
     }
 }
 
@@ -53,19 +88,17 @@ void computeSpike(
     __global const struct AFK_TerrainFeature *features,
     int i)
 {
-    float radius = (features[i].scale.x < features[i].scale.z ?
-        features[i].scale.x : features[i].scale.z);
-
-    float distanceToCentre = calcDistanceToCentre(vl, features[i].location);
+    float radius = getRadius(features, i);
+    float distanceToCentre = calcDistanceToCentre(vl, features, i, radius);
 
     /* A spike is a hump without the rounded-off section. */
     if (distanceToCentre < radius)
     {
         float dispY = (radius - distanceToCentre) *
             (radius - distanceToCentre) *
-            (features[i].scale.y / (radius * radius));
+            (getYScale(features, i) / (radius * radius));
         *vl += (float3)(0.0f, dispY, 0.0f);
-        *vc += features[i].tint * features[i].scale.z * distanceToCentre;
+        *vc += features[i].tint * radius * distanceToCentre;
     }
 }
 
@@ -75,10 +108,8 @@ void computeHump(
     __global const struct AFK_TerrainFeature *features,
     int i)
 {
-    float radius = (features[i].scale.x < features[i].scale.z ?
-        features[i].scale.x : features[i].scale.z);
-
-    float distanceToCentre = calcDistanceToCentre(vl, features[i].location);
+    float radius = getRadius(features, i);
+    float distanceToCentre = calcDistanceToCentre(vl, features, i, radius);
 
     float3 disp = (float3)(0.0f, 0.0f, 0.0f);
     if (distanceToCentre < (radius / 2.0f))
@@ -86,11 +117,12 @@ void computeHump(
         /* A hump is always based off of twice the spike height at
          * distanceToCentre == (radius / 2.0f) .
          */
+        float yScale = getYScale(features, i);
         disp.y = ((radius / 2.0f) * (radius / 2.0f) *
-            (2.0f * features[i].scale.y / (radius * radius)));
+            (2.0f * yScale / (radius * radius)));
 
         /* From there, we subtract the inverse curve. */
-        disp.y -= (distanceToCentre * distanceToCentre * features[i].scale.y / (radius * radius));
+        disp.y -= (distanceToCentre * distanceToCentre * yScale / (radius * radius));
 
         *vl += disp;
         *vc += features[i].tint * features[i].scale.z * distanceToCentre;
@@ -99,10 +131,10 @@ void computeHump(
     {
         disp.y = (radius - distanceToCentre) *
             (radius - distanceToCentre) *
-            (features[i].scale.y / (radius * radius));
+            (getYScale(features, i) / (radius * radius));
 
         *vl += disp;
-        *vc += features[i].tint * features[i].scale.z * distanceToCentre;
+        *vc += features[i].tint * radius * distanceToCentre;
     }
 }
 

@@ -11,10 +11,9 @@ class AFK_LandscapeSizes
 {
 protected:
     unsigned int reduceOrder; /* 1<<reduceOrder is the power of two above tDim*tDim */
-    float minFeatureSize;
-    float maxFeatureSize;
 
 public:
+    const unsigned int subdivisionFactor;
     const unsigned int pointSubdivisionFactor;
     const unsigned int vDim; /* Number of vertices along an edge in the base tile */
     const unsigned int iDim; /* Number of triangles along an edge */
@@ -31,8 +30,6 @@ public:
     AFK_LandscapeSizes(unsigned int subdivisionFactor, unsigned int pointSubdivisionFactor);
 
     unsigned int getReduceOrder(void) const;
-    float getMinFeatureSize(void) const;
-    float getMaxFeatureSize(void) const;
 };
 
 #endif /* _AFK_LANDSCAPE_SIZES_H_ */

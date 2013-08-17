@@ -258,6 +258,7 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
     AFK_LandscapeSizes lSizes(config->subdivisionFactor, config->pointSubdivisionFactor);
     if (p->filename == "terrain.cl" || p->filename == "surface.cl")
     {
+        args << "-D SUBDIVISION_FACTOR="        << lSizes.subdivisionFactor      << " ";
         args << "-D POINT_SUBDIVISION_FACTOR="  << lSizes.pointSubdivisionFactor << " ";
         args << "-D TDIM="                      << lSizes.tDim                   << " ";
         args << "-D TDIM_START="                << lSizes.tDimStart              << " ";

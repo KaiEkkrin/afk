@@ -57,9 +57,6 @@ void AFK_TerrainTile::make(
      */
     unsigned int descriptor = rng.uirand();
 
-    float minFeatureSize = lSizes.getMinFeatureSize();
-    float maxFeatureSize = lSizes.getMaxFeatureSize();
-
     /* For now I'm always going to apply `featureCountPerTile'
      * features instead, to avoid having padding issues in the
      * terrain compute queue.
@@ -74,19 +71,15 @@ void AFK_TerrainTile::make(
         float ySign = (descriptor & 1) ? 1.0f : -1.0f;
         descriptor = descriptor >> 1;
 
+        /* Let's try inputting numbers between 0 and 1 (or between -1 and 1 in
+         * the case of the y scale), and computing the proper scale in the CL
+         */
         Vec3<float> scale = afk_vec3<float>(
-            rng.frand() * (maxFeatureSize - minFeatureSize) + minFeatureSize,
-            ySign * (yScale * (maxFeatureSize - minFeatureSize) + minFeatureSize),
-            rng.frand() * (maxFeatureSize - minFeatureSize) + minFeatureSize);
+            rng.frand(),
+            ySign * yScale,
+            rng.frand());
 
-        float minFeatureLocationX = scale.v[0] /* + maxFeatureSize */;
-        float maxFeatureLocationX = 1.0f - scale.v[0] /* - maxFeatureSize */;
-        float minFeatureLocationZ = scale.v[2] /* + maxFeatureSize */;
-        float maxFeatureLocationZ = 1.0f - scale.v[2] /* - maxFeatureSize */;
-
-        Vec2<float> location = afk_vec2<float>(
-            rng.frand() * (maxFeatureLocationX - minFeatureLocationX) + minFeatureLocationX,
-            rng.frand() * (maxFeatureLocationZ - minFeatureLocationZ) + minFeatureLocationZ);
+        Vec2<float> location = afk_vec2<float>(rng.frand(), rng.frand());
         
         Vec3<float> tint =
             afk_vec3<float>(rng.frand(), rng.frand(), rng.frand());
