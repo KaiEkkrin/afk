@@ -9,12 +9,21 @@
 #define AFK_TERRAIN_SPIKE       3
 #define AFK_TERRAIN_HUMP        4
 
+enum AFK_TerrainFeatureOffset
+{
+    AFK_TFO_SCALE_X         = 0,
+    AFK_TFO_SCALE_Y         = 1,
+    AFK_TFO_LOCATION_X      = 2,
+    AFK_TFO_LOCATION_Z      = 3,
+    AFK_TFO_TINT_R          = 4,
+    AFK_TFO_TINT_G          = 5,
+    AFK_TFO_TINT_B          = 6,
+    AFK_TFO_FTYPE           = 7
+};
+
 struct AFK_TerrainFeature
 {
-    float3                      tint;
-    float3                      scale;
-    float2                      location; /* x, z */
-    int                         fType;
+    unsigned char               f[8];
 };
 
 /* The maximum size of a feature is equal to the cell size
@@ -35,12 +44,13 @@ __constant float minFeatureSize = (1.0f / ((float)POINT_SUBDIVISION_FACTOR)) / (
 
 float getRadius(__global const struct AFK_TerrainFeature *features, int i)
 {
-    return features[i].scale.x * (maxFeatureSize - minFeatureSize) / 256.0f + minFeatureSize;
+    return (float)(features[i].f[AFK_TFO_SCALE_X]) * (maxFeatureSize - minFeatureSize) / 256.0f + minFeatureSize;
 }
 
 float getYScale(__global const struct AFK_TerrainFeature *features, int i)
 {
-    float yBase = features[i].scale.y * (maxFeatureSize - minFeatureSize) / 256.0f;
+    float yNorm = ((float)(features[i].f[AFK_TFO_SCALE_Y]) - 128.0f) / 128.0f;
+    float yBase = yNorm * (maxFeatureSize - minFeatureSize);
     return (yBase > 0.0f ? (yBase + minFeatureSize) : (yBase - minFeatureSize));
 }
 
@@ -50,14 +60,17 @@ float3 getLocation(__global const struct AFK_TerrainFeature *features, int i, fl
     float maxFeatureLocation = 1.0f - radius;
 
     return (float3)(
-        features[i].location.x * (maxFeatureLocation - minFeatureLocation) / 256.0f + minFeatureLocation,
+        (float)(features[i].f[AFK_TFO_LOCATION_X]) * (maxFeatureLocation - minFeatureLocation) / 256.0f + minFeatureLocation,
         0.0f,
-        features[i].location.y * (maxFeatureLocation - minFeatureLocation) / 256.0f + minFeatureLocation);
+        (float)(features[i].f[AFK_TFO_LOCATION_Z]) * (maxFeatureLocation - minFeatureLocation) / 256.0f + minFeatureLocation);
 }
 
 float3 getTint(__global const struct AFK_TerrainFeature *features, int i)
 {
-    return (float3)(features[i].tint.x / 256.0f, features[i].tint.y / 256.0f, features[i].tint.z / 256.0f);
+    return (float3)(
+        (float)(features[i].f[AFK_TFO_TINT_R]),
+        (float)(features[i].f[AFK_TFO_TINT_G]),
+        (float)(features[i].f[AFK_TFO_TINT_B])) / 256.0f;
 }
 
 float calcDistanceToCentre(float3 *vl, __global const struct AFK_TerrainFeature *features, int i, float radius) {
@@ -148,7 +161,7 @@ void computeTerrainFeature(
     __global const struct AFK_TerrainFeature *features,
     int i)
 {
-    switch (features[i].fType)
+    switch (features[i].f[AFK_TFO_FTYPE])
     {
     case AFK_TERRAIN_CONE:
         computeCone(vl, vc, features, i);

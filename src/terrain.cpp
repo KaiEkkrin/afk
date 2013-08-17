@@ -11,19 +11,11 @@
 #include "exception.hpp"
 #include "terrain.hpp"
 
-AFK_TerrainFeature::AFK_TerrainFeature(
-    const Vec3<float>& _tint,
-    const Vec3<float>& _scale,
-    const Vec2<float>& _location,
-    const enum AFK_TerrainType _type):
-        tint(_tint), scale(_scale), location(_location), type(_type)
-{
-}
-
 std::ostream& operator<<(std::ostream& os, const AFK_TerrainFeature& feature)
 {
     return os << "Feature(" <<
-        "Location=" << feature.location << ", Scale=" << feature.scale << ")";
+        "Scale=(" << (int)feature.f[AFK_TFO_SCALE_X] << ", " << (int)feature.f[AFK_TFO_SCALE_Y] << "), " <<
+        "Location=(" << (int)feature.f[AFK_TFO_LOCATION_X] << ", " << (int)feature.f[AFK_TFO_LOCATION_Z] << ")";
 }
 
 
@@ -45,50 +37,24 @@ void AFK_TerrainTile::make(
     tileZ = _tileCoord.v[1];
     tileScale = _tileCoord.v[2];
 
-    /* Draw a value that tells me how many features
-     * to put into this cell and what their
-     * characteristics are.
-     * TODO: This will want expanding a great deal!
-     * Many possibilities for different ways of
-     * combining features aside from simple addition
-     * too: replacement, addition to a single aliased
-     * value for the parent features (should look nice),
-     * etc.
-     */
-    unsigned int descriptor = rng.uirand();
-
     /* For now I'm always going to apply `featureCountPerTile'
      * features instead, to avoid having padding issues in the
      * terrain compute queue.
      */
     for (unsigned int i = 0; i < lSizes.featureCountPerTile; ++i)
     {
-        /* Pick our feature scale.
-         * The y scale may be positive or negative -- draw this
-         * from the descriptor.
-         */
-        float yScale = rng.frand() * 256.0f;
-        float ySign = (descriptor & 1) ? 1.0f : -1.0f;
-        descriptor = descriptor >> 1;
+        AFK_TerrainFeature feature;
 
-        /* Let's try inputting numbers between 0 and 1 (or between -1 and 1 in
-         * the case of the y scale), and computing the proper scale in the CL
-         */
-        Vec3<float> scale = afk_vec3<float>(
-            rng.frand() * 256.0f,
-            ySign * yScale,
-            rng.frand() * 256.0f);
-
-        Vec2<float> location = afk_vec2<float>(rng.frand() * 256.0f, rng.frand() * 256.0f);
-        
-        Vec3<float> tint =
-            afk_vec3<float>(rng.frand() * 256.0f, rng.frand() * 256.0f, rng.frand() * 256.0f);
+        for (unsigned int j = 0; j < 7; ++j)
+        {
+            feature.f[j] = (unsigned char)(rng.frand() * 256.0f);
+        }
 
         /* For now, I'm going to include one spike per tile,
          * and make the others humps.
          */
-        AFK_TerrainFeature feature(
-            tint, scale, location, i == 0 ? AFK_TERRAIN_SPIKE : AFK_TERRAIN_HUMP);
+        feature.f[AFK_TFO_FTYPE] = (i == 0 ? AFK_TERRAIN_SPIKE : AFK_TERRAIN_HUMP);
+
         features.push_back(feature);
     }
 } 

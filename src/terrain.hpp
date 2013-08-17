@@ -40,29 +40,28 @@ enum AFK_TerrainType
  * but I think that's okay.
  */
 
+enum AFK_TerrainFeatureOffset
+{
+    AFK_TFO_SCALE_X         = 0,
+    AFK_TFO_SCALE_Y         = 1,
+    AFK_TFO_LOCATION_X      = 2,
+    AFK_TFO_LOCATION_Z      = 3,
+    AFK_TFO_TINT_R          = 4,
+    AFK_TFO_TINT_G          = 5,
+    AFK_TFO_TINT_B          = 6,
+    AFK_TFO_FTYPE           = 7
+};
+
 class AFK_TerrainFeature
 {
-protected:
-    /* TODO: This needs compressing.  However, I'm not
-     * sure right now what a sensible scheme would be.
-     * Work on getting random shapes and entities working
-     * next, and come back to it.
-     */
-    Vec3<float>             tint; /* TODO Make location and tint features separate things? */
-    Vec3<float>             scale;
-    Vec2<float>             location; /* x-z */
-    enum AFK_TerrainType    type;
-
 public:
-    AFK_TerrainFeature() {}
-    AFK_TerrainFeature(
-        const Vec3<float>& _tint,
-        const Vec3<float>& _scale,
-        const Vec2<float>& _location,
-        const enum AFK_TerrainType _type);
+    /* Values stored in order as defined by the
+     * AFK_TerrainFeatureOffset enum.
+     */
+    unsigned char f[8];
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_TerrainFeature& feature);
-} __attribute__((aligned(16)));
+};
 
 std::ostream& operator<<(std::ostream& os, const AFK_TerrainFeature& feature);
 
