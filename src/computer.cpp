@@ -255,9 +255,9 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
 
     /* Compiler arguments here... */
     std::ostringstream args;
+    AFK_LandscapeSizes lSizes(config->subdivisionFactor, config->pointSubdivisionFactor);
     if (p->filename == "terrain.cl" || p->filename == "surface.cl")
     {
-        AFK_LandscapeSizes lSizes(config->pointSubdivisionFactor);
         args << "-D POINT_SUBDIVISION_FACTOR="  << lSizes.pointSubdivisionFactor << " ";
         args << "-D TDIM="                      << lSizes.tDim                   << " ";
         args << "-D TDIM_START="                << lSizes.tDimStart              << " ";
@@ -265,7 +265,6 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
     }
     else if (p->filename == "yreduce.cl")
     {
-        AFK_LandscapeSizes lSizes(config->pointSubdivisionFactor);
         args << "-D TDIM="                      << lSizes.tDim                   << " ";
         args << "-D REDUCE_ORDER="              << lSizes.getReduceOrder()       << " ";
     }

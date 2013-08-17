@@ -92,11 +92,10 @@ public:
 
     /* Adds a terrain descriptor to this tile if there isn't any already. */
     void makeTerrainDescriptor(
-        unsigned int pointSubdivisionFactor,
+        const AFK_LandscapeSizes& lSizes,
         unsigned int subdivisionFactor,
         const AFK_Tile& tile,
-        float minCellSize,
-        const Vec3<float> *forcedTint);
+        float minCellSize);
 
     /* Builds the terrain list for this tile.  Call it with
      * an empty list.

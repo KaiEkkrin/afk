@@ -11,14 +11,6 @@
 
 struct AFK_TerrainFeature
 {
-    /* TILE_IN_FEATURE_DEBUG */
-#if 0
-    float                       tileX;
-    float                       tileZ;
-    float                       tileScale;
-    unsigned int                featureCount;
-#endif
-
     float3                      tint;
     float3                      scale;
     float2                      location; /* x, z */
@@ -141,7 +133,6 @@ struct AFK_TerrainTile
     float                       tileX;
     float                       tileZ;
     float                       tileScale;
-    unsigned int                featureCount;
 };
 
 float4 getCellCoord(__global const struct AFK_TerrainTile *tiles, unsigned int t)

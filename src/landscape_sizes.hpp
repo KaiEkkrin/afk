@@ -11,6 +11,8 @@ class AFK_LandscapeSizes
 {
 protected:
     unsigned int reduceOrder; /* 1<<reduceOrder is the power of two above tDim*tDim */
+    float minFeatureSize;
+    float maxFeatureSize;
 
 public:
     const unsigned int pointSubdivisionFactor;
@@ -26,9 +28,11 @@ public:
     const unsigned int tSize; /* Size of a jigsaw piece in bytes */
     const unsigned int featureCountPerTile; /* Number of terrain features per tile */
 
-    AFK_LandscapeSizes(unsigned int pointSubdivisionFactor);
+    AFK_LandscapeSizes(unsigned int subdivisionFactor, unsigned int pointSubdivisionFactor);
 
     unsigned int getReduceOrder(void) const;
+    float getMinFeatureSize(void) const;
+    float getMaxFeatureSize(void) const;
 };
 
 #endif /* _AFK_LANDSCAPE_SIZES_H_ */

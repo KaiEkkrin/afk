@@ -33,11 +33,10 @@ bool AFK_LandscapeTile::hasTerrainDescriptor() const
 }
 
 void AFK_LandscapeTile::makeTerrainDescriptor(
-    unsigned int pointSubdivisionFactor,
+    const AFK_LandscapeSizes& lSizes,
     unsigned int subdivisionFactor,
     const AFK_Tile& tile,
-    float minCellSize,
-    const Vec3<float> *forcedTint)
+    float minCellSize)
 {
     if (!haveTerrainDescriptor)
     {
@@ -58,8 +57,8 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
             t.make(
                 terrainFeatures,
                 tileCoord,
-                pointSubdivisionFactor * (descriptorTiles[i].coord.v[2] / tile.coord.v[2]),
-                subdivisionFactor, minCellSize, rng, forcedTint);
+                lSizes,
+                rng);
             terrainTiles.push_back(t);
         }
 

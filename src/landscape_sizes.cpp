@@ -4,7 +4,7 @@
 #include "landscape_sizes.hpp"
 
 
-AFK_LandscapeSizes::AFK_LandscapeSizes(unsigned int pointSubdivisionFactor):
+AFK_LandscapeSizes::AFK_LandscapeSizes(unsigned int subdivisionFactor, unsigned int pointSubdivisionFactor):
     pointSubdivisionFactor(pointSubdivisionFactor),
     vDim(pointSubdivisionFactor + 1), /* one extra vertex along the top and right sides to join with the adjacent tile */
     iDim(pointSubdivisionFactor),
@@ -20,10 +20,36 @@ AFK_LandscapeSizes::AFK_LandscapeSizes(unsigned int pointSubdivisionFactor):
     featureCountPerTile(SQUARE(pointSubdivisionFactor / 2)) /* this seems about right */
 {
     for (reduceOrder = 1; (1u << reduceOrder) < tDim; ++reduceOrder);
+
+    /* The maximum size of a feature is equal to the cell size
+     * divided by the feature subdivision factor.  Like that, I
+     * shouldn't get humongous feature pop-in when changing LoDs:
+     * all features are minimally visible at greatest zoom.
+     * The feature subdivision factor should be something like the
+     * point subdivision factor for the local tile (which isn't
+     * necessarily the tile its features are homed to...)
+     */
+    maxFeatureSize = 1.0f / ((float)pointSubdivisionFactor);
+
+    /* ... and the *minimum* size of a feature is equal
+     * to that divided by the cell subdivision factor;
+     * features smaller than that should be in subcells
+     */
+    minFeatureSize = maxFeatureSize / (float)subdivisionFactor;
 }
 
 unsigned int AFK_LandscapeSizes::getReduceOrder(void) const
 {
     return reduceOrder;
+}
+
+float AFK_LandscapeSizes::getMinFeatureSize(void) const
+{
+    return minFeatureSize;
+}
+
+float AFK_LandscapeSizes::getMaxFeatureSize(void) const
+{
+    return maxFeatureSize;
 }
 

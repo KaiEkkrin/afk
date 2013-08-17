@@ -88,15 +88,11 @@ bool AFK_World::checkClaimedLandscapeTile(
      * First, make sure it's got a terrain descriptor, which
      * will tell us what terrain features go here.
      */
-
-    /* Tile colour debugging goes here. */
-    Vec3<float>* forcedTint = NULL;
     landscapeTile.makeTerrainDescriptor(
-        lSizes.pointSubdivisionFactor,
+        lSizes,
         subdivisionFactor,
         tile,
-        minCellSize,
-        forcedTint);
+        minCellSize);
 
     /* Find out whether I'm going to need to be giving this
      * tile some artwork
@@ -493,7 +489,7 @@ AFK_World::AFK_World(
         maxDistance                 (_maxDistance),
         subdivisionFactor           (config->subdivisionFactor),
         minCellSize                 (config->minCellSize),
-        lSizes                      (config->pointSubdivisionFactor)
+        lSizes                      (config->subdivisionFactor, config->pointSubdivisionFactor)
 {
     /* Set up the caches and generator gang. */
 

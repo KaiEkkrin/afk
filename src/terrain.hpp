@@ -40,19 +40,9 @@ enum AFK_TerrainType
  * but I think that's okay.
  */
 
-/* If you enable this, you also need to uncomment it in terrain.cl */
-#define TILE_IN_FEATURE_DEBUG 0
-
 class AFK_TerrainFeature
 {
 protected:
-#if TILE_IN_FEATURE_DEBUG
-    float               tileX;
-    float               tileZ;
-    float               tileScale;
-    unsigned int        featureCount;
-#endif
-
     /* TODO: This needs compressing.  However, I'm not
      * sure right now what a sensible scheme would be.
      * Work on getting random shapes and entities working
@@ -66,12 +56,6 @@ protected:
 public:
     AFK_TerrainFeature() {}
     AFK_TerrainFeature(
-#if TILE_IN_FEATURE_DEBUG
-        float _tileX,
-        float _tileZ,
-        float _tileScale,
-        unsigned int _featureCount,
-#endif
         const Vec3<float>& _tint,
         const Vec3<float>& _scale,
         const Vec2<float>& _location,
@@ -104,11 +88,8 @@ protected:
     float               tileX;
     float               tileZ;
     float               tileScale;
-    unsigned int        featureCount;
 
 public:
-    AFK_TerrainTile();
-
     Vec3<float> getTileCoord(void) const;
 
     /* Assumes the RNG to have been seeded correctly for
@@ -121,10 +102,7 @@ public:
         std::vector<AFK_TerrainFeature>& features, /* We will append features to this */
         const Vec3<float>& _tileCoord,
         const AFK_LandscapeSizes &lSizes,
-        unsigned int subdivisionFactor,
-        float minCellSize,
-        AFK_RNG& rng,
-        const Vec3<float> *forcedTint);
+        AFK_RNG& rng);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_TerrainTile& tile);
 };

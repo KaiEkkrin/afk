@@ -12,19 +12,10 @@
 #include "terrain.hpp"
 
 AFK_TerrainFeature::AFK_TerrainFeature(
-#if TILE_IN_FEATURE_DEBUG
-    float _tileX,
-    float _tileZ,
-    float _tileScale,
-    unsigned int _featureCount,
-#endif
     const Vec3<float>& _tint,
     const Vec3<float>& _scale,
     const Vec2<float>& _location,
     const enum AFK_TerrainType _type):
-#if TILE_IN_FEATURE_DEBUG
-        tileX(_tileX), tileZ(_tileZ), tileScale(_tileScale), featureCount(_featureCount),
-#endif
         tint(_tint), scale(_scale), location(_location), type(_type)
 {
 }
@@ -32,19 +23,11 @@ AFK_TerrainFeature::AFK_TerrainFeature(
 std::ostream& operator<<(std::ostream& os, const AFK_TerrainFeature& feature)
 {
     return os << "Feature(" <<
-#if TILE_IN_FEATURE_DEBUG
-        "X=" << feature.tileX << ", Z=" << feature.tileZ << ", Scale=" << feature.tileScale << ", " <<
-#endif
         "Location=" << feature.location << ", Scale=" << feature.scale << ")";
 }
 
 
 /* AFK_TerrainTile implementation. */
-
-AFK_TerrainTile::AFK_TerrainTile()
-{
-    featureCount = 0;
-}
 
 Vec3<float> AFK_TerrainTile::getTileCoord(void) const
 {
@@ -55,10 +38,7 @@ void AFK_TerrainTile::make(
     std::vector<AFK_TerrainFeature>& features,
     const Vec3<float>& _tileCoord,
     const AFK_LandscapeSizes& lSizes,
-    unsigned int subdivisionFactor,
-    float minCellSize,
-    AFK_RNG& rng,
-    const Vec3<float> *forcedTint)
+    AFK_RNG& rng)
 {
     /* This establishes where our terrain cell actually lies. */
     tileX = _tileCoord.v[0];
@@ -77,34 +57,14 @@ void AFK_TerrainTile::make(
      */
     unsigned int descriptor = rng.uirand();
 
-    /* The maximum size of a feature is equal to the cell size
-     * divided by the feature subdivision factor.  Like that, I
-     * shouldn't get humongous feature pop-in when changing LoDs:
-     * all features are minimally visible at greatest zoom.
-     * The feature subdivision factor should be something like the
-     * point subdivision factor for the local tile (which isn't
-     * necessarily the tile its features are homed to...)
-     */
-    float maxFeatureSize = 1.0f / ((float)lSizes.pointSubdivisionFactor);
-
-    /* ... and the *minimum* size of a feature is equal
-     * to that divided by the cell subdivision factor;
-     * features smaller than that should be in subcells
-     */
-    float minFeatureSize = maxFeatureSize / (float)subdivisionFactor;
+    float minFeatureSize = lSizes.getMinFeatureSize();
+    float maxFeatureSize = lSizes.getMaxFeatureSize();
 
     /* For now I'm always going to apply `featureCountPerTile'
      * features instead, to avoid having padding issues in the
      * terrain compute queue.
      */
-#if 0
-    /* I want between 1 and `featureCountPerTile' features. */
-    featureCount = (descriptor % lSizes.featureCountPerTile) + 1;
-    descriptor = descriptor / lSizes.featureCountPerTile;
-#else
-    featureCount = lSizes.featureCountPerTile;
-#endif
-    for (unsigned int i = 0; i < featureCount; ++i)
+    for (unsigned int i = 0; i < lSizes.featureCountPerTile; ++i)
     {
         /* Pick our feature scale.
          * The y scale may be positive or negative -- draw this
@@ -128,16 +88,13 @@ void AFK_TerrainTile::make(
             rng.frand() * (maxFeatureLocationX - minFeatureLocationX) + minFeatureLocationX,
             rng.frand() * (maxFeatureLocationZ - minFeatureLocationZ) + minFeatureLocationZ);
         
-        Vec3<float> tint = forcedTint ? *forcedTint :
+        Vec3<float> tint =
             afk_vec3<float>(rng.frand(), rng.frand(), rng.frand());
 
         /* For now, I'm going to include one spike per tile,
          * and make the others humps.
          */
         AFK_TerrainFeature feature(
-#if TILE_IN_FEATURE_DEBUG
-            tileX, tileZ, tileScale, featureCount,
-#endif
             tint, scale, location, i == 0 ? AFK_TERRAIN_SPIKE : AFK_TERRAIN_HUMP);
         features.push_back(feature);
     }
