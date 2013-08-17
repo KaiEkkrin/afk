@@ -747,6 +747,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
     cl_context ctxt,
     const Vec2<int>& _pieceSize,
     int _pieceCount,
+    int minJigsawCount,
     enum AFK_JigsawFormat *texFormat,
     unsigned int _texCount,
     const AFK_ClDeviceProperties& _clDeviceProps,
@@ -789,7 +790,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
         /* Try to make pretend textures of the current jigsaw size */
         for (unsigned int tex = 0; tex < texCount && dimensionsOK; ++tex)
         {
-            dimensionsOK &= ((testJigsawSize.v[0] * testJigsawSize.v[1] * pieceSize.v[0] * pieceSize.v[1] * format[tex].texelSize) < _clDeviceProps.maxMemAllocSize);
+            dimensionsOK &= ((minJigsawCount * testJigsawSize.v[0] * testJigsawSize.v[1] * pieceSize.v[0] * pieceSize.v[1] * format[tex].texelSize) < _clDeviceProps.maxMemAllocSize);
             if (!dimensionsOK) break;
 
             glBindTexture(GL_PROXY_TEXTURE_2D, glProxyTex[tex]);
@@ -822,6 +823,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
 
     /* Update the dimensions and actual piece count to reflect what I found */
     int jigsawCount = pieceCount / (jigsawSize.v[0] * jigsawSize.v[1]) + 1;
+    if (jigsawCount < minJigsawCount) jigsawCount = minJigsawCount;
     pieceCount = jigsawCount * jigsawSize.v[0] * jigsawSize.v[1];
 
     std::cout << "AFK_JigsawCollection: Making " << jigsawCount << " jigsaws with " << jigsawSize << " pieces each (actually " << pieceCount << " pieces)" << std::endl;
@@ -853,12 +855,12 @@ int AFK_JigsawCollection::getPieceCount(void) const
     return pieceCount;
 }
 
-AFK_JigsawPiece AFK_JigsawCollection::grab(unsigned int threadId, AFK_Frame& o_timestamp)
+AFK_JigsawPiece AFK_JigsawCollection::grab(unsigned int threadId, int minJigsaw, AFK_Frame& o_timestamp)
 {
     Vec2<int> uv;
 
     int puzzle;
-    for (puzzle = 0; puzzle < (int)puzzles.size(); ++puzzle)
+    for (puzzle = minJigsaw; puzzle < (int)puzzles.size(); ++puzzle)
     {
         if (puzzles[puzzle]->grab(threadId, uv, o_timestamp))
         {

@@ -14,19 +14,16 @@ class AFK_LandscapeTile;
 
 /* This object manages the reduction of the y-bounds out of the y-displacement
  * texture.
+ * Use one y-reduce per jigsaw.
  */
 class AFK_YReduce
 {
 protected:
     cl_kernel yReduceKernel;
 
-    /* Each jigsaw gets its associated y-reduce result buffer.
-     * These need remaking if they turn out too small, but
-     * hopefully that won't happen too often.
-     */
-    std::vector<cl_mem> bufs;
-    std::vector<size_t> bufSizes; /* in bytes */
-
+    /* The result buffers */
+    cl_mem buf;
+    size_t bufSize;
     float *readback;
     size_t readbackSize; /* in floats */
 
@@ -35,6 +32,12 @@ protected:
 
 public:
     AFK_YReduce(const AFK_Computer *computer);
+
+    /* This constructor pulls its kernel configuration from an
+     * existing YReduce.
+     */
+    AFK_YReduce(const AFK_YReduce& existing);
+
     virtual ~AFK_YReduce();
 
     void compute(

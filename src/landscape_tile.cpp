@@ -97,11 +97,11 @@ void AFK_LandscapeTile::buildTerrainList(
     }
 }
 
-AFK_JigsawPiece AFK_LandscapeTile::getJigsawPiece(unsigned int threadId, AFK_JigsawCollection *_jigsaws)
+AFK_JigsawPiece AFK_LandscapeTile::getJigsawPiece(unsigned int threadId, int minJigsaw, AFK_JigsawCollection *_jigsaws)
 {
     if (artworkState() == AFK_LANDSCAPE_TILE_HAS_ARTWORK) throw AFK_Exception("Tried to overwrite a tile's artwork");
     jigsaws = _jigsaws;
-    jigsawPiece = jigsaws->grab(threadId, jigsawPieceTimestamp);
+    jigsawPiece = jigsaws->grab(threadId, minJigsaw, jigsawPieceTimestamp);
     return jigsawPiece;
 }
 
@@ -135,7 +135,7 @@ void AFK_LandscapeTile::setYBounds(float _yBoundLower, float _yBoundUpper)
     /* Convert these bounds into world space.
      * The native tile is the first one in the list
      */
-    float tileScale = terrainTiles[0].getTileCoord().v[2];
+    float tileScale = terrainTiles[0].getTileScale();
     yBoundLower = _yBoundLower * tileScale;
     yBoundUpper = _yBoundUpper * tileScale;
 

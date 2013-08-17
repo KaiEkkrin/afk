@@ -109,7 +109,7 @@ public:
         const AFK_LANDSCAPE_CACHE *cache) const;
 
     /* Assigns a jigsaw piece to this tile. */
-    AFK_JigsawPiece getJigsawPiece(unsigned int threadId, AFK_JigsawCollection *_jigsaws);
+    AFK_JigsawPiece getJigsawPiece(unsigned int threadId, int minJigsaw, AFK_JigsawCollection *_jigsaws);
 
     enum AFK_LandscapeTileArtworkState artworkState() const;
     float getYBoundLower() const;

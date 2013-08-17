@@ -5,22 +5,22 @@
 #include "yreduce.hpp"
 
 AFK_YReduce::AFK_YReduce(const AFK_Computer *computer):
-    readback(NULL), readbackSize(0), readbackEvent(0)
+    buf(0), bufSize(0), readback(NULL), readbackSize(0), readbackEvent(0)
 {
     if (!computer->findKernel("yReduce", yReduceKernel))
         throw AFK_Exception("Cannot find Y-reduce kernel");
 }
 
+AFK_YReduce::AFK_YReduce(const AFK_YReduce& existing):
+    yReduceKernel(existing.yReduceKernel),
+    buf(0), bufSize(0), readback(NULL), readbackSize(0), readbackEvent(0)
+{
+}
+
 AFK_YReduce::~AFK_YReduce()
 {
-    for (std::vector<cl_mem>::iterator bufIt = bufs.begin();
-        bufIt != bufs.end(); ++bufIt)
-    {
-        if (*bufIt) AFK_CLCHK(clReleaseMemObject(*bufIt))
-    }
-
-    if (readbackEvent) AFK_CLCHK(clReleaseEvent(readbackEvent))
-
+    if (buf) clReleaseMemObject(buf);
+    if (readbackEvent) clReleaseEvent(readbackEvent);
     if (readback != NULL) delete[] readback;
 }
 
@@ -36,34 +36,28 @@ void AFK_YReduce::compute(
 {
     cl_int error;
 
-    while (bufs.size() <= puzzle)
-    {
-        bufs.push_back(0);
-        bufSizes.push_back(0);
-    }
-
-    /* Each buffer needs to be big enough for 2 floats per
+    /* The buffer needs to be big enough for 2 floats per
      * unit.
      */
     size_t requiredSize = unitCount * 2 * sizeof(float);
-    if (bufSizes[puzzle] < requiredSize)
+    if (bufSize < requiredSize)
     {
-        if (bufs[puzzle])
-            AFK_CLCHK(clReleaseMemObject(bufs[puzzle]))
+        if (buf)
+            AFK_CLCHK(clReleaseMemObject(buf))
 
-        bufs[puzzle] = clCreateBuffer(
+        buf = clCreateBuffer(
             ctxt, CL_MEM_WRITE_ONLY,
             requiredSize,
             NULL,
             &error);
         afk_handleClError(error);
-        bufSizes[puzzle] = requiredSize;
+        bufSize = requiredSize;
     }
 
     AFK_CLCHK(clSetKernelArg(yReduceKernel, 0, sizeof(cl_mem), units))
     AFK_CLCHK(clSetKernelArg(yReduceKernel, 1, sizeof(cl_mem), jigsawYDisp))
     AFK_CLCHK(clSetKernelArg(yReduceKernel, 2, sizeof(cl_sampler), yDispSampler))
-    AFK_CLCHK(clSetKernelArg(yReduceKernel, 3, sizeof(cl_mem), &bufs[puzzle]))
+    AFK_CLCHK(clSetKernelArg(yReduceKernel, 3, sizeof(cl_mem), &buf))
 
     size_t yReduceGlobalDim[2];
     yReduceGlobalDim[0] = (1 << lSizes.getReduceOrder());
@@ -75,7 +69,7 @@ void AFK_YReduce::compute(
 
     AFK_CLCHK(clEnqueueNDRangeKernel(q, yReduceKernel, 2, 0, &yReduceGlobalDim[0], &yReduceLocalDim[0], 0, NULL, NULL))
 
-    size_t requiredReadbackSize = bufSizes[puzzle] / sizeof(float);
+    size_t requiredReadbackSize = bufSize / sizeof(float);
     if (readbackSize < requiredReadbackSize)
     {
         if (readback) delete[] readback;
@@ -83,7 +77,7 @@ void AFK_YReduce::compute(
         readbackSize = requiredReadbackSize;
     }
 
-    AFK_CLCHK(clEnqueueReadBuffer(q, bufs[puzzle], CL_FALSE, 0, bufSizes[puzzle], readback, 0, NULL, &readbackEvent))
+    AFK_CLCHK(clEnqueueReadBuffer(q, buf, CL_FALSE, 0, bufSize, readback, 0, NULL, &readbackEvent))
 }
 
 void AFK_YReduce::readBack(

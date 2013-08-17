@@ -335,6 +335,7 @@ public:
         cl_context ctxt,
         const Vec2<int>& _pieceSize,
         int _pieceCount,
+        int minJigsawCount,
         enum AFK_JigsawFormat *texFormat,
         unsigned int _texCount,
         const AFK_ClDeviceProperties& _clDeviceProps,
@@ -350,8 +351,14 @@ public:
      * Also fills out `o_timestamp' with the timestamp of the row
      * your piece came from so you can find out when it's
      * going to be swept.
+     * `minJigsaw' tells it which index jigsaw to try grabbing
+     * from.  This is an attempt at a cunning trick by which I
+     * can separate long-lived pieces (to start at jigsaw 0)
+     * from shorter-lived pieces (to start at a higher jigsaw)
+     * to avoid repeatedly sweeping out long-lived pieces only
+     * to re-create them the same.
      */
-    AFK_JigsawPiece grab(unsigned int threadId, AFK_Frame& o_timestamp);
+    AFK_JigsawPiece grab(unsigned int threadId, int minJigsaw, AFK_Frame& o_timestamp);
 
     /* Gets you the puzzle that matches a particular piece. */
     AFK_Jigsaw *getPuzzle(const AFK_JigsawPiece& piece) const;

@@ -173,8 +173,10 @@ protected:
      */
     AFK_Fair<AFK_LandscapeDisplayQueue> landscapeDisplayFair;
 
-    /* This is used to sort out the landscape tile y-bounds. */
-    AFK_YReduce *landscapeYReduce;
+    /* These are used to sort out the landscape tile y-bounds --
+     * one per jigsaw.
+     */
+    std::vector<AFK_YReduce*> landscapeYReduce;
 
     /* The basic landscape tile geometry. */
     GLuint landscapeTileArray;

@@ -40,7 +40,9 @@ public:
         boost::unique_lock<boost::mutex> lock(mut);
 
         unsigned int qIndex = q * 2 + updateInc;
-        while (queues.size() <= qIndex)
+        /* Pad the queues up to the next multiple of 2 */
+        unsigned int qCount = qIndex + (2 - (qIndex % 2));
+        while (queues.size() < qCount)
         {
             boost::shared_ptr<QueueType> newQ(new QueueType());
             queues.push_back(newQ);

@@ -21,6 +21,11 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainFeature& feature)
 
 /* AFK_TerrainTile implementation. */
 
+float AFK_TerrainTile::getTileScale(void) const
+{
+    return tileScale;
+}
+
 Vec3<float> AFK_TerrainTile::getTileCoord(void) const
 {
     return afk_vec3<float>(tileX, tileZ, tileScale);

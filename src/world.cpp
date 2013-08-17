@@ -14,11 +14,11 @@
 
 
 #define PRINT_CHECKPOINTS 1
-#define PRINT_CACHE_STATS 1
+#define PRINT_CACHE_STATS 0
 
 #define PROTAGONIST_CELL_DEBUG 0
 
-#define DISPLAY_TIMER 0
+#define DISPLAY_TIMER 1
 
 
 /* The AFK_WorldCellGenParam flags. */
@@ -157,7 +157,13 @@ void AFK_World::generateLandscapeArtwork(
     /* Assign a jigsaw piece for this tile, so that the
      * compute phase has somewhere to paint.
      */
-    AFK_JigsawPiece jigsawPiece = landscapeTile.getJigsawPiece(threadId, landscapeJigsaws);
+    AFK_JigsawPiece jigsawPiece = landscapeTile.getJigsawPiece(
+        threadId,
+        /* Put bigger tiles only in the first jigsaw, where they won't
+         * get swept out as often (they should be longer lived.)
+         */
+        tile.coord.v[2] >= 256 ? 0 : 1,
+        landscapeJigsaws);
 #if DEBUG_JIGSAW_ASSOCIATION
     AFK_DEBUG_PRINTL("Compute: " << tile << " -> " << jigsawPiece)
 #endif
@@ -294,6 +300,7 @@ bool AFK_World::generateClaimedWorldCell(
 
                     boost::shared_ptr<AFK_LandscapeDisplayQueue> ldq =
                         landscapeDisplayFair.getUpdateQueue(jigsawPiece.puzzle);
+
                     ldq->add(unit, &landscapeTile);
                     tilesQueued.fetch_add(1);
                 }
@@ -507,6 +514,7 @@ AFK_World::AFK_World(
         ctxt,
         pieceSize,
         (int)tileCacheEntries,
+        2, /* I want at least two, so I can put big tiles only into the first one */
         texFormat,
         3,
         computer->getFirstDeviceProps(),
@@ -583,7 +591,7 @@ AFK_World::AFK_World(
     if (!computer->findKernel("makeTerrain", terrainKernel))
         throw AFK_Exception("Cannot find terrain kernel");
 
-    landscapeYReduce = new AFK_YReduce(computer);
+    landscapeYReduce.push_back(new AFK_YReduce(computer));
 
 #if DISPLAY_TIMER
     /* Set up that stage timer.
@@ -637,7 +645,11 @@ AFK_World::~AFK_World()
     delete landscapeTerrainBase;
     glDeleteVertexArrays(1, &landscapeTileArray);
 
-    delete landscapeYReduce;
+    for (std::vector<AFK_YReduce*>::iterator yRIt = landscapeYReduce.begin();
+        yRIt != landscapeYReduce.end(); ++yRIt)
+    {
+        delete *yRIt;
+    }
 
 #if DISPLAY_TIMER
     delete displayTimer;
@@ -826,7 +838,9 @@ void AFK_World::doComputeTasks(void)
 #endif
 
         /* Finally, do the y reduce. */
-        landscapeYReduce->compute(
+        while (landscapeYReduce.size() <= puzzle)
+            landscapeYReduce.push_back(new AFK_YReduce(*(landscapeYReduce[0])));
+        landscapeYReduce[puzzle]->compute(
             ctxt,
             q,
             puzzle,
@@ -994,7 +1008,7 @@ void AFK_World::finaliseComputeTasks(void)
         unsigned int unitCount = computeQueues[puzzle]->getUnitCount();
         if (unitCount == 0) continue;
 
-        landscapeYReduce->readBack(
+        landscapeYReduce[puzzle]->readBack(
             unitCount,
             &computeQueues[puzzle]->landscapeTiles);
     }

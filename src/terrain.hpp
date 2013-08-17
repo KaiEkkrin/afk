@@ -89,6 +89,7 @@ protected:
     float               tileScale;
 
 public:
+    float getTileScale(void) const;
     Vec3<float> getTileCoord(void) const;
 
     /* Assumes the RNG to have been seeded correctly for
