@@ -100,25 +100,26 @@ void AFK_LandscapeTile::buildTerrainList(
 
 AFK_JigsawPiece AFK_LandscapeTile::getJigsawPiece(unsigned int threadId, AFK_JigsawCollection *_jigsaws)
 {
-    if (hasArtwork()) throw AFK_Exception("Tried to overwrite a tile's artwork");
+    if (artworkState() == AFK_LANDSCAPE_TILE_HAS_ARTWORK) throw AFK_Exception("Tried to overwrite a tile's artwork");
     jigsaws = _jigsaws;
     jigsawPiece = jigsaws->grab(threadId, jigsawPieceTimestamp);
     return jigsawPiece;
 }
 
-bool AFK_LandscapeTile::hasArtwork() const
+enum AFK_LandscapeTileArtworkState AFK_LandscapeTile::artworkState() const
 {
-    if (!hasTerrainDescriptor() || jigsawPiece == AFK_JigsawPiece()) return false;
+    if (!hasTerrainDescriptor() || jigsawPiece == AFK_JigsawPiece()) return AFK_LANDSCAPE_TILE_NO_PIECE_ASSIGNED;
 
     AFK_Frame rowTimestamp = jigsaws->getPuzzle(jigsawPiece)->getTimestamp(jigsawPiece.piece);
-    /* TODO remove debug */
+#if 0
     if (rowTimestamp != jigsawPieceTimestamp)
     {
         /* TODO remove debug */
         AFK_DEBUG_PRINTL("Tile " << terrainTiles[0].getTileCoord() << ": timestamp expired (Old piece: " << jigsawPiece << ")")
     }
+#endif
 
-    return (rowTimestamp == jigsawPieceTimestamp);
+    return (rowTimestamp == jigsawPieceTimestamp) ? AFK_LANDSCAPE_TILE_HAS_ARTWORK : AFK_LANDSCAPE_TILE_PIECE_SWEPT;
 }
 
 float AFK_LandscapeTile::getYBoundLower() const
@@ -144,7 +145,9 @@ void AFK_LandscapeTile::setYBounds(float _yBoundLower, float _yBoundUpper)
     /* Debugging here because it's a good indicator that the tile
      * has been computed now.
      */
+#if 0
     AFK_DEBUG_PRINTL("Tile " << terrainTiles[0].getTileCoord() << ": new y-bounds appeared: " << yBoundLower << ", " << yBoundUpper)
+#endif
 }
 
 bool AFK_LandscapeTile::realCellWithinYBounds(const Vec4<float>& coord) const
@@ -196,7 +199,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_LandscapeTile& t)
 {
     os << "Landscape tile";
     if (t.haveTerrainDescriptor) os << " (Terrain)";
-    if (t.hasArtwork()) os << " (Computed with bounds: " << t.yBoundLower << " - " << t.yBoundUpper << ")";
+    if (t.artworkState() == AFK_LANDSCAPE_TILE_HAS_ARTWORK) os << " (Computed with bounds: " << t.yBoundLower << " - " << t.yBoundUpper << ")";
     return os;
 }
 

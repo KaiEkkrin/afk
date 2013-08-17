@@ -264,7 +264,7 @@ bool AFK_Jigsaw::startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRo
         for (newRowCount = 0;
             newRowCount < (int)concurrency &&
                 (newRow + newRowCount) < jigsawSize.v[0] &&
-                (newRow + newRowCount) < sweepRow;
+                (sweepRow < newRow || (newRow + newRowCount) < sweepRow);
             ++newRowCount);
 
         if (newRowCount < (int)concurrency)
@@ -289,16 +289,39 @@ bool AFK_Jigsaw::startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRo
     return true;
 }
 
+#define SWEEP_DEBUG 0
+
 int AFK_Jigsaw::getSweepTarget(int latestRow) const
 {
     int target = latestRow + (jigsawSize.v[0] / 8);
     target += (concurrency - (target % concurrency));
     if (target >= jigsawSize.v[0]) target -= jigsawSize.v[0];
 
-    /* TODO remove debug */
-    std::cerr << "sweepTarget: " << sweepRow << " -> " << target << " (latestRow: " << latestRow << ", jigsawSize " << jigsawSize << ", concurrency " << concurrency << ")" << std::endl;
+#if SWEEP_DEBUG
+    AFK_DEBUG_PRINTL("sweepTarget: " << sweepRow << " -> " << target << " (latestRow: " << latestRow << ", jigsawSize " << jigsawSize << ", concurrency " << concurrency << ")")
+#endif
 
     return target;
+}
+
+void AFK_Jigsaw::sweep(int sweepTarget, const AFK_Frame& currentFrame)
+{
+    if (sweepTarget < sweepRow)
+    {
+        /* TODO remove debug */
+        AFK_DEBUG_PRINTL("SWEEP ROLLOVER (" << sweepRow << " -> " << sweepTarget << ")")
+
+        /* I need to roll up to the top of the jigsaw and then wrap
+         * around to the bottom again.
+         */
+        for (; sweepRow < jigsawSize.v[0]; ++sweepRow)
+            rowTimestamp[sweepRow] = currentFrame;
+
+        sweepRow = 0;
+    }
+
+    for (; sweepRow < sweepTarget; ++sweepRow)
+        rowTimestamp[sweepRow] = currentFrame;
 }
 
 AFK_Jigsaw::AFK_Jigsaw(
@@ -638,6 +661,8 @@ void AFK_Jigsaw::bindTexture(unsigned int tex)
     }
 }
 
+#define FLIP_DEBUG 0
+
 void AFK_Jigsaw::flipRects(const AFK_Frame& currentFrame)
 {
     updateRs = (updateRs == 0 ? 1 : 0);
@@ -652,45 +677,43 @@ void AFK_Jigsaw::flipRects(const AFK_Frame& currentFrame)
     bool continued = false;
     if (rects[drawRs].size() > 0)
     {
-        continued = startNewRect(*(rects[drawRs].rbegin()), false);
+        /* Sweep in front of the rectangle I'm about to make */
+        std::vector<AFK_JigsawSubRect>::reverse_iterator lastRect = rects[drawRs].rbegin();
+        int nextFreeRow = lastRect->r + lastRect->rows;
+        if (nextFreeRow >= jigsawSize.v[0]) nextFreeRow -= jigsawSize.v[0];
+        if (nextFreeRow == sweepRow)
+        {
+            /* Do the sweep. */
+            sweep(getSweepTarget(nextFreeRow), currentFrame);
+        }
+
+#if FLIP_DEBUG
+        AFK_DEBUG_PRINTL("Flipping from draw rectangle " << *lastRect << " (with sweep row " << sweepRow << ")")
+#endif
+        continued = startNewRect(*lastRect, false);
     }
     else
     {
+#if FLIP_DEBUG
+        AFK_DEBUG_PRINTL("Trying to start fresh rectangle")
+#endif
         /* This should be a rare case: I previously ran out of
          * rectangles in this jigsaw.
          * Pick a place to try to start from (this may not succeed).
          * I need to ask for a new row to trigger the eviction stuff.
          */
         continued = startNewRect(AFK_JigsawSubRect(0, 0, concurrency), true);
+
+        if (continued)
+        {
+            /* Now, reset the sweep and sweep across that rectangle. */
+            sweepRow = 0;
+            sweep(getSweepTarget(sweepRow), currentFrame);
+        }
     }
 
     /* This shouldn't happen, *but* ... */
     if (!continued) throw AFK_Exception("flipRects() failed");
-
-#if 1
-    int nextFreeRow = rects[updateRs][0].r + rects[updateRs][0].rows;
-    if (nextFreeRow == sweepRow)
-    {
-        /* Do the sweep. */
-        int sweepTarget = getSweepTarget(nextFreeRow);
-        if (sweepTarget < sweepRow)
-        {
-            /* TODO remove debug */
-            std::cerr << "SWEEP ROLLOVER (" << sweepRow << " -> " << sweepTarget << ")" << std::endl;
-
-            /* I need to roll up to the top of the jigsaw and then wrap
-             * around to the bottom again.
-             */
-            for (; sweepRow < jigsawSize.v[0]; ++sweepRow)
-                rowTimestamp[sweepRow] = currentFrame;
-
-            sweepRow = 0;
-        }
-
-        for (; sweepRow < sweepTarget; ++sweepRow)
-            rowTimestamp[sweepRow] = currentFrame;
-    }
-#endif
 }
 
 

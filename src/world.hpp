@@ -118,6 +118,7 @@ protected:
     boost::atomic<unsigned long long> tilesQueued;
     boost::atomic<unsigned long long> tilesResumed;
     boost::atomic<unsigned long long> tilesComputed;
+    boost::atomic<unsigned long long> tilesRecomputedAfterSweep;
     boost::atomic<unsigned long long> entitiesQueued;
     boost::atomic<unsigned long long> entitiesMoved;
     boost::atomic<unsigned long long> threadEscapes;

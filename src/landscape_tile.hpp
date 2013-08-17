@@ -37,6 +37,14 @@ class AFK_LandscapeDisplayUnit;
  */
 class AFK_LandscapeTileNotPresentException: public std::exception {};
 
+/* A tile's possible artwork state. */
+enum AFK_LandscapeTileArtworkState
+{
+    AFK_LANDSCAPE_TILE_NO_PIECE_ASSIGNED,
+    AFK_LANDSCAPE_TILE_PIECE_SWEPT,
+    AFK_LANDSCAPE_TILE_HAS_ARTWORK
+};
+
 /* Describes a landscape tile, including managing its rendered vertex
  * and index buffers.
  */
@@ -104,7 +112,7 @@ public:
     /* Assigns a jigsaw piece to this tile. */
     AFK_JigsawPiece getJigsawPiece(unsigned int threadId, AFK_JigsawCollection *_jigsaws);
 
-    bool hasArtwork() const;
+    enum AFK_LandscapeTileArtworkState artworkState() const;
     float getYBoundLower() const;
     float getYBoundUpper() const;
 

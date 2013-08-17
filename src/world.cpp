@@ -103,7 +103,33 @@ bool AFK_World::checkClaimedLandscapeTile(
     /* Find out whether I'm going to need to be giving this
      * tile some artwork
      */
-    return (display && !landscapeTile.hasArtwork());
+    bool needsArtwork = false;
+    if (display)
+    {
+        enum AFK_LandscapeTileArtworkState artworkState = landscapeTile.artworkState();
+        switch (artworkState)
+        {
+        case AFK_LANDSCAPE_TILE_NO_PIECE_ASSIGNED:
+            needsArtwork = true;
+            break;
+
+        case AFK_LANDSCAPE_TILE_PIECE_SWEPT:
+            /* I'd like some stats on how often this happens */
+            tilesRecomputedAfterSweep.fetch_add(1);
+            needsArtwork = true;
+            break;
+
+        case AFK_LANDSCAPE_TILE_HAS_ARTWORK:
+            needsArtwork = false;
+            break;
+
+        default:
+            std::ostringstream ss;
+            ss << "Unrecognised artwork state: " << artworkState;
+            throw AFK_Exception(ss.str());
+        }
+    }
+    return needsArtwork;
 }
 
 /* TODO this will make mega spam */
@@ -211,7 +237,7 @@ bool AFK_World::generateClaimedWorldCell(
 
         bool generateArtwork = false;
         if (!landscapeTile.hasTerrainDescriptor() ||
-            ((renderTerrain || display) && !landscapeTile.hasArtwork()))
+            ((renderTerrain || display) && landscapeTile.artworkState() != AFK_LANDSCAPE_TILE_HAS_ARTWORK))
         {
             /* In order to generate this tile we need to upgrade
              * our claim if we can.
@@ -250,7 +276,7 @@ bool AFK_World::generateClaimedWorldCell(
 
         if (display)
         {
-            if (landscapeTile.hasArtwork())
+            if (landscapeTile.artworkState() == AFK_LANDSCAPE_TILE_HAS_ARTWORK)
             {
                 /* Get it to make us a unit to
                  * feed into the display queue.
@@ -595,6 +621,7 @@ AFK_World::AFK_World(
     tilesQueued.store(0);
     tilesResumed.store(0);
     tilesComputed.store(0);
+    tilesRecomputedAfterSweep.store(0);
     entitiesQueued.store(0);
     entitiesMoved.store(0);
     threadEscapes.store(0);
@@ -1010,14 +1037,15 @@ static float toRatePerSecond(unsigned long long quantity, boost::posix_time::tim
 void AFK_World::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint)
 {
 #if PRINT_CHECKPOINTS
-    std::cout << "Detail pitch:             " << detailPitch << std::endl;
-    PRINT_RATE_AND_RESET("Cells found invisible:    ", cellsInvisible)
-    PRINT_RATE_AND_RESET("Tiles queued:             ", tilesQueued)
-    PRINT_RATE_AND_RESET("Tiles resumed:            ", tilesResumed)
-    PRINT_RATE_AND_RESET("Tiles computed:           ", tilesComputed)
-    PRINT_RATE_AND_RESET("Entities queued:          ", entitiesQueued)
-    PRINT_RATE_AND_RESET("Entities moved:           ", entitiesMoved)
-    std::cout <<         "Cumulative thread escapes:" << threadEscapes.load() << std::endl;
+    std::cout << "Detail pitch:                 " << detailPitch << std::endl;
+    PRINT_RATE_AND_RESET("Cells found invisible:        ", cellsInvisible)
+    PRINT_RATE_AND_RESET("Tiles queued:                 ", tilesQueued)
+    PRINT_RATE_AND_RESET("Tiles resumed:                ", tilesResumed)
+    PRINT_RATE_AND_RESET("Tiles computed:               ", tilesComputed)
+    PRINT_RATE_AND_RESET("Tiles recomputed after sweep: ", tilesRecomputedAfterSweep)
+    PRINT_RATE_AND_RESET("Entities queued:              ", entitiesQueued)
+    PRINT_RATE_AND_RESET("Entities moved:               ", entitiesMoved)
+    std::cout <<         "Cumulative thread escapes:    " << threadEscapes.load() << std::endl;
 #endif
 }
 

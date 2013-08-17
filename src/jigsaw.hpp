@@ -247,6 +247,11 @@ protected:
      */
     int getSweepTarget(int latestRow) const;
 
+    /* This utility function sweeps from the current sweep row up
+     * to the sweep target, updating the sweep row as it goes.
+     */
+    void sweep(int sweepTarget, const AFK_Frame& currentFrame);
+
 public:
     AFK_Jigsaw(
         cl_context ctxt,
