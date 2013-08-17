@@ -67,7 +67,7 @@ void AFK_TerrainTile::make(
          * The y scale may be positive or negative -- draw this
          * from the descriptor.
          */
-        float yScale = rng.frand();
+        float yScale = rng.frand() * 256.0f;
         float ySign = (descriptor & 1) ? 1.0f : -1.0f;
         descriptor = descriptor >> 1;
 
@@ -75,14 +75,14 @@ void AFK_TerrainTile::make(
          * the case of the y scale), and computing the proper scale in the CL
          */
         Vec3<float> scale = afk_vec3<float>(
-            rng.frand(),
+            rng.frand() * 256.0f,
             ySign * yScale,
-            rng.frand());
+            rng.frand() * 256.0f);
 
-        Vec2<float> location = afk_vec2<float>(rng.frand(), rng.frand());
+        Vec2<float> location = afk_vec2<float>(rng.frand() * 256.0f, rng.frand() * 256.0f);
         
         Vec3<float> tint =
-            afk_vec3<float>(rng.frand(), rng.frand(), rng.frand());
+            afk_vec3<float>(rng.frand() * 256.0f, rng.frand() * 256.0f, rng.frand() * 256.0f);
 
         /* For now, I'm going to include one spike per tile,
          * and make the others humps.

@@ -35,12 +35,12 @@ __constant float minFeatureSize = (1.0f / ((float)POINT_SUBDIVISION_FACTOR)) / (
 
 float getRadius(__global const struct AFK_TerrainFeature *features, int i)
 {
-    return features[i].scale.x * (maxFeatureSize - minFeatureSize) + minFeatureSize;
+    return features[i].scale.x * (maxFeatureSize - minFeatureSize) / 256.0f + minFeatureSize;
 }
 
 float getYScale(__global const struct AFK_TerrainFeature *features, int i)
 {
-    float yBase = features[i].scale.y * (maxFeatureSize - minFeatureSize);
+    float yBase = features[i].scale.y * (maxFeatureSize - minFeatureSize) / 256.0f;
     return (yBase > 0.0f ? (yBase + minFeatureSize) : (yBase - minFeatureSize));
 }
 
@@ -50,13 +50,17 @@ float3 getLocation(__global const struct AFK_TerrainFeature *features, int i, fl
     float maxFeatureLocation = 1.0f - radius;
 
     return (float3)(
-        features[i].location.x * (maxFeatureLocation - minFeatureLocation) + minFeatureLocation,
+        features[i].location.x * (maxFeatureLocation - minFeatureLocation) / 256.0f + minFeatureLocation,
         0.0f,
-        features[i].location.y * (maxFeatureLocation - minFeatureLocation) + minFeatureLocation);
+        features[i].location.y * (maxFeatureLocation - minFeatureLocation) / 256.0f + minFeatureLocation);
 }
 
-float calcDistanceToCentre(float3 *vl, __global const struct AFK_TerrainFeature *features, int i, float radius)
+float3 getTint(__global const struct AFK_TerrainFeature *features, int i)
 {
+    return (float3)(features[i].tint.x / 256.0f, features[i].tint.y / 256.0f, features[i].tint.z / 256.0f);
+}
+
+float calcDistanceToCentre(float3 *vl, __global const struct AFK_TerrainFeature *features, int i, float radius) {
     float3 distance = getLocation(features, i, radius) - *vl;
     float distanceToCentreSquared =
         (distance.x * distance.x) + (distance.z * distance.z);
@@ -78,7 +82,7 @@ void computeCone(
         float dispY = (radius - distanceToCentre) *
             (getYScale(features, i) / radius);
         *vl += (float3)(0.0f, dispY, 0.0f);
-        *vc += features[i].tint * radius * distanceToCentre;
+        *vc += getTint(features, i) * radius * distanceToCentre;
     }
 }
 
@@ -98,7 +102,7 @@ void computeSpike(
             (radius - distanceToCentre) *
             (getYScale(features, i) / (radius * radius));
         *vl += (float3)(0.0f, dispY, 0.0f);
-        *vc += features[i].tint * radius * distanceToCentre;
+        *vc += getTint(features, i) * radius * distanceToCentre;
     }
 }
 
@@ -125,7 +129,7 @@ void computeHump(
         disp.y -= (distanceToCentre * distanceToCentre * yScale / (radius * radius));
 
         *vl += disp;
-        *vc += features[i].tint * features[i].scale.z * distanceToCentre;
+        *vc += getTint(features, i) * radius * distanceToCentre;
     }
     else if (distanceToCentre < radius)
     {
@@ -134,7 +138,7 @@ void computeHump(
             (getYScale(features, i) / (radius * radius));
 
         *vl += disp;
-        *vc += features[i].tint * radius * distanceToCentre;
+        *vc += getTint(features, i) * radius * distanceToCentre;
     }
 }
 
