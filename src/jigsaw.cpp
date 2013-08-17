@@ -289,12 +289,18 @@ bool AFK_Jigsaw::startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRo
     return true;
 }
 
+int AFK_Jigsaw::roundUpToConcurrency(int r) const
+{
+    int rmodc = r % concurrency;
+    if (rmodc > 0) r += (concurrency - rmodc);
+    return r;
+}
+
 #define SWEEP_DEBUG 0
 
 int AFK_Jigsaw::getSweepTarget(int latestRow) const
 {
-    int target = latestRow + (jigsawSize.v[0] / 8);
-    target += (concurrency - (target % concurrency));
+    int target = roundUpToConcurrency(latestRow + (jigsawSize.v[0] / 8));
     if (target >= jigsawSize.v[0]) target -= jigsawSize.v[0];
 
 #if SWEEP_DEBUG
@@ -319,6 +325,18 @@ void AFK_Jigsaw::sweep(int sweepTarget, const AFK_Frame& currentFrame)
 
     for (; sweepRow < sweepTarget; ++sweepRow)
         rowTimestamp[sweepRow] = currentFrame;
+}
+
+void AFK_Jigsaw::doSweep(int nextFreeRow, const AFK_Frame& currentFrame)
+{
+    /* Let's try to keep the sweep row at least 1/8th ahead of the
+     * next free row.
+     */
+    int sweepRowCmp = roundUpToConcurrency((sweepRow < nextFreeRow ? (sweepRow + jigsawSize.v[0]) : sweepRow));
+    if ((sweepRowCmp - nextFreeRow) < (jigsawSize.v[0] / 8))
+    {
+        sweep(getSweepTarget(sweepRowCmp), currentFrame);
+    }
 }
 
 AFK_Jigsaw::AFK_Jigsaw(
@@ -691,12 +709,7 @@ void AFK_Jigsaw::flipRects(const AFK_Frame& currentFrame)
         /* Sweep in front of the rectangle I'm about to make */
         std::vector<AFK_JigsawSubRect>::reverse_iterator lastRect = rects[drawRs].rbegin();
         int nextFreeRow = lastRect->r + lastRect->rows;
-        if (nextFreeRow >= jigsawSize.v[0]) nextFreeRow -= jigsawSize.v[0];
-        if (nextFreeRow == sweepRow)
-        {
-            /* Do the sweep. */
-            sweep(getSweepTarget(nextFreeRow), currentFrame);
-        }
+        doSweep(nextFreeRow, currentFrame);
 
 #if FLIP_DEBUG
         AFK_DEBUG_PRINTL("Flipping from draw rectangle " << *lastRect << " (with sweep row " << sweepRow << ")")
@@ -719,7 +732,7 @@ void AFK_Jigsaw::flipRects(const AFK_Frame& currentFrame)
         {
             /* Now, reset the sweep and sweep across that rectangle. */
             sweepRow = 0;
-            sweep(getSweepTarget(sweepRow), currentFrame);
+            doSweep(0, currentFrame);
         }
     }
 
@@ -824,16 +837,6 @@ AFK_JigsawCollection::AFK_JigsawCollection(
             clGlSharing,
             concurrency));
     }
-
-    /* Also make a spare. */
-    spare = new AFK_Jigsaw(
-        ctxt,
-        pieceSize,
-        jigsawSize,
-        &format[0],
-        texCount,
-        clGlSharing,
-        concurrency);
 }
 
 AFK_JigsawCollection::~AFK_JigsawCollection()
@@ -843,8 +846,6 @@ AFK_JigsawCollection::~AFK_JigsawCollection()
     {
         delete *pIt;
     }
-
-    if (spare) delete spare;
 }
 
 int AFK_JigsawCollection::getPieceCount(void) const
@@ -874,28 +875,10 @@ AFK_JigsawPiece AFK_JigsawCollection::grab(unsigned int threadId, AFK_Frame& o_t
         }
     }
 
-    /* If I get here, see if there's a spare I can use... */
-    boost::unique_lock<boost::mutex> lock(mut);
-    if (puzzle == (int)puzzles.size())
-    {
-        if (spare)
-        {
-            puzzles.push_back(spare);
-            spare = NULL;
-        }
-        else
-        {
-            throw AFK_Exception("grab() ran out of jigsaws");
-        }
-    }
-
-    for (; puzzle < (int)puzzles.size(); ++puzzle)
-    {
-        if (puzzles[puzzle]->grab(threadId, uv, o_timestamp))
-            return AFK_JigsawPiece(uv, puzzle);
-    }
-
-    throw AFK_Exception("Unable to grab piece from new jigsaw");
+    /* If I get here, I've failed, because I shouldn't be going along
+     * spawning extra jigsaws :P
+     */
+    throw AFK_Exception("Jigsaw ran out of room");
 }
 
 AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(const AFK_JigsawPiece& piece) const
@@ -913,17 +896,5 @@ void AFK_JigsawCollection::flipRects(cl_context ctxt, const AFK_Frame& currentFr
 {
     for (int puzzle = 0; puzzle < (int)puzzles.size(); ++puzzle)
         puzzles[puzzle]->flipRects(currentFrame);
-
-    if (!spare)
-    {
-        spare = new AFK_Jigsaw(
-            ctxt,
-            pieceSize,
-            jigsawSize,
-            &format[0],
-            texCount,
-            clGlSharing,
-            concurrency);
-    }
 }
 

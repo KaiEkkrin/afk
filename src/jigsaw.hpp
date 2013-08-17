@@ -241,16 +241,18 @@ protected:
      */
     bool startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRow);
 
-    /* This utility function returns the new sweep target that I
-     * should hit for this frame.  Give it the row after the latest
-     * update rectangle.
-     */
+    int roundUpToConcurrency(int r) const;
     int getSweepTarget(int latestRow) const;
 
-    /* This utility function sweeps from the current sweep row up
-     * to the sweep target, updating the sweep row as it goes.
+    /* Actually performs the sweep up to the given target row.
      */
     void sweep(int sweepTarget, const AFK_Frame& currentFrame);
+
+    /* This utility function sweeps in front of the given next
+     * free row, hoping to keep far enough ahead of the
+     * grabber to not be caught up on.
+     */
+    void doSweep(int nextFreeRow, const AFK_Frame& currentFrame);
 
 public:
     AFK_Jigsaw(
@@ -325,9 +327,6 @@ protected:
     const unsigned int concurrency;
 
     std::vector<AFK_Jigsaw*> puzzles;
-
-    /* This is a spare jigsaw to slot in if I run out. */
-    AFK_Jigsaw *spare;
 
     boost::mutex mut;
 
