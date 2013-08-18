@@ -11,12 +11,6 @@ AFK_YReduce::AFK_YReduce(const AFK_Computer *computer):
         throw AFK_Exception("Cannot find Y-reduce kernel");
 }
 
-AFK_YReduce::AFK_YReduce(const AFK_YReduce& existing):
-    yReduceKernel(existing.yReduceKernel),
-    buf(0), bufSize(0), readback(NULL), readbackSize(0), readbackEvent(0)
-{
-}
-
 AFK_YReduce::~AFK_YReduce()
 {
     if (buf) clReleaseMemObject(buf);
@@ -27,7 +21,6 @@ AFK_YReduce::~AFK_YReduce()
 void AFK_YReduce::compute(
     cl_context ctxt,
     cl_command_queue q,
-    unsigned int puzzle,
     unsigned int unitCount,
     cl_mem *units,
     cl_mem *jigsawYDisp,
@@ -82,7 +75,7 @@ void AFK_YReduce::compute(
 
 void AFK_YReduce::readBack(
     unsigned int unitCount,
-    std::vector<AFK_LandscapeTile*> *landscapeTiles)
+    std::vector<AFK_LandscapeTile*>& landscapeTiles)
 {
     if (!readbackEvent) return;
 
@@ -102,7 +95,7 @@ void AFK_YReduce::readBack(
 
 	for (unsigned int i = 0; i < unitCount; ++i)
 	{
-		(*landscapeTiles)[i]->setYBounds(
+		landscapeTiles[i]->setYBounds(
 			readback[i * 2], readback[i * 2 + 1]);
 	}
 }

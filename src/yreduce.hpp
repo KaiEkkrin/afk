@@ -33,17 +33,11 @@ protected:
 public:
     AFK_YReduce(const AFK_Computer *computer);
 
-    /* This constructor pulls its kernel configuration from an
-     * existing YReduce.
-     */
-    AFK_YReduce(const AFK_YReduce& existing);
-
     virtual ~AFK_YReduce();
 
     void compute(
         cl_context ctxt,
         cl_command_queue q,
-        unsigned int puzzle,
         unsigned int unitCount,
         cl_mem *units,
         cl_mem *jigsawYDisp,
@@ -52,7 +46,7 @@ public:
 
     void readBack(
         unsigned int unitCount,
-        std::vector<AFK_LandscapeTile*> *landscapeTiles);
+        std::vector<AFK_LandscapeTile*>& landscapeTiles);
 };
 
 #endif /* _AFK_YREDUCE_H_ */

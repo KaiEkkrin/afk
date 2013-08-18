@@ -12,8 +12,11 @@
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
+#include "computer.hpp"
 #include "def.hpp"
+#include "landscape_sizes.hpp"
 #include "terrain.hpp"
+#include "yreduce.hpp"
 
 class AFK_LandscapeTile;
 
@@ -68,12 +71,19 @@ protected:
      */
     boost::mutex mut;
 
-public:
+    /* Compute stuff. */
+    cl_kernel terrainKernel, surfaceKernel;
+    AFK_YReduce *yReduce;
+
     /* In this vector, we store the in-order list of pointers
      * to the source LandscapeTiles, so that the yreduce
      * module can feed the computed y bounds back in easily.
      */
     std::vector<AFK_LandscapeTile*> landscapeTiles;
+
+public:
+    AFK_TerrainComputeQueue();
+    virtual ~AFK_TerrainComputeQueue();
 
     /* Pushes a terrain list into the queue, making a Unit for it.
      * The Unit goes in too, but we return it as well so you can
@@ -84,15 +94,9 @@ public:
     /* This prints lots of debug info about the given terrain unit. */
     std::string debugTerrain(const AFK_TerrainComputeUnit& unit, const AFK_LandscapeSizes& lSizes) const;
 
-    /* Call this with a `mem' array of size 3, for:
-     * - features
-     * - tiles
-     * - units.
-     */
-    void copyToClBuffers(cl_context ctxt, cl_mem *mem);
-
-    int getUnitCount(void);
-    AFK_TerrainComputeUnit getUnit(int unitIndex);
+    /* Computes the terrain. */
+    void computeStart(AFK_Computer *computer, AFK_Jigsaw *jigsaw, const AFK_LandscapeSizes& lSizes);
+    void computeFinish(void);
 
     bool empty(void);
 

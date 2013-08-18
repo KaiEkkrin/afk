@@ -18,8 +18,6 @@
 
 #define PROTAGONIST_CELL_DEBUG 0
 
-#define DISPLAY_TIMER 1
-
 
 /* The AFK_WorldCellGenParam flags. */
 #define AFK_WCG_FLAG_ENTIRELY_VISIBLE   2 /* Cell is already known to be entirely within the viewing frustum */
@@ -585,30 +583,6 @@ AFK_World::AFK_World(
     glBindVertexArray(0);
     landscapeTerrainBase->teardownGL();
 
-    /* Sort out the compute kernels */
-    if (!computer->findKernel("makeSurface", surfaceKernel))
-        throw AFK_Exception("Cannot find surface kernel");
-    if (!computer->findKernel("makeTerrain", terrainKernel))
-        throw AFK_Exception("Cannot find terrain kernel");
-
-    landscapeYReduce.push_back(new AFK_YReduce(computer));
-
-#if DISPLAY_TIMER
-    /* Set up that stage timer.
-     * TODO With the way it's set up right now,
-     * I can only have one puzzle
-     */
-    std::vector<std::string> stageNames;
-    stageNames.push_back("acquire for cl"); /* 0 */
-    stageNames.push_back("terrain");        /* 1 */
-    stageNames.push_back("surface");        /* 2 */
-    stageNames.push_back("y reduce");       /* 3 */
-    stageNames.push_back("release from cl");/* 4 */
-    stageNames.push_back("copy to gl");     /* 5 */
-    stageNames.push_back("draw elements");  /* 6 */
-    displayTimer = new AFK_StageTimer("Display", stageNames, 60);
-#endif
-
     /* Initialise the statistics. */
     cellsInvisible.store(0);
     tilesQueued.store(0);
@@ -644,16 +618,6 @@ AFK_World::~AFK_World()
 
     delete landscapeTerrainBase;
     glDeleteVertexArrays(1, &landscapeTileArray);
-
-    for (std::vector<AFK_YReduce*>::iterator yRIt = landscapeYReduce.begin();
-        yRIt != landscapeYReduce.end(); ++yRIt)
-    {
-        delete *yRIt;
-    }
-
-#if DISPLAY_TIMER
-    delete displayTimer;
-#endif
 }
 
 void AFK_World::enqueueSubcells(
@@ -757,10 +721,6 @@ boost::unique_future<bool> AFK_World::updateWorld(void)
 
 void AFK_World::doComputeTasks(void)
 {
-#if DISPLAY_TIMER
-    displayTimer->restart();
-#endif
-
     /* The fair organises the terrain lists and jigsaw pieces by
      * puzzle, so that I can easily batch up work that applies to the
      * same jigsaw:
@@ -768,129 +728,13 @@ void AFK_World::doComputeTasks(void)
     std::vector<boost::shared_ptr<AFK_TerrainComputeQueue> > computeQueues;
     landscapeComputeFair.getDrawQueues(computeQueues);
 
-    cl_context ctxt;
-    cl_command_queue q;
-    afk_core.computer->lock(ctxt, q);
-
     /* The fair's queues are in the same order as the puzzles in
      * the jigsaw collection.
      */
     for (unsigned int puzzle = 0; puzzle < computeQueues.size(); ++puzzle)
     {
-        cl_int error;
-        unsigned int unitCount = computeQueues[puzzle]->getUnitCount();
-        if (unitCount == 0) continue;
-
-        cl_mem terrainBufs[3];
-        computeQueues[puzzle]->copyToClBuffers(ctxt, terrainBufs);
-
-        AFK_Jigsaw *jigsaw = landscapeJigsaws->getPuzzle(puzzle);
-        cl_mem *jigsawMem = jigsaw->acquireForCl(ctxt, q);
-
-#if DISPLAY_TIMER
-        displayTimer->hitStage(0);
-#endif
-
-        AFK_CLCHK(clSetKernelArg(terrainKernel, 0, sizeof(cl_mem), &terrainBufs[0]))
-        AFK_CLCHK(clSetKernelArg(terrainKernel, 1, sizeof(cl_mem), &terrainBufs[1]))
-        AFK_CLCHK(clSetKernelArg(terrainKernel, 2, sizeof(cl_mem), &terrainBufs[2]))
-        AFK_CLCHK(clSetKernelArg(terrainKernel, 3, sizeof(cl_mem), &jigsawMem[0]))
-        AFK_CLCHK(clSetKernelArg(terrainKernel, 4, sizeof(cl_mem), &jigsawMem[1]))
-
-        size_t terrainDim[3];
-        terrainDim[0] = terrainDim[1] = lSizes.tDim;
-        terrainDim[2] = unitCount;
-        AFK_CLCHK(clEnqueueNDRangeKernel(q, terrainKernel, 3, NULL, &terrainDim[0], NULL, 0, NULL, NULL))
-
-#if DISPLAY_TIMER
-        displayTimer->hitStage(1);
-#endif
-
-        /* For the next two I'm going to need this ...
-         */
-        cl_sampler jigsawYDispSampler = clCreateSampler(
-            ctxt,
-            CL_FALSE,
-            CL_ADDRESS_CLAMP_TO_EDGE,
-            CL_FILTER_NEAREST,
-            &error);
-        afk_handleClError(error);
-
-        /* Now, I need to run the kernel to bake the surface normals.
-         */
-        AFK_CLCHK(clSetKernelArg(surfaceKernel, 0, sizeof(cl_mem), &terrainBufs[2]))
-        AFK_CLCHK(clSetKernelArg(surfaceKernel, 1, sizeof(cl_mem), &jigsawMem[0]))
-        AFK_CLCHK(clSetKernelArg(surfaceKernel, 2, sizeof(cl_sampler), &jigsawYDispSampler))
-        AFK_CLCHK(clSetKernelArg(surfaceKernel, 3, sizeof(cl_mem), &jigsawMem[2]))
-
-        size_t surfaceGlobalDim[3];
-        surfaceGlobalDim[0] = surfaceGlobalDim[1] = lSizes.tDim - 1;
-        surfaceGlobalDim[2] = unitCount;
-
-        size_t surfaceLocalDim[3];
-        surfaceLocalDim[0] = surfaceLocalDim[1] = lSizes.tDim - 1;
-        surfaceLocalDim[2] = 1;
-
-        AFK_CLCHK(clEnqueueNDRangeKernel(q, surfaceKernel, 3, 0, &surfaceGlobalDim[0], &surfaceLocalDim[0], 0, NULL, NULL))
-
-#if DISPLAY_TIMER
-        displayTimer->hitStage(2);
-#endif
-
-        /* Finally, do the y reduce. */
-        while (landscapeYReduce.size() <= puzzle)
-            landscapeYReduce.push_back(new AFK_YReduce(*(landscapeYReduce[0])));
-        landscapeYReduce[puzzle]->compute(
-            ctxt,
-            q,
-            puzzle,
-            unitCount,
-            &terrainBufs[2],
-            &jigsawMem[0],
-            &jigsawYDispSampler,
-            lSizes);
-
-#if DISPLAY_TIMER
-        displayTimer->hitStage(3);
-#endif
-
-        /* TODO Can I keep this thing lying around long term ? */
-        AFK_CLCHK(clReleaseSampler(jigsawYDispSampler))
-
-        for (unsigned int i = 0; i < 3; ++i)
-        {
-            AFK_CLCHK(clReleaseMemObject(terrainBufs[i]))
-        }
-
-        jigsaw->releaseFromCl(q);
-
-#if DISPLAY_TIMER
-        displayTimer->hitStage(4);
-#endif
-
-        /* TODO REMOVEME (somehow)
-         * Debug this a little bit.
-         */
-#if 0
-        std::vector<Vec2<int> > changedPiecesDebug;
-        std::vector<Vec4<float> > changesDebug;
-        jigsaw->debugReadChanges<Vec4<float> >(changedPiecesDebug, changesDebug);
-        for (unsigned int cp = 0; cp < changedPiecesDebug.size(); ++cp)
-        {
-            std::cout << "Computed piece " << changedPiecesDebug[cp] << " from jigsaw puzzle " << puzzle << std::endl;
-            for (int x = 0; x < 3; ++x)
-            {
-                for (int z = 0; z < 3; ++z)
-                {
-                    std::cout << "(" << x << ", " << z << "): ";
-                    std::cout << changesDebug[x * lSizes.tDim + z] << std::endl;
-                }
-            }
-        }
-#endif
+        computeQueues[puzzle]->computeStart(afk_core.computer, landscapeJigsaws->getPuzzle(puzzle), lSizes);
     }
-
-    afk_core.computer->unlock();
 }
 
 void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLight)
@@ -1005,12 +849,7 @@ void AFK_World::finaliseComputeTasks(void)
 
     for (unsigned int puzzle = 0; puzzle < computeQueues.size(); ++puzzle)
     {
-        unsigned int unitCount = computeQueues[puzzle]->getUnitCount();
-        if (unitCount == 0) continue;
-
-        landscapeYReduce[puzzle]->readBack(
-            unitCount,
-            &computeQueues[puzzle]->landscapeTiles);
+        computeQueues[puzzle]->computeFinish();
     }
 }
 

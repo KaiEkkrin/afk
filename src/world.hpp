@@ -34,14 +34,12 @@
 #include "terrain_compute_queue.hpp"
 #include "tile.hpp"
 #include "world_cell.hpp"
-#include "yreduce.hpp"
 
 /* The world of AFK. */
 
 class AFK_LandscapeDisplayQueue;
 class AFK_LandscapeTile;
 class AFK_World;
-class AFK_YReduce;
 
 struct AFK_WorldCellGenParam;
 
@@ -159,10 +157,6 @@ protected:
     AFK_LANDSCAPE_CACHE *landscapeCache;
     unsigned int tileCacheEntries;
 
-    /* Terrain compute kernels. */
-    cl_kernel terrainKernel;
-    cl_kernel surfaceKernel;
-
     /* The terrain computation fair.  Yeah, yeah. */
     AFK_Fair<AFK_TerrainComputeQueue> landscapeComputeFair;
 
@@ -173,19 +167,9 @@ protected:
      */
     AFK_Fair<AFK_LandscapeDisplayQueue> landscapeDisplayFair;
 
-    /* These are used to sort out the landscape tile y-bounds --
-     * one per jigsaw.
-     */
-    std::vector<AFK_YReduce*> landscapeYReduce;
-
     /* The basic landscape tile geometry. */
     GLuint landscapeTileArray;
     AFK_TerrainBaseTile *landscapeTerrainBase;
-
-    /* I'm adding this to evaluate the performance of the
-     * display phase.
-     */
-    AFK_StageTimer *displayTimer;
 
     /* TODO Deal with multiple shapes.  In whatever way.
      * I don't know.  :/  For now, I'll just have one.
