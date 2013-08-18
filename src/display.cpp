@@ -135,13 +135,6 @@ void afk_display(void)
 {
     afk_core.world->doComputeTasks();
 
-    cl_context ctxt;
-    cl_command_queue q;
-    afk_core.computer->lock(ctxt, q);
-    /* TODO I bet I don't need the below */
-    AFK_CLCHK(clFlush(q))
-    afk_core.computer->unlock();
-
     Mat4<float> projection = afk_core.camera->getProjection();
 
     /* Make sure the display size is right */
