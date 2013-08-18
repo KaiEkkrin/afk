@@ -192,6 +192,9 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
         CL_PLATFORM_NAME,
         platformNameSize, platformName, &platformNameSize))
 
+    platformIsAMD = (strstr(platformName, "AMD") != NULL);
+
+    if (platformIsAMD) std::cout << "AMD platform detected!" << std::endl;
     std::cout << "Finding cl_gl devices for platform " << platformName << std::endl;
     delete[] platformName;
 
@@ -389,6 +392,11 @@ bool AFK_Computer::testVersion(unsigned int majorVersion, unsigned int minorVers
 {
     return (platformProps->majorVersion > majorVersion ||
         (platformProps->majorVersion == majorVersion && platformProps->minorVersion >= minorVersion));
+}
+
+bool AFK_Computer::isAMD(void) const
+{
+    return platformIsAMD;
 }
 
 void AFK_Computer::lock(cl_context& o_ctxt, cl_command_queue& o_q)

@@ -1,5 +1,6 @@
 /* AFK (c) Alex Holloway 2013 */
 
+#include "core.hpp"
 #include "exception.hpp"
 #include "landscape_tile.hpp"
 #include "yreduce.hpp"
@@ -78,7 +79,9 @@ void AFK_YReduce::compute(
     /* TODO If I make this asynchronous (change CL_TRUE to CL_FALSE), I get
      * kersplode on AMD.
      */
-    AFK_CLCHK(clEnqueueReadBuffer(q, buf, CL_TRUE, 0, requiredSize, readback, 1, &yReduceEvent, &readbackEvent))
+    AFK_CLCHK(clEnqueueReadBuffer(q, buf,
+        afk_core.computer->isAMD() ? CL_TRUE : CL_FALSE,
+        0, requiredSize, readback, 1, &yReduceEvent, &readbackEvent))
     AFK_CLCHK(clReleaseEvent(yReduceEvent))
 }
 

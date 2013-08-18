@@ -104,6 +104,7 @@ protected:
     cl_platform_id platform;
 
     AFK_ClPlatformProperties *platformProps;
+    bool platformIsAMD;
 
     /* The IDs of the devices that I'm using.
      */
@@ -145,6 +146,9 @@ public:
      * least the one you asked for, else false.
      */
     bool testVersion(unsigned int majorVersion, unsigned int minorVersion) const;
+
+    /* Returns true if on an AMD platform, else false. */
+    bool isAMD(void) const;
 
     /* Locks the CL and gives you back the context and
      * queue.  Be quick, enqueue your thing and release
