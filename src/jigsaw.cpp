@@ -496,7 +496,8 @@ AFK_Jigsaw::~AFK_Jigsaw()
         clReleaseMemObject(clTex[tex]);
         for (unsigned int e = 0; e < changeEvents[tex].size(); ++e)
         {
-            clReleaseEvent(changeEvents[tex][e]);
+            if (changeEvents[tex][e])
+                clReleaseEvent(changeEvents[tex][e]);
         }
     }
 
