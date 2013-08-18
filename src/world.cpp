@@ -162,7 +162,7 @@ void AFK_World::generateLandscapeArtwork(
         /* Put bigger tiles only in the first jigsaw, where they won't
          * get swept out as often (they should be longer lived.)
          */
-        tile.coord.v[2] >= 256 ? 0 : 0,
+        tile.coord.v[2] >= 256 ? 0 : 1,
         landscapeJigsaws);
 #if DEBUG_JIGSAW_ASSOCIATION
     AFK_DEBUG_PRINTL("Compute: " << tile << " -> " << jigsawPiece)
@@ -651,12 +651,6 @@ AFK_World::~AFK_World()
         delete *yRIt;
     }
 
-    for (std::vector<cl_sampler>::iterator yDSIt = jigsawYDispSamplers.begin();
-        yDSIt != jigsawYDispSamplers.end(); ++yDSIt)
-    {
-        if (*yDSIt) clReleaseSampler(*yDSIt);
-    }
-
 #if DISPLAY_TIMER
     delete displayTimer;
 #endif
@@ -812,25 +806,9 @@ void AFK_World::doComputeTasks(void)
         displayTimer->hitStage(1);
 #endif
 
-        /* Readback the previous y reduce if we have one. */
-        if (puzzle > 0)
-        {
-            landscapeYReduce[puzzle-1]->readBack(
-                computeQueues[puzzle-1]->getUnitCount(),
-                &computeQueues[puzzle-1]->landscapeTiles);
-
-            if (jigsawYDispSamplers[puzzle-1])
-            {
-                AFK_CLCHK(clReleaseSampler(jigsawYDispSamplers[puzzle-1]))
-                jigsawYDispSamplers[puzzle-1] = 0;
-            }
-        }
-
         /* For the next two I'm going to need this ...
          */
-        while (jigsawYDispSamplers.size() <= puzzle)
-            jigsawYDispSamplers.push_back(0);
-        jigsawYDispSamplers[puzzle] = clCreateSampler(
+        cl_sampler jigsawYDispSampler = clCreateSampler(
             ctxt,
             CL_FALSE,
             CL_ADDRESS_CLAMP_TO_EDGE,
@@ -842,7 +820,7 @@ void AFK_World::doComputeTasks(void)
          */
         AFK_CLCHK(clSetKernelArg(surfaceKernel, 0, sizeof(cl_mem), &terrainBufs[2]))
         AFK_CLCHK(clSetKernelArg(surfaceKernel, 1, sizeof(cl_mem), &jigsawMem[0]))
-        AFK_CLCHK(clSetKernelArg(surfaceKernel, 2, sizeof(cl_sampler), &jigsawYDispSamplers[puzzle]))
+        AFK_CLCHK(clSetKernelArg(surfaceKernel, 2, sizeof(cl_sampler), &jigsawYDispSampler))
         AFK_CLCHK(clSetKernelArg(surfaceKernel, 3, sizeof(cl_mem), &jigsawMem[2]))
 
         size_t surfaceGlobalDim[3];
@@ -869,12 +847,15 @@ void AFK_World::doComputeTasks(void)
             unitCount,
             &terrainBufs[2],
             &jigsawMem[0],
-            &jigsawYDispSamplers[puzzle],
+            &jigsawYDispSampler,
             lSizes);
 
 #if DISPLAY_TIMER
         displayTimer->hitStage(3);
 #endif
+
+        /* TODO Can I keep this thing lying around long term ? */
+        AFK_CLCHK(clReleaseSampler(jigsawYDispSampler))
 
         for (unsigned int i = 0; i < 3; ++i)
         {
@@ -1022,23 +1003,14 @@ void AFK_World::finaliseComputeTasks(void)
     std::vector<boost::shared_ptr<AFK_TerrainComputeQueue> > computeQueues;
     landscapeComputeFair.getDrawQueues(computeQueues);
 
-    /* Readback the last y reduce. */
-    if (computeQueues.size() > 0)
+    for (unsigned int puzzle = 0; puzzle < computeQueues.size(); ++puzzle)
     {
-        unsigned int puzzle = computeQueues.size() - 1;
         unsigned int unitCount = computeQueues[puzzle]->getUnitCount();
-        if (unitCount > 0)
-        {
-            landscapeYReduce[puzzle]->readBack(
-                unitCount,
-                &computeQueues[puzzle]->landscapeTiles);
+        if (unitCount == 0) continue;
 
-            if (jigsawYDispSamplers[puzzle])
-            {
-                AFK_CLCHK(clReleaseSampler(jigsawYDispSamplers[puzzle]))
-                jigsawYDispSamplers[puzzle] = 0;
-            }
-        }
+        landscapeYReduce[puzzle]->readBack(
+            unitCount,
+            &computeQueues[puzzle]->landscapeTiles);
     }
 }
 

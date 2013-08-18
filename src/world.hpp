@@ -173,11 +173,6 @@ protected:
      */
     AFK_Fair<AFK_LandscapeDisplayQueue> landscapeDisplayFair;
 
-    /* These are samplers for the y-displacement jigsaws,
-     * which I need for subsequent compute kernels.
-     */
-    std::vector<cl_sampler> jigsawYDispSamplers;
-
     /* These are used to sort out the landscape tile y-bounds --
      * one per jigsaw.
      */
