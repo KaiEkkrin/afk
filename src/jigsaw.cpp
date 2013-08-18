@@ -612,6 +612,9 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q, cl_uint eventsInWaitList, con
             {
                 size_t rectSizeInBytes = pieceSizeInBytes *
                     rects[drawRs][rect].rows * rects[drawRs][rect].columns.load();
+
+                if (rectSizeInBytes == 0) continue;
+
                 requiredChangeDataSize += rectSizeInBytes;
                 ++requiredChangeEventCount;
             }
@@ -630,6 +633,8 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q, cl_uint eventsInWaitList, con
             {
                 size_t rectSizeInBytes = pieceSizeInBytes *
                     rects[drawRs][rect].rows * rects[drawRs][rect].columns.load();
+
+                if (rectSizeInBytes == 0) continue;
 
                 size_t origin[3];
                 size_t region[3];
@@ -679,6 +684,8 @@ void AFK_Jigsaw::bindTexture(unsigned int tex)
         {
             size_t rectSizeInBytes = pieceSizeInBytes *
                 rects[drawRs][rect].rows * rects[drawRs][rect].columns.load();
+
+            if (rectSizeInBytes == 0) continue;
 
             glTexSubImage2D(
                 GL_TEXTURE_2D, 0,

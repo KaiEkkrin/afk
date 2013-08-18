@@ -67,7 +67,7 @@ void AFK_YReduce::compute(
     AFK_CLCHK(clEnqueueNDRangeKernel(q, yReduceKernel, 2, 0, &yReduceGlobalDim[0], &yReduceLocalDim[0],
         eventsInWaitList, eventWaitList, &yReduceEvent))
 
-    size_t requiredReadbackSize = bufSize / sizeof(float);
+    size_t requiredReadbackSize = requiredSize / sizeof(float);
     if (readbackSize < requiredReadbackSize)
     {
         if (readback) delete[] readback;
@@ -75,7 +75,10 @@ void AFK_YReduce::compute(
         readbackSize = requiredReadbackSize;
     }
 
-    AFK_CLCHK(clEnqueueReadBuffer(q, buf, CL_FALSE, 0, bufSize, readback, 1, &yReduceEvent, &readbackEvent))
+    /* TODO If I make this asynchronous (change CL_TRUE to CL_FALSE), I get
+     * kersplode on AMD.
+     */
+    AFK_CLCHK(clEnqueueReadBuffer(q, buf, CL_TRUE, 0, requiredSize, readback, 1, &yReduceEvent, &readbackEvent))
     AFK_CLCHK(clReleaseEvent(yReduceEvent))
 }
 
