@@ -94,7 +94,8 @@ public:
     /* This prints lots of debug info about the given terrain unit. */
     std::string debugTerrain(const AFK_TerrainComputeUnit& unit, const AFK_LandscapeSizes& lSizes) const;
 
-    /* Computes the terrain. */
+    /* Computes the terrain.
+     */
     void computeStart(AFK_Computer *computer, AFK_Jigsaw *jigsaw, const AFK_LandscapeSizes& lSizes);
     void computeFinish(void);
 

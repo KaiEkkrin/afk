@@ -566,11 +566,11 @@ Vec2<float> AFK_Jigsaw::getPiecePitchST(void) const
         1.0f / (float)jigsawSize.v[1]);
 }
 
-cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q)
+cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q, cl_event *o_event)
 {
     if (clGlSharing)
     {
-        AFK_CLCHK(clEnqueueAcquireGLObjects(q, texCount, clTex, 0, 0, 0))
+        AFK_CLCHK(clEnqueueAcquireGLObjects(q, texCount, clTex, 0, 0, o_event))
     }
     else
     {
@@ -586,11 +586,15 @@ cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q)
     return clTex;
 }
 
-void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
+void AFK_Jigsaw::releaseFromCl(cl_command_queue q, cl_uint eventsInWaitList, const cl_event *eventWaitList)
 {
     if (clGlSharing)
     {
-        AFK_CLCHK(clEnqueueReleaseGLObjects(q, texCount, clTex, 0, 0, 0))
+        for (unsigned int tex = 0; tex < texCount; ++tex)
+        {
+            changeEvents[tex].resize(1);
+            AFK_CLCHK(clEnqueueReleaseGLObjects(q, 1, &clTex[tex], eventsInWaitList, eventWaitList, &changeEvents[tex][0]))
+        }
     }
     else
     {
@@ -638,7 +642,8 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q)
                 region[2] = 1;
 
                 AFK_CLCHK(clEnqueueReadImage(
-                    q, clTex[tex], CL_FALSE, origin, region, 0, 0, &changeData[tex][changeDataOffset], 0, NULL, &changeEvents[tex][changeEvent]))
+                    q, clTex[tex], CL_FALSE, origin, region, 0, 0, &changeData[tex][changeDataOffset],
+                        eventsInWaitList, eventWaitList, &changeEvents[tex][changeEvent]))
                 ++changeEvent;
                 changeDataOffset += rectSizeInBytes;
             }

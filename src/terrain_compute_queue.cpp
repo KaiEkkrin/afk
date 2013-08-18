@@ -99,7 +99,10 @@ bool AFK_TerrainComputeQueue::empty(void)
     return units.empty();
 }
 
-void AFK_TerrainComputeQueue::computeStart(AFK_Computer *computer, AFK_Jigsaw *jigsaw, const AFK_LandscapeSizes& lSizes)
+void AFK_TerrainComputeQueue::computeStart(
+    AFK_Computer *computer,
+    AFK_Jigsaw *jigsaw,
+    const AFK_LandscapeSizes& lSizes)
 {
     boost::unique_lock<boost::mutex> lock(mut);
     cl_int error;
@@ -146,7 +149,8 @@ void AFK_TerrainComputeQueue::computeStart(AFK_Computer *computer, AFK_Jigsaw *j
     afk_handleClError(error);
 
     /* Set up the rest of the terrain parameters */
-    cl_mem *jigsawMem = jigsaw->acquireForCl(ctxt, q);
+    cl_event acquireJigsawEvent = 0;
+    cl_mem *jigsawMem = jigsaw->acquireForCl(ctxt, q, &acquireJigsawEvent);
 
     AFK_CLCHK(clSetKernelArg(terrainKernel, 0, sizeof(cl_mem), &terrainBufs[0]))
     AFK_CLCHK(clSetKernelArg(terrainKernel, 1, sizeof(cl_mem), &terrainBufs[1]))
@@ -157,7 +161,15 @@ void AFK_TerrainComputeQueue::computeStart(AFK_Computer *computer, AFK_Jigsaw *j
     size_t terrainDim[3];
     terrainDim[0] = terrainDim[1] = lSizes.tDim;
     terrainDim[2] = unitCount;
-    AFK_CLCHK(clEnqueueNDRangeKernel(q, terrainKernel, 3, NULL, &terrainDim[0], NULL, 0, NULL, NULL))
+
+    cl_event terrainEvent;
+
+    AFK_CLCHK(clEnqueueNDRangeKernel(q, terrainKernel, 3, NULL, &terrainDim[0], NULL,
+        acquireJigsawEvent ? 1 : 0,
+        acquireJigsawEvent ? &acquireJigsawEvent : NULL,
+        &terrainEvent))
+
+    if (acquireJigsawEvent) AFK_CLCHK(clReleaseEvent(acquireJigsawEvent))
 
     /* For the next two I'm going to need this ...
      */
@@ -184,7 +196,10 @@ void AFK_TerrainComputeQueue::computeStart(AFK_Computer *computer, AFK_Jigsaw *j
     surfaceLocalDim[0] = surfaceLocalDim[1] = lSizes.tDim - 1;
     surfaceLocalDim[2] = 1;
 
-    AFK_CLCHK(clEnqueueNDRangeKernel(q, surfaceKernel, 3, 0, &surfaceGlobalDim[0], &surfaceLocalDim[0], 0, NULL, NULL))
+    cl_event surfaceEvent;
+
+    AFK_CLCHK(clEnqueueNDRangeKernel(q, surfaceKernel, 3, 0, &surfaceGlobalDim[0], &surfaceLocalDim[0],
+        1, &terrainEvent, &surfaceEvent))
 
     /* Finally, do the y reduce. */
     yReduce->compute(
@@ -194,17 +209,21 @@ void AFK_TerrainComputeQueue::computeStart(AFK_Computer *computer, AFK_Jigsaw *j
         &terrainBufs[2],
         &jigsawMem[0],
         &jigsawYDispSampler,
-        lSizes);
+        lSizes,
+        1,
+        &terrainEvent);
 
     /* Release the things */
     AFK_CLCHK(clReleaseSampler(jigsawYDispSampler))
+    AFK_CLCHK(clReleaseEvent(terrainEvent))
 
     for (unsigned int i = 0; i < 3; ++i)
     {
         AFK_CLCHK(clReleaseMemObject(terrainBufs[i]))
     }
 
-    jigsaw->releaseFromCl(q);
+    jigsaw->releaseFromCl(q, 1, &surfaceEvent);
+    AFK_CLCHK(clReleaseEvent(surfaceEvent))
 
     computer->unlock();
 }

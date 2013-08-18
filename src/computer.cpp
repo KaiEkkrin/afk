@@ -308,7 +308,7 @@ AFK_Computer::AFK_Computer():
 
     /* TODO Multiple queues for multiple devices? */
     cl_int error;
-    q = clCreateCommandQueue(ctxt, devices[0], 0, &error);
+    q = clCreateCommandQueue(ctxt, devices[0], CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &error);
     afk_handleClError(error);
 }
 

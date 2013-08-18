@@ -292,11 +292,14 @@ public:
     /* Returns the (s, t) dimensions of one piece within the jigsaw. */
     Vec2<float> getPiecePitchST(void) const;
 
-    /* Acquires the buffers for the CL. */
-    cl_mem *acquireForCl(cl_context ctxt, cl_command_queue q);
+    /* Acquires the buffers for the CL.
+     * If cl_gl sharing is enabled, fills out `o_event' with an
+     * event to wait for to ensure the textures are acquired.
+     */
+    cl_mem *acquireForCl(cl_context ctxt, cl_command_queue q, cl_event *o_event);
 
     /* Releases the buffer from the CL. */
-    void releaseFromCl(cl_command_queue q);
+    void releaseFromCl(cl_command_queue q, cl_uint eventsInWaitList, const cl_event *eventWaitList);
 
     /* Binds a buffer to the GL as a texture.
      * Call once for each texture, having set glActiveTexture()

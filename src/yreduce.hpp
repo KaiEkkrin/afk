@@ -42,7 +42,9 @@ public:
         cl_mem *units,
         cl_mem *jigsawYDisp,
         cl_sampler *yDispSampler,
-        const AFK_LandscapeSizes& lSizes);
+        const AFK_LandscapeSizes& lSizes,
+        cl_uint eventsInWaitList,
+        const cl_event *eventWaitList);
 
     void readBack(
         unsigned int unitCount,

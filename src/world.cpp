@@ -735,6 +735,15 @@ void AFK_World::doComputeTasks(void)
     {
         computeQueues[puzzle]->computeStart(afk_core.computer, landscapeJigsaws->getPuzzle(puzzle), lSizes);
     }
+
+    /* If I finalise stuff now, the y-reduce information will
+     * be in the landscape tiles in time for the display
+     * to edit out any cells I now know to be empty of terrain.
+     */
+    for (unsigned int puzzle = 0; puzzle < computeQueues.size(); ++puzzle)
+    {
+        computeQueues[puzzle]->computeFinish();
+    }
 }
 
 void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLight)
@@ -840,17 +849,6 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     glDisableVertexAttribArray(1);
     glDisableVertexAttribArray(2);
 #endif
-}
-
-void AFK_World::finaliseComputeTasks(void)
-{
-    std::vector<boost::shared_ptr<AFK_TerrainComputeQueue> > computeQueues;
-    landscapeComputeFair.getDrawQueues(computeQueues);
-
-    for (unsigned int puzzle = 0; puzzle < computeQueues.size(); ++puzzle)
-    {
-        computeQueues[puzzle]->computeFinish();
-    }
 }
 
 /* Worker for the below. */

@@ -25,7 +25,9 @@ void AFK_YReduce::compute(
     cl_mem *units,
     cl_mem *jigsawYDisp,
     cl_sampler *yDispSampler,
-    const AFK_LandscapeSizes& lSizes)
+    const AFK_LandscapeSizes& lSizes,
+    cl_uint eventsInWaitList,
+    const cl_event *eventWaitList)
 {
     cl_int error;
 
@@ -60,7 +62,10 @@ void AFK_YReduce::compute(
     yReduceLocalDim[0] = (1 << lSizes.getReduceOrder());
     yReduceLocalDim[1] = 1;
 
-    AFK_CLCHK(clEnqueueNDRangeKernel(q, yReduceKernel, 2, 0, &yReduceGlobalDim[0], &yReduceLocalDim[0], 0, NULL, NULL))
+    cl_event yReduceEvent;
+
+    AFK_CLCHK(clEnqueueNDRangeKernel(q, yReduceKernel, 2, 0, &yReduceGlobalDim[0], &yReduceLocalDim[0],
+        eventsInWaitList, eventWaitList, &yReduceEvent))
 
     size_t requiredReadbackSize = bufSize / sizeof(float);
     if (readbackSize < requiredReadbackSize)
@@ -70,7 +75,8 @@ void AFK_YReduce::compute(
         readbackSize = requiredReadbackSize;
     }
 
-    AFK_CLCHK(clEnqueueReadBuffer(q, buf, CL_FALSE, 0, bufSize, readback, 0, NULL, &readbackEvent))
+    AFK_CLCHK(clEnqueueReadBuffer(q, buf, CL_FALSE, 0, bufSize, readback, 1, &yReduceEvent, &readbackEvent))
+    AFK_CLCHK(clReleaseEvent(yReduceEvent))
 }
 
 void AFK_YReduce::readBack(

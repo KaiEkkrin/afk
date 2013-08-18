@@ -138,6 +138,7 @@ void afk_display(void)
     cl_context ctxt;
     cl_command_queue q;
     afk_core.computer->lock(ctxt, q);
+    /* TODO I bet I don't need the below */
     AFK_CLCHK(clFlush(q))
     afk_core.computer->unlock();
 
@@ -185,7 +186,5 @@ void afk_display(void)
         ss << "AFK: Got GL error: " << gluErrorString(glErr);
         throw AFK_Exception(ss.str());
     }
-
-    afk_core.world->finaliseComputeTasks();
 }
 
