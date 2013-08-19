@@ -506,7 +506,14 @@ AFK_World::AFK_World(
     enum AFK_JigsawFormat texFormat[3];
     texFormat[0] = AFK_JIGSAW_FLOAT32;          /* Y displacement */
     texFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;    /* Colour */
-    texFormat[2] = AFK_JIGSAW_4HALF16;          /* Normal */
+
+    /* Normal: The packed 8-bit signed format doesn't seem to play nicely with
+     * cl_gl buffer sharing; I don't know why...
+     */
+    if (config->clGlSharing)
+        texFormat[2] = AFK_JIGSAW_4FLOAT32;
+    else
+        texFormat[2] = AFK_JIGSAW_4FLOAT8_SNORM;
 
     landscapeJigsaws = new AFK_JigsawCollection(
         ctxt,
@@ -780,8 +787,13 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
         /* The first texture is the jigsaw Y-displacement */
         glActiveTexture(GL_TEXTURE0);
         jigsaw->bindTexture(0);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        /* Interestingly, if I use nearest-neighbour sampling here I get
+         * artifacts that suggest it's rounding across to the wrong sample
+         * on one side of the tiles.  If I use linear sampling
+         * the artifacts go away...
+         */
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, /* GL_NEAREST */ GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, /* GL_NEAREST */ GL_LINEAR);
         glUniform1i(landscape_jigsawYDispTexSamplerLocation, 0);
 
         /* The second texture is the jigsaw colour */

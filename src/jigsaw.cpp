@@ -78,14 +78,6 @@ AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat e)
         texelSize                           = sizeof(unsigned char) * 4;
         break;
 
-    case AFK_JIGSAW_4HALF16:
-        glInternalFormat                    = GL_RGBA16F;
-        glFormat                            = GL_RGBA;
-        glDataType                          = GL_FLOAT;
-        clFormat.image_channel_order        = CL_RGBA;
-        clFormat.image_channel_data_type    = CL_HALF_FLOAT;
-        texelSize                           = sizeof(float) * 2;
-
     case AFK_JIGSAW_4FLOAT32:
         glInternalFormat                    = GL_RGBA32F;
         glFormat                            = GL_RGBA;
