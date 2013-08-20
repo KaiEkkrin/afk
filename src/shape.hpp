@@ -5,101 +5,39 @@
 
 #include "afk.hpp"
 
-#include "data/render_list.hpp"
-#include "def.hpp"
-#include "display.hpp"
-#include "gl_buffer.hpp"
-#include "light.hpp"
-#include "shader.hpp"
+#include <vector>
 
-/* A Shape describes an entity shape -- the geometry
- * of an object that might be instanced and moved about
- * around the world.
- * There won't be many instances of the Shape class around
- * -- just one per object type.
- * In future, I want to come up with a cunning algorithm
- * for randomly generating Shapes, just like I'm now
- * randomly generating Terrain.  Also for doing shape
- * LoD splitting and all sorts.  But for now, just this
- * is fine ...
+#include "cell.hpp"
+#include "data/fair.hpp"
+#include "entity_display_queue.hpp"
+#include "jigsaw.hpp"
+
+/* A Shape describes a single shrinkform shape, which
+ * might be instanced many times by means of Entities.
+ *
+ * TODO: Should a shape be cached, and Claimable, as well?
+ * I suspect it should.  But to test just a single Shape,
+ * I don't need that.
  */
-
-/* This utility function gives the sizes of shape
- * elements.
- */
-void afk_getShapeSizes(
-    unsigned int pointSubdivisionFactor,
-    unsigned int& o_shapeVsSize,
-    unsigned int& o_shapeIsSize);
-
 class AFK_Shape
 {
 protected:
-    /* The shape's geometry. */
-    AFK_DisplayedBuffer<struct AFK_VcolPhongVertex>     vs;
-    AFK_DisplayedBuffer<Vec3<unsigned int> >            is;
-
-    /* I'm going to try making the Shapes themselves
-     * responsible for drawing.
-     * Each shape has a pair of flippable draw lists.
-     * The draw lists are further split, one for each
-     * worker thread so that I don't get concurrency
-     * issues.  What they are is a list of transformations
-     * of the objects to the world.
+    /* TODO: In order to generate a Shape's unique geometry,
+     * I'm going to need a shrinkform descriptor here,
+     * followed by a list of jigsaw pieces in the same order
+     * (or maybe part of the descriptor),
+     * a reference to the jigsaw collection itself,
+     * and also the timestamps for all those jigsaw pieces.
+     * But first, I want to test with just a flat cube to make
+     * sure the GL pipeline is OK.
      */
-    AFK_RenderList<Mat4<float> > renderList;
-
-    /* The contents of the draw lists get plugged into these
-     * things for transferral to the shape shaders.
-     * There's one per thread id (i.e. one per simultaneous
-     * draw list).
-     */
-    GLuint *drawListBuf;
-    GLuint *drawListTex;
-
-    unsigned int threadCount;
 
 public:
-    AFK_Shape(size_t vCount, size_t iCount,
-        AFK_GLBufferQueue *vSource, AFK_GLBufferQueue *iSource, unsigned int _threadCount);
-    virtual ~AFK_Shape();
-
-    /* A kind-of-slow function that resizes all the geometry
-     * into (0, 1) bounds.  I'm going to want this for testing,
-     * because it makes sure the shape fits within a sort of
-     * "shape space".  I don't think I want to keep this once
-     * I'm doing random shape generation though...
-     */
-    void resizeToShapeSpace(void);
-
-    /* Call this function to enqueue an instance of the shape
-     * for rendering.
-     */
-    void updatePush(unsigned int threadId, const Mat4<float>& transform);
-
-    /* Call this function to display all instances of the
-     * shapes.  worldTransformListLocation should point to
-     * the uniform buffer variable I fill out with the
-     * transform matrices.  projectionTransformLocation points
-     * to the uniform buffer variable for the projection matrix --
-     * the vertex shader will need to compose the clip transform
-     * itself, from that projection matrix and the relevant
-     * world transform matrix for the instance.
-     */
-    void display(
-        AFK_ShaderLight *shaderLight,
-        const struct AFK_Light& globalLight,
-        GLuint projectionTransformLocation,
-        const Mat4<float>& projection);
-};
-
-/* Here I'll describe some fixed-geometry Shapes that I'm
- * using to test.
- */
-class AFK_ShapeChevron: public AFK_Shape
-{
-public:
-    AFK_ShapeChevron(AFK_GLBufferQueue *vSource, AFK_GLBufferQueue *iSource, unsigned int _threadCount);
+    /* Enqueues the display units for an entity of this shape. */
+    void enqueueDisplayUnits(
+        const AFK_Cell& cell,
+        float minCellSize,
+        AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayQueue);
 };
 
 #endif /* _AFK_SHAPE_H_ */

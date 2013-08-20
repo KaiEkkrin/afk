@@ -1,5 +1,8 @@
 /* AFK (c) Alex Holloway 2013 */
 
+#ifndef _AFK_TERRAIN_BASE_TILE_H_
+#define _AFK_TERRAIN_BASE_TILE_H_
+
 #include "afk.hpp"
 
 #include <vector>
@@ -53,4 +56,6 @@ public:
 
     void teardownGL(void) const;
 };
+
+#endif /* _AFK_TERRAIN_BASE_TILE_H_ */
 

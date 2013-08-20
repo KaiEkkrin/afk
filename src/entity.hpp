@@ -9,8 +9,9 @@
 
 #include "cell.hpp"
 #include "data/claimable.hpp"
+#include "data/fair.hpp"
 #include "def.hpp"
-#include "display.hpp"
+#include "entity_display_queue.hpp"
 #include "object.hpp"
 #include "rng/rng.hpp"
 #include "shape.hpp"
@@ -31,11 +32,6 @@
 class AFK_Entity: public AFK_Claimable
 {
 protected:
-    /* TODO A bit like landscape_tile, am I going to want an
-     * entity descriptor here, to be rendered (hopefully by
-     * the GPU ...) into entity geometry?
-     */
-
     /* This object's shape.  We don't own this pointer -- it's
      * from the world shape list.
      */
@@ -44,51 +40,36 @@ protected:
     /* Describes where this entity is located. */
     AFK_Object obj;
 
-    /* The next fields describe some simple motion for the
-     * entity.  I'm not sure I'm going to want to keep this
-     * here.  In future, I'll want plenty of entities that do
-     * move like this (snow, debris, that kind of thing), but
-     * I'll also want an AI that controls movement -- or will
-     * I want to hook that in separately?
-     * Anyway, these are in units of movement/millisecond.
+    /* TODO: I need to sort out entity movement.  This should
+     * be done in OpenCL with a large queue of entities to
+     * move, all of which get computed at once, a little like
+     * the other compute queues.
+     * And not here.
+     * This probably means that the Entity needs to have a
+     * reference into a large OpenCL blob that stores
+     * displacement information, rather than that Object
+     * instance above. :)
      */
-    Vec3<float> velocity;
-    Vec3<float> angularVelocity; /* pitch, yaw, roll */
-
-    /* The time at which this object was last moved. */
-    boost::posix_time::ptime lastMoved;
 
 public:
     virtual ~AFK_Entity();
 
-    /* Makes the entity.  Basically, it places the given
-     * shape within the cell.
+    /* Positions the entity within a cell.
+     * TODO Starting orientations and all those good things.  Really,
+     * could be anything, because that's mostly before physics
+     * should take over ...
      */
-    void make(
-        AFK_Shape *_shape,
+    void position(const AFK_Cell& cell, float minCellSize);
+
+    /* Pushes the display units for this entity into the
+     * display fair.
+     * (Each shape will create a number of units, depending both
+     * on the shape content, and the LoD it's displayed at...)
+     */
+    void enqueueDisplayUnits(
         const AFK_Cell& cell,
         float minCellSize,
-        unsigned int pointSubdivisionFactor,
-        unsigned int subdivisionFactor,
-        AFK_RNG& rng);
-
-    /* Animates the entity.  If this causes the entity to
-     * move out of its cell, fills out the co-ordinates of the
-     * new cell it should go to and returns true; otherwise,
-     * returns false.
-     * TODO: In future after I've got the entity drawing
-     * stuff nailed nicely, I'd like to be able to place
-     * all the Entities into an array and have OpenCL
-     * animate them all at once.  That would be much nicer...
-     */
-    bool animate(
-        const boost::posix_time::ptime& now,
-        const AFK_Cell& cell,
-        float minCellSize,
-        AFK_Cell& o_newCell);
-
-    /* Enqueues this entity for drawing. */
-    void enqueueForDrawing(unsigned int threadId);
+        AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair);
 
     /* AFK_Claimable implementation. */
     virtual AFK_Frame getCurrentFrame(void) const;
