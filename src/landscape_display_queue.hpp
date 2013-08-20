@@ -13,7 +13,10 @@
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
 #include "def.hpp"
+#include "landscape_sizes.hpp"
+#include "shader.hpp"
 
+class AFK_Jigsaw;
 class AFK_LandscapeTile;
 
 /* This module is like terrain_compute_queue, but for queueing up
@@ -60,6 +63,13 @@ protected:
      */
     std::vector<AFK_LandscapeDisplayUnit> culledQueue;
 
+    /* Drawing stuff. */
+    GLuint jigsawPiecePitchLocation;
+    GLuint jigsawYDispTexSamplerLocation;
+    GLuint jigsawColourTexSamplerLocation;
+    GLuint jigsawNormalTexSamplerLocation;
+    GLuint displayTBOSamplerLocation;
+
 public:
     AFK_LandscapeDisplayQueue();
     virtual ~AFK_LandscapeDisplayQueue();
@@ -69,15 +79,12 @@ public:
      */
     void add(const AFK_LandscapeDisplayUnit& _unit, const AFK_LandscapeTile *landscapeTile);
 
-    /* The world display function should call this, having made the
-     * appropriate texture active, to get the queue bound as a
-     * texture buffer.
-     * Returns the number of units actually copied into the buffer.
+    /* This function draws the part of the landscape represented by
+     * this queue, assuming that the basic VAO for the landscape tiles
+     * has already been selected
      */
-    unsigned int copyToGl(void);
+    void draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw* jigsaw, const AFK_LandscapeSizes& lSizes);
 
-    unsigned int getUnitCount(void);
-    AFK_LandscapeDisplayUnit getUnit(unsigned int u);
     bool empty(void);
 
     void clear(void);

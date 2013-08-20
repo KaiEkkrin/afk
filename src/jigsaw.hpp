@@ -18,6 +18,7 @@
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
 #include "computer.hpp"
+#include "data/frame.hpp"
 #include "data/moving_average.hpp"
 #include "def.hpp"
 

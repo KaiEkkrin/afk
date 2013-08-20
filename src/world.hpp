@@ -113,12 +113,7 @@ protected:
     /* Landscape shader details. */
     AFK_ShaderProgram *landscape_shaderProgram;
     AFK_ShaderLight *landscape_shaderLight;
-    GLuint landscape_jigsawPiecePitchLocation;
     GLuint landscape_clipTransformLocation;
-    GLuint landscape_jigsawYDispTexSamplerLocation;
-    GLuint landscape_jigsawColourTexSamplerLocation;
-    GLuint landscape_jigsawNormalTexSamplerLocation;
-    GLuint landscape_displayTBOSamplerLocation;
 
     /* Entity shader details. */
     AFK_ShaderProgram *entity_shaderProgram;

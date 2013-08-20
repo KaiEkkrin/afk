@@ -567,12 +567,7 @@ AFK_World::AFK_World(
     landscape_shaderProgram->Link();
 
     landscape_shaderLight = new AFK_ShaderLight(landscape_shaderProgram->program);
-    landscape_jigsawPiecePitchLocation = glGetUniformLocation(landscape_shaderProgram->program, "JigsawPiecePitch");
     landscape_clipTransformLocation = glGetUniformLocation(landscape_shaderProgram->program, "ClipTransform");
-    landscape_jigsawYDispTexSamplerLocation = glGetUniformLocation(landscape_shaderProgram->program, "JigsawYDispTex");
-    landscape_jigsawColourTexSamplerLocation = glGetUniformLocation(landscape_shaderProgram->program, "JigsawColourTex");
-    landscape_jigsawNormalTexSamplerLocation = glGetUniformLocation(landscape_shaderProgram->program, "JigsawNormalTex");
-    landscape_displayTBOSamplerLocation = glGetUniformLocation(landscape_shaderProgram->program, "DisplayTBO");
 
     entity_shaderProgram = new AFK_ShaderProgram();
     *entity_shaderProgram << "shape_fragment" << "shape_vertex";
@@ -774,70 +769,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     /* Those queues are in puzzle order. */
     for (unsigned int puzzle = 0; puzzle < drawQueues.size(); ++puzzle)
     {
-        if (drawQueues[puzzle]->getUnitCount() == 0) continue;
-
-        AFK_Jigsaw *jigsaw = landscapeJigsaws->getPuzzle(puzzle);
-
-        /* Fill out ye olde uniform variable with the jigsaw
-         * piece pitch.
-         */
-        Vec2<float> jigsawPiecePitchST = jigsaw->getPiecePitchST();
-        glUniform2fv(landscape_jigsawPiecePitchLocation, 1, &jigsawPiecePitchST.v[0]);
-
-        /* The first texture is the jigsaw Y-displacement */
-        glActiveTexture(GL_TEXTURE0);
-        jigsaw->bindTexture(0);
-        /* Interestingly, if I use nearest-neighbour sampling here I get
-         * artifacts that suggest it's rounding across to the wrong sample
-         * on one side of the tiles.  If I use linear sampling
-         * the artifacts go away...
-         */
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, /* GL_NEAREST */ GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, /* GL_NEAREST */ GL_LINEAR);
-        glUniform1i(landscape_jigsawYDispTexSamplerLocation, 0);
-
-        /* The second texture is the jigsaw colour */
-        glActiveTexture(GL_TEXTURE1);
-        jigsaw->bindTexture(1);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glUniform1i(landscape_jigsawColourTexSamplerLocation, 1);
-
-        /* The third texture is the jigsaw normal */
-        glActiveTexture(GL_TEXTURE2);
-        jigsaw->bindTexture(2);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glUniform1i(landscape_jigsawNormalTexSamplerLocation, 2);
-
-        /* The fourth texture is the landscape display texbuf,
-         * which explains to the vertex shader which tile it's
-         * drawing and where in the jigsaw to look.
-         */
-        glActiveTexture(GL_TEXTURE3);
-        unsigned int instanceCount = drawQueues[puzzle]->copyToGl();
-        glUniform1i(landscape_displayTBOSamplerLocation, 3);
-
-#if DISPLAY_TIMER
-        displayTimer->hitStage(5);
-#endif
-
-        /* TODO remove debug */
-        //std::cout << "copyToGl() reduced " << std::dec << drawQueues[puzzle]->getUnitCount() << " units to " << instanceCount << std::endl;
-
-#if DEBUG_JIGSAW_ASSOCIATION_GL
-        AFK_DEBUG_PRINTL("Drawing cell 0: " << drawQueues[puzzle]->getUnit(0) << " of puzzle=" << puzzle)
-#endif
-
-#if AFK_GL_DEBUG
-        landscape_shaderProgram->Validate();
-#endif
-        glDrawElementsInstanced(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0, instanceCount);
-        AFK_GLCHK("landscape cell drawElementsInstanced")
-
-#if DISPLAY_TIMER
-        displayTimer->hitStage(6);
-#endif
+        drawQueues[puzzle]->draw(landscape_shaderProgram, landscapeJigsaws->getPuzzle(puzzle), lSizes);
     }
 
     glBindVertexArray(0);
