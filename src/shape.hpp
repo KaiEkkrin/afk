@@ -7,9 +7,9 @@
 
 #include <vector>
 
-#include "cell.hpp"
 #include "data/fair.hpp"
 #include "entity_display_queue.hpp"
+#include "object.hpp"
 #include "jigsaw.hpp"
 
 /* A Shape describes a single shrinkform shape, which
@@ -35,9 +35,8 @@ protected:
 public:
     /* Enqueues the display units for an entity of this shape. */
     void enqueueDisplayUnits(
-        const AFK_Cell& cell,
-        float minCellSize,
-        AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayQueue);
+        const AFK_Object& object,
+        AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair);
 };
 
 #endif /* _AFK_SHAPE_H_ */

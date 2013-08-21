@@ -32,15 +32,16 @@ class AFK_EntityDisplayUnit
     /* This maps it onto the shrink-form jigsaw. */
     Vec2<float>         jigsawPieceST;
 
-    AFK_EntityDisplayUnit();
     AFK_EntityDisplayUnit(
-        const Mat4<float> _transform,
-        const Vec2<float> _jigsawPieceST);
+        const Mat4<float>& _transform,
+        const Vec2<float>& _jigsawPieceST);
 
-    friend std::ostream& operator<<(std::ostream& os, const AFK_EntityDisplayUnit& unit);
+    //friend std::ostream& operator<<(std::ostream& os, const AFK_EntityDisplayUnit& unit);
 } __attribute__((aligned(16)));
 
-std::ostream& operator<<(std::ostream& os, const AFK_EntityDisplayUnit& unit);
+#define ENTITY_DISPLAY_UNIT_SIZE (20 * sizeof(float))
+
+//std::ostream& operator<<(std::ostream& os, const AFK_EntityDisplayUnit& unit);
 
 BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_EntityDisplayUnit>::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_EntityDisplayUnit>::value));
@@ -63,6 +64,9 @@ protected:
     boost::mutex mut;
 
 public:
+    AFK_EntityDisplayQueue();
+    virtual ~AFK_EntityDisplayQueue();
+
     void add(const AFK_EntityDisplayUnit& _unit);
 
     /* Assuming the VAO for the shape faces has been set up, this

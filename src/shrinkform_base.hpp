@@ -10,6 +10,8 @@
 
 /* This class defines the basis of a shrinkform cube, used to
  * make random Shapes.
+ * It actually only includes the geometry of one face -- it
+ * expects the Shape to make the correct number of faces.
  */
 
 class AFK_ShrinkformBaseVertex

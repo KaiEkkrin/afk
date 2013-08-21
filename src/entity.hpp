@@ -67,8 +67,7 @@ public:
      * on the shape content, and the LoD it's displayed at...)
      */
     void enqueueDisplayUnits(
-        const AFK_Cell& cell,
-        float minCellSize,
+        const AFK_Object& object,
         AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair);
 
     /* AFK_Claimable implementation. */

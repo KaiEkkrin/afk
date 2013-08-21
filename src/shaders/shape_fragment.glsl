@@ -4,8 +4,15 @@
 
 #version 330
 
-in vec3 VcolF;
-in vec3 NormalF;
+// TODO Jigsaw colour and normal textures should appear here.
+
+in VertexData
+{
+    vec2 jigsawCoord;
+
+    // TODO Temporary, as per shape_vertex.
+    vec2 tempColourRG;
+} inData;
 
 out vec4 FragColor;
 
@@ -21,9 +28,10 @@ uniform Light gLight;
 
 void main()
 {
-    vec3 AmbientColour = gLight.Colour * gLight.Ambient;
-    vec3 DiffuseColour = gLight.Colour * gLight.Diffuse * max(dot(normalize(NormalF), -gLight.Direction), 0.0);
-    float DiffuseFactor = dot(normalize(NormalF), -gLight.Direction);
-    FragColor = vec4(VcolF * (AmbientColour + DiffuseColour), 1.0);
+    //vec3 AmbientColour = gLight.Colour * gLight.Ambient;
+    //vec3 DiffuseColour = gLight.Colour * gLight.Diffuse * max(dot(normalize(NormalF), -gLight.Direction), 0.0);
+    //float DiffuseFactor = dot(normalize(NormalF), -gLight.Direction);
+    //FragColor = vec4(VcolF * (AmbientColour + DiffuseColour), 1.0);
+    FragColor = vec4(tempColourRG.x, tempColourRG.y, 0.0, 1.0);
 }
 

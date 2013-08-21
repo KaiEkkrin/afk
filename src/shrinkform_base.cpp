@@ -9,8 +9,7 @@ AFK_ShrinkformBaseVertex::AFK_ShrinkformBaseVertex(
 {
 }
 
-/* This utility function gets two-dimensional face co-ordinates
- * which I can transform to make all six faces.
+/* This utility function gets two-dimensional face co-ordinates.
  */
 static void make2DFace(
     const AFK_ShapeSizes& sSizes,
@@ -43,19 +42,10 @@ AFK_ShrinkformBase::AFK_ShrinkformBase(const AFK_ShapeSizes& sSizes):
      * - back (normal +z)
      * - right (normal +x)
      * - top (normal +y)
-     * which I'll define in that order.
-     * I'm going to duplicate the shared vertices.  Trying to actually
-     * share them would be a big pain, in terms of piece sizes if
-     * nothing else (I'd save no computation time unless I managed to
-     * make the jigsaw pieces of the different faces different sizes,
-     * which just isn't happening).
-     *
-     * Texture wise, a shrinkform cube is arranged as six jigsaw
-     * pieces in a row; thus, I increment the s co-ordinate of each
-     * face by 1 here:
+     * I'm only going to define the bottom face.  The Shape can transform
+     * it to make the others.
      */
 
-    /* Here's the bottom face... */
     for (unsigned int x = 0; x < sSizes.vDim; ++x)
     {
         for (unsigned int z = 0; z < sSizes.vDim; ++z)
@@ -68,98 +58,22 @@ AFK_ShrinkformBase::AFK_ShrinkformBase(const AFK_ShapeSizes& sSizes):
         }
     }
 
-    /* I can make the others by transforming the bottom face vertices: */
-
-    /* Left... */
-    for (unsigned int y = 0; y < sSizes.vDim; ++y)
+    for (unsigned short s = 0; s < sSizes.pointSubdivisionFactor; ++s)
     {
-        for (unsigned int z = 0; z < sSizes.vDim; ++z)
+        for (unsigned short t = 0; t < sSizes.pointSubdivisionFactor; ++t)
         {
-            float sCoord, tCoord, sTex, tTex;
-            make2DFace(sSizes, y, z, sCoord, tCoord, sTex, tTex);
-            vertices.push_back(AFK_ShrinkformBaseVertex(
-                afk_vec3<float>(0.0f, sCoord, tCoord),
-                afk_vec2<float>(sTex + 1.0f, tTex));
-        }
-    }
-                
-    /* Front... */
-    for (unsigned int x = 0; x < sSizes.vDim; ++x)
-    {
-        for (unsigned int y = 0; y < sSizes.vDim; ++y)
-        {
-            float sCoord, tCoord, sTex, tTex;
-            make2DFace(sSizes, x, y, sCoord, tCoord, sTex, tTex);
-            vertices.push_back(AFK_ShrinkformBaseVertex(
-                afk_vec3<float>(sCoord, tCoord, 0.0f),
-                afk_vec2<float>(sTex + 2.0f, tTex)));
-        }
-    }
+            unsigned short i_r1c1 = s * sSizes.vDim + t;
+            unsigned short i_r2c1 = (s + 1) * sSizes.vDim + t;
+            unsigned short i_r1c2 = s * sSizes.vDim + (t + 1);
+            unsigned short i_r2c2 = (s + 1) * sSizes.vDim + (t + 1);
 
-    /* Back... */
-    for (unsigned int x = 0; x < sSizes.vDim; ++x)
-    {
-        for (unsigned int y = 0; y < sSizes.vDim; ++y)
-        {
-            float sCoord, tCoord, sTex, tTex;
-            make2DFace(sSizes, x, y, sCoord, tCoord, sTex, tTex);
-            vertices.push_back(AFK_ShrinkformBaseVertex(
-                afk_vec3<float>(1.0f - sCoord, tCoord, 1.0f),
-                afk_vec2<float>(sTex + 3.0f, tTex)));
-        }
-    }
+            indices.push_back(i_r1c1);
+            indices.push_back(i_r1c2);
+            indices.push_back(i_r2c1);
 
-    /* Right... */
-    for (unsigned int y = 0; y < sSizes.vDim; ++y)
-    {
-        for (unsigned int z = 0; z < sSizes.vDim; ++z)
-        {
-            float sCoord, tCoord, sTex, tTex;
-            make2DFace(sSizes, y, z, sCoord, tCoord, sTex, tTex);
-            vertices.push_back(AFK_ShrinkformBaseVertex(
-                afk_vec3<float>(1.0f, 1.0f - sCoord, tCoord),
-                afk_vec2<float>(sTex + 4.0f, tTex));
-        }
-    }
-
-    /* Top... */
-    for (unsigned int x = 0; x < sSizes.vDim; ++x)
-    {
-        for (unsigned int z = 0; z < sSizes.vDim; ++z)
-        {
-            float sCoord, tCoord, sTex, tTex;
-            make2DFace(sSizes, x, z, sCoord, tCoord, sTex, tTex);
-            vertices.push_back(AFK_ShrinkformBaseVertex(
-                afk_vec3<float>(sCoord, 1.0f, 1.0f - tCoord),
-                afk_vec2<float>(sTex + 5.0f, tTex));
-        }
-    }
-
-    /* Because I flipped the vertex ordering above, I ought to be able
-     * to declare six identical sets of triangles and have the winding
-     * orders be consistent between them -- although I expect I'll
-     * still need to fritz things in the geometry shader
-     */
-    for (unsigned short cube = 0; cube < 6; ++cube)
-    {
-        for (unsigned short s = 0; s < sSizes.pointSubdivisionFactor; ++s)
-        {
-            for (unsigned short t = 0; t < sSizes.pointSubdivisionFactor; ++t)
-            {
-                unsigned short iOffset = cube * sSizes.vDim * sSizes.vDim;
-                unsigned short i_r1c1 = iOffset + s * sSizes.vDim + t;
-                unsigned short i_r2c1 = iOffset + (s + 1) * sSizes.vDim + t;
-                unsigned short i_r1c2 = iOffset + s * sSizes.vDim + (t + 1);
-                unsigned short i_r2c2 = iOffset + (s + 1) * sSizes.vDim + (t + 1);
-
-                indices.push_back(i_r1c1);
-                indices.push_back(i_r1c2);
-                indices.push_back(i_r2c1);
-    
-                indices.push_back(i_r1c2);
-                indices.push_back(i_r2c2);
-                indices.push_back(i_r2c1);
-            }
+            indices.push_back(i_r1c2);
+            indices.push_back(i_r2c2);
+            indices.push_back(i_r2c1);
         }
     }
 }

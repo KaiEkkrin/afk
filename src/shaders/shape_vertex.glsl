@@ -5,26 +5,37 @@
 
 #version 330
 
-// Input is in vec4 to match the OpenCL 3-vector format.
-layout (location = 0) in vec4 Position;
-layout (location = 1) in vec4 Vcol;
-layout (location = 2) in vec4 Normal;
+layout (location = 0) in vec3 Position;
+layout (location = 1) in vec2 TexCoord;
 
-uniform samplerBuffer WorldTransformTBO;
+// TODO: Here, after I've gotten the basic shape working, the
+// jigsaw textures will appear.
+
+// This is the entity display queue.  There are five texels
+// per instance, which contain:
+// - first 4: the 4 rows of the transform matrix for the instance
+// - fifth: (x, y) are the (s, t) jigsaw co-ordinates
+uniform samplerBuffer DisplayTBO; 
 
 uniform mat4 ProjectionTransform;
 
-out vec3 VcolF;
-out vec3 NormalF;
+out VertexData
+{
+    vec2 jigsawCoord;
+
+    // TODO Here's a temporary colour, to make sure that I'm
+    // drawing the base shape correctly.
+    vec2 tempColourRG;
+} outData;
 
 void main()
 {
     // Reconstruct the world transform matrix for this instance.
     // Of course, AFK is row-major...  :/
-    vec4 WTRow1 = texelFetch(WorldTransformTBO, gl_InstanceID * 4);
-    vec4 WTRow2 = texelFetch(WorldTransformTBO, gl_InstanceID * 4 + 1);
-    vec4 WTRow3 = texelFetch(WorldTransformTBO, gl_InstanceID * 4 + 2);
-    vec4 WTRow4 = texelFetch(WorldTransformTBO, gl_InstanceID * 4 + 3);
+    vec4 WTRow1 = texelFetch(DisplayTBO, gl_InstanceID * 5);
+    vec4 WTRow2 = texelFetch(DisplayTBO, gl_InstanceID * 5 + 1);
+    vec4 WTRow3 = texelFetch(DisplayTBO, gl_InstanceID * 5 + 2);
+    vec4 WTRow4 = texelFetch(DisplayTBO, gl_InstanceID * 5 + 3);
 
     mat4 WorldTransform = mat4(
         vec4(WTRow1.x, WTRow2.x, WTRow3.x, WTRow4.x),
@@ -32,8 +43,9 @@ void main()
         vec4(WTRow1.z, WTRow2.z, WTRow3.z, WTRow4.z),
         vec4(WTRow1.w, WTRow2.w, WTRow3.w, WTRow4.w));
 
-    gl_Position = (ProjectionTransform * WorldTransform) * vec4(Position.xyz, 1.0);
-    VcolF = Vcol.xyz;
-    NormalF = (WorldTransform * vec4(Normal.xyz, 0.0)).xyz;
+    outData.jigsawCoord = texelFetch(DisplayTBO, gl_InstanceID * 5 + 4).xy;
+    outData.tempColourRG = Position.xz;
+
+    gl_Position = (ProjectionTransform * WorldTransform) * vec4(Position, 1.0);
 }
 

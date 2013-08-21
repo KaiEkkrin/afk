@@ -141,7 +141,7 @@ void AFK_LandscapeDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsa
     shaderProgram->Validate();
 #endif
     glDrawElementsInstanced(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0, instanceCount);
-    AFK_GLCHK("landscape cell drawElementsInstanced")
+    AFK_GLCHK("landscape drawElementsInstanced")
 }
 
 bool AFK_LandscapeDisplayQueue::empty(void)
