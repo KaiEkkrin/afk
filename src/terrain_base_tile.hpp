@@ -15,6 +15,10 @@
 
 /* The terrain basis contains (vertex location, tile coord). */
 
+/* TODO Move the VAO currently in world so that it's owned by
+ * this module instead?  (like Shape)
+ * (Surely makes more sense)
+ */
 class AFK_TerrainBaseTileVertex
 {
 public:

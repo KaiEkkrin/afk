@@ -496,7 +496,11 @@ AFK_World::AFK_World(
         maxDistance                 (_maxDistance),
         subdivisionFactor           (config->subdivisionFactor),
         minCellSize                 (config->minCellSize),
-        lSizes                      (config->subdivisionFactor, config->pointSubdivisionFactor)
+        lSizes                      (config->subdivisionFactor, config->pointSubdivisionFactor),
+        sSizes                      (config->subdivisionFactor,
+                                     config->entitySubdivisionFactor,
+                                     config->pointSubdivisionFactor)
+
 {
     /* Set up the caches and generator gang. */
 
@@ -544,22 +548,10 @@ AFK_World::AFK_World(
     worldCache = new AFK_WORLD_CACHE(
         worldCacheBitness, 8, AFK_HashCell(), worldCacheEntries, 0xfffffffeu);
 
-    /* TODO change this into a thing like AFK_LandscapeSizes */
-    unsigned int shapeVsSize, shapeIsSize;
-    afk_getShapeSizes(lSizes.pointSubdivisionFactor, shapeVsSize, shapeIsSize);
-    unsigned int shapeEntrySize = shapeVsSize + shapeIsSize;
-    unsigned int maxShapes = maxShapeSize / shapeEntrySize;
-
-    shapeVsQueue = new AFK_GLBufferQueue(shapeVsSize, maxShapes, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
-    shapeIsQueue = new AFK_GLBufferQueue(shapeIsSize, maxShapes, GL_ELEMENT_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
-
     genGang = new AFK_AsyncGang<struct AFK_WorldCellGenParam, bool>(
             boost::function<bool (unsigned int, const struct AFK_WorldCellGenParam,
                 AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>&)>(afk_generateWorldCells),
             100, config->concurrency);
-
-    /* Set up the shapes.  TODO more than one ?! */
-    shape = new AFK_ShapeChevron(shapeVsQueue, shapeIsQueue, config->concurrency);
 
     /* Set up the landscape shader. */
     landscape_shaderProgram = new AFK_ShaderProgram();
@@ -584,6 +576,9 @@ AFK_World::AFK_World(
     /* Done. */
     glBindVertexArray(0);
     landscapeTerrainBase->teardownGL();
+
+    /* Set up the shapes.  TODO more than one ?! */
+    shape = new AFK_Shape();
 
     /* Initialise the statistics. */
     cellsInvisible.store(0);
@@ -763,36 +758,35 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     /* Now that I've set that up, make the texture that describes
      * where the tiles are in space ...
      */
-    std::vector<boost::shared_ptr<AFK_LandscapeDisplayQueue> > drawQueues;
-    landscapeDisplayFair.getDrawQueues(drawQueues);
+    std::vector<boost::shared_ptr<AFK_LandscapeDisplayQueue> > landscapeDrawQueues;
+    landscapeDisplayFair.getDrawQueues(landscapeDrawQueues);
 
     /* Those queues are in puzzle order. */
-    for (unsigned int puzzle = 0; puzzle < drawQueues.size(); ++puzzle)
+    for (unsigned int puzzle = 0; puzzle < landscapeDrawQueues.size(); ++puzzle)
     {
-        drawQueues[puzzle]->draw(landscape_shaderProgram, landscapeJigsaws->getPuzzle(puzzle), lSizes);
+        landscapeDrawQueues[puzzle]->draw(landscape_shaderProgram, landscapeJigsaws->getPuzzle(puzzle), lSizes);
     }
 
     glBindVertexArray(0);
 
     /* Render the shapes */
-    /* TODO re-enable this later */
-#if 0
     glUseProgram(entity_shaderProgram->program);
+    entity_shaderLight->setupLight(globalLight);
+    glUniformMatrix4fv(entity_projectionTransform, 1, GL_TRUE, &projection.m[0][0]);
+    AFK_GLCHK("shape uniforms")
 
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-    glEnableVertexAttribArray(2);
+    shape->initGL();
 
-    shape->display(
-        entity_shaderLight,
-        globalLight,
-        entity_projectionTransformLocation,
-        projection);
+    std::vector<boost::shared_ptr<AFK_EntityDisplayQueue> > entityDrawQueues;
+    entityDisplayFair.getDrawQueues(entityDrawQueues);
 
-    glDisableVertexAttribArray(0);
-    glDisableVertexAttribArray(1);
-    glDisableVertexAttribArray(2);
-#endif
+    for (unsigned int puzzle = 0; puzzle < entityDrawQueues.size(); ++puzzle)
+    {
+        /* TODO An actual jigsaw!  Several shapes!  */
+        entityDrawQueues[puzzle]->draw(entity_shaderProgram, NULL, sSizes);
+    }
+
+    shape->teardownGL();
 }
 
 /* Worker for the below. */

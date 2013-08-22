@@ -11,6 +11,9 @@ class AFK_ShapeSizes
 {
 public:
     const unsigned int subdivisionFactor; /* same as in landscape_sizes and the world ? */
+    const unsigned int entitySubdivisionFactor; /* ratio of cell size to the size of an
+                                                 * entity that fits into that cell
+                                                 */
     const unsigned int pointSubdivisionFactor;
     const unsigned int vDim; /* Number of vertices along an edge in the basic face */
     const unsigned int iDim; /* Number of triangles along an edge */
@@ -24,7 +27,10 @@ public:
     const unsigned int tSize; /* Size of a jigsaw piece in bytes */
     const unsigned int featureCountPerCube; /* Number of deformation features per shrinkform cube */
 
-    AFK_ShapeSizes(unsigned int subdivisionFactor, unsigned int pointSubdivisionFactor);
+    AFK_ShapeSizes(
+        unsigned int subdivisionFactor,
+        unsigned int entitySubdivisionFactor,
+        unsigned int pointSubdivisionFactor);
 };
 
 #endif /* _AFK_SHAPE_SIZES_H_ */

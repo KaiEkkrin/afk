@@ -7,7 +7,6 @@
 
 #include <vector>
 
-#include "gl_buffer.hpp"
 #include "light.hpp"
 #include "object.hpp"
 #include "shader.hpp"
@@ -38,61 +37,6 @@ struct AFK_VcolPhongVertex
 struct AFK_VcolPhongIndex
 {
     unsigned int i[3];
-};
-
-/* Nasty nasty.  I can't refer to the singleton afk_core from
- * inside a template
- */
-void afk_displayedBufferGlBuffersForDeletion(GLuint *bufs, size_t bufsSize);
-
-/* A useful wrapper around an array of things to be buffered
- * to GL and its GL equivalent.
- */
-template<typename T>
-class AFK_DisplayedBuffer
-{
-public:
-    std::vector<T> t; /* TODO remove me */
-    AFK_GLBufferQueue *bufferSource; /* Where to get new buffers from */
-    GLuint buf;
-    size_t sizeHint; /* The number of members -- you need to know what that means */
-
-    AFK_DisplayedBuffer(size_t _sizeHint, AFK_GLBufferQueue *_bufferSource):
-        bufferSource(_bufferSource), buf(0), sizeHint(_sizeHint)
-    {
-        t.reserve(sizeHint);
-    }
-
-    virtual ~AFK_DisplayedBuffer()
-    {
-        /* Because of GLUT wanting all GL calls in the same thread */
-        //if (buf) afk_displayedBufferGlBuffersForDeletion(&buf, 1);
-
-        /* ... No.  I don't delete it any more!  I just push it back
-         * into the source
-         */
-        if (buf) bufferSource->push(buf);
-    }
-
-    /* Sets up the GL buffer if required.  If it wasn't there
-     * already, returns true; else false.
-     */
-    bool initGLBuffer(void)
-    {
-        bool wasNotBuffered = (buf == 0);
-        if (wasNotBuffered) buf = bufferSource->pop();
-        return wasNotBuffered;
-    }
-
-    /* Binds the buffer, and pushes the source contents in if
-     * required.
-     * (TODO That last step ought to end up being redundant...)
-     */
-    void bindBufferAndPush(bool push, GLenum target, GLenum usage)
-    {
-        glBindBuffer(target, buf);
-        if (push) glBufferData(target, t.size() * sizeof(T), &t[0], usage);
-    }
 };
 
 

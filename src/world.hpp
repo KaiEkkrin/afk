@@ -24,7 +24,7 @@
 #include "data/stage_timer.hpp"
 #include "def.hpp"
 #include "entity.hpp"
-#include "gl_buffer.hpp"
+#include "entity_display_queue.hpp"
 #include "jigsaw.hpp"
 #include "landscape_display_queue.hpp"
 #include "landscape_tile.hpp"
@@ -137,8 +137,8 @@ protected:
      * But yeah, I'll want to switch to that cunning cube
      * mapped constellation model!
      */
-    AFK_GLBufferQueue *shapeVsQueue;
-    AFK_GLBufferQueue *shapeIsQueue;
+    //AFK_GLBufferQueue *shapeVsQueue;
+    //AFK_GLBufferQueue *shapeIsQueue;
 
     /* The cache of landscape cells we're tracking.
      * TODO: I think at some point, all of this should
@@ -165,6 +165,11 @@ protected:
     /* The basic landscape tile geometry. */
     GLuint landscapeTileArray;
     AFK_TerrainBaseTile *landscapeTerrainBase;
+
+    /* The entity render fair -- a queue of Entities to
+     * display onscreen.
+     */
+    AFK_Fair<AFK_EntityDisplayQueue> entityDisplayFair;
 
     /* TODO Deal with multiple shapes.  In whatever way.
      * I don't know.  :/  For now, I'll just have one.
@@ -221,6 +226,9 @@ public:
 
     /* These parameters define the sizes of the landscape tiles. */
     const AFK_LandscapeSizes lSizes;
+
+    /* These parameters define the sizes of the shapes in the world. */
+    const AFK_ShapeSizes sSizes;
 
 
     AFK_World(

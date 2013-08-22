@@ -65,6 +65,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     maxDetailPitch              = 4096.0f;
     minCellSize                 = 1.0f;
     subdivisionFactor           = 2;
+    entitySubdivisionFactor     = 4;
     pointSubdivisionFactor      = 8;
     
 
@@ -156,6 +157,11 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         {
             REQUIRE_ARGUMENT("--subdivision-factor")
             subdivisionFactor = strtoul(argv[argi], NULL, 0);
+        }
+        else if (strcmp(argv[argi], "--entity-subdivision-factor") == 0)
+        {
+            REQUIRE_ARGUMENT("--entity-subdivision-factor")
+            entitySubdivisionFactor = strtoul(argv[argi], NULL, 0);
         }
         else if (strcmp(argv[argi], "--point-subdivision-factor") == 0)
         {

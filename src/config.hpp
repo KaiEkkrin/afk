@@ -93,6 +93,7 @@ public:
     float maxDetailPitch;
     float minCellSize;
     unsigned int subdivisionFactor;
+    unsigned int entitySubdivisionFactor;
     unsigned int pointSubdivisionFactor;
 
     /* Initialises AFK configuration, based on command line
