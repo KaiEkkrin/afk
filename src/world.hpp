@@ -31,6 +31,7 @@
 #include "shader.hpp"
 #include "shape.hpp"
 #include "shrinkform_base.hpp"
+#include "shrinkform_compute_queue.hpp"
 #include "terrain_base_tile.hpp"
 #include "terrain_compute_queue.hpp"
 #include "tile.hpp"
@@ -128,18 +129,8 @@ protected:
 #endif
     AFK_WORLD_CACHE *worldCache;
 
-    /* These jigsaws form the computed artwork. */
+    /* These jigsaws form the computed landscape artwork. */
     AFK_JigsawCollection *landscapeJigsaws;
-
-    /* Queues of ready cl_gl objects for rendering into.
-     * TODO Port this to Jigsaw, and delete GLBufferQueue.
-     * Of course -- hah! -- shape doesn't even work at all
-     * right now :P
-     * But yeah, I'll want to switch to that cunning cube
-     * mapped constellation model!
-     */
-    //AFK_GLBufferQueue *shapeVsQueue;
-    //AFK_GLBufferQueue *shapeIsQueue;
 
     /* The cache of landscape cells we're tracking.
      * TODO: I think at some point, all of this should
@@ -172,10 +163,22 @@ protected:
      */
     AFK_Fair<AFK_EntityDisplayQueue> entityDisplayFair;
 
-    /* TODO Deal with multiple shapes.  In whatever way.
-     * I don't know.  :/  For now, I'll just have one.
+    /* These jigsaws form the computed shape artwork. */
+    AFK_JigsawCollection *shapeJigsaws;
+
+    /* The cache of shapes we're tracking.
+     * (It was kind of inevitable, wasn't it? :) )
+     * TODO: I need some sane kind of way of indexing shapes.
+     * Right now I'm just going to give them an integer label.
      */
-    AFK_Shape *shape;
+#ifndef AFK_SHAPE_CACHE
+#define AFK_SHAPE_CACHE AFK_EvictableCache<unsigned int, AFK_Shape, boost::hash<unsigned int> >
+#endif
+    AFK_SHAPE_CACHE *shapeCache;
+    unsigned int shapeCacheEntries;
+
+    /* The shape computation fair, for when I'm making new ones. */
+    AFK_Fair<AFK_ShrinkformComputeQueue> shapeComputeFair;
 
     /* The basic shape geometry. */
     GLuint shrinkformBaseArray;
@@ -248,7 +251,7 @@ public:
         float _maxDistance,
         unsigned int worldCacheSize, /* in bytes */
         unsigned int tileCacheSize, /* also in bytes */
-        unsigned int maxShapeSize, /* likewise */
+        unsigned int shapeCacheSize, /* likewise */
         cl_context ctxt);
     virtual ~AFK_World();
 

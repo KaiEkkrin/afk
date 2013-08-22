@@ -8,9 +8,18 @@
 #include <vector>
 
 #include "data/fair.hpp"
+#include "data/frame.hpp"
 #include "entity_display_queue.hpp"
 #include "object.hpp"
 #include "jigsaw.hpp"
+#include "shrinkform.hpp"
+
+enum AFK_ShapeArtworkState
+{
+    AFK_SHAPE_NO_PIECE_ASSIGNED,
+    AFK_SHAPE_PIECE_SWEPT,
+    AFK_SHAPE_HAS_ARTWORK
+};
 
 /* A Shape describes a single shrinkform shape, which
  * might be instanced many times by means of Entities.
@@ -22,17 +31,33 @@
 class AFK_Shape
 {
 protected:
-    /* TODO: In order to generate a Shape's unique geometry,
-     * I'm going to need a shrinkform descriptor here,
-     * followed by a list of jigsaw pieces in the same order
-     * (or maybe part of the descriptor),
-     * a reference to the jigsaw collection itself,
-     * and also the timestamps for all those jigsaw pieces.
-     * But first, I want to test with just a flat cube to make
-     * sure the GL pipeline is OK.
+    /* This is a little like the landscape tiles.
+     * TODO: In addition to this, when I have more than one cube,
+     * I'm going to have the whole skeletons business to think about!
+     * Parallelling the landscape tiles in the first instance so that
+     * I can get the basic thing working.
      */
+    bool haveShrinkformDescriptor;
+    std::vector<AFK_ShrinkformPoint> shrinkformPoints;
+    std::vector<AFK_ShrinkformCube> shrinkformCubes;
+
+    AFK_JigsawPiece jigsawPiece;
+    AFK_JigsawCollection *jigsaws;
+    AFK_Frame jigsawPieceTimestamp;
 
 public:
+    AFK_Shape();
+    virtual ~AFK_Shape();
+
+    bool hasShrinkformDescriptor() const;
+
+    void makeShrinkformDescriptor(
+        const AFK_ShapeSizes& sSizes);
+
+    AFK_JigsawPiece getJigsawPiece(unsigned int threadId, int minJigsaw, AFK_JigsawCollection *_jigsaws);
+
+    enum AFK_ShapeArtworkState artworkState() const;
+
     /* Enqueues the display units for an entity of this shape. */
     void enqueueDisplayUnits(
         const AFK_Object& object,

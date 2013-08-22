@@ -92,13 +92,6 @@ std::string AFK_TerrainComputeQueue::debugTerrain(const AFK_TerrainComputeUnit& 
     return ss.str();
 }
 
-bool AFK_TerrainComputeQueue::empty(void)
-{
-    boost::unique_lock<boost::mutex> lock(mut);
-
-    return units.empty();
-}
-
 void AFK_TerrainComputeQueue::computeStart(
     AFK_Computer *computer,
     AFK_Jigsaw *jigsaw,
@@ -237,6 +230,13 @@ void AFK_TerrainComputeQueue::computeFinish(void)
 
     /* Read back the Y reduce. */
     yReduce->readBack(unitCount, landscapeTiles);
+}
+
+bool AFK_TerrainComputeQueue::empty(void)
+{
+    boost::unique_lock<boost::mutex> lock(mut);
+
+    return units.empty();
 }
 
 void AFK_TerrainComputeQueue::clear(void)

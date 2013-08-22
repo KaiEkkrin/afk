@@ -337,6 +337,12 @@ bool AFK_World::generateClaimedWorldCell(
             //    abs(cell.coord.v[2]) <= (1 * cell.coord.v[3]))
             //if (cell.coord.v[3] < 64)
             {
+                /* TODO: I need to decide how this interface works in 
+                 * terms of shapes.  I suspect, for now, that I want to
+                 * randomly assign some shape keys here, within some
+                 * restricted range, so that we see a small variety of
+                 * the things.
+                 */
                 worldCell.doStartingEntities(
                     shape, /* TODO vary shapes! :P */
                     minCellSize,
@@ -494,7 +500,7 @@ AFK_World::AFK_World(
     float _maxDistance,
     unsigned int worldCacheSize,
     unsigned int tileCacheSize,
-    unsigned int maxShapeSize,
+    unsigned int shapeCacheSize,
     cl_context ctxt):
         startingDetailPitch         (config->startingDetailPitch),
         maxDetailPitch              (config->maxDetailPitch),
@@ -514,26 +520,26 @@ AFK_World::AFK_World(
     /* Set up the caches and generator gang. */
 
     unsigned int tileCacheEntries = tileCacheSize / lSizes.tSize;
-    Vec2<int> pieceSize = afk_vec2<int>((int)lSizes.tDim, (int)lSizes.tDim);
+    Vec2<int> tilePieceSize = afk_vec2<int>((int)lSizes.tDim, (int)lSizes.tDim);
 
-    enum AFK_JigsawFormat texFormat[3];
-    texFormat[0] = AFK_JIGSAW_FLOAT32;          /* Y displacement */
-    texFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;    /* Colour */
+    enum AFK_JigsawFormat tileTexFormat[3];
+    tileTexFormat[0] = AFK_JIGSAW_FLOAT32;          /* Y displacement */
+    tileTexFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;    /* Colour */
 
     /* Normal: The packed 8-bit signed format doesn't seem to play nicely with
      * cl_gl buffer sharing; I don't know why...
      */
     if (config->clGlSharing)
-        texFormat[2] = AFK_JIGSAW_4FLOAT32;
+        tileTexFormat[2] = AFK_JIGSAW_4FLOAT32;
     else
-        texFormat[2] = AFK_JIGSAW_4FLOAT8_SNORM;
+        tileTexFormat[2] = AFK_JIGSAW_4FLOAT8_SNORM;
 
     landscapeJigsaws = new AFK_JigsawCollection(
         ctxt,
-        pieceSize,
+        tilePieceSize,
         (int)tileCacheEntries,
         2, /* I want at least two, so I can put big tiles only into the first one */
-        texFormat,
+        tileTexFormat,
         3,
         computer->getFirstDeviceProps(),
         config->clGlSharing,
@@ -556,6 +562,38 @@ AFK_World::AFK_World(
 
     worldCache = new AFK_WORLD_CACHE(
         worldCacheBitness, 8, AFK_HashCell(), worldCacheEntries, 0xfffffffeu);
+
+    unsigned int shapeCacheEntries = shapeCacheSize / sSizes.tSize / 6;
+    Vec2<int> shapePieceSize = afk_vec2<int>(sSizes.tDim, sSizes.tDim);
+
+    enum AFK_JigsawFormat shapeTexFormat[3];
+    shapeTexFormat[0] = AFK_JIGSAW_4FLOAT32;        /* Displacement */
+    shapeTexFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;   /* Colour */
+
+    /* Normal: The packed 8-bit signed format doesn't seem to play nicely with
+     * cl_gl buffer sharing; I don't know why...
+     */
+    if (config->clGlSharing)
+        shapeTexFormat[2] = AFK_JIGSAW_4FLOAT32;
+    else
+        shapeTexFormat[2] = AFK_JIGSAW_4FLOAT8_SNORM;
+
+    shapeJigsaws = new AFK_JigsawCollection(
+        ctxt,
+        shapePieceSize,
+        (int)shapeCacheEntries,
+        1, /* TODO I'll no doubt be expanding on this */
+        shapeTexFormat,
+        3,
+        computer->getFirstDeviceProps(),
+        config->clGlSharing,
+        config->concurrency);
+
+    shapeCacheEntries = shapeJigsaws->getPieceCount();
+    unsigned int shapeCacheBitness = calculateCacheBitness(shapeCacheEntries);
+
+    shapeCache = new AFK_SHAPE_CACHE(
+        shapeCacheBitness, 8, boost::hash<unsigned int>(), shapeCacheEntries / 2, 0xfffffffdu); 
 
     genGang = new AFK_AsyncGang<struct AFK_WorldCellGenParam, bool>(
             boost::function<bool (unsigned int, const struct AFK_WorldCellGenParam,
@@ -619,7 +657,9 @@ AFK_World::~AFK_World()
     if (landscapeJigsaws) delete landscapeJigsaws;
     delete landscapeCache;
     delete worldCache;
-    delete shape;
+
+    if (shapeJigsaws) delete shapeJigsaws;
+    delete shapeCache;
 
     delete landscape_shaderProgram;
     delete landscape_shaderLight;
@@ -668,7 +708,9 @@ void AFK_World::flipRenderQueues(cl_context ctxt, const AFK_Frame& newFrame)
     landscapeDisplayFair.flipQueues();
     landscapeJigsaws->flipRects(ctxt, newFrame);
 
+    shapeComputeFair.flipQueues();
     entityDisplayFair.flipQueues();
+    shapeJigsaws->flipRects(ctxt, newFrame);
 }
 
 void AFK_World::alterDetail(float adjustment)
@@ -686,6 +728,7 @@ boost::unique_future<bool> AFK_World::updateWorld(void)
     /* Maintenance. */
     landscapeCache->doEvictionIfNecessary();
     worldCache->doEvictionIfNecessary();
+    shapeCache->doEvictionIfNecessary();
 
     /* First, transform the protagonist location and its facing
      * into integer cell-space.
@@ -741,24 +784,37 @@ void AFK_World::doComputeTasks(void)
      * puzzle, so that I can easily batch up work that applies to the
      * same jigsaw:
      */
-    std::vector<boost::shared_ptr<AFK_TerrainComputeQueue> > computeQueues;
-    landscapeComputeFair.getDrawQueues(computeQueues);
+    std::vector<boost::shared_ptr<AFK_TerrainComputeQueue> > terrainComputeQueues;
+    landscapeComputeFair.getDrawQueues(terrainComputeQueues);
 
     /* The fair's queues are in the same order as the puzzles in
      * the jigsaw collection.
      */
-    for (unsigned int puzzle = 0; puzzle < computeQueues.size(); ++puzzle)
+    for (unsigned int puzzle = 0; puzzle < terrainComputeQueues.size(); ++puzzle)
     {
-        computeQueues[puzzle]->computeStart(afk_core.computer, landscapeJigsaws->getPuzzle(puzzle), lSizes);
+        terrainComputeQueues[puzzle]->computeStart(afk_core.computer, landscapeJigsaws->getPuzzle(puzzle), lSizes);
+    }
+
+    std::vector<boost::shared_ptr<AFK_ShrinkformComputeQueue> > shrinkformComputeQueues;
+    shapeComputeFair.getDrawQueues(shrinkformComputeQueues);
+
+    for (unsigned int puzzle = 0; puzzle < shrinkformComputeQueues.size(); ++puzzle)
+    {
+        shrinkformComputeQueues[puzzle]->computeStart(afk_core.computer, shapeJigsaws->getPuzzle(puzzle), sSizes);
     }
 
     /* If I finalise stuff now, the y-reduce information will
      * be in the landscape tiles in time for the display
      * to edit out any cells I now know to be empty of terrain.
      */
-    for (unsigned int puzzle = 0; puzzle < computeQueues.size(); ++puzzle)
+    for (unsigned int puzzle = 0; puzzle < terrainComputeQueues.size(); ++puzzle)
     {
-        computeQueues[puzzle]->computeFinish();
+        terrainComputeQueues[puzzle]->computeFinish();
+    }
+
+    for (unsigned int puzzle = 0; puzzle < shrinkformComputeQueues.size(); ++puzzle)
+    {
+        shrinkformComputeQueues[puzzle]->computeFinish();
     }
 }
 
@@ -840,6 +896,7 @@ void AFK_World::printCacheStats(std::ostream& ss, const std::string& prefix)
 #if PRINT_CACHE_STATS
     worldCache->printStats(ss, "World cache");
     landscapeCache->printStats(ss, "Landscape cache");
+    shapeCache->printStats(ss, "Shape cache");
 #endif
 }
 

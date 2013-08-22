@@ -93,7 +93,6 @@ public:
     /* Adds a terrain descriptor to this tile if there isn't any already. */
     void makeTerrainDescriptor(
         const AFK_LandscapeSizes& lSizes,
-        unsigned int subdivisionFactor,
         const AFK_Tile& tile,
         float minCellSize);
 

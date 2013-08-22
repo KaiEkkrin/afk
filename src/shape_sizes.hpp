@@ -25,7 +25,7 @@ public:
     const unsigned int vSize; /* Size of base face vertex array in bytes */
     const unsigned int iSize; /* Size of index array in bytes */
     const unsigned int tSize; /* Size of a jigsaw piece in bytes */
-    const unsigned int featureCountPerCube; /* Number of deformation features per shrinkform cube */
+    const unsigned int pointCountPerCube; /* Number of deformation points per shrinkform cube */
 
     AFK_ShapeSizes(
         unsigned int subdivisionFactor,

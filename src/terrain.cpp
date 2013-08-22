@@ -2,7 +2,6 @@
 
 #include "afk.hpp"
 
-#include <cmath>
 #include <cstring>
 #include <sstream>
 

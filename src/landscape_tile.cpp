@@ -34,7 +34,6 @@ bool AFK_LandscapeTile::hasTerrainDescriptor() const
 
 void AFK_LandscapeTile::makeTerrainDescriptor(
     const AFK_LandscapeSizes& lSizes,
-    unsigned int subdivisionFactor,
     const AFK_Tile& tile,
     float minCellSize)
 {
@@ -47,7 +46,7 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
 
         /* I'm going to make 5 terrain tiles. */
         AFK_Tile descriptorTiles[5];
-        tile.enumerateDescriptorTiles(&descriptorTiles[0], 5, subdivisionFactor);
+        tile.enumerateDescriptorTiles(&descriptorTiles[0], 5, lSizes.subdivisionFactor);
 
         for (unsigned int i = 0; i < 5; ++i)
         {
