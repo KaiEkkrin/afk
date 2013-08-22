@@ -180,8 +180,8 @@ void AFK_WorldCell::doStartingEntities(
 
             float entitySize = rng.frand() * (maxEntitySize - minEntitySize) + minEntitySize;
 
-            float minEntityLocation = entitySize;
-            float maxEntityLocation = 1.0f - entitySize;
+            float minEntityLocation = 0.0f;
+            float maxEntityLocation = realCellCoord.v[3];
 
             Vec3<float> entityDisplacement;
             for (unsigned int j = 0; j < 3; ++j)

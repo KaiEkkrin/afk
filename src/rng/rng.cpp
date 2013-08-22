@@ -43,6 +43,14 @@ AFK_RNG_Value::AFK_RNG_Value(long long v0, long long v1, long long v2)
     v.ui[2] = LROTATE_UNSIGNED(v.ui[2], 23);
 }
 
+AFK_RNG_Value::AFK_RNG_Value(long long v0)
+{
+    v.ui[0] = squash_to_int(v0);
+    v.ui[1] = LROTATE_UNSIGNED(squash_to_int(v0), 7);
+    v.ui[2] = LROTATE_UNSIGNED(squash_to_int(v0), 13);
+    v.ui[3] = LROTATE_UNSIGNED(squash_to_int(v0), 23);
+}
+
 AFK_RNG_Value::AFK_RNG_Value(const std::string& s1, const std::string& s2)
 {
     v.ull[0] = strtoull(s1.c_str(), NULL, 0);

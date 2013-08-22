@@ -31,7 +31,8 @@ bool AFK_Tile::operator!=(const AFK_Tile& _tile) const
 
 AFK_RNG_Value AFK_Tile::rngSeed() const
 {
-    return AFK_RNG_Value(coord.v[0], coord.v[1], coord.v[2]) ^ afk_core.config->masterSeed;
+    size_t hash = hash_value(*this);
+    return AFK_RNG_Value(hash) ^ afk_core.config->masterSeed;
 }
 
 AFK_Tile AFK_Tile::parent(unsigned int subdivisionFactor) const

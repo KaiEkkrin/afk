@@ -44,6 +44,9 @@ public:
     /* Similar, but with just three long longs */
     AFK_RNG_Value(long long v0, long long v1, long long v2);
 
+    /* And again, but with just one */
+    AFK_RNG_Value(long long v0);
+
     /* Parsing constructor. */
     AFK_RNG_Value(const std::string& s1, const std::string& s2);
 

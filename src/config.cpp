@@ -69,7 +69,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     pointSubdivisionFactor      = 8;
 
     maxEntitiesPerCell          = 4;
-    entitySparseness            = 32;
+    entitySparseness            = 512;
     
 
     /* Some hand rolled command line parsing, because it's not very

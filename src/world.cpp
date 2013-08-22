@@ -335,7 +335,7 @@ bool AFK_World::generateClaimedWorldCell(
             //if (abs(cell.coord.v[0]) <= (1 * cell.coord.v[3]) &&
             //    abs(cell.coord.v[1]) <= (1 * cell.coord.v[3]) &&
             //    abs(cell.coord.v[2]) <= (1 * cell.coord.v[3]))
-            if (cell.coord.v[3] < 64)
+            //if (cell.coord.v[3] < 64)
             {
                 worldCell.doStartingEntities(
                     shape, /* TODO vary shapes! :P */

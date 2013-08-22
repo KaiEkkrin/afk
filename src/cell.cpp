@@ -37,7 +37,8 @@ bool AFK_Cell::operator!=(const AFK_Cell& _cell) const
 
 AFK_RNG_Value AFK_Cell::rngSeed() const
 {
-    return AFK_RNG_Value(coord.v[0], coord.v[1], coord.v[2], coord.v[3]) ^ afk_core.config->masterSeed;
+    size_t hash = hash_value(*this);
+    return AFK_RNG_Value(hash) ^ afk_core.config->masterSeed;
 }
 
 unsigned int AFK_Cell::subdivide(
