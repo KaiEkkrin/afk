@@ -13,6 +13,7 @@
 #include "entity.hpp"
 #include "rng/rng.hpp"
 #include "shape.hpp"
+#include "shape_sizes.hpp"
 #include "world.hpp"
 
 
@@ -49,6 +50,12 @@ protected:
      * that I don't need to worry about claiming a cell in
      * order to move an entity into it (which would result
      * in deadlock issues, I suspect).
+     * TODO: This is currently inactive.  I'm sure I'm going
+     * to want something similar after I've sorted out
+     * OpenCL entity movement, but it probably won't be
+     * exactly this, and I suspect I'll want to keep the
+     * entity list entirely in OpenCL buffers and not spread
+     * it back out to the CPU.
      */
     AFK_ENTITY_MOVE_QUEUE moveQueue;
 
@@ -84,8 +91,7 @@ public:
     void doStartingEntities(
         AFK_Shape *shape,
         float minCellSize,
-        unsigned int pointSubdivisionFactor,
-        unsigned int subdivisionFactor,
+        const AFK_ShapeSizes& sSizes,
         AFK_RNG& rng);
 
     /* Iterates through this cell's entities. */

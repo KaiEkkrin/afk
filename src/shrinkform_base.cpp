@@ -28,8 +28,8 @@ static void make2DFace(
      * the padding all the way round.  Therefore, to access the
      * correct texels, I need to skip the padding, like so:
      */
-    o_sTex = ((float)s - (float)lSizes.tDimStart) / (float)lSizes.tDim;
-    o_tTex = ((float)t - (float)lSizes.tDimStart) / (float)lSizes.tDim;
+    o_sTex = ((float)s - (float)sSizes.tDimStart) / (float)sSizes.tDim;
+    o_tTex = ((float)t - (float)sSizes.tDimStart) / (float)sSizes.tDim;
 }
     
 AFK_ShrinkformBase::AFK_ShrinkformBase(const AFK_ShapeSizes& sSizes):
@@ -54,7 +54,7 @@ AFK_ShrinkformBase::AFK_ShrinkformBase(const AFK_ShapeSizes& sSizes):
             make2DFace(sSizes, x, z, sCoord, tCoord, sTex, tTex);
             vertices.push_back(AFK_ShrinkformBaseVertex(
                 afk_vec3<float>(sCoord, 0.0f, tCoord),
-                afk_vec2<float>(sTex, tTex));
+                afk_vec2<float>(sTex, tTex)));
         }
     }
 

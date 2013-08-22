@@ -9,10 +9,32 @@
 
 /* AFK_Entity implementation */
 
+AFK_Entity::AFK_Entity(AFK_Shape *_shape):
+    shape(_shape)
+{
+}
+
 AFK_Entity::~AFK_Entity()
 {
 }
 
+void AFK_Entity::position(
+    const Vec3<float>& scale,
+    const Vec3<float>& displacement,
+    const Vec3<float>& rotation)
+{
+    obj.resize(scale);
+    obj.displace(displacement);
+    if (rotation.v[0] != 0.0f) obj.adjustAttitude(AXIS_PITCH, rotation.v[0]);
+    if (rotation.v[1] != 0.0f) obj.adjustAttitude(AXIS_YAW, rotation.v[1]);
+    if (rotation.v[2] != 0.0f) obj.adjustAttitude(AXIS_ROLL, rotation.v[2]);
+}
+
+/* TODO This is old stuff and needs to be removed.  Deciding
+ * where exactly entities go has become the responsibility
+ * of the world_cell.
+ */
+#if 0
 void AFK_Entity::make(
     AFK_Shape *_shape,
     const AFK_Cell& cell,
@@ -52,7 +74,12 @@ void AFK_Entity::make(
     angularVelocity = afk_vec3<float>(0.0f, 0.0f, 0.0f);
     angularVelocity.v[decider % 3] = rng.frand() / 1000.0f;
 }
+#endif
 
+/* TODO This stuff needs to go into OpenCL.  Leaving the old
+ * code lying about for now as a crib sheet.
+ */
+#if 0
 bool AFK_Entity::animate(
     const boost::posix_time::ptime& now,
     const AFK_Cell& cell,
@@ -93,6 +120,13 @@ bool AFK_Entity::animate(
 void AFK_Entity::enqueueForDrawing(unsigned int threadId)
 {
     shape->updatePush(threadId, obj.getTransformation());
+}
+#endif
+
+void AFK_Entity::enqueueDisplayUnits(
+    AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair)
+{
+    shape->enqueueDisplayUnits(obj, entityDisplayFair);
 }
 
 AFK_Frame AFK_Entity::getCurrentFrame(void) const

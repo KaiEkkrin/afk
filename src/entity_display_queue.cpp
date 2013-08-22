@@ -66,14 +66,14 @@ void AFK_EntityDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw *
 
 bool AFK_EntityDisplayQueue::empty(void)
 {
-    boost::unique_lock<mutex> lock(mut);
+    boost::unique_lock<boost::mutex> lock(mut);
 
     return queue.empty();
 }
 
 void AFK_EntityDisplayQueue::clear(void)
 {
-    boost::unique_lock<mutex> lock(mut);
+    boost::unique_lock<boost::mutex> lock(mut);
 
     queue.clear();
 }

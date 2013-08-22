@@ -24,6 +24,7 @@ class AFK_Jigsaw;
 
 class AFK_EntityDisplayUnit
 {
+protected:
     /* This transform describes where this particular face is in
      * the world.
      */
@@ -32,6 +33,7 @@ class AFK_EntityDisplayUnit
     /* This maps it onto the shrink-form jigsaw. */
     Vec2<float>         jigsawPieceST;
 
+public:
     AFK_EntityDisplayUnit(
         const Mat4<float>& _transform,
         const Vec2<float>& _jigsawPieceST);
@@ -61,6 +63,7 @@ protected:
      * has displacements in all three directions!)
      */
     GLuint buf;
+    GLuint displayTBOSamplerLocation;
     boost::mutex mut;
 
 public:

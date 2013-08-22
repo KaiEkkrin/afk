@@ -30,6 +30,7 @@
 #include "landscape_tile.hpp"
 #include "shader.hpp"
 #include "shape.hpp"
+#include "shrinkform_base.hpp"
 #include "terrain_base_tile.hpp"
 #include "terrain_compute_queue.hpp"
 #include "tile.hpp"
@@ -175,6 +176,10 @@ protected:
      * I don't know.  :/  For now, I'll just have one.
      */
     AFK_Shape *shape;
+
+    /* The basic shape geometry. */
+    GLuint shrinkformBaseArray;
+    AFK_ShrinkformBase *shrinkformBase;
 
     /* The cell generating gang */
     AFK_AsyncGang<struct AFK_WorldCellGenParam, bool> *genGang;

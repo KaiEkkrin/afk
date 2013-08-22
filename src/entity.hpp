@@ -52,14 +52,16 @@ protected:
      */
 
 public:
+    AFK_Entity(AFK_Shape *_shape);
     virtual ~AFK_Entity();
 
-    /* Positions the entity within a cell.
-     * TODO Starting orientations and all those good things.  Really,
-     * could be anything, because that's mostly before physics
-     * should take over ...
+    /* Positions the entity.
      */
-    void position(const AFK_Cell& cell, float minCellSize);
+    void position(
+        const Vec3<float>& scale,
+        const Vec3<float>& displacement,
+        const Vec3<float>& rotation /* pitch, yaw, roll */
+        );
 
     /* Pushes the display units for this entity into the
      * display fair.
@@ -67,7 +69,6 @@ public:
      * on the shape content, and the LoD it's displayed at...)
      */
     void enqueueDisplayUnits(
-        const AFK_Object& object,
         AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair);
 
     /* AFK_Claimable implementation. */

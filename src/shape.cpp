@@ -9,6 +9,7 @@
 #include "def.hpp"
 #include "entity_display_queue.hpp"
 #include "jigsaw.hpp"
+#include "shape.hpp"
 
 /* Fixed transforms for the 5 faces other than the bottom face
  * (base.)
@@ -44,9 +45,7 @@ static struct FaceTransforms
     }
 } faceTransforms;
 
- AFK_Object frontFaceObj = 
-
-void enqueueDisplayUnits(
+void AFK_Shape::enqueueDisplayUnits(
     const AFK_Object& object,
     AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair)
 {
@@ -63,12 +62,10 @@ void enqueueDisplayUnits(
 
     for (int face = 0; face < 6; ++face)
     {
-        Mat4<float> totalTransform = faceTransforms[face] * objTransform;
-        q.add(AFK_EntityDisplayUnit(
+        Mat4<float> totalTransform = faceTransforms.trans[face] * objTransform;
+        q->add(AFK_EntityDisplayUnit(
             totalTransform,
-            AFK_JigsawPiece()));
+            afk_vec2<float>(0.0f, 0.0f)));
     }
 }
-
-#include "shape.hpp"
 

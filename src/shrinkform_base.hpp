@@ -5,6 +5,8 @@
 
 #include "afk.hpp"
 
+#include <vector>
+
 #include "def.hpp"
 #include "shape_sizes.hpp"
 
@@ -36,6 +38,7 @@ protected:
     std::vector<AFK_ShrinkformBaseVertex> vertices;
     std::vector<unsigned short> indices;
 
+    GLuint vertexArray;
     GLuint *bufs;
 public:
     AFK_ShrinkformBase(const AFK_ShapeSizes& sSizes);
@@ -46,7 +49,7 @@ public:
      */
     void initGL(void);
 
-    void teardownGL(void);
+    void teardownGL(void) const;
 };
 
 #endif /* _AFK_SHRINKFORM_BASE_H_ */

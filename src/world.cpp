@@ -339,8 +339,7 @@ bool AFK_World::generateClaimedWorldCell(
                 worldCell.doStartingEntities(
                     shape, /* TODO vary shapes! :P */
                     minCellSize,
-                    lSizes.pointSubdivisionFactor,
-                    subdivisionFactor,
+                    sSizes,
                     staticRng);
             }
         }
@@ -353,6 +352,10 @@ bool AFK_World::generateClaimedWorldCell(
             bool updatedEIt = false;
             if (e->claimYieldLoop(threadId, AFK_CLT_EXCLUSIVE) == AFK_CL_CLAIMED)
             {
+                /* TODO: Movement wants to move into OpenCL.
+                 * I don't want to perpetuate the below.
+                 */
+#if 0
                 AFK_Cell newCell;
                 if (e->animate(afk_core.getStartOfFrameTime(), cell, minCellSize, newCell))
                 {
@@ -405,7 +408,8 @@ bool AFK_World::generateClaimedWorldCell(
                  * And some day, the list of shadows that apply,
                  * too.  Rah!
                  */
-                e->enqueueForDrawing(threadId);
+#endif
+                e->enqueueDisplayUnits(entityDisplayFair);
                 entitiesQueued.fetch_add(1);
 
                 e->release(threadId, AFK_CL_CLAIMED);
@@ -580,6 +584,14 @@ AFK_World::AFK_World(
     /* Set up the shapes.  TODO more than one ?! */
     shape = new AFK_Shape();
 
+    glGenVertexArrays(1, &shrinkformBaseArray);
+    glBindVertexArray(shrinkformBaseArray);
+    shrinkformBase = new AFK_ShrinkformBase(sSizes);
+    shrinkformBase->initGL();
+
+    glBindVertexArray(0);
+    shrinkformBase->teardownGL();
+
     /* Initialise the statistics. */
     cellsInvisible.store(0);
     tilesQueued.store(0);
@@ -604,14 +616,14 @@ AFK_World::~AFK_World()
     delete worldCache;
     delete shape;
 
-    delete shapeVsQueue;
-    delete shapeIsQueue;
-
     delete landscape_shaderProgram;
     delete landscape_shaderLight;
 
     delete entity_shaderProgram;
     delete entity_shaderLight;
+
+    delete shrinkformBase;
+    glDeleteVertexArrays(1, &shrinkformBaseArray);
 
     delete landscapeTerrainBase;
     glDeleteVertexArrays(1, &landscapeTileArray);
@@ -772,10 +784,11 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     /* Render the shapes */
     glUseProgram(entity_shaderProgram->program);
     entity_shaderLight->setupLight(globalLight);
-    glUniformMatrix4fv(entity_projectionTransform, 1, GL_TRUE, &projection.m[0][0]);
+    glUniformMatrix4fv(entity_projectionTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
     AFK_GLCHK("shape uniforms")
 
-    shape->initGL();
+    glBindVertexArray(shrinkformBaseArray);
+    AFK_GLCHK("shape bindVertexArray")
 
     std::vector<boost::shared_ptr<AFK_EntityDisplayQueue> > entityDrawQueues;
     entityDisplayFair.getDrawQueues(entityDrawQueues);
@@ -786,7 +799,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
         entityDrawQueues[puzzle]->draw(entity_shaderProgram, NULL, sSizes);
     }
 
-    shape->teardownGL();
+    glBindVertexArray(0);
 }
 
 /* Worker for the below. */

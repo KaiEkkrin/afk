@@ -159,8 +159,7 @@ void AFK_WorldCell::testVisibility(const AFK_Camera& camera, bool& io_someVisibl
 void AFK_WorldCell::doStartingEntities(
     AFK_Shape *shape,
     float minCellSize,
-    unsigned int pointSubdivisionFactor,
-    unsigned int subdivisionFactor,
+    const AFK_ShapeSizes& sSizes,
     AFK_RNG& rng)
 {
     if (!startingEntitiesDone)
@@ -169,22 +168,39 @@ void AFK_WorldCell::doStartingEntities(
          * usually be none, and have decreasing probabilities
          * from 1 up to max.
          */
-#if 0
         float invMaxEntities = 1.0f / (float)MAX_ENTITIES;       
         float entityCountRandomRange = (float)NO_ENTITIES_BIAS - invMaxEntities;
         float invEntityCount = rng.frand() * entityCountRandomRange + invMaxEntities;
         unsigned int entityCount = (unsigned int)(1.0f / invEntityCount);
-#endif
 
-        /* TODO Put entities back in when I want to work on
-         * them again :P
-         * For now they're just clutter.  I know the basic idea
-         * is OK.
-         */
-        for (unsigned int i = 0; i < /* entityCount */ 0; ++i)
+        Vec4<float> realCellCoord = cell.toWorldSpace(minCellSize);
+
+        for (unsigned int i = 0; i < entityCount; ++i)
         {
-            AFK_Entity *e = new AFK_Entity();
-            e->make(shape, cell, minCellSize, pointSubdivisionFactor, subdivisionFactor, rng);
+            AFK_Entity *e = new AFK_Entity(shape);
+
+            /* Fit the entity inside the cell, but don't make it so
+             * small as to be a better fit for sub-cells
+             */
+            float maxEntitySize = realCellCoord.v[3] / (float)sSizes.entitySubdivisionFactor;
+            float minEntitySize = maxEntitySize / sSizes.subdivisionFactor;
+
+            float entitySize = rng.frand() * (maxEntitySize - minEntitySize) + minEntitySize;
+
+            float minEntityLocation = entitySize;
+            float maxEntityLocation = 1.0f - entitySize;
+
+            Vec3<float> entityDisplacement;
+            for (unsigned int j = 0; j < 3; ++j)
+            {
+                entityDisplacement.v[j] = realCellCoord.v[j] + rng.frand() * (maxEntityLocation - minEntityLocation) + minEntityLocation;
+            }
+
+            e->position(
+                afk_vec3<float>(entitySize, entitySize, entitySize),
+                entityDisplacement,
+                afk_vec3<float>(0.0f, 0.0f, 0.0f));
+
             entities.push_back(e);
         }
 
