@@ -40,7 +40,7 @@ AFK_ShrinkformComputeQueue::~AFK_ShrinkformComputeQueue()
 {
 }
 
-AFK_ShrinkformComputeUnit AFK_ShrinkformComputeQueue::extend(const AFK_ShrinkformList& list, const Vec2<int>& piece, const AFK_ShrinkformSizes& sSizes)
+AFK_ShrinkformComputeUnit AFK_ShrinkformComputeQueue::extend(const AFK_ShrinkformList& list, const Vec2<int>& piece, const AFK_ShapeSizes& sSizes)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
@@ -67,7 +67,7 @@ AFK_ShrinkformComputeUnit AFK_ShrinkformComputeQueue::extend(const AFK_Shrinkfor
 void AFK_ShrinkformComputeQueue::computeStart(
     AFK_Computer *computer,
     AFK_Jigsaw *jigsaw,
-    const AFK_ShrinkformSizes& sSizes)
+    const AFK_ShapeSizes& sSizes)
 {
     boost::unique_lock<boost::mutex> lock(mut);
     cl_int error;

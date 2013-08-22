@@ -59,10 +59,9 @@ protected:
      */
     AFK_ENTITY_MOVE_QUEUE moveQueue;
 
-    /* Flags whether we've yet populated this cell with a
-     * starting entity set.
-     */
-    bool startingEntitiesDone;
+    /* For generating the shapes for our starting entities. */
+    bool checkClaimedShape(unsigned int shapeKey, AFK_Shape& shape, const AFK_ShapeSizes& sSizes);
+    void generateShapeArtwork(unsigned int shapeKey, AFK_Shape& shape, unsigned int threadId, const AFK_ShapeSizes& sSizes);
 
 public:
     AFK_WorldCell();
@@ -87,14 +86,18 @@ public:
      */
     void testVisibility(const AFK_Camera& camera, bool& io_someVisible, bool& io_allVisible) const;
 
-    /* Gives this cell a starting entity set, if required. */
-    void doStartingEntities(
-        AFK_Shape *shape,
-        float minCellSize,
-        const AFK_ShapeSizes& sSizes,
+    /* For giving this cell a starting entity set. */
+    unsigned int getStartingEntitiesWanted(
         AFK_RNG& rng,
         unsigned int maxEntitiesPerCell,
-        unsigned int entitySparseness);
+        unsigned int entitySparseness) const;
+
+    unsigned int getStartingEntityShapeKey(AFK_RNG& rng);
+
+    void addStartingEntity(
+        AFK_Shape *shape,
+        const AFK_ShapeSizes& sSizes,
+        AFK_RNG& rng);
 
     /* Iterates through this cell's entities. */
     AFK_ENTITY_LIST::iterator entitiesBegin(void);

@@ -9,8 +9,7 @@
 
 AFK_WorldCell::AFK_WorldCell():
     AFK_Claimable(),
-    moveQueue(32), /* I don't expect very many */
-    startingEntitiesDone(false)
+    moveQueue(32) /* I don't expect very many */
 {
 }
 
@@ -148,57 +147,63 @@ void AFK_WorldCell::testVisibility(const AFK_Camera& camera, bool& io_someVisibl
         camera, io_someVisible, io_allVisible);
 }
 
-void AFK_WorldCell::doStartingEntities(
-    AFK_Shape *shape,
-    float minCellSize,
-    const AFK_ShapeSizes& sSizes,
+unsigned int AFK_WorldCell::getStartingEntitiesWanted(
     AFK_RNG& rng,
     unsigned int maxEntitiesPerCell,
-    unsigned int entitySparseness)
+    unsigned int entitySparseness) const
 {
-    if (!startingEntitiesDone)
+    unsigned int entityCount = 0;
+    if (entities.size() == 0)
     {
-        /* Come up with an entity count. */
-        unsigned int entityCount = 0;
         for (unsigned int entitySlot = 0; entitySlot < maxEntitiesPerCell; ++entitySlot)
         {
             if (rng.frand() < (1.0f / ((float)entitySparseness)))
                 ++entityCount;
         }
-
-        Vec4<float> realCellCoord = cell.toWorldSpace(minCellSize);
-
-        for (unsigned int i = 0; i < entityCount; ++i)
-        {
-            AFK_Entity *e = new AFK_Entity(shape);
-
-            /* Fit the entity inside the cell, but don't make it so
-             * small as to be a better fit for sub-cells
-             */
-            float maxEntitySize = realCellCoord.v[3] / (float)sSizes.entitySubdivisionFactor;
-            float minEntitySize = maxEntitySize / sSizes.subdivisionFactor;
-
-            float entitySize = rng.frand() * (maxEntitySize - minEntitySize) + minEntitySize;
-
-            float minEntityLocation = 0.0f;
-            float maxEntityLocation = realCellCoord.v[3];
-
-            Vec3<float> entityDisplacement;
-            for (unsigned int j = 0; j < 3; ++j)
-            {
-                entityDisplacement.v[j] = realCellCoord.v[j] + rng.frand() * (maxEntityLocation - minEntityLocation) + minEntityLocation;
-            }
-
-            e->position(
-                afk_vec3<float>(entitySize, entitySize, entitySize),
-                entityDisplacement,
-                afk_vec3<float>(0.0f, 0.0f, 0.0f));
-
-            entities.push_back(e);
-        }
-
-        startingEntitiesDone = true;
     }
+
+    return entityCount;
+}
+
+unsigned int AFK_WorldCell::getStartingEntityShapeKey(AFK_RNG& rng)
+{
+    /* TODO: This ought to be tweakable -- number of distinct
+     * starting shapes to juggle -- but it's very dependent on
+     * exactly what kind of world I'm trying to make!
+     */
+    return (rng.uirand() & 0xff);
+}
+
+void AFK_WorldCell::addStartingEntity(
+    AFK_Shape *shape,
+    const AFK_ShapeSizes& sSizes,
+    AFK_RNG& rng)
+{
+    AFK_Entity *e = new AFK_Entity(shape);
+
+    /* Fit the entity inside the cell, but don't make it so
+     * small as to be a better fit for sub-cells
+     */
+    float maxEntitySize = realCoord.v[3] / (float)sSizes.entitySubdivisionFactor;
+    float minEntitySize = maxEntitySize / sSizes.subdivisionFactor;
+
+    float entitySize = rng.frand() * (maxEntitySize - minEntitySize) + minEntitySize;
+
+    float minEntityLocation = 0.0f;
+    float maxEntityLocation = realCoord.v[3];
+
+    Vec3<float> entityDisplacement;
+    for (unsigned int j = 0; j < 3; ++j)
+    {
+        entityDisplacement.v[j] = realCoord.v[j] + rng.frand() * (maxEntityLocation - minEntityLocation) + minEntityLocation;
+    }
+
+    e->position(
+        afk_vec3<float>(entitySize, entitySize, entitySize),
+        entityDisplacement,
+        afk_vec3<float>(0.0f, 0.0f, 0.0f));
+
+    entities.push_back(e);
 }
 
 AFK_ENTITY_LIST::iterator AFK_WorldCell::entitiesBegin(void)

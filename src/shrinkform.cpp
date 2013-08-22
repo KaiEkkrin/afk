@@ -5,7 +5,7 @@
 #include <cstring>
 #include <sstream>
 
-#include "shrinkform_cube.hpp"
+#include "shrinkform.hpp"
 
 std::ostream& operator<<(std::ostream& os, const AFK_ShrinkformPoint& point)
 {
@@ -44,7 +44,7 @@ void AFK_ShrinkformCube::make(
 
 std::ostream& operator<<(std::ostream& os, const AFK_ShrinkformCube& cube)
 {
-    os << "ShrinkformCube(Coord=" << cube.getCubeCoord() << ")";
+    return os << "ShrinkformCube(Coord=" << cube.getCubeCoord() << ")";
 }
 
 /* AFK_ShrinkformList implementation. */

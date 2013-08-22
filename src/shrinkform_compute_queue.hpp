@@ -14,8 +14,8 @@
 #include "computer.hpp"
 #include "def.hpp"
 #include "jigsaw.hpp"
+#include "shape_sizes.hpp"
 #include "shrinkform.hpp"
-#include "shrinkform_sizes.hpp"
 
 /* This module marshals shrinkform data into the shrinkform
  * compute kernel, just like terrain_compute_queue for the
@@ -62,9 +62,9 @@ public:
     /* Pushes a ShrinkformList into the queue and makes a Unit for it
      * (which goes in too).
      */
-    AFK_ShrinkformComputeUnit extend(const AFK_ShrinkformList& list, const Vec2<int>& piece, const AFK_ShrinkformSizes& sSizes);
+    AFK_ShrinkformComputeUnit extend(const AFK_ShrinkformList& list, const Vec2<int>& piece, const AFK_ShapeSizes& sSizes);
 
-    void computeStart(AFK_Computer *computer, AFK_Jigsaw *jigsaw, const AFK_ShrinkformSizes& sSizes);
+    void computeStart(AFK_Computer *computer, AFK_Jigsaw *jigsaw, const AFK_ShapeSizes& sSizes);
     void computeFinish(void);
 
     /* To be part of a Fair. */

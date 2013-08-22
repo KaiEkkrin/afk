@@ -13,6 +13,7 @@
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
+#include "def.hpp"
 #include "rng/rng.hpp"
 #include "shape_sizes.hpp"
 

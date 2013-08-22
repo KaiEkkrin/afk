@@ -5,8 +5,10 @@
 
 #include "afk.hpp"
 
+#include <sstream>
 #include <vector>
 
+#include "data/claimable.hpp"
 #include "data/fair.hpp"
 #include "data/frame.hpp"
 #include "entity_display_queue.hpp"
@@ -28,7 +30,7 @@ enum AFK_ShapeArtworkState
  * I suspect it should.  But to test just a single Shape,
  * I don't need that.
  */
-class AFK_Shape
+class AFK_Shape: public AFK_Claimable
 {
 protected:
     /* This is a little like the landscape tiles.
@@ -52,7 +54,11 @@ public:
     bool hasShrinkformDescriptor() const;
 
     void makeShrinkformDescriptor(
+        unsigned int shapeKey,
         const AFK_ShapeSizes& sSizes);
+
+    void buildShrinkformList(
+        AFK_ShrinkformList& list);
 
     AFK_JigsawPiece getJigsawPiece(unsigned int threadId, int minJigsaw, AFK_JigsawCollection *_jigsaws);
 
@@ -62,7 +68,16 @@ public:
     void enqueueDisplayUnits(
         const AFK_Object& object,
         AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair);
+
+    /* For handling claiming and eviction. */
+    virtual AFK_Frame getCurrentFrame(void) const;
+    virtual bool canBeEvicted(void) const;
+
+    friend std::ostream& operator<<(std::ostream& os, const AFK_Shape& shape);
 };
+
+std::ostream& operator<<(std::ostream& os, const AFK_Shape& shape);
+
 
 #endif /* _AFK_SHAPE_H_ */
 

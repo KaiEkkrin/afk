@@ -199,11 +199,31 @@ protected:
         AFK_LandscapeTile& landscapeTile,
         bool display);
 
+    /* The same idea for shapes. */
+    bool checkClaimedShape(
+        unsigned int shapeKey,
+        AFK_Shape& shape);
+
     /* Generates a landscape tile's geometry. */
     void generateLandscapeArtwork(
         const AFK_Tile& tile,
         AFK_LandscapeTile& landscapeTile,
         unsigned int threadId);
+
+    /* Likewise. */
+    void generateShapeArtwork(
+        unsigned int shapeKey,
+        AFK_Shape& shape,
+        unsigned int threadId);
+
+    /* Makes one starting entity for a world cell, including generating
+     * the shape as required.
+     */
+    void generateStartingEntity(
+        unsigned int shapeKey,
+        AFK_WorldCell& worldCell,
+        unsigned int threadId,
+        AFK_RNG& rng);
 
     /* Generates this world cell, as necessary. */
     bool generateClaimedWorldCell(

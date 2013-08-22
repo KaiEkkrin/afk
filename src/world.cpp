@@ -90,7 +90,6 @@ bool AFK_World::checkClaimedLandscapeTile(
      */
     landscapeTile.makeTerrainDescriptor(
         lSizes,
-        subdivisionFactor,
         tile,
         minCellSize);
 
@@ -119,10 +118,42 @@ bool AFK_World::checkClaimedLandscapeTile(
 
         default:
             std::ostringstream ss;
-            ss << "Unrecognised artwork state: " << artworkState;
+            ss << "Unrecognised landscape tile artwork state: " << artworkState;
             throw AFK_Exception(ss.str());
         }
     }
+    return needsArtwork;
+}
+
+bool AFK_World::checkClaimedShape(
+    unsigned int shapeKey,
+    AFK_Shape& shape)
+{
+    shape.makeShrinkformDescriptor(shapeKey, sSizes);
+
+    bool needsArtwork = false;
+    enum AFK_ShapeArtworkState artworkState = shape.artworkState();
+    switch (artworkState)
+    {
+    case AFK_SHAPE_NO_PIECE_ASSIGNED:
+        needsArtwork = true;
+        break;
+
+    case AFK_SHAPE_PIECE_SWEPT:
+        /* TODO: Metrics. :P */
+        needsArtwork = true;
+        break;
+
+    case AFK_SHAPE_HAS_ARTWORK:
+        needsArtwork = false;
+        break;
+
+    default:
+        std::ostringstream ss;
+        ss << "Unrecognised shape artwork state: " << artworkState;
+        throw AFK_Exception(ss.str());
+    }
+
     return needsArtwork;
 }
 
@@ -180,6 +211,74 @@ void AFK_World::generateLandscapeArtwork(
 #endif
 
     tilesComputed.fetch_add(1);
+}
+
+void AFK_World::generateShapeArtwork(
+    unsigned int shapeKey,
+    AFK_Shape& shape,
+    unsigned int threadId)
+{
+    /* Make the list of shrinkform points and cubes. */
+    AFK_ShrinkformList shrinkformList;
+    shape.buildShrinkformList(shrinkformList);
+
+    /* Assign a jigsaw piece.
+     * TODO Different jigsaws for long lived shapes, vs.
+     * ephemeral ones, when I have a distinction --
+     * unless I'm going to remove all this so that I can
+     * be triggering it in the OpenCL instead?
+     */
+    AFK_JigsawPiece jigsawPiece = shape.getJigsawPiece(threadId, 0, shapeJigsaws);
+
+    /* And now, enqueue this stuff into the compute fair! */
+    boost::shared_ptr<AFK_ShrinkformComputeQueue> computeQueue = shapeComputeFair.getUpdateQueue(jigsawPiece.puzzle);
+    computeQueue->extend(
+        shrinkformList, jigsawPiece.piece, sSizes);
+
+    /* TODO More metrics! */
+}
+
+void AFK_World::generateStartingEntity(
+    unsigned int shapeKey,
+    AFK_WorldCell& worldCell,
+    unsigned int threadId,
+    AFK_RNG& rng)
+{
+    AFK_Shape& shape = (*shapeCache)[shapeKey];
+    AFK_ClaimStatus shapeClaimStatus = shape.claimYieldLoop(
+        threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+
+    /* Figure out whether I need to generate its artwork. */
+    bool generateArtwork = false;
+    if (!shape.hasShrinkformDescriptor() || shape.artworkState() != AFK_SHAPE_HAS_ARTWORK)
+    {
+        /* Try to upgrade our claim to the shape. */
+        if (shapeClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+            shapeClaimStatus = shape.upgrade(threadId, shapeClaimStatus);
+
+        if (shapeClaimStatus == AFK_CL_CLAIMED)
+        {
+            generateArtwork = checkClaimedShape(shapeKey, shape);
+        }
+        else
+        {
+            /* TODO: I should be able to count on that shape getting
+             * generated in time to be used.  I'm not going to try to
+             * resume anything.
+             * Let's see what happens.
+             */
+        }
+    }
+
+    if (generateArtwork)
+        generateShapeArtwork(shapeKey, shape, threadId);
+
+    shape.release(threadId, shapeClaimStatus);
+
+    /* Having done all of that, I should be able to foist this
+     * shape upon the world cell.
+     */
+    worldCell.addStartingEntity(&shape, sSizes, rng);
 }
 
 bool AFK_World::generateClaimedWorldCell(
@@ -337,19 +436,14 @@ bool AFK_World::generateClaimedWorldCell(
             //    abs(cell.coord.v[2]) <= (1 * cell.coord.v[3]))
             //if (cell.coord.v[3] < 64)
             {
-                /* TODO: I need to decide how this interface works in 
-                 * terms of shapes.  I suspect, for now, that I want to
-                 * randomly assign some shape keys here, within some
-                 * restricted range, so that we see a small variety of
-                 * the things.
-                 */
-                worldCell.doStartingEntities(
-                    shape, /* TODO vary shapes! :P */
-                    minCellSize,
-                    sSizes,
-                    staticRng,
-                    maxEntitiesPerCell,
-                    entitySparseness);
+                unsigned int startingEntityCount = worldCell.getStartingEntitiesWanted(
+                    staticRng, maxEntitiesPerCell, entitySparseness);
+
+                for (unsigned int e = 0; e < startingEntityCount; ++e)
+                {
+                    unsigned int shapeKey = worldCell.getStartingEntityShapeKey(staticRng);
+                    generateStartingEntity(shapeKey, worldCell, threadId, staticRng);
+                }
             }
         }
 
@@ -623,9 +717,6 @@ AFK_World::AFK_World(
     /* Done. */
     glBindVertexArray(0);
     landscapeTerrainBase->teardownGL();
-
-    /* Set up the shapes.  TODO more than one ?! */
-    shape = new AFK_Shape();
 
     glGenVertexArrays(1, &shrinkformBaseArray);
     glBindVertexArray(shrinkformBaseArray);

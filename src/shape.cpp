@@ -4,12 +4,82 @@
 
 #include <cmath>
 
+#include <boost/functional/hash.hpp>
 #include <boost/shared_ptr.hpp>
 
+#include "core.hpp"
 #include "def.hpp"
 #include "entity_display_queue.hpp"
 #include "jigsaw.hpp"
+#include "rng/boost_taus88.hpp"
 #include "shape.hpp"
+
+
+/* AFK_Shape implementation */
+
+AFK_Shape::AFK_Shape():
+    AFK_Claimable(),
+    haveShrinkformDescriptor(false),
+    jigsaws(NULL)
+{
+}
+
+AFK_Shape::~AFK_Shape()
+{
+}
+
+bool AFK_Shape::hasShrinkformDescriptor() const
+{
+    return haveShrinkformDescriptor;
+}
+
+void AFK_Shape::makeShrinkformDescriptor(
+    unsigned int shapeKey,
+    const AFK_ShapeSizes& sSizes)
+{
+    if (!haveShrinkformDescriptor)
+    {
+        /* TODO non-remaking of RNGs? */
+        AFK_Boost_Taus88_RNG rng;
+
+        /* TODO Making a single cube for now.  In future, I need
+         * a whole skeleton!
+         */
+        boost::hash<unsigned int> uiHash;
+        rng.seed(uiHash(shapeKey));
+        Vec4<float> coord = afk_vec4<float>(0.0f, 0.0f, 0.0f, 1.0f);
+        AFK_ShrinkformCube cube;
+        cube.make(
+            shrinkformPoints,
+            coord,
+            sSizes,
+            rng);
+        shrinkformCubes.push_back(cube);
+
+        haveShrinkformDescriptor = true;
+    }
+}
+
+void AFK_Shape::buildShrinkformList(
+    AFK_ShrinkformList& list)
+{
+    list.extend(shrinkformPoints, shrinkformCubes);
+}
+
+AFK_JigsawPiece AFK_Shape::getJigsawPiece(unsigned int threadId, int minJigsaw, AFK_JigsawCollection *_jigsaws)
+{
+    if (artworkState() == AFK_SHAPE_HAS_ARTWORK) throw AFK_Exception("Tried to overwrite a shape's artwork");
+    jigsaws = _jigsaws;
+    jigsawPiece = jigsaws->grab(threadId, minJigsaw, jigsawPieceTimestamp);
+    return jigsawPiece;
+}
+
+enum AFK_ShapeArtworkState AFK_Shape::artworkState() const
+{
+    if (!hasShrinkformDescriptor() || jigsawPiece == AFK_JigsawPiece()) return AFK_SHAPE_NO_PIECE_ASSIGNED;
+    AFK_Frame rowTimestamp = jigsaws->getPuzzle(jigsawPiece)->getTimestamp(jigsawPiece.piece);
+    return (rowTimestamp == jigsawPieceTimestamp) ? AFK_SHAPE_HAS_ARTWORK : AFK_SHAPE_PIECE_SWEPT;
+}
 
 /* Fixed transforms for the 5 faces other than the bottom face
  * (base.)
@@ -67,7 +137,27 @@ void AFK_Shape::enqueueDisplayUnits(
         Mat4<float> totalTransform = objTransform * faceTransforms.trans[face];
         q->add(AFK_EntityDisplayUnit(
             totalTransform,
-            afk_vec2<float>(0.0f, 0.0f)));
+            jigsaws->getPuzzle(jigsawPiece)->getTexCoordST(jigsawPiece)));
     }
+}
+
+AFK_Frame AFK_Shape::getCurrentFrame(void) const
+{
+    return afk_core.computingFrame;
+}
+
+bool AFK_Shape::canBeEvicted(void) const
+{
+    /* This is a tweakable value ... */
+    bool canEvict = ((afk_core.computingFrame - lastSeen) > 10);
+    return canEvict;
+}
+
+std::ostream& operator<<(std::ostream& os, const AFK_Shape& shape)
+{
+    os << "Shape";
+    if (shape.haveShrinkformDescriptor) os << " (Shrinkform)";
+    if (shape.artworkState() == AFK_SHAPE_HAS_ARTWORK) os << " (Computed)";
+    return os;
 }
 
