@@ -92,7 +92,9 @@ public:
         AFK_Shape *shape,
         float minCellSize,
         const AFK_ShapeSizes& sSizes,
-        AFK_RNG& rng);
+        AFK_RNG& rng,
+        unsigned int maxEntitiesPerCell,
+        unsigned int entitySparseness);
 
     /* Iterates through this cell's entities. */
     AFK_ENTITY_LIST::iterator entitiesBegin(void);

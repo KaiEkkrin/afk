@@ -67,6 +67,9 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     subdivisionFactor           = 2;
     entitySubdivisionFactor     = 4;
     pointSubdivisionFactor      = 8;
+
+    maxEntitiesPerCell          = 4;
+    entitySparseness            = 32;
     
 
     /* Some hand rolled command line parsing, because it's not very
@@ -167,6 +170,16 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         {
             REQUIRE_ARGUMENT("--point-subdivision-factor")
             pointSubdivisionFactor = strtoul(argv[argi], NULL, 0);
+        }
+        else if (strcmp(argv[argi], "--max-entities-per-cell") == 0)
+        {
+            REQUIRE_ARGUMENT("--max-entities-per-cell")
+            maxEntitiesPerCell = strtoul(argv[argi], NULL, 0);
+        }
+        else if (strcmp(argv[argi], "--entity-sparseness") == 0)
+        {
+            REQUIRE_ARGUMENT("--entity-sparseness")
+            entitySparseness = strtoul(argv[argi], NULL, 0);
         }
         else
         {

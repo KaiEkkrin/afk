@@ -235,6 +235,12 @@ public:
     /* These parameters define the sizes of the shapes in the world. */
     const AFK_ShapeSizes sSizes;
 
+    /* These parameters define how to initially populate a world
+     * cell with entities.
+     */
+    const unsigned int maxEntitiesPerCell;
+    const unsigned int entitySparseness;
+
 
     AFK_World(
         const AFK_Config *config,

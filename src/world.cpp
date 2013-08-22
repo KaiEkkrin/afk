@@ -335,12 +335,15 @@ bool AFK_World::generateClaimedWorldCell(
             //if (abs(cell.coord.v[0]) <= (1 * cell.coord.v[3]) &&
             //    abs(cell.coord.v[1]) <= (1 * cell.coord.v[3]) &&
             //    abs(cell.coord.v[2]) <= (1 * cell.coord.v[3]))
+            if (cell.coord.v[3] < 64)
             {
                 worldCell.doStartingEntities(
                     shape, /* TODO vary shapes! :P */
                     minCellSize,
                     sSizes,
-                    staticRng);
+                    staticRng,
+                    maxEntitiesPerCell,
+                    entitySparseness);
             }
         }
 
@@ -503,7 +506,9 @@ AFK_World::AFK_World(
         lSizes                      (config->subdivisionFactor, config->pointSubdivisionFactor),
         sSizes                      (config->subdivisionFactor,
                                      config->entitySubdivisionFactor,
-                                     config->pointSubdivisionFactor)
+                                     config->pointSubdivisionFactor),
+        maxEntitiesPerCell          (config->maxEntitiesPerCell),
+        entitySparseness            (config->entitySparseness)
 
 {
     /* Set up the caches and generator gang. */
@@ -662,6 +667,8 @@ void AFK_World::flipRenderQueues(cl_context ctxt, const AFK_Frame& newFrame)
     landscapeComputeFair.flipQueues();
     landscapeDisplayFair.flipQueues();
     landscapeJigsaws->flipRects(ctxt, newFrame);
+
+    entityDisplayFair.flipQueues();
 }
 
 void AFK_World::alterDetail(float adjustment)

@@ -32,6 +32,6 @@ void main()
     //vec3 DiffuseColour = gLight.Colour * gLight.Diffuse * max(dot(normalize(NormalF), -gLight.Direction), 0.0);
     //float DiffuseFactor = dot(normalize(NormalF), -gLight.Direction);
     //FragColor = vec4(VcolF * (AmbientColour + DiffuseColour), 1.0);
-    FragColor = vec4(tempColourRG.x, tempColourRG.y, 0.0, 1.0);
+    FragColor = vec4(inData.tempColourRG.x, inData.tempColourRG.y, 0.0, 1.0);
 }
 
