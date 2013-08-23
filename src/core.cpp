@@ -133,7 +133,7 @@ void afk_idle(void)
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_ROLL_LEFT))
             afk_core.axisDisplacement.v[2] += afk_core.config->rotateButtonSensitivity;
 
-        afk_core.camera->drive(afk_core.velocity, afk_core.axisDisplacement);
+        afk_core.camera->driveAndUpdateProjection(afk_core.velocity, afk_core.axisDisplacement);
 
         /* Protagonist follow camera.  (To make it look more
          * natural, at some point I want a stretchy leash)

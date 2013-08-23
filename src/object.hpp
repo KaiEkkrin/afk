@@ -22,17 +22,20 @@ enum AFK_Axes
 class AFK_Object
 {
 protected:
-    /* The current object scale. */
+    /* These are the working values to update. */
     Vec3<float> scale;
-
-    /* The current accumulated movement (rotation and translation) */
-    Mat4<float> transform;
+    Vec3<float> translation;
+    Quaternion<float> rotation;
 
 public:
     AFK_Object();
+    AFK_Object(const Vec3<float>& _scale, const Vec3<float>& _translation, const Quaternion<float>& _rotation);
 
     /* Scales the object. */
     void resize(const Vec3<float>& s);
+
+    /* Rotates the object about an arbitrary axis. */
+    void rotate(const Vec3<float>& axis, float c);
 
     /* Adjusts the attitude of the object (pitch, yaw or roll),
      * which changes its rotation depending on what its current
@@ -45,6 +48,13 @@ public:
     /* Drives the object, with a velocity and changes in the 3
      * axes of rotation. */
     void drive(const Vec3<float>& velocity, const Vec3<float>& axisDisplacement);
+
+    /* Get the various component matrices of the transformation
+     * matrix.
+     */
+    Mat4<float> getScaleMatrix() const;
+    Mat4<float> getRotationMatrix() const;
+    Mat4<float> getTranslationMatrix() const;
 
     /* Get the object's transformation matrix. */
     Mat4<float> getTransformation() const;

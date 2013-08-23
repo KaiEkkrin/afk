@@ -62,10 +62,7 @@ bool AFK_WorldCell::testDetailPitch(
     float distanceToViewer = facing.magnitude();
 
     /* Magic */
-    float cellDetailPitch = camera.windowHeight * realCoord.v[3] /
-        (camera.tanHalfFov * distanceToViewer);
-    
-    return cellDetailPitch < detailPitch;
+    return camera.getDetailPitchAsSeen(realCoord.v[3], distanceToViewer) < detailPitch;
 }
 
 /* Helper for the below. */
@@ -77,11 +74,7 @@ static void testPointVisible(const Vec3<float>& point, const AFK_Camera& camera,
      */
     Vec4<float> projectedPoint = camera.getProjection() * afk_vec4<float>(
         point.v[0], point.v[1], point.v[2], 1.0f);
-    bool visible = (
-        (projectedPoint.v[0] / projectedPoint.v[2]) >= -camera.ar &&
-        (projectedPoint.v[0] / projectedPoint.v[2]) <= camera.ar &&
-        (projectedPoint.v[1] / projectedPoint.v[2]) >= -1.0f &&
-        (projectedPoint.v[1] / projectedPoint.v[2]) <= 1.0f);
+    bool visible = camera.projectedPointIsVisible(projectedPoint);
 
     io_someVisible |= visible;
     io_allVisible &= visible;

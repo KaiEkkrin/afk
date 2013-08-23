@@ -43,6 +43,8 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     thrustButtonSensitivity     = 0.01f;
     mouseAxisSensitivity        = 0.001f;
     axisInversionMap = 0uLL;
+    AFK_SET_BIT(axisInversionMap, CTRL_AXIS_PITCH);
+    AFK_SET_BIT(axisInversionMap, CTRL_AXIS_ROLL);
     AFK_SET_BIT(axisInversionMap, CTRL_AXIS_YAW);
 
     /* TODO Make all the random twiddlies configurable via a

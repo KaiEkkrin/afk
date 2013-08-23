@@ -2,54 +2,11 @@
 
 #include "afk.hpp"
 
-#include <math.h>
-
 #include "camera.hpp"
 #include "config.hpp"
 #include "core.hpp"
 
-/* The camera's transformations need to be inverted and to be
- * composed the opposite way round. */
-void AFK_Camera::adjustAttitude(enum AFK_Axes axis, float c)
-{
-    switch (axis)
-    {
-    case AXIS_PITCH:
-        location = afk_mat4<float>(
-            1.0f,   0.0f,       0.0f,       0.0f,
-            0.0f,   cosf(-c),   sinf(-c),   0.0f,
-            0.0f,   -sinf(-c),  cosf(-c),   0.0f,
-            0.0f,   0.0f,       0.0f,       1.0f) * location;
-        break;
-
-    case AXIS_YAW:
-        location = afk_mat4<float>(
-            cosf(-c),   0.0f,   -sinf(-c),  0.0f,
-            0.0f,       1.0f,   0.0f,       0.0f,
-            sinf(-c),   0.0f,   cosf(-c),   0.0f,
-            0.0f,       0.0f,   0.0f,       1.0f) * location;
-        break;
-
-    case AXIS_ROLL:
-        location = afk_mat4<float>(
-            cosf(-c),   sinf(-c),   0.0f,   0.0f,
-            -sinf(-c),  cosf(-c),   0.0f,   0.0f,
-            0.0f,       0.0f,       1.0f,   0.0f,
-            0.0f,       0.0f,       0.0f,   1.0f) * location;
-        break;
-    }
-}
-
-void AFK_Camera::displace(const Vec3<float>& v)
-{
-    location = afk_mat4<float>(
-        1.0f,   0.0f,   0.0f,   -v.v[0],
-        0.0f,   1.0f,   0.0f,   -v.v[1],
-        0.0f,   0.0f,   1.0f,   -v.v[2],
-        0.0f,   0.0f,   0.0f,   1.0f) * location;
-}
-
-void AFK_Camera::updateProjection()
+void AFK_Camera::updateProjection(void)
 {
     /* Magic perspective projection. */
     float zNear = afk_core.config->zNear;
@@ -70,19 +27,23 @@ void AFK_Camera::updateProjection()
         0.0f,   0.0f,   1.0f,   separation.v[2],
         0.0f,   0.0f,   0.0f,   1.0f);
 
-    projection = projectMatrix * separationMatrix * location;
+    /* We then apply the Object transform, in reverse.  (Ignoring
+     * scale.)
+     */
+    AFK_Object reverseObject(scale, -translation, rotation.inverse());
+    projection = projectMatrix * separationMatrix *
+        reverseObject.getRotationMatrix() *
+        reverseObject.getTranslationMatrix();
 }
 
-AFK_Camera::AFK_Camera(Vec3<float> _separation): separation(_separation)
+AFK_Camera::AFK_Camera(Vec3<float> _separation):
+    AFK_Object(),
+    separation(_separation)
 {
-    location = afk_mat4<float>(
-        1.0f,   0.0f,   0.0f,   0.0f,
-        0.0f,   1.0f,   0.0f,   0.0f,
-        0.0f,   0.0f,   1.0f,   0.0f,
-        0.0f,   0.0f,   0.0f,   1.0f
-    );
+}
 
-    updateProjection();
+AFK_Camera::~AFK_Camera()
+{
 }
 
 void AFK_Camera::setWindowDimensions(int width, int height)
@@ -95,32 +56,29 @@ void AFK_Camera::setWindowDimensions(int width, int height)
      */
     tanHalfFov = tanf((afk_core.config->fov / 2.0f) * M_PI / 180.0f);
     ar = ((float)windowWidth) / ((float)windowHeight);
-
-    updateProjection();
 }
 
-void AFK_Camera::drive(const Vec3<float>& velocity, const Vec3<float>& axisDisplacement)
+float AFK_Camera::getDetailPitchAsSeen(float scale, float distanceToViewer) const
 {
-    /* In all cases I'm going to treat the axes individually.
-     * This means theoretically doing lots more matrix multiplies,
-     * but in practice if I tried to combine them I'd get a
-     * headache and probably also have to do square roots, which
-     * are no doubt more expensive.
-     */
-    if (axisDisplacement.v[0] != 0.0f)
-        adjustAttitude(AXIS_PITCH,  axisDisplacement.v[0]);
+    return windowHeight * scale / (tanHalfFov * distanceToViewer);
+}
 
-    if (axisDisplacement.v[1] != 0.0f)
-        adjustAttitude(AXIS_YAW,    axisDisplacement.v[1]);
+bool AFK_Camera::projectedPointIsVisible(const Vec4<float>& projectedPoint) const
+{
+    return (
+        (projectedPoint.v[0] / projectedPoint.v[2]) >= -ar &&
+        (projectedPoint.v[0] / projectedPoint.v[2]) <= ar &&
+        (projectedPoint.v[1] / projectedPoint.v[2]) >= -1.0f &&
+        (projectedPoint.v[1] / projectedPoint.v[2]) <= 1.0f);
+}
 
-    if (axisDisplacement.v[2] != 0.0f)
-        adjustAttitude(AXIS_ROLL,   axisDisplacement.v[2]);
-
-    displace(velocity);
+void AFK_Camera::driveAndUpdateProjection(const Vec3<float>& velocity, const Vec3<float>& axisDisplacement)
+{
+    drive(velocity, axisDisplacement);
     updateProjection();
 }
 
-const Mat4<float>& AFK_Camera::getProjection() const
+Mat4<float> AFK_Camera::getProjection(void) const
 {
     return projection;
 }

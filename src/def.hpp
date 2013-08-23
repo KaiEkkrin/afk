@@ -3,7 +3,7 @@
 #ifndef _AFK_DEF_H_
 #define _AFK_DEF_H_
 
-#include <math.h>
+#include <cmath>
 #include <sstream>
 
 #include <boost/static_assert.hpp>
@@ -116,6 +116,13 @@ public:
         return *this;
     }
 
+    Vec3<F> operator-(void) const
+    {
+        Vec3<F> r;
+        r.v[0] = -v[0]; r.v[1] = -v[1]; r.v[2] = -v[2];
+        return r;
+    }
+
     Vec3<F> operator-(F f) const
     {
         Vec3<F> r;
@@ -161,6 +168,15 @@ public:
     F magnitude(void) const
     {
         return sqrt(magnitudeSquared());
+    }
+
+    /* Convenient const squishage of the above. */
+    void magnitudeAndDirection(float& o_magnitude, Vec3<F>& o_direction) const
+    {
+        o_magnitude = magnitude();
+        o_direction.v[0] = v[0] / o_magnitude;
+        o_direction.v[1] = v[1] / o_magnitude;
+        o_direction.v[2] = v[2] / o_magnitude;
     }
 
     F dot(const Vec3<F>& p) const
@@ -331,6 +347,147 @@ std::ostream& operator<<(std::ostream& os, const Mat4<F>& m)
 BOOST_STATIC_ASSERT((boost::has_trivial_assign<Mat4<float> >::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_constructor<Mat4<float> >::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_destructor<Mat4<float> >::value));
+
+/* Quaternion: see
+ * http://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
+ * etc.
+ */
+
+template<typename F>
+class Quaternion
+{
+public:
+    F q[4]; /* real, i, j, k */
+
+    Quaternion<F> operator*(const F f) const
+    {
+        Quaternion<F> p;
+        p.q[0] = q[0] * f;
+        p.q[1] = q[1] * f;
+        p.q[2] = q[2] * f;
+        p.q[3] = q[3] * f;
+        return p;
+    }
+
+    /* Hamilton product. http://en.wikipedia.org/wiki/Hamilton_product#Hamilton_product */
+    Quaternion<F> operator*(const Quaternion<F>& o) const
+    {
+        Quaternion<F> h;
+        h.q[0] = q[0] * o.q[0] - q[1] * o.q[1] - q[2] * o.q[2] - q[3] * o.q[3];
+        h.q[1] = q[0] * o.q[1] + q[1] * o.q[0] + q[2] * o.q[3] - q[3] * o.q[2];
+        h.q[2] = q[0] * o.q[2] - q[1] * o.q[3] + q[2] * o.q[0] + q[3] * o.q[1];
+        h.q[3] = q[0] * o.q[3] + q[1] * o.q[2] - q[2] * o.q[1] + q[3] * o.q[0];
+        return h;
+    }
+
+    Quaternion<F> operator/(const F f) const
+    {
+        Quaternion<F> p;
+        p.q[0] = q[0] / f;
+        p.q[1] = q[1] / f;
+        p.q[2] = q[2] / f;
+        p.q[3] = q[3] / f;
+        return p;
+    }
+
+    Quaternion<F> conjugate(void) const
+    {
+        Quaternion<F> c;
+        c.q[0] = q[0];
+        c.q[1] = -q[1];
+        c.q[2] = -q[2];
+        c.q[3] = -q[3];
+        return c;
+    }
+
+    Quaternion<F> inverse(void) const
+    {
+        Quaternion<F> i;
+        i.q[0] = -q[0];
+        i.q[1] = q[1];
+        i.q[2] = q[2];
+        i.q[3] = q[3];
+        return i;
+    }
+
+    F normSquared(void) const
+    {
+        return SQUARE(q[0]) + SQUARE(q[1]) + SQUARE(q[2]) + SQUARE(q[3]);
+    }
+
+    F norm(void) const
+    {
+        return sqrt(normSquared());
+    }
+    
+    Quaternion<F> reciprocal(void) const
+    {
+        return conjugate() / normSquared();
+    }
+
+    Vec3<F> rotate(const Vec3<F>& v) const
+    {
+        Quaternion<F> vq;
+        vq.q[0] = 0.0;
+        vq.q[1] = v.v[0];
+        vq.q[2] = v.v[1];
+        vq.q[3] = v.v[2];
+
+        Quaternion<F> rq = *this * vq * conjugate();
+        Vec3<F> r;
+        r.v[0] = rq.q[1];
+        r.v[1] = rq.q[2];
+        r.v[2] = rq.q[3];
+        return r;
+    }
+
+    /* From http://en.wikipedia.org/wiki/Rotation_matrix#Quaternion . */
+    Mat4<F> rotationMatrix(void) const
+    {
+        Mat4<F> r;
+        r.m[0][0] = 1.0 - 2.0 * SQUARE(q[2]) - 2.0 * SQUARE(q[3]);
+        r.m[0][1] = 2.0 * q[1] * q[2] - 2.0 * q[3] * q[0];
+        r.m[0][2] = 2.0 * q[1] * q[3] + 2.0 * q[2] * q[0];
+        r.m[0][3] = 0.0;
+
+        r.m[1][0] = 2.0 * q[1] * q[2] + 2.0 * q[3] * q[0];
+        r.m[1][1] = 1.0 - 2.0 * SQUARE(q[1]) - 2.0 * SQUARE(q[3]);
+        r.m[1][2] = 2.0 * q[2] * q[3] - 2.0 * q[1] * q[0];
+        r.m[1][3] = 0.0;
+
+        r.m[2][0] = 2.0 * q[1] * q[3] - 2.0 * q[2] * q[0];
+        r.m[2][1] = 2.0 * q[2] * q[3] + 2.0 * q[1] * q[0];
+        r.m[2][2] = 1.0 - 2.0 * SQUARE(q[1]) - 2.0 * SQUARE(q[2]);
+        r.m[2][3] = 0.0;
+
+        r.m[3][0] = 0.0;
+        r.m[3][1] = 0.0;
+        r.m[3][2] = 0.0;
+        r.m[3][3] = 1.0;
+        return r;
+    }
+};
+
+/* Creates a rotation-describing quaternion */
+template<typename F>
+Quaternion<F> afk_quaternion(F theta, Vec3<F> uvec)
+{
+    uvec.normalise();
+
+    Quaternion<F> r;
+    r.q[0] = std::cos(theta / 2.0);
+
+    F sinHalfTheta = std::sin(theta / 2.0);
+    r.q[1] = uvec.v[0] * sinHalfTheta;
+    r.q[2] = uvec.v[1] * sinHalfTheta;
+    r.q[3] = uvec.v[2] * sinHalfTheta;
+
+    return r;
+}
+
+BOOST_STATIC_ASSERT((boost::has_trivial_assign<Quaternion<float> >::value));
+BOOST_STATIC_ASSERT((boost::has_trivial_constructor<Quaternion<float> >::value));
+BOOST_STATIC_ASSERT((boost::has_trivial_destructor<Quaternion<float> >::value));
 
 #endif /* _AFK_DEF_H_ */
 
