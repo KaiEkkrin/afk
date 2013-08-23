@@ -73,7 +73,7 @@ __kernel void makeShrinkform(
     write_imagef(jigsawDisp, jigsawCoord,
         (float4)(0.0f, 0.0f, 0.0f, 1.0f));
     write_imagef(jigsawColour, jigsawCoord,
-        (float4)(0.0f, xdim, ydim, 0.0f));
+        (float4)(0.0f, (float)xdim / (float)TDIM, (float)ydim / (float)TDIM, 0.0f));
 }
 
 
