@@ -60,7 +60,7 @@ public:
     void position(
         const Vec3<float>& scale,
         const Vec3<float>& displacement,
-        const Vec3<float>& rotation /* pitch, yaw, roll */
+        const Vec3<float>& rotation /* pitch, yaw, roll */ /* TODO change to use a quaternion? */
         );
 
     /* Pushes the display units for this entity into the

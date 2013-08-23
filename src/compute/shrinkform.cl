@@ -28,6 +28,8 @@ struct AFK_ShrinkformCube
 
 struct AFK_ShrinkformComputeUnit
 {
+    float4 location;
+    float4 rotation; /* quaternion.  TODO: figure through what to make of this! */
     int cubeOffset;
     int cubeCount;
     int2 piece;

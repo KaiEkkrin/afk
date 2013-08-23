@@ -49,6 +49,11 @@ public:
      * axes of rotation. */
     void drive(const Vec3<float>& velocity, const Vec3<float>& axisDisplacement);
 
+    /* Get the various basics. */
+    Vec3<float> getScale() const;
+    Vec3<float> getTranslation() const;
+    Quaternion<float> getRotation() const;
+
     /* Get the various component matrices of the transformation
      * matrix.
      */

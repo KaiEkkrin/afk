@@ -253,6 +253,14 @@ Vec4<F> afk_vec4(F e0, F e1, F e2, F e3)
     return v;
 }
 
+template<typename F>
+Vec4<F> afk_vec4(const Vec3<F>& o, F e3)
+{
+    Vec4<F> v;
+    v.v[0] = o.v[0]; v.v[1] = o.v[1]; v.v[2] = o.v[2]; v.v[3] = e3;
+    return v;
+}
+
 BOOST_STATIC_ASSERT((boost::has_trivial_assign<Vec4<float> >::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_constructor<Vec4<float> >::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_destructor<Vec4<float> >::value));

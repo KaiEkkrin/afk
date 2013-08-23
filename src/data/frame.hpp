@@ -5,6 +5,10 @@
 
 #include <sstream>
 
+#include <boost/static_assert.hpp>
+#include <boost/type_traits/has_trivial_assign.hpp>
+#include <boost/type_traits/has_trivial_destructor.hpp>
+
 /* The frame tracker. */
 class AFK_Frame
 {
@@ -18,8 +22,6 @@ protected:
 
 public:
     AFK_Frame(): id(0), never(true) {}
-    AFK_Frame(const AFK_Frame& f): id(f.id), never(f.never) {}
-    AFK_Frame& operator=(const AFK_Frame& f) { id = f.id; never = f.never; return *this; }
 
     void increment()
     {
@@ -72,6 +74,9 @@ public:
 };
 
 std::ostream& operator<<(std::ostream& os, const AFK_Frame& frame);
+
+BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_Frame>::value));
+BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_Frame>::value));
 
 #endif /* _AFK_FRAME_H_ */
 

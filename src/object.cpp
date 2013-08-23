@@ -103,6 +103,21 @@ void AFK_Object::drive(const Vec3<float>& velocity, const Vec3<float>& axisDispl
     }
 }
 
+Vec3<float> AFK_Object::getScale() const
+{
+    return scale;
+}
+
+Vec3<float> AFK_Object::getTranslation() const
+{
+    return translation;
+}
+
+Quaternion<float> AFK_Object::getRotation() const
+{
+    return rotation;
+}
+
 Mat4<float> AFK_Object::getScaleMatrix() const
 {
     return afk_mat4<float>(

@@ -15,6 +15,51 @@
 #include "shape.hpp"
 
 
+/* Fixed transforms for the six faces of a base cube.
+ */
+static struct FaceTransforms
+{
+    /* These are, in order:
+     * - bottom
+     * - left
+     * - front
+     * - back
+     * - right
+     * - top
+     */
+    AFK_Object obj[6];
+    Mat4<float> trans[6];
+
+    FaceTransforms()
+    {
+        obj[1].adjustAttitude(AXIS_ROLL, -M_PI_2);
+        obj[1].displace(afk_vec3<float>(0.0f, 1.0f, 0.0f));
+        obj[2].adjustAttitude(AXIS_PITCH, M_PI_2);
+        obj[2].displace(afk_vec3<float>(0.0f, 1.0f, 0.0f));
+        obj[3].adjustAttitude(AXIS_PITCH, -M_PI_2);
+        obj[3].displace(afk_vec3<float>(0.0f, 0.0f, 1.0f));
+        obj[4].adjustAttitude(AXIS_ROLL, M_PI_2);
+        obj[4].displace(afk_vec3<float>(1.0f, 0.0f, 0.0f));
+        obj[5].adjustAttitude(AXIS_PITCH, M_PI);
+        obj[5].displace(afk_vec3<float>(0.0f, 1.0f, 1.0f));
+
+        for (int i = 0; i < 6; ++i)
+            trans[i] = obj[i].getTransformation();
+    }
+} faceTransforms;
+
+
+/* AFK_ShapeFace implementation */
+
+AFK_ShapeFace::AFK_ShapeFace(
+    const Vec4<float>& _location,
+    const Quaternion<float>& _rotation):
+        location(_location), rotation(_rotation),
+        jigsawPiece(), jigsawPieceTimestamp()
+{
+}
+
+
 /* AFK_Shape implementation */
 
 AFK_Shape::AFK_Shape():
@@ -56,6 +101,18 @@ void AFK_Shape::makeShrinkformDescriptor(
             rng);
         shrinkformCubes.push_back(cube);
 
+        /* Push the six faces of the cube into the face list.
+         * These will be inverses, because they're going to
+         * be used to re-orient the points, not the face
+         * itself
+         */
+        for (unsigned int face = 0; face < 6; ++face)
+        {
+            faces.push_back(AFK_ShapeFace(
+                afk_vec4<float>(-faceTransforms.obj[face].getTranslation(), 1.0f),
+                faceTransforms.obj[face].getRotation().inverse()));
+        }
+
         haveShrinkformDescriptor = true;
     }
 }
@@ -66,56 +123,42 @@ void AFK_Shape::buildShrinkformList(
     list.extend(shrinkformPoints, shrinkformCubes);
 }
 
-AFK_JigsawPiece AFK_Shape::getJigsawPiece(unsigned int threadId, int minJigsaw, AFK_JigsawCollection *_jigsaws)
+void AFK_Shape::getFacesForCompute(
+    unsigned int threadId,
+    int minJigsaw,
+    AFK_JigsawCollection *_jigsaws,
+    std::vector<AFK_ShapeFace>& o_faces)
 {
-    if (artworkState() == AFK_SHAPE_HAS_ARTWORK) throw AFK_Exception("Tried to overwrite a shape's artwork");
-    jigsaws = _jigsaws;
-    jigsawPiece = jigsaws->grab(threadId, minJigsaw, jigsawPieceTimestamp);
-    return jigsawPiece;
+    /* Sanity check */
+    if (!jigsaws) jigsaws = _jigsaws;
+    else if (jigsaws != _jigsaws) throw AFK_Exception("AFK_Shape: Mismatched jigsaw collections");
+
+    for (std::vector<AFK_ShapeFace>::iterator faceIt = faces.begin(); faceIt != faces.end(); ++faceIt)
+    {
+        if (faceIt->jigsawPiece == AFK_JigsawPiece() ||
+            faceIt->jigsawPieceTimestamp != jigsaws->getPuzzle(faceIt->jigsawPiece)->getTimestamp(faceIt->jigsawPiece.piece))
+        {
+            /* This face needs computing. */
+            faceIt->jigsawPiece = jigsaws->grab(threadId, minJigsaw, faceIt->jigsawPieceTimestamp);
+            o_faces.push_back(*faceIt);
+        }
+    }
 }
 
 enum AFK_ShapeArtworkState AFK_Shape::artworkState() const
 {
-    if (!hasShrinkformDescriptor() || jigsawPiece == AFK_JigsawPiece()) return AFK_SHAPE_NO_PIECE_ASSIGNED;
-    AFK_Frame rowTimestamp = jigsaws->getPuzzle(jigsawPiece)->getTimestamp(jigsawPiece.piece);
-    return (rowTimestamp == jigsawPieceTimestamp) ? AFK_SHAPE_HAS_ARTWORK : AFK_SHAPE_PIECE_SWEPT;
-}
+    if (!hasShrinkformDescriptor()) return AFK_SHAPE_NO_PIECE_ASSIGNED;
 
-/* Fixed transforms for the 5 faces other than the bottom face
- * (base.)
- * TODO: I'm probably going to get some of these wrong and will
- * need to tweak them
- */
-static struct FaceTransforms
-{
-    /* These are, in order:
-     * - bottom
-     * - left
-     * - front
-     * - back
-     * - right
-     * - top
-     */
-    AFK_Object obj[6];
-    Mat4<float> trans[6];
-
-    FaceTransforms()
+    /* Scan the faces and check for status. */
+    enum AFK_ShapeArtworkState status = AFK_SHAPE_HAS_ARTWORK;
+    for (std::vector<AFK_ShapeFace>::const_iterator faceIt = faces.begin(); faceIt != faces.end(); ++faceIt)
     {
-        obj[1].adjustAttitude(AXIS_ROLL, -M_PI_2);
-        obj[1].displace(afk_vec3<float>(0.0f, 1.0f, 0.0f));
-        obj[2].adjustAttitude(AXIS_PITCH, M_PI_2);
-        obj[2].displace(afk_vec3<float>(0.0f, 1.0f, 0.0f));
-        obj[3].adjustAttitude(AXIS_PITCH, -M_PI_2);
-        obj[3].displace(afk_vec3<float>(0.0f, 0.0f, 1.0f));
-        obj[4].adjustAttitude(AXIS_ROLL, M_PI_2);
-        obj[4].displace(afk_vec3<float>(1.0f, 0.0f, 0.0f));
-        obj[5].adjustAttitude(AXIS_PITCH, M_PI);
-        obj[5].displace(afk_vec3<float>(0.0f, 1.0f, 1.0f));
-
-        for (int i = 0; i < 6; ++i)
-            trans[i] = obj[i].getTransformation();
+        if (faceIt->jigsawPiece == AFK_JigsawPiece()) return AFK_SHAPE_NO_PIECE_ASSIGNED;
+        if (faceIt->jigsawPieceTimestamp != jigsaws->getPuzzle(faceIt->jigsawPiece)->getTimestamp(faceIt->jigsawPiece.piece))
+            status = AFK_SHAPE_PIECE_SWEPT;
     }
-} faceTransforms;
+    return status;
+}
 
 void AFK_Shape::enqueueDisplayUnits(
     const AFK_Object& object,
@@ -134,6 +177,7 @@ void AFK_Shape::enqueueDisplayUnits(
 
     for (int face = 0; face < 6; ++face)
     {
+        AFK_JigsawPiece jigsawPiece = faces[face].jigsawPiece;
         Mat4<float> totalTransform = objTransform * faceTransforms.trans[face];
         q->add(AFK_EntityDisplayUnit(
             totalTransform,

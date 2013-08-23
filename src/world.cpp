@@ -222,18 +222,29 @@ void AFK_World::generateShapeArtwork(
     AFK_ShrinkformList shrinkformList;
     shape.buildShrinkformList(shrinkformList);
 
-    /* Assign a jigsaw piece.
-     * TODO Different jigsaws for long lived shapes, vs.
-     * ephemeral ones, when I have a distinction --
-     * unless I'm going to remove all this so that I can
-     * be triggering it in the OpenCL instead?
-     */
-    AFK_JigsawPiece jigsawPiece = shape.getJigsawPiece(threadId, 0, shapeJigsaws);
+    /* Enumerate the faces that we need to compute ... */
+    std::vector<AFK_ShapeFace> facesForCompute;
+    facesForCompute.reserve(6);
+    shape.getFacesForCompute(threadId, 0, shapeJigsaws, facesForCompute);
 
-    /* And now, enqueue this stuff into the compute fair! */
-    boost::shared_ptr<AFK_ShrinkformComputeQueue> computeQueue = shapeComputeFair.getUpdateQueue(jigsawPiece.puzzle);
-    computeQueue->extend(
-        shrinkformList, jigsawPiece.piece, sSizes);
+    AFK_ShrinkformComputeUnit scu;
+    int lastPuzzle = -1;
+    for (std::vector<AFK_ShapeFace>::iterator faceIt = facesForCompute.begin();
+        faceIt != facesForCompute.end(); ++faceIt)
+    {
+        boost::shared_ptr<AFK_ShrinkformComputeQueue> computeQueue = shapeComputeFair.getUpdateQueue(faceIt->jigsawPiece.puzzle);
+        if (scu.uninitialised() || lastPuzzle != faceIt->jigsawPiece.puzzle)
+        {
+            /* Extend the compute queue with this face. */
+            scu = computeQueue->extend(shrinkformList, *faceIt, sSizes);
+            lastPuzzle = faceIt->jigsawPiece.puzzle;
+        }
+        else
+        {
+            /* Add a new Unit for this face, re-using the list. */
+            scu = computeQueue->addUnitWithExisting(scu, *faceIt);
+        }
+    }
 
     shapesComputed.fetch_add(1);
 }

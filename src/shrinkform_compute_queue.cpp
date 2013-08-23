@@ -8,14 +8,28 @@
 
 /* AFK_ShrinkformComputeUnit implementation */
 
+AFK_ShrinkformComputeUnit::AFK_ShrinkformComputeUnit():
+    cubeOffset(-1)
+{
+}
+
 AFK_ShrinkformComputeUnit::AFK_ShrinkformComputeUnit(
+    const Vec4<float>& _location,
+    const Quaternion<float>& _rotation,
     int _cubeOffset,
     int _cubeCount,
     const Vec2<int>& _piece):
+        location(_location),
+        rotation(_rotation),
         cubeOffset(_cubeOffset),
         cubeCount(_cubeCount),
         piece(_piece)
 {
+}
+
+bool AFK_ShrinkformComputeUnit::uninitialised(void) const
+{
+    return (cubeOffset < 0);
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_ShrinkformComputeUnit& unit)
@@ -40,7 +54,10 @@ AFK_ShrinkformComputeQueue::~AFK_ShrinkformComputeQueue()
 {
 }
 
-AFK_ShrinkformComputeUnit AFK_ShrinkformComputeQueue::extend(const AFK_ShrinkformList& list, const Vec2<int>& piece, const AFK_ShapeSizes& sSizes)
+AFK_ShrinkformComputeUnit AFK_ShrinkformComputeQueue::extend(
+    const AFK_ShrinkformList& list,
+    const AFK_ShapeFace& face,
+    const AFK_ShapeSizes& sSizes)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
@@ -48,7 +65,7 @@ AFK_ShrinkformComputeUnit AFK_ShrinkformComputeQueue::extend(const AFK_Shrinkfor
     if (list.cubeCount() == 0)
     {
         std::ostringstream ss;
-        ss << "Pushed empty list to shrinkform compute queue for piece " << std::dec << piece;
+        ss << "Pushed empty list to shrinkform compute queue for piece " << std::dec << face.jigsawPiece;
         throw AFK_Exception(ss.str());
     }
 
@@ -56,10 +73,30 @@ AFK_ShrinkformComputeUnit AFK_ShrinkformComputeQueue::extend(const AFK_Shrinkfor
         throw AFK_Exception("Insane self found");
 
     AFK_ShrinkformComputeUnit newUnit(
+        face.location,
+        face.rotation,
         AFK_ShrinkformList::cubeCount(),
         list.cubeCount(),
-        piece);
+        face.jigsawPiece.piece);
     AFK_ShrinkformList::extend(list);
+    units.push_back(newUnit);
+    return newUnit;
+}
+
+AFK_ShrinkformComputeUnit AFK_ShrinkformComputeQueue::addUnitWithExisting(
+    const AFK_ShrinkformComputeUnit& existingUnit,
+    const AFK_ShapeFace& face)
+{
+    boost::unique_lock<boost::mutex> lock(mut);
+
+    if (existingUnit.uninitialised()) throw AFK_Exception("Tried to add unit from an uninitialised existing one");
+
+    AFK_ShrinkformComputeUnit newUnit(
+        face.location,
+        face.rotation,
+        existingUnit.cubeOffset,
+        existingUnit.cubeCount,
+        face.jigsawPiece.piece);
     units.push_back(newUnit);
     return newUnit;
 }
