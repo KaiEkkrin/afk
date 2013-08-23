@@ -57,6 +57,18 @@ __kernel void makeShrinkform(
     // face geometry.
     // For now, since I'm going to output zeroes to test the
     // pipeline, it doesn't matter.
+    // Interestingly, what I think I need to do is compute all
+    // the displacements in "face space", which means retaining
+    // the "bottom" orientation base tile, and applying the
+    // relevant transformation to the *shrinkform points*
+    // instead.
+    // So each compute unit should come with a transformation
+    // matrix?
+    // Although: the matrix is not a good use of space, and this
+    // requires an inverse transformation for the points compared
+    // to the face geometry, anyway.  Perhaps this is a good
+    // time to explore an alternative way of describing
+    // translations and rotations (quaternions?)
     int2 jigsawCoord = units[unitOffset].piece * TDIM + (int2)(xdim, ydim);
     write_imagef(jigsawDisp, jigsawCoord,
         (float4)(0.0f, 0.0f, 0.0f, 1.0f));

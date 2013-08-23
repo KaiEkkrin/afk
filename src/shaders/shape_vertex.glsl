@@ -8,8 +8,9 @@
 layout (location = 0) in vec3 Position;
 layout (location = 1) in vec2 TexCoord;
 
-// TODO: Here, after I've gotten the basic shape working, the
-// jigsaw textures will appear.
+// This is the displacement jigsaw texture.
+// We sample (x, y, z, ignored.)
+uniform sampler2D JigsawDispTex;
 
 // This is the entity display queue.  There are five texels
 // per instance, which contain:
@@ -17,19 +18,24 @@ layout (location = 1) in vec2 TexCoord;
 // - fifth: (x, y) are the (s, t) jigsaw co-ordinates
 uniform samplerBuffer DisplayTBO; 
 
+// This is the size of an individual jigsaw piece
+// in (s, t) co-ordinates.
+uniform vec2 JigsawPiecePitch;
+
 uniform mat4 ProjectionTransform;
 
 out VertexData
 {
     vec2 jigsawCoord;
-
-    // TODO Here's a temporary colour, to make sure that I'm
-    // drawing the base shape correctly.
-    vec2 tempColourRG;
 } outData;
 
 void main()
 {
+    outData.jigsawCoord = texelFetch(DisplayTBO, gl_InstanceID * 5 + 4).xy + JigsawPiecePitch * TexCoord.st;
+
+    // Apply the displacement in face space.
+    vec3 dispPosition = textureLod(JigsawDispTex, outData.jigsawCoord, 0).xyz + Position;
+
     // Reconstruct the world transform matrix for this instance.
     // Of course, AFK is row-major...  :/
     vec4 WTRow1 = texelFetch(DisplayTBO, gl_InstanceID * 5);
@@ -43,9 +49,6 @@ void main()
         vec4(WTRow1.z, WTRow2.z, WTRow3.z, WTRow4.z),
         vec4(WTRow1.w, WTRow2.w, WTRow3.w, WTRow4.w));
 
-    outData.jigsawCoord = texelFetch(DisplayTBO, gl_InstanceID * 5 + 4).xy;
-    outData.tempColourRG = Position.xz;
-
-    gl_Position = (ProjectionTransform * WorldTransform) * vec4(Position, 1.0);
+    gl_Position = (ProjectionTransform * WorldTransform) * vec4(dispPosition, 1.0);
 }
 

@@ -4,14 +4,15 @@
 
 #version 330
 
-// TODO Jigsaw colour and normal textures should appear here.
+// This is the jigsaw colour texture.
+uniform sampler2D JigsawColourTex;
+
+// ...and the normal
+uniform sampler2D JigsawNormalTex;
 
 in VertexData
 {
     vec2 jigsawCoord;
-
-    // TODO Temporary, as per shape_vertex.
-    vec2 tempColourRG;
 } inData;
 
 out vec4 FragColor;
@@ -28,10 +29,12 @@ uniform Light gLight;
 
 void main()
 {
-    //vec3 AmbientColour = gLight.Colour * gLight.Ambient;
-    //vec3 DiffuseColour = gLight.Colour * gLight.Diffuse * max(dot(normalize(NormalF), -gLight.Direction), 0.0);
-    //float DiffuseFactor = dot(normalize(NormalF), -gLight.Direction);
-    //FragColor = vec4(VcolF * (AmbientColour + DiffuseColour), 1.0);
-    FragColor = vec4(inData.tempColourRG.x, inData.tempColourRG.y, 0.0, 1.0);
+    vec3 colour = textureLod(JigsawColourTex, inData.jigsawCoord, 0).xyz;
+    vec3 normal = textureLod(JigsawNormalTex, inData.jigsawCoord, 0).xyz;
+
+    vec3 AmbientColour = gLight.Colour * gLight.Ambient;
+    vec3 DiffuseColour = gLight.Colour * gLight.Diffuse * max(dot(normal, -gLight.Direction), 0.0);
+    float DiffuseFactor = dot(normal, -gLight.Direction);
+    FragColor = vec4(colour * (AmbientColour + DiffuseColour), 1.0);
 }
 

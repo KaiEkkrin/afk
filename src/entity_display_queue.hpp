@@ -63,8 +63,13 @@ protected:
      * has displacements in all three directions!)
      */
     GLuint buf;
-    GLuint displayTBOSamplerLocation;
     boost::mutex mut;
+
+    GLuint jigsawPiecePitchLocation;
+    GLuint jigsawDispTexSamplerLocation;
+    GLuint jigsawColourTexSamplerLocation;
+    GLuint jigsawNormalTexSamplerLocation;
+    GLuint displayTBOSamplerLocation;
 
 public:
     AFK_EntityDisplayQueue();

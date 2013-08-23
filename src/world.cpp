@@ -947,8 +947,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
 
     for (unsigned int puzzle = 0; puzzle < entityDrawQueues.size(); ++puzzle)
     {
-        /* TODO An actual jigsaw!  Several shapes!  */
-        entityDrawQueues[puzzle]->draw(entity_shaderProgram, NULL, sSizes);
+        entityDrawQueues[puzzle]->draw(entity_shaderProgram, shapeJigsaws->getPuzzle(puzzle), sSizes);
     }
 
     glBindVertexArray(0);
