@@ -110,6 +110,8 @@ protected:
     boost::atomic<unsigned long long> tilesRecomputedAfterSweep;
     boost::atomic<unsigned long long> entitiesQueued;
     boost::atomic<unsigned long long> entitiesMoved;
+    boost::atomic<unsigned long long> shapesComputed;
+    boost::atomic<unsigned long long> shapesRecomputedAfterSweep;
     boost::atomic<unsigned long long> threadEscapes;
 
     /* Landscape shader details. */

@@ -140,7 +140,7 @@ bool AFK_World::checkClaimedShape(
         break;
 
     case AFK_SHAPE_PIECE_SWEPT:
-        /* TODO: Metrics. :P */
+        shapesRecomputedAfterSweep.fetch_add(1);
         needsArtwork = true;
         break;
 
@@ -235,7 +235,7 @@ void AFK_World::generateShapeArtwork(
     computeQueue->extend(
         shrinkformList, jigsawPiece.piece, sSizes);
 
-    /* TODO More metrics! */
+    shapesComputed.fetch_add(1);
 }
 
 void AFK_World::generateStartingEntity(
@@ -425,10 +425,6 @@ bool AFK_World::generateClaimedWorldCell(
         if (/* !landscapeTile.hasArtwork() || */
             worldCell.getRealCoord().v[1] >= landscapeTile.getYBoundUpper())
         {
-            /* TODO For now, I'm going to just build entities at 
-             * one particular LoD.  I need to consider how I
-             * work with this ...
-             */
             //if (cell.coord.v[3] == 1024)
             //if (cell.coord.v[0] == 0 && cell.coord.v[1] == 0 && cell.coord.v[2] == 0)
             //if (abs(cell.coord.v[0]) <= (1 * cell.coord.v[3]) &&
@@ -734,6 +730,8 @@ AFK_World::AFK_World(
     tilesRecomputedAfterSweep.store(0);
     entitiesQueued.store(0);
     entitiesMoved.store(0);
+    shapesComputed.store(0);
+    shapesRecomputedAfterSweep.store(0);
     threadEscapes.store(0);
 }
 
@@ -978,6 +976,8 @@ void AFK_World::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckp
     PRINT_RATE_AND_RESET("Tiles recomputed after sweep: ", tilesRecomputedAfterSweep)
     PRINT_RATE_AND_RESET("Entities queued:              ", entitiesQueued)
     PRINT_RATE_AND_RESET("Entities moved:               ", entitiesMoved)
+    PRINT_RATE_AND_RESET("Shapes computed:              ", shapesComputed)
+    PRINT_RATE_AND_RESET("Shapes recomputed after sweep:", shapesRecomputedAfterSweep)
     std::cout <<         "Cumulative thread escapes:    " << threadEscapes.load() << std::endl;
 #endif
 }

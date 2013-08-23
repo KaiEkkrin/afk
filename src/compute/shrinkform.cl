@@ -50,7 +50,18 @@ __kernel void makeShrinkform(
     const int ydim = get_global_id(1);
     const int unitOffset = get_global_id(2);
 
-    // TODO Actually compute the shrinkform here!
+    // TODO: I'm going to need to specify to this kernel what
+    // orientation the face has, and I'm going to need to test
+    // the vertex initialisation here to make sure it's all
+    // coming out in the same order as the matrix-transformed
+    // face geometry.
+    // For now, since I'm going to output zeroes to test the
+    // pipeline, it doesn't matter.
+    int2 jigsawCoord = units[unitOffset].piece * TDIM + (int2)(xdim, ydim);
+    write_imagef(jigsawDisp, jigsawCoord,
+        (float4)(0.0f, 0.0f, 0.0f, 1.0f));
+    write_imagef(jigsawColour, jigsawCoord,
+        (float4)(0.0f, xdim, ydim, 0.0f));
 }
 
 
