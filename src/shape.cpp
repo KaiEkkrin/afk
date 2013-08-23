@@ -102,15 +102,15 @@ static struct FaceTransforms
     FaceTransforms()
     {
         obj[1].adjustAttitude(AXIS_ROLL, -M_PI_2);
-        obj[1].displace(afk_vec3<float>(-1.0f, 0.0f, 0.0f));
+        obj[1].displace(afk_vec3<float>(0.0f, 1.0f, 0.0f));
         obj[2].adjustAttitude(AXIS_PITCH, M_PI_2);
-        obj[2].displace(afk_vec3<float>(0.0f, 0.0f, -1.0f));
+        obj[2].displace(afk_vec3<float>(0.0f, 1.0f, 0.0f));
         obj[3].adjustAttitude(AXIS_PITCH, -M_PI_2);
-        obj[3].displace(afk_vec3<float>(0.0f, 1.0f, 0.0f));
+        obj[3].displace(afk_vec3<float>(0.0f, 0.0f, 1.0f));
         obj[4].adjustAttitude(AXIS_ROLL, M_PI_2);
-        obj[4].displace(afk_vec3<float>(0.0f, 1.0f, 0.0f));
+        obj[4].displace(afk_vec3<float>(1.0f, 0.0f, 0.0f));
         obj[5].adjustAttitude(AXIS_PITCH, M_PI);
-        obj[5].displace(afk_vec3<float>(0.0f, 1.0f, -1.0f));
+        obj[5].displace(afk_vec3<float>(0.0f, 1.0f, 1.0f));
 
         for (int i = 0; i < 6; ++i)
             trans[i] = obj[i].getTransformation();

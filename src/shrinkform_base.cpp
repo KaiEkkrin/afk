@@ -68,12 +68,12 @@ AFK_ShrinkformBase::AFK_ShrinkformBase(const AFK_ShapeSizes& sSizes):
             unsigned short i_r2c2 = (s + 1) * sSizes.vDim + (t + 1);
 
             indices.push_back(i_r1c1);
-            indices.push_back(i_r2c1);
             indices.push_back(i_r1c2);
+            indices.push_back(i_r2c1);
 
             indices.push_back(i_r1c2);
-            indices.push_back(i_r2c1);
             indices.push_back(i_r2c2);
+            indices.push_back(i_r2c1);
         }
     }
 }
