@@ -210,10 +210,10 @@ struct AFK_TerrainComputeUnit
     int2 piece;
 };
 
-/* `makeTerrain' operates across the 2 dimensions of
+/* `makeLandscapeTerrain' operates across the 2 dimensions of
  * a terrain tile.
  */
-__kernel void makeTerrain(
+__kernel void makeLandscapeTerrain(
     __global const struct AFK_TerrainFeature *features,
     __global const struct AFK_TerrainTile *tiles,
     __global const struct AFK_TerrainComputeUnit *units,

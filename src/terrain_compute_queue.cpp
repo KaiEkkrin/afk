@@ -106,11 +106,11 @@ void AFK_TerrainComputeQueue::computeStart(
 
     /* Make sure the compute stuff is initialised... */
     if (!terrainKernel)
-        if (!computer->findKernel("makeTerrain", terrainKernel))
+        if (!computer->findKernel("makeLandscapeTerrain", terrainKernel))
             throw AFK_Exception("Cannot find terrain kernel");
 
     if (!surfaceKernel)
-        if (!computer->findKernel("makeSurface", surfaceKernel))
+        if (!computer->findKernel("makeLandscapeSurface", surfaceKernel))
             throw AFK_Exception("Cannot find surface kernel");
 
     if (!yReduce)

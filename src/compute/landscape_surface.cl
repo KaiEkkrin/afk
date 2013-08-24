@@ -35,7 +35,7 @@ struct AFK_TerrainComputeUnit
  * top and right by itself.
  */
 
-__kernel void makeSurface(
+__kernel void makeLandscapeSurface(
     __global const struct AFK_TerrainComputeUnit *units,
     __read_only image2d_t jigsawYDisp,
     sampler_t yDispSampler,

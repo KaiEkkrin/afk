@@ -8,7 +8,7 @@
 AFK_YReduce::AFK_YReduce(const AFK_Computer *computer):
     buf(0), bufSize(0), readback(NULL), readbackSize(0), readbackEvent(0)
 {
-    if (!computer->findKernel("yReduce", yReduceKernel))
+    if (!computer->findKernel("makeLandscapeYReduce", yReduceKernel))
         throw AFK_Exception("Cannot find Y-reduce kernel");
 }
 

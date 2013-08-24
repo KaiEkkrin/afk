@@ -5,6 +5,8 @@
 #include <iostream>
 #include <sstream>
 
+#include <boost/algorithm/string/predicate.hpp>
+
 #include "computer.hpp"
 #include "exception.hpp"
 #include "file/readfile.hpp"
@@ -15,20 +17,22 @@
 /* The set of known programs, just like the shaders doodah. */
 
 struct AFK_ClProgram programs[] = {
-    {   0,  "shrinkform.cl"             },
-    {   0,  "surface.cl"                },
-    {   0,  "terrain.cl"                },
-    {   0,  "yreduce.cl"                },
+    {   0,  "landscape_surface.cl"      },
+    {   0,  "landscape_terrain.cl"      },
+    {   0,  "landscape_yreduce.cl"      },
+    {   0,  "shape_shrinkform.cl"       },
+    {   0,  "shape_surface.cl"          },
     {   0,  "test.cl"                   },
     {   0,  "vs_test.cl"                },
     {   0,  ""                          }
 };
 
-struct AFK_ClKernel kernels[] = {
-    {   0,  "shrinkform.cl",            "makeShrinkform"                },
-    {   0,  "surface.cl",               "makeSurface"                   },
-    {   0,  "terrain.cl",               "makeTerrain"                   },
-    {   0,  "yreduce.cl",               "yReduce"                       },
+struct AFK_ClKernel kernels[] = { 
+    {   0,  "landscape_surface.cl",     "makeLandscapeSurface"          },
+    {   0,  "landscape_terrain.cl",     "makeLandscapeTerrain"          },
+    {   0,  "landscape_yreduce.cl",     "makeLandscapeYReduce"          },
+    {   0,  "shape_shrinkform.cl",      "makeShapeShrinkform"           },
+    {   0,  "shape_surface.cl",         "makeShapeSurface"              },
     {   0,  "test.cl",                  "vector_add_gpu"                },
     {   0,  "vs_test.cl",               "mangle_vs"                     },
     {   0,  "",                         ""                              }
@@ -266,28 +270,23 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
         config->subdivisionFactor,
         config->entitySubdivisionFactor,
         config->pointSubdivisionFactor);
-    /* TODO: I want to compile two different versions of the `surface'
-     * program, with lSizes and sSizes specifying the various sizes,
-     * for use for landscape and shapes.
-     * Right now the sizes are the same so it doesn't matter that I
-     * don't, but.
-     */
-    if (p->filename == "shrinkform.cl")
-    {
-        args << "-D TDIM="                      << sSizes.tDim                   << " ";
-    }
-    else if (p->filename == "terrain.cl" || p->filename == "surface.cl")
+
+    if (boost::starts_with(p->filename, "landscape_"))
     {
         args << "-D SUBDIVISION_FACTOR="        << lSizes.subdivisionFactor      << " ";
         args << "-D POINT_SUBDIVISION_FACTOR="  << lSizes.pointSubdivisionFactor << " ";
         args << "-D TDIM="                      << lSizes.tDim                   << " ";
         args << "-D TDIM_START="                << lSizes.tDimStart              << " ";
         args << "-D FEATURE_COUNT_PER_TILE="    << lSizes.featureCountPerTile    << " ";
-    }
-    else if (p->filename == "yreduce.cl")
-    {
-        args << "-D TDIM="                      << lSizes.tDim                   << " ";
         args << "-D REDUCE_ORDER="              << lSizes.getReduceOrder()       << " ";
+    }
+    else if (boost::starts_with(p->filename, "shape_"))
+    {
+        args << "-D SUBDIVISION_FACTOR="        << sSizes.subdivisionFactor      << " ";
+        args << "-D POINT_SUBDIVISION_FACTOR="  << sSizes.pointSubdivisionFactor << " ";
+        args << "-D TDIM="                      << sSizes.tDim                   << " ";
+        args << "-D TDIM_START="                << sSizes.tDimStart              << " ";
+        args << "-D POINT_COUNT_PER_CUBE="      << sSizes.pointCountPerCube      << " ";
     }
 
     std::string argsStr = args.str();

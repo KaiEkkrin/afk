@@ -115,11 +115,11 @@ void AFK_ShrinkformComputeQueue::computeStart(
 
     /* Make sure the compute stuff is initialised... */
     if (!shrinkformKernel)
-        if (!computer->findKernel("makeShrinkform", shrinkformKernel))
+        if (!computer->findKernel("makeShapeShrinkform", shrinkformKernel))
             throw AFK_Exception("Cannot find shrinkform kernel");
 
     if (!surfaceKernel)
-        if (!computer->findKernel("makeSurface", surfaceKernel))
+        if (!computer->findKernel("makeShapeSurface", surfaceKernel))
             throw AFK_Exception("Cannot find surface kernel");
 
     cl_context ctxt;

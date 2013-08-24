@@ -13,7 +13,7 @@ struct AFK_TerrainComputeUnit
  * big to reduce in both.
  */
 
-__kernel void yReduce(
+__kernel void makeLandscapeYReduce(
     __global const struct AFK_TerrainComputeUnit *units,
     __read_only image2d_t jigsawYDisp,
     sampler_t yDispSampler,

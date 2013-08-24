@@ -35,13 +35,13 @@ struct AFK_ShrinkformComputeUnit
     int2 piece;
 };
 
-/* `makeShrinkform' operates across the 2 dimensions of a
+/* `makeShapeShrinkform' operates across the 2 dimensions of a
  * shrinkform shape's face.
  * Like `makeTerrain', the third dimension is the unit
  * offset: we take a list of units and fill out the jigsaws
  * with the shrinkform of those units.
  */
-__kernel void makeShrinkform(
+__kernel void makeShapeShrinkform(
     __global const struct AFK_ShrinkformPoint *points,
     __global const struct AFK_ShrinkformCube *cubes,
     __global const struct AFK_ShrinkformComputeUnit *units,
