@@ -77,6 +77,13 @@ AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight
         KeyReleaseMask |
         StructureNotifyMask;
 
+    /* Choose default dimensions, in case we were given zeroes */
+    Screen *screenSt = DefaultScreenOfDisplay(dpy);
+    if (windowWidth == 0)
+        windowWidth = XWidthOfScreen(screenSt) * 3 / 4;
+    if (windowHeight == 0)
+        windowHeight = XHeightOfScreen(screenSt) * 3 / 4;
+
     w = XCreateWindow(dpy, rootWindow, 0, 0, windowWidth, windowHeight, 0,
         visInfo->depth, InputOutput, visInfo->visual,
         CWBackPixel | CWBorderPixel | CWColormap | CWEventMask,

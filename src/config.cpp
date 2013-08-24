@@ -56,8 +56,8 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     framesPerCalibration        = 8;
     vsync                       = false;
 
-    windowWidth                 = 1920;
-    windowHeight                = 1080;
+    windowWidth                 = 0;
+    windowHeight                = 0;
 
     concurrency                 = boost::thread::hardware_concurrency() + 1;
     clProgramsDir               = NULL;
