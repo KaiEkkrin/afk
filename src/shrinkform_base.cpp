@@ -106,15 +106,11 @@ void AFK_ShrinkformBase::initGL()
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned short), &indices[0], GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
-    //glEnableVertexAttribArray(1);
-    //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, AFK_SHF_BASE_VERTEX_SIZE, 0);
-    //glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, AFK_SHF_BASE_VERTEX_SIZE, (GLvoid *)sizeof(Vec3<float>));
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, AFK_SHF_BASE_VERTEX_SIZE, 0);
 }
 
 void AFK_ShrinkformBase::teardownGL(void) const
 {
     glDisableVertexAttribArray(0);
-    //glDisableVertexAttribArray(1);
 }
 

@@ -43,6 +43,32 @@ public:
 BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_ShapeFace>::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_ShapeFace>::value));
 
+enum AFK_SkeletonFlag
+{
+    AFK_SKF_OUTSIDE_GRID,
+    AFK_SKF_CLEAR,
+    AFK_SKF_SET
+};
+
+/* This object describes, across a grid of theoretical cubes,
+ * which cubes the skeleton is present in.
+ */
+class AFK_SkeletonFlagGrid
+{
+protected:
+    unsigned int **grid;
+    int gridDim;
+
+public:
+    AFK_SkeletonFlagGrid(int _gridDim);
+    virtual ~AFK_SkeletonFlagGrid();
+
+    /* Basic operations on the grid. */
+    enum AFK_SkeletonFlag testFlag(const Vec3<int>& cube) const;
+    void setFlag(const Vec3<int>& cube);
+    void clearFlag(const Vec3<int>& cube);
+};
+
 /* A Shape describes a single shrinkform shape, which
  * might be instanced many times by means of Entities.
  *
@@ -53,6 +79,39 @@ BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_ShapeFace>::value));
 class AFK_Shape: public AFK_Claimable
 {
 protected:
+    /* This grid of flags describes, for each point, whether the
+     * skeleton should include a cube there.
+     * It's x by y by (bitfield) z.
+     * TODO: With LoDs, I'm going to need several ...
+     */
+    AFK_SkeletonFlagGrid *cubeGrid;
+
+    /* These grids, which are in order biggest -> smallest,
+     * describe whether to create shrinkform points at the
+     * particular cubes in the grids.
+     * Each one's resolution is 2x as coarse along each axis
+     * as the next one.
+     */
+    std::vector<AFK_SkeletonFlagGrid *> pointGrids;
+
+    /* Recursively builds a skeleton, filling in the flag grid.
+     * The point co-ordinates include a scale co-ordinate; this isn't used to refer to
+     * grids, which are xyz only.
+     */
+    void makeSkeleton(
+        AFK_RNG& rng,
+        const AFK_ShapeSizes& sSizes,
+        Vec3<int> cube,
+        unsigned int *cubesLeft,
+        std::vector<Vec3<int> >& o_skeletonCubes,
+        std::vector<Vec4<int> >& o_skeletonPointCubes);
+
+    /* Tells whether to render a particular cube face of the given
+     * skeleton.
+     * The faces are, from 0 to 5: bottom, left, front, back, right, top.
+     */
+    bool testRenderSkeletonFace(const Vec3<int>& cube, unsigned int face) const;
+
     /* This is a little like the landscape tiles.
      * TODO: In addition to this, when I have more than one cube,
      * I'm going to have the whole skeletons business to think about!
@@ -101,7 +160,7 @@ public:
     /* Enqueues the display units for an entity of this shape. */
     void enqueueDisplayUnits(
         const AFK_Object& object,
-        AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair);
+        AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const;
 
     /* For handling claiming and eviction. */
     virtual AFK_Frame getCurrentFrame(void) const;

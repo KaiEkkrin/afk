@@ -3,6 +3,7 @@
 #include "afk.hpp"
 
 #include <cmath>
+#include <cstring>
 
 #include <boost/functional/hash.hpp>
 #include <boost/shared_ptr.hpp>
@@ -11,7 +12,7 @@
 #include "def.hpp"
 #include "entity_display_queue.hpp"
 #include "jigsaw.hpp"
-#include "rng/boost_taus88.hpp"
+#include "rng/aes.hpp"
 #include "shape.hpp"
 
 
@@ -60,10 +61,163 @@ AFK_ShapeFace::AFK_ShapeFace(
 }
 
 
+/* AFK_SkeletonFlagGrid implementation */
+
+AFK_SkeletonFlagGrid::AFK_SkeletonFlagGrid(int _gridDim):
+    gridDim(_gridDim)
+{
+    assert((unsigned int)gridDim < (sizeof(unsigned int) * 8));
+    grid = new unsigned int *[gridDim];
+    for (int x = 0; x < gridDim; ++x)
+    {
+        grid[x] = new unsigned int[gridDim];
+        memset(grid[x], 0, sizeof(unsigned int) * gridDim);
+    }
+}
+
+AFK_SkeletonFlagGrid::~AFK_SkeletonFlagGrid()
+{
+    for (int x = 0; x < gridDim; ++x)
+    {
+        delete[] grid[x];
+    }
+
+    delete[] grid;
+}
+
+/* Skeleton flag grid co-ordinates are such that (0, 0, 0) is in the middle. */
+#define WITHIN_SKELETON_FLAG_GRID(x, y, z) \
+    (((x) >= -(gridDim / 2) && (x) < (gridDim / 2)) && \
+    ((y) >= -(gridDim / 2) && (y) < (gridDim / 2)) && \
+    ((z) >= -(gridDim / 2) && (z) < (gridDim / 2)))
+
+#define SKELETON_FLAG_XY(x, y) grid[(x) + gridDim / 2][(y) + gridDim / 2]
+#define SKELETON_FLAG_Z(z) (1 << ((z) + gridDim / 2))
+
+enum AFK_SkeletonFlag AFK_SkeletonFlagGrid::testFlag(const Vec3<int>& cube) const
+{
+    if (WITHIN_SKELETON_FLAG_GRID(cube.v[0], cube.v[1], cube.v[2]))
+        return (SKELETON_FLAG_XY(cube.v[0], cube.v[1]) & SKELETON_FLAG_Z(cube.v[2])) ?
+            AFK_SKF_SET : AFK_SKF_CLEAR;
+    else
+        return AFK_SKF_OUTSIDE_GRID;
+}
+
+void AFK_SkeletonFlagGrid::setFlag(const Vec3<int>& cube)
+{
+    if (WITHIN_SKELETON_FLAG_GRID(cube.v[0], cube.v[1], cube.v[2]))
+        SKELETON_FLAG_XY(cube.v[0], cube.v[1]) |= SKELETON_FLAG_Z(cube.v[2]);
+}
+
+void AFK_SkeletonFlagGrid::clearFlag(const Vec3<int>& cube)
+{
+    if (WITHIN_SKELETON_FLAG_GRID(cube.v[0], cube.v[1], cube.v[2]))
+        SKELETON_FLAG_XY(cube.v[0], cube.v[1]) &= ~SKELETON_FLAG_Z(cube.v[2]);
+}
+
+
 /* AFK_Shape implementation */
+
+static Vec3<int> adjacentCube(const Vec3<int>& cube, unsigned int face)
+{
+    Vec3<int> adj;
+
+    switch (face)
+    {
+    case 0: /* bottom */
+        adj = afk_vec3<int>(cube.v[0], cube.v[1] - 1, cube.v[2]);
+        break;
+
+    case 1: /* left */
+        adj = afk_vec3<int>(cube.v[0] - 1, cube.v[1], cube.v[2]);
+        break;
+
+    case 2: /* front */
+        adj = afk_vec3<int>(cube.v[0], cube.v[1], cube.v[2] - 1);
+        break;
+
+    case 3: /* back */
+        adj = afk_vec3<int>(cube.v[0], cube.v[1], cube.v[2] + 1);
+        break;
+
+    case 4: /* right */
+        adj = afk_vec3<int>(cube.v[0] + 1, cube.v[1], cube.v[2]);
+        break;
+
+    case 5: /* top */
+        adj = afk_vec3<int>(cube.v[0], cube.v[1] + 1, cube.v[2]);
+        break;
+
+    default:
+        throw AFK_Exception("Invalid face");
+    }
+
+    return adj;
+}
+
+void AFK_Shape::makeSkeleton(
+    AFK_RNG& rng,
+    const AFK_ShapeSizes& sSizes,
+    Vec3<int> cube,
+    unsigned int *cubesLeft,
+    std::vector<Vec3<int> >& o_skeletonCubes,
+    std::vector<Vec4<int> >& o_skeletonPointCubes)
+{
+    /* Update the cubes. */
+    if (*cubesLeft == 0) return;
+    if (cubeGrid->testFlag(cube) != AFK_SKF_CLEAR) return;
+    cubeGrid->setFlag(cube);
+    o_skeletonCubes.push_back(cube);
+    --(*cubesLeft);
+
+    /* Update the point cubes with any that aren't included
+     * already.
+     * A cube will touch all 27 of the possible point cubes that
+     * include it and its surroundings.
+     */
+    unsigned int pointGridScale = 1;
+    for (int pI = pointGrids.size() - 1; pI >= 0; --pI)
+    {
+        Vec3<int> scaledCube = cube / pointGridScale;
+
+        for (int x = -1; x <= 1; ++x)
+        {
+            for (int y = -1; y <= 1; ++y)
+            {
+                for (int z = -1; z <= 1; ++z)
+                {
+                    Vec3<int> pointCube = scaledCube + afk_vec3<int>(x, y, z);
+                    if (pointGrids[pI]->testFlag(pointCube) == AFK_SKF_CLEAR)
+                    {
+                        pointGrids[pI]->setFlag(pointCube);
+                        o_skeletonPointCubes.push_back(afk_vec4<int>(pointCube, pointGridScale));
+                    }
+                }
+            }
+        }
+
+        pointGridScale = pointGridScale * 2;
+    }
+
+    for (unsigned int face = 0; face < 6 && *cubesLeft; ++face)
+    {
+        Vec3<int> adj = adjacentCube(cube, face);
+        if (rng.frand() < sSizes.skeletonBushiness)
+        {
+            makeSkeleton(rng, sSizes, adj, cubesLeft, o_skeletonCubes, o_skeletonPointCubes);
+        }
+    }
+}
+
+bool AFK_Shape::testRenderSkeletonFace(const Vec3<int>& cube, unsigned int face) const
+{
+    Vec3<int> adj = adjacentCube(cube, face);
+    return (cubeGrid->testFlag(cube) == AFK_SKF_SET && cubeGrid->testFlag(adj) != AFK_SKF_SET);
+}
 
 AFK_Shape::AFK_Shape():
     AFK_Claimable(),
+    cubeGrid(NULL),
     haveShrinkformDescriptor(false),
     jigsaws(NULL)
 {
@@ -71,6 +225,12 @@ AFK_Shape::AFK_Shape():
 
 AFK_Shape::~AFK_Shape()
 {
+    if (cubeGrid) delete cubeGrid;
+    for (std::vector<AFK_SkeletonFlagGrid *>::iterator pointGridIt = pointGrids.begin();
+        pointGridIt != pointGrids.end(); ++pointGridIt)
+    {
+        delete *pointGridIt;
+    }
 }
 
 bool AFK_Shape::hasShrinkformDescriptor() const
@@ -84,41 +244,86 @@ void AFK_Shape::makeShrinkformDescriptor(
 {
     if (!haveShrinkformDescriptor)
     {
-        /* TODO non-remaking of RNGs? */
-        AFK_Boost_Taus88_RNG rng;
+        /* TODO Interestingly, this is the first time I've actually
+         * appeared to need a "better" RNG than Taus88: Taus88
+         * doesn't appear to give enough randomness when seeded
+         * with such a small number as the shapeKey.
+         * If I end up randomly making lots of new shapes the
+         * time taken to make a new AES RNG here is going to
+         * become a bottleneck.
+         */
+        AFK_AES_RNG rng;
         boost::hash<unsigned int> uiHash;
         rng.seed(uiHash(shapeKey));
 
-        /* TODO: For now, I'm going to make a whole bunch of larger
-         * nested cubes, ending in the target cube.
-         * I need to have a good think about what to *really* build
-         * and how to correctly wrap a skeleton.
+        /* TODO: Planes of symmetry and all sorts, here.  Lots to
+         * experiment with in the quest for nice objects.
          */
-        for (int cubeScale = 32; cubeScale >= 1; cubeScale = cubeScale / 2)
+
+        /* Come up with a skeleton.
+         * A skeleton is characterised by a grid of flags, each
+         * bit saying whether or not there is a cube in that
+         * location.
+         */
+        cubeGrid = new AFK_SkeletonFlagGrid((int)sSizes.skeletonFlagGridDim);
+
+        /* ...And also by a set of grids that determine where 
+         * shrinkform points will exist.
+         * These will go up to the scale 1 power of 2 above
+         * the point subdivision factor:
+         */
+        int pointGridCount;
+        for (pointGridCount = 1; (1 << (pointGridCount - 1)) < (int)sSizes.pointSubdivisionFactor; ++pointGridCount)
+        {
+            pointGrids.push_back(new AFK_SkeletonFlagGrid((1 << pointGridCount) + 1));
+        }
+    
+        std::vector<Vec3<int> > skeletonCubes;
+        std::vector<Vec4<int> > skeletonPointCubes;
+        Vec3<int> startingCube = afk_vec3<int>(0, 0, 0);
+        unsigned int skeletonCubesLeft = rng.uirand() % sSizes.skeletonMaxSize;
+        makeSkeleton(rng, sSizes, startingCube, &skeletonCubesLeft, skeletonCubes, skeletonPointCubes);
+
+        /* Now, for each skeleton point cube, add its points...
+         */
+        for (std::vector<Vec4<int> >::iterator pointCubeIt = skeletonPointCubes.begin();
+            pointCubeIt != skeletonPointCubes.end(); ++pointCubeIt)
         {
             AFK_ShrinkformCube cube;
             cube.make(
                 shrinkformPoints,
                 afk_vec4<float>(
-                    0.5f - ((float)cubeScale * 0.5f),
-                    0.5f - ((float)cubeScale * 0.5f),
-                    0.5f - ((float)cubeScale * 0.5f),
-                    (float)cubeScale),
+                    (float)pointCubeIt->v[0] * (float)pointCubeIt->v[3],
+                    (float)pointCubeIt->v[1] * (float)pointCubeIt->v[3],
+                    (float)pointCubeIt->v[2] * (float)pointCubeIt->v[3],
+                    (float)pointCubeIt->v[3]),
                 sSizes,
                 rng);
             shrinkformCubes.push_back(cube);
         }
 
-        /* Push the six faces of the cube into the face list.
-         * These will be inverses, because they're going to
-         * be used to re-orient the points, not the face
-         * itself
+        /* ... And for each cube of the actual skeleton, test its
+         * six faces for visibility; add the visible ones to the face
+         * list.
+         * TODO This process is associating all points with all faces,
+         * which is very wasteful.  If I turn out to be at all limited
+         * in performance by shape creation, I should come up with a
+         * better scheme.
          */
-        for (unsigned int face = 0; face < 6; ++face)
+        for (std::vector<Vec3<int> >::iterator cubeIt = skeletonCubes.begin();
+            cubeIt != skeletonCubes.end(); ++cubeIt)
         {
-            faces.push_back(AFK_ShapeFace(
-                afk_vec4<float>(faceTransforms.obj[face].getTranslation(), 1.0f),
-                faceTransforms.obj[face].getRotation()));
+            for (unsigned int face = 0; face < 6; ++face)
+            {
+                if (testRenderSkeletonFace(*cubeIt, face))
+                {
+                    Vec3<float> cube = afk_vec3<float>(
+                        (float)cubeIt->v[0], (float)cubeIt->v[1], (float)cubeIt->v[2]);
+                    faces.push_back(AFK_ShapeFace(
+                        afk_vec4<float>(cube + faceTransforms.obj[face].getTranslation(), 1.0f),
+                        faceTransforms.obj[face].getRotation()));
+                }
+            }
         }
 
         haveShrinkformDescriptor = true;
@@ -170,7 +375,7 @@ enum AFK_ShapeArtworkState AFK_Shape::artworkState() const
 
 void AFK_Shape::enqueueDisplayUnits(
     const AFK_Object& object,
-    AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair)
+    AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const
 {
     /* TODO: A couple of things to note:
      * - 1: When I actually have a shrinkform (as opposed to a
@@ -183,9 +388,9 @@ void AFK_Shape::enqueueDisplayUnits(
     boost::shared_ptr<AFK_EntityDisplayQueue> q = entityDisplayFair.getUpdateQueue(0);
     Mat4<float> objTransform = object.getTransformation();
 
-    for (int face = 0; face < 6; ++face)
+    for (std::vector<AFK_ShapeFace>::const_iterator faceIt = faces.begin(); faceIt != faces.end(); ++faceIt)
     {
-        AFK_JigsawPiece jigsawPiece = faces[face].jigsawPiece;
+        AFK_JigsawPiece jigsawPiece = faceIt->jigsawPiece;
         q->add(AFK_EntityDisplayUnit(
             objTransform, /* The face's orientation is already fixed by the CL */
             jigsaws->getPuzzle(jigsawPiece)->getTexCoordST(jigsawPiece)));
