@@ -51,7 +51,14 @@ void computeShrinkformPoint(
 
     float pointWeight = (float)points[i].s[AFK_SHO_POINT_WEIGHT] / 256.0f;
 
-    float dist = distance(pointLocation, *vl);
+    /* I'm going to make it so that each point is actually a
+     * repeating sequence of points separated by `distance'
+     * in all dimensions -- let's see if the obvious gridding
+     * effect is offset by the improved appearance from
+     * fewer points ...
+     */
+    float dist = fmod(distance(pointLocation, *vl), pointRange * 4.0f);
+
     if (dist < pointRange)
     {
         /* `vl' is yanked towards the point by an amount of the
@@ -59,7 +66,7 @@ void computeShrinkformPoint(
          * influence each point can have is scaled down; I'm not yet
          * sure how much to scale it by ...
          */
-        *vl += normalize(pointLocation - *vl) * dist * pointWeight / ((float)SUBDIVISION_FACTOR);
+        *vl += normalize(pointLocation - *vl) * dist * pointWeight * pointRange;
         *vc += pointColour / ((dist + 0.1f) * pointWeight);
     }
 }
@@ -71,7 +78,7 @@ struct AFK_ShrinkformCube
 
 void transformCubeToCube(
     float3 *vl,
-    float3 *vc,
+    /* float3 *vc, */
     __global const struct AFK_ShrinkformCube *cubes,
     unsigned int cFrom,
     unsigned int cTo)
@@ -80,7 +87,7 @@ void transformCubeToCube(
     float4 toCoord = cubes[cTo].coord;
 
     *vl = (*vl * fromCoord.w + fromCoord.xyz - toCoord.xyz) / toCoord.w;
-    *vc = *vc + fromCoord.w / toCoord.w;
+    //*vc = *vc + fromCoord.w / toCoord.w;
 }
 
 /* TODO Quaternion utilities -- Prime candidates for library functions */
@@ -148,13 +155,16 @@ __kernel void makeShapeShrinkform(
     vl += units[unitOffset].location.xyz;
 
     /* Initialise the colour of this co-ordinate */
-    float3 vc = (float3)(0.0f, 0.0f, 0.0f);
+    float3 vc = (float3)(1.0f, 1.0f, 1.0f);
         
     /* The cube list starts with the biggest one and gets smaller.
      * Therefore, I first need to transform into the space of the
-     * biggest cube
+     * biggest cube.
+     * TODO: I suspect that this loop is a candidate for parallelising
+     * using another dimension of the kernel, somehow; however, don't
+     * worry about it until it becomes a performance issue...  (shrapnel?)
      */
-    transformCubeToCube(&vl, &vc, cubes,
+    transformCubeToCube(&vl, /* &vc, */ cubes,
         units[unitOffset].cubeOffset + units[unitOffset].cubeCount - 1, /* smallest cube */
         units[unitOffset].cubeOffset);
 
@@ -162,7 +172,7 @@ __kernel void makeShapeShrinkform(
     {
         if (i > units[unitOffset].cubeOffset)
         {
-            transformCubeToCube(&vl, &vc, cubes, i-1, i);
+            transformCubeToCube(&vl, /* &vc, */ cubes, i-1, i);
         }
 
         for (int j = i * POINT_COUNT_PER_CUBE; j < ((i + 1) * POINT_COUNT_PER_CUBE); ++j)

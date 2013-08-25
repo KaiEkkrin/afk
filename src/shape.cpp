@@ -269,11 +269,11 @@ void AFK_Shape::makeShrinkformDescriptor(
 
         /* ...And also by a set of grids that determine where 
          * shrinkform points will exist.
-         * These will go up to the scale 1 power of 2 above
-         * the point subdivision factor:
          */
         int pointGridCount;
-        for (pointGridCount = 1; (1 << (pointGridCount - 1)) < (int)sSizes.pointSubdivisionFactor; ++pointGridCount)
+        for (pointGridCount = 1;
+            (1 << (pointGridCount - 1)) < (int)(sSizes.pointSubdivisionFactor + sSizes.skeletonFlagGridDim);
+            ++pointGridCount)
         {
             pointGrids.push_back(new AFK_SkeletonFlagGrid((1 << pointGridCount) + 1));
         }
