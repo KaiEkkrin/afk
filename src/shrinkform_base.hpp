@@ -14,6 +14,10 @@
  * make random Shapes.
  */
 
+    /* TODO Experimentally removing this and getting the location
+     * entirely from the texture.
+     */
+#if 0
 class AFK_ShrinkformBaseVertex
 {
 public:
@@ -26,6 +30,18 @@ public:
 } __attribute__((aligned(16)));
 
 #define SIZEOF_BASE_VERTEX 32
+#else
+class AFK_ShrinkformBaseVertex
+{
+public:
+    Vec2<float> texCoord;
+
+    AFK_ShrinkformBaseVertex(
+        const Vec2<float>& _texCoord);
+};
+
+#define SIZEOF_BASE_VERTEX 8
+#endif
 
 BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_ShrinkformBaseVertex>::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_ShrinkformBaseVertex>::value));

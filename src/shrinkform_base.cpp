@@ -3,9 +3,10 @@
 #include "shrinkform_base.hpp"
 
 AFK_ShrinkformBaseVertex::AFK_ShrinkformBaseVertex(
-    const Vec3<float>& _location,
+    //const Vec3<float>& _location,
     const Vec2<float>& _texCoord):
-        location(_location), texCoord(_texCoord)
+        //location(_location),
+        texCoord(_texCoord)
 {
 }
 
@@ -15,13 +16,13 @@ static void make2DFace(
     const AFK_ShapeSizes& sSizes,
     unsigned int s,
     unsigned int t,
-    float& o_sCoord,
-    float& o_tCoord,
+    //float& o_sCoord,
+    //float& o_tCoord,
     float& o_sTex,
     float& o_tTex)
 {
-    o_sCoord = (float)s / (float)sSizes.pointSubdivisionFactor;
-    o_tCoord = (float)t / (float)sSizes.pointSubdivisionFactor;
+    //o_sCoord = (float)s / (float)sSizes.pointSubdivisionFactor;
+    //o_tCoord = (float)t / (float)sSizes.pointSubdivisionFactor;
 
     /* The texture co-ordinates for each jigsaw piece range
      * from (0, 1), with tDim texels along each side, including
@@ -50,10 +51,11 @@ AFK_ShrinkformBase::AFK_ShrinkformBase(const AFK_ShapeSizes& sSizes):
     {
         for (unsigned int z = 0; z < sSizes.vDim; ++z)
         {
-            float sCoord, tCoord, sTex, tTex;
-            make2DFace(sSizes, x, z, sCoord, tCoord, sTex, tTex);
+            //float sCoord, tCoord,
+            float sTex, tTex;
+            make2DFace(sSizes, x, z, /* sCoord, tCoord, */ sTex, tTex);
             vertices.push_back(AFK_ShrinkformBaseVertex(
-                afk_vec3<float>(sCoord, 0.0f, tCoord),
+                //afk_vec3<float>(sCoord, 0.0f, tCoord),
                 afk_vec2<float>(sTex, tTex)));
         }
     }
@@ -105,14 +107,15 @@ void AFK_ShrinkformBase::initGL()
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned short), &indices[0], GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, SIZEOF_BASE_VERTEX, 0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, SIZEOF_BASE_VERTEX, (GLvoid *)sizeof(Vec3<float>));
+    //glEnableVertexAttribArray(1);
+    //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, SIZEOF_BASE_VERTEX, 0);
+    //glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, SIZEOF_BASE_VERTEX, (GLvoid *)sizeof(Vec3<float>));
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, SIZEOF_BASE_VERTEX, 0);
 }
 
 void AFK_ShrinkformBase::teardownGL(void) const
 {
     glDisableVertexAttribArray(0);
-    glDisableVertexAttribArray(1);
+    //glDisableVertexAttribArray(1);
 }
 

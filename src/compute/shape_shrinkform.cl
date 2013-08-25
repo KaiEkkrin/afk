@@ -26,10 +26,36 @@ struct AFK_ShrinkformCube
     float4                  coord; /* x, y, z, scale */
 };
 
+/* TODO Quaternion utilities -- Prime candidates for library functions */
+float4 quaternion_hamilton_product(float4 q1, float4 q2)
+{
+    return (float4)(
+        q1.x * q2.x - q1.y * q2.y - q1.z * q2.z - q1.w * q2.w,
+        q1.x * q2.y + q1.y * q2.x + q1.z * q2.w - q1.w * q2.z,
+        q1.x * q2.z - q1.y * q2.w + q1.z * q2.x + q1.w * q2.y,
+        q1.x * q2.w + q1.y * q2.z - q1.z * q2.y + q1.w * q2.x);
+}
+
+float4 quaternion_conjugate(float4 q)
+{
+    return (float4)(q.x, -q.y, -q.z, -q.w);
+}
+
+float3 quaternion_rotate(float4 rotation, float3 v)
+{
+    float4 vq = (float4)(0.0f, v.x, v.y, v.z);
+    
+    float4 rq = quaternion_hamilton_product(
+        quaternion_hamilton_product(rotation, vq),
+        quaternion_conjugate(rotation));
+
+    return rq.yzw;
+}
+
 struct AFK_ShrinkformComputeUnit
 {
     float4 location;
-    float4 rotation; /* quaternion.  TODO: figure through what to make of this! */
+    float4 rotation; /* quaternion. */
     int cubeOffset;
     int cubeCount;
     int2 piece;
@@ -52,30 +78,30 @@ __kernel void makeShapeShrinkform(
     const int ydim = get_global_id(1);
     const int unitOffset = get_global_id(2);
 
-    // TODO: I'm going to need to specify to this kernel what
-    // orientation the face has, and I'm going to need to test
-    // the vertex initialisation here to make sure it's all
-    // coming out in the same order as the matrix-transformed
-    // face geometry.
-    // For now, since I'm going to output zeroes to test the
-    // pipeline, it doesn't matter.
-    // Interestingly, what I think I need to do is compute all
-    // the displacements in "face space", which means retaining
-    // the "bottom" orientation base tile, and applying the
-    // relevant transformation to the *shrinkform points*
-    // instead.
-    // So each compute unit should come with a transformation
-    // matrix?
-    // Although: the matrix is not a good use of space, and this
-    // requires an inverse transformation for the points compared
-    // to the face geometry, anyway.  Perhaps this is a good
-    // time to explore an alternative way of describing
-    // translations and rotations (quaternions?)
+    /* Initialise the face co-ordinate that corresponds to my texels.
+     * TODO What happens if I transform this by the unit transformation
+     * and *don't* transform it back -- how about I do that, and introduce
+     * no transformation in the display faces?  That will require my base
+     * face geometry to actually have all points at 0,0,0, counterintuitively
+     * enough, won't it -- but isn't that better?
+     */
+    float3 vl = (float3)(
+        ((float)(xdim + TDIM_START)) / ((float)POINT_SUBDIVISION_FACTOR),
+        0.0f,
+        ((float)(zdim + TDIM_START)) / ((float)POINT_SUBDIVISION_FACTOR));
+
+    vl = quaternion_rotate(units[unitOffset].rotation, vl);
+    vl += units[unitOffset].location.xyz;
+
+    /* Initialise the colour of this co-ordinate */
+    float3 vc = (float3)(0.0f, 0.0f, 0.0f);
+        
+
     int2 jigsawCoord = units[unitOffset].piece * TDIM + (int2)(xdim, ydim);
     write_imagef(jigsawDisp, jigsawCoord,
-        (float4)(0.0f, 0.0f, 0.0f, 1.0f));
+        (float4)(vl, 1.0f));
     write_imagef(jigsawColour, jigsawCoord,
-        (float4)(0.0f, (float)xdim / (float)TDIM, (float)ydim / (float)TDIM, 0.0f));
+        (float4)((float)xdim / (float)TDIM, 0.0f, (float)ydim / (float)TDIM, 0.0f));
 }
 
 
