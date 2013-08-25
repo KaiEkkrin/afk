@@ -25,9 +25,11 @@ enum AFK_ShrinkformOffset
     AFK_SHO_POINT_X         = 0,
     AFK_SHO_POINT_Y         = 1,
     AFK_SHO_POINT_Z         = 2,
-    AFK_SHO_POINT_WEIGHT    = 3,
-    AFK_SHO_POINT_RANGE     = 4
-    /* The rest are reserved for now. */
+	AFK_SHO_POINT_R			= 3,
+	AFK_SHO_POINT_G			= 4,
+	AFK_SHO_POINT_B			= 5,
+    AFK_SHO_POINT_WEIGHT    = 6,
+    AFK_SHO_POINT_RANGE     = 7
 };
 
 class AFK_ShrinkformPoint

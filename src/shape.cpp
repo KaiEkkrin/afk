@@ -86,20 +86,28 @@ void AFK_Shape::makeShrinkformDescriptor(
     {
         /* TODO non-remaking of RNGs? */
         AFK_Boost_Taus88_RNG rng;
-
-        /* TODO Making a single cube for now.  In future, I need
-         * a whole skeleton!
-         */
         boost::hash<unsigned int> uiHash;
         rng.seed(uiHash(shapeKey));
-        Vec4<float> coord = afk_vec4<float>(0.0f, 0.0f, 0.0f, 1.0f);
-        AFK_ShrinkformCube cube;
-        cube.make(
-            shrinkformPoints,
-            coord,
-            sSizes,
-            rng);
-        shrinkformCubes.push_back(cube);
+
+        /* TODO: For now, I'm going to make a whole bunch of larger
+         * nested cubes, ending in the target cube.
+         * I need to have a good think about what to *really* build
+         * and how to correctly wrap a skeleton.
+         */
+        for (int cubeScale = 32; cubeScale >= 1; cubeScale = cubeScale / 2)
+        {
+            AFK_ShrinkformCube cube;
+            cube.make(
+                shrinkformPoints,
+                afk_vec4<float>(
+                    0.5f - ((float)cubeScale * 0.5f),
+                    0.5f - ((float)cubeScale * 0.5f),
+                    0.5f - ((float)cubeScale * 0.5f),
+                    (float)cubeScale),
+                sSizes,
+                rng);
+            shrinkformCubes.push_back(cube);
+        }
 
         /* Push the six faces of the cube into the face list.
          * These will be inverses, because they're going to

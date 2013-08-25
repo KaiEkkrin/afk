@@ -33,7 +33,7 @@ void AFK_ShrinkformCube::make(
     {
         AFK_ShrinkformPoint point;
 
-        for (unsigned int j = 0; j < 5; ++j)
+        for (unsigned int j = 0; j < 8; ++j)
         {
             point.s[j] = (unsigned char)(rng.frand() * 256.0f);
         }
