@@ -75,15 +75,12 @@ __kernel void makeShapeShrinkform(
     __write_only image2d_t jigsawColour)
 {
     const int xdim = get_global_id(0);
-    const int ydim = get_global_id(1);
+    const int zdim = get_global_id(1);
     const int unitOffset = get_global_id(2);
 
     /* Initialise the face co-ordinate that corresponds to my texels.
-     * TODO What happens if I transform this by the unit transformation
-     * and *don't* transform it back -- how about I do that, and introduce
-     * no transformation in the display faces?  That will require my base
-     * face geometry to actually have all points at 0,0,0, counterintuitively
-     * enough, won't it -- but isn't that better?
+     * TODO: A bit excitingly, these are going to need to wrap around the
+     * cube in order to produce un-seamed normals ......
      */
     float3 vl = (float3)(
         ((float)(xdim + TDIM_START)) / ((float)POINT_SUBDIVISION_FACTOR),
@@ -97,11 +94,11 @@ __kernel void makeShapeShrinkform(
     float3 vc = (float3)(0.0f, 0.0f, 0.0f);
         
 
-    int2 jigsawCoord = units[unitOffset].piece * TDIM + (int2)(xdim, ydim);
+    int2 jigsawCoord = units[unitOffset].piece * TDIM + (int2)(xdim, zdim);
     write_imagef(jigsawDisp, jigsawCoord,
         (float4)(vl, 1.0f));
     write_imagef(jigsawColour, jigsawCoord,
-        (float4)((float)xdim / (float)TDIM, 0.0f, (float)ydim / (float)TDIM, 0.0f));
+        (float4)((float)xdim / (float)TDIM, 0.0f, (float)zdim / (float)TDIM, 0.0f));
 }
 
 

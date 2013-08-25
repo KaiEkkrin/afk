@@ -73,7 +73,7 @@ void AFK_TerrainBaseTile::initGL()
 
     glBindBuffer(GL_ARRAY_BUFFER, bufs[0]);
     if (needBufferPush)
-        glBufferData(GL_ARRAY_BUFFER, vertices.size() * SIZEOF_BASE_VERTEX, &vertices[0], GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * AFK_TER_BASE_VERTEX_SIZE, &vertices[0], GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bufs[1]);
     if (needBufferPush)
@@ -81,8 +81,8 @@ void AFK_TerrainBaseTile::initGL()
 
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, SIZEOF_BASE_VERTEX, 0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, SIZEOF_BASE_VERTEX, (GLvoid *)sizeof(Vec3<float>));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, AFK_TER_BASE_VERTEX_SIZE, 0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, AFK_TER_BASE_VERTEX_SIZE, (GLvoid *)sizeof(Vec3<float>));
 }
 
 void AFK_TerrainBaseTile::teardownGL(void) const

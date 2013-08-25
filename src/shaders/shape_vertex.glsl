@@ -5,8 +5,7 @@
 
 #version 330
 
-layout (location = 0) in vec3 Position;
-layout (location = 1) in vec2 TexCoord;
+layout (location = 0) in vec2 TexCoord;
 
 // This is the displacement jigsaw texture.
 // We sample (x, y, z, ignored.)
@@ -34,7 +33,7 @@ void main()
     outData.jigsawCoord = texelFetch(DisplayTBO, gl_InstanceID * 5 + 4).xy + JigsawPiecePitch * TexCoord.st;
 
     // Apply the displacement in face space.
-    vec3 dispPosition = textureLod(JigsawDispTex, outData.jigsawCoord, 0).xyz + Position;
+    vec3 dispPosition = textureLod(JigsawDispTex, outData.jigsawCoord, 0).xyz;
 
     // Reconstruct the world transform matrix for this instance.
     // Of course, AFK is row-major...  :/

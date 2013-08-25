@@ -29,7 +29,7 @@ public:
         const Vec2<float>& _texCoord);
 } __attribute__((aligned(16)));
 
-#define SIZEOF_BASE_VERTEX 32
+#define AFK_SHF_BASE_VERTEX_SIZE 32
 #else
 class AFK_ShrinkformBaseVertex
 {
@@ -40,7 +40,7 @@ public:
         const Vec2<float>& _texCoord);
 };
 
-#define SIZEOF_BASE_VERTEX 8
+#define AFK_SHF_BASE_VERTEX_SIZE 8
 #endif
 
 BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_ShrinkformBaseVertex>::value));

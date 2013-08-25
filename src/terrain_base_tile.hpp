@@ -34,7 +34,7 @@ public:
 /* I don't trust the `sizeof' builtin to work correctly with
  * the above `aligned' ...
  */
-#define SIZEOF_BASE_VERTEX 32
+#define AFK_TER_BASE_VERTEX_SIZE 32
 
 BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_TerrainBaseTileVertex>::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_TerrainBaseTileVertex>::value));

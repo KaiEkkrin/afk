@@ -16,14 +16,9 @@ static void make2DFace(
     const AFK_ShapeSizes& sSizes,
     unsigned int s,
     unsigned int t,
-    //float& o_sCoord,
-    //float& o_tCoord,
     float& o_sTex,
     float& o_tTex)
 {
-    //o_sCoord = (float)s / (float)sSizes.pointSubdivisionFactor;
-    //o_tCoord = (float)t / (float)sSizes.pointSubdivisionFactor;
-
     /* The texture co-ordinates for each jigsaw piece range
      * from (0, 1), with tDim texels along each side, including
      * the padding all the way round.  Therefore, to access the
@@ -47,15 +42,18 @@ AFK_ShrinkformBase::AFK_ShrinkformBase(const AFK_ShapeSizes& sSizes):
      * it to make the others.
      */
 
-    for (unsigned int x = 0; x < sSizes.vDim; ++x)
+    /* TODO Why do I have to add 1 here?  Something to do with the way
+     * nvidia's nearest neighbour sampling works?  Verify it on AMD.
+     * See if I can switch the landscape Y displacement back to nearest
+     * neighbour, too?
+     */
+    for (unsigned int x = 1; x < (sSizes.vDim + 1); ++x)
     {
-        for (unsigned int z = 0; z < sSizes.vDim; ++z)
+        for (unsigned int z = 1; z < (sSizes.vDim + 1); ++z)
         {
-            //float sCoord, tCoord,
             float sTex, tTex;
-            make2DFace(sSizes, x, z, /* sCoord, tCoord, */ sTex, tTex);
+            make2DFace(sSizes, x, z, sTex, tTex);
             vertices.push_back(AFK_ShrinkformBaseVertex(
-                //afk_vec3<float>(sCoord, 0.0f, tCoord),
                 afk_vec2<float>(sTex, tTex)));
         }
     }
@@ -100,7 +98,7 @@ void AFK_ShrinkformBase::initGL()
 
     glBindBuffer(GL_ARRAY_BUFFER, bufs[0]);
     if (needBufferPush)
-        glBufferData(GL_ARRAY_BUFFER, vertices.size() * SIZEOF_BASE_VERTEX, &vertices[0], GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * AFK_SHF_BASE_VERTEX_SIZE, &vertices[0], GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bufs[1]);
     if (needBufferPush)
@@ -108,9 +106,9 @@ void AFK_ShrinkformBase::initGL()
 
     glEnableVertexAttribArray(0);
     //glEnableVertexAttribArray(1);
-    //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, SIZEOF_BASE_VERTEX, 0);
-    //glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, SIZEOF_BASE_VERTEX, (GLvoid *)sizeof(Vec3<float>));
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, SIZEOF_BASE_VERTEX, 0);
+    //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, AFK_SHF_BASE_VERTEX_SIZE, 0);
+    //glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, AFK_SHF_BASE_VERTEX_SIZE, (GLvoid *)sizeof(Vec3<float>));
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, AFK_SHF_BASE_VERTEX_SIZE, 0);
 }
 
 void AFK_ShrinkformBase::teardownGL(void) const

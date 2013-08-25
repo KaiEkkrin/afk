@@ -109,8 +109,8 @@ void AFK_Shape::makeShrinkformDescriptor(
         for (unsigned int face = 0; face < 6; ++face)
         {
             faces.push_back(AFK_ShapeFace(
-                afk_vec4<float>(-faceTransforms.obj[face].getTranslation(), 1.0f),
-                faceTransforms.obj[face].getRotation().inverse()));
+                afk_vec4<float>(faceTransforms.obj[face].getTranslation(), 1.0f),
+                faceTransforms.obj[face].getRotation()));
         }
 
         haveShrinkformDescriptor = true;
@@ -178,9 +178,8 @@ void AFK_Shape::enqueueDisplayUnits(
     for (int face = 0; face < 6; ++face)
     {
         AFK_JigsawPiece jigsawPiece = faces[face].jigsawPiece;
-        Mat4<float> totalTransform = objTransform * faceTransforms.trans[face];
         q->add(AFK_EntityDisplayUnit(
-            totalTransform,
+            objTransform, /* The face's orientation is already fixed by the CL */
             jigsaws->getPuzzle(jigsawPiece)->getTexCoordST(jigsawPiece)));
     }
 }
