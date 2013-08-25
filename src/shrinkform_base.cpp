@@ -3,9 +3,7 @@
 #include "shrinkform_base.hpp"
 
 AFK_ShrinkformBaseVertex::AFK_ShrinkformBaseVertex(
-    //const Vec3<float>& _location,
     const Vec2<float>& _texCoord):
-        //location(_location),
         texCoord(_texCoord)
 {
 }
@@ -23,9 +21,12 @@ static void make2DFace(
      * from (0, 1), with tDim texels along each side, including
      * the padding all the way round.  Therefore, to access the
      * correct texels, I need to skip the padding, like so:
+     * (The +0.25f offset is to stop nvidia cards from nearest-
+     * neighbour sampling down to the *previous* point, which they
+     * seem to tend to do with no offset ... )
      */
-    o_sTex = ((float)s - (float)sSizes.tDimStart) / (float)sSizes.tDim;
-    o_tTex = ((float)t - (float)sSizes.tDimStart) / (float)sSizes.tDim;
+    o_sTex = ((float)s - (float)sSizes.tDimStart + 0.25f) / (float)sSizes.tDim;
+    o_tTex = ((float)t - (float)sSizes.tDimStart + 0.25f) / (float)sSizes.tDim;
 }
     
 AFK_ShrinkformBase::AFK_ShrinkformBase(const AFK_ShapeSizes& sSizes):
@@ -47,9 +48,9 @@ AFK_ShrinkformBase::AFK_ShrinkformBase(const AFK_ShapeSizes& sSizes):
      * See if I can switch the landscape Y displacement back to nearest
      * neighbour, too?
      */
-    for (unsigned int x = 1; x < (sSizes.vDim + 1); ++x)
+    for (unsigned int x = 0; x < sSizes.vDim; ++x)
     {
-        for (unsigned int z = 1; z < (sSizes.vDim + 1); ++z)
+        for (unsigned int z = 0; z < sSizes.vDim; ++z)
         {
             float sTex, tTex;
             make2DFace(sSizes, x, z, sTex, tTex);

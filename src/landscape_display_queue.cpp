@@ -90,13 +90,8 @@ void AFK_LandscapeDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsa
     /* The first texture is the jigsaw Y-displacement */
     glActiveTexture(GL_TEXTURE0);
     jigsaw->bindTexture(0);
-    /* Interestingly, if I use nearest-neighbour sampling here I get
-     * artifacts that suggest it's rounding across to the wrong sample
-     * on one side of the tiles.  If I use linear sampling
-     * the artifacts go away...
-     */
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, /* GL_NEAREST */ GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, /* GL_NEAREST */ GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glUniform1i(jigsawYDispTexSamplerLocation, 0);
 
     /* The second texture is the jigsaw colour */
