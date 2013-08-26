@@ -25,8 +25,13 @@ struct AFK_ShrinkformPoint
 };
 
 /* ---Like landscape_terrain--- */
-__constant float maxFeatureSize = 1.0f / ((float)POINT_SUBDIVISION_FACTOR);
-__constant float minFeatureSize = (1.0f / ((float)POINT_SUBDIVISION_FACTOR)) / ((float)SUBDIVISION_FACTOR);
+/* TODO Exaggerating feature size to test stuff for now.  I think the
+ * higher LoDs aren't right, or simply aren't there.  12 here produces
+ * great results.  I just want this with more spaced-out points and
+ * without all that triangle overlap.
+ */
+__constant float maxFeatureSize = 4.0f / ((float)POINT_SUBDIVISION_FACTOR);
+__constant float minFeatureSize = (4.0f / ((float)POINT_SUBDIVISION_FACTOR)) / ((float)SUBDIVISION_FACTOR);
 
 void computeShrinkformPoint(
     float3 *vl,
@@ -85,8 +90,8 @@ void computeAverageShrinkformPoint(
     float3 *o_colour)
 {
     float pointRange = (float)points[i].s[AFK_SHO_POINT_RANGE] * (maxFeatureSize - minFeatureSize) / 256.0f + minFeatureSize;
-    float minPointLocation = pointRange;
-    float maxPointLocation = 1.0f - pointRange;
+    float minPointLocation = /* pointRange */ 0.0f;
+    float maxPointLocation = 1.0f /* - pointRange */;
 
     /* TODO Try using the builtin vload() for the below ? */
     float3 pointLocation = (float3)(
@@ -99,14 +104,17 @@ void computeAverageShrinkformPoint(
         (float)points[i].s[AFK_SHO_POINT_G],
         (float)points[i].s[AFK_SHO_POINT_B]) / 256.0f;
 
-    float pointWeight = (float)points[i].s[AFK_SHO_POINT_WEIGHT] / 256.0f;
+    /* TODO Experimenting with negative weight.  (A repel point
+     * should be worthwhile.)
+     */
+    float pointWeight = (float)points[i].s[AFK_SHO_POINT_WEIGHT] / 128.0f - 1.0f;
 
     float pointDistance = distance(pointLocation, startLocation);
     if (pointDistance < pointRange)
     {
         *o_direction += normalize(pointLocation - startLocation) * pointWeight;
-        *o_displacement += distance(pointLocation, startLocation);
-        *o_colour += pointColour * pointWeight;
+        *o_displacement += pointDistance * pointWeight;
+        *o_colour += pointColour;
     }
 }
 
@@ -115,18 +123,26 @@ struct AFK_ShrinkformCube
     float4                  coord; /* x, y, z, scale */
 };
 
+void transformLocationToLocation(
+    float3 *vl,
+    float3 *vc,
+    float4 fromCoord,
+    float4 toCoord)
+{
+    *vl = (*vl * fromCoord.w + fromCoord.xyz - toCoord.xyz) / toCoord.w;
+    *vc = *vc + fromCoord.w / toCoord.w;
+}
+
 void transformCubeToCube(
     float3 *vl,
-    /* float3 *vc, */
+    float3 *vc,
     __global const struct AFK_ShrinkformCube *cubes,
     unsigned int cFrom,
     unsigned int cTo)
 {
     float4 fromCoord = cubes[cFrom].coord;
     float4 toCoord = cubes[cTo].coord;
-
-    *vl = (*vl * fromCoord.w + fromCoord.xyz - toCoord.xyz) / toCoord.w;
-    //*vc = *vc + fromCoord.w / toCoord.w;
+    transformLocationToLocation(vl, vc, fromCoord, toCoord);
 }
 
 /* TODO Quaternion utilities -- Prime candidates for library functions */
@@ -194,7 +210,7 @@ __kernel void makeShapeShrinkform(
     vl += units[unitOffset].location.xyz;
 
     /* Initialise the colour of this co-ordinate */
-    float3 vc = (float3)(1.0f, 1.0f, 1.0f);
+    float3 vc = (float3)(0.0f, 0.0f, 0.0f);
         
     /* The cube list starts with the biggest one and gets smaller.
      * Therefore, I first need to transform into the space of the
@@ -203,18 +219,21 @@ __kernel void makeShapeShrinkform(
      * using another dimension of the kernel, somehow; however, don't
      * worry about it until it becomes a performance issue...  (shrapnel?)
      */
-    transformCubeToCube(&vl, /* &vc, */ cubes,
-        units[unitOffset].cubeOffset + units[unitOffset].cubeCount - 1, /* smallest cube */
-        units[unitOffset].cubeOffset);
+    transformLocationToLocation(&vl, &vc, (float4)(0.0f, 0.0f, 0.0f, 1.0f),
+        cubes[units[unitOffset].cubeOffset].coord);
+    /* TODO To test, starting with the last cube instead */
+    //transformLocationToLocation(&vl, &vc, (float4)(0.0f, 0.0f, 0.0f, 1.0f),
+    //    cubes[units[unitOffset].cubeOffset + units[unitOffset].cubeCount - 1].coord);
 
     /* running notes:
      */
+    //int i = units[unitOffset].cubeOffset + units[unitOffset].cubeCount - 1;
     int i;
     for (i = units[unitOffset].cubeOffset; i < (units[unitOffset].cubeOffset + units[unitOffset].cubeCount); ++i)
     {
         if (i > units[unitOffset].cubeOffset)
         {
-            transformCubeToCube(&vl, /* &vc, */ cubes, i-1, i);
+            transformCubeToCube(&vl, &vc, cubes, i-1, i);
         }
 
         float3 direction = (float3)(0.0f, 0.0f, 0.0f);
@@ -230,14 +249,11 @@ __kernel void makeShapeShrinkform(
         vc += colour;
     }
 
-    // TODO remove debug
-    //transformCubeToCube(&vl, cubes, i, units[unitOffset].cubeOffset + units[unitOffset].cubeCount - 1);
+    transformLocationToLocation(&vl, &vc,
+        cubes[i-1].coord,
+        (float4)(0.0f, 0.0f, 0.0f, 1.0f));
 
-    /* At the end I don't need to transform again, because I'm in the
-     * space of the smallest cube (the native cube for this face).
-     */
-
-    vc = normalize(vc);
+    vc = normalize(vc) * 1.4f - 0.4f;
 
     int2 jigsawCoord = units[unitOffset].piece * TDIM + (int2)(xdim, zdim);
     write_imagef(jigsawDisp, jigsawCoord,

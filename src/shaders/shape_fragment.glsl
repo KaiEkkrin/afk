@@ -30,6 +30,9 @@ uniform Light gLight;
 void main()
 {
     vec3 colour = textureLod(JigsawColourTex, inData.jigsawCoord, 0).xyz;
+    /* TODO This normal is for the orientation of the base face -- we
+     * need to rotate it to the object's current orientation!
+     */
     vec3 normal = textureLod(JigsawNormalTex, inData.jigsawCoord, 0).xyz;
 
     vec3 AmbientColour = gLight.Colour * gLight.Ambient;

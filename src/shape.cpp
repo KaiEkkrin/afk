@@ -9,6 +9,7 @@
 #include <boost/shared_ptr.hpp>
 
 #include "core.hpp"
+#include "debug.hpp"
 #include "def.hpp"
 #include "entity_display_queue.hpp"
 #include "jigsaw.hpp"
@@ -269,10 +270,19 @@ void AFK_Shape::makeShrinkformDescriptor(
 
         /* ...And also by a set of grids that determine where 
          * shrinkform points will exist.
+         * TODO fix fix -- number of point grids -- and starting to
+         * be pretty sure that I'm going to need to not just throw
+         * all the cubes into the CL but instead pick a sub-list that
+         * is used by each face...  flibble
+         * Although, I'm also pretty sure I don't need the finest-
+         * detail ones.  I can compress what I'm doing a great deal
+         * by changing the point grids to contain a few large
+         * points (with scale between cube size and cube size/subdivision factor,
+         * say).
          */
         int pointGridCount;
         for (pointGridCount = 1;
-            (1 << (pointGridCount - 1)) < (int)(sSizes.pointSubdivisionFactor);
+            (1 << (pointGridCount - 1)) < (int)(sSizes.pointSubdivisionFactor * 2);
             ++pointGridCount)
         {
             pointGrids.push_back(new AFK_SkeletonFlagGrid((1 << pointGridCount) + 1));
@@ -289,6 +299,13 @@ void AFK_Shape::makeShrinkformDescriptor(
         for (std::vector<Vec4<int> >::iterator pointCubeIt = skeletonPointCubes.begin();
             pointCubeIt != skeletonPointCubes.end(); ++pointCubeIt)
         {
+            /* TODO Individually debugging the various LoDs. */
+            if (pointCubeIt->v[3] == 1) continue;
+            /* TODO I'm not convinced there is actually anything AT the
+             * higher levels of detail -- or not very much.  Investigate.
+             */
+            AFK_DEBUG_PRINTL(shapeKey << ": Using point cube: " << *pointCubeIt)
+
             AFK_ShrinkformCube cube;
             cube.make(
                 shrinkformPoints,
