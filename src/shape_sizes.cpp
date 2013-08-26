@@ -22,7 +22,7 @@ AFK_ShapeSizes::AFK_ShapeSizes(
     vSize(SQUARE(pointSubdivisionFactor + 1) * sizeof(Vec3<float>)),
     iSize(SQUARE(pointSubdivisionFactor) * 2 * 3 * sizeof(unsigned short)),
     tSize(SQUARE(pointSubdivisionFactor + 3) * 2 * sizeof(Vec4<float>)), /* normal + y disp., colour */
-    pointCountPerCube(CUBE(pointSubdivisionFactor / 4)), /* TODO Probably wants experimenting with */
+    pointCountPerCube(CUBE(pointSubdivisionFactor / 2)), /* TODO Probably wants experimenting with */
     skeletonMaxSize(pointSubdivisionFactor * 2),
     skeletonFlagGridDim(pointSubdivisionFactor),
     skeletonBushiness(1.0f / 4.0f)

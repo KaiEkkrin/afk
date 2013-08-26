@@ -272,7 +272,7 @@ void AFK_Shape::makeShrinkformDescriptor(
          */
         int pointGridCount;
         for (pointGridCount = 1;
-            (1 << (pointGridCount - 1)) < (int)(sSizes.pointSubdivisionFactor + sSizes.skeletonFlagGridDim);
+            (1 << (pointGridCount - 1)) < (int)(sSizes.pointSubdivisionFactor);
             ++pointGridCount)
         {
             pointGrids.push_back(new AFK_SkeletonFlagGrid((1 << pointGridCount) + 1));

@@ -71,6 +71,45 @@ void computeShrinkformPoint(
     }
 }
 
+/* TODO Pick one or the other.
+ * This function makes averages of the vectors to, and distances
+ * to, the target for each point, so that we can then pull to
+ * an average point.
+ */
+void computeAverageShrinkformPoint(
+    float3 startLocation,
+    __global const struct AFK_ShrinkformPoint *points,
+    int i,
+    float3 *o_direction,
+    float *o_displacement,
+    float3 *o_colour)
+{
+    float pointRange = (float)points[i].s[AFK_SHO_POINT_RANGE] * (maxFeatureSize - minFeatureSize) / 256.0f + minFeatureSize;
+    float minPointLocation = pointRange;
+    float maxPointLocation = 1.0f - pointRange;
+
+    /* TODO Try using the builtin vload() for the below ? */
+    float3 pointLocation = (float3)(
+        (float)points[i].s[AFK_SHO_POINT_X],
+        (float)points[i].s[AFK_SHO_POINT_Y],
+        (float)points[i].s[AFK_SHO_POINT_Z]) * (maxPointLocation - minPointLocation) / 256.0f + minPointLocation;
+
+    float3 pointColour = (float3)(
+        (float)points[i].s[AFK_SHO_POINT_R],
+        (float)points[i].s[AFK_SHO_POINT_G],
+        (float)points[i].s[AFK_SHO_POINT_B]) / 256.0f;
+
+    float pointWeight = (float)points[i].s[AFK_SHO_POINT_WEIGHT] / 256.0f;
+
+    float pointDistance = distance(pointLocation, startLocation);
+    if (pointDistance < pointRange)
+    {
+        *o_direction += normalize(pointLocation - startLocation) * pointWeight;
+        *o_displacement += distance(pointLocation, startLocation);
+        *o_colour += pointColour * pointWeight;
+    }
+}
+
 struct AFK_ShrinkformCube
 {
     float4                  coord; /* x, y, z, scale */
@@ -168,18 +207,31 @@ __kernel void makeShapeShrinkform(
         units[unitOffset].cubeOffset + units[unitOffset].cubeCount - 1, /* smallest cube */
         units[unitOffset].cubeOffset);
 
-    for (int i = units[unitOffset].cubeOffset; i < (units[unitOffset].cubeOffset + units[unitOffset].cubeCount); ++i)
+    /* running notes:
+     */
+    int i;
+    for (i = units[unitOffset].cubeOffset; i < (units[unitOffset].cubeOffset + units[unitOffset].cubeCount); ++i)
     {
         if (i > units[unitOffset].cubeOffset)
         {
             transformCubeToCube(&vl, /* &vc, */ cubes, i-1, i);
         }
 
+        float3 direction = (float3)(0.0f, 0.0f, 0.0f);
+        float displacement = 0.0f;
+        float3 colour = (float3)(0.0f, 0.0f, 0.0f);
+
         for (int j = i * POINT_COUNT_PER_CUBE; j < ((i + 1) * POINT_COUNT_PER_CUBE); ++j)
         {
-            computeShrinkformPoint(&vl, &vc, points, j);
+            computeAverageShrinkformPoint(vl, points, j, &direction, &displacement, &colour);
         }
+
+        vl += normalize(direction) * displacement / (float)POINT_COUNT_PER_CUBE;
+        vc += colour;
     }
+
+    // TODO remove debug
+    //transformCubeToCube(&vl, cubes, i, units[unitOffset].cubeOffset + units[unitOffset].cubeCount - 1);
 
     /* At the end I don't need to transform again, because I'm in the
      * space of the smallest cube (the native cube for this face).
