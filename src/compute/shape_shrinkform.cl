@@ -100,8 +100,10 @@ int computeAverageShrinkformPoint(
         (float)points[i].s[AFK_SHO_POINT_G],
         (float)points[i].s[AFK_SHO_POINT_B]) / 256.0f;
 
-    /* TODO Experimenting with negative weight.  (A repel point
-     * should be worthwhile.)
+    /* TODO: Have the weight try to pull towards a target
+     * radius, rather than trying to pull towards the
+     * point itself.  That should entirely put paid to
+     * "pinching" and make for better shapes (?)
      */
     float pointWeight = (float)points[i].s[AFK_SHO_POINT_WEIGHT] / 128.0f - 1.0f;
     //pointWeight = pointWeight * (maxFeatureSize - minFeatureSize);
@@ -256,7 +258,7 @@ __kernel void makeShapeShrinkform(
          * have low scale, to verify that the large cubes are actually
          * taking effect (which I don't think they are)
          */
-        if (cubes[i].coord.w < 8.0f) continue;
+        //if (cubes[i].coord.w < 4.0f) continue;
 
         float3 direction = (float3)(0.0f, 0.0f, 0.0f);
         float displacement = 0.0f;
