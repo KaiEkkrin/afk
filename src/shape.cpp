@@ -67,12 +67,12 @@ AFK_ShapeFace::AFK_ShapeFace(
 AFK_SkeletonFlagGrid::AFK_SkeletonFlagGrid(int _gridDim):
     gridDim(_gridDim)
 {
-    assert((unsigned int)gridDim < (sizeof(unsigned int) * 8));
-    grid = new unsigned int *[gridDim];
+    assert((unsigned long long)gridDim < (sizeof(unsigned long long) * 8));
+    grid = new unsigned long long *[gridDim];
     for (int x = 0; x < gridDim; ++x)
     {
-        grid[x] = new unsigned int[gridDim];
-        memset(grid[x], 0, sizeof(unsigned int) * gridDim);
+        grid[x] = new unsigned long long[gridDim];
+        memset(grid[x], 0, sizeof(unsigned long long) * gridDim);
     }
 }
 
@@ -93,7 +93,7 @@ AFK_SkeletonFlagGrid::~AFK_SkeletonFlagGrid()
     ((z) >= -(gridDim / 2) && (z) < (gridDim / 2)))
 
 #define SKELETON_FLAG_XY(x, y) grid[(x) + gridDim / 2][(y) + gridDim / 2]
-#define SKELETON_FLAG_Z(z) (1 << ((z) + gridDim / 2))
+#define SKELETON_FLAG_Z(z) (1uLL << ((z) + gridDim / 2))
 
 enum AFK_SkeletonFlag AFK_SkeletonFlagGrid::testFlag(const Vec3<int>& cube) const
 {
@@ -282,7 +282,7 @@ void AFK_Shape::makeShrinkformDescriptor(
          */
         int pointGridCount;
         for (pointGridCount = 1;
-            (1 << (pointGridCount - 1)) < (int)(sSizes.pointSubdivisionFactor * 2);
+            (1 << (pointGridCount - 1)) < (int)(sSizes.pointSubdivisionFactor * 4);
             ++pointGridCount)
         {
             pointGrids.push_back(new AFK_SkeletonFlagGrid((1 << pointGridCount) + 1));
@@ -300,7 +300,7 @@ void AFK_Shape::makeShrinkformDescriptor(
             pointCubeIt != skeletonPointCubes.end(); ++pointCubeIt)
         {
             /* TODO Individually debugging the various LoDs. */
-            if (pointCubeIt->v[3] == 1) continue;
+            //if (pointCubeIt->v[3] == 1) continue;
             /* TODO I'm not convinced there is actually anything AT the
              * higher levels of detail -- or not very much.  Investigate.
              */

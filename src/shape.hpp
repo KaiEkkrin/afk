@@ -56,7 +56,7 @@ enum AFK_SkeletonFlag
 class AFK_SkeletonFlagGrid
 {
 protected:
-    unsigned int **grid;
+    unsigned long long **grid;
     int gridDim;
 
 public:

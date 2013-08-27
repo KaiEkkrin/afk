@@ -236,6 +236,12 @@ __kernel void makeShapeShrinkform(
             transformCubeToCube(&vl, &vc, cubes, i-1, i);
         }
 
+        /* TODO Let's test this stuff by bypassing all the cubes that
+         * have low scale, to verify that the large cubes are actually
+         * taking effect (which I don't think they are)
+         */
+        if (cubes[i].coord.w < 16.0f) continue;
+
         float3 direction = (float3)(0.0f, 0.0f, 0.0f);
         float displacement = 0.0f;
         float3 colour = (float3)(0.0f, 0.0f, 0.0f);
@@ -253,7 +259,7 @@ __kernel void makeShapeShrinkform(
         cubes[i-1].coord,
         (float4)(0.0f, 0.0f, 0.0f, 1.0f));
 
-    vc = normalize(vc) * 1.4f - 0.4f;
+    vc = normalize(vc);
 
     int2 jigsawCoord = units[unitOffset].piece * TDIM + (int2)(xdim, zdim);
     write_imagef(jigsawDisp, jigsawCoord,
