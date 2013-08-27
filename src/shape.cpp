@@ -296,8 +296,13 @@ void AFK_Shape::makeShrinkformDescriptor(
 
         /* Now, for each skeleton point cube, add its points...
          */
-        for (std::vector<Vec4<int> >::iterator pointCubeIt = skeletonPointCubes.begin();
-            pointCubeIt != skeletonPointCubes.end(); ++pointCubeIt)
+        /* TODO Having a go at doing this in inverse order to see
+         * if the large cubes crop up in the CL first
+         */
+        //for (std::vector<Vec4<int> >::iterator pointCubeIt = skeletonPointCubes.begin();
+        //    pointCubeIt != skeletonPointCubes.end(); ++pointCubeIt)
+        for (std::vector<Vec4<int> >::reverse_iterator pointCubeIt = skeletonPointCubes.rbegin();
+            pointCubeIt != skeletonPointCubes.rend(); ++pointCubeIt)
         {
             /* TODO Individually debugging the various LoDs. */
             //if (pointCubeIt->v[3] == 1) continue;

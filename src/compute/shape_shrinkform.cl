@@ -25,13 +25,8 @@ struct AFK_ShrinkformPoint
 };
 
 /* ---Like landscape_terrain--- */
-/* TODO Exaggerating feature size to test stuff for now.  I think the
- * higher LoDs aren't right, or simply aren't there.  12 here produces
- * great results.  I just want this with more spaced-out points and
- * without all that triangle overlap.
- */
-__constant float maxFeatureSize = 4.0f / ((float)POINT_SUBDIVISION_FACTOR);
-__constant float minFeatureSize = (4.0f / ((float)POINT_SUBDIVISION_FACTOR)) / ((float)SUBDIVISION_FACTOR);
+__constant float maxFeatureSize = 1.0f / ((float)POINT_SUBDIVISION_FACTOR);
+__constant float minFeatureSize = (1.0f / ((float)POINT_SUBDIVISION_FACTOR)) / ((float)SUBDIVISION_FACTOR);
 
 void computeShrinkformPoint(
     float3 *vl,
@@ -80,8 +75,9 @@ void computeShrinkformPoint(
  * This function makes averages of the vectors to, and distances
  * to, the target for each point, so that we can then pull to
  * an average point.
+ * Returns 1 if the point took effect here, else 0.
  */
-void computeAverageShrinkformPoint(
+int computeAverageShrinkformPoint(
     float3 startLocation,
     __global const struct AFK_ShrinkformPoint *points,
     int i,
@@ -108,6 +104,8 @@ void computeAverageShrinkformPoint(
      * should be worthwhile.)
      */
     float pointWeight = (float)points[i].s[AFK_SHO_POINT_WEIGHT] / 128.0f - 1.0f;
+    //pointWeight = pointWeight * (maxFeatureSize - minFeatureSize);
+    //pointWeight = (pointWeight > 0.0f) ? (pointWeight + minFeatureSize) : (pointWeight - minFeatureSize);
 
     float pointDistance = distance(pointLocation, startLocation);
     if (pointDistance < pointRange)
@@ -115,6 +113,24 @@ void computeAverageShrinkformPoint(
         *o_direction += normalize(pointLocation - startLocation) * pointWeight;
         *o_displacement += pointDistance * pointWeight;
         *o_colour += pointColour;
+        return 1;
+    }
+    else if (pointDistance < (2.0f * pointRange))
+    {
+        /* Experimental: Trying to make a smooth decrease in
+         * displacement within this range of distances,
+         * rather than a sudden stop, in an attempt again to
+         * reduce nasty "pinching" effects.
+         * I think this is a Good Idea.
+         */
+        *o_direction += normalize(pointLocation - startLocation) * pointWeight;
+        *o_displacement += (2.0f * pointRange - pointDistance) * pointWeight;
+        *o_colour += pointColour;
+        return 1;
+    }
+    else
+    {
+        return 0;
     }
 }
 
@@ -240,19 +256,29 @@ __kernel void makeShapeShrinkform(
          * have low scale, to verify that the large cubes are actually
          * taking effect (which I don't think they are)
          */
-        if (cubes[i].coord.w < 16.0f) continue;
+        if (cubes[i].coord.w < 8.0f) continue;
 
         float3 direction = (float3)(0.0f, 0.0f, 0.0f);
         float displacement = 0.0f;
         float3 colour = (float3)(0.0f, 0.0f, 0.0f);
+        int pointsAffected = 0;
 
         for (int j = i * POINT_COUNT_PER_CUBE; j < ((i + 1) * POINT_COUNT_PER_CUBE); ++j)
         {
-            computeAverageShrinkformPoint(vl, points, j, &direction, &displacement, &colour);
+            pointsAffected += computeAverageShrinkformPoint(vl, points, j, &direction, &displacement, &colour);
         }
 
-        vl += normalize(direction) * displacement / (float)POINT_COUNT_PER_CUBE;
-        vc += colour;
+        /* the `pointsAffected' counter is important.  Otherwise
+         * I'll average out the "effect" of points that had no
+         * effect because they were too far away, thereby
+         * reducing the effect of all points that were actually
+         * significant.
+         */
+        if (pointsAffected > 0)
+        {
+            vl += normalize(direction) * displacement / (float)pointsAffected;
+            vc += colour / (float)pointsAffected;
+        }
     }
 
     transformLocationToLocation(&vl, &vc,
