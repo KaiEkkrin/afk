@@ -148,7 +148,7 @@ void transformLocationToLocation(
     float4 toCoord)
 {
     *vl = (*vl * fromCoord.w + fromCoord.xyz - toCoord.xyz) / toCoord.w;
-    *vc = *vc + fromCoord.w / toCoord.w;
+    *vc = *vc * fromCoord.w / toCoord.w;
 }
 
 void transformCubeToCube(

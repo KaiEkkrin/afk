@@ -1,13 +1,12 @@
 /* AFK (c) Alex Holloway 2013 */
 
-/* This program computes a 3D shape by accumulating a 3D
- * number field and tracing the edge of some particular
- * value, rendering this trace into a displacement
- * texture.
- * This program replaces `shape_shrinkform' and its
- * ancillaries in the 3dedgeshape branch.  I'm hoping it
- * turns out to work better and can be integrated into
- * master and become the definitive random-shape device.
+/* This program computes a 3D shape by edge detecting a
+ * 3D `vapour field' (from 3dvapour) at a particular density,
+ * rendering this trace into a displacement
+ * texture.  This is the second part of the 3dedge stuff,
+ * which takes the output of shape_3d (a 3D texture of
+ * colours and object presence numbers) and maps the
+ * deformable faces of a cube onto it.
  */
 
 /* TODO: For now the comments are all about planning
@@ -15,45 +14,57 @@
  * complicated than the ones I've made before.
  */
 
-/* It looks like `jigsawDisp' and `jigsawColour' will
- * each consist of six squares in a row, corresponding
- * to the six faces of the cube.
- * I also expect that `jigsawDisp' can be a one-channel
- * image again, displacing only the co-ordinate that is
- * all-zero in the base geometry (y for bottom and top,
- * z for front and back, x for left and right).
+/* This kernel should run across:
+ * (0..TDIM-1) * unitCount,
+ * (0..TDIM-1),
+ * (0..TDIM-1).
  */
 
-/* TODO: Do I want to split this kernel into two, with
- * the first writing an image3d_t number volume, and
- * the second one reading it to do the edge detection
- * and face reduction?
- * (Depends whether I can retain the number volume in
- * local memory reasonably or not.)
- */
+struct AFK_3DVapourComputeUnit
+{
+    int3 vapourPiece;
+    int2 edgePiece; /* TODO: Points to the first of six pieces in a row together
+                     * along the x axis of the edge jigsaws.  I need to change the
+                     * jigsaw so that it can handle allocating pieces in a row
+                     * like this. */
+    int cubeOffset;
+    int cubeCount;
+};
 
-/* Note: The laptop GPU claims about 48K of local
- * memory, which should be considered about the
- * usual amount.
- * An 11x11x11 cube is 1331 units; one float per
- * unit would make 5324 bytes.  Which _ought_ to fit;
- * (including the colour as well would double that
- * requirement; which would mean fewer wavefronts
- * scheduled, which would mess up latency hiding.)
- * I'm going to need local memory for the reduce
- * operations as well (actually *need* as opposed to just
- * *would like*), so I think I'm best off using global
- * images for the number volumes, and two kernels,
- * using local memory in the reduce kernel to pull out
- * the displacements.
+__constant int reduceDim = (1 << REDUCE_ORDER);
+__constant int halfReduceDim = (1 << (REDUCE_ORDER - 1));
+
+/* This function initialises the local edge array used to reduce
+ * faces with -1 (which means "no edge here") in all the places that
+ * aren't guaranteed to be overwritten.
  */
+void initEdge(__local byte ***edge, int xdim, int ydim, int zdim)
+{
+    if (xdim < halfReduceDim && ydim < halfReduceDim && zdim < halfReduceDim)
+        edge[xdim + halfReduceDim][ydim + halfReduceDim][zdim + halfReduceDim] = -1;
+    if (xdim < halfReduceDim && ydim < halfReduceDim)
+        edge[xdim + halfReduceDim][ydim + halfReduceDim][zdim] = -1;
+    if (xdim < halfReduceDim && zdim < halfReduceDim)
+        edge[xdim + halfReduceDim][ydim][zdim + halfReduceDim] = -1;
+    if (ydim < halfReduceDim && zdim < halfReduceDim)
+        edge[xdim][ydim + halfReduceDim][zdim + halfReduceDim] = -1;
+    if (xdim < halfReduceDim)
+        edge[xdim + halfReduceDim][ydim][zdim] = -1;
+    if (ydim < halfReduceDim)
+        edge[xdim][ydim + halfReduceDim][zdim] = -1;
+    if (zdim < halfReduceDim)
+        edge[xdim][ydim][zdim + halfReduceDim] = -1;
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+}
 
 __kernel void makeShape3dedge(
-    __global const struct AFK_3DEdgeFeature *features,
-    __global const struct AFK_3DEdgeCube *cubes,
+    __read_only image3d_t vapour,
     __global const struct AFK_3DEdgeComputeUnit *units,
     __write_only image2d_t jigsawDisp,
-    __write_only image2d_t jigsawColour)
+    __write_only image2d_t jigsawColour,
+    __write_only image2d_t jigsawNormal,
+    float threshold)
 {
     /* We're necessarily going to operate across the
      * three dimensions of a cube.
@@ -65,11 +76,7 @@ __kernel void makeShape3dedge(
     const int ydim = get_global_id(1);
     const int zdim = get_global_id(2);
 
-    /* First of all, compute the number field by 
-     * iterating across all of the cubes and features.
-     */
-
-    /* Next, edge-detect by comparing my point in the
+    /* Edge-detect by comparing my point in the
      * number grid with the other three points to its
      * top, right and back.
      * (The top and right sides are exempt from this.)
@@ -78,27 +85,293 @@ __kernel void makeShape3dedge(
      * they are facing in.
      */
 
-    /* Thirdly, reduce in turn across each of the six
-     * potential faces that could contain my edge-
-     * detected geometry: bottom, top, left, right,
-     * front, back.  The edge closest to a face
-     * becomes the one that influences its geometry
-     * at the relevant 2D points (and also its colour
-     * there.)
-     * The worker closest to the base face in the
-     * reduction (the one at 0 or TDIM) will be responsible
-     * for writing the displacement into the image.
+    /* Here are the possibilities in 2D:
+     * - -                      - -
+     * + -  <-- top or right    + +  <-- top only
+     *
+     * + -                      + -
+     * + -  <-- right only      + +  <-- neither; responsibility of the threads +up and +right
+     *
+     * - +
+     * + -  <-- top or right; there may be some illogicality as that + gets handled
+     * Invert the above for bottom, left.
      */
 
-    /* Each time a point has "won" and been used for one
-     * edge, it is removed from the detection so it can't
-     * be used for another one.  This should allow
-     * diagonal sides that were occluded in one direction
-     * but not the other to influence the geometry of the
-     * second one.
+    /* This array is (me, right, up, back). */
+    float4 v[4];
+    v[0] = read_imagef(units[unitOffset].vapourPiece * TDIM +
+        (int3)(xdim, ydim, zdim));
+    v[1] = read_imagef(units[unitOffset].vapourPiece * TDIM +
+        (int3)(xdim + 1, ydim, zdim));
+    v[2] = read_imagef(units[unitOffset].vapourPiece * TDIM +
+        (int3)(xdim, ydim + 1, zdim));
+    v[3] = read_imagef(units[unitOffset].vapourPiece * TDIM +
+        (int3)(xdim, ydim, zdim + 1));
+
+    /* This array flags, for (right, up, back) whether we're a
+     * bottom/left/front edge (-1), not an edge (0) or a top/right/back edge
+     * (1).
+     */
+    int edgeFlags[3];
+    for (int dir = 0; dir < 3; ++dir)
+    {
+        if (v[0] <= threshold)
+        {
+            if (v[dir+1] > threshold) edgeFlags[dir] = -1;
+            else edgeFlags[dir] = 0;
+        }
+        else
+        {
+            if (v[dir+1] <= threshold) edgeFlags[dir] = 1;
+            else edgeFlags[dir] = 0;
+        }
+    }
+
+    /* Now, I'm going to do each of the six faces in turn.
+     * Yes, this is copy-and-paste code.  :(  I can't help it.
+     * Any attempt to crunch it together makes a terrible mess,
+     * I'd need functors and all sorts.
+     * The reduce reduces (dim, dim + 1<<red) into dim on
+     * each iteration.
      */
 
-    /* Fourthly: `surface' isn't going to work for these
+    bool chosen;
+
+    /* --- BOTTOM FACE --- */
+    chosen = false;
+
+    {
+        __local byte edge[reduceDim][reduceDim][reduceDim];
+        initEdge(edge, xdim, ydim, zdim);
+        if (edgeFlags[1] == -1) edge[xdim][ydim][zdim] = ydim;
+
+        for (int red = (REDUCE_ORDER - 1); red >= 0; --red)
+        {
+            barrier(CLK_LOCAL_MEM_FENCE);
+
+            if (ydim < (1 << red))
+            {
+                if (edge[xdim][ydim][zdim] == -1 &&
+                    edge[xdim][ydim + 1<<red][zdim] != -1)
+                {
+                    edge[xdim][ydim][zdim] = edge[xdim][ydim + 1<<red][zdim];
+                }
+            }
+        }
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        if (ydim == edge[xdim][0][zdim]) chosen = true;
+    }
+
+    if (chosen)
+    {
+        /* I have been chosen.  TODO The normal calculation goes here: I
+         * need to identify the co-ordinates that contribute and accumulate
+         * it into a local face of normals.  But I'm not sure how to
+         * do that yet, I'll get the displacement and colour working first
+         * without normals.
+         */
+        int2 jigsawCoord = edgePiece + (int2)(xdim, zdim);
+        write_imagef(jigsawDisp, jigsawCoord,
+            (float)ydim / (float)POINT_SUBDIVISION_FACTOR);
+        write_imagef(jigsawColour, jigsawCoord, v.xyz);
+        edgeFlags[1] = 0;
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    /* --- LEFT FACE --- */
+    chosen = false;
+
+    {
+        __local byte edge[reduceDim][reduceDim][reduceDim];
+        initEdge(edge, xdim, ydim, zdim);
+        if (edgeFlags[0] == -1) edge[xdim][ydim][zdim] = xdim;
+
+        for (int red = (REDUCE_ORDER - 1); red >= 0; --red)
+        {
+            barrier(CLK_LOCAL_MEM_FENCE);
+
+            if (xdim < (1 << red))
+            {
+                if (edge[xdim][ydim][zdim] == -1 &&
+                    edge[xdim + 1<<red][ydim][zdim] != -1)
+                {
+                    edge[xdim][ydim][zdim] = edge[xdim + 1<<red][ydim][zdim];
+                }
+            }
+        }
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        if (xdim == edge[0][ydim][zdim]) chosen = true;
+    }
+
+    if (chosen)
+    {
+        int2 jigsawCoord = edgePiece + (int2)(TDIM + xdim, zdim);
+        write_imagef(jigsawDisp, jigsawCoord,
+            (float)ydim / (float)POINT_SUBDIVISION_FACTOR);
+        write_imagef(jigsawColour, jigsawCoord, v.xyz);
+
+        /* We used that edge, so reset its flag so it doesn't get
+         * overlapped in another face.
+         * Otherwise, we can re-try.
+         */
+        edgeFlags[0] = 0;
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    /* --- FRONT FACE --- */
+    chosen = false;
+
+    {
+        __local byte edge[reduceDim][reduceDim][reduceDim];
+        initEdge(edge, xdim, ydim, zdim);
+        if (edgeFlags[2] == -1) edge[xdim][ydim][zdim] = zdim;
+
+        for (int red = (REDUCE_ORDER - 1); red >= 0; --red)
+        {
+            barrier(CLK_LOCAL_MEM_FENCE);
+
+            if (zdim < (1 << red))
+            {
+                if (edge[xdim][ydim][zdim] == -1 &&
+                    edge[xdim][ydim][zdim + 1<<red] != -1)
+                {
+                    edge[xdim][ydim][zdim] = edge[xdim][ydim][zdim + 1<<red];
+                }
+            }
+        }
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        if (zdim == edge[xdim][ydim][0]) chosen = true;
+    }
+
+    if (chosen)
+    {
+        int2 jigsawCoord = edgePiece + (int2)(2 * TDIM + xdim, zdim);
+        write_imagef(jigsawDisp, jigsawCoord,
+            (float)ydim / (float)POINT_SUBDIVISION_FACTOR);
+        write_imagef(jigsawColour, jigsawCoord, v.xyz);
+        edgeFlags[2] = 0;
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    /* --- BACK FACE --- */
+    chosen = false;
+
+    {
+        __local byte edge[reduceDim][reduceDim][reduceDim];
+        initEdge(edge, xdim, ydim, zdim);
+        if (edgeFlags[2] == 1) edge[xdim][ydim][zdim] = zdim;
+
+        for (int red = (REDUCE_ORDER - 1); red >= 0; --red)
+        {
+            barrier(CLK_LOCAL_MEM_FENCE);
+
+            if (zdim < (1 << red))
+            {
+                if (edge[xdim][ydim][zdim + 1<<red] != -1)
+                {
+                    edge[xdim][ydim][zdim] = edge[xdim][ydim][zdim + 1<<red];
+                }
+            }
+        }
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        if (zdim == edge[xdim][ydim][0]) chosen = true;
+    }
+
+    if (chosen)
+    {
+        int2 jigsawCoord = edgePiece + (int2)(3 * TDIM + xdim, zdim);
+        write_imagef(jigsawDisp, jigsawCoord,
+            (float)ydim / (float)POINT_SUBDIVISION_FACTOR);
+        write_imagef(jigsawColour, jigsawCoord, v.xyz);
+        edgeFlags[2] = 0;
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    /* --- RIGHT FACE --- */
+    chosen = false;
+
+    {
+        __local byte edge[reduceDim][reduceDim][reduceDim];
+        initEdge(edge, xdim, ydim, zdim);
+        if (edgeFlags[0] == 1) edge[xdim][ydim][zdim] = xdim;
+
+        for (int red = (REDUCE_ORDER - 1); red >= 0; --red)
+        {
+            barrier(CLK_LOCAL_MEM_FENCE);
+
+            if (xdim < (1 << red))
+            {
+                if (edge[xdim + 1<<red][ydim][zdim] != -1)
+                {
+                    edge[xdim][ydim][zdim] = edge[xdim + 1<<red][ydim][zdim];
+                }
+            }
+        }
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        if (xdim == edge[0][ydim][zdim]) chosen = true;
+    }
+
+    if (chosen)
+    {
+        int2 jigsawCoord = edgePiece + (int2)(4 * TDIM + xdim, zdim);
+        write_imagef(jigsawDisp, jigsawCoord,
+            (float)ydim / (float)POINT_SUBDIVISION_FACTOR);
+        write_imagef(jigsawColour, jigsawCoord, v.xyz);
+        edgeFlags[0] = 0;
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    /* --- TOP FACE --- */
+    chosen = false;
+
+    {
+        __local byte edge[reduceDim][reduceDim][reduceDim];
+        initEdge(edge, xdim, ydim, zdim);
+        if (edgeFlags[1] == 1) edge[xdim][ydim][zdim] = ydim;
+
+        for (int red = (REDUCE_ORDER - 1); red >= 0; --red)
+        {
+            barrier(CLK_LOCAL_MEM_FENCE);
+
+            if (ydim < (1 << red))
+            {
+                if (edge[xdim][ydim + 1<<red][zdim] != -1)
+                {
+                    edge[xdim][ydim][zdim] = edge[xdim][ydim + 1<<red][zdim];
+                }
+            }
+        }
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        if (ydim == edge[xdim][0][zdim]) chosen = true;
+    }
+
+    if (chosen)
+    {
+        int2 jigsawCoord = edgePiece + (int2)(5 * TDIM + xdim, zdim);
+        write_imagef(jigsawDisp, jigsawCoord,
+            (float)ydim / (float)POINT_SUBDIVISION_FACTOR);
+        write_imagef(jigsawColour, jigsawCoord, v.xyz);
+        edgeFlags[1] = 0;
+    }
+
+    /* Now: `surface' isn't going to work for these
      * shapes, not unless I put lots of overlap around all
      * the edges (fail).  However, the number field gives
      * me lots of information to make lovely normals,
