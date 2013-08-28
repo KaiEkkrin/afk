@@ -309,7 +309,7 @@ void AFK_Shape::makeShrinkformDescriptor(
             /* TODO I'm not convinced there is actually anything AT the
              * higher levels of detail -- or not very much.  Investigate.
              */
-            AFK_DEBUG_PRINTL(shapeKey << ": Using point cube: " << *pointCubeIt)
+            //AFK_DEBUG_PRINTL(shapeKey << ": Using point cube: " << *pointCubeIt)
 
             AFK_ShrinkformCube cube;
             cube.make(
