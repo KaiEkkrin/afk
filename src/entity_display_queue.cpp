@@ -6,7 +6,7 @@
 
 AFK_EntityDisplayUnit::AFK_EntityDisplayUnit(
     const Mat4<float>& _transform,
-    const Vec2<float>& _jigsawPieceST):
+    const Vec3<float>& _jigsawPieceST):
         transform(_transform), jigsawPieceST(_jigsawPieceST)
 {
 }

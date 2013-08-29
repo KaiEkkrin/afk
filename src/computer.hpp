@@ -56,6 +56,9 @@ public:
     cl_ulong    globalMemSize;
     size_t      image2DMaxWidth;
     size_t      image2DMaxHeight;
+    size_t      image3DMaxWidth;
+    size_t      image3DMaxHeight;
+    size_t      image3DMaxDepth;
     cl_ulong    localMemSize;
     cl_uint     maxConstantArgs;
     cl_uint     maxConstantBufferSize;

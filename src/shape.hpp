@@ -79,7 +79,7 @@ public:
     void clearFlag(const Vec3<int>& cube);
 };
 
-/* A Shape describes a single shrinkform shape, which
+/* A Shape describes a single 3D shape, which
  * might be instanced many times by means of Entities.
  *
  * TODO: Should a shape be cached, and Claimable, as well?
@@ -97,7 +97,7 @@ protected:
     AFK_SkeletonFlagGrid *cubeGrid;
 
     /* These grids, which are in order biggest -> smallest,
-     * describe whether to create shrinkform points at the
+     * describe whether to create vapour features at the
      * particular cubes in the grids.
      * Each one's resolution is 2x as coarse along each axis
      * as the next one.

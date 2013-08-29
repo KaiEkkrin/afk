@@ -19,7 +19,7 @@ AFK_ShapeSizes::AFK_ShapeSizes(
     vCount(SQUARE(pointSubdivisionFactor + 1)),
     iCount(SQUARE(pointSubdivisionFactor) * 2), /* two triangles per vertex */
     tCount(SQUARE(pointSubdivisionFactor + 3)),
-    vSize(SQUARE(pointSubdivisionFactor + 1) * sizeof(Vec3<float>)),
+    vSize(SQUARE(pointSubdivisionFactor + 1) * sizeof(Vec4<float>)),
     iSize(SQUARE(pointSubdivisionFactor) * 2 * 3 * sizeof(unsigned short)),
     tSize(SQUARE(pointSubdivisionFactor + 3) * 2 * sizeof(Vec4<float>)), /* normal + y disp., colour */
     featureCountPerCube(CUBE(pointSubdivisionFactor / 2)), /* TODO Probably wants experimenting with */
@@ -27,5 +27,11 @@ AFK_ShapeSizes::AFK_ShapeSizes(
     skeletonFlagGridDim(pointSubdivisionFactor),
     skeletonBushiness(1.0f / 4.0f)
 {
+    for (reduceOrder = 1; (1u << reduceOrder) < tDim; ++reduceOrder);
+}
+
+unsigned int AFK_ShapeSizes::getReduceOrder(void) const
+{
+    return reduceOrder;
 }
 

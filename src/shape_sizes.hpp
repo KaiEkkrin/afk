@@ -4,11 +4,14 @@
 #define _AFK_SHAPE_SIZES_H_
 
 /* This utility returns the sizes of various parts of the
- * shrinkform shape constructs.
+ * shape constructs.
  * It's rather similar to LandscapeSizes, but not the same...
  */
 class AFK_ShapeSizes
 {
+protected:
+    unsigned int reduceOrder; /* 1<<reduceOrder is the power of two above tDim*tDim */
+
 public:
     const unsigned int subdivisionFactor; /* same as in landscape_sizes and the world ? */
     const unsigned int entitySubdivisionFactor; /* ratio of cell size to the size of an
@@ -34,6 +37,8 @@ public:
         unsigned int subdivisionFactor,
         unsigned int entitySubdivisionFactor,
         unsigned int pointSubdivisionFactor);
+
+    unsigned int getReduceOrder(void) const;
 };
 
 #endif /* _AFK_SHAPE_SIZES_H_ */

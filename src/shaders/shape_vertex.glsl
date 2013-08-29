@@ -8,13 +8,15 @@
 layout (location = 0) in vec2 TexCoord;
 
 // This is the displacement jigsaw texture.
-// We sample (x, y, z, ignored.)
+// We sample (x, y, z, w).
 uniform sampler2D JigsawDispTex;
 
 // This is the entity display queue.  There are five texels
 // per instance, which contain:
 // - first 4: the 4 rows of the transform matrix for the instance
-// - fifth: (x, y) are the (s, t) jigsaw co-ordinates
+// - fifth: (x, y) are the (s, t) jigsaw co-ordinates.
+// (there's notionally an `r' too but the edge jigsaw
+// is 2D so it's meaningless.)
 uniform samplerBuffer DisplayTBO; 
 
 // This is the size of an individual jigsaw piece
@@ -33,7 +35,7 @@ void main()
     outData.jigsawCoord = texelFetch(DisplayTBO, gl_InstanceID * 5 + 4).xy + JigsawPiecePitch * TexCoord.st;
 
     // Apply the displacement in face space.
-    vec3 dispPosition = textureLod(JigsawDispTex, outData.jigsawCoord, 0).xyz;
+    vec4 dispPosition = textureLod(JigsawDispTex, outData.jigsawCoord, 0);
 
     // Reconstruct the world transform matrix for this instance.
     // Of course, AFK is row-major...  :/
@@ -48,6 +50,6 @@ void main()
         vec4(WTRow1.z, WTRow2.z, WTRow3.z, WTRow4.z),
         vec4(WTRow1.w, WTRow2.w, WTRow3.w, WTRow4.w));
 
-    gl_Position = (ProjectionTransform * WorldTransform) * vec4(dispPosition, 1.0);
+    gl_Position = (ProjectionTransform * WorldTransform) * dispPosition;
 }
 

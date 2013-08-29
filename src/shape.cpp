@@ -216,7 +216,7 @@ void AFK_Shape::makeSkeleton(
 AFK_Shape::AFK_Shape():
     AFK_Claimable(),
     cubeGrid(NULL),
-    haveShrinkformDescriptor(false),
+    have3DDescriptor(false),
     vapourJigsaws(NULL),
     edgeJigsaws(NULL)
 {
@@ -267,7 +267,7 @@ void AFK_Shape::make3DDescriptor(
         cubeGrid = new AFK_SkeletonFlagGrid((int)sSizes.skeletonFlagGridDim);
 
         /* ...And also by a set of grids that determine where 
-         * shrinkform points will exist.
+         * vapour features will exist.
          * TODO fix fix -- number of point grids -- and starting to
          * be pretty sure that I'm going to need to not just throw
          * all the cubes into the CL but instead pick a sub-list that
@@ -415,10 +415,6 @@ void AFK_Shape::enqueueDisplayUnits(
 
     for (std::vector<AFK_ShapeCube>::const_iterator cubeIt = cubes.begin(); cubeIt != cubes.end(); ++cubeIt)
     {
-        /* TODO: The below isn't right.  I need to think about the
-         * output from shape_3dedge.cl, and enqueue the correct
-         * face renders here.
-         */
         AFK_JigsawPiece edgeJigsawPiece = cubeIt->edgeJigsawPiece;
         q->add(AFK_EntityDisplayUnit(
             objTransform,

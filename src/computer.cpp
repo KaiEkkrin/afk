@@ -20,8 +20,8 @@ struct AFK_ClProgram programs[] = {
     {   0,  "landscape_surface.cl"      },
     {   0,  "landscape_terrain.cl"      },
     {   0,  "landscape_yreduce.cl"      },
-    {   0,  "shape_shrinkform.cl"       },
-    {   0,  "shape_surface.cl"          },
+    {   0,  "shape_3dedge.cl"           },
+    {   0,  "shape_3dvapour.cl"         },
     {   0,  "test.cl"                   },
     {   0,  "vs_test.cl"                },
     {   0,  ""                          }
@@ -31,8 +31,8 @@ struct AFK_ClKernel kernels[] = {
     {   0,  "landscape_surface.cl",     "makeLandscapeSurface"          },
     {   0,  "landscape_terrain.cl",     "makeLandscapeTerrain"          },
     {   0,  "landscape_yreduce.cl",     "makeLandscapeYReduce"          },
-    {   0,  "shape_shrinkform.cl",      "makeShapeShrinkform"           },
-    {   0,  "shape_surface.cl",         "makeShapeSurface"              },
+    {   0,  "shape_3dedge.cl",          "makeShape3DEdge"               },
+    {   0,  "shape_3dvapour.cl",        "makeShape3DVapour"             },
     {   0,  "test.cl",                  "vector_add_gpu"                },
     {   0,  "vs_test.cl",               "mangle_vs"                     },
     {   0,  "",                         ""                              }
@@ -105,6 +105,9 @@ AFK_ClDeviceProperties::AFK_ClDeviceProperties(cl_device_id device):
     getClDeviceInfoFixed<cl_ulong>(device, CL_DEVICE_GLOBAL_MEM_SIZE, &globalMemSize, 0);
     getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE2D_MAX_WIDTH, &image2DMaxWidth, 0);
     getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE2D_MAX_HEIGHT, &image2DMaxHeight, 0);
+    getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE3D_MAX_WIDTH, &image3DMaxWidth, 0);
+    getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE3D_MAX_HEIGHT, &image3DMaxHeight, 0);
+    getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE3D_MAX_DEPTH, &image3DMaxDepth, 0);
     getClDeviceInfoFixed<cl_ulong>(device, CL_DEVICE_LOCAL_MEM_SIZE, &localMemSize, 0);
     getClDeviceInfoFixed<cl_uint>(device, CL_DEVICE_MAX_CONSTANT_ARGS, &maxConstantArgs, 0);
     getClDeviceInfoFixed<cl_uint>(device, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, &maxConstantBufferSize, 0);
@@ -286,7 +289,8 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
         args << "-D POINT_SUBDIVISION_FACTOR="  << sSizes.pointSubdivisionFactor << " ";
         args << "-D TDIM="                      << sSizes.tDim                   << " ";
         args << "-D TDIM_START="                << sSizes.tDimStart              << " ";
-        args << "-D POINT_COUNT_PER_CUBE="      << sSizes.pointCountPerCube      << " ";
+        args << "-D FEATURE_COUNT_PER_CUBE="    << sSizes.featureCountPerCube    << " ";
+        args << "-D REDUCE_ORDER="              << sSizes.getReduceOrder()       << " ";
     }
 
     std::string argsStr = args.str();

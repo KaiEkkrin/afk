@@ -700,7 +700,7 @@ AFK_World::AFK_World(
     Vec3<int> edgePieceSize = afk_vec3<int>(sSizes.tDim * 3, sSizes.tDim * 2, 1);
 
     enum AFK_JigsawFormat edgeTexFormat[3];
-    edgeTexFormat[0] = AFK_JIGSAW_FLOAT32;        /* Displacement */
+    edgeTexFormat[0] = AFK_JIGSAW_4FLOAT32;        /* Displacement */
     edgeTexFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;   /* Colour */
 
     /* Normal: The packed 8-bit signed format doesn't seem to play nicely with

@@ -127,7 +127,7 @@ struct AFK_3DComputeUnit
     int cubeCount;
 };
 
-__kernel void makeShape3Dvapour(
+__kernel void makeShape3DVapour(
     __global const struct AFK_3DVapourFeature *features,
     __global const struct AFK_3DVapourCube *cubes,
     __global const struct AFK_3DComputeUnit *units,

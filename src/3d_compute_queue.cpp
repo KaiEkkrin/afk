@@ -118,11 +118,11 @@ void AFK_3DComputeQueue::computeStart(
 
     /* Make sure the compute stuff is initialised... */
     if (!vapourKernel)
-        if (!computer->findKernel("makeShape3Dvapour", vapourKernel))
+        if (!computer->findKernel("makeShape3DVapour", vapourKernel))
             throw AFK_Exception("Cannot find 3D vapour kernel");
 
     if (!edgeKernel)
-        if (!computer->findKernel("makeShape3Dedge", edgeKernel))
+        if (!computer->findKernel("makeShape3DEdge", edgeKernel))
             throw AFK_Exception("Cannot find 3D edge kernel");
 
     cl_context ctxt;
@@ -134,13 +134,13 @@ void AFK_3DComputeQueue::computeStart(
 
     vapourBufs[0] = clCreateBuffer(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        p.size() * sizeof(AFK_3DPoint),
-        &p[0], &error);
+        f.size() * sizeof(AFK_3DVapourFeature),
+        &f[0], &error);
     afk_handleClError(error);
 
     vapourBufs[1] = clCreateBuffer(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        c.size() * sizeof(AFK_3DCube),
+        c.size() * sizeof(AFK_3DVapourCube),
         &c[0], &error);
     afk_handleClError(error);
 
@@ -169,7 +169,7 @@ void AFK_3DComputeQueue::computeStart(
      */
     cl_event vapourEvents[2];
 
-    AFK_CLCHK(clEnqueueNDRangeKernel(q, shrinkformKernel, 3, NULL, &shrinkformDim[0], NULL,
+    AFK_CLCHK(clEnqueueNDRangeKernel(q, vapourKernel, 3, NULL, &shrinkformDim[0], NULL,
         acquireJigsawEvent ? 1 : 0,
         acquireJigsawEvent ? &acquireJigsawEvent : NULL,
         &vapourEvents[0]))
@@ -207,7 +207,7 @@ void AFK_3DComputeQueue::computeStart(
 
     cl_event edgeEvent;
 
-    AFK_CLCHK(clEnqueueNDRangeKernel(q, surfaceKernel, 3, 0, &surfaceGlobalDim[0], &surfaceLocalDim[0],
+    AFK_CLCHK(clEnqueueNDRangeKernel(q, edgeKernel, 3, 0, &surfaceGlobalDim[0], &surfaceLocalDim[0],
         vapourEvents[1] != 0 ? 2 : 1,
         &vapourEvents[0],
         &edgeEvent))

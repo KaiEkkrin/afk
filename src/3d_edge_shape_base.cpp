@@ -4,8 +4,10 @@
 
 /* This utility function gets two-dimensional face co-ordinates.
  */
-static void make2DFace(
+static void make2DTexCoords(
     const AFK_ShapeSizes& sSizes,
+    unsigned int sOffset,
+    unsigned int tOffset,
     unsigned int s,
     unsigned int t,
     float& o_sTex,
@@ -19,8 +21,60 @@ static void make2DFace(
      * neighbour sampling down to the *previous* point, which they
      * seem to tend to do with no offset ... )
      */
-    o_sTex = ((float)s - (float)sSizes.tDimStart + 0.25f) / (float)sSizes.tDim;
-    o_tTex = ((float)t - (float)sSizes.tDimStart + 0.25f) / (float)sSizes.tDim;
+    o_sTex = (float)sOffset + ((float)s - (float)sSizes.tDimStart + 0.25f) / (float)sSizes.tDim;
+    o_tTex = (float)tOffset + ((float)t - (float)sSizes.tDimStart + 0.25f) / (float)sSizes.tDim;
+}
+
+void AFK_3DEdgeShapeBase::pushBaseFace(unsigned int sOffset, unsigned int tOffset, bool flip, const AFK_ShapeSizes& sSizes)
+{
+    unsigned short texOffset = (unsigned short)vertices.size();
+
+    for (unsigned int x = 0; x < sSizes.vDim; ++x)
+    {
+        for (unsigned int z = 0; z < sSizes.vDim; ++z)
+        {
+            float sTex, tTex;
+            make2DTexCoords(sSizes, sOffset, tOffset, x, z, sTex, tTex);
+            vertices.push_back(afk_vec2<float>(sTex, tTex));
+        }
+    }
+
+    for (unsigned short s = 0; s < sSizes.pointSubdivisionFactor; ++s)
+    {
+        for (unsigned short t = 0; t < sSizes.pointSubdivisionFactor; ++t)
+        {
+            unsigned short i_r1c1 = texOffset + s * sSizes.vDim + t;
+            unsigned short i_r2c1 = texOffset + (s + 1) * sSizes.vDim + t;
+            unsigned short i_r1c2 = texOffset + s * sSizes.vDim + (t + 1);
+            unsigned short i_r2c2 = texOffset + (s + 1) * sSizes.vDim + (t + 1);
+
+            indices.push_back(i_r1c1);
+
+            if (flip)
+            {
+                indices.push_back(i_r2c1);
+                indices.push_back(i_r1c2);
+            }
+            else
+            {
+                indices.push_back(i_r1c2);
+                indices.push_back(i_r2c1);
+            }
+
+            indices.push_back(i_r1c2);
+
+            if (flip)
+            {
+                indices.push_back(i_r2c1);
+                indices.push_back(i_r2c2);
+            }
+            else
+            {
+                indices.push_back(i_r2c2);
+                indices.push_back(i_r2c1);
+            }
+        }
+    }
 }
     
 AFK_3DEdgeShapeBase::AFK_3DEdgeShapeBase(const AFK_ShapeSizes& sSizes):
@@ -33,41 +87,17 @@ AFK_3DEdgeShapeBase::AFK_3DEdgeShapeBase(const AFK_ShapeSizes& sSizes):
      * - back (normal +z)
      * - right (normal +x)
      * - top (normal +y)
-     * I'm only going to define the bottom face.  The Shape can transform
-     * it to make the others.
+     * shape_3dedge arranges these in a 3x2 sized jigsaw piece.  I just
+     * need to write the vertices (texture co-ordinates) and indices
+     * to match.
      */
 
-    /* TODO Why do I have to add 1 here?  Something to do with the way
-     * nvidia's nearest neighbour sampling works?  Verify it on AMD.
-     * See if I can switch the landscape Y displacement back to nearest
-     * neighbour, too?
-     */
-    for (unsigned int x = 0; x < sSizes.vDim; ++x)
+    /* TODO Work out which ones to flip */
+    for (unsigned int t = 0; t < 2; ++t)
     {
-        for (unsigned int z = 0; z < sSizes.vDim; ++z)
+        for (unsigned int s = 0; s < 3; ++s)
         {
-            float sTex, tTex;
-            make2DFace(sSizes, x, z, sTex, tTex);
-            vertices.push_back(afk_vec2<float>(sTex, tTex));
-        }
-    }
-
-    for (unsigned short s = 0; s < sSizes.pointSubdivisionFactor; ++s)
-    {
-        for (unsigned short t = 0; t < sSizes.pointSubdivisionFactor; ++t)
-        {
-            unsigned short i_r1c1 = s * sSizes.vDim + t;
-            unsigned short i_r2c1 = (s + 1) * sSizes.vDim + t;
-            unsigned short i_r1c2 = s * sSizes.vDim + (t + 1);
-            unsigned short i_r2c2 = (s + 1) * sSizes.vDim + (t + 1);
-
-            indices.push_back(i_r1c1);
-            indices.push_back(i_r1c2);
-            indices.push_back(i_r2c1);
-
-            indices.push_back(i_r1c2);
-            indices.push_back(i_r2c2);
-            indices.push_back(i_r2c1);
+            pushBaseFace(s, t, t == 1, sSizes);
         }
     }
 }

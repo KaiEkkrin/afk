@@ -43,7 +43,7 @@ void AFK_3DVapourCube::make(
     }
 }
 
-std::ostream& operator<<(std::ostream& os, const AFK_ShrinkformCube& cube)
+std::ostream& operator<<(std::ostream& os, const AFK_3DVapourCube& cube)
 {
     return os << "3DVapourCube(Coord=" << cube.getCubeCoord() << ")";
 }

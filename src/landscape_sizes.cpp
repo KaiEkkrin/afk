@@ -15,7 +15,7 @@ AFK_LandscapeSizes::AFK_LandscapeSizes(unsigned int subdivisionFactor, unsigned 
     vCount(SQUARE(pointSubdivisionFactor + 1)),
     iCount(SQUARE(pointSubdivisionFactor) * 2), /* two triangles per vertex */
     tCount(SQUARE(pointSubdivisionFactor + 3)),
-    vSize(SQUARE(pointSubdivisionFactor + 1) * sizeof(Vec3<float>)),
+    vSize(SQUARE(pointSubdivisionFactor + 1) * sizeof(Vec4<float>)),
     iSize(SQUARE(pointSubdivisionFactor) * 2 * 3 * sizeof(unsigned short)),
     tSize(SQUARE(pointSubdivisionFactor + 3) * 2 * sizeof(Vec4<float>)), /* normal + y disp., colour */
     featureCountPerTile(SQUARE(pointSubdivisionFactor / 2)) /* this seems about right */

@@ -24,7 +24,7 @@ struct AFK_3DComputeUnit
 {
     float4 location;
     int3 vapourPiece;
-    int2 edgePiece; /* TODO: Points to the first of six pieces in a row together
+    int3 edgePiece; /* TODO: Points to the first of six pieces in a row together
                      * along the x axis of the edge jigsaws.  I need to change the
                      * jigsaw so that it can handle allocating pieces in a row
                      * like this. */
@@ -59,7 +59,24 @@ void initEdge(__local byte ***edge, int xdim, int ydim, int zdim)
     barrier(CLK_LOCAL_MEM_FENCE);
 }
 
-__kernel void makeShape3Dedge(
+/* This function makes the displacement co-ordinate at a vapour point.
+ * I'm making this as a homogeneous co-ordinate because I've necessarily
+ * got a 4-vector, and because it theoretically means I could cram my
+ * co-ordinates into lower precision numbers without losing so much
+ * accuracy.  The shader needs to cope with it.
+ */
+float4 makeVapourCoord(int xdim, int ydim, int zdim, float4 location)
+{
+    float3 baseCoord = (float3)(
+        ((float)(xdim + TDIM_START)) / ((float)POINT_SUBDIVISION_FACTOR),
+        ((float)(ydim + TDIM_START)) / ((float)POINT_SUBDIVISION_FACTOR),
+        ((float)(zdim + TDIM_START)) / ((float)POINT_SUBDIVISION_FACTOR));
+    return (float4)(
+        baseCoord + location.xyz,
+        location.w);
+}
+
+__kernel void makeShape3DEdge(
     __read_only image3d_t vapour,
     sampler_t vapourSampler,
     __global const struct AFK_3DComputeUnit *units,
@@ -77,6 +94,50 @@ __kernel void makeShape3Dedge(
     const int xdim = get_global_id(0) % TDIM;
     const int ydim = get_global_id(1);
     const int zdim = get_global_id(2);
+
+    /* Initialise the image as quickly as I can, because
+     * this is going to look a bit nasty.
+     * Nodes that don't get identified below need a default
+     * value that will stop anything from being drawn.
+     * (I'm going to be dropping plenty of vertices).
+     */
+    if (ydim == (0 % TDIM))
+    {
+        int2 jigsawCoord = units[unitOffset].edgePiece.xy + (int2)(xdim, zdim);
+        write_imagef(jigsawDisp, jigsawCoord, (float4)(NAN, NAN, NAN, NAN);
+    }
+
+    if (ydim == (1 % TDIM))
+    {
+        int2 jigsawCoord = units[unitOffset].edgePiece.xy + (int2)(TDIM + xdim, zdim);
+        write_imagef(jigsawDisp, jigsawCoord, (float4)(NAN, NAN, NAN, NAN);
+    }
+
+    if (ydim == (2 % TDIM))
+    {
+        int2 jigsawCoord = units[unitOffset].edgePiece.xy + (int2)(TDIM * 2 + xdim, zdim);
+        write_imagef(jigsawDisp, jigsawCoord, (float4)(NAN, NAN, NAN, NAN);
+    }
+
+    if (ydim == (3 % TDIM))
+    {
+        int2 jigsawCoord = units[unitOffset].edgePiece.xy + (int2)(xdim, TDIM + zdim);
+        write_imagef(jigsawDisp, jigsawCoord, (float4)(NAN, NAN, NAN, NAN);
+    }
+
+    if (ydim == (4 % TDIM))
+    {
+        int2 jigsawCoord = units[unitOffset].edgePiece.xy + (int2)(TDIM + xdim, TDIM + zdim);
+        write_imagef(jigsawDisp, jigsawCoord, (float4)(NAN, NAN, NAN, NAN);
+    }
+
+    if (ydim == (5 % TDIM))
+    {
+        int2 jigsawCoord = units[unitOffset].edgePiece.xy + (int2)(TDIM * 2 + xdim, TDIM + zdim);
+        write_imagef(jigsawDisp, jigsawCoord, (float4)(NAN, NAN, NAN, NAN);
+    }
+
+    barrier(CLK_GLOBAL_MEM_FENCE);
 
     /* Edge-detect by comparing my point in the
      * number grid with the other three points to its
@@ -174,10 +235,10 @@ __kernel void makeShape3Dedge(
          * do that yet, I'll get the displacement and colour working first
          * without normals.
          */
-        int2 jigsawCoord = edgePiece + (int2)(xdim, zdim);
+        int2 jigsawCoord = units[unitOffset].edgePiece.xy + (int2)(xdim, zdim);
         write_imagef(jigsawDisp, jigsawCoord,
-            (float)ydim / (float)POINT_SUBDIVISION_FACTOR);
-        write_imagef(jigsawColour, jigsawCoord, v.xyz);
+            makeVapourCoord(xdim, ydim, zdim, units[unitOffset].location));
+        write_imagef(jigsawColour, jigsawCoord, (float4)(v.xyz, 1.0f));
         edgeFlags[1] = 0;
     }
 
@@ -212,10 +273,10 @@ __kernel void makeShape3Dedge(
 
     if (chosen)
     {
-        int2 jigsawCoord = edgePiece + (int2)(TDIM + xdim, zdim);
+        int2 jigsawCoord = units[unitOffset].edgePiece.xy + (int2)(TDIM + ydim, zdim);
         write_imagef(jigsawDisp, jigsawCoord,
-            (float)ydim / (float)POINT_SUBDIVISION_FACTOR);
-        write_imagef(jigsawColour, jigsawCoord, v.xyz);
+            makeVapourCoord(xdim, ydim, zdim, units[unitOffset].location));
+        write_imagef(jigsawColour, jigsawCoord, (float4)(v.xyz, 1.0f));
 
         /* We used that edge, so reset its flag so it doesn't get
          * overlapped in another face.
@@ -255,10 +316,10 @@ __kernel void makeShape3Dedge(
 
     if (chosen)
     {
-        int2 jigsawCoord = edgePiece + (int2)(2 * TDIM + xdim, zdim);
+        int2 jigsawCoord = units[unitOffset].edgePiece.xy + (int2)(2 * TDIM + xdim, ydim);
         write_imagef(jigsawDisp, jigsawCoord,
-            (float)ydim / (float)POINT_SUBDIVISION_FACTOR);
-        write_imagef(jigsawColour, jigsawCoord, v.xyz);
+            makeVapourCoord(xdim, ydim, zdim, units[unitOffset].location));
+        write_imagef(jigsawColour, jigsawCoord, (float4)(v.xyz, 1.0f));
         edgeFlags[2] = 0;
     }
 
@@ -292,10 +353,10 @@ __kernel void makeShape3Dedge(
 
     if (chosen)
     {
-        int2 jigsawCoord = edgePiece + (int2)(xdim, TDIM + zdim);
+        int2 jigsawCoord = units[unitOffset].edgePiece.xy + (int2)(xdim, TDIM + ydim);
         write_imagef(jigsawDisp, jigsawCoord,
-            (float)ydim / (float)POINT_SUBDIVISION_FACTOR);
-        write_imagef(jigsawColour, jigsawCoord, v.xyz);
+            makeVapourCoord(xdim, ydim, zdim, units[unitOffset].location));
+        write_imagef(jigsawColour, jigsawCoord, (float4)(v.xyz, 1.0f));
         edgeFlags[2] = 0;
     }
 
@@ -329,10 +390,10 @@ __kernel void makeShape3Dedge(
 
     if (chosen)
     {
-        int2 jigsawCoord = edgePiece + (int2)(TDIM + xdim, TDIM + zdim);
+        int2 jigsawCoord = units[unitOffset].edgePiece.xy + (int2)(TDIM + ydim, TDIM + zdim);
         write_imagef(jigsawDisp, jigsawCoord,
-            (float)ydim / (float)POINT_SUBDIVISION_FACTOR);
-        write_imagef(jigsawColour, jigsawCoord, v.xyz);
+            makeVapourCoord(xdim, ydim, zdim, units[unitOffset].location));
+        write_imagef(jigsawColour, jigsawCoord, (float4)(v.xyz, 1.0f));
         edgeFlags[0] = 0;
     }
 
@@ -366,10 +427,10 @@ __kernel void makeShape3Dedge(
 
     if (chosen)
     {
-        int2 jigsawCoord = edgePiece + (int2)(2 * TDIM + xdim, TDIM + zdim);
+        int2 jigsawCoord = units[unitOffset].edgePiece.xy + (int2)(2 * TDIM + xdim, TDIM + zdim);
         write_imagef(jigsawDisp, jigsawCoord,
-            (float)ydim / (float)POINT_SUBDIVISION_FACTOR);
-        write_imagef(jigsawColour, jigsawCoord, v.xyz);
+            makeVapourCoord(xdim, ydim, zdim, units[unitOffset].location));
+        write_imagef(jigsawColour, jigsawCoord, (float4)(v.xyz, 1.0f));
         edgeFlags[1] = 0;
     }
 
