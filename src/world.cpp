@@ -129,7 +129,7 @@ bool AFK_World::checkClaimedShape(
     unsigned int shapeKey,
     AFK_Shape& shape)
 {
-    shape.makeShrinkformDescriptor(shapeKey, sSizes);
+    shape.make3DDescriptor(shapeKey, sSizes);
 
     bool needsArtwork = false;
     enum AFK_ShapeArtworkState artworkState = shape.artworkState();
@@ -201,13 +201,14 @@ void AFK_World::generateLandscapeArtwork(
      * jigsaw piece into one of the rides at the compute fair...
      */
     boost::shared_ptr<AFK_TerrainComputeQueue> computeQueue = landscapeComputeFair.getUpdateQueue(jigsawPiece.puzzle);
+    Vec2<int> piece2D = afk_vec2<int>(jigsawPiece.piece.u, jigsawPiece.piece.v);
 #if DEBUG_TERRAIN_COMPUTE_QUEUE
     AFK_TerrainComputeUnit unit = computeQueue->extend(
-        terrainList, jigsawPiece.piece, &landscapeTile, lSizes);
+        terrainList, piece2D, &landscapeTile, lSizes);
     AFK_DEBUG_PRINTL("Pushed to queue for " << tile << ": " << unit << ": " << std::endl)
     //AFK_DEBUG_PRINTL(computeQueue->debugTerrain(unit, lSizes))
 #else
-    computeQueue->extend(terrainList, jigsawPiece.piece, &landscapeTile, lSizes);
+    computeQueue->extend(terrainList, piece2D, &landscapeTile, lSizes);
 #endif
 
     tilesComputed.fetch_add(1);
@@ -218,31 +219,42 @@ void AFK_World::generateShapeArtwork(
     AFK_Shape& shape,
     unsigned int threadId)
 {
-    /* Make the list of shrinkform points and cubes. */
-    AFK_ShrinkformList shrinkformList;
-    shape.buildShrinkformList(shrinkformList);
+    AFK_3DList shapeList;
+    shape.build3DList(shapeList);
 
-    /* Enumerate the faces that we need to compute ... */
-    std::vector<AFK_ShapeFace> facesForCompute;
-    facesForCompute.reserve(6);
-    shape.getFacesForCompute(threadId, 0, shapeJigsaws, facesForCompute);
+    /* Enumerate the cubes that we need to compute ...
+     * TODO: For ephemeral shapes: bump minEdgeJigsaw.
+     * For all shapes whose vapour isn't going to be rendered:
+     * bump minVapourJigsaw.
+     */
+    std::vector<AFK_ShapeCube> cubesForCompute;
+    shape.getCubesForCompute(threadId, 0, 0, vapourJigsaws, edgeJigsaws, cubesForCompute);
 
-    AFK_ShrinkformComputeUnit scu;
+    AFK_3DComputeUnit cu;
     int lastPuzzle = -1;
-    for (std::vector<AFK_ShapeFace>::iterator faceIt = facesForCompute.begin();
-        faceIt != facesForCompute.end(); ++faceIt)
+    for (std::vector<AFK_ShapeCube>::iterator cubeIt = cubesForCompute.begin();
+        cubeIt != cubesForCompute.end(); ++cubeIt)
     {
-        boost::shared_ptr<AFK_ShrinkformComputeQueue> computeQueue = shapeComputeFair.getUpdateQueue(faceIt->jigsawPiece.puzzle);
-        if (scu.uninitialised() || lastPuzzle != faceIt->jigsawPiece.puzzle)
+        if (cubeIt->vapourJigsawPiece.puzzle != cubeIt->edgeJigsawPiece.puzzle)
+        {
+            /* TODO: In a PITA twist, I suspect I'll have to deal with this, or
+             * recombobulate my jigsaws, or I don't know what.
+             */
+            throw AFK_Exception("3D compute unit jigsaw mismatch");
+        }
+
+        int puzzle = cubeIt->edgeJigsawPiece.puzzle;
+        boost::shared_ptr<AFK_3DComputeQueue> computeQueue = shapeComputeFair.getUpdateQueue(puzzle);
+        if (cu.uninitialised() || lastPuzzle != puzzle)
         {
             /* Extend the compute queue with this face. */
-            scu = computeQueue->extend(shrinkformList, *faceIt, sSizes);
-            lastPuzzle = faceIt->jigsawPiece.puzzle;
+            cu = computeQueue->extend(shapeList, *cubeIt, sSizes);
+            lastPuzzle = puzzle;
         }
         else
         {
             /* Add a new Unit for this face, re-using the list. */
-            scu = computeQueue->addUnitWithExisting(scu, *faceIt);
+            cu = computeQueue->addUnitWithExisting(cu, *cubeIt);
         }
     }
 
@@ -261,7 +273,7 @@ void AFK_World::generateStartingEntity(
 
     /* Figure out whether I need to generate its artwork. */
     bool generateArtwork = false;
-    if (!shape.hasShrinkformDescriptor() || shape.artworkState() != AFK_SHAPE_HAS_ARTWORK)
+    if (!shape.has3DDescriptor() || shape.artworkState() != AFK_SHAPE_HAS_ARTWORK)
     {
         /* Try to upgrade our claim to the shape. */
         if (shapeClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
@@ -621,7 +633,7 @@ AFK_World::AFK_World(
     /* Set up the caches and generator gang. */
 
     unsigned int tileCacheEntries = tileCacheSize / lSizes.tSize;
-    Vec2<int> tilePieceSize = afk_vec2<int>((int)lSizes.tDim, (int)lSizes.tDim);
+    Vec3<int> tilePieceSize = afk_vec3<int>((int)lSizes.tDim, (int)lSizes.tDim, 1);
 
     enum AFK_JigsawFormat tileTexFormat[3];
     tileTexFormat[0] = AFK_JIGSAW_FLOAT32;          /* Y displacement */
@@ -640,6 +652,7 @@ AFK_World::AFK_World(
         tilePieceSize,
         (int)tileCacheEntries,
         2, /* I want at least two, so I can put big tiles only into the first one */
+        AFK_JIGSAW_2D,
         tileTexFormat,
         3,
         computer->getFirstDeviceProps(),
@@ -664,33 +677,53 @@ AFK_World::AFK_World(
     worldCache = new AFK_WORLD_CACHE(
         worldCacheBitness, 8, AFK_HashCell(), worldCacheEntries, 0xfffffffeu);
 
-    unsigned int shapeCacheEntries = shapeCacheSize / sSizes.tSize / 6;
-    Vec2<int> shapePieceSize = afk_vec2<int>(sSizes.tDim, sSizes.tDim);
+    unsigned int shapeCacheEntries = shapeCacheSize / (sSizes.tSize * 6);
 
-    enum AFK_JigsawFormat shapeTexFormat[3];
-    shapeTexFormat[0] = AFK_JIGSAW_4FLOAT32;        /* Displacement */
-    shapeTexFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;   /* Colour */
+    Vec3<int> vapourPieceSize = afk_vec3<int>(sSizes.tDim, sSizes.tDim, sSizes.tDim);
+    enum AFK_JigsawFormat vapourTexFormat = AFK_JIGSAW_4FLOAT32;
+    vapourJigsaws = new AFK_JigsawCollection(
+        ctxt,
+        vapourPieceSize,
+        (int)shapeCacheEntries,
+        1,
+        AFK_JIGSAW_3D,
+        &vapourTexFormat,
+        1,
+        computer->getFirstDeviceProps(),
+        config->clGlSharing,
+        config->concurrency);
+
+    /* Each edge piece will have 3 faces horizontally by 2 vertically to
+     * cram the 6 faces together in a better manner than stringing them
+     * in a line.
+     */
+    Vec3<int> edgePieceSize = afk_vec3<int>(sSizes.tDim * 3, sSizes.tDim * 2, 1);
+
+    enum AFK_JigsawFormat edgeTexFormat[3];
+    edgeTexFormat[0] = AFK_JIGSAW_FLOAT32;        /* Displacement */
+    edgeTexFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;   /* Colour */
 
     /* Normal: The packed 8-bit signed format doesn't seem to play nicely with
      * cl_gl buffer sharing; I don't know why...
      */
     if (config->clGlSharing)
-        shapeTexFormat[2] = AFK_JIGSAW_4FLOAT32;
+        edgeTexFormat[2] = AFK_JIGSAW_4FLOAT32;
     else
-        shapeTexFormat[2] = AFK_JIGSAW_4FLOAT8_SNORM;
+        edgeTexFormat[2] = AFK_JIGSAW_4FLOAT8_SNORM;
 
-    shapeJigsaws = new AFK_JigsawCollection(
+    edgeJigsaws = new AFK_JigsawCollection(
         ctxt,
-        shapePieceSize,
+        edgePieceSize,
         (int)shapeCacheEntries,
         1, /* TODO I'll no doubt be expanding on this */
-        shapeTexFormat,
+        AFK_JIGSAW_2D,
+        edgeTexFormat,
         3,
         computer->getFirstDeviceProps(),
         config->clGlSharing,
         config->concurrency);
 
-    shapeCacheEntries = shapeJigsaws->getPieceCount();
+    shapeCacheEntries = edgeJigsaws->getPieceCount();
     unsigned int shapeCacheBitness = calculateCacheBitness(shapeCacheEntries);
 
     shapeCache = new AFK_SHAPE_CACHE(
@@ -725,13 +758,13 @@ AFK_World::AFK_World(
     glBindVertexArray(0);
     landscapeTerrainBase->teardownGL();
 
-    glGenVertexArrays(1, &shrinkformBaseArray);
-    glBindVertexArray(shrinkformBaseArray);
-    shrinkformBase = new AFK_ShrinkformBase(sSizes);
-    shrinkformBase->initGL();
+    glGenVertexArrays(1, &edgeShapeBaseArray);
+    glBindVertexArray(edgeShapeBaseArray);
+    edgeShapeBase = new AFK_3DEdgeShapeBase(sSizes);
+    edgeShapeBase->initGL();
 
     glBindVertexArray(0);
-    shrinkformBase->teardownGL();
+    edgeShapeBase->teardownGL();
 
     /* Initialise the statistics. */
     cellsInvisible.store(0);
@@ -758,7 +791,8 @@ AFK_World::~AFK_World()
     delete landscapeCache;
     delete worldCache;
 
-    if (shapeJigsaws) delete shapeJigsaws;
+    if (edgeJigsaws) delete edgeJigsaws;
+    if (vapourJigsaws) delete vapourJigsaws;
     delete shapeCache;
 
     delete landscape_shaderProgram;
@@ -767,8 +801,8 @@ AFK_World::~AFK_World()
     delete entity_shaderProgram;
     delete entity_shaderLight;
 
-    delete shrinkformBase;
-    glDeleteVertexArrays(1, &shrinkformBaseArray);
+    delete edgeShapeBase;
+    glDeleteVertexArrays(1, &edgeShapeBaseArray);
 
     delete landscapeTerrainBase;
     glDeleteVertexArrays(1, &landscapeTileArray);
@@ -806,11 +840,12 @@ void AFK_World::flipRenderQueues(cl_context ctxt, const AFK_Frame& newFrame)
 
     landscapeComputeFair.flipQueues();
     landscapeDisplayFair.flipQueues();
-    landscapeJigsaws->flipRects(ctxt, newFrame);
+    landscapeJigsaws->flipCuboids(ctxt, newFrame);
 
     shapeComputeFair.flipQueues();
     entityDisplayFair.flipQueues();
-    shapeJigsaws->flipRects(ctxt, newFrame);
+    vapourJigsaws->flipCuboids(ctxt, newFrame);
+    edgeJigsaws->flipCuboids(ctxt, newFrame);
 }
 
 void AFK_World::alterDetail(float adjustment)
@@ -895,12 +930,16 @@ void AFK_World::doComputeTasks(void)
         terrainComputeQueues[puzzle]->computeStart(afk_core.computer, landscapeJigsaws->getPuzzle(puzzle), lSizes);
     }
 
-    std::vector<boost::shared_ptr<AFK_ShrinkformComputeQueue> > shrinkformComputeQueues;
-    shapeComputeFair.getDrawQueues(shrinkformComputeQueues);
+    std::vector<boost::shared_ptr<AFK_3DComputeQueue> > shapeComputeQueues;
+    shapeComputeFair.getDrawQueues(shapeComputeQueues);
 
-    for (unsigned int puzzle = 0; puzzle < shrinkformComputeQueues.size(); ++puzzle)
+    for (unsigned int puzzle = 0; puzzle < shapeComputeQueues.size(); ++puzzle)
     {
-        shrinkformComputeQueues[puzzle]->computeStart(afk_core.computer, shapeJigsaws->getPuzzle(puzzle), sSizes);
+        shapeComputeQueues[puzzle]->computeStart(
+            afk_core.computer,
+            vapourJigsaws->getPuzzle(puzzle),
+            edgeJigsaws->getPuzzle(puzzle),
+            sSizes);
     }
 
     /* If I finalise stuff now, the y-reduce information will
@@ -912,9 +951,9 @@ void AFK_World::doComputeTasks(void)
         terrainComputeQueues[puzzle]->computeFinish();
     }
 
-    for (unsigned int puzzle = 0; puzzle < shrinkformComputeQueues.size(); ++puzzle)
+    for (unsigned int puzzle = 0; puzzle < shapeComputeQueues.size(); ++puzzle)
     {
-        shrinkformComputeQueues[puzzle]->computeFinish();
+        shapeComputeQueues[puzzle]->computeFinish();
     }
 }
 
@@ -950,15 +989,15 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     glUniformMatrix4fv(entity_projectionTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
     AFK_GLCHK("shape uniforms")
 
-    glBindVertexArray(shrinkformBaseArray);
-    AFK_GLCHK("shape bindVertexArray")
+    glBindVertexArray(edgeShapeBaseArray);
+    AFK_GLCHK("edge shape bindVertexArray")
 
     std::vector<boost::shared_ptr<AFK_EntityDisplayQueue> > entityDrawQueues;
     entityDisplayFair.getDrawQueues(entityDrawQueues);
 
     for (unsigned int puzzle = 0; puzzle < entityDrawQueues.size(); ++puzzle)
     {
-        entityDrawQueues[puzzle]->draw(entity_shaderProgram, shapeJigsaws->getPuzzle(puzzle), sSizes);
+        entityDrawQueues[puzzle]->draw(entity_shaderProgram, edgeJigsaws->getPuzzle(puzzle), sSizes);
     }
 
     glBindVertexArray(0);

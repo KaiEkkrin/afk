@@ -292,7 +292,7 @@ __kernel void makeShape3Dedge(
 
     if (chosen)
     {
-        int2 jigsawCoord = edgePiece + (int2)(3 * TDIM + xdim, zdim);
+        int2 jigsawCoord = edgePiece + (int2)(xdim, TDIM + zdim);
         write_imagef(jigsawDisp, jigsawCoord,
             (float)ydim / (float)POINT_SUBDIVISION_FACTOR);
         write_imagef(jigsawColour, jigsawCoord, v.xyz);
@@ -329,7 +329,7 @@ __kernel void makeShape3Dedge(
 
     if (chosen)
     {
-        int2 jigsawCoord = edgePiece + (int2)(4 * TDIM + xdim, zdim);
+        int2 jigsawCoord = edgePiece + (int2)(TDIM + xdim, TDIM + zdim);
         write_imagef(jigsawDisp, jigsawCoord,
             (float)ydim / (float)POINT_SUBDIVISION_FACTOR);
         write_imagef(jigsawColour, jigsawCoord, v.xyz);
@@ -366,7 +366,7 @@ __kernel void makeShape3Dedge(
 
     if (chosen)
     {
-        int2 jigsawCoord = edgePiece + (int2)(5 * TDIM + xdim, zdim);
+        int2 jigsawCoord = edgePiece + (int2)(2 * TDIM + xdim, TDIM + zdim);
         write_imagef(jigsawDisp, jigsawCoord,
             (float)ydim / (float)POINT_SUBDIVISION_FACTOR);
         write_imagef(jigsawColour, jigsawCoord, v.xyz);

@@ -58,8 +58,8 @@ AFK_3DComputeQueue::~AFK_3DComputeQueue()
 
 AFK_3DComputeUnit AFK_3DComputeQueue::extend(
     const AFK_3DList& list,
-    const AFK_ShapeCube &shapeCube,
-    const AFK_ShapeSizes& sSizes)
+    const AFK_ShapeCube& shapeCube,
+    const AFK_ShapeSizes & sSizes)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
@@ -105,8 +105,8 @@ AFK_3DComputeUnit AFK_3DComputeQueue::addUnitWithExisting(
 
 void AFK_3DComputeQueue::computeStart(
     AFK_Computer *computer,
-    AFK_Jigsaw3D *vapourJigsaw,
-    AFK_Jigsaw2D *edgeJigsaw,
+    AFK_Jigsaw *vapourJigsaw,
+    AFK_Jigsaw *edgeJigsaw,
     const AFK_ShapeSizes& sSizes)
 {
     boost::unique_lock<boost::mutex> lock(mut);

@@ -11,13 +11,13 @@
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
+#include "3d_solid.hpp"
 #include "data/claimable.hpp"
 #include "data/fair.hpp"
 #include "data/frame.hpp"
 #include "entity_display_queue.hpp"
 #include "object.hpp"
-#include "jigsaw.hpp"
-#include "shrinkform.hpp"
+#include "jigsaw_collection.hpp"
 
 enum AFK_ShapeArtworkState
 {
@@ -26,22 +26,32 @@ enum AFK_ShapeArtworkState
     AFK_SHAPE_HAS_ARTWORK
 };
 
-/* This describes one face of a shape. */
-class AFK_ShapeFace
+/* This describes one cube in a shape. */
+class AFK_ShapeCube
 {
 public:
     Vec4<float> location;
-    Quaternion<float> rotation;
-    AFK_JigsawPiece jigsawPiece;
-    AFK_Frame jigsawPieceTimestamp;
 
-    AFK_ShapeFace(
-        const Vec4<float>& _location,
-        const Quaternion<float>& _rotation);
+    /* This is where the 3D vapour numbers get computed.
+     * TODO: Right now it's long lived.  It's also going to
+     * be quite large.  Will I be wanting to make it more
+     * transient?  (I *am* going to want the vapour at
+     * some point to render directly, of course!)
+     */
+    AFK_JigsawPiece vapourJigsawPiece;
+    AFK_Frame vapourJigsawPieceTimestamp;
+
+    /* This is where the edge data has gone (for drawing the
+     * shape as a solid).
+     */
+    AFK_JigsawPiece edgeJigsawPiece;
+    AFK_Frame edgeJigsawPieceTimestamp;
+
+    AFK_ShapeCube(const Vec4<float>& _location);
 };
 
-BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_ShapeFace>::value));
-BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_ShapeFace>::value));
+BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_ShapeCube>::value));
+BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_ShapeCube>::value));
 
 enum AFK_SkeletonFlag
 {
@@ -106,58 +116,61 @@ protected:
         std::vector<Vec3<int> >& o_skeletonCubes,
         std::vector<Vec4<int> >& o_skeletonPointCubes);
 
-    /* Tells whether to render a particular cube face of the given
-     * skeleton.
-     * The faces are, from 0 to 5: bottom, left, front, back, right, top.
-     */
-    bool testRenderSkeletonFace(const Vec3<int>& cube, unsigned int face) const;
-
     /* This is a little like the landscape tiles.
      * TODO: In addition to this, when I have more than one cube,
      * I'm going to have the whole skeletons business to think about!
      * Parallelling the landscape tiles in the first instance so that
      * I can get the basic thing working.
      */
-    bool haveShrinkformDescriptor;
-    std::vector<AFK_ShrinkformPoint> shrinkformPoints;
-    std::vector<AFK_ShrinkformCube> shrinkformCubes;
+    bool have3DDescriptor;
+    std::vector<AFK_3DVapourFeature> vapourFeatures;
+    std::vector<AFK_3DVapourCube> vapourCubes;
 
-    std::vector<AFK_ShapeFace> faces;
-    AFK_JigsawCollection *jigsaws;
+    std::vector<AFK_ShapeCube> cubes;
+    AFK_JigsawCollection *vapourJigsaws;
+    AFK_JigsawCollection *edgeJigsaws;
 
 public:
     AFK_Shape();
     virtual ~AFK_Shape();
 
-    bool hasShrinkformDescriptor() const;
+    bool has3DDescriptor() const;
 
-    void makeShrinkformDescriptor(
+    void make3DDescriptor(
         unsigned int shapeKey,
         const AFK_ShapeSizes& sSizes);
 
-    void buildShrinkformList(
-        AFK_ShrinkformList& list);
+    void build3DList(
+        AFK_3DList& list);
 
-    /* Fills out `o_faces' with the faces that
+    /* Fills out `o_cubes' with the cubes that
      * need to be computed.
      * TODO This would be faster/eat up less memory if it was
      * in iterator format, right?  (but more mind bending to
      * code :P )
      */
-    void getFacesForCompute(
+    void getCubesForCompute(
         unsigned int threadId,
-        int minJigsaw,
-        AFK_JigsawCollection *_jigsaws,
-        std::vector<AFK_ShapeFace>& o_faces);
+        int minVapourJigsaw,
+        int minEdgeJigsaw,
+        AFK_JigsawCollection *_vapourJigsaws,
+        AFK_JigsawCollection *_edgeJigsaws,
+        std::vector<AFK_ShapeCube>& o_cubes);
 
     /* This function always returns AFK_SHAPE_PIECE_SWEPT if
      * at least one piece has been swept.
-     * Call getFaces() and enqueue all the pieces
+     * Call getCubesForCompute() and enqueue all the pieces
      * that come back in the array for computation.
+     * TODO: This checks the edge jigsaws only.  For rendering
+     * the vapour directly we will need a different function.
      */
     enum AFK_ShapeArtworkState artworkState() const;
 
-    /* Enqueues the display units for an entity of this shape. */
+    /* Enqueues the display units for an entity of this shape.
+     * (Right now, this refers to enqueueing the *edge shapes*.
+     * A render of a vapour cube will require a different
+     * function!)
+     */
     void enqueueDisplayUnits(
         const AFK_Object& object,
         AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const;

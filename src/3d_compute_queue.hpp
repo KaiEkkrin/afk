@@ -98,8 +98,8 @@ public:
 
     void computeStart(
         AFK_Computer *computer,
-        AFK_Jigsaw3D *vapourJigsaw,
-        AFK_Jigsaw2D *edgeJigsaw,
+        AFK_Jigsaw *vapourJigsaw,
+        AFK_Jigsaw *edgeJigsaw,
         const AFK_ShapeSizes& sSizes);
     void computeFinish(void);
 

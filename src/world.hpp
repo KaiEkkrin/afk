@@ -12,6 +12,8 @@
 #include <boost/function.hpp>
 #include <boost/thread/thread.hpp>
 
+#include "3d_compute_queue.hpp"
+#include "3d_edge_shape_base.hpp"
 #include "async/async.hpp"
 #include "async/work_queue.hpp"
 #include "camera.hpp"
@@ -25,13 +27,11 @@
 #include "def.hpp"
 #include "entity.hpp"
 #include "entity_display_queue.hpp"
-#include "jigsaw.hpp"
+#include "jigsaw_collection.hpp"
 #include "landscape_display_queue.hpp"
 #include "landscape_tile.hpp"
 #include "shader.hpp"
 #include "shape.hpp"
-#include "shrinkform_base.hpp"
-#include "shrinkform_compute_queue.hpp"
 #include "terrain_base_tile.hpp"
 #include "terrain_compute_queue.hpp"
 #include "tile.hpp"
@@ -166,7 +166,8 @@ protected:
     AFK_Fair<AFK_EntityDisplayQueue> entityDisplayFair;
 
     /* These jigsaws form the computed shape artwork. */
-    AFK_JigsawCollection *shapeJigsaws;
+    AFK_JigsawCollection *vapourJigsaws;
+    AFK_JigsawCollection *edgeJigsaws;
 
     /* The cache of shapes we're tracking.
      * (It was kind of inevitable, wasn't it? :) )
@@ -180,11 +181,11 @@ protected:
     unsigned int shapeCacheEntries;
 
     /* The shape computation fair, for when I'm making new ones. */
-    AFK_Fair<AFK_ShrinkformComputeQueue> shapeComputeFair;
+    AFK_Fair<AFK_3DComputeQueue> shapeComputeFair;
 
     /* The basic shape geometry. */
-    GLuint shrinkformBaseArray;
-    AFK_ShrinkformBase *shrinkformBase;
+    GLuint edgeShapeBaseArray;
+    AFK_3DEdgeShapeBase *edgeShapeBase;
 
     /* The cell generating gang */
     AFK_AsyncGang<struct AFK_WorldCellGenParam, bool> *genGang;

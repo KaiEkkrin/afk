@@ -15,7 +15,7 @@
 #define FIXED_TEST_TEXTURE_DATA 0
 
 #define GRAB_DEBUG 0
-#define RECT_DEBUG 0
+#define CUBOID_DEBUG 0
 
 
 /* AFK_JigsawFormatDescriptor implementation */
@@ -111,171 +111,206 @@ AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(
 /* AFK_JigsawPiece implementation */
 
 AFK_JigsawPiece::AFK_JigsawPiece():
-    piece(afk_vec2<int>(INT_MIN, INT_MIN)), puzzle(INT_MIN)
+    u(INT_MIN), v(INT_MIN), w(INT_MIN), puzzle(INT_MIN)
 {
 }
 
-AFK_JigsawPiece::AFK_JigsawPiece(const Vec2<int>& _piece, int _puzzle):
-    piece(_piece), puzzle(_puzzle)
+AFK_JigsawPiece::AFK_JigsawPiece(int _u, int _v, int _w, int _puzzle):
+    u(_u), v(_v), w(_w), puzzle(_puzzle)
+{
+}
+
+AFK_JigsawPiece::AFK_JigsawPiece(const Vec3<int>& _piece, int _puzzle):
+    u(_piece.v[0]), v(_piece.v[1]), w(_piece.v[2]), puzzle(_puzzle)
 {
 }
 
 bool AFK_JigsawPiece::operator==(const AFK_JigsawPiece& other) const
 {
-    return (piece == other.piece && puzzle == other.puzzle);
+    return (u == other.u && v == other.v && w == other.w && puzzle == other.puzzle);
 }
 
 bool AFK_JigsawPiece::operator!=(const AFK_JigsawPiece& other) const
 {
-    return (piece != other.piece || puzzle != other.puzzle);
+    return (u != other.u || v != other.v || w != other.w || puzzle != other.puzzle);
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_JigsawPiece& piece)
 {
-    return os << "JigsawPiece(piece=" << std::dec << piece.piece << ", puzzle=" << piece.puzzle << ")";
+    return os << "JigsawPiece(u=" << std::dec << piece.u << ", v=" << piece.v << ", w=" << piece.w << ", puzzle=" << piece.puzzle << ")";
 }
 
 
-/* AFK_JigsawSubRect implementation */
+/* AFK_JigsawCuboid implementation */
 
-AFK_JigsawSubRect::AFK_JigsawSubRect(int _r, int _c, int _rows):
-    r(_r), c(_c), rows(_rows)
+AFK_JigsawCuboid::AFK_JigsawCuboid(int _r, int _c, int _s, int _rows):
+    r(_r), c(_c), s(_s), rows(_rows), slices(_slices)
 {
     columns.store(0);
 }
 
-AFK_JigsawSubRect::AFK_JigsawSubRect(const AFK_JigsawSubRect& other):
-    r(other.r), c(other.c), rows(other.rows)
+AFK_JigsawCuboid::AFK_JigsawCuboid(const AFK_JigsawCuboid& other):
+    r(other.r), c(other.c), s(other.s), rows(other.rows), slices(other.slices)
 {
     columns.store(other.columns.load());
 }
 
-AFK_JigsawSubRect AFK_JigsawSubRect::operator=(const AFK_JigsawSubRect& other)
+AFK_JigsawCuboid AFK_JigsawCuboid::operator=(const AFK_JigsawCuboid& other)
 {
     r = other.r;
     c = other.c;
+    s = other.s;
     rows = other.rows;
     columns.store(other.columns.load());
+    slices = other.slices;
     return *this;
 }
 
-std::ostream& operator<<(std::ostream& os, const AFK_JigsawSubRect& sr)
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawCuboid& sr)
 {
-    return os << "JigsawSubRect(r=" << std::dec << sr.r << ", c=" << sr.c << ", rows=" << sr.rows << ", columns=" << sr.columns.load() << ")";
+    os << "JigsawCuboid(";
+    os << "r=" << std::dec << sr.r;
+    os << ", c=" << sr.c;
+    os << ", s=" << sr.s;
+    os << ", rows=" << sr.rows;
+    os << ", columns=" << sr.columns.load();
+    os << ", slices=" << sr.slices << ")";
+    return os;
 }
 
 
 /* AFK_Jigsaw implementation */
 
-enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromRect(
-    unsigned int rect,
+enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromCuboid(
+    AFK_JigsawCuboid& cuboid,
     unsigned int threadId,
-    Vec2<int>& o_uv,
+    Vec3<int>& o_uvw,
     AFK_Frame& o_timestamp)
 {
 #if GRAB_DEBUG
-    AFK_DEBUG_PRINTL("grabPieceFromRect: with rect " << rect << "( " << rects[updateRs][rect] << " and threadId " << threadId)
+    AFK_DEBUG_PRINTL("grabPieceFromCuboid: with cuboid " << cuboid << "( " << cuboid << " and threadId " << threadId)
 #endif
 
-    if ((int)threadId >= rects[updateRs][rect].rows)
+    if ((int)threadId >= cuboid.rows)
     {
-        /* There aren't enough rows in this rectangle, try the
+        /* There aren't enough rows in this cuboid, try the
          * next one.
          */
 #if GRAB_DEBUG
         AFK_DEBUG_PRINTL("  out of rows")
 #endif
-        return AFK_JIGSAW_RECT_OUT_OF_ROWS;
+        return AFK_JIGSAW_CUBOID_OUT_OF_SPACE;
     }
 
     /* If I get here, `threadId' is a valid row within the current
-     * rectangle.
+     * cuboid.
      * Let's see if I've got enough columns left...
      */
-    int row = (int)threadId + rects[updateRs][rect].r;
-    if (rowUsage[row] < jigsawSize.v[1])
+    int row = (int)threadId + cuboid.r;
+    int slice = (int)threadId + cuboid.s;
+    if (rowUsage[row][slice] < jigsawSize.v[1])
     {
         /* We have!  Grab one. */
-        o_uv = afk_vec2<int>(row, rowUsage[row]++);
-        o_timestamp = rowTimestamp[row];
+        o_uvw = afk_vec3<int>(row, rowUsage[row][slice]++, slice);
+        o_timestamp = rowTimestamp[row][slice];
 
-        /* If I just gave the rectangle another column, update its columns
+        /* If I just gave the cuboid another column, update its columns
          * field to match
          * (I can do this atomically and don't need a lock)
          */
-        int rectColumns = o_uv.v[1] - rects[updateRs][rect].c;
-        rects[updateRs][rect].columns.compare_exchange_strong(rectColumns, rectColumns + 1);
+        int cuboidColumns = o_uvw.v[1] - cuboid.c;
+        cuboid.columns.compare_exchange_strong(cuboidColumns, cuboidColumns + 1);
 
 #if GRAB_DEBUG
-        AFK_DEBUG_PRINTL("  grabbed: " << o_uv)
+        AFK_DEBUG_PRINTL("  grabbed: " << o_uvw)
 #endif
 
-        return AFK_JIGSAW_RECT_GRABBED;
+        return AFK_JIGSAW_CUBOID_GRABBED;
     }
     else
     {
-        /* We ran out of columns, you need to start a new rectangle.
+        /* We ran out of columns, you need to start a new cuboid.
          */
 #if GRAB_DEBUG
         AFK_DEBUG_PRINTL("  out of columns")
 #endif
-        return AFK_JIGSAW_RECT_OUT_OF_COLUMNS;
+        return AFK_JIGSAW_CUBOID_OUT_OF_COLUMNS;
     }
 }
 
-void AFK_Jigsaw::pushNewRect(AFK_JigsawSubRect rect)
+void AFK_Jigsaw::pushNewCuboid(AFK_JigsawCuboid cuboid)
 {
-    rects[updateRs].push_back(rect);
-    for (int row = rect.r; row < (rect.r + rect.rows); ++row)
+    cuboids[updateCs].push_back(cuboid);
+    for (int row = cuboid.r; row < (cuboid.r + cuboid.rows); ++row)
     {
-        rowUsage[row] = rect.c;
+        for (int slice = cuboid.s; slice < (cuboid.s + cuboid.slices); ++slice)
+        {
+            rowUsage[row][slice] = cuboid.c;
+        }
     }
 
-#if RECT_DEBUG
-    AFK_DEBUG_PRINTL("  new rectangle at: " << rect)
+#if CUBOID_DEBUG
+    AFK_DEBUG_PRINTL("  new cuboid at: " << cuboid)
 #endif
 }
 
-bool AFK_Jigsaw::startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRow)
+bool AFK_Jigsaw::startNewCuboid(const AFK_JigsawCuboid& lastCuboid, bool startNewRow)
 {
-#if RECT_DEBUG
-    AFK_DEBUG_PRINTL("startNewRect: starting new rectangle after " << lastRect)
+#if CUBOID_DEBUG
+    AFK_DEBUG_PRINTL("startNewCuboid: starting new cuboid after " << lastCuboid)
 #endif
 
-    /* Update the column counts with the last rectangle's. */
-    columnCounts.push(lastRect.columns.load());
+    /* Update the column counts with the last cuboid's. */
+    columnCounts.push(lastCuboid.columns.load());
+
+    /* Cuboids are always the same size right now, which makes things easier: */
+    int newRowCount = concurrency;
+    int newSliceCount = 1;
+
+    int nextFreeColumn = lastCuboid.c + lastCuboid.columns.load();
 
     if (startNewRow ||
-        columnCounts.get() > (jigsawSize.v[1] - (lastRect.c + lastRect.columns.load())))
+        newRowCount > (jigsawSize.v[1] - nextFreeColumn) ||
+        columnCounts.get() > (jigsawSize.v[1] - nextFreeColumn))
     {
-        /* Try starting a new rectangle on the row after this one. */
-        int newRow, newRowCount;
-        newRow = lastRect.r + lastRect.rows;
-        if (newRow == jigsawSize.v[0]) newRow = 0;
-
-        for (newRowCount = 0;
-            newRowCount < (int)concurrency &&
-                (newRow + newRowCount) < jigsawSize.v[0] &&
-                (sweepRow < newRow || (newRow + newRowCount) < sweepRow);
-            ++newRowCount);
-
-        if (newRowCount < (int)concurrency)
+        /* Find a place to start a new cuboid.
+         * If I can go one row up, use that:
+         */
+        int newRow, newSlice;
+        if ((lastCuboid.r + lastCuboid.rows + newRowCount) < jigsawSize.v[0])
         {
-#if RECT_DEBUG
-            AFK_DEBUG_PRINTL("  only " << newRowCount << " rows available: no new rectangle for you")
+            /* There is room on the next row up. */
+            newRow = lastCuboid.r + lastCuboid.rows;
+            newSlice = lastCuboid.s;
+        }
+        else
+        {
+            /* Try the next slice along. */
+            newRow = 0;
+            newSlice = lastCuboid.s + lastCuboid.slices;
+            if ((newSlice + newSliceCount) >= jigsawSize.v[2]) newSlice = 0;
+        }
+
+        /* Check I'm not running into the sweep position. */
+        if ((newSlice <= sweepPosition.v[2] && sweepPosition.v[2] < (newSlice + newSliceCount)) &&
+            (newRow <= sweepPosition.v[0] && sweepPosition.v[0] < (newRow + newRowCount)))
+        {
+            /* Poo. */
+#if CUBOID_DEBUG
+            AFK_DEBUG_PRINTL("  new cuboid at " << newRow << ", " << newSlice << " ran into sweep position at " << sweepPosition)
 #endif
             return false;
         }
 
-        pushNewRect(AFK_JigsawSubRect(newRow, 0, newRowCount));
+        pushNewCuboid(AFK_JigsawCuboid(newRow, 0, newSlice, newRowCount, newSliceCount));
     }
     else
     {
-        /* I'm going to pack a new rectangle onto the same rows as the existing one.
-         * This operation also closes down the last rectangle (if you add columns to
+        /* I'm going to pack a new cuboid onto the same row as the existing one.
+         * This operation also closes down the last cuboid (if you add columns to
          * it you'll trample the new one).
          */
-        pushNewRect(AFK_JigsawSubRect(lastRect.r, lastRect.c + lastRect.columns.load(), concurrency));
+        pushNewCuboid(AFK_JigsawCuboid(lastCuboid.r, lastCuboid.c + lastCuboid.columns.load(), lastCuboid.s, newRowCount, newSliceCount));
     }
 
     return true;
@@ -290,63 +325,98 @@ int AFK_Jigsaw::roundUpToConcurrency(int r) const
 
 #define SWEEP_DEBUG 0
 
-int AFK_Jigsaw::getSweepTarget(int latestRow) const
+Vec2<int> AFK_Jigsaw::getSweepTarget(const Vec2<int>& latest) const
 {
-    int target = roundUpToConcurrency(latestRow + (jigsawSize.v[0] / 8));
-    if (target >= jigsawSize.v[0]) target -= jigsawSize.v[0];
+    Vec2<int> target;
+
+    if (jigsawSize.v[2] > 1)
+    {
+        /* Hop across slices. */
+        int targetSlice = latest.v[1] + (jigsawSize.v[2] / 8) + 1;
+        if (targetSlice >= jigsawSize.v[2]) targetSlice -= jigsawSize.v[2];
+        target = afk_vec2<int>(latest.v[0], targetSlice);
+    }
+    else
+    {
+        /* Hop across rows. */
+        int targetRow = roundUpToConcurrency(latest.v[0] + (jigsawSize.v[0] / 8));
+        if (targetRow >= jigsawSize.v[0]) targetRow -= jigsawSize.v[0];
+        target = afk_vec2<int>(targetRow, latest.v[1]);
+    }
 
 #if SWEEP_DEBUG
-    AFK_DEBUG_PRINTL("sweepTarget: " << sweepRow << " -> " << target << " (latestRow: " << latestRow << ", jigsawSize " << jigsawSize << ", concurrency " << concurrency << ")")
+    AFK_DEBUG_PRINTL("sweepTarget: " << sweepPosition << " -> " << target << " (latest: " << latest << ", jigsawSize " << jigsawSize << ", concurrency " << concurrency << ")")
 #endif
 
     return target;
 }
 
-void AFK_Jigsaw::sweep(int sweepTarget, const AFK_Frame& currentFrame)
+void AFK_Jigsaw::sweep(const Vec2<int>& sweepTarget, const AFK_Frame& currentFrame)
 {
-    if (sweepTarget < sweepRow)
+    while (sweepPosition != sweepTarget)
     {
-        /* I need to roll up to the top of the jigsaw and then wrap
-         * around to the bottom again.
+        /* Sweep the rows up to the top, then flip to the next
+         * slice.
          */
-        for (; sweepRow < jigsawSize.v[0]; ++sweepRow)
-            rowTimestamp[sweepRow] = currentFrame;
-
-        sweepRow = 0;
+        rowTimestamp[sweepPosition.v[0]][sweepPosition.v[1]] = currentFrame;
+        ++(sweepPosition.v[0]);
+        if (sweepPosition.v[0] == jigsawSize.v[0])
+        {
+            /* I hit the top of the row, set back down again and
+             * shift to the next slice.
+             */
+            sweepPosition.v[0] = 0;
+            ++(sweepPosition.v[1]);
+            if (sweepPosition.v[1] == jigsawSize.v[2])
+            {
+                /* I hit the end of the jigsaw, wrap around. */
+                sweepPosition.v[1] = 0;
+            }
+        }
     }
-
-    for (; sweepRow < sweepTarget; ++sweepRow)
-        rowTimestamp[sweepRow] = currentFrame;
 }
 
-void AFK_Jigsaw::doSweep(int nextFreeRow, const AFK_Frame& currentFrame)
+void AFK_Jigsaw::doSweep(const Vec2<int>& nextFreeRow, const AFK_Frame& currentFrame)
 {
-    /* Let's try to keep the sweep row at least 1/8th ahead of the
+    /* Let's try to keep the sweep row some way ahead of the
      * next free row.
      */
-    int sweepRowCmp = roundUpToConcurrency((sweepRow < nextFreeRow ? (sweepRow + jigsawSize.v[0]) : sweepRow));
-    if ((sweepRowCmp - nextFreeRow) < (jigsawSize.v[0] / 8))
+    if (jigsawSize.v[2] > 1)
     {
-        sweep(getSweepTarget(sweepRowCmp), currentFrame);
+        int sweepSliceCmp = (sweepPosition.v[1] < nextFreeRow.v[1] ? (sweepPosition.v[1] + jigsawSize.v[2]) : sweepPosition.v[1]) + 1;
+        if ((sweepSliceCmp - nextFreeRow.v[1]) < 2)
+        {
+            sweep(getSweepTarget(afk_vec2<int>(nextFreeRow.v[0], sweepSliceCmp)), currentFrame);
+        }
+    }
+    else
+    {
+        int sweepRowCmp = roundUpToConcurrency((sweepPosition.v[0] < nextFreeRow.v[0] ? (sweepPosition.v[0] + jigsawSize.v[0]) : sweepPosition.v[0]));
+        if ((sweepRowCmp - nextFreeRow.v[0]) < (jigsawSize.v[0] / concurrency))
+        {
+            sweep(getSweepTarget(afk_vec2<int>(sweepRowCmp, nextFreeRow.v[1])), currentFrame);
+        }
     }
 }
 
 AFK_Jigsaw::AFK_Jigsaw(
     cl_context ctxt,
-    const Vec2<int>& _pieceSize,
-    const Vec2<int>& _jigsawSize,
+    const Vec3<int>& _pieceSize,
+    const Vec3<int>& _jigsawSize,
     const AFK_JigsawFormatDescriptor *_format,
+    GLuint _texTarget,
     unsigned int _texCount,
     bool _clGlSharing,
     unsigned int _concurrency):
         format(_format),
+        texTarget(_texTarget),
         texCount(_texCount),
         pieceSize(_pieceSize),
         jigsawSize(_jigsawSize),
         clGlSharing(_clGlSharing),
         concurrency(_concurrency),
-        updateRs(0),
-        drawRs(1),
+        updateCs(0),
+        drawCs(1),
         columnCounts(8, 0)
 {
     glTex = new GLuint[texCount];
@@ -356,7 +426,7 @@ AFK_Jigsaw::AFK_Jigsaw(
 
     for (unsigned int tex = 0; tex < texCount; ++tex)
     {
-        glBindTexture(GL_TEXTURE_2D, glTex[tex]);
+        glBindTexture(texTarget, glTex[tex]);
 
         /* Next debug: fill this thing out with some test data and
          * bludgeon the texture sampler into working correctly.  I'm
@@ -370,32 +440,79 @@ AFK_Jigsaw::AFK_Jigsaw(
          * honest! :P
          * This code assumes jigsawSize to be {1, 1} for expediency
          */
-        Vec4<float> testData[pieceSize.v[0]][pieceSize.v[1]];
+        Vec4<float> testData[pieceSize.v[0]][pieceSize.v[1]][pieceSize.v[2]];
         for (int a = 0; a < pieceSize.v[0]; ++a)
         {
             for (int b = 0; b < pieceSize.v[1]; ++b)
             {
-                testData[a][b] = afk_vec4<float>(
-                    1.0f,
-                    (float)a / (float)pieceSize.v[0],
-                    (float)b / (float)pieceSize.v[1],
-                    0);
+                for (int c = 0; c < pieceSize.v[2]; ++c)
+                {
+                    testData[a][b][c] = afk_vec4<float>(
+                        1.0f,
+                        (float)a / (float)pieceSize.v[0],
+                        (float)b / (float)pieceSize.v[1],
+                        (float)c / (float)pieceSize.v[2]);
+                }
             }
         }
-        glTexImage2D(
-            GL_TEXTURE_2D,
-            0,
-            format.glInternalFormat,
-            pieceSize.v[0],
-            pieceSize.v[1],
-            0,
-            format[tex].glFormat,
-            format[tex].glDataType,
-            &testData[0]);
+        switch (texTarget)
+        {
+        case GL_TEXTURE_2D:
+            glTexImage2D(
+                texTarget,
+                0,
+                format.glInternalFormat,
+                pieceSize.v[0],
+                pieceSize.v[1],
+                0,
+                format[tex].glFormat,
+                format[tex].glDataType,
+                &testData[0]);
+            break;
+
+        case GL_TEXTURE_3D:
+            glTexImage3D(
+                texTarget,
+                0,
+                format.glInternalFormat,
+                pieceSize.v[0],
+                pieceSize.v[1],
+                pieceSize.v[2],
+                format[tex].glFormat,
+                format[tex].glDataType,
+                &testData[0]);
+            break;
+
+        default:
+            throw AFK_Exception("Unrecognised texTarget");
+        }
 #else
-        glTexStorage2D(GL_TEXTURE_2D, 1, format[tex].glInternalFormat, pieceSize.v[0] * jigsawSize.v[0], pieceSize.v[1] * jigsawSize.v[1]);
+        switch (texTarget)
+        {
+        case GL_TEXTURE_2D:
+            glTexStorage2D(
+                texTarget,
+                1,
+                format[tex].glInternalFormat,
+                pieceSize.v[0] * jigsawSize.v[0],
+                pieceSize.v[1] * jigsawSize.v[1]);
+            break;
+
+        case GL_TEXTURE_3D:
+            glTexStorage3D(
+                texTarget,
+                1,
+                format[tex].glInternalFormat,
+                pieceSize.v[0] * jigsawSize.v[0],
+                pieceSize.v[1] * jigsawSize.v[1],
+                pieceSize.v[2] * jigsawSize.v[2]);
+            break;
+
+        default:
+            throw AFK_Exception("Unrecognised texTarget");
+        }
 #endif
-        AFK_GLCHK("AFK_JigSaw texStorage2D")
+        AFK_GLCHK("AFK_JigSaw texStorage")
 
         cl_int error;
         if (clGlSharing)
@@ -405,7 +522,7 @@ AFK_Jigsaw::AFK_Jigsaw(
                 clTex[tex] = clCreateFromGLTexture(
                     ctxt,
                     CL_MEM_READ_WRITE,
-                    GL_TEXTURE_2D,
+                    texTarget,
                     0,
                     glTex[tex],
                     &error);
@@ -414,13 +531,31 @@ AFK_Jigsaw::AFK_Jigsaw(
             {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-                clTex[tex] = clCreateFromGLTexture2D(
-                    ctxt,
-                    CL_MEM_READ_WRITE,
-                    GL_TEXTURE_2D,
-                    0,
-                    glTex[tex],
-                    &error);           
+                switch (texTarget)
+                {
+                case GL_TEXTURE_2D:
+                    clTex[tex] = clCreateFromGLTexture2D(
+                        ctxt,
+                        CL_MEM_READ_WRITE,
+                        texTarget,
+                        0,
+                        glTex[tex],
+                        &error);           
+                    break;
+
+                case GL_TEXTURE_3D:
+                    clTex[tex] = clCreateFromGLTexture3D(
+                        ctxt,
+                        CL_MEM_READ_WRITE,
+                        texTarget,
+                        0,
+                        glTex[tex],
+                        &error);           
+                    break;
+
+                default:
+                    throw AFK_Exception("Unrecognised texTarget");
+                }
 #pragma GCC diagnostic pop
             }
         }
@@ -428,9 +563,10 @@ AFK_Jigsaw::AFK_Jigsaw(
         {
             cl_image_desc imageDesc;
             memset(&imageDesc, 0, sizeof(cl_image_desc));
-            imageDesc.image_type        = CL_MEM_OBJECT_IMAGE2D;
+            imageDesc.image_type        = (texTarget == GL_TEXTURE_2D ? CL_MEM_OBJECT_IMAGE2D : CL_MEM_OBJECT_IMAGE3D);
             imageDesc.image_width       = pieceSize.v[0] * jigsawSize.v[0];
             imageDesc.image_height      = pieceSize.v[1] * jigsawSize.v[1];
+            imageDesc.image_depth       = pieceSize.v[2] * jigsawSize.v[2];
 
             if (afk_core.computer->testVersion(1, 2))
             {
@@ -446,15 +582,37 @@ AFK_Jigsaw::AFK_Jigsaw(
             {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-                clTex[tex] = clCreateImage2D(
-                    ctxt,
-                    CL_MEM_READ_WRITE,
-                    &format[tex].clFormat,
-                    imageDesc.image_width,
-                    imageDesc.image_height,
-                    imageDesc.image_row_pitch,
-                    NULL,
-                    &error);
+                switch (texTarget)
+                {
+                case GL_TEXTURE_2D:
+                    clTex[tex] = clCreateImage2D(
+                        ctxt,
+                        CL_MEM_READ_WRITE,
+                        &format[tex].clFormat,
+                        imageDesc.image_width,
+                        imageDesc.image_height,
+                        imageDesc.image_row_pitch,
+                        NULL,
+                        &error);
+                    break;
+
+                case GL_TEXTURE_3D:
+                    clTex[tex] = clCreateImage3D(
+                        ctxt,
+                        CL_MEM_READ_WRITE,
+                        &format[tex].clFormat,
+                        imageDesc.image_width,
+                        imageDesc.image_height,
+                        imageDesc.image_depth,
+                        imageDesc.image_row_pitch,
+                        imageDesc.image_slice_pitch,
+                        NULL,
+                        &error);
+                    break;
+
+                default:
+                    throw AFK_Exception("Unrecognised texTarget");
+                }
 #pragma GCC diagnostic pop
             }
         }
@@ -462,19 +620,25 @@ AFK_Jigsaw::AFK_Jigsaw(
     }
 
     /* Now that I've got the textures, fill out the jigsaw state. */
+    rowTimestamp = new AFK_Frame[jigsawSize.v[0]][jigsawSize.v[2]];
+    rowUsage = new int[jigsawSize.v[0]][jigsawSize.v[2]];
+
     for (int row = 0; row < jigsawSize.v[0]; ++row)
     {
-        rowTimestamp.push_back(AFK_Frame());
-        rowUsage.push_back(0);
+        for (int slice = 0; slice < jigsawSize.v[2]; ++slice)
+        {
+            rowTimestamp[row][slice] = AFK_Frame();
+            rowUsage[row][slice] = 0;
+        }
     }
 
-    sweepRow = getSweepTarget(0);
+    sweepPosition = getSweepTarget(afk_vec2<int>(0, 0));
 
-    /* Make a starting update rectangle. */
-    if (!startNewRect(
-        AFK_JigsawSubRect(0, 0, concurrency), false))
+    /* Make a starting update cuboid. */
+    if (!startNewCuboid(
+        AFK_JigsawCuboid(0, 0, 0, concurrency, 1), false))
     {
-        throw AFK_Exception("Cannot make starting rectangle");
+        throw AFK_Exception("Cannot make starting cuboid");
     }
 
     changeData = new std::vector<unsigned char>[texCount];
@@ -495,25 +659,28 @@ AFK_Jigsaw::~AFK_Jigsaw()
 
     glDeleteTextures(texCount, glTex);
 
+    delete[][] rowUsage;
+    delete[][] rowTimestamp;
+
     delete[] changeEvents;
     delete[] changeData;
     delete[] clTex;
     delete[] glTex;
 }
 
-bool AFK_Jigsaw::grab(unsigned int threadId, Vec2<int>& o_uv, AFK_Frame& o_timestamp)
+bool AFK_Jigsaw::grab(unsigned int threadId, Vec2<int>& o_uvw, AFK_Frame& o_timestamp)
 {
-    /* Let's see if I can use an existing rectangle. */
-    unsigned int rect;
-    for (rect = 0; rect < rects[updateRs].size(); ++rect)
+    /* Let's see if I can use an existing cuboid. */
+    unsigned int cI;
+    for (cI = 0; cI < cuboids[updateCs].size(); ++cI)
     {
-        switch (grabPieceFromRect(rect, threadId, o_uv, o_timestamp))
+        switch (grabPieceFromCuboid(cuboids[updateCs][cI], threadId, o_uvw, o_timestamp))
         {
-        case AFK_JIGSAW_RECT_OUT_OF_ROWS:
+        case AFK_JIGSAW_CUBOID_OUT_OF_SPACE:
             /* This means I'm out of room in the jigsaw. */
             return false;
 
-        case AFK_JIGSAW_RECT_GRABBED:
+        case AFK_JIGSAW_CUBOID_GRABBED:
             /* I got one! */
             return true;
 
@@ -523,21 +690,21 @@ bool AFK_Jigsaw::grab(unsigned int threadId, Vec2<int>& o_uv, AFK_Frame& o_times
         }
     }
 
-    /* I ran out of rectangles.  Try to start a new one. */
-    if (rect == 0) return false;
+    /* I ran out of cuboids.  Try to start a new one. */
+    if (cI == 0) return false;
 
-    boost::unique_lock<boost::mutex> lock(updateRMut);
-    if (rect == rects[updateRs].size())
+    boost::unique_lock<boost::mutex> lock(updateCMut);
+    if (cI == cuboids[updateCs].size())
     {
-        if (!startNewRect(rects[updateRs][rect-1], true)) return false;
+        if (!startNewCuboid(cuboids[updateCs][cI-1], true)) return false;
     }
 
-    return grabPieceFromRect(rect, threadId, o_uv, o_timestamp) == AFK_JIGSAW_RECT_GRABBED;
+    return grabPieceFromCuboid(cuboids[updateCs][cI], threadId, o_uvw, o_timestamp) == AFK_JIGSAW_CUBOID_GRABBED;
 }
 
-AFK_Frame AFK_Jigsaw::getTimestamp(const Vec2<int>& uv) const
+AFK_Frame AFK_Jigsaw::getTimestamp(const AFK_JigsawPiece& piece) const
 {
-    return rowTimestamp[uv.v[0]];
+    return rowTimestamp[piece.u][piece.w];
 }
 
 unsigned int AFK_Jigsaw::getTexCount(void) const
@@ -545,18 +712,20 @@ unsigned int AFK_Jigsaw::getTexCount(void) const
     return texCount;
 }
 
-Vec2<float> AFK_Jigsaw::getTexCoordST(const AFK_JigsawPiece& piece) const
+Vec3<float> AFK_Jigsaw::getTexCoordST(const AFK_JigsawPiece& piece) const
 {
-    return afk_vec2<float>(
-        (float)piece.piece.v[0] / (float)jigsawSize.v[0],
-        (float)piece.piece.v[1] / (float)jigsawSize.v[1]);
+    return afk_vec3<float>(
+        (float)piece.u / (float)jigsawSize.v[0],
+        (float)piece.v / (float)jigsawSize.v[1],
+        (float)piece.w / (float)jigsawSize.v[2]);
 }
 
-Vec2<float> AFK_Jigsaw::getPiecePitchST(void) const
+Vec3<float> AFK_Jigsaw::getPiecePitchST(void) const
 {
-    return afk_vec2<float>(
+    return afk_vec3<float>(
         1.0f / (float)jigsawSize.v[0],
-        1.0f / (float)jigsawSize.v[1]);
+        1.0f / (float)jigsawSize.v[1],
+        1.0f / (float)jigsawSize.v[2]);
 }
 
 cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q, cl_event *o_event)
@@ -598,16 +767,18 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q, cl_uint eventsInWaitList, con
         {
             unsigned int requiredChangeEventCount = 0;
             size_t requiredChangeDataSize = 0;
-            size_t pieceSizeInBytes = format[tex].texelSize * pieceSize.v[0] * pieceSize.v[1];
+            size_t pieceSizeInBytes = format[tex].texelSize * pieceSize.v[0] * pieceSize.v[1] * pieceSize.v[2];
 
-            for (unsigned int rect = 0; rect < rects[drawRs].size(); ++rect)
+            for (unsigned int cI = 0; cI < cuboids[drawCs].size(); ++cI)
             {
-                size_t rectSizeInBytes = pieceSizeInBytes *
-                    rects[drawRs][rect].rows * rects[drawRs][rect].columns.load();
+                size_t cuboidSizeInBytes = pieceSizeInBytes *
+                    cuboids[drawCs][cI].rows *
+                    cuboids[drawCs][cI].columns.load() *
+                    cuboids[drawCs][cI].slices;
 
-                if (rectSizeInBytes == 0) continue;
+                if (cuboidSizeInBytes == 0) continue;
 
-                requiredChangeDataSize += rectSizeInBytes;
+                requiredChangeDataSize += cuboidSizeInBytes;
                 ++requiredChangeEventCount;
             }
 
@@ -621,29 +792,31 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q, cl_uint eventsInWaitList, con
              */
             unsigned int changeEvent = 0;
             size_t changeDataOffset = 0;
-            for (unsigned int rect = 0; rect < rects[drawRs].size(); ++rect)
+            for (unsigned int cI = 0; cI < cuboids[drawCs].size(); ++cI)
             {
-                size_t rectSizeInBytes = pieceSizeInBytes *
-                    rects[drawRs][rect].rows * rects[drawRs][rect].columns.load();
+                size_t cuboidSizeInBytes = pieceSizeInBytes *
+                    cuboids[drawCs][cI].rows *
+                    cuboids[drawCs][cI].columns.load() *
+                    cuboids[drawCs][cI].slices;
 
-                if (rectSizeInBytes == 0) continue;
+                if (cuboidSizeInBytes == 0) continue;
 
                 size_t origin[3];
                 size_t region[3];
 
-                origin[0] = rects[drawRs][rect].r * pieceSize.v[0];
-                origin[1] = rects[drawRs][rect].c * pieceSize.v[1];
-                origin[2] = 0;
+                origin[0] = cuboids[drawCs][cI].r * pieceSize.v[0];
+                origin[1] = cuboids[drawCs][cI].c * pieceSize.v[1];
+                origin[2] = cuboids[drawCs][cI].s * pieceSize.v[2];
 
-                region[0] = rects[drawRs][rect].rows * pieceSize.v[0];
-                region[1] = rects[drawRs][rect].columns.load() * pieceSize.v[1];
-                region[2] = 1;
+                region[0] = cuboids[drawCs][cI].rows * pieceSize.v[0];
+                region[1] = cuboids[drawCs][cI].columns.load() * pieceSize.v[1];
+                region[2] = cuboids[drawCs][cI].slices * pieceSize.v[2];
 
                 AFK_CLCHK(clEnqueueReadImage(
                     q, clTex[tex], CL_FALSE, origin, region, 0, 0, &changeData[tex][changeDataOffset],
                         eventsInWaitList, eventWaitList, &changeEvents[tex][changeEvent]))
                 ++changeEvent;
-                changeDataOffset += rectSizeInBytes;
+                changeDataOffset += cuboidSizeInBytes;
             }
         }
 #endif
@@ -652,7 +825,7 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q, cl_uint eventsInWaitList, con
 
 void AFK_Jigsaw::bindTexture(unsigned int tex)
 {
-    glBindTexture(GL_TEXTURE_2D, glTex[tex]);
+    glBindTexture(texTarget, glTex[tex]);
 
     if (!clGlSharing)
     {
@@ -670,26 +843,50 @@ void AFK_Jigsaw::bindTexture(unsigned int tex)
         changeEvents[tex].clear();
 
         /* Push all the changed pieces into the GL texture. */
-        size_t pieceSizeInBytes = format[tex].texelSize * pieceSize.v[0] * pieceSize.v[1];
+        size_t pieceSizeInBytes = format[tex].texelSize * pieceSize.v[0] * pieceSize.v[1] * pieceSize.v[2];
         size_t changeDataOffset = 0;
-        for (unsigned int rect = 0; rect < rects[drawRs].size(); ++rect)
+        for (unsigned int cI = 0; cI < cuboids[drawCs].size(); ++cI)
         {
-            size_t rectSizeInBytes = pieceSizeInBytes *
-                rects[drawRs][rect].rows * rects[drawRs][rect].columns.load();
+            size_t cuboidSizeInBytes = pieceSizeInBytes *
+                cuboids[drawCs][cI].rows *
+                cuboids[drawCs][cI].columns.load() *
+                cuboids[drawCs][cI].slices;
 
-            if (rectSizeInBytes == 0) continue;
+            if (cuboidSizeInBytes == 0) continue;
 
-            glTexSubImage2D(
-                GL_TEXTURE_2D, 0,
-                rects[drawRs][rect].r * pieceSize.v[0],
-                rects[drawRs][rect].c * pieceSize.v[1],
-                rects[drawRs][rect].rows * pieceSize.v[0],
-                rects[drawRs][rect].columns.load() * pieceSize.v[1],
-                format[tex].glFormat,
-                format[tex].glDataType,
-                &changeData[tex][changeDataOffset]);
+            switch (texTarget)
+            {
+            case GL_TEXTURE_2D:
+                glTexSubImage2D(
+                    texTarget, 0,
+                    cuboids[drawCs][cI].r * pieceSize.v[0],
+                    cuboids[drawCs][cI].c * pieceSize.v[1],
+                    cuboids[drawCs][cI].rows * pieceSize.v[0],
+                    cuboids[drawCs][cI].columns.load() * pieceSize.v[1],
+                    format[tex].glFormat,
+                    format[tex].glDataType,
+                    &changeData[tex][changeDataOffset]);
+                break;
 
-            changeDataOffset += rectSizeInBytes;
+            case GL_TEXTURE_3D:
+                glTexSubImage3D(
+                    texTarget, 0,
+                    cuboids[drawCs][cI].r * pieceSize.v[0],
+                    cuboids[drawCs][cI].c * pieceSize.v[1],
+                    cuboids[drawCs][cI].s * pieceSize.v[2],
+                    cuboids[drawCs][cI].rows * pieceSize.v[0],
+                    cuboids[drawCs][cI].columns.load() * pieceSize.v[1],
+                    cuboids[drawCs][cI].slices * pieceSize.v[2],
+                    format[tex].glFormat,
+                    format[tex].glDataType,
+                    &changeData[tex][changeDataOffset]);
+                break;
+
+            default:
+                throw AFK_Exception("Unrecognised texTarget");
+            }
+
+            changeDataOffset += cuboidSizeInBytes;
         }
 #endif
     }
@@ -697,211 +894,58 @@ void AFK_Jigsaw::bindTexture(unsigned int tex)
 
 #define FLIP_DEBUG 0
 
-void AFK_Jigsaw::flipRects(const AFK_Frame& currentFrame)
+void AFK_Jigsaw::flipCuboids(const AFK_Frame& currentFrame)
 {
-    updateRs = (updateRs == 0 ? 1 : 0);
-    drawRs = (drawRs == 0 ? 1 : 0);
+    updateCs = (updateCs == 0 ? 1 : 0);
+    drawCs = (drawCs == 0 ? 1 : 0);
 
-    /* Clear out the old draw rectangles, and create a new update
-     * rectangle following on from the last one.
+    /* Clear out the old draw cuboids, and create a new update
+     * cuboid following on from the last one.
      */
-    rects[updateRs].clear();
+    cuboids[updateCs].clear();
 
-    /* Do we have an existing rectangle to continue from? */
+    /* Do we have an existing cuboid to continue from? */
     bool continued = false;
-    if (rects[drawRs].size() > 0)
+    if (cuboids[drawCs].size() > 0)
     {
-        /* Sweep in front of the rectangle I'm about to make */
-        std::vector<AFK_JigsawSubRect>::reverse_iterator lastRect = rects[drawRs].rbegin();
-        int nextFreeRow = lastRect->r + lastRect->rows;
-        doSweep(nextFreeRow, currentFrame);
+        /* Sweep in front of the cuboid I'm about to make */
+        std::vector<AFK_JigsawCuboid>::reverse_iterator lastCuboid = cuboids[drawCs].rbegin();
+        Vec2<int> nextFree = afk_vec2<int>(lastCuboid->r + lastCuboid->rows, lastCuboid->s);
+        if (nextFree.v[0] >= jigsawSize.v[0])
+        {
+            nextFree.v[0] = 0;
+            nextFree.v[1] = lastCuboid->s + lastCuboid->slices;
+            if (nextFree.v[1] >= jigsawSize.v[2]) nextFree.v[1] = 0;
+        }
+        doSweep(nextFree, currentFrame);
 
 #if FLIP_DEBUG
-        AFK_DEBUG_PRINTL("Flipping from draw rectangle " << *lastRect << " (with sweep row " << sweepRow << ")")
+        AFK_DEBUG_PRINTL("Flipping from draw cuboid " << *lastCuboid << " (with sweep position " << sweepPosition << ")")
 #endif
-        continued = startNewRect(*lastRect, false);
+        continued = startNewCuboid(*lastCuboid, false);
     }
     else
     {
 #if FLIP_DEBUG
-        AFK_DEBUG_PRINTL("Trying to start fresh rectangle")
+        AFK_DEBUG_PRINTL("Trying to start fresh cuboid")
 #endif
         /* This should be a rare case: I previously ran out of
-         * rectangles in this jigsaw.
+         * cuboids in this jigsaw.
          * Pick a place to try to start from (this may not succeed).
          * I need to ask for a new row to trigger the eviction stuff.
          */
-        continued = startNewRect(AFK_JigsawSubRect(0, 0, concurrency), true);
+        continued = startNewCuboid(AFK_JigsawCuboid(0, 0, 0, concurrency, 1), true);
 
         if (continued)
         {
-            /* Now, reset the sweep and sweep across that rectangle. */
-            sweepRow = 0;
-            doSweep(0, currentFrame);
+            /* Now, reset the sweep and sweep across that cuboid. */
+            sweepPosition = afk_vec2<int>(0, 0);
+            Vec2<int> nextFree = afk_vec2<int>(0, 0);
+            doSweep(nextFree, currentFrame);
         }
     }
 
     /* This shouldn't happen, *but* ... */
-    if (!continued) throw AFK_Exception("flipRects() failed");
-}
-
-
-/* AFK_JigsawCollection implementation */
-
-AFK_JigsawCollection::AFK_JigsawCollection(
-    cl_context ctxt,
-    const Vec2<int>& _pieceSize,
-    int _pieceCount,
-    int minJigsawCount,
-    enum AFK_JigsawFormat *texFormat,
-    unsigned int _texCount,
-    const AFK_ClDeviceProperties& _clDeviceProps,
-    bool _clGlSharing,
-    unsigned int _concurrency):
-        texCount(_texCount),
-        pieceSize(_pieceSize),
-        pieceCount(_pieceCount),
-        clGlSharing(_clGlSharing),
-        concurrency(_concurrency)
-{
-    std::cout << "AFK_JigsawCollection: Requested " << std::dec << pieceCount << " pieces of size " << pieceSize << ": " << std::endl;
-
-    /* Figure out the texture formats. */
-    for (unsigned int tex = 0; tex < texCount; ++tex)
-        format.push_back(AFK_JigsawFormatDescriptor(texFormat[tex]));
-
-    /* Figure out a jigsaw size.  I want the rows to always be a
-     * round multiple of `concurrency' to avoid breaking rectangles
-     * apart.
-     * For this I need to try all the formats: I stop testing
-     * when any one of the formats fails, because all the
-     * jigsaw textures need to be identical aside from their
-     * texels
-     */
-    Vec2<int> startingJigsawSize = afk_vec2<int>(concurrency, concurrency);
-    jigsawSize = startingJigsawSize;
-    GLuint glProxyTex[texCount];
-    glGenTextures(texCount, glProxyTex);
-    GLint texWidth;
-    bool dimensionsOK = true;
-    for (Vec2<int> testJigsawSize = jigsawSize;
-        dimensionsOK && jigsawSize.v[0] * jigsawSize.v[1] < pieceCount;
-        testJigsawSize += startingJigsawSize)
-    {
-        dimensionsOK = (
-            testJigsawSize.v[0] <= (int)_clDeviceProps.image2DMaxWidth &&
-            testJigsawSize.v[1] <= (int)_clDeviceProps.image2DMaxHeight);
-
-        /* Try to make pretend textures of the current jigsaw size */
-        for (unsigned int tex = 0; tex < texCount && dimensionsOK; ++tex)
-        {
-            dimensionsOK &= ((minJigsawCount * testJigsawSize.v[0] * testJigsawSize.v[1] * pieceSize.v[0] * pieceSize.v[1] * format[tex].texelSize) < _clDeviceProps.maxMemAllocSize);
-            if (!dimensionsOK) break;
-
-            glBindTexture(GL_PROXY_TEXTURE_2D, glProxyTex[tex]);
-            glTexImage2D(
-                GL_PROXY_TEXTURE_2D,
-                0,
-                format[tex].glInternalFormat,
-                pieceSize.v[0] * testJigsawSize.v[0],
-                pieceSize.v[1] * testJigsawSize.v[1],
-                0,
-                format[tex].glFormat,
-                format[tex].glDataType,
-                NULL);
-
-            /* See if it worked */
-            glGetTexLevelParameteriv(
-                GL_PROXY_TEXTURE_2D,
-                0,
-                GL_TEXTURE_WIDTH,
-                &texWidth);
-
-            dimensionsOK &= (texWidth != 0);
-        }
-
-        if (dimensionsOK) jigsawSize = testJigsawSize;
-    }
-
-    glDeleteTextures(texCount, glProxyTex);
-    glGetError(); /* Throw away any error that might have popped up */
-
-    /* Update the dimensions and actual piece count to reflect what I found */
-    int jigsawCount = pieceCount / (jigsawSize.v[0] * jigsawSize.v[1]) + 1;
-    if (jigsawCount < minJigsawCount) jigsawCount = minJigsawCount;
-    pieceCount = jigsawCount * jigsawSize.v[0] * jigsawSize.v[1];
-
-    std::cout << "AFK_JigsawCollection: Making " << jigsawCount << " jigsaws with " << jigsawSize << " pieces each (actually " << pieceCount << " pieces)" << std::endl;
-
-    for (int j = 0; j < jigsawCount; ++j)
-    {
-        puzzles.push_back(new AFK_Jigsaw(
-            ctxt,
-            pieceSize,
-            jigsawSize,
-            &format[0],
-            texCount,
-            clGlSharing,
-            concurrency));
-    }
-}
-
-AFK_JigsawCollection::~AFK_JigsawCollection()
-{
-    for (std::vector<AFK_Jigsaw*>::iterator pIt = puzzles.begin();
-        pIt != puzzles.end(); ++pIt)
-    {
-        delete *pIt;
-    }
-}
-
-int AFK_JigsawCollection::getPieceCount(void) const
-{
-    return pieceCount;
-}
-
-AFK_JigsawPiece AFK_JigsawCollection::grab(unsigned int threadId, int minJigsaw, AFK_Frame& o_timestamp)
-{
-    Vec2<int> uv;
-
-    int puzzle;
-    for (puzzle = minJigsaw; puzzle < (int)puzzles.size(); ++puzzle)
-    {
-        if (puzzles[puzzle]->grab(threadId, uv, o_timestamp))
-        {
-            /* TODO Paranoia */
-            if (uv.v[0] < 0 || uv.v[0] >= jigsawSize.v[0] ||
-                uv.v[1] < 0 || uv.v[1] >= jigsawSize.v[1])
-            {
-                std::ostringstream ss;
-                ss << "Got erroneous piece: " << uv << " (jigsaw size: " << jigsawSize << ")";
-                throw AFK_Exception(ss.str());
-            }
-
-            return AFK_JigsawPiece(uv, puzzle);
-        }
-    }
-
-    /* If I get here, I've failed, because I shouldn't be going along
-     * spawning extra jigsaws :P
-     */
-    throw AFK_Exception("Jigsaw ran out of room");
-}
-
-AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(const AFK_JigsawPiece& piece) const
-{
-    if (piece == AFK_JigsawPiece()) throw AFK_Exception("AFK_JigsawCollection: Called getPuzzle() with the null piece");
-    return puzzles[piece.puzzle];
-}
-
-AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(int puzzle) const
-{
-    return puzzles[puzzle];
-}
-
-void AFK_JigsawCollection::flipRects(cl_context ctxt, const AFK_Frame& currentFrame)
-{
-    for (int puzzle = 0; puzzle < (int)puzzles.size(); ++puzzle)
-        puzzles[puzzle]->flipRects(currentFrame);
+    if (!continued) throw AFK_Exception("flipCuboids() failed");
 }
 

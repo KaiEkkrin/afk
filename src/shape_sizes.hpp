@@ -25,7 +25,7 @@ public:
     const unsigned int vSize; /* Size of base face vertex array in bytes */
     const unsigned int iSize; /* Size of index array in bytes */
     const unsigned int tSize; /* Size of a jigsaw piece in bytes */
-    const unsigned int pointCountPerCube; /* Number of deformation points per shrinkform cube */
+    const unsigned int featureCountPerCube; /* Number of features per cube */
     const unsigned int skeletonMaxSize; /* Maximum number of points in a skeleton */
     const unsigned int skeletonFlagGridDim; /* Dimensions of the skeleton flag-grid */
     const float skeletonBushiness; /* Chance of each cube in a skeleton being host to an adjacent one */

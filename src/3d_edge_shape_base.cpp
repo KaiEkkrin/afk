@@ -1,12 +1,6 @@
 /* AFK (c) Alex Holloway 2013 */
 
-#include "shrinkform_base.hpp"
-
-AFK_ShrinkformBaseVertex::AFK_ShrinkformBaseVertex(
-    const Vec2<float>& _texCoord):
-        texCoord(_texCoord)
-{
-}
+#include "3dedgeshape_base.hpp"
 
 /* This utility function gets two-dimensional face co-ordinates.
  */
@@ -29,10 +23,10 @@ static void make2DFace(
     o_tTex = ((float)t - (float)sSizes.tDimStart + 0.25f) / (float)sSizes.tDim;
 }
     
-AFK_ShrinkformBase::AFK_ShrinkformBase(const AFK_ShapeSizes& sSizes):
+AFK_3DEdgeShapeBase::AFK_3DEdgeShapeBase(const AFK_ShapeSizes& sSizes):
     bufs(NULL)
 {
-    /* A shrinkform base cube has six faces:
+    /* A base cube has six faces:
      * - bottom (normal -y)
      * - left (normal -x)
      * - front (normal -z)
@@ -54,8 +48,7 @@ AFK_ShrinkformBase::AFK_ShrinkformBase(const AFK_ShapeSizes& sSizes):
         {
             float sTex, tTex;
             make2DFace(sSizes, x, z, sTex, tTex);
-            vertices.push_back(AFK_ShrinkformBaseVertex(
-                afk_vec2<float>(sTex, tTex)));
+            vertices.push_back(afk_vec2<float>(sTex, tTex));
         }
     }
 
@@ -79,7 +72,7 @@ AFK_ShrinkformBase::AFK_ShrinkformBase(const AFK_ShapeSizes& sSizes):
     }
 }
 
-AFK_ShrinkformBase::~AFK_ShrinkformBase()
+AFK_3DEdgeShapeBase::~AFK_3DEdgeShapeBase()
 {
     if (bufs)
     {
@@ -88,7 +81,7 @@ AFK_ShrinkformBase::~AFK_ShrinkformBase()
     }
 }
 
-void AFK_ShrinkformBase::initGL()
+void AFK_3DEdgeShapeBase::initGL()
 {
     bool needBufferPush = (bufs == NULL);
     if (needBufferPush)
@@ -99,17 +92,17 @@ void AFK_ShrinkformBase::initGL()
 
     glBindBuffer(GL_ARRAY_BUFFER, bufs[0]);
     if (needBufferPush)
-        glBufferData(GL_ARRAY_BUFFER, vertices.size() * AFK_SHF_BASE_VERTEX_SIZE, &vertices[0], GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vec2<float>), &vertices[0], GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bufs[1]);
     if (needBufferPush)
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned short), &indices[0], GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, AFK_SHF_BASE_VERTEX_SIZE, 0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vec2<float>), 0);
 }
 
-void AFK_ShrinkformBase::teardownGL(void) const
+void AFK_3DEdgeShapeBase::teardownGL(void) const
 {
     glDisableVertexAttribArray(0);
 }

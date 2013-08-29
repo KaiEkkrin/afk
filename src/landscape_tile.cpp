@@ -108,7 +108,7 @@ enum AFK_LandscapeTileArtworkState AFK_LandscapeTile::artworkState() const
 {
     if (!hasTerrainDescriptor() || jigsawPiece == AFK_JigsawPiece()) return AFK_LANDSCAPE_TILE_NO_PIECE_ASSIGNED;
 
-    AFK_Frame rowTimestamp = jigsaws->getPuzzle(jigsawPiece)->getTimestamp(jigsawPiece.piece);
+    AFK_Frame rowTimestamp = jigsaws->getPuzzle(jigsawPiece)->getTimestamp(jigsawPiece);
 #if 0
     if (rowTimestamp != jigsawPieceTimestamp)
     {
