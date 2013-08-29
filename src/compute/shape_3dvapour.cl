@@ -118,18 +118,19 @@ void transformCubeToCube(
     transformLocationToLocation(vl, vc, fromCoord, toCoord);
 }
 
-struct AFK_3DVapourComputeUnit
+struct AFK_3DComputeUnit
 {
+    float4 location;
     int3 vapourPiece;
     int2 edgePiece;
     int cubeOffset;
     int cubeCount;
 };
 
-__kernel void makeShape3dedge(
+__kernel void makeShape3Dvapour(
     __global const struct AFK_3DVapourFeature *features,
     __global const struct AFK_3DVapourCube *cubes,
-    __global const struct AFK_3DVapourComputeUnit *units,
+    __global const struct AFK_3DComputeUnit *units,
     __write_only image3d_t vapour)
 {
     /* We're necessarily going to operate across the
@@ -152,7 +153,7 @@ __kernel void makeShape3dedge(
     float4 vc = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
 
     /* Transform into the space of the first cube. */
-    transformLocationToLocation(&vl, &vc, (float4)(0.0f, 0.0f, 0.0f, 1.0f),
+    transformLocationToLocation(&vl, &vc, units[unitOffset].location,
         cubes[units[unitOffset].cubeOffset].coord);
 
     /* Compute the number field by 
@@ -173,7 +174,7 @@ __kernel void makeShape3dedge(
     }
 
     /* Transform out of the space of the last cube. */
-    transformLocationToLocation(&vl, &vc, cubes[i-1].coord, (float4)(0.0f, 0.0f, 0.0f, 1.0f));
+    transformLocationToLocation(&vl, &vc, cubes[i-1].coord, units[unitOffset].location);
 
     /* TODO: For now, I'm going to transfer all this into an all-float
      * image.  In future, I probably want to try to cram it into 8

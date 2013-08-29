@@ -20,8 +20,9 @@
  * (0..TDIM-1).
  */
 
-struct AFK_3DVapourComputeUnit
+struct AFK_3DComputeUnit
 {
+    float4 location;
     int3 vapourPiece;
     int2 edgePiece; /* TODO: Points to the first of six pieces in a row together
                      * along the x axis of the edge jigsaws.  I need to change the
@@ -58,9 +59,10 @@ void initEdge(__local byte ***edge, int xdim, int ydim, int zdim)
     barrier(CLK_LOCAL_MEM_FENCE);
 }
 
-__kernel void makeShape3dedge(
+__kernel void makeShape3Dedge(
     __read_only image3d_t vapour,
-    __global const struct AFK_3DEdgeComputeUnit *units,
+    sampler_t vapourSampler,
+    __global const struct AFK_3DComputeUnit *units,
     __write_only image2d_t jigsawDisp,
     __write_only image2d_t jigsawColour,
     __write_only image2d_t jigsawNormal,
@@ -99,13 +101,13 @@ __kernel void makeShape3dedge(
 
     /* This array is (me, right, up, back). */
     float4 v[4];
-    v[0] = read_imagef(units[unitOffset].vapourPiece * TDIM +
+    v[0] = read_imagef(vapour, vapourSampler, units[unitOffset].vapourPiece * TDIM +
         (int3)(xdim, ydim, zdim));
-    v[1] = read_imagef(units[unitOffset].vapourPiece * TDIM +
+    v[1] = read_imagef(vapour, vapourSampler, units[unitOffset].vapourPiece * TDIM +
         (int3)(xdim + 1, ydim, zdim));
-    v[2] = read_imagef(units[unitOffset].vapourPiece * TDIM +
+    v[2] = read_imagef(vapour, vapourSampler, units[unitOffset].vapourPiece * TDIM +
         (int3)(xdim, ydim + 1, zdim));
-    v[3] = read_imagef(units[unitOffset].vapourPiece * TDIM +
+    v[3] = read_imagef(vapour, vapourSampler, units[unitOffset].vapourPiece * TDIM +
         (int3)(xdim, ydim, zdim + 1));
 
     /* This array flags, for (right, up, back) whether we're a
