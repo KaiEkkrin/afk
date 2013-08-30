@@ -201,7 +201,7 @@ void AFK_World::generateLandscapeArtwork(
      * jigsaw piece into one of the rides at the compute fair...
      */
     boost::shared_ptr<AFK_TerrainComputeQueue> computeQueue = landscapeComputeFair.getUpdateQueue(jigsawPiece.puzzle);
-    Vec2<int> piece2D = afk_vec2<int>(jigsawPiece.piece.u, jigsawPiece.piece.v);
+    Vec2<int> piece2D = afk_vec2<int>(jigsawPiece.u, jigsawPiece.v);
 #if DEBUG_TERRAIN_COMPUTE_QUEUE
     AFK_TerrainComputeUnit unit = computeQueue->extend(
         terrainList, piece2D, &landscapeTile, lSizes);
@@ -466,6 +466,11 @@ bool AFK_World::generateClaimedWorldCell(
             }
         }
 
+		/* TODO: Temporarily disabling entities, so that I can check
+	 	 * that the refactored 3D-supporting jigsaw is still OK with
+		 * the terrain.
+		 */
+#if 0
         AFK_ENTITY_LIST::iterator eIt = worldCell.entitiesBegin();
         while (eIt != worldCell.entitiesEnd())
         {
@@ -549,6 +554,7 @@ bool AFK_World::generateClaimedWorldCell(
          * proper list.
          */
         worldCell.popMoveQueue();
+#endif
 
         /* We don't need this any more */
         worldCell.release(threadId, AFK_CL_CLAIMED);

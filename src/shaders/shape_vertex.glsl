@@ -15,8 +15,6 @@ uniform sampler2D JigsawDispTex;
 // per instance, which contain:
 // - first 4: the 4 rows of the transform matrix for the instance
 // - fifth: (x, y) are the (s, t) jigsaw co-ordinates.
-// (there's notionally an `r' too but the edge jigsaw
-// is 2D so it's meaningless.)
 uniform samplerBuffer DisplayTBO; 
 
 // This is the size of an individual jigsaw piece

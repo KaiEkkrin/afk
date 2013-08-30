@@ -118,7 +118,7 @@ public:
     AFK_JigsawCuboid(int _r, int _c, int _s, int _rows, int _slices);
 
     AFK_JigsawCuboid(const AFK_JigsawCuboid& other);
-    AFK_JigsawCuboid(const AFK_JigsawCuboid& other);
+	AFK_JigsawCuboid operator=(const AFK_JigsawCuboid& other);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_JigsawCuboid& sr);
 };
@@ -301,13 +301,21 @@ public:
 
     unsigned int getTexCount(void) const;
 
+	/* Returns the (s, t) texture co-ordinates for a given piece
+	 * within the jigsaw.  These will be in the range (0, 1).
+	 */
+	Vec2<float> getTexCoordST(const AFK_JigsawPiece& piece) const;
+
     /* Returns the (s, t, r) texture co-ordinates for a given piece
      * within the jigsaw.  These will be in the range (0, 1).
      */
-    Vec3<float> getTexCoordST(const AFK_JigsawPiece& piece) const;
+    Vec3<float> getTexCoordSTR(const AFK_JigsawPiece& piece) const;
+
+    /* Returns the (s, t) dimensions of one piece within the jigsaw. */
+    Vec2<float> getPiecePitchST(void) const;
 
     /* Returns the (s, t, r) dimensions of one piece within the jigsaw. */
-    Vec3<float> getPiecePitchST(void) const;
+    Vec3<float> getPiecePitchSTR(void) const;
 
     /* Acquires the buffers for the CL.
      * If cl_gl sharing is enabled, fills out `o_event' with an

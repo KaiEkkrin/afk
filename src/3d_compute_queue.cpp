@@ -15,16 +15,22 @@ AFK_3DComputeUnit::AFK_3DComputeUnit():
 
 AFK_3DComputeUnit::AFK_3DComputeUnit(
     const Vec4<float>& _location,
-    const Vec3<int>& _vapourPiece,
-    const Vec2<int>& _edgePiece,
+    const AFK_JigsawPiece& _vapourJigsawPiece,
+    const AFK_JigsawPiece& _edgeJigsawPiece,
     int _cubeOffset,
     int _cubeCount):
         location(_location),
-        vapourPiece(_vapourPiece),
-        edgePiece(_edgePiece),
         cubeOffset(_cubeOffset),
         cubeCount(_cubeCount)
 {
+	vapourPiece = afk_vec3<int>(
+		_vapourJigsawPiece.u,
+		_vapourJigsawPiece.v,
+		_vapourJigsawPiece.w);
+
+	edgePiece = afk_vec2<int>(
+		_edgeJigsawPiece.u,
+		_edgeJigsawPiece.v);
 }
 
 bool AFK_3DComputeUnit::uninitialised(void) const
@@ -67,17 +73,17 @@ AFK_3DComputeUnit AFK_3DComputeQueue::extend(
     if (list.cubeCount() == 0)
     {
         std::ostringstream ss;
-        ss << "Pushed empty list to 3D compute queue for piece " << std::dec << face.jigsawPiece;
+        ss << "Pushed empty list to 3D compute queue for piece " << shapeCube;
         throw AFK_Exception(ss.str());
     }
 
-    if (list.pointCount() != (list.cubeCount() * sSizes.pointCountPerCube))
+    if (list.featureCount() != (list.cubeCount() * sSizes.featureCountPerCube))
         throw AFK_Exception("Insane self found");
 
     AFK_3DComputeUnit newUnit(
         shapeCube.location,
-        shapeCube.vapourJigsawPiece.piece,
-        shapeCube.edgeJigsawPiece.piece,
+        shapeCube.vapourJigsawPiece,
+        shapeCube.edgeJigsawPiece,
         AFK_3DList::cubeCount(),
         list.cubeCount());
     AFK_3DList::extend(list);
@@ -95,8 +101,8 @@ AFK_3DComputeUnit AFK_3DComputeQueue::addUnitWithExisting(
 
     AFK_3DComputeUnit newUnit(
         shapeCube.location,
-        shapeCube.vapourJigsawPiece.piece,
-        shapeCube.edgeJigsawPiece.piece,
+        shapeCube.vapourJigsawPiece,
+        shapeCube.edgeJigsawPiece,
         existingUnit.cubeOffset,
         existingUnit.cubeCount);
     units.push_back(newUnit);
@@ -169,18 +175,18 @@ void AFK_3DComputeQueue::computeStart(
      */
     cl_event vapourEvents[2];
 
-    AFK_CLCHK(clEnqueueNDRangeKernel(q, vapourKernel, 3, NULL, &shrinkformDim[0], NULL,
-        acquireJigsawEvent ? 1 : 0,
-        acquireJigsawEvent ? &acquireJigsawEvent : NULL,
+    AFK_CLCHK(clEnqueueNDRangeKernel(q, vapourKernel, 3, NULL, &vapourDim[0], NULL,
+        acquireVapourJigsawEvent ? 1 : 0,
+        acquireVapourJigsawEvent ? &acquireVapourJigsawEvent : NULL,
         &vapourEvents[0]))
 
-    if (acquireJigsawEvent) AFK_CLCHK(clReleaseEvent(acquireJigsawEvent))
+    if (acquireVapourJigsawEvent) AFK_CLCHK(clReleaseEvent(acquireVapourJigsawEvent))
 
     vapourEvents[1] = 0;
     cl_mem *edgeJigsawMem = edgeJigsaw->acquireForCl(ctxt, q, &vapourEvents[1]);
 
     /* Now I'm also going to need this... */
-    cl_sampler vapourJigsawSampler = clCreateSampler(
+    cl_sampler vapourSampler = clCreateSampler(
         ctxt,
         CL_FALSE,
         CL_ADDRESS_CLAMP_TO_EDGE,
@@ -191,7 +197,7 @@ void AFK_3DComputeQueue::computeStart(
     /* Now, I need to run the edge kernel.
      */
     AFK_CLCHK(clSetKernelArg(edgeKernel, 0, sizeof(cl_mem), &vapourJigsawMem[0]))
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 1, sizeof(cl_sampler), &vapourJigsawSampler))
+    AFK_CLCHK(clSetKernelArg(edgeKernel, 1, sizeof(cl_sampler), &vapourSampler))
     AFK_CLCHK(clSetKernelArg(edgeKernel, 2, sizeof(cl_mem), &vapourBufs[2]))
     AFK_CLCHK(clSetKernelArg(edgeKernel, 3, sizeof(cl_mem), &edgeJigsawMem[0]))
     AFK_CLCHK(clSetKernelArg(edgeKernel, 4, sizeof(cl_mem), &edgeJigsawMem[1]))
@@ -207,7 +213,7 @@ void AFK_3DComputeQueue::computeStart(
 
     cl_event edgeEvent;
 
-    AFK_CLCHK(clEnqueueNDRangeKernel(q, edgeKernel, 3, 0, &surfaceGlobalDim[0], &surfaceLocalDim[0],
+    AFK_CLCHK(clEnqueueNDRangeKernel(q, edgeKernel, 3, 0, &edgeGlobalDim[0], &edgeLocalDim[0],
         vapourEvents[1] != 0 ? 2 : 1,
         &vapourEvents[0],
         &edgeEvent))
@@ -247,7 +253,7 @@ void AFK_3DComputeQueue::clear(void)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
-    p.clear();
+    f.clear();
     c.clear();
     units.clear();
 }

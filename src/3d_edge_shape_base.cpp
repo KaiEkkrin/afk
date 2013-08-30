@@ -1,6 +1,6 @@
 /* AFK (c) Alex Holloway 2013 */
 
-#include "3dedgeshape_base.hpp"
+#include "3d_edge_shape_base.hpp"
 
 /* This utility function gets two-dimensional face co-ordinates.
  */

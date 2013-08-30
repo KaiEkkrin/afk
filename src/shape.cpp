@@ -64,6 +64,14 @@ AFK_ShapeCube::AFK_ShapeCube(
 {
 }
 
+std::ostream& operator<<(std::ostream& os, const AFK_ShapeCube& cube)
+{
+	os << "ShapeCube(location=" << cube.location;
+	os << ", vapour piece=" << cube.vapourJigsawPiece << " (timestamp " << cube.vapourJigsawPieceTimestamp << ")";
+	os << ", edge piece=" << cube.edgeJigsawPiece << " (timestamp " << cube.edgeJigsawPieceTimestamp << ")";
+	os << ")";
+	return os;
+}
 
 /* AFK_SkeletonFlagGrid implementation */
 
@@ -334,7 +342,7 @@ void AFK_Shape::make3DDescriptor(
             Vec3<float> cube = afk_vec3<float>(
                 (float)cubeIt->v[0], (float)cubeIt->v[1], (float)cubeIt->v[2]);
             /* TODO: With LoD -- that 1.0f scale number down there will change! */
-            cubes.push_back(AFK_ShapeCube(afk_vec4<float>(cube, 1.0f));
+            cubes.push_back(AFK_ShapeCube(afk_vec4<float>(cube, 1.0f)));
         }
 
         have3DDescriptor = true;
@@ -353,7 +361,7 @@ void AFK_Shape::getCubesForCompute(
     int minEdgeJigsaw,
     AFK_JigsawCollection *_vapourJigsaws,
     AFK_JigsawCollection *_edgeJigsaws,
-    std::vector<AFK_ShapeFace>& o_cubes)
+    std::vector<AFK_ShapeCube>& o_cubes)
 {
     /* Sanity checks */
     if (!vapourJigsaws) vapourJigsaws = _vapourJigsaws;
@@ -373,7 +381,7 @@ void AFK_Shape::getCubesForCompute(
         if (cubeIt->edgeJigsawPiece == AFK_JigsawPiece() ||
             cubeIt->edgeJigsawPieceTimestamp != edgeJigsaws->getPuzzle(cubeIt->edgeJigsawPiece)->getTimestamp(cubeIt->edgeJigsawPiece))
         {
-            /* This face needs computing. */
+            /* This cube needs computing. */
             cubeIt->edgeJigsawPiece = edgeJigsaws->grab(threadId, minEdgeJigsaw, cubeIt->edgeJigsawPieceTimestamp);
 
             /* It's unlikely that the following check will fail.
@@ -386,7 +394,7 @@ void AFK_Shape::getCubesForCompute(
                 cubeIt->vapourJigsawPiece = vapourJigsaws->grab(threadId, minVapourJigsaw, cubeIt->vapourJigsawPieceTimestamp);
             }
 
-            o_faces.push_back(*cubeIt);
+            o_cubes.push_back(*cubeIt);
         }
     }
 }
@@ -395,12 +403,12 @@ enum AFK_ShapeArtworkState AFK_Shape::artworkState() const
 {
     if (!has3DDescriptor()) return AFK_SHAPE_NO_PIECE_ASSIGNED;
 
-    /* Scan the faces and check for status. */
+    /* Scan the cubes and check for status. */
     enum AFK_ShapeArtworkState status = AFK_SHAPE_HAS_ARTWORK;
-    for (std::vector<AFK_ShapeFace>::const_iterator faceIt = faces.begin(); faceIt != faces.end(); ++faceIt)
+    for (std::vector<AFK_ShapeCube>::const_iterator cubeIt = cubes.begin(); cubeIt != cubes.end(); ++cubeIt)
     {
-        if (faceIt->edgeJigsawPiece == AFK_JigsawPiece()) return AFK_SHAPE_NO_PIECE_ASSIGNED;
-        if (faceIt->edgeJigsawPieceTimestamp != edgeJigsaws->getPuzzle(faceIt->edgeJigsawPiece)->getTimestamp(faceIt->edgeJigsawPiece))
+        if (cubeIt->edgeJigsawPiece == AFK_JigsawPiece()) return AFK_SHAPE_NO_PIECE_ASSIGNED;
+        if (cubeIt->edgeJigsawPieceTimestamp != edgeJigsaws->getPuzzle(cubeIt->edgeJigsawPiece)->getTimestamp(cubeIt->edgeJigsawPiece))
             status = AFK_SHAPE_PIECE_SWEPT;
     }
     return status;

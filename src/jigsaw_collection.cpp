@@ -19,7 +19,7 @@ GLuint AFK_JigsawCollection::getGlTextureTarget(void) const
     case AFK_JIGSAW_2D:
         return GL_TEXTURE_2D;
 
-    case AFK_JIGSAW_3D;
+    case AFK_JIGSAW_3D:
         return GL_TEXTURE_3D;
 
     default:
@@ -38,7 +38,7 @@ std::string AFK_JigsawCollection::getDimensionalityStr(void) const
         ss << "2D";
         break;
 
-    case AFK_JIGSAW_3D;
+    case AFK_JIGSAW_3D:
         ss << "3D";
         break;
 
@@ -52,7 +52,7 @@ std::string AFK_JigsawCollection::getDimensionalityStr(void) const
 
 AFK_JigsawCollection::AFK_JigsawCollection(
     cl_context ctxt,
-    const Vec2<int>& _pieceSize,
+    const Vec3<int>& _pieceSize,
     int _pieceCount,
     int minJigsawCount,
     enum AFK_JigsawDimensions _dimensions,
@@ -82,13 +82,13 @@ AFK_JigsawCollection::AFK_JigsawCollection(
      * jigsaw textures need to be identical aside from their
      * texels
      */
-    Vec2<int> jigsawSizeIncrement = (
-        dimensions == AFK_JIGSAW_2D ? afk_vec2<int>(concurrency, concurrency, 0) :
-        afk_vec2<int>(concurrency, concurrency, concurrency));
+    Vec3<int> jigsawSizeIncrement = (
+        dimensions == AFK_JIGSAW_2D ? afk_vec3<int>(concurrency, concurrency, 0) :
+        afk_vec3<int>(concurrency, concurrency, concurrency));
 
     jigsawSize = (
-        dimensions == AFK_JIGSAW_2D ? afk_vec2<int>(concurrency, concurrency, 1) :
-        afk_vec2<int>(concurrency, concurrency, concurrency));
+        dimensions == AFK_JIGSAW_2D ? afk_vec3<int>(concurrency, concurrency, 1) :
+        afk_vec3<int>(concurrency, concurrency, concurrency));
 
     GLuint proxyTexTarget = (dimensions == AFK_JIGSAW_2D ? GL_PROXY_TEXTURE_2D : GL_PROXY_TEXTURE_3D);
     GLuint glProxyTex[texCount];
@@ -137,6 +137,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
                     pieceSize.v[0] * testJigsawSize.v[0],
                     pieceSize.v[1] * testJigsawSize.v[1],
                     pieceSize.v[2] * testJigsawSize.v[2],
+					0,
                     format[tex].glFormat,
                     format[tex].glDataType,
                     NULL);

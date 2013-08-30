@@ -143,7 +143,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_JigsawPiece& piece)
 
 /* AFK_JigsawCuboid implementation */
 
-AFK_JigsawCuboid::AFK_JigsawCuboid(int _r, int _c, int _s, int _rows):
+AFK_JigsawCuboid::AFK_JigsawCuboid(int _r, int _c, int _s, int _rows, int _slices):
     r(_r), c(_c), s(_s), rows(_rows), slices(_slices)
 {
     columns.store(0);
@@ -381,7 +381,7 @@ void AFK_Jigsaw::doSweep(const Vec2<int>& nextFreeRow, const AFK_Frame& currentF
     /* Let's try to keep the sweep row some way ahead of the
      * next free row.
      */
-    if (jigsawSize.v[2] > 1)
+    if (jigsawSize.v[2] > 2)
     {
         int sweepSliceCmp = (sweepPosition.v[1] < nextFreeRow.v[1] ? (sweepPosition.v[1] + jigsawSize.v[2]) : sweepPosition.v[1]) + 1;
         if ((sweepSliceCmp - nextFreeRow.v[1]) < 2)
@@ -392,7 +392,7 @@ void AFK_Jigsaw::doSweep(const Vec2<int>& nextFreeRow, const AFK_Frame& currentF
     else
     {
         int sweepRowCmp = roundUpToConcurrency((sweepPosition.v[0] < nextFreeRow.v[0] ? (sweepPosition.v[0] + jigsawSize.v[0]) : sweepPosition.v[0]));
-        if ((sweepRowCmp - nextFreeRow.v[0]) < (jigsawSize.v[0] / concurrency))
+        if ((sweepRowCmp - nextFreeRow.v[0]) < (jigsawSize.v[0] / (int)concurrency))
         {
             sweep(getSweepTarget(afk_vec2<int>(sweepRowCmp, nextFreeRow.v[1])), currentFrame);
         }
@@ -620,11 +620,14 @@ AFK_Jigsaw::AFK_Jigsaw(
     }
 
     /* Now that I've got the textures, fill out the jigsaw state. */
-    rowTimestamp = new AFK_Frame[jigsawSize.v[0]][jigsawSize.v[2]];
-    rowUsage = new int[jigsawSize.v[0]][jigsawSize.v[2]];
+    rowTimestamp = new AFK_Frame*[jigsawSize.v[0]];
+    rowUsage = new int*[jigsawSize.v[0]];
 
     for (int row = 0; row < jigsawSize.v[0]; ++row)
     {
+		rowTimestamp[row] = new AFK_Frame[jigsawSize.v[2]];
+		rowUsage[row] = new int[jigsawSize.v[2]];
+
         for (int slice = 0; slice < jigsawSize.v[2]; ++slice)
         {
             rowTimestamp[row][slice] = AFK_Frame();
@@ -659,8 +662,14 @@ AFK_Jigsaw::~AFK_Jigsaw()
 
     glDeleteTextures(texCount, glTex);
 
-    delete[][] rowUsage;
-    delete[][] rowTimestamp;
+	for (int row = 0; row < jigsawSize.v[0]; ++row)
+	{
+		delete[] rowUsage[row];
+		delete[] rowTimestamp[row];
+	}
+
+    delete[] rowUsage;
+    delete[] rowTimestamp;
 
     delete[] changeEvents;
     delete[] changeData;
@@ -668,7 +677,7 @@ AFK_Jigsaw::~AFK_Jigsaw()
     delete[] glTex;
 }
 
-bool AFK_Jigsaw::grab(unsigned int threadId, Vec2<int>& o_uvw, AFK_Frame& o_timestamp)
+bool AFK_Jigsaw::grab(unsigned int threadId, Vec3<int>& o_uvw, AFK_Frame& o_timestamp)
 {
     /* Let's see if I can use an existing cuboid. */
     unsigned int cI;
@@ -712,15 +721,29 @@ unsigned int AFK_Jigsaw::getTexCount(void) const
     return texCount;
 }
 
-Vec3<float> AFK_Jigsaw::getTexCoordST(const AFK_JigsawPiece& piece) const
+Vec2<float> AFK_Jigsaw::getTexCoordST(const AFK_JigsawPiece& piece) const
+{
+    return afk_vec2<float>(
+        (float)piece.u / (float)jigsawSize.v[0],
+        (float)piece.v / (float)jigsawSize.v[1]);
+}
+
+Vec3<float> AFK_Jigsaw::getTexCoordSTR(const AFK_JigsawPiece& piece) const
 {
     return afk_vec3<float>(
         (float)piece.u / (float)jigsawSize.v[0],
         (float)piece.v / (float)jigsawSize.v[1],
-        (float)piece.w / (float)jigsawSize.v[2]);
+		(float)piece.w / (float)jigsawSize.v[2]);
 }
 
-Vec3<float> AFK_Jigsaw::getPiecePitchST(void) const
+Vec2<float> AFK_Jigsaw::getPiecePitchST(void) const
+{
+    return afk_vec2<float>(
+        1.0f / (float)jigsawSize.v[0],
+        1.0f / (float)jigsawSize.v[1]);
+}
+
+Vec3<float> AFK_Jigsaw::getPiecePitchSTR(void) const
 {
     return afk_vec3<float>(
         1.0f / (float)jigsawSize.v[0],

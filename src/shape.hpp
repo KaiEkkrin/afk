@@ -48,7 +48,11 @@ public:
     AFK_Frame edgeJigsawPieceTimestamp;
 
     AFK_ShapeCube(const Vec4<float>& _location);
+
+	friend std::ostream& operator<<(std::ostream& os, const AFK_ShapeCube& cube);
 };
+
+std::ostream& operator<<(std::ostream& os, const AFK_ShapeCube& cube);
 
 BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_ShapeCube>::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_ShapeCube>::value));

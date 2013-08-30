@@ -42,8 +42,8 @@ public:
     AFK_3DComputeUnit();
     AFK_3DComputeUnit(
         const Vec4<float>& _location,
-        const Vec3<int>& _vapourPiece,
-        const Vec2<int>& _edgePiece,
+        const AFK_JigsawPiece& _vapourJigsawPiece,
+        const AFK_JigsawPiece& _edgeJigsawPiece,
         int _cubeOffset,
         int _cubeCount);
 

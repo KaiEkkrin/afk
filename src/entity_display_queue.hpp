@@ -31,7 +31,7 @@ protected:
     Mat4<float>         transform;
 
     /* This maps it onto the shrink-form jigsaw. */
-    Vec3<float>         jigsawPieceST;
+    Vec2<float>         jigsawPieceST;
 
 public:
     AFK_EntityDisplayUnit(

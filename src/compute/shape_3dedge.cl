@@ -105,36 +105,48 @@ __kernel void makeShape3DEdge(
     {
         int2 jigsawCoord = units[unitOffset].edgePiece.xy + (int2)(xdim, zdim);
         write_imagef(jigsawDisp, jigsawCoord, (float4)(NAN, NAN, NAN, NAN);
+        write_imagef(jigsawColour, jigsawCoord, (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+        write_imagef(jigsawNormal, jigsawCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f);
     }
 
     if (ydim == (1 % TDIM))
     {
         int2 jigsawCoord = units[unitOffset].edgePiece.xy + (int2)(TDIM + xdim, zdim);
         write_imagef(jigsawDisp, jigsawCoord, (float4)(NAN, NAN, NAN, NAN);
+        write_imagef(jigsawColour, jigsawCoord, (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+        write_imagef(jigsawNormal, jigsawCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f);
     }
 
     if (ydim == (2 % TDIM))
     {
         int2 jigsawCoord = units[unitOffset].edgePiece.xy + (int2)(TDIM * 2 + xdim, zdim);
         write_imagef(jigsawDisp, jigsawCoord, (float4)(NAN, NAN, NAN, NAN);
+        write_imagef(jigsawColour, jigsawCoord, (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+        write_imagef(jigsawNormal, jigsawCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f);
     }
 
     if (ydim == (3 % TDIM))
     {
         int2 jigsawCoord = units[unitOffset].edgePiece.xy + (int2)(xdim, TDIM + zdim);
         write_imagef(jigsawDisp, jigsawCoord, (float4)(NAN, NAN, NAN, NAN);
+        write_imagef(jigsawColour, jigsawCoord, (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+        write_imagef(jigsawNormal, jigsawCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f);
     }
 
     if (ydim == (4 % TDIM))
     {
         int2 jigsawCoord = units[unitOffset].edgePiece.xy + (int2)(TDIM + xdim, TDIM + zdim);
         write_imagef(jigsawDisp, jigsawCoord, (float4)(NAN, NAN, NAN, NAN);
+        write_imagef(jigsawColour, jigsawCoord, (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+        write_imagef(jigsawNormal, jigsawCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f);
     }
 
     if (ydim == (5 % TDIM))
     {
         int2 jigsawCoord = units[unitOffset].edgePiece.xy + (int2)(TDIM * 2 + xdim, TDIM + zdim);
         write_imagef(jigsawDisp, jigsawCoord, (float4)(NAN, NAN, NAN, NAN);
+        write_imagef(jigsawColour, jigsawCoord, (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+        write_imagef(jigsawNormal, jigsawCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f);
     }
 
     barrier(CLK_GLOBAL_MEM_FENCE);

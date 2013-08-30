@@ -35,8 +35,6 @@ protected:
     boost::mutex mut;
 
     /* Internal helpers. */
-            if (dimensions == AFK_JIGSAW_2D)
-            {
     GLuint getGlTextureTarget(void) const;
     std::string getDimensionalityStr(void) const;
 
