@@ -152,6 +152,9 @@ std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p)
     os << "Global mem size:                 " << p.globalMemSize << std::endl;
     os << "2D image maximum width:          " << p.image2DMaxWidth << std::endl;
     os << "2D image maximum height:         " << p.image2DMaxHeight << std::endl;
+    os << "3D image maximum width:          " << p.image3DMaxWidth << std::endl;
+    os << "3D image maximum height:         " << p.image3DMaxHeight << std::endl;
+    os << "3D image maximum depth:          " << p.image3DMaxDepth << std::endl;
     os << "Local mem size:                  " << p.localMemSize << std::endl;
     os << "Max constant args:               " << p.maxConstantArgs << std::endl;
     os << "Max constant buffer size:        " << p.maxConstantBufferSize << std::endl;

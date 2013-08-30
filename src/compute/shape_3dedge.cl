@@ -219,7 +219,7 @@ __kernel void makeShape3DEdge(
     chosen = false;
 
     {
-        __local unsigned char edge[REDUCE_DIM][REDUCE_DIM][REDUCE_DIM];
+        __local char edge[REDUCE_DIM][REDUCE_DIM][REDUCE_DIM];
         INIT_EDGE(edge, xdim, ydim, zdim)
         if (edgeFlags[1] == -1) edge[xdim][ydim][zdim] = ydim;
 
@@ -263,7 +263,7 @@ __kernel void makeShape3DEdge(
     chosen = false;
 
     {
-        __local unsigned char edge[REDUCE_DIM][REDUCE_DIM][REDUCE_DIM];
+        __local char edge[REDUCE_DIM][REDUCE_DIM][REDUCE_DIM];
         INIT_EDGE(edge, xdim, ydim, zdim)
         if (edgeFlags[0] == -1) edge[xdim][ydim][zdim] = xdim;
 
@@ -306,7 +306,7 @@ __kernel void makeShape3DEdge(
     chosen = false;
 
     {
-        __local unsigned char edge[REDUCE_DIM][REDUCE_DIM][REDUCE_DIM];
+        __local char edge[REDUCE_DIM][REDUCE_DIM][REDUCE_DIM];
         INIT_EDGE(edge, xdim, ydim, zdim)
         if (edgeFlags[2] == -1) edge[xdim][ydim][zdim] = zdim;
 
@@ -344,7 +344,7 @@ __kernel void makeShape3DEdge(
     chosen = false;
 
     {
-        __local unsigned char edge[REDUCE_DIM][REDUCE_DIM][REDUCE_DIM];
+        __local char edge[REDUCE_DIM][REDUCE_DIM][REDUCE_DIM];
         INIT_EDGE(edge, xdim, ydim, zdim)
         if (edgeFlags[2] == 1) edge[xdim][ydim][zdim] = zdim;
 
@@ -381,7 +381,7 @@ __kernel void makeShape3DEdge(
     chosen = false;
 
     {
-        __local unsigned char edge[REDUCE_DIM][REDUCE_DIM][REDUCE_DIM];
+        __local char edge[REDUCE_DIM][REDUCE_DIM][REDUCE_DIM];
         INIT_EDGE(edge, xdim, ydim, zdim)
         if (edgeFlags[0] == 1) edge[xdim][ydim][zdim] = xdim;
 
@@ -418,7 +418,7 @@ __kernel void makeShape3DEdge(
     chosen = false;
 
     {
-        __local unsigned char edge[REDUCE_DIM][REDUCE_DIM][REDUCE_DIM];
+        __local char edge[REDUCE_DIM][REDUCE_DIM][REDUCE_DIM];
         INIT_EDGE(edge, xdim, ydim, zdim)
         if (edgeFlags[1] == 1) edge[xdim][ydim][zdim] = ydim;
 
