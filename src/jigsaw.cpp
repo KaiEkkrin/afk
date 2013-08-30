@@ -207,7 +207,7 @@ enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromCuboid(
      * Let's see if I've got enough columns left...
      */
     int row = (int)threadId + cuboid.r;
-    int slice = (int)threadId + cuboid.s;
+    int slice = cuboid.s;
     if (rowUsage[row][slice] < jigsawSize.v[1])
     {
         /* We have!  Grab one. */
