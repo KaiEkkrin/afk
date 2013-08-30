@@ -27,7 +27,7 @@ public:
     /* Displacement and scale compared to the base cube. */
     Vec4<float> location;
 
-    Vec3<int> vapourPiece;
+    Vec4<int> vapourPiece; /* a vec4 because OpenCL wants one to access a 3D texture */
     Vec2<int> edgePiece;
     
     /* Where the cube details are in the data stream.

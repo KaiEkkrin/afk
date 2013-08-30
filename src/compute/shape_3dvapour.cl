@@ -9,6 +9,13 @@
  * a kind of fog or gas (with variable density and colour).
  */
 
+/* TODO: Nvidia GTX 400/500 series don't support writes to 3D
+ * images.  Bollocks!  I'm going to need a bodge.  But debug
+ * the actual 3D images first.
+ * The bodge will probably be pretty bloody awful and ruin
+ * the memory locality properties :/
+ */
+
 /* The vapour texture's texels are (red, green, blue,
  * density).
  */
@@ -18,7 +25,6 @@
  * (0..TDIM),
  * (0..TDIM).
  */
-
 
 /* TODO: The feature should get bigger, in order to
  * accommodate different types, x/y/z scales and
@@ -121,7 +127,7 @@ void transformCubeToCube(
 struct AFK_3DComputeUnit
 {
     float4 location;
-    int3 vapourPiece;
+    int4 vapourPiece;
     int2 edgePiece;
     int cubeOffset;
     int cubeCount;
@@ -184,7 +190,7 @@ __kernel void makeShape3DVapour(
      * Think about this, but try it this way first because it's
      * simplest.
      */
-    int3 vapourCoord = units[unitOffset].vapourPiece * TDIM + (int3)(xdim, ydim, zdim);
+    int4 vapourCoord = units[unitOffset].vapourPiece * TDIM + (int4)(xdim, ydim, zdim, 0);
     write_imagef(vapour, vapourCoord, vc);
 }
 

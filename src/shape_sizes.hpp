@@ -39,6 +39,7 @@ public:
         unsigned int pointSubdivisionFactor);
 
     unsigned int getReduceOrder(void) const;
+    unsigned int getReduceDim(void) const;
 };
 
 #endif /* _AFK_SHAPE_SIZES_H_ */

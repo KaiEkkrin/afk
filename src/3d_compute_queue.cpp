@@ -23,10 +23,11 @@ AFK_3DComputeUnit::AFK_3DComputeUnit(
         cubeOffset(_cubeOffset),
         cubeCount(_cubeCount)
 {
-	vapourPiece = afk_vec3<int>(
+	vapourPiece = afk_vec4<int>(
 		_vapourJigsawPiece.u,
 		_vapourJigsawPiece.v,
-		_vapourJigsawPiece.w);
+		_vapourJigsawPiece.w,
+		0);
 
 	edgePiece = afk_vec2<int>(
 		_edgeJigsawPiece.u,

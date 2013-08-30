@@ -68,9 +68,14 @@ public:
     cl_uint     maxWorkItemDimensions;
 
     size_t *    maxWorkItemSizes;
+
+    char *      extensions;
+    size_t      extensionsSize;
     
     AFK_ClDeviceProperties(cl_device_id device);
     virtual ~AFK_ClDeviceProperties();
+
+    /* TODO Method for querying for a particular extension? */
 };
 
 std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p);

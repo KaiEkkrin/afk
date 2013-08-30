@@ -35,3 +35,8 @@ unsigned int AFK_ShapeSizes::getReduceOrder(void) const
     return reduceOrder;
 }
 
+unsigned int AFK_ShapeSizes::getReduceDim(void) const
+{
+    return (1u << reduceOrder);
+}
+

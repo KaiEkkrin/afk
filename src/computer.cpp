@@ -100,7 +100,7 @@ AFK_ClPlatformProperties::AFK_ClPlatformProperties(cl_platform_id platform)
 /* AFK_ClDeviceProperties implementation. */
 
 AFK_ClDeviceProperties::AFK_ClDeviceProperties(cl_device_id device):
-    maxWorkItemSizes(NULL)
+    maxWorkItemSizes(NULL), extensions(NULL)
 {
     getClDeviceInfoFixed<cl_ulong>(device, CL_DEVICE_GLOBAL_MEM_SIZE, &globalMemSize, 0);
     getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE2D_MAX_WIDTH, &image2DMaxWidth, 0);
@@ -126,11 +126,24 @@ AFK_ClDeviceProperties::AFK_ClDeviceProperties(cl_device_id device):
             memset(maxWorkItemSizes, 0, maxWorkItemDimensions * sizeof(size_t));
         }
     }
+
+    cl_int error;
+    error = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, 0, NULL, &extensionsSize);
+    if (error == CL_SUCCESS)
+    {
+        extensions = new char[extensionsSize];
+        error = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, extensionsSize, extensions, NULL);
+    }
+    if (error != CL_SUCCESS)
+    {
+        std::cout << "Couldn't get extensions: " << error << std::endl;
+    }
 }
 
 AFK_ClDeviceProperties::~AFK_ClDeviceProperties()
 {
     if (maxWorkItemSizes) delete[] maxWorkItemSizes;
+    if (extensions) delete[] extensions;
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p)
@@ -157,6 +170,9 @@ std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p)
         }
         os << "]" << std::endl;
     } 
+
+    if (p.extensions)
+        os << "Extensions:                      " << p.extensions << std::endl;
 
     return os;
 }
@@ -291,6 +307,7 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
         args << "-D TDIM_START="                << sSizes.tDimStart              << " ";
         args << "-D FEATURE_COUNT_PER_CUBE="    << sSizes.featureCountPerCube    << " ";
         args << "-D REDUCE_ORDER="              << sSizes.getReduceOrder()       << " ";
+        args << "-D REDUCE_DIM="                << sSizes.getReduceDim()         << " ";
     }
 
     std::string argsStr = args.str();
