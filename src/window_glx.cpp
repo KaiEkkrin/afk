@@ -157,6 +157,8 @@ AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight
 
 AFK_WindowGlx::~AFK_WindowGlx()
 {
+    letGoOfPointer();
+
     if (dpy)
     {
         shadowCtxMut.lock();
