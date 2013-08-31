@@ -212,7 +212,7 @@ void AFK_3DComputeQueue::computeStart(
     edgeLocalDim[0] = edgeLocalDim[1] = edgeLocalDim[2] =
         (sSizes.tDim - 1);
 
-    cl_event edgeEvent;
+    //cl_event edgeEvent;
 
     /* TODO Verifying that I've got the vapour kernel OK, by
      * not running this for now.  I won't be doing the display
@@ -239,9 +239,15 @@ void AFK_3DComputeQueue::computeStart(
         AFK_CLCHK(clReleaseMemObject(vapourBufs[i]))
     }
 
+#if 0
     vapourJigsaw->releaseFromCl(q, 1, &edgeEvent);
     edgeJigsaw->releaseFromCl(q, 1, &edgeEvent);
     AFK_CLCHK(clReleaseEvent(edgeEvent))
+#else
+    vapourJigsaw->releaseFromCl(q, 0, NULL);
+    /* TODO This seems to freeze... */
+    //edgeJigsaw->releaseFromCl(q, 0, NULL);
+#endif
 
     computer->unlock();
 }
