@@ -70,7 +70,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     entitySubdivisionFactor     = 4;
 
     terrain_pointSubdivisionFactor      = 8;
-    shape_pointSubdivisionFactor        = 8;
+    shape_pointSubdivisionFactor        = 4; /* TODO try to arrange for this to be bigger somehow */
     shape_skeletonMaxSize               = 16;
     shape_skeletonFlagGridDim           = 8;
     shape_edgeThreshold                 = 0.01f;

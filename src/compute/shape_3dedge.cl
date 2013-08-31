@@ -32,9 +32,9 @@ enum AFK_ShapeFace
  * `stepsBack' is the number of steps in vapour space away from this face's
  * base geometry, towards the other side of the cube.
  */
-int4 makeVapourJigsawCoord(__global const struct AFK_3DComputeUnit *units, int unitOffset, int face, int xdim, int zdim, int stepsBack)
+int4 makeVapourCoord(int face, int xdim, int zdim, int stepsBack)
 {
-    int4 coord = units[unitOffset].vapourPiece * TDIM;
+    int4 coord = (int4)(0, 0, 0, 0);
 
     switch (face)
     {
@@ -183,54 +183,74 @@ __kernel void makeShape3DEdge(
     const int xdim = get_local_id(1); /* 0..TDIM-1 */
     const int zdim = get_local_id(2); /* 0..TDIM-1 */
 
-    /* Here I track flags for whether each of the vapour points has already been
+    /* Here I track whether each of the vapour points has already been
      * written as an edge.
-     * These are bit masks: indexed by (xdim, zdim), we use the first bit for
-     * stepsBack=0, the second for stepsBack=1, etc.
+     * Each word starts at -1 and is updated with which face got the
+     * right to draw that edge. 
      */
-    __local unsigned int pointsDrawn[TDIM-1][TDIM-1];
+    __local char pointsDrawn[TDIM-1][TDIM-1][TDIM-1];
 
     /* Initialize that flag array. */
-    if (face == 0)
+    for (int y = face; y < (TDIM-1); y += face)
     {
-        pointsDrawn[xdim][zdim] = 0;
+        pointsDrawn[xdim][y][zdim] = -1;
     }
 
     /* Iterate through the possible steps back until I find an edge */
     bool foundEdge = false;
 
-    int4 thisVapourPointCoord = makeVapourJigsawCoord(units, unitOffset, face, xdim, zdim, 0);
-    float4 thisVapourPoint = read_imagef(vapour, vapourSampler, thisVapourPointCoord);
+    int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, 0);
+    float4 thisVapourPoint = read_imagef(vapour, vapourSampler,
+        units[unitOffset].vapourPiece * TDIM + thisVapourPointCoord);
 
     int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
 
     for (int stepsBack = 0; !foundEdge && stepsBack < (TDIM-1); ++stepsBack)
     {
         /* Read the next point to compare with */
-        int4 nextVapourPointCoord = makeVapourJigsawCoord(units, unitOffset, face, xdim, zdim, stepsBack+1);
-        float4 nextVapourPoint = read_imagef(vapour, vapourSampler, nextVapourPointCoord);
+        int4 nextVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack+1);
+        float4 nextVapourPoint = read_imagef(vapour, vapourSampler,
+            units[unitOffset].vapourPiece * TDIM + nextVapourPointCoord);
 
-        barrier(CLK_LOCAL_MEM_FENCE);
-
-        /* TODO This mask stuff is a bit wrong, because I need to catch
-         * two faces hitting the same edge at the same time.  (Diagonals.)
-         * But I'm going to get it going like this first then fix the
-         * subtlety I think.
+        /* Figure out which face it goes to, if any.
+         * Upon conflict, the faces get priority in 
+         * numerical order, via this looping contortion.
          */
-        unsigned int mask = (1u << stepsBack);
-        if (thisVapourPoint.w < threshold && nextVapourPoint.w >= threshold &&
-            (pointsDrawn[xdim][zdim] & mask) == 0)
+
+        /* TODO For no reason I can fathom right now, all
+         * variants on this logic that I've tried make
+         * my AMD system hang and need the reset button.
+         * :-(
+         * Maybe dump the pointsDrawn test and instead just
+         * try pre-assigning points to edges by means of the
+         * square pyramid space division I thought of earlier?
+         * (Would that be good enough?  Maybe in tandem with
+         * more than one layer for each face, it would...)
+         * (Also, with the square pyramid system I could try
+         * shrinking the face inwards rather than culling
+         * vertices that hit the pyramid edge, and taking a
+         * linear sample of the vapour to get better detail
+         * and fewer wasted vertices?)
+         */
+        for (int testFace = 0; testFace < 6; ++testFace)
         {
-            /* This is an edge! */
-            float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
-            write_imagef(jigsawDisp, edgeCoord, edgeVertex);
-            write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
+            barrier(CLK_LOCAL_MEM_FENCE);
 
-            /* TODO Compute the normal here. */
-            write_imagef(jigsawNormal, edgeCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
+            if (thisVapourPoint.w < threshold && nextVapourPoint.w >= threshold &&
+                testFace == face &&
+                pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z] == -1)
+            {
+                /* This is an edge, and it's mine! */
+                float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
+                write_imagef(jigsawDisp, edgeCoord, edgeVertex);
+                write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
 
-            pointsDrawn[xdim][zdim] |= mask;
-            foundEdge = true;
+                /* TODO Compute the normal here. */
+                write_imagef(jigsawNormal, edgeCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
+
+                foundEdge = true;
+                //pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z] = face;
+            }
         }
     }
 
