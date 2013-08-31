@@ -213,12 +213,12 @@ void AFK_3DComputeQueue::computeStart(
     AFK_CLCHK(clSetKernelArg(edgeKernel, 6, sizeof(float), &sSizes.edgeThreshold))
 
     size_t edgeGlobalDim[3];
-    edgeGlobalDim[0] = (sSizes.tDim - 1) * unitCount;
+    edgeGlobalDim[0] = 6 * unitCount;
     edgeGlobalDim[1] = edgeGlobalDim[2] = (sSizes.tDim - 1);
 
     size_t edgeLocalDim[3];
-    edgeLocalDim[0] = edgeLocalDim[1] = edgeLocalDim[2] =
-        (sSizes.tDim - 1);
+    edgeLocalDim[0] = 6; /* one for each of the 6 face orientations */
+    edgeLocalDim[1] = edgeLocalDim[2] = (sSizes.tDim - 1);
 
     cl_event edgeEvent;
 

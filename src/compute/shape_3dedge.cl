@@ -9,39 +9,6 @@
  * deformable faces of a cube onto it.
  */
 
-/* TODO: For now the comments are all about planning
- * the design of this compute kernel, which is a bit more
- * complicated than the ones I've made before.
- */
-
-/* TODO: I reckon this kernel will never work properly: look through
- * it, it's got local fences inside conditional blocks and loops that
- * most threads never hit.  That's going to cause desync inside
- * the wavefronts, which is a recipe for bugs.
- * Most threads are idle most of the time; that's bad design.  I
- * think I should rewrite it so that it runs only across the two
- * dimensions of the face:
- * Perhaps a design like this:
- * dim 0: global 6 x unitCount; local 6
- * dim 1: global TDIM-1; local TDIM-1
- * dim 2: global TDIM-1; local TDIM-1
- * The `6' refers to the 6 different faces, which I ought to be able
- * to handle in parallel.  Consider declaring `edge' at top level,
- * making it a single dimensional array of size
- * REDUCE_DIM * REDUCE_DIM * REDUCE_DIM, and accessing it via the
- * polynomial,
- * x * REDUCE_DIM * REDUCE_DIM + y * REDUCE_DIM * z
- * which would allow me to hopefully make a `reduce' function that
- * takes `start' and `stride' type inputs and reduces correctly
- * in any direction.
- */
-
-/* This kernel should run across:
- * (0..TDIM-1) * unitCount,
- * (0..TDIM-1),
- * (0..TDIM-1).
- */
-
 struct AFK_3DComputeUnit
 {
     float4 location;
@@ -51,76 +18,112 @@ struct AFK_3DComputeUnit
     int cubeCount;
 };
 
-#define PIECE_SIZE (int2)(3 * TDIM, 2 * TDIM)
+enum AFK_ShapeFace
+{
+    AFK_SHF_BOTTOM  = 0,
+    AFK_SHF_LEFT    = 1,
+    AFK_SHF_FRONT   = 2,
+    AFK_SHF_BACK    = 3,
+    AFK_SHF_RIGHT   = 4,
+    AFK_SHF_TOP     = 5
+};
 
-/* REDUCE_DIM will be (1 << REDUCE_ORDER). */
-#define HALF_REDUCE_DIM (1 << (REDUCE_ORDER - 1))
-
-/* This macro initialises the local edge array used to reduce
- * faces with -1 (which means "no edge here") in all the places that
- * aren't guaranteed to be overwritten.
+/* In this function, the co-ordinates xdim and zdim are face co-ordinates.
+ * `stepsBack' is the number of steps in vapour space away from this face's
+ * base geometry, towards the other side of the cube.
  */
-#define INIT_EDGE(edge, xdim, ydim, zdim) \
-{ \
-    if ((xdim) < HALF_REDUCE_DIM && (ydim) < HALF_REDUCE_DIM && (zdim) < HALF_REDUCE_DIM) \
-        (edge)[(xdim) + HALF_REDUCE_DIM][(ydim) + HALF_REDUCE_DIM][(zdim) + HALF_REDUCE_DIM] = -1; \
-    if ((xdim) < HALF_REDUCE_DIM && (ydim) < HALF_REDUCE_DIM) \
-        (edge)[(xdim) + HALF_REDUCE_DIM][(ydim) + HALF_REDUCE_DIM][(zdim)] = -1; \
-    if ((xdim) < HALF_REDUCE_DIM && (zdim) < HALF_REDUCE_DIM) \
-        (edge)[(xdim) + HALF_REDUCE_DIM][(ydim)][(zdim) + HALF_REDUCE_DIM] = -1; \
-    if ((ydim) < HALF_REDUCE_DIM && (zdim) < HALF_REDUCE_DIM) \
-        (edge)[(xdim)][(ydim) + HALF_REDUCE_DIM][(zdim) + HALF_REDUCE_DIM] = -1; \
-    if ((xdim) < HALF_REDUCE_DIM) \
-        (edge)[(xdim) + HALF_REDUCE_DIM][(ydim)][(zdim)] = -1; \
-    if ((ydim) < HALF_REDUCE_DIM) \
-        (edge)[(xdim)][(ydim) + HALF_REDUCE_DIM][(zdim)] = -1; \
-    if ((zdim) < HALF_REDUCE_DIM) \
-        (edge)[(xdim)][(ydim)][(zdim) + HALF_REDUCE_DIM] = -1; \
-    barrier(CLK_LOCAL_MEM_FENCE); \
+int4 makeVapourJigsawCoord(__global const struct AFK_3DComputeUnit *units, int unitOffset, int face, int xdim, int zdim, int stepsBack)
+{
+    int4 coord = units[unitOffset].vapourPiece * TDIM;
+
+    switch (face)
+    {
+    case AFK_SHF_BOTTOM:
+        coord += (int4)(
+            xdim,
+            stepsBack,
+            zdim,
+            0);
+        break;
+
+    case AFK_SHF_LEFT:
+        coord += (int4)(
+            stepsBack,
+            xdim,
+            zdim,
+            0);
+        break;
+
+    case AFK_SHF_FRONT:
+        coord += (int4)(
+            xdim,
+            zdim,
+            stepsBack,
+            0);
+        break;
+
+    case AFK_SHF_BACK:
+        coord += (int4)(
+            xdim,
+            zdim,
+            (TDIM-1) - stepsBack,
+            0);
+        break;
+
+    case AFK_SHF_RIGHT:
+        coord += (int4)(
+            (TDIM-1) - stepsBack,
+            xdim,
+            zdim,
+            0);
+        break;
+
+    case AFK_SHF_TOP:
+        coord += (int4)(
+            xdim,
+            (TDIM-1) - stepsBack,
+            zdim,
+            0);
+        break;
+    }
+
+    return coord;
 }
 
-/* These functions make the correct edge jigsaw co-ordinate for a point. */
-int2 makeBaseEdgeJigsawCoord(__global const struct AFK_3DComputeUnit *units, int unitOffset)
+int2 makeEdgeJigsawCoord(__global const struct AFK_3DComputeUnit *units, int unitOffset, int face, int xdim, int zdim)
 {
-    return (int2)(
+    int2 baseCoord = (int2)(
         units[unitOffset].edgePiece.x * TDIM * 3,
         units[unitOffset].edgePiece.y * TDIM * 2);
-}
 
-int2 makeBottomEdgeJigsawCoord(__global const struct AFK_3DComputeUnit *units, int unitOffset, int s, int t)
-{
-    return makeBaseEdgeJigsawCoord(units, unitOffset) +
-        (int2)(s, t);
-}
+    switch (face)
+    {
+    case AFK_SHF_BOTTOM:
+        baseCoord += (int2)(xdim, zdim);
+        break;
 
-int2 makeLeftEdgeJigsawCoord(__global const struct AFK_3DComputeUnit *units, int unitOffset, int s, int t)
-{
-    return makeBaseEdgeJigsawCoord(units, unitOffset) +
-        (int2)(s + TDIM, t);
-}
+    case AFK_SHF_LEFT:
+        baseCoord += (int2)(xdim + TDIM, zdim);
+        break;
 
-int2 makeFrontEdgeJigsawCoord(__global const struct AFK_3DComputeUnit *units, int unitOffset, int s, int t)
-{
-    return makeBaseEdgeJigsawCoord(units, unitOffset) +
-        (int2)(s + 2 * TDIM, t);
-}
+    case AFK_SHF_FRONT:
+        baseCoord += (int2)(xdim + 2 * TDIM, zdim);
+        break;
 
-int2 makeBackEdgeJigsawCoord(__global const struct AFK_3DComputeUnit *units, int unitOffset, int s, int t)
-{
-    return makeBaseEdgeJigsawCoord(units, unitOffset) +
-        (int2)(s, t + TDIM);
-}
+    case AFK_SHF_BACK:
+        baseCoord += (int2)(xdim, zdim + TDIM);
+        break;
 
-int2 makeRightEdgeJigsawCoord(__global const struct AFK_3DComputeUnit *units, int unitOffset, int s, int t)
-{
-    return makeBaseEdgeJigsawCoord(units, unitOffset) +
-        (int2)(s + TDIM, t + TDIM);
-}
+    case AFK_SHF_RIGHT:
+        baseCoord += (int2)(xdim + TDIM, zdim + TDIM);
+        break;
 
-int2 makeTopEdgeJigsawCoord(__global const struct AFK_3DComputeUnit *units, int unitOffset, int s, int t)
-{
-    return makeBaseEdgeJigsawCoord(units, unitOffset) +
-        (int2)(s + 2 * TDIM, t + TDIM);
+    case AFK_SHF_TOP:
+        baseCoord += (int2)(xdim + 2 * TDIM, zdim + TDIM);
+        break;
+    }
+
+    return baseCoord;
 }
 
 /* This function makes the displacement co-ordinate at a vapour point.
@@ -129,14 +132,40 @@ int2 makeTopEdgeJigsawCoord(__global const struct AFK_3DComputeUnit *units, int 
  * co-ordinates into lower precision numbers without losing so much
  * accuracy.  The shader needs to cope with it.
  */
-float4 makeVapourCoord(int xdim, int ydim, int zdim, float4 location)
+float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 location)
 {
-    float3 baseCoord = (float3)(
-        ((float)(xdim + TDIM_START)) / ((float)POINT_SUBDIVISION_FACTOR),
-        ((float)(ydim + TDIM_START)) / ((float)POINT_SUBDIVISION_FACTOR),
-        ((float)(zdim + TDIM_START)) / ((float)POINT_SUBDIVISION_FACTOR));
+    float3 baseVertex;
+
+    switch (face)
+    {
+    case AFK_SHF_BOTTOM:
+        baseVertex = (float3)((float)xdim, (float)stepsBack, (float)zdim);
+        break;
+
+    case AFK_SHF_LEFT:
+        baseVertex = (float3)((float)stepsBack, (float)xdim, (float)zdim);
+        break;
+
+    case AFK_SHF_FRONT:
+        baseVertex = (float3)((float)xdim, (float)zdim, (float)stepsBack);
+        break;
+
+    case AFK_SHF_BACK:
+        baseVertex = (float3)((float)xdim, (float)zdim, (float)((TDIM-1) - stepsBack));
+        break;
+
+    case AFK_SHF_RIGHT:
+        baseVertex = (float3)((float)((TDIM-1) - stepsBack), (float)xdim, (float)zdim);
+        break;
+
+    case AFK_SHF_TOP:
+        baseVertex = (float3)((float)xdim, (float)((TDIM-1) - stepsBack), (float)zdim);
+        break;
+    }
+
+    baseVertex = (baseVertex + (float)TDIM_START) / (float)POINT_SUBDIVISION_FACTOR;
     return (float4)(
-        baseCoord + location.xyz,
+        baseVertex + location.xyz,
         location.w);
 }
 
@@ -149,375 +178,68 @@ __kernel void makeShape3DEdge(
     __write_only image2d_t jigsawNormal,
     float threshold)
 {
-    /* We're necessarily going to operate across the
-     * three dimensions of a cube.
-     * The first dimension should be multiplied up by
-     * the unit offset, like so.
+    const int unitOffset = get_global_id(0) / 6;
+    const int face = get_local_id(0); /* 0..6 */
+    const int xdim = get_local_id(1); /* 0..TDIM-1 */
+    const int zdim = get_local_id(2); /* 0..TDIM-1 */
+
+    /* Here I track flags for whether each of the vapour points has already been
+     * written as an edge.
+     * These are bit masks: indexed by (xdim, zdim), we use the first bit for
+     * stepsBack=0, the second for stepsBack=1, etc.
      */
-    const int unitOffset = get_global_id(0) / TDIM;
-    const int xdim = get_local_id(0);
-    const int ydim = get_local_id(1);
-    const int zdim = get_local_id(2);
+    __local unsigned int pointsDrawn[TDIM-1][TDIM-1];
 
-    /* Initialise the image as quickly as I can, because
-     * this is going to look a bit nasty.
-     * Nodes that don't get identified below need a default
-     * value that will stop anything from being drawn.
-     * (I'm going to be dropping plenty of vertices).
-     */
-    if (ydim == (0 % TDIM))
+    /* Initialize that flag array. */
+    if (face == 0)
     {
-        int2 jigsawCoord = makeBottomEdgeJigsawCoord(units, unitOffset, xdim, zdim);
-        write_imagef(jigsawDisp, jigsawCoord, (float4)(NAN, NAN, NAN, NAN));
-        write_imagef(jigsawColour, jigsawCoord, (float4)(0.0f, 0.0f, 0.0f, 0.0f));
-        write_imagef(jigsawNormal, jigsawCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
+        pointsDrawn[xdim][zdim] = 0;
     }
 
-    if (ydim == (1 % TDIM))
+    /* Iterate through the possible steps back until I find an edge */
+    bool foundEdge = false;
+
+    int4 thisVapourPointCoord = makeVapourJigsawCoord(units, unitOffset, face, xdim, zdim, 0);
+    float4 thisVapourPoint = read_imagef(vapour, vapourSampler, thisVapourPointCoord);
+
+    int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
+
+    for (int stepsBack = 0; !foundEdge && stepsBack < (TDIM-1); ++stepsBack)
     {
-        int2 jigsawCoord = makeLeftEdgeJigsawCoord(units, unitOffset, xdim, zdim);
-        write_imagef(jigsawDisp, jigsawCoord, (float4)(NAN, NAN, NAN, NAN));
-        write_imagef(jigsawColour, jigsawCoord, (float4)(0.0f, 0.0f, 0.0f, 0.0f));
-        write_imagef(jigsawNormal, jigsawCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
-    }
-
-    if (ydim == (2 % TDIM))
-    {
-        int2 jigsawCoord = makeFrontEdgeJigsawCoord(units, unitOffset, xdim, zdim);
-        write_imagef(jigsawDisp, jigsawCoord, (float4)(NAN, NAN, NAN, NAN));
-        write_imagef(jigsawColour, jigsawCoord, (float4)(0.0f, 0.0f, 0.0f, 0.0f));
-        write_imagef(jigsawNormal, jigsawCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
-    }
-
-    if (ydim == (3 % TDIM))
-    {
-        int2 jigsawCoord = makeBackEdgeJigsawCoord(units, unitOffset, xdim, zdim);
-        write_imagef(jigsawDisp, jigsawCoord, (float4)(NAN, NAN, NAN, NAN));
-        write_imagef(jigsawColour, jigsawCoord, (float4)(0.0f, 0.0f, 0.0f, 0.0f));
-        write_imagef(jigsawNormal, jigsawCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
-    }
-
-    if (ydim == (4 % TDIM))
-    {
-        int2 jigsawCoord = makeRightEdgeJigsawCoord(units, unitOffset, xdim, zdim);
-        write_imagef(jigsawDisp, jigsawCoord, (float4)(NAN, NAN, NAN, NAN));
-        write_imagef(jigsawColour, jigsawCoord, (float4)(0.0f, 0.0f, 0.0f, 0.0f));
-        write_imagef(jigsawNormal, jigsawCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
-    }
-
-    if (ydim == (5 % TDIM))
-    {
-        int2 jigsawCoord = makeTopEdgeJigsawCoord(units, unitOffset, xdim, zdim);
-        write_imagef(jigsawDisp, jigsawCoord, (float4)(NAN, NAN, NAN, NAN));
-        write_imagef(jigsawColour, jigsawCoord, (float4)(0.0f, 0.0f, 0.0f, 0.0f));
-        write_imagef(jigsawNormal, jigsawCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
-    }
-
-    barrier(CLK_GLOBAL_MEM_FENCE);
-
-    /* Edge-detect by comparing my point in the
-     * number grid with the other three points to its
-     * top, right and back.
-     * (The top and right sides are exempt from this.)
-     * This comparison should give me one or more faces
-     * complete with information about which direction
-     * they are facing in.
-     */
-
-    /* Here are the possibilities in 2D:
-     * - -                      - -
-     * + -  <-- top or right    + +  <-- top only
-     *
-     * + -                      + -
-     * + -  <-- right only      + +  <-- neither; responsibility of the threads +up and +right
-     *
-     * - +
-     * + -  <-- top or right; there may be some illogicality as that + gets handled
-     * Invert the above for bottom, left.
-     */
-
-    /* This array is (me, right, up, back). */
-    float4 v[4];
-    v[0] = read_imagef(vapour, vapourSampler, units[unitOffset].vapourPiece * TDIM +
-        (int4)(xdim, ydim, zdim, 0));
-    v[1] = read_imagef(vapour, vapourSampler, units[unitOffset].vapourPiece * TDIM +
-        (int4)(xdim + 1, ydim, zdim, 0));
-    v[2] = read_imagef(vapour, vapourSampler, units[unitOffset].vapourPiece * TDIM +
-        (int4)(xdim, ydim + 1, zdim, 0));
-    v[3] = read_imagef(vapour, vapourSampler, units[unitOffset].vapourPiece * TDIM +
-        (int4)(xdim, ydim, zdim + 1, 0));
-
-    /* This array flags, for (right, up, back) whether we're a
-     * bottom/left/front edge (-1), not an edge (0) or a top/right/back edge
-     * (1).
-     */
-    int edgeFlags[3];
-    for (int dir = 0; dir < 3; ++dir)
-    {
-        if (v[0].w <= threshold)
-        {
-            if (v[dir+1].w > threshold) edgeFlags[dir] = -1;
-            else edgeFlags[dir] = 0;
-        }
-        else
-        {
-            if (v[dir+1].w <= threshold) edgeFlags[dir] = 1;
-            else edgeFlags[dir] = 0;
-        }
-    }
-
-    /* Now, I'm going to do each of the six faces in turn.
-     * Yes, this is copy-and-paste code.  :(  I can't help it.
-     * Any attempt to crunch it together makes a terrible mess,
-     * I'd need functors and all sorts.
-     * The reduce reduces (dim, dim + 1<<red) into dim on
-     * each iteration.
-     */
-
-    bool chosen;
-
-    /* --- BOTTOM FACE --- */
-    chosen = false;
-
-    {
-        __local char edge[REDUCE_DIM][REDUCE_DIM][REDUCE_DIM];
-        INIT_EDGE(edge, xdim, ydim, zdim)
-        if (edgeFlags[1] == -1) edge[xdim][ydim][zdim] = ydim;
-
-        for (int red = (REDUCE_ORDER - 1); red >= 0; --red)
-        {
-            barrier(CLK_LOCAL_MEM_FENCE);
-
-            if (ydim < (1 << red))
-            {
-                if (edge[xdim][ydim][zdim] == -1 &&
-                    edge[xdim][ydim + 1<<red][zdim] != -1)
-                {
-                    edge[xdim][ydim][zdim] = edge[xdim][ydim + 1<<red][zdim];
-                }
-            }
-        }
+        /* Read the next point to compare with */
+        int4 nextVapourPointCoord = makeVapourJigsawCoord(units, unitOffset, face, xdim, zdim, stepsBack+1);
+        float4 nextVapourPoint = read_imagef(vapour, vapourSampler, nextVapourPointCoord);
 
         barrier(CLK_LOCAL_MEM_FENCE);
 
-        /* TODO Making bare cubes to verify that's okay. */
-        //if (ydim == edge[xdim][0][zdim]) chosen = true;
-        if (ydim == 0) chosen = true;
-    }
-
-    if (chosen)
-    {
-        /* I have been chosen.  TODO The normal calculation goes here: I
-         * need to identify the co-ordinates that contribute and accumulate
-         * it into a local face of normals.  But I'm not sure how to
-         * do that yet, I'll get the displacement and colour working first
-         * without normals.
+        /* TODO This mask stuff is a bit wrong, because I need to catch
+         * two faces hitting the same edge at the same time.  (Diagonals.)
+         * But I'm going to get it going like this first then fix the
+         * subtlety I think.
          */
-        int2 jigsawCoord = makeBottomEdgeJigsawCoord(units, unitOffset, xdim, zdim);
-        float4 vapourCoord = makeVapourCoord(xdim, ydim, zdim, units[unitOffset].location);
-        write_imagef(jigsawDisp, jigsawCoord, vapourCoord);
-        write_imagef(jigsawColour, jigsawCoord, v[0]);
-        edgeFlags[1] = 0;
-    }
-
-    barrier(CLK_LOCAL_MEM_FENCE);
-
-    /* --- LEFT FACE --- */
-    chosen = false;
-
-    {
-        __local char edge[REDUCE_DIM][REDUCE_DIM][REDUCE_DIM];
-        INIT_EDGE(edge, xdim, ydim, zdim)
-        if (edgeFlags[0] == -1) edge[xdim][ydim][zdim] = xdim;
-
-        for (int red = (REDUCE_ORDER - 1); red >= 0; --red)
+        unsigned int mask = (1u << stepsBack);
+        if (thisVapourPoint.w < threshold && nextVapourPoint.w >= threshold &&
+            (pointsDrawn[xdim][zdim] & mask) == 0)
         {
-            barrier(CLK_LOCAL_MEM_FENCE);
+            /* This is an edge! */
+            float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
+            write_imagef(jigsawDisp, edgeCoord, edgeVertex);
+            write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
 
-            if (xdim < (1 << red))
-            {
-                if (edge[xdim][ydim][zdim] == -1 &&
-                    edge[xdim + 1<<red][ydim][zdim] != -1)
-                {
-                    edge[xdim][ydim][zdim] = edge[xdim + 1<<red][ydim][zdim];
-                }
-            }
+            /* TODO Compute the normal here. */
+            write_imagef(jigsawNormal, edgeCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
+
+            pointsDrawn[xdim][zdim] |= mask;
+            foundEdge = true;
         }
-
-        barrier(CLK_LOCAL_MEM_FENCE);
-
-        //if (xdim == edge[0][ydim][zdim]) chosen = true;
-        if (xdim == 0) chosen = true;
     }
 
-    if (chosen)
+    if (!foundEdge)
     {
-        int2 jigsawCoord = makeLeftEdgeJigsawCoord(units, unitOffset, ydim, zdim);
-        float4 vapourCoord = makeVapourCoord(xdim, ydim, zdim, units[unitOffset].location);
-        write_imagef(jigsawDisp, jigsawCoord, vapourCoord);
-        write_imagef(jigsawColour, jigsawCoord, v[0]);
-        edgeFlags[0] = 0;
+        /* This is a gap (that's normal).  Write a displacement that the
+         * geometry shader will edit out.
+         */
+        write_imagef(jigsawDisp, edgeCoord, (float4)(NAN, NAN, NAN, NAN));
     }
-
-    barrier(CLK_LOCAL_MEM_FENCE);
-
-    /* --- FRONT FACE --- */
-    chosen = false;
-
-    {
-        __local char edge[REDUCE_DIM][REDUCE_DIM][REDUCE_DIM];
-        INIT_EDGE(edge, xdim, ydim, zdim)
-        if (edgeFlags[2] == -1) edge[xdim][ydim][zdim] = zdim;
-
-        for (int red = (REDUCE_ORDER - 1); red >= 0; --red)
-        {
-            barrier(CLK_LOCAL_MEM_FENCE);
-
-            if (zdim < (1 << red))
-            {
-                if (edge[xdim][ydim][zdim] == -1 &&
-                    edge[xdim][ydim][zdim + 1<<red] != -1)
-                {
-                    edge[xdim][ydim][zdim] = edge[xdim][ydim][zdim + 1<<red];
-                }
-            }
-        }
-
-        barrier(CLK_LOCAL_MEM_FENCE);
-
-        //if (zdim == edge[xdim][ydim][0]) chosen = true;
-        if (zdim == 0) chosen = true;
-    }
-
-    if (chosen)
-    {
-        int2 jigsawCoord = makeFrontEdgeJigsawCoord(units, unitOffset, xdim, ydim);
-        float4 vapourCoord = makeVapourCoord(xdim, ydim, zdim, units[unitOffset].location);
-        write_imagef(jigsawDisp, jigsawCoord, vapourCoord);
-        write_imagef(jigsawColour, jigsawCoord, v[0]);
-        edgeFlags[2] = 0;
-    }
-
-    barrier(CLK_LOCAL_MEM_FENCE);
-
-    /* --- BACK FACE --- */
-    chosen = false;
-
-    {
-        __local char edge[REDUCE_DIM][REDUCE_DIM][REDUCE_DIM];
-        INIT_EDGE(edge, xdim, ydim, zdim)
-        if (edgeFlags[2] == 1) edge[xdim][ydim][zdim] = zdim;
-
-        for (int red = (REDUCE_ORDER - 1); red >= 0; --red)
-        {
-            barrier(CLK_LOCAL_MEM_FENCE);
-
-            if (zdim < (1 << red))
-            {
-                if (edge[xdim][ydim][zdim + 1<<red] != -1)
-                {
-                    edge[xdim][ydim][zdim] = edge[xdim][ydim][zdim + 1<<red];
-                }
-            }
-        }
-
-        barrier(CLK_LOCAL_MEM_FENCE);
-
-        //if (zdim == edge[xdim][ydim][0]) chosen = true;
-        if (zdim == (TDIM-1)) chosen = true;
-    }
-
-    if (chosen)
-    {
-        int2 jigsawCoord = makeBackEdgeJigsawCoord(units, unitOffset, xdim, ydim);
-        float4 vapourCoord = makeVapourCoord(xdim, ydim, zdim, units[unitOffset].location);
-        write_imagef(jigsawDisp, jigsawCoord, vapourCoord);
-        write_imagef(jigsawColour, jigsawCoord, v[0]);
-        edgeFlags[2] = 0;
-    }
-
-    barrier(CLK_LOCAL_MEM_FENCE);
-
-    /* --- RIGHT FACE --- */
-    chosen = false;
-
-    {
-        __local char edge[REDUCE_DIM][REDUCE_DIM][REDUCE_DIM];
-        INIT_EDGE(edge, xdim, ydim, zdim)
-        if (edgeFlags[0] == 1) edge[xdim][ydim][zdim] = xdim;
-
-        for (int red = (REDUCE_ORDER - 1); red >= 0; --red)
-        {
-            barrier(CLK_LOCAL_MEM_FENCE);
-
-            if (xdim < (1 << red))
-            {
-                if (edge[xdim + 1<<red][ydim][zdim] != -1)
-                {
-                    edge[xdim][ydim][zdim] = edge[xdim + 1<<red][ydim][zdim];
-                }
-            }
-        }
-
-        barrier(CLK_LOCAL_MEM_FENCE);
-
-        //if (xdim == edge[0][ydim][zdim]) chosen = true;
-        if (xdim == (TDIM-1)) chosen = true;
-    }
-
-    if (chosen)
-    {
-        int2 jigsawCoord = makeRightEdgeJigsawCoord(units, unitOffset, ydim, zdim);
-        float4 vapourCoord = makeVapourCoord(xdim, ydim, zdim, units[unitOffset].location);
-        write_imagef(jigsawDisp, jigsawCoord, vapourCoord);
-        write_imagef(jigsawColour, jigsawCoord, v[0]);
-        edgeFlags[0] = 0;
-    }
-
-    barrier(CLK_LOCAL_MEM_FENCE);
-
-    /* --- TOP FACE --- */
-    chosen = false;
-
-    {
-        __local char edge[REDUCE_DIM][REDUCE_DIM][REDUCE_DIM];
-        INIT_EDGE(edge, xdim, ydim, zdim)
-        if (edgeFlags[1] == 1) edge[xdim][ydim][zdim] = ydim;
-
-        for (int red = (REDUCE_ORDER - 1); red >= 0; --red)
-        {
-            barrier(CLK_LOCAL_MEM_FENCE);
-
-            if (ydim < (1 << red))
-            {
-                if (edge[xdim][ydim + 1<<red][zdim] != -1)
-                {
-                    edge[xdim][ydim][zdim] = edge[xdim][ydim + 1<<red][zdim];
-                }
-            }
-        }
-
-        barrier(CLK_LOCAL_MEM_FENCE);
-
-        //if (ydim == edge[xdim][0][zdim]) chosen = true;
-        if (ydim == (TDIM-1)) chosen = true;
-    }
-
-    if (chosen)
-    {
-        int2 jigsawCoord = makeTopEdgeJigsawCoord(units, unitOffset, xdim, zdim);
-        float4 vapourCoord = makeVapourCoord(xdim, ydim, zdim, units[unitOffset].location);
-        write_imagef(jigsawDisp, jigsawCoord, vapourCoord);
-        write_imagef(jigsawColour, jigsawCoord, v[0]);
-        edgeFlags[1] = 0;
-    }
-
-    /* Now: `surface' isn't going to work for these
-     * shapes, not unless I put lots of overlap around all
-     * the edges (fail).  However, the number field gives
-     * me lots of information to make lovely normals,
-     * by using the numbers themselves to compute a more
-     * detailed slant.  Consider how I'd implement this.
-     */
 }
 

@@ -26,16 +26,5 @@ AFK_ShapeSizes::AFK_ShapeSizes(
     skeletonBushiness(1.0f / 4.0f),
     edgeThreshold(config->shape_edgeThreshold)
 {
-    for (reduceOrder = 1; (1u << reduceOrder) < tDim; ++reduceOrder);
-}
-
-unsigned int AFK_ShapeSizes::getReduceOrder(void) const
-{
-    return reduceOrder;
-}
-
-unsigned int AFK_ShapeSizes::getReduceDim(void) const
-{
-    return (1u << reduceOrder);
 }
 

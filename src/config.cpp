@@ -70,7 +70,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     entitySubdivisionFactor     = 4;
 
     terrain_pointSubdivisionFactor      = 8;
-    shape_pointSubdivisionFactor        = 4; /* TODO This is very small.  Try to remove some overlap from TDIM for 3D shapes, right now I'm doing something like 600% overcompute :( */
+    shape_pointSubdivisionFactor        = 8;
     shape_skeletonMaxSize               = 16;
     shape_skeletonFlagGridDim           = 8;
     shape_edgeThreshold                 = 0.01f;

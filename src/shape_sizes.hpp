@@ -11,9 +11,6 @@
  */
 class AFK_ShapeSizes
 {
-protected:
-    unsigned int reduceOrder; /* 1<<reduceOrder is the power of two above tDim*tDim */
-
 public:
     const unsigned int subdivisionFactor; /* same as in landscape_sizes and the world ? */
     const unsigned int entitySubdivisionFactor; /* ratio of cell size to the size of an
@@ -37,9 +34,6 @@ public:
     const float edgeThreshold; /* The vapour number that needs to be hit to be called an edge */
 
     AFK_ShapeSizes(const AFK_Config *config);
-
-    unsigned int getReduceOrder(void) const;
-    unsigned int getReduceDim(void) const;
 };
 
 #endif /* _AFK_SHAPE_SIZES_H_ */

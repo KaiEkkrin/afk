@@ -306,8 +306,6 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
         args << "-D TDIM="                      << sSizes.tDim                   << " ";
         args << "-D TDIM_START="                << sSizes.tDimStart              << " ";
         args << "-D FEATURE_COUNT_PER_CUBE="    << sSizes.featureCountPerCube    << " ";
-        args << "-D REDUCE_ORDER="              << sSizes.getReduceOrder()       << " ";
-        args << "-D REDUCE_DIM="                << sSizes.getReduceDim()         << " ";
     }
 
     std::string argsStr = args.str();
