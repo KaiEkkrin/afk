@@ -4,12 +4,10 @@
 // It accepts VertexData as produced by the landscape vertex
 // shader and culls triangles that are outside of the
 // world cell boundaries.
-// TODO Adapt this to accept GL_TRIANGLES_ADJACENCY, and
-// calculate the correct normal for each vertex as well.
-// TODO *2: Stop the nasty stitching when two different LoDs
+// TODO: Stop the nasty stitching when two different LoDs
 // cross at a y boundary by splitting the triangle into two
 // here, each stopping at said y boundary.
-// TODO *3: Throw away the current base geometry entirely,
+// TODO *2: Throw away the current base geometry entirely,
 // and use the tessellator!
 
 #version 330

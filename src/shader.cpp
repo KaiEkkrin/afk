@@ -14,6 +14,7 @@ struct shaderSpec shaders[] = {
     {   GL_GEOMETRY_SHADER, 0,  "landscape_geometry.glsl"       },
     {   GL_VERTEX_SHADER,   0,  "landscape_vertex.glsl"         },
     {   GL_FRAGMENT_SHADER, 0,  "shape_fragment.glsl"           },
+    {   GL_GEOMETRY_SHADER, 0,  "shape_geometry.glsl"           },
     {   GL_VERTEX_SHADER,   0,  "shape_vertex.glsl"             },
     {   GL_FRAGMENT_SHADER, 0,  "vcol_phong_fragment.glsl"      },
     {   GL_VERTEX_SHADER,   0,  "vcol_phong_vertex.glsl"        },

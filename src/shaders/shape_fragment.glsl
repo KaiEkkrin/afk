@@ -10,7 +10,7 @@ uniform sampler2D JigsawColourTex;
 // ...and the normal
 uniform sampler2D JigsawNormalTex;
 
-in VertexData
+in GeometryData
 {
     vec2 jigsawCoord;
 } inData;

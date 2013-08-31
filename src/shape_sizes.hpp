@@ -34,6 +34,7 @@ public:
     const unsigned int skeletonMaxSize; /* Maximum number of points in a skeleton */
     const unsigned int skeletonFlagGridDim; /* Dimensions of the skeleton flag-grid */
     const float skeletonBushiness; /* Chance of each cube in a skeleton being host to an adjacent one */
+    const float edgeThreshold; /* The vapour number that needs to be hit to be called an edge */
 
     AFK_ShapeSizes(const AFK_Config *config);
 

@@ -203,6 +203,7 @@ void AFK_3DComputeQueue::computeStart(
     AFK_CLCHK(clSetKernelArg(edgeKernel, 3, sizeof(cl_mem), &edgeJigsawMem[0]))
     AFK_CLCHK(clSetKernelArg(edgeKernel, 4, sizeof(cl_mem), &edgeJigsawMem[1]))
     AFK_CLCHK(clSetKernelArg(edgeKernel, 5, sizeof(cl_mem), &edgeJigsawMem[2]))
+    AFK_CLCHK(clSetKernelArg(edgeKernel, 6, sizeof(float), &sSizes.edgeThreshold))
 
     size_t edgeGlobalDim[3];
     edgeGlobalDim[0] = (sSizes.tDim - 1) * unitCount;
@@ -212,22 +213,12 @@ void AFK_3DComputeQueue::computeStart(
     edgeLocalDim[0] = edgeLocalDim[1] = edgeLocalDim[2] =
         (sSizes.tDim - 1);
 
-    //cl_event edgeEvent;
+    cl_event edgeEvent;
 
-    /* TODO Verifying that I've got the vapour kernel OK, by
-     * not running this for now.  I won't be doing the display
-     * pass either.
-     */
-#if 0
     AFK_CLCHK(clEnqueueNDRangeKernel(q, edgeKernel, 3, 0, &edgeGlobalDim[0], &edgeLocalDim[0],
         vapourEvents[1] != 0 ? 2 : 1,
         &vapourEvents[0],
         &edgeEvent))
-#else
-    AFK_CLCHK(clWaitForEvents(
-        vapourEvents[1] != 0 ? 2 : 1,
-        &vapourEvents[0]))
-#endif
 
     /* Release the things */
     AFK_CLCHK(clReleaseSampler(vapourSampler))
@@ -239,15 +230,9 @@ void AFK_3DComputeQueue::computeStart(
         AFK_CLCHK(clReleaseMemObject(vapourBufs[i]))
     }
 
-#if 0
     vapourJigsaw->releaseFromCl(q, 1, &edgeEvent);
     edgeJigsaw->releaseFromCl(q, 1, &edgeEvent);
     AFK_CLCHK(clReleaseEvent(edgeEvent))
-#else
-    vapourJigsaw->releaseFromCl(q, 0, NULL);
-    /* TODO This seems to freeze... */
-    //edgeJigsaw->releaseFromCl(q, 0, NULL);
-#endif
 
     computer->unlock();
 }

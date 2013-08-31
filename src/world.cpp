@@ -19,11 +19,6 @@
 #define PROTAGONIST_CELL_DEBUG 0
 
 
-/* TODO remove -- for making sure my jigsaw refactoring is correct */
-#define ENTITIES_ENABLED 1
-#define ENTITIES_DISPLAYED 0
-
-
 /* The AFK_WorldCellGenParam flags. */
 #define AFK_WCG_FLAG_ENTIRELY_VISIBLE   2 /* Cell is already known to be entirely within the viewing frustum */
 #define AFK_WCG_FLAG_TERRAIN_RENDER     4 /* Render the terrain regardless of visibility or LoD */
@@ -475,7 +470,6 @@ bool AFK_World::generateClaimedWorldCell(
 	 	 * that the refactored 3D-supporting jigsaw is still OK with
 		 * the terrain.
 		 */
-#if ENTITIES_ENABLED
         AFK_ENTITY_LIST::iterator eIt = worldCell.entitiesBegin();
         while (eIt != worldCell.entitiesEnd())
         {
@@ -559,7 +553,6 @@ bool AFK_World::generateClaimedWorldCell(
          * proper list.
          */
         worldCell.popMoveQueue();
-#endif
 
         /* We don't need this any more */
         worldCell.release(threadId, AFK_CL_CLAIMED);
@@ -755,7 +748,7 @@ AFK_World::AFK_World(
     landscape_clipTransformLocation = glGetUniformLocation(landscape_shaderProgram->program, "ClipTransform");
 
     entity_shaderProgram = new AFK_ShaderProgram();
-    *entity_shaderProgram << "shape_fragment" << "shape_vertex";
+    *entity_shaderProgram << "shape_fragment" << "shape_geometry" << "shape_vertex";
     entity_shaderProgram->Link();
 
     entity_shaderLight = new AFK_ShaderLight(entity_shaderProgram->program);
@@ -942,7 +935,6 @@ void AFK_World::doComputeTasks(void)
         terrainComputeQueues[puzzle]->computeStart(afk_core.computer, landscapeJigsaws->getPuzzle(puzzle), lSizes);
     }
 
-#if ENTITIES_ENABLED
     std::vector<boost::shared_ptr<AFK_3DComputeQueue> > shapeComputeQueues;
     shapeComputeFair.getDrawQueues(shapeComputeQueues);
 
@@ -954,7 +946,6 @@ void AFK_World::doComputeTasks(void)
             edgeJigsaws->getPuzzle(puzzle),
             sSizes);
     }
-#endif
 
     /* If I finalise stuff now, the y-reduce information will
      * be in the landscape tiles in time for the display
@@ -965,12 +956,10 @@ void AFK_World::doComputeTasks(void)
         terrainComputeQueues[puzzle]->computeFinish();
     }
 
-#if ENTITIES_ENABLED
     for (unsigned int puzzle = 0; puzzle < shapeComputeQueues.size(); ++puzzle)
     {
         shapeComputeQueues[puzzle]->computeFinish();
     }
-#endif
 }
 
 void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLight)
@@ -999,7 +988,6 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
 
     glBindVertexArray(0);
 
-#if ENTITIES_DISPLAYED
     /* Render the shapes */
     glUseProgram(entity_shaderProgram->program);
     entity_shaderLight->setupLight(globalLight);
@@ -1018,7 +1006,6 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     }
 
     glBindVertexArray(0);
-#endif
 }
 
 /* Worker for the below. */

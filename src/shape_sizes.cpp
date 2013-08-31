@@ -23,7 +23,8 @@ AFK_ShapeSizes::AFK_ShapeSizes(
     featureCountPerCube(CUBE(config->shape_pointSubdivisionFactor / 2)), /* TODO Probably wants experimenting with */
     skeletonMaxSize(config->shape_skeletonMaxSize * 2),
     skeletonFlagGridDim(config->shape_skeletonFlagGridDim),
-    skeletonBushiness(1.0f / 4.0f)
+    skeletonBushiness(1.0f / 4.0f),
+    edgeThreshold(config->shape_edgeThreshold)
 {
     for (reduceOrder = 1; (1u << reduceOrder) < tDim; ++reduceOrder);
 }

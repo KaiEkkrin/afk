@@ -73,6 +73,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     shape_pointSubdivisionFactor        = 4; /* TODO This is very small.  Try to remove some overlap from TDIM for 3D shapes, right now I'm doing something like 600% overcompute :( */
     shape_skeletonMaxSize               = 16;
     shape_skeletonFlagGridDim           = 8;
+    shape_edgeThreshold                 = 0.01f;
 
     maxEntitiesPerCell          = 4;
     entitySparseness            = 512;
@@ -191,6 +192,11 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         {
             REQUIRE_ARGUMENT("--shape-skeleton-flag-grid-dim")
             shape_skeletonFlagGridDim = strtoul(argv[argi], NULL, 0);
+        }
+        else if (strcmp(argv[argi], "--shape-edge-threshold") == 0)
+        {
+            REQUIRE_ARGUMENT("--shape-edge-threshold")
+            shape_edgeThreshold = strtof(argv[argi], NULL);
         }
         else if (strcmp(argv[argi], "--max-entities-per-cell") == 0)
         {
