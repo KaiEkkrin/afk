@@ -287,11 +287,8 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
 
     /* Compiler arguments here... */
     std::ostringstream args;
-    AFK_LandscapeSizes lSizes(config->subdivisionFactor, config->pointSubdivisionFactor);
-    AFK_ShapeSizes sSizes(
-        config->subdivisionFactor,
-        config->entitySubdivisionFactor,
-        config->pointSubdivisionFactor);
+    AFK_LandscapeSizes lSizes(config);
+    AFK_ShapeSizes sSizes(config);
 
     if (boost::starts_with(p->filename, "landscape_"))
     {

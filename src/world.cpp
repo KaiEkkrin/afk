@@ -20,7 +20,8 @@
 
 
 /* TODO remove -- for making sure my jigsaw refactoring is correct */
-#define ENTITIES_ENABLED 0
+#define ENTITIES_ENABLED 1
+#define ENTITIES_DISPLAYED 0
 
 
 /* The AFK_WorldCellGenParam flags. */
@@ -632,10 +633,8 @@ AFK_World::AFK_World(
         maxDistance                 (_maxDistance),
         subdivisionFactor           (config->subdivisionFactor),
         minCellSize                 (config->minCellSize),
-        lSizes                      (config->subdivisionFactor, config->pointSubdivisionFactor),
-        sSizes                      (config->subdivisionFactor,
-                                     config->entitySubdivisionFactor,
-                                     config->pointSubdivisionFactor),
+        lSizes                      (config),
+        sSizes                      (config),
         maxEntitiesPerCell          (config->maxEntitiesPerCell),
         entitySparseness            (config->entitySparseness)
 
@@ -689,6 +688,9 @@ AFK_World::AFK_World(
 
     unsigned int shapeCacheEntries = shapeCacheSize / (sSizes.tSize * 6);
 
+    /* TODO For Nvidia Fermi, which doesn't support writes to 3D
+     * shapes, I need to support a 2D vapour here (yowch)
+     */
     Vec3<int> vapourPieceSize = afk_vec3<int>(sSizes.tDim, sSizes.tDim, sSizes.tDim);
     enum AFK_JigsawFormat vapourTexFormat = AFK_JIGSAW_4FLOAT32;
     vapourJigsaws = new AFK_JigsawCollection(
@@ -997,7 +999,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
 
     glBindVertexArray(0);
 
-#if ENTITIES_ENABLED
+#if ENTITIES_DISPLAYED
     /* Render the shapes */
     glUseProgram(entity_shaderProgram->program);
     entity_shaderLight->setupLight(globalLight);

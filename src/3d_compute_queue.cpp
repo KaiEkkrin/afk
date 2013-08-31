@@ -214,10 +214,20 @@ void AFK_3DComputeQueue::computeStart(
 
     cl_event edgeEvent;
 
+    /* TODO Verifying that I've got the vapour kernel OK, by
+     * not running this for now.  I won't be doing the display
+     * pass either.
+     */
+#if 0
     AFK_CLCHK(clEnqueueNDRangeKernel(q, edgeKernel, 3, 0, &edgeGlobalDim[0], &edgeLocalDim[0],
         vapourEvents[1] != 0 ? 2 : 1,
         &vapourEvents[0],
         &edgeEvent))
+#else
+    AFK_CLCHK(clWaitForEvents(
+        vapourEvents[1] != 0 ? 2 : 1,
+        &vapourEvents[0]))
+#endif
 
     /* Release the things */
     AFK_CLCHK(clReleaseSampler(vapourSampler))

@@ -94,9 +94,9 @@ __kernel void makeShape3DEdge(
      * the unit offset, like so.
      */
     const int unitOffset = get_global_id(0) / TDIM;
-    const int xdim = get_global_id(0) % TDIM;
-    const int ydim = get_global_id(1);
-    const int zdim = get_global_id(2);
+    const int xdim = get_local_id(0);
+    const int ydim = get_local_id(1);
+    const int zdim = get_local_id(2);
 
     /* Initialise the image as quickly as I can, because
      * this is going to look a bit nasty.

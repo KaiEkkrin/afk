@@ -68,7 +68,11 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     minCellSize                 = 1.0f;
     subdivisionFactor           = 2;
     entitySubdivisionFactor     = 4;
-    pointSubdivisionFactor      = 8;
+
+    terrain_pointSubdivisionFactor      = 8;
+    shape_pointSubdivisionFactor        = 4; /* TODO This is very small.  Try to remove some overlap from TDIM for 3D shapes, right now I'm doing something like 600% overcompute :( */
+    shape_skeletonMaxSize               = 16;
+    shape_skeletonFlagGridDim           = 8;
 
     maxEntitiesPerCell          = 4;
     entitySparseness            = 512;
@@ -168,10 +172,25 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
             REQUIRE_ARGUMENT("--entity-subdivision-factor")
             entitySubdivisionFactor = strtoul(argv[argi], NULL, 0);
         }
-        else if (strcmp(argv[argi], "--point-subdivision-factor") == 0)
+        else if (strcmp(argv[argi], "--terrain-point-subdivision-factor") == 0)
         {
-            REQUIRE_ARGUMENT("--point-subdivision-factor")
-            pointSubdivisionFactor = strtoul(argv[argi], NULL, 0);
+            REQUIRE_ARGUMENT("--terrain-point-subdivision-factor")
+            terrain_pointSubdivisionFactor = strtoul(argv[argi], NULL, 0);
+        }
+        else if (strcmp(argv[argi], "--shape-point-subdivision-factor") == 0)
+        {
+            REQUIRE_ARGUMENT("--shape-point-subdivision-factor")
+            shape_pointSubdivisionFactor = strtoul(argv[argi], NULL, 0);
+        }
+        else if (strcmp(argv[argi], "--shape-skeleton-max-size") == 0)
+        {
+            REQUIRE_ARGUMENT("--shape-skeleton-max-size")
+            shape_skeletonMaxSize = strtoul(argv[argi], NULL, 0);
+        }
+        else if (strcmp(argv[argi], "--shape-skeleton-flag-grid-dim") == 0)
+        {
+            REQUIRE_ARGUMENT("--shape-skeleton-flag-grid-dim")
+            shape_skeletonFlagGridDim = strtoul(argv[argi], NULL, 0);
         }
         else if (strcmp(argv[argi], "--max-entities-per-cell") == 0)
         {

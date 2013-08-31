@@ -3,6 +3,8 @@
 #ifndef _AFK_SHAPE_SIZES_H_
 #define _AFK_SHAPE_SIZES_H_
 
+#include "config.hpp"
+
 /* This utility returns the sizes of various parts of the
  * shape constructs.
  * It's rather similar to LandscapeSizes, but not the same...
@@ -33,10 +35,7 @@ public:
     const unsigned int skeletonFlagGridDim; /* Dimensions of the skeleton flag-grid */
     const float skeletonBushiness; /* Chance of each cube in a skeleton being host to an adjacent one */
 
-    AFK_ShapeSizes(
-        unsigned int subdivisionFactor,
-        unsigned int entitySubdivisionFactor,
-        unsigned int pointSubdivisionFactor);
+    AFK_ShapeSizes(const AFK_Config *config);
 
     unsigned int getReduceOrder(void) const;
     unsigned int getReduceDim(void) const;

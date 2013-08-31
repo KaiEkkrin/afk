@@ -94,7 +94,14 @@ public:
     float minCellSize;
     unsigned int subdivisionFactor;
     unsigned int entitySubdivisionFactor;
-    unsigned int pointSubdivisionFactor;
+
+    /* Terrain setup */
+    unsigned int terrain_pointSubdivisionFactor;
+
+    /* Shape setup */
+    unsigned int shape_pointSubdivisionFactor;
+    unsigned int shape_skeletonMaxSize;
+    unsigned int shape_skeletonFlagGridDim;
 
     /* Entities.
      * (TODO: These are going to want splitting up into

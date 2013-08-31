@@ -3,6 +3,8 @@
 #ifndef _AFK_LANDSCAPE_SIZES_H_
 #define _AFK_LANDSCAPE_SIZES_H_
 
+#include "config.hpp"
+
 /* This utility returns the sizes of the various landscape
  * elements, so that I can configure the cache correctly, and correctly
  * drive the drawing functions.
@@ -27,7 +29,7 @@ public:
     const unsigned int tSize; /* Size of a jigsaw piece in bytes */
     const unsigned int featureCountPerTile; /* Number of terrain features per tile */
 
-    AFK_LandscapeSizes(unsigned int subdivisionFactor, unsigned int pointSubdivisionFactor);
+    AFK_LandscapeSizes(const AFK_Config *config);
 
     unsigned int getReduceOrder(void) const;
 };
