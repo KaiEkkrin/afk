@@ -21,9 +21,9 @@
  */
 
 /* This kernel should run across:
- * (0..TDIM) * unitCount,
- * (0..TDIM),
- * (0..TDIM).
+ * (0..VDIM) * unitCount,
+ * (0..VDIM),
+ * (0..VDIM).
  */
 
 /* TODO: The feature should get bigger, in order to
@@ -144,16 +144,16 @@ __kernel void makeShape3DVapour(
      * The first dimension should be multiplied up by
      * the unit offset, like so.
      */
-    const int unitOffset = get_global_id(0) / TDIM;
-    const int xdim = get_global_id(0) % TDIM;
+    const int unitOffset = get_global_id(0) / VDIM;
+    const int xdim = get_global_id(0) % VDIM;
     const int ydim = get_global_id(1);
     const int zdim = get_global_id(2);
 
     /* Initialise the base points. */
     float3 vl = (float3)(
-        ((float)xdim + TDIM_START) / ((float)POINT_SUBDIVISION_FACTOR), 
-        ((float)ydim + TDIM_START) / ((float)POINT_SUBDIVISION_FACTOR), 
-        ((float)zdim + TDIM_START) / ((float)POINT_SUBDIVISION_FACTOR));
+        (float)xdim / (float)POINT_SUBDIVISION_FACTOR, 
+        (float)ydim / (float)POINT_SUBDIVISION_FACTOR, 
+        (float)zdim / (float)POINT_SUBDIVISION_FACTOR);
 
     /* Initialise this point's vapour numbers. */
     float4 vc = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
@@ -190,7 +190,7 @@ __kernel void makeShape3DVapour(
      * Think about this, but try it this way first because it's
      * simplest.
      */
-    int4 vapourCoord = units[unitOffset].vapourPiece * TDIM + (int4)(xdim, ydim, zdim, 0);
+    int4 vapourCoord = units[unitOffset].vapourPiece * VDIM + (int4)(xdim, ydim, zdim, 0);
     write_imagef(vapour, vapourCoord, vc);
 }
 

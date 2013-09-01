@@ -17,16 +17,10 @@ public:
                                                  * entity that fits into that cell
                                                  */
     const unsigned int pointSubdivisionFactor;
-    const unsigned int vDim; /* Number of vertices along an edge in the basic face */
+    const unsigned int vDim; /* Number of vertices along one dimension of the vapour */
+    const unsigned int eDim; /* Number of vertices along one edge of the base face (includes enough to join up to the next face) */
     const unsigned int iDim; /* Number of triangles along an edge */
-    const unsigned int tDim; /* Number of vertices along an edge in a jigsaw piece */
-    const int          tDimStart; /* What index to start the jigsaw pieces at in relation to the face geometry */
-    const unsigned int vCount; /* Total number of vertex structures in the instanced base face */
     const unsigned int iCount; /* Total number of index structures */
-    const unsigned int tCount; /* Total number of vertex structures in a jigsaw piece */
-    const unsigned int vSize; /* Size of base face vertex array in bytes */
-    const unsigned int iSize; /* Size of index array in bytes */
-    const unsigned int tSize; /* Size of a jigsaw piece in bytes */
     const unsigned int featureCountPerCube; /* Number of features per cube */
     const unsigned int skeletonMaxSize; /* Maximum number of points in a skeleton */
     const unsigned int skeletonFlagGridDim; /* Dimensions of the skeleton flag-grid */

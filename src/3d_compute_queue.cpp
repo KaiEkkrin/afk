@@ -174,8 +174,8 @@ void AFK_3DComputeQueue::computeStart(
     AFK_CLCHK(clSetKernelArg(vapourKernel, 3, sizeof(cl_mem), &vapourJigsawMem[0]))
 
     size_t vapourDim[3];
-    vapourDim[0] = sSizes.tDim * unitCount;
-    vapourDim[1] = vapourDim[2] = sSizes.tDim;
+    vapourDim[0] = sSizes.vDim * unitCount;
+    vapourDim[1] = vapourDim[2] = sSizes.vDim;
 
     /* For the edge kernel, I'm going to need the edge
      * jigsaw to have been acquired, and also the vapour
@@ -218,12 +218,12 @@ void AFK_3DComputeQueue::computeStart(
      */
     size_t edgeGlobalDim[3];
     edgeGlobalDim[0] = 6 * unitCount;
-    edgeGlobalDim[1] = edgeGlobalDim[2] = (sSizes.tDim - 1);
+    edgeGlobalDim[1] = edgeGlobalDim[2] = sSizes.eDim;
 
 #if 0
     size_t edgeLocalDim[3];
     edgeLocalDim[0] = 6; /* one for each of the 6 face orientations */
-    edgeLocalDim[1] = edgeLocalDim[2] = (sSizes.tDim - 1);
+    edgeLocalDim[1] = edgeLocalDim[2] = sSizes.eDim;
 #endif
 
     cl_event edgeEvent;

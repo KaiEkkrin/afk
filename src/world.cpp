@@ -724,12 +724,12 @@ AFK_World::AFK_World(
     worldCache = new AFK_WORLD_CACHE(
         worldCacheBitness, 8, AFK_HashCell(), worldCacheEntries, 0xfffffffeu);
 
-    unsigned int shapeCacheEntries = shapeCacheSize / (sSizes.tSize * 6);
+    unsigned int shapeCacheEntries = shapeCacheSize / (SQUARE(sSizes.eDim) * 6);
 
     /* TODO For Nvidia Fermi, which doesn't support writes to 3D
      * shapes, I need to support a 2D vapour here (yowch)
      */
-    Vec3<int> vapourPieceSize = afk_vec3<int>(sSizes.tDim, sSizes.tDim, sSizes.tDim);
+    Vec3<int> vapourPieceSize = afk_vec3<int>(sSizes.vDim, sSizes.vDim, sSizes.vDim);
     enum AFK_JigsawFormat vapourTexFormat = AFK_JIGSAW_4FLOAT32;
     vapourJigsaws = new AFK_JigsawCollection(
         ctxt,
@@ -747,7 +747,7 @@ AFK_World::AFK_World(
      * cram the 6 faces together in a better manner than stringing them
      * in a line.
      */
-    Vec3<int> edgePieceSize = afk_vec3<int>(sSizes.tDim * 3, sSizes.tDim * 2, 1);
+    Vec3<int> edgePieceSize = afk_vec3<int>(sSizes.eDim * 3, sSizes.eDim * 2, 1);
 
     enum AFK_JigsawFormat edgeTexFormat[3];
     edgeTexFormat[0] = AFK_JIGSAW_4FLOAT32;        /* Displacement */

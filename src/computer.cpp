@@ -303,8 +303,8 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
     {
         args << "-D SUBDIVISION_FACTOR="        << sSizes.subdivisionFactor      << " ";
         args << "-D POINT_SUBDIVISION_FACTOR="  << sSizes.pointSubdivisionFactor << " ";
-        args << "-D TDIM="                      << sSizes.tDim                   << " ";
-        args << "-D TDIM_START="                << sSizes.tDimStart              << " ";
+        args << "-D VDIM="                      << sSizes.vDim                   << " ";
+        args << "-D EDIM="                      << sSizes.eDim                   << " ";
         args << "-D FEATURE_COUNT_PER_CUBE="    << sSizes.featureCountPerCube    << " ";
     }
 

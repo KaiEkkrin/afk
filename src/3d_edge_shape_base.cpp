@@ -14,24 +14,24 @@ static void make2DTexCoords(
     float& o_tTex)
 {
     /* The texture co-ordinates for each jigsaw piece range
-     * from (0, 1), with tDim texels along each side, including
-     * the padding all the way round.  Therefore, to access the
+     * from (0, 1), with eDim texels along each side, including
+     * the join-up to the next face.  Therefore, to access the
      * correct texels, I need to skip the padding, like so:
      * (The +0.25f offset is to stop nvidia cards from nearest-
      * neighbour sampling down to the *previous* point, which they
      * seem to tend to do with no offset ... )
      */
-    o_sTex = (float)sOffset + ((float)s - (float)sSizes.tDimStart + 0.25f) / (float)sSizes.tDim;
-    o_tTex = (float)tOffset + ((float)t - (float)sSizes.tDimStart + 0.25f) / (float)sSizes.tDim;
+    o_sTex = (float)sOffset + ((float)s + 0.25f) / (float)sSizes.eDim;
+    o_tTex = (float)tOffset + ((float)t + 0.25f) / (float)sSizes.eDim;
 }
 
 void AFK_3DEdgeShapeBase::pushBaseFace(unsigned int sOffset, unsigned int tOffset, bool flip, const AFK_ShapeSizes& sSizes)
 {
     unsigned short texOffset = (unsigned short)vertices.size();
 
-    for (unsigned int x = 0; x < sSizes.vDim; ++x)
+    for (unsigned int x = 0; x < sSizes.eDim; ++x)
     {
-        for (unsigned int z = 0; z < sSizes.vDim; ++z)
+        for (unsigned int z = 0; z < sSizes.eDim; ++z)
         {
             float sTex, tTex;
             make2DTexCoords(sSizes, sOffset, tOffset, x, z, sTex, tTex);
@@ -43,10 +43,10 @@ void AFK_3DEdgeShapeBase::pushBaseFace(unsigned int sOffset, unsigned int tOffse
     {
         for (unsigned short t = 0; t < sSizes.pointSubdivisionFactor; ++t)
         {
-            unsigned short i_r1c1 = texOffset + s * sSizes.vDim + t;
-            unsigned short i_r2c1 = texOffset + (s + 1) * sSizes.vDim + t;
-            unsigned short i_r1c2 = texOffset + s * sSizes.vDim + (t + 1);
-            unsigned short i_r2c2 = texOffset + (s + 1) * sSizes.vDim + (t + 1);
+            unsigned short i_r1c1 = texOffset + s * sSizes.eDim + t;
+            unsigned short i_r2c1 = texOffset + (s + 1) * sSizes.eDim + t;
+            unsigned short i_r1c2 = texOffset + s * sSizes.eDim + (t + 1);
+            unsigned short i_r2c2 = texOffset + (s + 1) * sSizes.eDim + (t + 1);
 
             indices.push_back(i_r1c1);
 

@@ -66,13 +66,13 @@ int4 makeVapourCoord(int face, int xdim, int zdim, int stepsBack)
         coord += (int4)(
             xdim,
             zdim,
-            (TDIM-1) - stepsBack,
+            VDIM - stepsBack,
             0);
         break;
 
     case AFK_SHF_RIGHT:
         coord += (int4)(
-            (TDIM-1) - stepsBack,
+            VDIM - stepsBack,
             xdim,
             zdim,
             0);
@@ -81,7 +81,7 @@ int4 makeVapourCoord(int face, int xdim, int zdim, int stepsBack)
     case AFK_SHF_TOP:
         coord += (int4)(
             xdim,
-            (TDIM-1) - stepsBack,
+            VDIM - stepsBack,
             zdim,
             0);
         break;
@@ -93,8 +93,8 @@ int4 makeVapourCoord(int face, int xdim, int zdim, int stepsBack)
 int2 makeEdgeJigsawCoord(__global const struct AFK_3DComputeUnit *units, int unitOffset, int face, int xdim, int zdim)
 {
     int2 baseCoord = (int2)(
-        units[unitOffset].edgePiece.x * TDIM * 3,
-        units[unitOffset].edgePiece.y * TDIM * 2);
+        units[unitOffset].edgePiece.x * EDIM * 3,
+        units[unitOffset].edgePiece.y * EDIM * 2);
 
     switch (face)
     {
@@ -103,23 +103,23 @@ int2 makeEdgeJigsawCoord(__global const struct AFK_3DComputeUnit *units, int uni
         break;
 
     case AFK_SHF_LEFT:
-        baseCoord += (int2)(xdim + TDIM, zdim);
+        baseCoord += (int2)(xdim + EDIM, zdim);
         break;
 
     case AFK_SHF_FRONT:
-        baseCoord += (int2)(xdim + 2 * TDIM, zdim);
+        baseCoord += (int2)(xdim + 2 * EDIM, zdim);
         break;
 
     case AFK_SHF_BACK:
-        baseCoord += (int2)(xdim, zdim + TDIM);
+        baseCoord += (int2)(xdim, zdim + EDIM);
         break;
 
     case AFK_SHF_RIGHT:
-        baseCoord += (int2)(xdim + TDIM, zdim + TDIM);
+        baseCoord += (int2)(xdim + EDIM, zdim + EDIM);
         break;
 
     case AFK_SHF_TOP:
-        baseCoord += (int2)(xdim + 2 * TDIM, zdim + TDIM);
+        baseCoord += (int2)(xdim + 2 * EDIM, zdim + EDIM);
         break;
     }
 
@@ -151,19 +151,19 @@ float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 locati
         break;
 
     case AFK_SHF_BACK:
-        baseVertex = (float3)((float)xdim, (float)zdim, (float)((TDIM-1) - stepsBack));
+        baseVertex = (float3)((float)xdim, (float)zdim, (float)(VDIM - stepsBack));
         break;
 
     case AFK_SHF_RIGHT:
-        baseVertex = (float3)((float)((TDIM-1) - stepsBack), (float)xdim, (float)zdim);
+        baseVertex = (float3)((float)(VDIM - stepsBack), (float)xdim, (float)zdim);
         break;
 
     case AFK_SHF_TOP:
-        baseVertex = (float3)((float)xdim, (float)((TDIM-1) - stepsBack), (float)zdim);
+        baseVertex = (float3)((float)xdim, (float)(VDIM - stepsBack), (float)zdim);
         break;
     }
 
-    baseVertex = (baseVertex + (float)TDIM_START) / (float)POINT_SUBDIVISION_FACTOR;
+    baseVertex = baseVertex / (float)POINT_SUBDIVISION_FACTOR;
     return (float4)(
         baseVertex + location.xyz,
         location.w);
@@ -181,26 +181,26 @@ __kernel void makeShape3DEdge(
 #if 0
     const int unitOffset = get_global_id(0) / 6;
     const int face = get_local_id(0); /* 0..6 */
-    const int xdim = get_local_id(1); /* 0..TDIM-1 */
-    const int zdim = get_local_id(2); /* 0..TDIM-1 */
+    const int xdim = get_local_id(1); /* 0..EDIM-1 */
+    const int zdim = get_local_id(2); /* 0..EDIM-1 */
 
     /* Here I track whether each of the vapour points has already been
      * written as an edge.
      * Each word starts at -1 and is updated with which face got the
      * right to draw that edge. 
      */
-    __local char pointsDrawn[TDIM-1][TDIM-1][TDIM-1];
+    __local char pointsDrawn[VDIM][VDIM][VDIM];
 
     /* Initialize that flag array. */
-    for (int y = face; y < (TDIM-1); y += face)
+    for (int y = face; y < VDIM; y += face)
     {
         pointsDrawn[xdim][y][zdim] = -1;
     }
 #else
     const int unitOffset = get_global_id(0) / 6;
     const int face = get_global_id(0) % 6; /* 0..6 */
-    const int xdim = get_global_id(1); /* 0..TDIM-1 */
-    const int zdim = get_global_id(2); /* 0..TDIM-1 */
+    const int xdim = get_global_id(1); /* 0..EDIM-1 */
+    const int zdim = get_global_id(2); /* 0..EDIM-1 */
 #endif
 
     /* Iterate through the possible steps back until I find an edge */
@@ -208,7 +208,7 @@ __kernel void makeShape3DEdge(
 
     int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, 0);
     float4 thisVapourPoint = read_imagef(vapour, vapourSampler,
-        units[unitOffset].vapourPiece * TDIM + thisVapourPointCoord);
+        units[unitOffset].vapourPiece * VDIM + thisVapourPointCoord);
 
     int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
 
@@ -216,12 +216,12 @@ __kernel void makeShape3DEdge(
      * all this logic and just pushing through the base geometry
      */
 #if 0
-    for (int stepsBack = 0; !foundEdge && stepsBack < (TDIM-1); ++stepsBack)
+    for (int stepsBack = 0; !foundEdge && stepsBack < VDIM; ++stepsBack)
     {
         /* Read the next point to compare with */
         int4 nextVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack+1);
         float4 nextVapourPoint = read_imagef(vapour, vapourSampler,
-            units[unitOffset].vapourPiece * TDIM + nextVapourPointCoord);
+            units[unitOffset].vapourPiece * VDIM + nextVapourPointCoord);
 
         /* Figure out which face it goes to, if any.
          * Upon conflict, the faces get priority in 
