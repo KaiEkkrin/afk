@@ -221,17 +221,14 @@ __kernel void makeShape3DEdge(
          * variants on this logic that I've tried make
          * my AMD system hang and need the reset button.
          * :-(
-         * Maybe dump the pointsDrawn test and instead just
-         * try pre-assigning points to edges by means of the
-         * square pyramid space division I thought of earlier?
-         * (Would that be good enough?  Maybe in tandem with
-         * more than one layer for each face, it would...)
-         * (Also, with the square pyramid system I could try
-         * shrinking the face inwards rather than culling
-         * vertices that hit the pyramid edge, and taking a
-         * linear sample of the vapour to get better detail
-         * and fewer wasted vertices?)
+         * On second thoughts, I think square pyramids are a
+         * bad idea: they pretty much preclude lots of kinds of
+         * irregular shapes.
+         * For now, I'm going to ignore the overlap test and
+         * just let overlaps happen.  I really want this kind
+         * of logic to work, though.
          */
+#if 0
         for (int testFace = 0; testFace < 6; ++testFace)
         {
             barrier(CLK_LOCAL_MEM_FENCE);
@@ -252,6 +249,20 @@ __kernel void makeShape3DEdge(
                 //pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z] = face;
             }
         }
+#else
+        if (thisVapourPoint.w < threshold && nextVapourPoint.w >= threshold)
+        {
+            /* This is an edge, and it's mine! */
+            float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
+            write_imagef(jigsawDisp, edgeCoord, edgeVertex);
+            write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
+
+            /* TODO Compute the normal here. */
+            write_imagef(jigsawNormal, edgeCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
+
+            foundEdge = true;
+        }
+#endif
     }
 
     if (!foundEdge)
