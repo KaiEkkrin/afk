@@ -206,22 +206,37 @@ __kernel void makeShape3DEdge(
     /* Iterate through the possible steps back until I find an edge */
     bool foundEdge = false;
 
-    int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, 0);
-    float4 thisVapourPoint = read_imagef(vapour, vapourSampler,
-        units[unitOffset].vapourPiece * VDIM + thisVapourPointCoord);
+    int4 lastVapourPointCoord = makeVapourCoord(face, xdim, zdim, 0);
+    float4 lastVapourPoint = read_imagef(vapour, vapourSampler,
+        units[unitOffset].vapourPiece * VDIM + lastVapourPointCoord);
 
     int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
 
-    /* To make sure I get a nice clean cube, temporarily removing
-     * all this logic and just pushing through the base geometry
-     */
-#if 0
-    for (int stepsBack = 0; !foundEdge && stepsBack < VDIM; ++stepsBack)
+    if (lastVapourPoint.w >= threshold)
     {
+        /* This is an edge, and it's mine! */
+        float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, 0, units[unitOffset].location);
+        write_imagef(jigsawDisp, edgeCoord, edgeVertex);
+        write_imagef(jigsawColour, edgeCoord, lastVapourPoint);
+
+        /* TODO Compute the normal here. */
+        write_imagef(jigsawNormal, edgeCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
+
+        foundEdge = true;
+    }
+
+    for (int stepsBack = 1; !foundEdge && stepsBack < VDIM; ++stepsBack)
+    {
+        /* TODO: To join up, I need vapour cube adjacency data in
+         * the compute units.
+         * For now, I'm just going to ignore the edges.
+         */
+        if (xdim == VDIM || zdim == VDIM) break;
+
         /* Read the next point to compare with */
-        int4 nextVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack+1);
-        float4 nextVapourPoint = read_imagef(vapour, vapourSampler,
-            units[unitOffset].vapourPiece * VDIM + nextVapourPointCoord);
+        int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack+1);
+        float4 thisVapourPoint = read_imagef(vapour, vapourSampler,
+            units[unitOffset].vapourPiece * VDIM + thisVapourPointCoord);
 
         /* Figure out which face it goes to, if any.
          * Upon conflict, the faces get priority in 
@@ -244,6 +259,7 @@ __kernel void makeShape3DEdge(
         {
             barrier(CLK_LOCAL_MEM_FENCE);
 
+            /* TODO fix for `last' and `this' */
             if (thisVapourPoint.w < threshold && nextVapourPoint.w >= threshold &&
                 testFace == face &&
                 pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z] == -1)
@@ -261,7 +277,7 @@ __kernel void makeShape3DEdge(
             }
         }
 #else
-        if (thisVapourPoint.w < threshold && nextVapourPoint.w >= threshold)
+        if (lastVapourPoint.w < threshold && thisVapourPoint.w >= threshold)
         {
             /* This is an edge, and it's mine! */
             float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
@@ -274,6 +290,9 @@ __kernel void makeShape3DEdge(
             foundEdge = true;
         }
 #endif
+
+        lastVapourPointCoord = thisVapourPointCoord;
+        lastVapourPoint = thisVapourPoint;
     }
 
     if (!foundEdge)
@@ -283,36 +302,5 @@ __kernel void makeShape3DEdge(
          */
         write_imagef(jigsawDisp, edgeCoord, (float4)(NAN, NAN, NAN, NAN));
     }
-#else
-    write_imagef(jigsawDisp, edgeCoord,
-        makeEdgeVertex(face, xdim, zdim, 0, units[unitOffset].location));
-    switch (face)
-    {
-    case AFK_SHF_BOTTOM:
-        write_imagef(jigsawColour, edgeCoord, (float4)(xdim, 0.0f, zdim, 1.0f));
-        break;
-
-    case AFK_SHF_LEFT:
-        write_imagef(jigsawColour, edgeCoord, (float4)(0.0f, xdim, zdim, 1.0f));
-        break;
-
-    case AFK_SHF_FRONT:
-        write_imagef(jigsawColour, edgeCoord, (float4)(xdim, zdim, 0.0f, 1.0f));
-        break;
-
-    case AFK_SHF_BACK:
-        write_imagef(jigsawColour, edgeCoord, (float4)(zdim, xdim, 0.0f, 1.0f));
-        break;
-
-    case AFK_SHF_RIGHT:
-        write_imagef(jigsawColour, edgeCoord, (float4)(0.0f, zdim, xdim, 1.0f));
-        break;
-
-    case AFK_SHF_TOP:
-        write_imagef(jigsawColour, edgeCoord, (float4)(zdim, 0.0f, xdim, 1.0f));
-        break;
-    }
-    write_imagef(jigsawNormal, edgeCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
-#endif
 }
 

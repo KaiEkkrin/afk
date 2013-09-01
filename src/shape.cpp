@@ -288,7 +288,7 @@ void AFK_Shape::make3DDescriptor(
          */
         int pointGridCount;
         for (pointGridCount = 1;
-            (1 << (pointGridCount - 1)) < (int)(sSizes.pointSubdivisionFactor * 4);
+            (1 << (pointGridCount - 1)) < (int)(sSizes.pointSubdivisionFactor / 2);
             ++pointGridCount)
         {
             pointGrids.push_back(new AFK_SkeletonFlagGrid((1 << pointGridCount) + 1));
