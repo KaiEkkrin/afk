@@ -1037,6 +1037,10 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     glBindVertexArray(0);
 
     /* Render the shapes */
+
+    /* TODO For debugging the shape face orientation etc. */
+    glDisable(GL_CULL_FACE);
+
     glUseProgram(entity_shaderProgram->program);
     entity_shaderLight->setupLight(globalLight);
     glUniformMatrix4fv(entity_projectionTransformLocation, 1, GL_TRUE, &projection.m[0][0]);

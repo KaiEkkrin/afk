@@ -178,6 +178,7 @@ __kernel void makeShape3DEdge(
     __write_only image2d_t jigsawNormal,
     float threshold)
 {
+#if 0
     const int unitOffset = get_global_id(0) / 6;
     const int face = get_local_id(0); /* 0..6 */
     const int xdim = get_local_id(1); /* 0..TDIM-1 */
@@ -195,6 +196,12 @@ __kernel void makeShape3DEdge(
     {
         pointsDrawn[xdim][y][zdim] = -1;
     }
+#else
+    const int unitOffset = get_global_id(0) / 6;
+    const int face = get_global_id(0) % 6; /* 0..6 */
+    const int xdim = get_global_id(1); /* 0..TDIM-1 */
+    const int zdim = get_global_id(2); /* 0..TDIM-1 */
+#endif
 
     /* Iterate through the possible steps back until I find an edge */
     bool foundEdge = false;
@@ -205,6 +212,10 @@ __kernel void makeShape3DEdge(
 
     int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
 
+    /* To make sure I get a nice clean cube, temporarily removing
+     * all this logic and just pushing through the base geometry
+     */
+#if 0
     for (int stepsBack = 0; !foundEdge && stepsBack < (TDIM-1); ++stepsBack)
     {
         /* Read the next point to compare with */
@@ -272,5 +283,36 @@ __kernel void makeShape3DEdge(
          */
         write_imagef(jigsawDisp, edgeCoord, (float4)(NAN, NAN, NAN, NAN));
     }
+#else
+    write_imagef(jigsawDisp, edgeCoord,
+        makeEdgeVertex(face, xdim, zdim, 0, units[unitOffset].location));
+    switch (face)
+    {
+    case AFK_SHF_BOTTOM:
+        write_imagef(jigsawColour, edgeCoord, (float4)(1.0f, 0.0f, 0.0f, 1.0f));
+        break;
+
+    case AFK_SHF_LEFT:
+        write_imagef(jigsawColour, edgeCoord, (float4)(0.0f, 1.0f, 0.0f, 1.0f));
+        break;
+
+    case AFK_SHF_FRONT:
+        write_imagef(jigsawColour, edgeCoord, (float4)(0.0f, 0.0f, 1.0f, 1.0f));
+        break;
+
+    case AFK_SHF_BACK:
+        write_imagef(jigsawColour, edgeCoord, (float4)(1.0f, 0.0f, 1.0f, 1.0f));
+        break;
+
+    case AFK_SHF_RIGHT:
+        write_imagef(jigsawColour, edgeCoord, (float4)(0.0f, 1.0f, 1.0f, 1.0f));
+        break;
+
+    case AFK_SHF_TOP:
+        write_imagef(jigsawColour, edgeCoord, (float4)(1.0f, 1.0f, 0.0f, 1.0f));
+        break;
+    }
+    write_imagef(jigsawNormal, edgeCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
+#endif
 }
 

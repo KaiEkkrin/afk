@@ -98,7 +98,8 @@ void AFK_EntityDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw *
 #if AFK_GL_DEBUG
     shaderProgram->Validate();
 #endif
-    glDrawElementsInstanced(GL_TRIANGLES, sSizes.iCount * 3, GL_UNSIGNED_SHORT, 0, instanceCount);
+    /* 6 faces here, hence the multiplier */
+    glDrawElementsInstanced(GL_TRIANGLES, sSizes.iCount * 3 * 6, GL_UNSIGNED_SHORT, 0, instanceCount);
     AFK_GLCHK("entity drawElementsInstanced")
 }
 

@@ -212,17 +212,23 @@ void AFK_3DComputeQueue::computeStart(
     AFK_CLCHK(clSetKernelArg(edgeKernel, 5, sizeof(cl_mem), &edgeJigsawMem[2]))
     AFK_CLCHK(clSetKernelArg(edgeKernel, 6, sizeof(float), &sSizes.edgeThreshold))
 
+    /* TODO: Bringing this down to global only for now and removing
+     * the cross-check in an attempt to tackle the
+     * repeated freezing.
+     */
     size_t edgeGlobalDim[3];
     edgeGlobalDim[0] = 6 * unitCount;
     edgeGlobalDim[1] = edgeGlobalDim[2] = (sSizes.tDim - 1);
 
+#if 0
     size_t edgeLocalDim[3];
     edgeLocalDim[0] = 6; /* one for each of the 6 face orientations */
     edgeLocalDim[1] = edgeLocalDim[2] = (sSizes.tDim - 1);
+#endif
 
     cl_event edgeEvent;
 
-    AFK_CLCHK(clEnqueueNDRangeKernel(q, edgeKernel, 3, 0, &edgeGlobalDim[0], &edgeLocalDim[0],
+    AFK_CLCHK(clEnqueueNDRangeKernel(q, edgeKernel, 3, 0, &edgeGlobalDim[0], /* &edgeLocalDim[0] */ NULL,
         vapourEvents[1] != 0 ? 2 : 1,
         &vapourEvents[0],
         &edgeEvent))
