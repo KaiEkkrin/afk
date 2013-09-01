@@ -289,27 +289,27 @@ __kernel void makeShape3DEdge(
     switch (face)
     {
     case AFK_SHF_BOTTOM:
-        write_imagef(jigsawColour, edgeCoord, (float4)(1.0f, 0.0f, 0.0f, 1.0f));
+        write_imagef(jigsawColour, edgeCoord, (float4)(xdim, 0.0f, zdim, 1.0f));
         break;
 
     case AFK_SHF_LEFT:
-        write_imagef(jigsawColour, edgeCoord, (float4)(0.0f, 1.0f, 0.0f, 1.0f));
+        write_imagef(jigsawColour, edgeCoord, (float4)(0.0f, xdim, zdim, 1.0f));
         break;
 
     case AFK_SHF_FRONT:
-        write_imagef(jigsawColour, edgeCoord, (float4)(0.0f, 0.0f, 1.0f, 1.0f));
+        write_imagef(jigsawColour, edgeCoord, (float4)(xdim, zdim, 0.0f, 1.0f));
         break;
 
     case AFK_SHF_BACK:
-        write_imagef(jigsawColour, edgeCoord, (float4)(1.0f, 0.0f, 1.0f, 1.0f));
+        write_imagef(jigsawColour, edgeCoord, (float4)(zdim, xdim, 0.0f, 1.0f));
         break;
 
     case AFK_SHF_RIGHT:
-        write_imagef(jigsawColour, edgeCoord, (float4)(0.0f, 1.0f, 1.0f, 1.0f));
+        write_imagef(jigsawColour, edgeCoord, (float4)(0.0f, zdim, xdim, 1.0f));
         break;
 
     case AFK_SHF_TOP:
-        write_imagef(jigsawColour, edgeCoord, (float4)(1.0f, 1.0f, 0.0f, 1.0f));
+        write_imagef(jigsawColour, edgeCoord, (float4)(zdim, 0.0f, xdim, 1.0f));
         break;
     }
     write_imagef(jigsawNormal, edgeCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));

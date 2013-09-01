@@ -81,23 +81,22 @@ AFK_3DEdgeShapeBase::AFK_3DEdgeShapeBase(const AFK_ShapeSizes& sSizes):
     bufs(NULL)
 {
     /* A base cube has six faces:
-     * - bottom (normal -y)
-     * - left (normal -x)
-     * - front (normal -z)
-     * - back (normal +z)
-     * - right (normal +x)
-     * - top (normal +y)
+     * - bottom (normal -y)     t=0, s=0    noflip
+     * - left (normal -x)       t=0, s=1    flip
+     * - front (normal -z)      t=0, s=2    flip
+     * - back (normal +z)       t=1, s=0    noflip
+     * - right (normal +x)      t=1, s=1    noflip
+     * - top (normal +y)        t=1, s=2    flip
      * shape_3dedge arranges these in a 3x2 sized jigsaw piece.  I just
      * need to write the vertices (texture co-ordinates) and indices
      * to match.
      */
-
-    /* TODO Work out which ones to flip */
     for (unsigned int t = 0; t < 2; ++t)
     {
         for (unsigned int s = 0; s < 3; ++s)
         {
-            pushBaseFace(s, t, t == 1, sSizes);
+            pushBaseFace(s, t, 
+                (t == 0 && s > 0) || (t == 1 && s == 2), sSizes);
         }
     }
 }

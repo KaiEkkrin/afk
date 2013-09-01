@@ -333,7 +333,7 @@ void AFK_Core::loop(void)
         worldMaxDistance,   /* maxDistance -- zFar must be a lot bigger or things will vanish */
         clGlMaxAllocSize / 4,
         clGlMaxAllocSize / 4,
-        clGlMaxAllocSize / 4,
+        clGlMaxAllocSize / 8,
         ctxt);
     computer->unlock();
     protagonist = new AFK_DisplayedProtagonist();
