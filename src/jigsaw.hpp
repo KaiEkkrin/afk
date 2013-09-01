@@ -232,7 +232,7 @@ protected:
         AFK_JigsawCuboid& cuboid,
         unsigned int threadId,
         Vec3<int>& o_uvw,
-        AFK_Frame& o_timestamp);
+        AFK_Frame *o_timestamp);
 
     /* Helper for the below -- having picked a new cuboid,
      * pushes it onto the update list and sets the row usage
@@ -291,7 +291,7 @@ public:
      * returning false each frame, so that it doesn't send threads
      * back to the wrong jigsaw after it ran out of space.
      */
-    bool grab(unsigned int threadId, Vec3<int>& o_uvw, AFK_Frame& o_timestamp);
+    bool grab(unsigned int threadId, Vec3<int>& o_uvw, AFK_Frame *o_timestamp);
 
     /* Returns the time your piece was last swept.
      * If you retrieved it at that time or later, you're OK and you

@@ -31,12 +31,18 @@ protected:
     const unsigned int concurrency;
 
     std::vector<AFK_Jigsaw*> puzzles;
+    AFK_Jigsaw *spare;
 
     boost::mutex mut;
 
     /* Internal helpers. */
     GLuint getGlTextureTarget(void) const;
     std::string getDimensionalityStr(void) const;
+    bool grabPieceFromPuzzle(
+        unsigned int threadId,
+        int puzzle,
+        AFK_JigsawPiece *o_piece,
+        AFK_Frame *o_timestamp);
 
 public:
     AFK_JigsawCollection(
@@ -54,9 +60,11 @@ public:
 
     int getPieceCount(void) const;
 
-    /* Gives you a piece.  This will usually be quick,
+    /* Gives you a some pieces.  This will usually be quick,
      * but it may stall if we need to add a new jigsaw
      * to the collection.
+     * The pieces are guaranteed to all come from the same
+     * jigsaw.
      * Also fills out `o_timestamp' with the timestamp of the row
      * your piece came from so you can find out when it's
      * going to be swept.
@@ -67,7 +75,12 @@ public:
      * to avoid repeatedly sweeping out long-lived pieces only
      * to re-create them the same.
      */
-    AFK_JigsawPiece grab(unsigned int threadId, int minJigsaw, AFK_Frame& o_timestamp);
+    void grab(
+        unsigned int threadId,
+        int minJigsaw,
+        AFK_JigsawPiece *o_pieces,
+        AFK_Frame *o_timestamps,
+        size_t count);
 
     /* Gets you the puzzle that matches a particular piece. */
     AFK_Jigsaw *getPuzzle(const AFK_JigsawPiece& piece) const;

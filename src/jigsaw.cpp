@@ -185,7 +185,7 @@ enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromCuboid(
     AFK_JigsawCuboid& cuboid,
     unsigned int threadId,
     Vec3<int>& o_uvw,
-    AFK_Frame& o_timestamp)
+    AFK_Frame *o_timestamp)
 {
 #if GRAB_DEBUG
     AFK_DEBUG_PRINTL("grabPieceFromCuboid: with cuboid " << cuboid << "( " << cuboid << " and threadId " << threadId)
@@ -212,7 +212,7 @@ enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromCuboid(
     {
         /* We have!  Grab one. */
         o_uvw = afk_vec3<int>(row, rowUsage[row][slice]++, slice);
-        o_timestamp = rowTimestamp[row][slice];
+        *o_timestamp = rowTimestamp[row][slice];
 
         /* If I just gave the cuboid another column, update its columns
          * field to match
@@ -677,7 +677,7 @@ AFK_Jigsaw::~AFK_Jigsaw()
     delete[] glTex;
 }
 
-bool AFK_Jigsaw::grab(unsigned int threadId, Vec3<int>& o_uvw, AFK_Frame& o_timestamp)
+bool AFK_Jigsaw::grab(unsigned int threadId, Vec3<int>& o_uvw, AFK_Frame *o_timestamp)
 {
     /* Let's see if I can use an existing cuboid. */
     unsigned int cI;

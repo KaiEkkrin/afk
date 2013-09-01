@@ -79,6 +79,32 @@ bool afk_generateWorldCells(
 
 /* AFK_World implementation */
 
+int AFK_World::combineTwoPuzzleFairQueue(int puzzle1, int puzzle2) const
+{
+    int queue = 1;
+    for (int pc1 = 0; pc1 < puzzle1; ++pc1) queue = queue * 2;
+    for (int pc2 = 0; pc2 < puzzle2; ++pc2) queue = queue * 3;
+    return queue;
+}
+
+void AFK_World::splitTwoPuzzleFairQueue(int queue, int& o_puzzle1, int& o_puzzle2) const
+{
+    o_puzzle1 = 0;
+    o_puzzle2 = 0;
+
+    while (queue > 0 && (queue % 2) == 0)
+    {
+        queue = queue / 2;
+        ++o_puzzle1;
+    }
+
+    while (queue > 0 && (queue % 3) == 0)
+    {
+        queue = queue / 3;
+        ++o_puzzle2;
+    }
+}
+
 bool AFK_World::checkClaimedLandscapeTile(
     const AFK_Tile& tile,
     AFK_LandscapeTile& landscapeTile,
@@ -231,25 +257,44 @@ void AFK_World::generateShapeArtwork(
     shape.getCubesForCompute(threadId, 0, 0, vapourJigsaws, edgeJigsaws, cubesForCompute);
 
     AFK_3DComputeUnit cu;
-    int lastPuzzle = -1;
+    int lastVapourPuzzle = -1;
+    int lastEdgePuzzle = -1;
+
+    /* I can make the assumption here that all cubes in the same
+     * batch share the same vapour and edge jigsaws.
+     * However, since their numbers won't always be the same,
+     * I'm going to do a cunning trick here to combine tracking
+     * a separate edge and vapour jigsaw puzzle number within the
+     * single number given to the queue in the fair.
+     */
     for (std::vector<AFK_ShapeCube>::iterator cubeIt = cubesForCompute.begin();
         cubeIt != cubesForCompute.end(); ++cubeIt)
     {
-        if (cubeIt->vapourJigsawPiece.puzzle != cubeIt->edgeJigsawPiece.puzzle)
+        int vapourPuzzle = cubeIt->vapourJigsawPiece.puzzle;
+        int edgePuzzle = cubeIt->edgeJigsawPiece.puzzle;
+        boost::shared_ptr<AFK_3DComputeQueue> computeQueue = shapeComputeFair.getUpdateQueue(combineTwoPuzzleFairQueue(vapourPuzzle, edgePuzzle));
+        if (cu.uninitialised() || lastVapourPuzzle != vapourPuzzle || lastEdgePuzzle != edgePuzzle)
         {
-            /* TODO: In a PITA twist, I suspect I'll have to deal with this, or
-             * recombobulate my jigsaws, or I don't know what.
-             */
-            throw AFK_Exception("3D compute unit jigsaw mismatch");
-        }
+            if (lastVapourPuzzle != -1)
+            {
+                /* This is a bug. */
+                std::ostringstream ss;
+                ss << "Vapour puzzle discrepancy: " << lastVapourPuzzle << " then " << vapourPuzzle;
+                throw AFK_Exception(ss.str());
+            }
 
-        int puzzle = cubeIt->edgeJigsawPiece.puzzle;
-        boost::shared_ptr<AFK_3DComputeQueue> computeQueue = shapeComputeFair.getUpdateQueue(puzzle);
-        if (cu.uninitialised() || lastPuzzle != puzzle)
-        {
+            if (lastEdgePuzzle != -1)
+            {
+                /* This is also a bug. */
+                std::ostringstream ss;
+                ss << "Edge puzzle discrepancy: " << lastEdgePuzzle << " then " << edgePuzzle;
+                throw AFK_Exception(ss.str());
+            }
+
             /* Extend the compute queue with this face. */
             cu = computeQueue->extend(shapeList, *cubeIt, sSizes);
-            lastPuzzle = puzzle;
+            lastVapourPuzzle = vapourPuzzle;
+            lastEdgePuzzle = edgePuzzle;
         }
         else
         {
@@ -938,12 +983,15 @@ void AFK_World::doComputeTasks(void)
     std::vector<boost::shared_ptr<AFK_3DComputeQueue> > shapeComputeQueues;
     shapeComputeFair.getDrawQueues(shapeComputeQueues);
 
-    for (unsigned int puzzle = 0; puzzle < shapeComputeQueues.size(); ++puzzle)
+    for (unsigned int queue = 0; queue < shapeComputeQueues.size(); ++queue)
     {
-        shapeComputeQueues[puzzle]->computeStart(
+        int vapourPuzzle, edgePuzzle;
+        splitTwoPuzzleFairQueue(queue, vapourPuzzle, edgePuzzle);
+
+        shapeComputeQueues[queue]->computeStart(
             afk_core.computer,
-            vapourJigsaws->getPuzzle(puzzle),
-            edgeJigsaws->getPuzzle(puzzle),
+            vapourJigsaws->getPuzzle(vapourPuzzle),
+            edgeJigsaws->getPuzzle(edgePuzzle),
             sSizes);
     }
 
@@ -956,9 +1004,9 @@ void AFK_World::doComputeTasks(void)
         terrainComputeQueues[puzzle]->computeFinish();
     }
 
-    for (unsigned int puzzle = 0; puzzle < shapeComputeQueues.size(); ++puzzle)
+    for (unsigned int queue = 0; queue < shapeComputeQueues.size(); ++queue)
     {
-        shapeComputeQueues[puzzle]->computeFinish();
+        shapeComputeQueues[queue]->computeFinish();
     }
 }
 

@@ -50,6 +50,32 @@ std::string AFK_JigsawCollection::getDimensionalityStr(void) const
     return ss.str();
 }
 
+bool AFK_JigsawCollection::grabPieceFromPuzzle(
+    unsigned int threadId,
+    int puzzle,
+    AFK_JigsawPiece *o_piece,
+    AFK_Frame *o_timestamp)
+{
+    Vec3<int> uvw;
+    if (puzzles[puzzle]->grab(threadId, uvw, o_timestamp))
+    {
+        /* This check has caught a few bugs in the past... */
+        if (uvw.v[0] < 0 || uvw.v[0] >= jigsawSize.v[0] ||
+            uvw.v[1] < 0 || uvw.v[1] >= jigsawSize.v[1] ||
+            uvw.v[2] < 0 || uvw.v[2] >= jigsawSize.v[2])
+        {
+            std::ostringstream ss;
+            ss << "Got erroneous piece: " << uvw << " (jigsaw size: " << jigsawSize << ")";
+            throw AFK_Exception(ss.str());
+        }
+
+        *o_piece = AFK_JigsawPiece(uvw, puzzle);
+        return true;
+    }
+
+    return false;
+}
+
 AFK_JigsawCollection::AFK_JigsawCollection(
     cl_context ctxt,
     const Vec3<int>& _pieceSize,
@@ -110,7 +136,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
         /* Try to make pretend textures of the current jigsaw size */
         for (unsigned int tex = 0; tex < texCount && dimensionsOK; ++tex)
         {
-            dimensionsOK &= ((minJigsawCount * testJigsawSize.v[0] * testJigsawSize.v[1] * testJigsawSize.v[2] * pieceSize.v[0] * pieceSize.v[1] * pieceSize.v[2] * format[tex].texelSize) < _clDeviceProps.maxMemAllocSize);
+            dimensionsOK &= ((minJigsawCount * testJigsawSize.v[0] * testJigsawSize.v[1] * testJigsawSize.v[2] * pieceSize.v[0] * pieceSize.v[1] * pieceSize.v[2] * format[tex].texelSize) < (_clDeviceProps.maxMemAllocSize / 2));
             if (!dimensionsOK) break;
 
             glBindTexture(proxyTexTarget, glProxyTex[tex]);
@@ -182,6 +208,16 @@ AFK_JigsawCollection::AFK_JigsawCollection(
             clGlSharing,
             concurrency));
     }
+
+    spare = new AFK_Jigsaw(
+        ctxt,
+        pieceSize,
+        jigsawSize,
+        &format[0],
+        dimensions == AFK_JIGSAW_2D ? GL_TEXTURE_2D : GL_TEXTURE_3D,
+        texCount,
+        clGlSharing,
+        concurrency);
 }
 
 AFK_JigsawCollection::~AFK_JigsawCollection()
@@ -191,6 +227,8 @@ AFK_JigsawCollection::~AFK_JigsawCollection()
     {
         delete *pIt;
     }
+
+    if (spare) delete spare;
 }
 
 int AFK_JigsawCollection::getPieceCount(void) const
@@ -198,31 +236,48 @@ int AFK_JigsawCollection::getPieceCount(void) const
     return pieceCount;
 }
 
-AFK_JigsawPiece AFK_JigsawCollection::grab(unsigned int threadId, int minJigsaw, AFK_Frame& o_timestamp)
+void AFK_JigsawCollection::grab(
+    unsigned int threadId,
+    int minJigsaw,
+    AFK_JigsawPiece *o_pieces,
+    AFK_Frame *o_timestamps,
+    size_t count)
 {
-    Vec3<int> uvw;
-
     int puzzle;
+    AFK_JigsawPiece piece;
     for (puzzle = minJigsaw; puzzle < (int)puzzles.size(); ++puzzle)
     {
-        if (puzzles[puzzle]->grab(threadId, uvw, o_timestamp))
+        bool haveAllPieces = true;
+        for (size_t pieceIdx = 0; haveAllPieces && pieceIdx < count; ++pieceIdx)
         {
-            /* TODO Paranoia */
-            if (uvw.v[0] < 0 || uvw.v[0] >= jigsawSize.v[0] ||
-                uvw.v[1] < 0 || uvw.v[1] >= jigsawSize.v[1] ||
-                uvw.v[2] < 0 || uvw.v[2] >= jigsawSize.v[2])
-            {
-                std::ostringstream ss;
-                ss << "Got erroneous piece: " << uvw << " (jigsaw size: " << jigsawSize << ")";
-                throw AFK_Exception(ss.str());
-            }
-
-            return AFK_JigsawPiece(uvw, puzzle);
+            haveAllPieces &= grabPieceFromPuzzle(threadId, puzzle, &o_pieces[pieceIdx], &o_timestamps[pieceIdx]);
+            
         }
+
+        if (haveAllPieces) return;
     }
 
-    /* If I get here, I've failed, because I shouldn't be going along
-     * spawning extra jigsaws :P
+    /* If I get here I've run out of room entirely.  See if I have
+     * a spare jigsaw to push in.
+     */
+    boost::unique_lock<boost::mutex> lock(mut);
+    if (spare)
+    {
+        puzzles.push_back(spare);
+        spare = NULL;
+
+        /* Try allocating from the spare. */
+        bool haveAllPieces = true;
+        for (size_t pieceIdx = 0; haveAllPieces && pieceIdx < count; ++pieceIdx)
+        {
+            haveAllPieces &= grabPieceFromPuzzle(threadId, puzzle, &o_pieces[pieceIdx], &o_timestamps[pieceIdx]);
+            
+        }
+
+        if (haveAllPieces) return;
+    }
+
+    /* If I get here, I've failed :(
      */
     throw AFK_Exception("Jigsaw ran out of room");
 }
@@ -240,8 +295,23 @@ AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(int puzzle) const
 
 void AFK_JigsawCollection::flipCuboids(cl_context ctxt, const AFK_Frame& currentFrame)
 {
+    boost::unique_lock<boost::mutex> lock(mut);
+
     for (int puzzle = 0; puzzle < (int)puzzles.size(); ++puzzle)
         puzzles[puzzle]->flipCuboids(currentFrame);
-}
 
+    if (!spare)
+    {
+        /* Make a new one to push along. */
+        spare = new AFK_Jigsaw(
+            ctxt,
+            pieceSize,
+            jigsawSize,
+            &format[0],
+            dimensions == AFK_JIGSAW_2D ? GL_TEXTURE_2D : GL_TEXTURE_3D,
+            texCount,
+            clGlSharing,
+            concurrency);
+    }
+}
 

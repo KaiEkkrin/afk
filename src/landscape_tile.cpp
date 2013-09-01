@@ -100,7 +100,7 @@ AFK_JigsawPiece AFK_LandscapeTile::getJigsawPiece(unsigned int threadId, int min
 {
     if (artworkState() == AFK_LANDSCAPE_TILE_HAS_ARTWORK) throw AFK_Exception("Tried to overwrite a tile's artwork");
     jigsaws = _jigsaws;
-    jigsawPiece = jigsaws->grab(threadId, minJigsaw, jigsawPieceTimestamp);
+    jigsaws->grab(threadId, minJigsaw, &jigsawPiece, &jigsawPieceTimestamp, 1);
     return jigsawPiece;
 }
 

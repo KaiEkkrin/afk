@@ -370,31 +370,62 @@ void AFK_Shape::getCubesForCompute(
     if (!edgeJigsaws) edgeJigsaws = _edgeJigsaws;
     else if (edgeJigsaws != _edgeJigsaws) throw AFK_Exception("AFK_Shape: Mismatched edge jigsaw collections");
 
-    for (std::vector<AFK_ShapeCube>::iterator cubeIt = cubes.begin(); cubeIt != cubes.end(); ++cubeIt)
+    /* Check whether my edge pieces are ok */
+    bool edgeOK = true;
+    for (std::vector<AFK_ShapeCube>::iterator cubeIt = cubes.begin();
+        edgeOK && cubeIt != cubes.end(); ++cubeIt)
     {
-        /* TODO: I'm going to check only the edge jigsaw timestamps
-         * here.  The vapour jigsaw will be smaller and its timestamps
-         * will expire sooner.
-         * Anything that wants to render the vapour will need to
-         * use a separate function that checks for that.
-         */
-        if (cubeIt->edgeJigsawPiece == AFK_JigsawPiece() ||
-            cubeIt->edgeJigsawPieceTimestamp != edgeJigsaws->getPuzzle(cubeIt->edgeJigsawPiece)->getTimestamp(cubeIt->edgeJigsawPiece))
+        edgeOK &= (cubeIt->edgeJigsawPiece != AFK_JigsawPiece() &&
+            cubeIt->edgeJigsawPieceTimestamp == edgeJigsaws->getPuzzle(cubeIt->edgeJigsawPiece)->getTimestamp(cubeIt->edgeJigsawPiece));
+    }
+
+    if (!edgeOK)
+    {
+        /* Check whether my vapour pieces are ok */
+        bool vapourOK = true;
+        for (std::vector<AFK_ShapeCube>::iterator cubeIt = cubes.begin();
+            vapourOK && cubeIt != cubes.end(); ++cubeIt)
         {
-            /* This cube needs computing. */
-            cubeIt->edgeJigsawPiece = edgeJigsaws->grab(threadId, minEdgeJigsaw, cubeIt->edgeJigsawPieceTimestamp);
+            vapourOK &= (cubeIt->vapourJigsawPiece != AFK_JigsawPiece() &&
+                cubeIt->vapourJigsawPieceTimestamp == vapourJigsaws->getPuzzle(cubeIt->vapourJigsawPiece)->getTimestamp(cubeIt->vapourJigsawPiece));
+        }
 
-            /* It's unlikely that the following check will fail.
-             * At any rate, recomputing over the top of an existing
-             * one would be OK.
-             */
-            if (cubeIt->vapourJigsawPiece == AFK_JigsawPiece() ||
-                cubeIt->vapourJigsawPieceTimestamp != vapourJigsaws->getPuzzle(cubeIt->vapourJigsawPiece)->getTimestamp(cubeIt->vapourJigsawPiece))
+        /* All pieces need to be in the same jigsaw, so that I can
+         * cross-reference during the edge pass:
+         */
+        if (!vapourOK)
+        {
+            AFK_JigsawPiece vapourPieces[cubes.size()];
+            AFK_Frame vapourTimestamps[cubes.size()];
+            vapourJigsaws->grab(
+                threadId,
+                minVapourJigsaw,
+                vapourPieces,
+                vapourTimestamps,
+                cubes.size());
+
+            for (size_t c = 0; c < cubes.size(); ++c)
             {
-                cubeIt->vapourJigsawPiece = vapourJigsaws->grab(threadId, minVapourJigsaw, cubeIt->vapourJigsawPieceTimestamp);
+                cubes[c].vapourJigsawPiece = vapourPieces[c];
+                cubes[c].vapourJigsawPieceTimestamp = vapourTimestamps[c];
             }
+        }
 
-            o_cubes.push_back(*cubeIt);
+        /* Same for the edge pieces */
+        AFK_JigsawPiece edgePieces[cubes.size()];
+        AFK_Frame edgeTimestamps[cubes.size()];
+        edgeJigsaws->grab(
+            threadId,
+            minEdgeJigsaw,
+            edgePieces,
+            edgeTimestamps,
+            cubes.size());
+
+        for (size_t c = 0; c < cubes.size(); ++c)
+        {
+            cubes[c].edgeJigsawPiece = edgePieces[c];
+            cubes[c].edgeJigsawPieceTimestamp = edgeTimestamps[c];
+            o_cubes.push_back(cubes[c]);
         }
     }
 }
