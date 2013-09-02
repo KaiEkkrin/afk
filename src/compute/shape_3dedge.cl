@@ -17,29 +17,24 @@
 
 #define AFK_IMAGE3D image2d_t
 
-float4 afk_read3dimagef(
-    __read_only image2d_t img,
-    sampler_t smpl,
-    int4 coord)
+int2 afk_from3DTo2DCoord(int4 coord)
 {
-    /* Assuming nearest sampling, which is all that
-     * is valid with an integer co-ordinate anyway
+    /* The 3D wibble applies within the tile.
+     * The tiles themselves will be supplied in a 2D grid.
+     * (Because we're using a 2D jigsaw.)
      */
-    int2 realCoord = (int2)(
+    return (int2)(
         coord.x + VAPOUR_FAKE3D_FAKESIZE_X * (coord.z % VAPOUR_FAKE3D_MULT),
         coord.y + VAPOUR_FAKE3D_FAKESIZE_Y * (coord.z / VAPOUR_FAKE3D_MULT));
-    return read_imagef(img, smpl, realCoord);
 }
 
-void afk_write3dimagef(
-    __write_only image2d_t img,
-    int4 coord,
-    float4 value)
+int2 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
 {
-    int2 realCoord = (int2)(
-        coord.x + VAPOUR_FAKE3D_FAKESIZE_X * (coord.z % VAPOUR_FAKE3D_MULT),
-        coord.y + VAPOUR_FAKE3D_FAKESIZE_Y * (coord.z / VAPOUR_FAKE3D_MULT));
-    write_imagef(img, realCoord, value);
+    int2 pieceCoord2D = (int2)(
+        pieceCoord.x * VAPOUR_FAKE3D_FAKESIZE_X * VAPOUR_FAKE3D_MULT,
+        pieceCoord.y * VAPOUR_FAKE3D_FAKESIZE_Y * VAPOUR_FAKE3D_MULT);
+    int2 pointCoord2D = afk_from3DTo2DCoord(pointCoord);
+    return pieceCoord2D + pointCoord2D;
 }
 
 #else
@@ -47,20 +42,9 @@ void afk_write3dimagef(
 
 #define AFK_IMAGE3D image3d_t
 
-float4 afk_read3dimagef(
-    __read_only image3d_t img,
-    sampler_t smpl,
-    int4 coord)
+int4 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
 {
-    return read_imagef(img, smpl, coord);
-}
-
-void afk_write3dimagef(
-    __write_only image3d_t img,
-    int4 coord,
-    float4 value)
-{
-    write_imagef(img, coord, value);
+    return pieceCoord * VDIM + pointCoord;
 }
 
 #endif /* AFK_FAKE3D */
@@ -146,6 +130,14 @@ int4 makeVapourCoord(int face, int xdim, int zdim, int stepsBack)
     return coord;
 }
 
+__constant sampler_t vapourSampler = CLK_NORMALIZED_COORDS_FALSE |
+    CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
+
+float4 readVapourPoint(__read_only AFK_IMAGE3D vapour, __global const struct AFK_3DComputeUnit *units, int unitOffset, int4 pieceCoord)
+{
+    return read_imagef(vapour, vapourSampler, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, pieceCoord));
+}
+
 int2 makeEdgeJigsawCoord(__global const struct AFK_3DComputeUnit *units, int unitOffset, int face, int xdim, int zdim)
 {
     int2 baseCoord = (int2)(
@@ -225,9 +217,6 @@ float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 locati
         location.w);
 }
 
-__constant sampler_t vapourSampler = CLK_NORMALIZED_COORDS_FALSE |
-    CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
-
 __kernel void makeShape3DEdge(
     __read_only AFK_IMAGE3D vapour,
     __global const struct AFK_3DComputeUnit *units,
@@ -274,9 +263,8 @@ __kernel void makeShape3DEdge(
     /* TODO: Further debugging. */
     if (xdim < VDIM && zdim < VDIM && face == 2)
     {
-    int4 lastVapourPointCoord = units[unitOffset].vapourPiece * VDIM +
-        makeVapourCoord(face, xdim, zdim, 0);
-    float4 lastVapourPoint = afk_read3dimagef(vapour, vapourSampler, lastVapourPointCoord);
+    int4 lastVapourPointCoord = makeVapourCoord(face, xdim, zdim, 0);
+    float4 lastVapourPoint = readVapourPoint(vapour, units, unitOffset, lastVapourPointCoord);
 
     if (lastVapourPoint.w >= threshold)
     {
@@ -294,9 +282,8 @@ __kernel void makeShape3DEdge(
     for (int stepsBack = 1; !foundEdge && stepsBack < (EDIM-1); ++stepsBack)
     {
         /* Read the next point to compare with */
-        int4 thisVapourPointCoord = units[unitOffset].vapourPiece * VDIM +
-            makeVapourCoord(face, xdim, zdim, stepsBack);
-        float4 thisVapourPoint = afk_read3dimagef(vapour, vapourSampler, thisVapourPointCoord);
+        int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack);
+        float4 thisVapourPoint = readVapourPoint(vapour, units, unitOffset, thisVapourPointCoord);
 
         /* Figure out which face it goes to, if any.
          * Upon conflict, the faces get priority in 

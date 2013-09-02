@@ -17,29 +17,24 @@
 
 #define AFK_IMAGE3D image2d_t
 
-float4 afk_read3dimagef(
-    __read_only image2d_t img,
-    sampler_t smpl,
-    int4 coord)
+int2 afk_from3DTo2DCoord(int4 coord)
 {
-    /* Assuming nearest sampling, which is all that
-     * is valid with an integer co-ordinate anyway
+    /* The 3D wibble applies within the tile.
+     * The tiles themselves will be supplied in a 2D grid.
+     * (Because we're using a 2D jigsaw.)
      */
-    int2 realCoord = (int2)(
+    return (int2)(
         coord.x + VAPOUR_FAKE3D_FAKESIZE_X * (coord.z % VAPOUR_FAKE3D_MULT),
         coord.y + VAPOUR_FAKE3D_FAKESIZE_Y * (coord.z / VAPOUR_FAKE3D_MULT));
-    return read_imagef(img, smpl, realCoord);
 }
 
-void afk_write3dimagef(
-    __write_only image2d_t img,
-    int4 coord,
-    float4 value)
+int2 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
 {
-    int2 realCoord = (int2)(
-        coord.x + VAPOUR_FAKE3D_FAKESIZE_X * (coord.z % VAPOUR_FAKE3D_MULT),
-        coord.y + VAPOUR_FAKE3D_FAKESIZE_Y * (coord.z / VAPOUR_FAKE3D_MULT));
-    write_imagef(img, realCoord, value);
+    int2 pieceCoord2D = (int2)(
+        pieceCoord.x * VAPOUR_FAKE3D_FAKESIZE_X * VAPOUR_FAKE3D_MULT,
+        pieceCoord.y * VAPOUR_FAKE3D_FAKESIZE_Y * VAPOUR_FAKE3D_MULT);
+    int2 pointCoord2D = afk_from3DTo2DCoord(pointCoord);
+    return pieceCoord2D + pointCoord2D;
 }
 
 #else
@@ -47,20 +42,9 @@ void afk_write3dimagef(
 
 #define AFK_IMAGE3D image3d_t
 
-float4 afk_read3dimagef(
-    __read_only image3d_t img,
-    sampler_t smpl,
-    int4 coord)
+int4 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
 {
-    return read_imagef(img, smpl, coord);
-}
-
-void afk_write3dimagef(
-    __write_only image3d_t img,
-    int4 coord,
-    float4 value)
-{
-    write_imagef(img, coord, value);
+    return pieceCoord * VDIM + pointCoord;
 }
 
 #endif /* AFK_FAKE3D */
@@ -246,7 +230,7 @@ __kernel void makeShape3DVapour(
      * Think about this, but try it this way first because it's
      * simplest.
      */
-    int4 vapourCoord = units[unitOffset].vapourPiece * VDIM + (int4)(xdim, ydim, zdim, 0);
-    afk_write3dimagef(vapour, vapourCoord, vc);
+    int4 vapourPieceCoord = (int4)(xdim, ydim, zdim, 0);
+    write_imagef(vapour, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, vapourPieceCoord), vc);
 }
 
