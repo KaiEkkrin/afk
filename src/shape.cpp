@@ -187,10 +187,16 @@ void AFK_Shape::makeSkeleton(
      * A cube will touch all 27 of the possible point cubes that
      * include it and its surroundings.
      */
-    unsigned int pointGridScale = 1;
+    /* TODO: A point grid scale of 1 is much too small to start
+     * with and just produces random noise.  I think I should
+     * make this configurable (and play until I've got some
+     * good values going on).  4 is a reasonable starting
+     * point.
+     */
+    unsigned int pointGridScale = 4;
     for (int pI = pointGrids.size() - 1; pI >= 0; --pI)
     {
-        Vec3<int> scaledCube = cube / pointGridScale;
+        Vec3<int> scaledCube = cube * pointGridScale;
 
         for (int x = -1; x <= 1; ++x)
         {

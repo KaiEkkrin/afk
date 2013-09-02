@@ -216,11 +216,13 @@ __kernel void makeShape3DVapour(
     transformLocationToLocation(&vl, &vc, cubes[i-1].coord, units[unitOffset].location);
 
     /* TODO: Colour testing. */
+#if 0
     vc = (float4)(
         (float)xdim / (float)VDIM,
         (float)ydim / (float)VDIM,
         (float)zdim / (float)VDIM,
-        1.0f);
+        vc.w);
+#endif
 
     /* TODO: For now, I'm going to transfer all this into an all-float
      * image.  In future, I probably want to try to cram it into 8
