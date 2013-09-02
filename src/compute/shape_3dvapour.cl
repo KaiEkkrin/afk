@@ -9,14 +9,61 @@
  * a kind of fog or gas (with variable density and colour).
  */
 
+/* Abstraction around 3D images to support emulation.
+ * TODO Pull out into some kind of library .cl.
+ */
+
+#if AFK_FAKE3D
+
+#define AFK_IMAGE3D image2d_t
+
+float4 afk_read3dimagef(
+    __read_only image2d_t img,
+    sampler_t smpl,
+    int4 coord)
+{
+    /* Assuming nearest sampling, which is all that
+     * is valid with an integer co-ordinate anyway
+     */
+    int2 realCoord = (int2)(
+        coord.x + VAPOUR_FAKE3D_FAKESIZE_X * (coord.z % VAPOUR_FAKE3D_MULT),
+        coord.y + VAPOUR_FAKE3D_FAKESIZE_Y * (coord.z / VAPOUR_FAKE3D_MULT));
+    return read_imagef(img, smpl, realCoord);
+}
+
+void afk_write3dimagef(
+    __write_only image2d_t img,
+    int4 coord,
+    float4 value)
+{
+    int2 realCoord = (int2)(
+        coord.x + VAPOUR_FAKE3D_FAKESIZE_X * (coord.z % VAPOUR_FAKE3D_MULT),
+        coord.y + VAPOUR_FAKE3D_FAKESIZE_Y * (coord.z / VAPOUR_FAKE3D_MULT));
+    write_imagef(img, realCoord, value);
+}
+
+#else
 #pragma OPENCL EXTENSION cl_khr_3d_image_writes : enable
 
-/* TODO: Nvidia GTX 400/500 series don't support writes to 3D
- * images.  Bollocks!  I'm going to need a bodge.  But debug
- * the actual 3D images first.
- * The bodge will probably be pretty bloody awful and ruin
- * the memory locality properties :/
- */
+#define AFK_IMAGE3D image3d_t
+
+float4 afk_read3dimagef(
+    __read_only image3d_t img,
+    sampler_t smpl,
+    int4 coord)
+{
+    return read_imagef(img, smpl, coord);
+}
+
+void afk_write3dimagef(
+    __write_only image3d_t img,
+    int4 coord,
+    float4 value)
+{
+    write_imagef(img, coord, value);
+}
+
+#endif /* AFK_FAKE3D */
 
 /* The vapour texture's texels are (red, green, blue,
  * density).
@@ -139,7 +186,7 @@ __kernel void makeShape3DVapour(
     __global const struct AFK_3DVapourFeature *features,
     __global const struct AFK_3DVapourCube *cubes,
     __global const struct AFK_3DComputeUnit *units,
-    __write_only image3d_t vapour)
+    __write_only AFK_IMAGE3D vapour)
 {
     /* We're necessarily going to operate across the
      * three dimensions of a cube.
@@ -193,6 +240,6 @@ __kernel void makeShape3DVapour(
      * simplest.
      */
     int4 vapourCoord = units[unitOffset].vapourPiece * VDIM + (int4)(xdim, ydim, zdim, 0);
-    write_imagef(vapour, vapourCoord, vc);
+    afk_write3dimagef(vapour, vapourCoord, vc);
 }
 

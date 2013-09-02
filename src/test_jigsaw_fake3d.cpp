@@ -7,7 +7,7 @@
 
 #include <boost/random/random_device.hpp>
 
-#include "test_jigsaw_fake3d.hpp"
+#include "jigsaw_collection.hpp"
 
 static void tryConvert(
     const Vec3<int>& _fakeCoord,

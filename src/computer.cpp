@@ -11,7 +11,7 @@
 #include "computer.hpp"
 #include "exception.hpp"
 #include "file/readfile.hpp"
-#include "jigsaw.hpp"
+#include "jigsaw_collection.hpp"
 #include "landscape_sizes.hpp"
 #include "shape_sizes.hpp"
 
@@ -331,9 +331,11 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
         {
             args << "-D AFK_FAKE3D=1 ";
             AFK_JigsawFake3DDescriptor fake3D(true, afk_vec3<int>(sSizes.vDim, sSizes.vDim, sSizes.vDim));
+            Vec3<int> fakeSize = fake3D.getFakeSize();
             int mult = fake3D.getMult();
-            args << "-D VAPOUR_FAKE3D_S="           << mult                         << " ";
-            args << "-D VAPOUR_FAKE3D_T="           << mult                         << " ";
+            args << "-D VAPOUR_FAKE3D_FAKESIZE_X="  << fakeSize.v[0]                << " ";
+            args << "-D VAPOUR_FAKE3D_FAKESIZE_Y="  << fakeSize.v[1]                << " ";
+            args << "-D VAPOUR_FAKE3D_MULT="        << mult                         << " ";
         }
         else
         {

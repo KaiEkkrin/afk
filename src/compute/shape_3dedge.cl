@@ -9,6 +9,62 @@
  * deformable faces of a cube onto it.
  */
 
+/* Abstraction around 3D images to support emulation.
+ * TODO Pull out into some kind of library .cl.
+ */
+
+#if AFK_FAKE3D
+
+#define AFK_IMAGE3D image2d_t
+
+float4 afk_read3dimagef(
+    __read_only image2d_t img,
+    sampler_t smpl,
+    int4 coord)
+{
+    /* Assuming nearest sampling, which is all that
+     * is valid with an integer co-ordinate anyway
+     */
+    int2 realCoord = (int2)(
+        coord.x + VAPOUR_FAKE3D_FAKESIZE_X * (coord.z % VAPOUR_FAKE3D_MULT),
+        coord.y + VAPOUR_FAKE3D_FAKESIZE_Y * (coord.z / VAPOUR_FAKE3D_MULT));
+    return read_imagef(img, smpl, realCoord);
+}
+
+void afk_write3dimagef(
+    __write_only image2d_t img,
+    int4 coord,
+    float4 value)
+{
+    int2 realCoord = (int2)(
+        coord.x + VAPOUR_FAKE3D_FAKESIZE_X * (coord.z % VAPOUR_FAKE3D_MULT),
+        coord.y + VAPOUR_FAKE3D_FAKESIZE_Y * (coord.z / VAPOUR_FAKE3D_MULT));
+    write_imagef(img, realCoord, value);
+}
+
+#else
+#pragma OPENCL EXTENSION cl_khr_3d_image_writes : enable
+
+#define AFK_IMAGE3D image3d_t
+
+float4 afk_read3dimagef(
+    __read_only image3d_t img,
+    sampler_t smpl,
+    int4 coord)
+{
+    return read_imagef(img, smpl, coord);
+}
+
+void afk_write3dimagef(
+    __write_only image3d_t img,
+    int4 coord,
+    float4 value)
+{
+    write_imagef(img, coord, value);
+}
+
+#endif /* AFK_FAKE3D */
+
 struct AFK_3DComputeUnit
 {
     float4 location;
@@ -173,7 +229,7 @@ __constant sampler_t vapourSampler = CLK_NORMALIZED_COORDS_FALSE |
     CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
 
 __kernel void makeShape3DEdge(
-    __read_only image3d_t vapour,
+    __read_only AFK_IMAGE3D vapour,
     __global const struct AFK_3DComputeUnit *units,
     __write_only image2d_t jigsawDisp,
     __write_only image2d_t jigsawColour,
@@ -219,7 +275,7 @@ __kernel void makeShape3DEdge(
     {
     int4 lastVapourPointCoord = units[unitOffset].vapourPiece * VDIM +
         makeVapourCoord(face, xdim, zdim, 0);
-    float4 lastVapourPoint = read_imagef(vapour, vapourSampler, lastVapourPointCoord);
+    float4 lastVapourPoint = afk_read3dimagef(vapour, vapourSampler, lastVapourPointCoord);
 
     if (lastVapourPoint.w >= threshold)
     {
@@ -239,7 +295,7 @@ __kernel void makeShape3DEdge(
         /* Read the next point to compare with */
         int4 thisVapourPointCoord = units[unitOffset].vapourPiece * VDIM +
             makeVapourCoord(face, xdim, zdim, stepsBack);
-        float4 thisVapourPoint = read_imagef(vapour, vapourSampler, thisVapourPointCoord);
+        float4 thisVapourPoint = afk_read3dimagef(vapour, vapourSampler, thisVapourPointCoord);
 
         /* Figure out which face it goes to, if any.
          * Upon conflict, the faces get priority in 

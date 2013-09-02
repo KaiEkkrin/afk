@@ -5,8 +5,6 @@
 
 #include "afk.hpp"
 
-#include "jigsaw.hpp"
-
 void test_jigsawFake3D(void);
 
 #endif /* _AFK_TEST_JIGSAW_FAKE3D_H_ */

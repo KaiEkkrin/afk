@@ -13,8 +13,6 @@
 #include <iostream>
 
 
-#define FIXED_TEST_TEXTURE_DATA 0
-
 #define GRAB_DEBUG 0
 #define CUBOID_DEBUG 0
 
@@ -106,85 +104,6 @@ AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(
     clFormat.image_channel_order        = _fd.clFormat.image_channel_order;
     clFormat.image_channel_data_type    = _fd.clFormat.image_channel_data_type;
     texelSize                           = _fd.texelSize;
-}
-
-
-/* AFK_JigsawFake3DDescriptor implementation */
-
-AFK_JigsawFake3DDescriptor::AFK_JigsawFake3DDescriptor():
-    useFake3D(false)
-{
-}
-
-AFK_JigsawFake3DDescriptor::AFK_JigsawFake3DDescriptor(
-    bool _useFake3D, const Vec3<int>& _fakeSize):
-        fakeSize(_fakeSize), useFake3D(_useFake3D)
-{
-    float fMult = ceil(sqrt((float)fakeSize.v[2]));
-    mult = (int)fMult;
-}
-
-AFK_JigsawFake3DDescriptor::AFK_JigsawFake3DDescriptor(
-    const AFK_JigsawFake3DDescriptor& _fake3D):
-        fakeSize(_fake3D.fakeSize),
-        mult(_fake3D.mult),
-        useFake3D(_fake3D.useFake3D)
-{
-}
-
-AFK_JigsawFake3DDescriptor AFK_JigsawFake3DDescriptor::operator=(
-    const AFK_JigsawFake3DDescriptor& _fake3D)
-{
-    fakeSize    = _fake3D.fakeSize;
-    mult        = _fake3D.mult;
-    useFake3D   = _fake3D.useFake3D;
-    return *this;
-}
-
-bool AFK_JigsawFake3DDescriptor::getUseFake3D(void) const
-{
-    return useFake3D;
-}
-
-Vec3<int> AFK_JigsawFake3DDescriptor::get2DSize(void) const
-{
-    if (!useFake3D) throw AFK_Exception("Not using fake 3D");
-    return afk_vec3<int>(
-        fakeSize.v[0] * mult,
-        fakeSize.v[1] * mult,
-        1);
-}
-
-Vec3<int> AFK_JigsawFake3DDescriptor::getFakeSize(void) const
-{
-    if (!useFake3D) throw AFK_Exception("Not using fake 3D");
-    return fakeSize;
-}
-
-int AFK_JigsawFake3DDescriptor::getMult(void) const
-{
-    if (!useFake3D) throw AFK_Exception("Not using fake 3D");
-    return mult;
-}
-
-Vec3<int> AFK_JigsawFake3DDescriptor::fake3DTo2D(const Vec3<int>& _fake) const
-{
-    if (!useFake3D) throw AFK_Exception("Not using fake 3D");
-    return afk_vec3<int>(
-        _fake.v[0] + fakeSize.v[0] * (_fake.v[2] % mult),
-        _fake.v[1] + fakeSize.v[1] * (_fake.v[2] / mult),
-        0);
-}
-
-Vec3<int> AFK_JigsawFake3DDescriptor::fake3DFrom2D(const Vec3<int>& _real) const
-{
-    if (!useFake3D) throw AFK_Exception("Not using fake 3D");
-    int sFactor = (_real.v[0] / fakeSize.v[0]);
-    int tFactor = (_real.v[1] / fakeSize.v[1]);
-    return afk_vec3<int>(
-        _real.v[0] % fakeSize.v[0],
-        _real.v[1] % fakeSize.v[1],
-        sFactor + mult * tFactor);
 }
 
 
@@ -484,173 +403,38 @@ AFK_Jigsaw::AFK_Jigsaw(
     const Vec3<int>& _pieceSize,
     const Vec3<int>& _jigsawSize,
     const AFK_JigsawFormatDescriptor *_format,
-    const AFK_JigsawFake3DDescriptor& _fake3D,
     GLuint _texTarget,
     unsigned int _texCount,
-    bool _clGlSharing,
+    enum AFK_JigsawBufferUsage _bufferUsage,
     unsigned int _concurrency):
+        glTex(NULL),
         format(_format),
-        fake3D(_fake3D),
         texTarget(_texTarget),
         texCount(_texCount),
         pieceSize(_pieceSize),
         jigsawSize(_jigsawSize),
-        clGlSharing(_clGlSharing),
+        bufferUsage(_bufferUsage),
         concurrency(_concurrency),
         updateCs(0),
         drawCs(1),
         columnCounts(8, 0)
 {
-    glTex = new GLuint[texCount];
+    cl_int error;
+
     clTex = new cl_mem[texCount];
-
-    glGenTextures(texCount, glTex);
-
-    for (unsigned int tex = 0; tex < texCount; ++tex)
+    if (bufferUsage != AFK_JIGSAW_BU_CL_GL_SHARED)
     {
-        glBindTexture(texTarget, glTex[tex]);
+        /* Do native CL buffering here. */
+        cl_image_desc imageDesc;
+        memset(&imageDesc, 0, sizeof(cl_image_desc));
+        imageDesc.image_type        = (texTarget == GL_TEXTURE_2D ? CL_MEM_OBJECT_IMAGE2D : CL_MEM_OBJECT_IMAGE3D);
+        imageDesc.image_width       = pieceSize.v[0] * jigsawSize.v[0];
+        imageDesc.image_height      = pieceSize.v[1] * jigsawSize.v[1];
+        imageDesc.image_depth       = pieceSize.v[2] * jigsawSize.v[2];
 
-        /* Next debug: fill this thing out with some test data and
-         * bludgeon the texture sampler into working correctly.  I'm
-         * sure it isn't.
-         * I'm keeping this around in case it becomes useful again
-         * at some point.
-         */
-#if FIXED_TEST_TEXTURE_DATA
-        /* This is awful, I'm going to suddenly make a huge assumption
-         * about the texture format -- but it's for a good debug cause
-         * honest! :P
-         * This code assumes jigsawSize to be {1, 1} for expediency
-         */
-        Vec4<float> testData[pieceSize.v[0]][pieceSize.v[1]][pieceSize.v[2]];
-        for (int a = 0; a < pieceSize.v[0]; ++a)
-        {
-            for (int b = 0; b < pieceSize.v[1]; ++b)
-            {
-                for (int c = 0; c < pieceSize.v[2]; ++c)
-                {
-                    testData[a][b][c] = afk_vec4<float>(
-                        1.0f,
-                        (float)a / (float)pieceSize.v[0],
-                        (float)b / (float)pieceSize.v[1],
-                        (float)c / (float)pieceSize.v[2]);
-                }
-            }
-        }
-        switch (texTarget)
-        {
-        case GL_TEXTURE_2D:
-            glTexImage2D(
-                texTarget,
-                0,
-                format.glInternalFormat,
-                pieceSize.v[0],
-                pieceSize.v[1],
-                0,
-                format[tex].glFormat,
-                format[tex].glDataType,
-                &testData[0]);
-            break;
-
-        case GL_TEXTURE_3D:
-            glTexImage3D(
-                texTarget,
-                0,
-                format.glInternalFormat,
-                pieceSize.v[0],
-                pieceSize.v[1],
-                pieceSize.v[2],
-                format[tex].glFormat,
-                format[tex].glDataType,
-                &testData[0]);
-            break;
-
-        default:
-            throw AFK_Exception("Unrecognised texTarget");
-        }
-#else
-        switch (texTarget)
-        {
-        case GL_TEXTURE_2D:
-            glTexStorage2D(
-                texTarget,
-                1,
-                format[tex].glInternalFormat,
-                pieceSize.v[0] * jigsawSize.v[0],
-                pieceSize.v[1] * jigsawSize.v[1]);
-            break;
-
-        case GL_TEXTURE_3D:
-            glTexStorage3D(
-                texTarget,
-                1,
-                format[tex].glInternalFormat,
-                pieceSize.v[0] * jigsawSize.v[0],
-                pieceSize.v[1] * jigsawSize.v[1],
-                pieceSize.v[2] * jigsawSize.v[2]);
-            break;
-
-        default:
-            throw AFK_Exception("Unrecognised texTarget");
-        }
-#endif
-        AFK_GLCHK("AFK_JigSaw texStorage")
-
-        cl_int error;
-        if (clGlSharing)
+        for (unsigned int tex = 0; tex < texCount; ++tex)
         {
             if (afk_core.computer->testVersion(1, 2))
-            {
-                clTex[tex] = clCreateFromGLTexture(
-                    ctxt,
-                    CL_MEM_READ_WRITE,
-                    texTarget,
-                    0,
-                    glTex[tex],
-                    &error);
-            }
-            else
-            {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-                switch (texTarget)
-                {
-                case GL_TEXTURE_2D:
-                    clTex[tex] = clCreateFromGLTexture2D(
-                        ctxt,
-                        CL_MEM_READ_WRITE,
-                        texTarget,
-                        0,
-                        glTex[tex],
-                        &error);           
-                    break;
-
-                case GL_TEXTURE_3D:
-                    clTex[tex] = clCreateFromGLTexture3D(
-                        ctxt,
-                        CL_MEM_READ_WRITE,
-                        texTarget,
-                        0,
-                        glTex[tex],
-                        &error);           
-                    break;
-
-                default:
-                    throw AFK_Exception("Unrecognised texTarget");
-                }
-#pragma GCC diagnostic pop
-            }
-        }
-        else
-        {
-            cl_image_desc imageDesc;
-            memset(&imageDesc, 0, sizeof(cl_image_desc));
-            imageDesc.image_type        = (texTarget == GL_TEXTURE_2D ? CL_MEM_OBJECT_IMAGE2D : CL_MEM_OBJECT_IMAGE3D);
-            imageDesc.image_width       = pieceSize.v[0] * jigsawSize.v[0];
-            imageDesc.image_height      = pieceSize.v[1] * jigsawSize.v[1];
-            imageDesc.image_depth       = pieceSize.v[2] * jigsawSize.v[2];
-
-            if (/* afk_core.computer->testVersion(1, 2) */ false)
             {
                 clTex[tex] = clCreateImage(
                     ctxt,
@@ -677,7 +461,7 @@ AFK_Jigsaw::AFK_Jigsaw(
                         NULL,
                         &error);
                     break;
-
+    
                 case GL_TEXTURE_3D:
                     clTex[tex] = clCreateImage3D(
                         ctxt,
@@ -691,14 +475,97 @@ AFK_Jigsaw::AFK_Jigsaw(
                         NULL,
                         &error);
                     break;
-
+    
                 default:
                     throw AFK_Exception("Unrecognised texTarget");
                 }
 #pragma GCC diagnostic pop
             }
+            afk_handleClError(error);
         }
-        afk_handleClError(error);
+    }
+
+    if (bufferUsage != AFK_JIGSAW_BU_CL_ONLY)
+    {
+        glTex = new GLuint[texCount];
+        glGenTextures(texCount, glTex);
+
+        for (unsigned int tex = 0; tex < texCount; ++tex)
+        {
+            glBindTexture(texTarget, glTex[tex]);
+
+            switch (texTarget)
+            {
+            case GL_TEXTURE_2D:
+                glTexStorage2D(
+                    texTarget,
+                    1,
+                    format[tex].glInternalFormat,
+                    pieceSize.v[0] * jigsawSize.v[0],
+                    pieceSize.v[1] * jigsawSize.v[1]);
+                break;
+
+            case GL_TEXTURE_3D:
+                glTexStorage3D(
+                    texTarget,
+                    1,
+                    format[tex].glInternalFormat,
+                    pieceSize.v[0] * jigsawSize.v[0],
+                    pieceSize.v[1] * jigsawSize.v[1],
+                    pieceSize.v[2] * jigsawSize.v[2]);
+                break;
+
+            default:
+                throw AFK_Exception("Unrecognised texTarget");
+            }
+            AFK_GLCHK("AFK_JigSaw texStorage")
+
+            if (bufferUsage == AFK_JIGSAW_BU_CL_GL_SHARED)
+            {
+                if (afk_core.computer->testVersion(1, 2))
+                {
+                    clTex[tex] = clCreateFromGLTexture(
+                        ctxt,
+                        CL_MEM_READ_WRITE,
+                        texTarget,
+                        0,
+                        glTex[tex],
+                        &error);
+                }
+                else
+                {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+                    switch (texTarget)
+                    {
+                    case GL_TEXTURE_2D:
+                        clTex[tex] = clCreateFromGLTexture2D(
+                            ctxt,
+                            CL_MEM_READ_WRITE,
+                            texTarget,
+                            0,
+                            glTex[tex],
+                            &error);           
+                        break;
+
+                    case GL_TEXTURE_3D:
+                        clTex[tex] = clCreateFromGLTexture3D(
+                            ctxt,
+                            CL_MEM_READ_WRITE,
+                            texTarget,
+                            0,
+                            glTex[tex],
+                            &error);           
+                        break;
+
+                    default:
+                        throw AFK_Exception("Unrecognised texTarget");
+                    }
+#pragma GCC diagnostic pop
+                }
+                afk_handleClError(error);
+            }
+        }
     }
 
     /* Now that I've got the textures, fill out the jigsaw state. */
@@ -742,7 +609,7 @@ AFK_Jigsaw::~AFK_Jigsaw()
         }
     }
 
-    glDeleteTextures(texCount, glTex);
+    if (glTex) glDeleteTextures(texCount, glTex);
 
 	for (int row = 0; row < jigsawSize.v[0]; ++row)
 	{
@@ -756,7 +623,7 @@ AFK_Jigsaw::~AFK_Jigsaw()
     delete[] changeEvents;
     delete[] changeData;
     delete[] clTex;
-    delete[] glTex;
+    if (glTex) delete[] glTex;
 }
 
 bool AFK_Jigsaw::grab(unsigned int threadId, Vec3<int>& o_uvw, AFK_Frame *o_timestamp)
@@ -835,12 +702,9 @@ Vec3<float> AFK_Jigsaw::getPiecePitchSTR(void) const
 
 cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q, cl_event *o_event)
 {
-    if (clGlSharing)
+    switch (bufferUsage)
     {
-        AFK_CLCHK(clEnqueueAcquireGLObjects(q, texCount, clTex, 0, 0, o_event))
-    }
-    else
-    {
+    case AFK_JIGSAW_BU_CL_GL_COPIED:
         /* Make sure the change state is reset so that I can start
          * accumulating new changes
          */
@@ -849,27 +713,28 @@ cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q, cl_event *
             changeData[tex].clear();
             changeEvents[tex].clear();
         }
+        break;
+
+    case AFK_JIGSAW_BU_CL_GL_SHARED:
+        AFK_CLCHK(clEnqueueAcquireGLObjects(q, texCount, clTex, 0, 0, o_event))
+        break;
+
+    default:
+        /* Nothing to do. */
+        break;
     }
+
     return clTex;
 }
 
 void AFK_Jigsaw::releaseFromCl(cl_command_queue q, cl_uint eventsInWaitList, const cl_event *eventWaitList)
 {
-    if (clGlSharing)
+    switch (bufferUsage)
     {
+    case AFK_JIGSAW_BU_CL_GL_COPIED:
         for (unsigned int tex = 0; tex < texCount; ++tex)
         {
-            changeEvents[tex].resize(1);
-            AFK_CLCHK(clEnqueueReleaseGLObjects(q, 1, &clTex[tex], eventsInWaitList, eventWaitList, &changeEvents[tex][0]))
-        }
-    }
-    else
-    {
-#if FIXED_TEST_TEXTURE_DATA
-#else
-        /* Work out how much space I need to store all the changed data. */
-        for (unsigned int tex = 0; tex < texCount; ++tex)
-        {
+            /* Work out how much space I need to store all the changed data. */
             unsigned int requiredChangeEventCount = 0;
             size_t requiredChangeDataSize = 0;
             size_t pieceSizeInBytes = format[tex].texelSize * pieceSize.v[0] * pieceSize.v[1] * pieceSize.v[2];
@@ -924,7 +789,19 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q, cl_uint eventsInWaitList, con
                 changeDataOffset += cuboidSizeInBytes;
             }
         }
-#endif
+        break;
+
+    case AFK_JIGSAW_BU_CL_GL_SHARED:
+        for (unsigned int tex = 0; tex < texCount; ++tex)
+        {
+            changeEvents[tex].resize(1);
+            AFK_CLCHK(clEnqueueReleaseGLObjects(q, 1, &clTex[tex], eventsInWaitList, eventWaitList, &changeEvents[tex][0]))
+        }
+        break;
+
+    default:
+        /* Again, nothing to do. */
+        break;
     }
 }
 
@@ -932,10 +809,8 @@ void AFK_Jigsaw::bindTexture(unsigned int tex)
 {
     glBindTexture(texTarget, glTex[tex]);
 
-    if (!clGlSharing)
+    if (bufferUsage == AFK_JIGSAW_BU_CL_GL_COPIED)
     {
-#if FIXED_TEST_TEXTURE_DATA
-#else
         /* Wait for the change readback to be finished. */
         if (changeEvents[tex].size() == 0) return;
 
@@ -993,7 +868,6 @@ void AFK_Jigsaw::bindTexture(unsigned int tex)
 
             changeDataOffset += cuboidSizeInBytes;
         }
-#endif
     }
 }
 

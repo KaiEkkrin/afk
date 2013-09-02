@@ -703,7 +703,7 @@ AFK_World::AFK_World(
         tileTexFormat,
         3,
         computer->getFirstDeviceProps(),
-        config->clGlSharing,
+        config->clGlSharing ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED,
         config->concurrency,
         false);
 
@@ -727,9 +727,6 @@ AFK_World::AFK_World(
 
     unsigned int shapeCacheEntries = shapeCacheSize / (SQUARE(sSizes.eDim) * 6);
 
-    /* TODO For Nvidia Fermi, which doesn't support writes to 3D
-     * shapes, I need to support a 2D vapour here (yowch)
-     */
     Vec3<int> vapourPieceSize = afk_vec3<int>(sSizes.vDim, sSizes.vDim, sSizes.vDim);
     enum AFK_JigsawFormat vapourTexFormat = AFK_JIGSAW_4FLOAT32;
     vapourJigsaws = new AFK_JigsawCollection(
@@ -741,7 +738,7 @@ AFK_World::AFK_World(
         &vapourTexFormat,
         1,
         computer->getFirstDeviceProps(),
-        config->clGlSharing,
+        AFK_JIGSAW_BU_CL_ONLY,
         config->concurrency,
         computer->useFake3DImages(config));
 
@@ -772,7 +769,7 @@ AFK_World::AFK_World(
         edgeTexFormat,
         3,
         computer->getFirstDeviceProps(),
-        config->clGlSharing,
+        config->clGlSharing ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED,
         config->concurrency,
         false);
 

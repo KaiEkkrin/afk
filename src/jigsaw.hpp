@@ -52,6 +52,14 @@ enum AFK_JigsawFormat
     AFK_JIGSAW_4FLOAT32
 };
 
+/* This enumeration describes what buffers we manage -- CL, GL, both. */
+enum AFK_JigsawBufferUsage
+{
+    AFK_JIGSAW_BU_CL_ONLY,
+    AFK_JIGSAW_BU_CL_GL_COPIED,
+    AFK_JIGSAW_BU_CL_GL_SHARED
+};
+
 class AFK_JigsawFormatDescriptor
 {
 public:
@@ -63,41 +71,6 @@ public:
 
     AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat);
     AFK_JigsawFormatDescriptor(const AFK_JigsawFormatDescriptor& _fd);
-};
-
-/* This class describes a fake 3D image that emulates 3D with a
- * 2D image.
- * A fake 3D texture will otherwise be GL_TEXTURE_2D in the
- * Jigsaw and most Jigsaw operations will work as for 2D
- * textures.
- */
-class AFK_JigsawFake3DDescriptor
-{
-    /* This is the emulated 3D piece size */
-    Vec3<int> fakeSize;
-
-    /* This is the multiplier used to achieve that fakery */
-    int mult;
-
-    /* This flags whether to use fake 3D in the first place */
-    bool useFake3D;
-public:
-
-    /* This one initialises it to false. */
-    AFK_JigsawFake3DDescriptor();
-
-    AFK_JigsawFake3DDescriptor(bool _useFake3D, const Vec3<int>& _fakeSize);
-    AFK_JigsawFake3DDescriptor(const AFK_JigsawFake3DDescriptor& _fake3D);
-    AFK_JigsawFake3DDescriptor operator=(const AFK_JigsawFake3DDescriptor& _fake3D);
-
-    bool getUseFake3D(void) const;
-    Vec3<int> get2DSize(void) const;
-    Vec3<int> getFakeSize(void) const;
-    int getMult(void) const;
-
-    /* Convert to and from the real 2D / emulated 3D. */
-    Vec3<int> fake3DTo2D(const Vec3<int>& _fake) const;
-    Vec3<int> fake3DFrom2D(const Vec3<int>& _real) const;
 };
 
 /* This token represents which "piece" of the jigsaw an object might
@@ -182,13 +155,12 @@ protected:
     GLuint *glTex;
     cl_mem *clTex;
     const AFK_JigsawFormatDescriptor *format;
-    const AFK_JigsawFake3DDescriptor fake3D;
     GLuint texTarget;
     const unsigned int texCount;
 
     const Vec3<int> pieceSize;
     const Vec3<int> jigsawSize; /* number of pieces in each dimension */
-    const bool clGlSharing;
+    const enum AFK_JigsawBufferUsage bufferUsage;
 
     /* Each row of the jigsaw has a timestamp.  When the sweep
      * comes around and updates it, that indicates that any old
@@ -242,13 +214,13 @@ protected:
      */
     AFK_MovingAverage<int> columnCounts;
 
-    /* If clGlSharing is disabled, this is the cuboid data I've
+    /* If bufferUsage is cl gl copied, this is the cuboid data I've
      * read back from the CL and that needs to go into the GL.
      * There is one vector per texture.
      */
     std::vector<unsigned char> *changeData;
 
-    /* If clGlSharing is disabled, these are the events I need to
+    /* If bufferUsage is cl gl copied, these are the events I need to
      * wait on before I can push data to the GL.
      * Again, there is one vector per texture.
      */
@@ -312,10 +284,9 @@ public:
         const Vec3<int>& _pieceSize,
         const Vec3<int>& _jigsawSize,
         const AFK_JigsawFormatDescriptor *_format,
-        const AFK_JigsawFake3DDescriptor& _fake3D,
         GLuint _texTarget,
         unsigned int _texCount,
-        bool _clGlSharing,
+        enum AFK_JigsawBufferUsage _bufferUsage,
         unsigned int _concurrency);
     virtual ~AFK_Jigsaw();
 
