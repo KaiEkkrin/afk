@@ -169,9 +169,11 @@ float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 locati
         location.w);
 }
 
+__constant sampler_t vapourSampler = CLK_NORMALIZED_COORDS_FALSE |
+    CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+
 __kernel void makeShape3DEdge(
     __read_only image3d_t vapour,
-    sampler_t vapourSampler,
     __global const struct AFK_3DComputeUnit *units,
     __write_only image2d_t jigsawDisp,
     __write_only image2d_t jigsawColour,
@@ -205,12 +207,19 @@ __kernel void makeShape3DEdge(
 
     /* Iterate through the possible steps back until I find an edge */
     bool foundEdge = false;
-
-    int4 lastVapourPointCoord = makeVapourCoord(face, xdim, zdim, 0);
-    float4 lastVapourPoint = read_imagef(vapour, vapourSampler,
-        units[unitOffset].vapourPiece * VDIM + lastVapourPointCoord);
-
     int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
+
+    /* TODO: For now, blocking the VDIM end of everything.  It's
+     * going to be reading from the wrong place in the vapour,
+     * definitely.
+     * I'm trying not to think about my vapourPiece
+     * discrepancy...  :/
+     */
+    if (xdim < VDIM && zdim < VDIM)
+    {
+    int4 lastVapourPointCoord = units[unitOffset].vapourPiece * VDIM +
+        makeVapourCoord(face, xdim, zdim, 0);
+    float4 lastVapourPoint = read_imagef(vapour, vapourSampler, lastVapourPointCoord);
 
     if (lastVapourPoint.w >= threshold)
     {
@@ -225,18 +234,12 @@ __kernel void makeShape3DEdge(
         foundEdge = true;
     }
 
-    for (int stepsBack = 1; !foundEdge && stepsBack < VDIM; ++stepsBack)
+    for (int stepsBack = 1; !foundEdge && stepsBack < (EDIM-1); ++stepsBack)
     {
-        /* TODO: To join up, I need vapour cube adjacency data in
-         * the compute units.
-         * For now, I'm just going to ignore the edges.
-         */
-        if (xdim == VDIM || zdim == VDIM) break;
-
         /* Read the next point to compare with */
-        int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack+1);
-        float4 thisVapourPoint = read_imagef(vapour, vapourSampler,
-            units[unitOffset].vapourPiece * VDIM + thisVapourPointCoord);
+        int4 thisVapourPointCoord = units[unitOffset].vapourPiece * VDIM +
+            makeVapourCoord(face, xdim, zdim, stepsBack);
+        float4 thisVapourPoint = read_imagef(vapour, vapourSampler, thisVapourPointCoord);
 
         /* Figure out which face it goes to, if any.
          * Upon conflict, the faces get priority in 
@@ -280,7 +283,7 @@ __kernel void makeShape3DEdge(
         if (lastVapourPoint.w < threshold && thisVapourPoint.w >= threshold)
         {
             /* This is an edge, and it's mine! */
-            float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
+            float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, /* stepsBack */ 0, units[unitOffset].location);
             write_imagef(jigsawDisp, edgeCoord, edgeVertex);
             write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
 
@@ -293,6 +296,7 @@ __kernel void makeShape3DEdge(
 
         lastVapourPointCoord = thisVapourPointCoord;
         lastVapourPoint = thisVapourPoint;
+    }
     }
 
     if (!foundEdge)

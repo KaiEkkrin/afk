@@ -650,7 +650,7 @@ AFK_Jigsaw::AFK_Jigsaw(
             imageDesc.image_height      = pieceSize.v[1] * jigsawSize.v[1];
             imageDesc.image_depth       = pieceSize.v[2] * jigsawSize.v[2];
 
-            if (afk_core.computer->testVersion(1, 2))
+            if (/* afk_core.computer->testVersion(1, 2) */ false)
             {
                 clTex[tex] = clCreateImage(
                     ctxt,

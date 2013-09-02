@@ -156,12 +156,13 @@ AFK_ClDeviceProperties::~AFK_ClDeviceProperties()
 
 bool AFK_ClDeviceProperties::supportsExtension(const std::string& ext) const
 {
-    std::string extStr(extensions);
-    boost::tokenizer<> extTok(extStr);
-    for (boost::tokenizer<>::iterator extIt = extTok.begin();
+    boost::char_separator<char> spcSep(" ");
+    boost::tokenizer<boost::char_separator<char> > extTok(extensions, spcSep);
+    for (boost::tokenizer<boost::char_separator<char> >::iterator extIt = extTok.begin();
         extIt != extTok.end(); ++extIt)
     {
-        if (*extIt == ext) return true;
+        std::string testExt = *extIt;
+        if (testExt == ext) return true;
     }
 
     return false;

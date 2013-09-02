@@ -193,24 +193,14 @@ void AFK_3DComputeQueue::computeStart(
     vapourEvents[1] = 0;
     cl_mem *edgeJigsawMem = edgeJigsaw->acquireForCl(ctxt, q, &vapourEvents[1]);
 
-    /* Now I'm also going to need this... */
-    cl_sampler vapourSampler = clCreateSampler(
-        ctxt,
-        CL_FALSE,
-        CL_ADDRESS_CLAMP_TO_EDGE,
-        CL_FILTER_NEAREST,
-        &error);
-    afk_handleClError(error);
-
     /* Now, I need to run the edge kernel.
      */
     AFK_CLCHK(clSetKernelArg(edgeKernel, 0, sizeof(cl_mem), &vapourJigsawMem[0]))
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 1, sizeof(cl_sampler), &vapourSampler))
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 2, sizeof(cl_mem), &vapourBufs[2]))
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 3, sizeof(cl_mem), &edgeJigsawMem[0]))
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 4, sizeof(cl_mem), &edgeJigsawMem[1]))
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 5, sizeof(cl_mem), &edgeJigsawMem[2]))
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 6, sizeof(float), &sSizes.edgeThreshold))
+    AFK_CLCHK(clSetKernelArg(edgeKernel, 1, sizeof(cl_mem), &vapourBufs[2]))
+    AFK_CLCHK(clSetKernelArg(edgeKernel, 2, sizeof(cl_mem), &edgeJigsawMem[0]))
+    AFK_CLCHK(clSetKernelArg(edgeKernel, 3, sizeof(cl_mem), &edgeJigsawMem[1]))
+    AFK_CLCHK(clSetKernelArg(edgeKernel, 4, sizeof(cl_mem), &edgeJigsawMem[2]))
+    AFK_CLCHK(clSetKernelArg(edgeKernel, 5, sizeof(float), &sSizes.edgeThreshold))
 
     /* TODO: Bringing this down to global only for now and removing
      * the cross-check in an attempt to tackle the
@@ -234,7 +224,6 @@ void AFK_3DComputeQueue::computeStart(
         &edgeEvent))
 
     /* Release the things */
-    AFK_CLCHK(clReleaseSampler(vapourSampler))
     AFK_CLCHK(clReleaseEvent(vapourEvents[0]))
     if (vapourEvents[1] != 0) AFK_CLCHK(clReleaseEvent(vapourEvents[1]))
 

@@ -9,6 +9,8 @@
  * a kind of fog or gas (with variable density and colour).
  */
 
+#pragma OPENCL EXTENSION cl_khr_3d_image_writes : enable
+
 /* TODO: Nvidia GTX 400/500 series don't support writes to 3D
  * images.  Bollocks!  I'm going to need a bodge.  But debug
  * the actual 3D images first.
