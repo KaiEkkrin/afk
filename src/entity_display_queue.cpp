@@ -67,16 +67,19 @@ void AFK_EntityDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw *
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glUniform1i(jigsawDispTexSamplerLocation, 0);
 
+    /* TODO Temporarily fudging out the fuzzy sampling for
+     * testing purposes.
+     */
     glActiveTexture(GL_TEXTURE1);
     jigsaw->bindTexture(1);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glUniform1i(jigsawColourTexSamplerLocation, 1);
 
     glActiveTexture(GL_TEXTURE2);
     jigsaw->bindTexture(2);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glUniform1i(jigsawNormalTexSamplerLocation, 2);
     
     /* Set up the entity display texbuf. */

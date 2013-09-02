@@ -271,7 +271,8 @@ __kernel void makeShape3DEdge(
      * I'm trying not to think about my vapourPiece
      * discrepancy...  :/
      */
-    if (xdim < VDIM && zdim < VDIM)
+    /* TODO: Further debugging. */
+    if (xdim < VDIM && zdim < VDIM && face == 2)
     {
     int4 lastVapourPointCoord = units[unitOffset].vapourPiece * VDIM +
         makeVapourCoord(face, xdim, zdim, 0);

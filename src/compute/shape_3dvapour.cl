@@ -158,7 +158,7 @@ void transformLocationToLocation(
     /* TODO Is this the right thing to do with the density?
      * I may end up strongly following the smallest LoD and ignoring the rest.
      */
-    *vc = *vc * fromCoord.w / toCoord.w;
+    //*vc = *vc * fromCoord.w / toCoord.w;
 }
 
 void transformCubeToCube(
@@ -230,6 +230,13 @@ __kernel void makeShape3DVapour(
 
     /* Transform out of the space of the last cube. */
     transformLocationToLocation(&vl, &vc, cubes[i-1].coord, units[unitOffset].location);
+
+    /* TODO: Colour testing. */
+    vc = (float4)(
+        (float)xdim / (float)VDIM,
+        (float)ydim / (float)VDIM,
+        (float)zdim / (float)VDIM,
+        1.0f);
 
     /* TODO: For now, I'm going to transfer all this into an all-float
      * image.  In future, I probably want to try to cram it into 8
