@@ -704,7 +704,8 @@ AFK_World::AFK_World(
         3,
         computer->getFirstDeviceProps(),
         config->clGlSharing,
-        config->concurrency);
+        config->concurrency,
+        false);
 
     tileCacheEntries = landscapeJigsaws->getPieceCount();
     unsigned int tileCacheBitness = calculateCacheBitness(tileCacheEntries);
@@ -741,7 +742,8 @@ AFK_World::AFK_World(
         1,
         computer->getFirstDeviceProps(),
         config->clGlSharing,
-        config->concurrency);
+        config->concurrency,
+        computer->useFake3DImages(config));
 
     /* Each edge piece will have 3 faces horizontally by 2 vertically to
      * cram the 6 faces together in a better manner than stringing them
@@ -771,7 +773,8 @@ AFK_World::AFK_World(
         3,
         computer->getFirstDeviceProps(),
         config->clGlSharing,
-        config->concurrency);
+        config->concurrency,
+        false);
 
     shapeCacheEntries = edgeJigsaws->getPieceCount();
     unsigned int shapeCacheBitness = calculateCacheBitness(shapeCacheEntries);

@@ -8,6 +8,7 @@
 #include "jigsaw.hpp"
 
 #include <climits>
+#include <cmath>
 #include <cstring>
 #include <iostream>
 
@@ -105,6 +106,85 @@ AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(
     clFormat.image_channel_order        = _fd.clFormat.image_channel_order;
     clFormat.image_channel_data_type    = _fd.clFormat.image_channel_data_type;
     texelSize                           = _fd.texelSize;
+}
+
+
+/* AFK_JigsawFake3DDescriptor implementation */
+
+AFK_JigsawFake3DDescriptor::AFK_JigsawFake3DDescriptor():
+    useFake3D(false)
+{
+}
+
+AFK_JigsawFake3DDescriptor::AFK_JigsawFake3DDescriptor(
+    bool _useFake3D, const Vec3<int>& _fakeSize):
+        fakeSize(_fakeSize), useFake3D(_useFake3D)
+{
+    float fMult = ceil(sqrt((float)fakeSize.v[2]));
+    mult = (int)fMult;
+}
+
+AFK_JigsawFake3DDescriptor::AFK_JigsawFake3DDescriptor(
+    const AFK_JigsawFake3DDescriptor& _fake3D):
+        fakeSize(_fake3D.fakeSize),
+        mult(_fake3D.mult),
+        useFake3D(_fake3D.useFake3D)
+{
+}
+
+AFK_JigsawFake3DDescriptor AFK_JigsawFake3DDescriptor::operator=(
+    const AFK_JigsawFake3DDescriptor& _fake3D)
+{
+    fakeSize    = _fake3D.fakeSize;
+    mult        = _fake3D.mult;
+    useFake3D   = _fake3D.useFake3D;
+    return *this;
+}
+
+bool AFK_JigsawFake3DDescriptor::getUseFake3D(void) const
+{
+    return useFake3D;
+}
+
+Vec3<int> AFK_JigsawFake3DDescriptor::get2DSize(void) const
+{
+    if (!useFake3D) throw AFK_Exception("Not using fake 3D");
+    return afk_vec3<int>(
+        fakeSize.v[0] * mult,
+        fakeSize.v[1] * mult,
+        1);
+}
+
+Vec3<int> AFK_JigsawFake3DDescriptor::getFakeSize(void) const
+{
+    if (!useFake3D) throw AFK_Exception("Not using fake 3D");
+    return fakeSize;
+}
+
+int AFK_JigsawFake3DDescriptor::getMult(void) const
+{
+    if (!useFake3D) throw AFK_Exception("Not using fake 3D");
+    return mult;
+}
+
+Vec3<int> AFK_JigsawFake3DDescriptor::fake3DTo2D(const Vec3<int>& _fake) const
+{
+    if (!useFake3D) throw AFK_Exception("Not using fake 3D");
+    return afk_vec3<int>(
+        _fake.v[0] + fakeSize.v[0] * (_fake.v[2] % mult),
+        _fake.v[1] + fakeSize.v[1] * (_fake.v[2] / mult),
+        0);
+}
+
+Vec3<int> AFK_JigsawFake3DDescriptor::fake3DFrom2D(const Vec3<int>& _real) const
+{
+    if (!useFake3D) throw AFK_Exception("Not using fake 3D");
+    int sFactor = (_real.v[0] / fakeSize.v[0]);
+    int tFactor = (_real.v[1] / fakeSize.v[1]);
+    return afk_vec3<int>(
+        _real.v[0] % fakeSize.v[0],
+        _real.v[1] % fakeSize.v[1],
+        sFactor + mult * tFactor);
 }
 
 
@@ -404,11 +484,13 @@ AFK_Jigsaw::AFK_Jigsaw(
     const Vec3<int>& _pieceSize,
     const Vec3<int>& _jigsawSize,
     const AFK_JigsawFormatDescriptor *_format,
+    const AFK_JigsawFake3DDescriptor& _fake3D,
     GLuint _texTarget,
     unsigned int _texCount,
     bool _clGlSharing,
     unsigned int _concurrency):
         format(_format),
+        fake3D(_fake3D),
         texTarget(_texTarget),
         texCount(_texCount),
         pieceSize(_pieceSize),

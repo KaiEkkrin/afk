@@ -86,7 +86,8 @@ AFK_JigsawCollection::AFK_JigsawCollection(
     unsigned int _texCount,
     const AFK_ClDeviceProperties& _clDeviceProps,
     bool _clGlSharing,
-    unsigned int _concurrency):
+    unsigned int _concurrency,
+    bool useFake3D):
         dimensions(_dimensions),
         texCount(_texCount),
         pieceSize(_pieceSize),
@@ -94,6 +95,15 @@ AFK_JigsawCollection::AFK_JigsawCollection(
         clGlSharing(_clGlSharing),
         concurrency(_concurrency)
 {
+    if (useFake3D)
+    {
+        fake3D = AFK_JigsawFake3DDescriptor(true, pieceSize);
+        Vec3<int> fakePieceSize = fake3D.get2DSize();
+        std::cout << "AFK_JigsawCollection: Converting 3D piece " << fakePieceSize << " to 2D piece " << pieceSize << std::endl;
+        pieceSize = fakePieceSize;
+        dimensions = AFK_JIGSAW_2D;
+    }
+
     std::cout << "AFK_JigsawCollection: Requested " << getDimensionalityStr() << " jigsaw with " << std::dec << pieceCount << " pieces of size " << pieceSize << ": " << std::endl;
 
     /* Figure out the texture formats. */
@@ -203,6 +213,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
             pieceSize,
             jigsawSize,
             &format[0],
+            fake3D,
             dimensions == AFK_JIGSAW_2D ? GL_TEXTURE_2D : GL_TEXTURE_3D,
             texCount,
             clGlSharing,
@@ -214,6 +225,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
         pieceSize,
         jigsawSize,
         &format[0],
+        fake3D,
         dimensions == AFK_JIGSAW_2D ? GL_TEXTURE_2D : GL_TEXTURE_3D,
         texCount,
         clGlSharing,
@@ -308,6 +320,7 @@ void AFK_JigsawCollection::flipCuboids(cl_context ctxt, const AFK_Frame& current
             pieceSize,
             jigsawSize,
             &format[0],
+            fake3D,
             dimensions == AFK_JIGSAW_2D ? GL_TEXTURE_2D : GL_TEXTURE_3D,
             texCount,
             clGlSharing,

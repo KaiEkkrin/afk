@@ -62,6 +62,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     concurrency                 = boost::thread::hardware_concurrency() + 1;
     clProgramsDir               = NULL;
     clGlSharing                 = false; /* TODO hope to default true if I get it reliably working */
+    forceFake3DImages           = false;
 
     startingDetailPitch         = 512.0f;
     maxDetailPitch              = 4096.0f;
@@ -147,6 +148,10 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         else if (strcmp(argv[argi], "--cl-gl-sharing") == 0)
         {
             clGlSharing = true;
+        }
+        else if (strcmp(argv[argi], "--force-fake-3D-images") == 0)
+        {
+            forceFake3DImages = true;
         }
         else if (strcmp(argv[argi], "--starting-detail-pitch") == 0)
         {

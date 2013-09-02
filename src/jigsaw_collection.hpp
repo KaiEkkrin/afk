@@ -22,9 +22,10 @@ class AFK_JigsawCollection
 protected:
     enum AFK_JigsawDimensions dimensions;
     std::vector<AFK_JigsawFormatDescriptor> format;
+    AFK_JigsawFake3DDescriptor fake3D;
     const unsigned int texCount;
 
-    const Vec3<int> pieceSize;
+    Vec3<int> pieceSize;
     Vec3<int> jigsawSize;
     int pieceCount;
     const bool clGlSharing;
@@ -55,7 +56,8 @@ public:
         unsigned int _texCount,
         const AFK_ClDeviceProperties& _clDeviceProps,
         bool _clGlSharing,
-        unsigned int concurrency);
+        unsigned int concurrency,
+        bool useFake3D);
     virtual ~AFK_JigsawCollection();
 
     int getPieceCount(void) const;

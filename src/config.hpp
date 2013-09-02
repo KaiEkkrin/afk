@@ -87,6 +87,7 @@ public:
     unsigned int concurrency;
     char        *clProgramsDir;
     bool         clGlSharing;
+    bool        forceFake3DImages;
 
     /* World setup */
     float startingDetailPitch;

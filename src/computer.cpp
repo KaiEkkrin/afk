@@ -6,10 +6,12 @@
 #include <sstream>
 
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/tokenizer.hpp>
 
 #include "computer.hpp"
 #include "exception.hpp"
 #include "file/readfile.hpp"
+#include "jigsaw.hpp"
 #include "landscape_sizes.hpp"
 #include "shape_sizes.hpp"
 
@@ -100,7 +102,7 @@ AFK_ClPlatformProperties::AFK_ClPlatformProperties(cl_platform_id platform)
 /* AFK_ClDeviceProperties implementation. */
 
 AFK_ClDeviceProperties::AFK_ClDeviceProperties(cl_device_id device):
-    maxWorkItemSizes(NULL), extensions(NULL)
+    maxWorkItemSizes(NULL)
 {
     getClDeviceInfoFixed<cl_ulong>(device, CL_DEVICE_GLOBAL_MEM_SIZE, &globalMemSize, 0);
     getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE2D_MAX_WIDTH, &image2DMaxWidth, 0);
@@ -127,12 +129,19 @@ AFK_ClDeviceProperties::AFK_ClDeviceProperties(cl_device_id device):
         }
     }
 
+    size_t extArrSize;
     cl_int error;
-    error = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, 0, NULL, &extensionsSize);
+    error = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, 0, NULL, &extArrSize);
     if (error == CL_SUCCESS)
     {
-        extensions = new char[extensionsSize];
-        error = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, extensionsSize, extensions, NULL);
+        char *extArr = new char[extArrSize];
+        error = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, extArrSize, extArr, NULL);
+        if (error == CL_SUCCESS)
+        {
+            extensions = std::string(extArr);
+        }
+
+        delete[] extArr;
     }
     if (error != CL_SUCCESS)
     {
@@ -143,7 +152,19 @@ AFK_ClDeviceProperties::AFK_ClDeviceProperties(cl_device_id device):
 AFK_ClDeviceProperties::~AFK_ClDeviceProperties()
 {
     if (maxWorkItemSizes) delete[] maxWorkItemSizes;
-    if (extensions) delete[] extensions;
+}
+
+bool AFK_ClDeviceProperties::supportsExtension(const std::string& ext) const
+{
+    std::string extStr(extensions);
+    boost::tokenizer<> extTok(extStr);
+    for (boost::tokenizer<>::iterator extIt = extTok.begin();
+        extIt != extTok.end(); ++extIt)
+    {
+        if (*extIt == ext) return true;
+    }
+
+    return false;
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p)
@@ -174,8 +195,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p)
         os << "]" << std::endl;
     } 
 
-    if (p.extensions)
-        os << "Extensions:                      " << p.extensions << std::endl;
+    os << "Extensions:                      " << p.extensions << std::endl;
 
     return os;
 }
@@ -306,6 +326,18 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
         args << "-D VDIM="                      << sSizes.vDim                   << " ";
         args << "-D EDIM="                      << sSizes.eDim                   << " ";
         args << "-D FEATURE_COUNT_PER_CUBE="    << sSizes.featureCountPerCube    << " ";
+        if (useFake3DImages(config))
+        {
+            args << "-D AFK_FAKE3D=1 ";
+            AFK_JigsawFake3DDescriptor fake3D(true, afk_vec3<int>(sSizes.vDim, sSizes.vDim, sSizes.vDim));
+            int mult = fake3D.getMult();
+            args << "-D VAPOUR_FAKE3D_S="           << mult                         << " ";
+            args << "-D VAPOUR_FAKE3D_T="           << mult                         << " ";
+        }
+        else
+        {
+            args << "-D AFK_FAKE3D=0";
+        }
     }
 
     std::string argsStr = args.str();
@@ -432,6 +464,12 @@ bool AFK_Computer::testVersion(unsigned int majorVersion, unsigned int minorVers
 bool AFK_Computer::isAMD(void) const
 {
     return platformIsAMD;
+}
+
+bool AFK_Computer::useFake3DImages(const AFK_Config *config) const
+{
+    return (config->forceFake3DImages ||
+        !firstDeviceProps->supportsExtension("cl_khr_3d_image_writes"));
 }
 
 void AFK_Computer::lock(cl_context& o_ctxt, cl_command_queue& o_q)

@@ -10,6 +10,7 @@
 #include <boost/thread/mutex.hpp>
 
 #include "config.hpp"
+#include "def.hpp"
 #include "exception.hpp"
 
 /* This defines a list of programs that I know about. */
@@ -69,13 +70,12 @@ public:
 
     size_t *    maxWorkItemSizes;
 
-    char *      extensions;
-    size_t      extensionsSize;
+    std::string extensions;
     
     AFK_ClDeviceProperties(cl_device_id device);
     virtual ~AFK_ClDeviceProperties();
 
-    /* TODO Method for querying for a particular extension? */
+    bool        supportsExtension(const std::string& ext) const;
 };
 
 std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p);
@@ -157,6 +157,11 @@ public:
 
     /* Returns true if on an AMD platform, else false. */
     bool isAMD(void) const;
+
+    /* Returns true if we should use fake 3D images,
+     * else false.
+     */
+    bool useFake3DImages(const AFK_Config *config) const;
 
     /* Locks the CL and gives you back the context and
      * queue.  Be quick, enqueue your thing and release
