@@ -135,6 +135,14 @@ __constant sampler_t vapourSampler = CLK_NORMALIZED_COORDS_FALSE |
 
 float4 readVapourPoint(__read_only AFK_IMAGE3D vapour, __global const struct AFK_3DComputeUnit *units, int unitOffset, int4 pieceCoord)
 {
+    /* TODO: To avoid needing vapour piece cross-referencing quite yet,
+     * I'm going to clamp all the elements of pieceCoord to VDIM-1 and
+     * not stray up to VDIM (next piece)
+     */
+    pieceCoord.x = min(pieceCoord.x, VDIM-1);
+    pieceCoord.y = min(pieceCoord.y, VDIM-1);
+    pieceCoord.z = min(pieceCoord.z, VDIM-1);
+
     return read_imagef(vapour, vapourSampler, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, pieceCoord));
 }
 
@@ -260,9 +268,6 @@ __kernel void makeShape3DEdge(
      * I'm trying not to think about my vapourPiece
      * discrepancy...  :/
      */
-    /* TODO: Further debugging. */
-    if (xdim < VDIM && zdim < VDIM && face == 2)
-    {
     int4 lastVapourPointCoord = makeVapourCoord(face, xdim, zdim, 0);
     float4 lastVapourPoint = readVapourPoint(vapour, units, unitOffset, lastVapourPointCoord);
 
@@ -279,7 +284,7 @@ __kernel void makeShape3DEdge(
         foundEdge = true;
     }
 
-    for (int stepsBack = 1; !foundEdge && stepsBack < (EDIM-1); ++stepsBack)
+    for (int stepsBack = 1; !foundEdge && stepsBack < EDIM; ++stepsBack)
     {
         /* Read the next point to compare with */
         int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack);
@@ -340,7 +345,6 @@ __kernel void makeShape3DEdge(
 
         lastVapourPointCoord = thisVapourPointCoord;
         lastVapourPoint = thisVapourPoint;
-    }
     }
 
     if (!foundEdge)
