@@ -170,7 +170,7 @@ float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 locati
 }
 
 __constant sampler_t vapourSampler = CLK_NORMALIZED_COORDS_FALSE |
-    CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+    CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
 
 __kernel void makeShape3DEdge(
     __read_only image3d_t vapour,
@@ -283,7 +283,7 @@ __kernel void makeShape3DEdge(
         if (lastVapourPoint.w < threshold && thisVapourPoint.w >= threshold)
         {
             /* This is an edge, and it's mine! */
-            float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, /* stepsBack */ 0, units[unitOffset].location);
+            float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
             write_imagef(jigsawDisp, edgeCoord, edgeVertex);
             write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
 
