@@ -725,7 +725,7 @@ AFK_World::AFK_World(
     worldCache = new AFK_WORLD_CACHE(
         worldCacheBitness, 8, AFK_HashCell(), worldCacheEntries, 0xfffffffeu);
 
-    unsigned int shapeCacheEntries = shapeCacheSize / (SQUARE(sSizes.eDim) * 6);
+    unsigned int shapeCacheEntries = shapeCacheSize / (12 * SQUARE(sSizes.eDim) * 6 + CUBE(sSizes.vDim));
 
     Vec3<int> vapourPieceSize = afk_vec3<int>(sSizes.vDim, sSizes.vDim, sSizes.vDim);
     enum AFK_JigsawFormat vapourTexFormat = AFK_JIGSAW_4FLOAT32;
