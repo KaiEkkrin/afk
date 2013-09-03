@@ -262,12 +262,6 @@ __kernel void makeShape3DEdge(
     bool foundEdge = false;
     int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
 
-    /* TODO: For now, blocking the VDIM end of everything.  It's
-     * going to be reading from the wrong place in the vapour,
-     * definitely.
-     * I'm trying not to think about my vapourPiece
-     * discrepancy...  :/
-     */
     int4 lastVapourPointCoord = makeVapourCoord(face, xdim, zdim, 0);
     float4 lastVapourPoint = readVapourPoint(vapour, units, unitOffset, lastVapourPointCoord);
 
@@ -337,6 +331,37 @@ __kernel void makeShape3DEdge(
             write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
 
             /* TODO Compute the normal here. */
+            /* Ah, the normal.  Consider two orthogonal axes (x, y):
+             * If the difference (left - this) is zero, the normal at `this' is
+             * perpendicular to x.
+             * As that difference tends to infinity, the normal tends towards parallel
+             * to x.
+             * The reverse occurs w.r.t. the y axis.
+             * If (left - this) == (last - this), the angle between the normal
+             * and both x and y axes is 45 degrees.
+             * What function describes this effect?
+             * Note: tan(x) is the ratio between the 2 shorter sides of the
+             * triangle, where x is the angle at the apex.
+             * However, I don't really need the angle do I?  Don't I need to normalize
+             * the (x, y) vector,
+             * (last - this, left - this) ?
+             *
+             * What's the 3D equivalent, for (this, left, front, last) ?
+             * (sqrt((front - this)**2 + (last - this)**2),
+             *  sqrt((left - this)**2 + (last - this)**2),
+             *  sqrt((left - this)**2 + (front - this)**2)) perhaps ?
+             * Worth a try.  (Hmm; those square roots are also distances.  Perhaps I
+             * could try to short circuit a plot of this by finding the 3D point,
+             * (left, front, last) and taking distance((left, front, last) - (this, this, this)) ?
+             * Then normalize and sum the vectors for each of,
+             * - (this, left, front, last)
+             * - (this, front, right, last)
+             * - (this, right, back, last)
+             * - (this, back, left, last)
+             * Where the `left' and `front' square roots should be subtracted...  I think
+             * and rotate it into world space...  (do that after the basic thing looks plausible...)
+             */
+
             write_imagef(jigsawNormal, edgeCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
 
             foundEdge = true;
