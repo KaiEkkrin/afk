@@ -11,6 +11,9 @@ layout (location = 0) in vec2 TexCoord;
 // We sample (x, y, z, w).
 uniform sampler2D JigsawDispTex;
 
+// ...and the normal
+uniform sampler2D JigsawNormalTex;
+
 // This is the entity display queue.  There are five texels
 // per instance, which contain:
 // - first 4: the 4 rows of the transform matrix for the instance
@@ -25,6 +28,7 @@ uniform mat4 ProjectionTransform;
 
 out VertexData
 {
+    vec3 normal;
     vec2 jigsawCoord;
 } outData;
 
@@ -49,5 +53,9 @@ void main()
         vec4(WTRow1.w, WTRow2.w, WTRow3.w, WTRow4.w));
 
     gl_Position = (ProjectionTransform * WorldTransform) * dispPosition;
+
+    // Transform the normal to world space.
+    vec4 normal = textureLod(JigsawNormalTex, outData.jigsawCoord, 0);
+    outData.normal = (WorldTransform * normal).xyz;
 }
 

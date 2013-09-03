@@ -12,11 +12,13 @@ layout (max_vertices = 3) out;
 
 in VertexData
 {
+    vec3 normal;
     vec2 jigsawCoord;
 } inData[];
 
 out GeometryData
 {
+    vec3 normal;
     vec2 jigsawCoord;
 } outData;
 
@@ -39,6 +41,7 @@ void main()
         for (int i = 0; i < 3; ++i)
         {
             gl_Position = gl_in[i].gl_Position;
+            outData.normal = inData[i].normal;
             outData.jigsawCoord = inData[i].jigsawCoord;
             EmitVertex();
         }

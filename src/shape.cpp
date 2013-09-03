@@ -193,7 +193,7 @@ void AFK_Shape::makeSkeleton(
      * good values going on).  4 is a reasonable starting
      * point.
      */
-    unsigned int pointGridScale = 4;
+    unsigned int pointGridScale = 8;
     for (int pI = pointGrids.size() - 1; pI >= 0; --pI)
     {
         Vec3<int> scaledCube = cube * pointGridScale;

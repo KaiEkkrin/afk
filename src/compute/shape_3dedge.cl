@@ -139,11 +139,9 @@ float4 readVapourPoint(__read_only AFK_IMAGE3D vapour, __global const struct AFK
      * I'm going to clamp all the elements of pieceCoord to VDIM-1 and
      * not stray up to VDIM (next piece)
      */
-    pieceCoord.x = min(pieceCoord.x, VDIM-1);
-    pieceCoord.y = min(pieceCoord.y, VDIM-1);
-    pieceCoord.z = min(pieceCoord.z, VDIM-1);
-
-    if (pieceCoord.x < 0 || pieceCoord.y < 0 || pieceCoord.z < 0)
+    if (pieceCoord.x < 0 || pieceCoord.x >= VDIM ||
+        pieceCoord.y < 0 || pieceCoord.y >= VDIM ||
+        pieceCoord.z < 0 || pieceCoord.z >= VDIM)
     {
         return (float4)(0.0f, 0.0f, 0.0f, 0.0f);
     }
@@ -232,16 +230,18 @@ float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 locati
         location.w);
 }
 
-/* This function tries to calculate a normal at a vapour point.
+/* This function tries to calculate a normal around a vapour
+ * point and points displaced from it by the given vector.
  * It's going to be going around re-reading things that have
  * already been read but GPUs have caches, right, and this
  * kernel isn't on the critical path anyway...
  */
-float4 makeNormal(
+float4 make4PointNormal(
     __read_only AFK_IMAGE3D vapour,
     __global const struct AFK_3DComputeUnit *units,
-    int unitOffset, int face, int xdim, int zdim, int stepsBack,
-    float4 lastVapourPoint, float4 thisVapourPoint)
+    int unitOffset,
+    int4 thisVapourPointCoord,
+    int4 displacement) /* (x, y, z) should each be 1 or -1 */
 {
     /* Ah, the normal.  Consider two orthogonal axes (x, y):
      * If the difference (left - this) is zero, the normal at `this' is
@@ -274,48 +274,21 @@ float4 makeNormal(
      * and rotate it into world space...  (do that after the basic thing looks plausible...)
      */
 
-    int4 leftVapourPointCoord = makeVapourCoord(face, xdim - 1, zdim, stepsBack);
-    float4 leftVapourPoint = readVapourPoint(vapour, units, unitOffset, leftVapourPointCoord);
+    int4 xVapourPointCoord = thisVapourPointCoord + (int4)(displacement.x, 0, 0, 0);
+    int4 yVapourPointCoord = thisVapourPointCoord - (int4)(0, displacement.y, 0, 0);
+    int4 zVapourPointCoord = thisVapourPointCoord - (int4)(0, 0, displacement.z, 0);
 
-    int4 frontVapourPointCoord = makeVapourCoord(face, xdim, zdim - 1, stepsBack);
-    float4 frontVapourPoint = readVapourPoint(vapour, units, unitOffset, frontVapourPointCoord);
+    float4 thisVapourPoint = readVapourPoint(vapour, units, unitOffset, thisVapourPointCoord);
+    float4 xVapourPoint = readVapourPoint(vapour, units, unitOffset, xVapourPointCoord);
+    float4 yVapourPoint = readVapourPoint(vapour, units, unitOffset, yVapourPointCoord);
+    float4 zVapourPoint = readVapourPoint(vapour, units, unitOffset, zVapourPointCoord);
 
-    int4 rightVapourPointCoord = makeVapourCoord(face, xdim + 1, zdim, stepsBack);
-    float4 rightVapourPoint = readVapourPoint(vapour, units, unitOffset, rightVapourPointCoord);
+    float3 combinedVectors = (float3)(
+        (xVapourPoint.w - thisVapourPoint.w) * displacement.x,
+        (yVapourPoint.w - thisVapourPoint.w) * displacement.y,
+        (zVapourPoint.w - thisVapourPoint.w) * displacement.z);
 
-    int4 backVapourPointCoord = makeVapourCoord(face, xdim, zdim + 1, stepsBack);
-    float4 backVapourPoint = readVapourPoint(vapour, units, unitOffset, backVapourPointCoord);
-
-    /* TODO: First step that might work.  Next step:
-     * rotate the normals by face ...
-     * (Should I convert this function to be using
-     * six co-ordinates including a `nextPointer' too,
-     * and make the axes the real (x, y, z), rather than
-     * (x, z, stepsBack) ... ? )
-     */
-    float3 leftPointer = (float3)(
-        leftVapourPoint.w - thisVapourPoint.w,
-        lastVapourPoint.w - thisVapourPoint.w,
-        frontVapourPoint.w - thisVapourPoint.w);
-
-    float3 frontPointer = (float3)(
-        thisVapourPoint.w - rightVapourPoint.w,
-        lastVapourPoint.w - thisVapourPoint.w,
-        frontVapourPoint.w - thisVapourPoint.w);
-
-    float3 rightPointer = (float3)(
-        thisVapourPoint.w - rightVapourPoint.w,
-        lastVapourPoint.w - thisVapourPoint.w,
-        thisVapourPoint.w - backVapourPoint.w);
-
-    float3 backPointer = (float3)(
-        leftVapourPoint.w - thisVapourPoint.w,
-        lastVapourPoint.w - thisVapourPoint.w,
-        thisVapourPoint.w - backVapourPoint.w);
-
-    return (float4)(
-        normalize(leftPointer + frontPointer + rightPointer + backPointer),
-        0.0f);
+    return (float4)(normalize(combinedVectors), 0.0f);
 }
 
 __kernel void makeShape3DEdge(
@@ -412,10 +385,20 @@ __kernel void makeShape3DEdge(
             float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
             write_imagef(jigsawDisp, edgeCoord, edgeVertex);
             write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
-            write_imagef(jigsawNormal, edgeCoord, makeNormal(
-                vapour, units, unitOffset,
-                face, xdim, zdim, stepsBack,
-                lastVapourPoint, thisVapourPoint));
+
+            float4 normal = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+            for (int xN = -1; xN <= 1; xN += 2)
+            {
+                for (int yN = -1; yN <= 1; yN += 2)
+                {
+                    for (int zN = -1; zN <= 1; zN += 2)
+                    {
+                        normal += make4PointNormal(vapour, units, unitOffset, thisVapourPointCoord, (int4)(xN, yN, zN, 0));
+                    }
+                }
+            }
+
+            write_imagef(jigsawNormal, edgeCoord, normalize(normal));
 
             foundEdge = true;
         }
