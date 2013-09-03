@@ -134,6 +134,24 @@ protected:
     AFK_JigsawCollection *vapourJigsaws;
     AFK_JigsawCollection *edgeJigsaws;
 
+    /* TODO: Cube link-up and LoD.
+     * I think that rather than the above, I want to have a polymer
+     * backed cache here, caching the vapour piece (and edge pieces)
+     * by co-ordinate within the skeleton.
+     * Which means I'm going to want to divide the skeleton up into
+     * Cells (!) and do a whole lot of things that are similar to
+     * what I do with the World, w.r.t. level of detail, etc etc.
+     * I also observe that in the world I didn't do adjacency, which
+     * is hard, and maybe I should reverse my decision on that here
+     * too.  I can use a global space for edge claiming by faces,
+     * it's probably no big deal ...
+     * I need to go back through the way the world enumerator works
+     * and write this down on paper before proceeding.  I'm going
+     * to want a detail pitch for the cubes just like I have a detail
+     * pitch for world cells (no doubt something like
+     * [world]detailPitch / sSizes.skeletonMaxSize ) ...
+     */
+
 public:
     AFK_Shape();
     virtual ~AFK_Shape();
