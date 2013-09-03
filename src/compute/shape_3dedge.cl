@@ -143,7 +143,14 @@ float4 readVapourPoint(__read_only AFK_IMAGE3D vapour, __global const struct AFK
     pieceCoord.y = min(pieceCoord.y, VDIM-1);
     pieceCoord.z = min(pieceCoord.z, VDIM-1);
 
-    return read_imagef(vapour, vapourSampler, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, pieceCoord));
+    if (pieceCoord.x < 0 || pieceCoord.y < 0 || pieceCoord.z < 0)
+    {
+        return (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+    }
+    else
+    {
+        return read_imagef(vapour, vapourSampler, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, pieceCoord));
+    }
 }
 
 int2 makeEdgeJigsawCoord(__global const struct AFK_3DComputeUnit *units, int unitOffset, int face, int xdim, int zdim)
@@ -225,6 +232,92 @@ float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 locati
         location.w);
 }
 
+/* This function tries to calculate a normal at a vapour point.
+ * It's going to be going around re-reading things that have
+ * already been read but GPUs have caches, right, and this
+ * kernel isn't on the critical path anyway...
+ */
+float4 makeNormal(
+    __read_only AFK_IMAGE3D vapour,
+    __global const struct AFK_3DComputeUnit *units,
+    int unitOffset, int face, int xdim, int zdim, int stepsBack,
+    float4 lastVapourPoint, float4 thisVapourPoint)
+{
+    /* Ah, the normal.  Consider two orthogonal axes (x, y):
+     * If the difference (left - this) is zero, the normal at `this' is
+     * perpendicular to x.
+     * As that difference tends to infinity, the normal tends towards parallel
+     * to x.
+     * The reverse occurs w.r.t. the y axis.
+     * If (left - this) == (last - this), the angle between the normal
+     * and both x and y axes is 45 degrees.
+     * What function describes this effect?
+     * Note: tan(x) is the ratio between the 2 shorter sides of the
+     * triangle, where x is the angle at the apex.
+     * However, I don't really need the angle do I?  Don't I need to normalize
+     * the (x, y) vector,
+     * (last - this, left - this) ?
+     *
+     * What's the 3D equivalent, for (this, left, front, last) ?
+     * (sqrt((front - this)**2 + (last - this)**2),
+     *  sqrt((left - this)**2 + (last - this)**2),
+     *  sqrt((left - this)**2 + (front - this)**2)) perhaps ?
+     * Worth a try.  (Hmm; those square roots are also distances.  Perhaps I
+     * could try to short circuit a plot of this by finding the 3D point,
+     * (left, front, last) and taking distance((left, front, last) - (this, this, this)) ?
+     * Then normalize and sum the vectors for each of,
+     * - (this, left, front, last)
+     * - (this, front, right, last)
+     * - (this, right, back, last)
+     * - (this, back, left, last)
+     * Where the `left' and `front' square roots should be subtracted...  I think
+     * and rotate it into world space...  (do that after the basic thing looks plausible...)
+     */
+
+    int4 leftVapourPointCoord = makeVapourCoord(face, xdim - 1, zdim, stepsBack);
+    float4 leftVapourPoint = readVapourPoint(vapour, units, unitOffset, leftVapourPointCoord);
+
+    int4 frontVapourPointCoord = makeVapourCoord(face, xdim, zdim - 1, stepsBack);
+    float4 frontVapourPoint = readVapourPoint(vapour, units, unitOffset, frontVapourPointCoord);
+
+    int4 rightVapourPointCoord = makeVapourCoord(face, xdim + 1, zdim, stepsBack);
+    float4 rightVapourPoint = readVapourPoint(vapour, units, unitOffset, rightVapourPointCoord);
+
+    int4 backVapourPointCoord = makeVapourCoord(face, xdim, zdim + 1, stepsBack);
+    float4 backVapourPoint = readVapourPoint(vapour, units, unitOffset, backVapourPointCoord);
+
+    /* TODO: First step that might work.  Next step:
+     * rotate the normals by face ...
+     * (Should I convert this function to be using
+     * six co-ordinates including a `nextPointer' too,
+     * and make the axes the real (x, y, z), rather than
+     * (x, z, stepsBack) ... ? )
+     */
+    float3 leftPointer = (float3)(
+        leftVapourPoint.w - thisVapourPoint.w,
+        lastVapourPoint.w - thisVapourPoint.w,
+        frontVapourPoint.w - thisVapourPoint.w);
+
+    float3 frontPointer = (float3)(
+        thisVapourPoint.w - rightVapourPoint.w,
+        lastVapourPoint.w - thisVapourPoint.w,
+        frontVapourPoint.w - thisVapourPoint.w);
+
+    float3 rightPointer = (float3)(
+        thisVapourPoint.w - rightVapourPoint.w,
+        lastVapourPoint.w - thisVapourPoint.w,
+        thisVapourPoint.w - backVapourPoint.w);
+
+    float3 backPointer = (float3)(
+        leftVapourPoint.w - thisVapourPoint.w,
+        lastVapourPoint.w - thisVapourPoint.w,
+        thisVapourPoint.w - backVapourPoint.w);
+
+    return (float4)(
+        normalize(leftPointer + frontPointer + rightPointer + backPointer),
+        0.0f);
+}
+
 __kernel void makeShape3DEdge(
     __read_only AFK_IMAGE3D vapour,
     __global const struct AFK_3DComputeUnit *units,
@@ -262,23 +355,13 @@ __kernel void makeShape3DEdge(
     bool foundEdge = false;
     int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
 
-    int4 lastVapourPointCoord = makeVapourCoord(face, xdim, zdim, 0);
+    /* TODO For normals, this -1 here needs to work correctly cross
+     * vapour cubes !
+     */
+    int4 lastVapourPointCoord = makeVapourCoord(face, xdim, zdim, -1);
     float4 lastVapourPoint = readVapourPoint(vapour, units, unitOffset, lastVapourPointCoord);
 
-    if (lastVapourPoint.w >= threshold)
-    {
-        /* This is an edge, and it's mine! */
-        float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, 0, units[unitOffset].location);
-        write_imagef(jigsawDisp, edgeCoord, edgeVertex);
-        write_imagef(jigsawColour, edgeCoord, lastVapourPoint);
-
-        /* TODO Compute the normal here. */
-        write_imagef(jigsawNormal, edgeCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
-
-        foundEdge = true;
-    }
-
-    for (int stepsBack = 1; !foundEdge && stepsBack < EDIM; ++stepsBack)
+    for (int stepsBack = 0; !foundEdge && stepsBack < EDIM; ++stepsBack)
     {
         /* Read the next point to compare with */
         int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack);
@@ -329,40 +412,10 @@ __kernel void makeShape3DEdge(
             float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
             write_imagef(jigsawDisp, edgeCoord, edgeVertex);
             write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
-
-            /* TODO Compute the normal here. */
-            /* Ah, the normal.  Consider two orthogonal axes (x, y):
-             * If the difference (left - this) is zero, the normal at `this' is
-             * perpendicular to x.
-             * As that difference tends to infinity, the normal tends towards parallel
-             * to x.
-             * The reverse occurs w.r.t. the y axis.
-             * If (left - this) == (last - this), the angle between the normal
-             * and both x and y axes is 45 degrees.
-             * What function describes this effect?
-             * Note: tan(x) is the ratio between the 2 shorter sides of the
-             * triangle, where x is the angle at the apex.
-             * However, I don't really need the angle do I?  Don't I need to normalize
-             * the (x, y) vector,
-             * (last - this, left - this) ?
-             *
-             * What's the 3D equivalent, for (this, left, front, last) ?
-             * (sqrt((front - this)**2 + (last - this)**2),
-             *  sqrt((left - this)**2 + (last - this)**2),
-             *  sqrt((left - this)**2 + (front - this)**2)) perhaps ?
-             * Worth a try.  (Hmm; those square roots are also distances.  Perhaps I
-             * could try to short circuit a plot of this by finding the 3D point,
-             * (left, front, last) and taking distance((left, front, last) - (this, this, this)) ?
-             * Then normalize and sum the vectors for each of,
-             * - (this, left, front, last)
-             * - (this, front, right, last)
-             * - (this, right, back, last)
-             * - (this, back, left, last)
-             * Where the `left' and `front' square roots should be subtracted...  I think
-             * and rotate it into world space...  (do that after the basic thing looks plausible...)
-             */
-
-            write_imagef(jigsawNormal, edgeCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
+            write_imagef(jigsawNormal, edgeCoord, makeNormal(
+                vapour, units, unitOffset,
+                face, xdim, zdim, stepsBack,
+                lastVapourPoint, thisVapourPoint));
 
             foundEdge = true;
         }
