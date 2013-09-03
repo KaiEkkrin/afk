@@ -2,6 +2,8 @@
 
 #include "afk.hpp"
 
+#include <cmath>
+
 #include "core.hpp"
 #include "exception.hpp"
 #include "world_cell.hpp"
@@ -177,7 +179,7 @@ void AFK_WorldCell::addStartingEntity(
     /* Fit the entity inside the cell, but don't make it so
      * small as to be a better fit for sub-cells
      */
-    float maxEntitySize = realCoord.v[3] / (float)sSizes.entitySubdivisionFactor;
+    float maxEntitySize = realCoord.v[3] / (/* (float)sSizes.entitySubdivisionFactor * */ (float)sSizes.skeletonFlagGridDim);
     float minEntitySize = maxEntitySize / sSizes.subdivisionFactor;
 
     float entitySize = rng.frand() * (maxEntitySize - minEntitySize) + minEntitySize;
@@ -191,10 +193,37 @@ void AFK_WorldCell::addStartingEntity(
         entityDisplacement.v[j] = realCoord.v[j] + rng.frand() * (maxEntityLocation - minEntityLocation) + minEntityLocation;
     }
 
+    Vec3<float> entityRotation;
+    switch (rng.uirand() % 5)
+    {
+    case 0:
+        entityRotation = afk_vec3<float>(0.0f, 0.0f, 0.0f);
+        break;
+
+    case 1:
+        entityRotation = afk_vec3<float>(rng.frand() * 2.0f * M_PI, 0.0f, 0.0f);
+        break;
+
+    case 2:
+        entityRotation = afk_vec3<float>(0.0f, rng.frand() * 2.0f * M_PI, 0.0f);
+        break;
+
+    case 3:
+        entityRotation = afk_vec3<float>(0.0f, 0.0f, rng.frand() * 2.0f * M_PI);
+        break;
+
+    default:
+        entityRotation = afk_vec3<float>(
+            rng.frand() * 2.0f * M_PI,
+            rng.frand() * 2.0f * M_PI,
+            rng.frand() * 2.0f * M_PI);
+        break;
+    }
+
     e->position(
         afk_vec3<float>(entitySize, entitySize, entitySize),
         entityDisplacement,
-        afk_vec3<float>(0.0f, 0.0f, 0.0f));
+        entityRotation);
 
     entities.push_back(e);
 }
