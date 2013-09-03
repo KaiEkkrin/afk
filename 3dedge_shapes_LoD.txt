@@ -1,0 +1,22 @@
+3D edge shapes with LoD
+=======================
+
+ - Try to make the below changes in _small steps that keep working_ this time ...
+ - I'm going to need a similar algorithm to the world cell enumerator to enumerate the relevant `vapour cells'.
+ - Just like the World uses for world cells, the Shape should have a vapour cell cache backed by a polymer.  And it might as well key it by AFK_Cell, so that it's expandable in future to infinitely large objects.
+ - Each VapourCell now gets to own its edges as well.
+ - Factor the detail pitch detection stuff out of Worldcell into a new parent class for it and VapourCell: `VisibleCell' maybe.
+ - Modify that algorithm so that it's aware of vNear and doesn't try to focus in even closer onto things closer to the camera than vNear.
+ - Shapes may appear in different instances with different sizes so the vapour cell size is necessarily detached from the world cell size.  Honestly there's no good reason why not to start with the largest scale I can, to give the maximum drill-down ability: why not 1<<62? :P
+ - Split apart 3dComputeQueue into a 3DEdgeComputeQueue and a 3DVapourComputeQueue.  (Is there a commonality to compute queues that I can abstract?  I suspect not really.  It'd be too squiffy.)
+ - Each vapour cell identified by the enumeration gets enqueued into the vapour compute fair (yes, fair!) if it doesn't have artwork.
+ - The relevant edge cells are also enqueued (inner edge culling is TODO).  The edge compute fair is the one that has the strange cross queue numbering, because each queue corresponds to a (vapour jigsaw, edge jigsaw) pair.
+ - Whilst the enumeration should be separate for each shape, the jigsaws and vapour cell cache should be universal to save resources.  (It'll need its own eviction doodah and everything).
+ - Now is probably the time to break `world' apart, into a master `world' which does the world enumeration, a `landscape' which holds the landscape specific stuff, and move the shape specific stuff into `entity' ?
+ - The 3D vapour queue's units will each have just the single vapour cell being computed (and of course the cubes describing its contents.)
+ - The 3D edge queue's units will include the adjacent vapour cubes as well as the home one, to do overlaps.
+ - The VapourCell knows how to enqueue both vapour and edges for computation as well as edges for drawing (and vapour for drawing in future).  It keeps the jigsaw pieces and timestamps for its own vapour piece and all six edge pieces.  Timestamp expiry is managed separately, since the compute queues are separate.
+ - The VapourCell goes back to the vapour cache for adjacency information.  The shape enumeration will need to do the equivalent of a RENDER_TERRAIN task push to get adjacent vapour cells that weren't part of the visible enumeration computed if required.  (I'm not even going to think about LoD stitching right now; I'm sure I'll be able to sort something out but, tricky; will no doubt want a mipmap system just like the terrain does.)
+ - How hard can it be?
+ - Remember: small changes, and verify it all still works after each change.
+
