@@ -157,11 +157,10 @@ void transformCubeToCube(
     transformLocationToLocation(vl, vc, fromCoord, toCoord);
 }
 
-struct AFK_3DComputeUnit
+struct AFK_3DVapourComputeUnit
 {
     float4 location;
     int4 vapourPiece;
-    int2 edgePiece;
     int cubeOffset;
     int cubeCount;
 };
@@ -169,7 +168,7 @@ struct AFK_3DComputeUnit
 __kernel void makeShape3DVapour(
     __global const struct AFK_3DVapourFeature *features,
     __global const struct AFK_3DVapourCube *cubes,
-    __global const struct AFK_3DComputeUnit *units,
+    __global const struct AFK_3DVapourComputeUnit *units,
     __write_only AFK_IMAGE3D vapour)
 {
     /* We're necessarily going to operate across the

@@ -256,7 +256,7 @@ void AFK_World::generateShapeArtwork(
     std::vector<AFK_ShapeCube> cubesForCompute;
     shape.getCubesForCompute(threadId, 0, 0, vapourJigsaws, edgeJigsaws, cubesForCompute);
 
-    AFK_3DComputeUnit cu;
+    AFK_3DVapourComputeUnit cu;
     int lastVapourPuzzle = -1;
     int lastEdgePuzzle = -1;
 
@@ -272,7 +272,14 @@ void AFK_World::generateShapeArtwork(
     {
         int vapourPuzzle = cubeIt->vapourJigsawPiece.puzzle;
         int edgePuzzle = cubeIt->edgeJigsawPiece.puzzle;
-        boost::shared_ptr<AFK_3DComputeQueue> computeQueue = shapeComputeFair.getUpdateQueue(combineTwoPuzzleFairQueue(vapourPuzzle, edgePuzzle));
+
+        /* Right now, there is a one-to-one mapping between
+         * vapour cube and edge set.
+         * This may change (which would muddle this logic all up)
+         */
+        boost::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
+            vapourComputeFair.getUpdateQueue(vapourPuzzle);
+
         if (cu.uninitialised() || lastVapourPuzzle != vapourPuzzle || lastEdgePuzzle != edgePuzzle)
         {
             if (lastVapourPuzzle != -1)
@@ -291,16 +298,21 @@ void AFK_World::generateShapeArtwork(
                 throw AFK_Exception(ss.str());
             }
 
-            /* Extend the compute queue with this face. */
-            cu = computeQueue->extend(shapeList, *cubeIt, sSizes);
+            /* Extend the vapour compute queue with this cube. */
+            cu = vapourComputeQueue->extend(shapeList, *cubeIt, sSizes);
             lastVapourPuzzle = vapourPuzzle;
             lastEdgePuzzle = edgePuzzle;
         }
         else
         {
-            /* Add a new Unit for this face, re-using the list. */
-            cu = computeQueue->addUnitWithExisting(cu, *cubeIt);
+            /* Add a new Unit for this cube, re-using the list. */
+            cu = vapourComputeQueue->addUnitFromExisting(cu, *cubeIt);
         }
+
+        boost::shared_ptr<AFK_3DEdgeComputeQueue> edgeComputeQueue =
+            edgeComputeFair.getUpdateQueue(combineTwoPuzzleFairQueue(vapourPuzzle, edgePuzzle));
+
+        edgeComputeQueue->append(*cubeIt);
     }
 
     shapesComputed.fetch_add(1);
@@ -892,7 +904,8 @@ void AFK_World::flipRenderQueues(cl_context ctxt, const AFK_Frame& newFrame)
     landscapeDisplayFair.flipQueues();
     landscapeJigsaws->flipCuboids(ctxt, newFrame);
 
-    shapeComputeFair.flipQueues();
+    vapourComputeFair.flipQueues();
+    edgeComputeFair.flipQueues();
     entityDisplayFair.flipQueues();
     vapourJigsaws->flipCuboids(ctxt, newFrame);
     edgeJigsaws->flipCuboids(ctxt, newFrame);
@@ -980,15 +993,23 @@ void AFK_World::doComputeTasks(void)
         terrainComputeQueues[puzzle]->computeStart(afk_core.computer, landscapeJigsaws->getPuzzle(puzzle), lSizes);
     }
 
-    std::vector<boost::shared_ptr<AFK_3DComputeQueue> > shapeComputeQueues;
-    shapeComputeFair.getDrawQueues(shapeComputeQueues);
+    std::vector<boost::shared_ptr<AFK_3DVapourComputeQueue> > vapourComputeQueues;
+    vapourComputeFair.getDrawQueues(vapourComputeQueues);
 
-    for (unsigned int queue = 0; queue < shapeComputeQueues.size(); ++queue)
+    for (unsigned int puzzle = 0; puzzle < vapourComputeQueues.size(); ++puzzle)
+    {
+        vapourComputeQueues[puzzle]->computeStart(afk_core.computer, vapourJigsaws->getPuzzle(puzzle), sSizes);
+    }
+
+    std::vector<boost::shared_ptr<AFK_3DEdgeComputeQueue> > edgeComputeQueues;
+    edgeComputeFair.getDrawQueues(edgeComputeQueues);
+
+    for (unsigned int queue = 0; queue < edgeComputeQueues.size(); ++queue)
     {
         int vapourPuzzle, edgePuzzle;
         splitTwoPuzzleFairQueue(queue, vapourPuzzle, edgePuzzle);
 
-        shapeComputeQueues[queue]->computeStart(
+        edgeComputeQueues[queue]->computeStart(
             afk_core.computer,
             vapourJigsaws->getPuzzle(vapourPuzzle),
             edgeJigsaws->getPuzzle(edgePuzzle),
@@ -1004,9 +1025,14 @@ void AFK_World::doComputeTasks(void)
         terrainComputeQueues[puzzle]->computeFinish();
     }
 
-    for (unsigned int queue = 0; queue < shapeComputeQueues.size(); ++queue)
+    for (unsigned int puzzle = 0; puzzle < vapourComputeQueues.size(); ++puzzle)
     {
-        shapeComputeQueues[queue]->computeFinish();
+        vapourComputeQueues[puzzle]->computeFinish();
+    }
+
+    for (unsigned int queue = 0; queue < edgeComputeQueues.size(); ++queue)
+    {
+        edgeComputeQueues[queue]->computeFinish();
     }
 }
 

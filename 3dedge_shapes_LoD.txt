@@ -6,7 +6,7 @@
  - Just like the World uses for world cells, the Shape should have a vapour cell cache backed by a polymer.  And it might as well key it by AFK_Cell, so that it's expandable in future to infinitely large objects.
  - Each VapourCell now gets to own its edges as well.
  - Factor the detail pitch detection stuff out of Worldcell into a new parent class for it and VapourCell: `VisibleCell' maybe. OK
- - Modify that algorithm so that it's aware of vNear and doesn't try to focus in even closer onto things closer to the camera than vNear.
+ - Modify that algorithm so that it's aware of vNear and doesn't try to focus in even closer onto things closer to the camera than vNear. OK
  - Shapes may appear in different instances with different sizes so the vapour cell size is necessarily detached from the world cell size.  Honestly there's no good reason why not to start with the largest scale I can, to give the maximum drill-down ability: why not 1<<62? :P <-- The problem with that is it doesn't convert into a float: it's bigger than the highest float exponent.  Try 1<<30 instead.
  - Split apart 3dComputeQueue into a 3DEdgeComputeQueue and a 3DVapourComputeQueue.  (Is there a commonality to compute queues that I can abstract?  I suspect not really.  It'd be too squiffy.)
  - Each vapour cell identified by the enumeration gets enqueued into the vapour compute fair (yes, fair!) if it doesn't have artwork.

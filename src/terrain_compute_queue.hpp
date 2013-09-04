@@ -81,6 +81,9 @@ protected:
      */
     std::vector<AFK_LandscapeTile*> landscapeTiles;
 
+    std::vector<cl_event> preTerrainWaitList;
+    std::vector<cl_event> postTerrainWaitList;
+
 public:
     AFK_TerrainComputeQueue();
     virtual ~AFK_TerrainComputeQueue();

@@ -44,7 +44,8 @@ public:
         cl_sampler *yDispSampler,
         const AFK_LandscapeSizes& lSizes,
         cl_uint eventsInWaitList,
-        const cl_event *eventWaitList);
+        const cl_event *eventWaitList,
+        cl_event *o_event);
 
     void readBack(
         unsigned int unitCount,

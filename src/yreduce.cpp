@@ -28,7 +28,8 @@ void AFK_YReduce::compute(
     cl_sampler *yDispSampler,
     const AFK_LandscapeSizes& lSizes,
     cl_uint eventsInWaitList,
-    const cl_event *eventWaitList)
+    const cl_event *eventWaitList,
+    cl_event *o_event)
 {
     cl_int error;
 
@@ -63,10 +64,8 @@ void AFK_YReduce::compute(
     yReduceLocalDim[0] = (1 << lSizes.getReduceOrder());
     yReduceLocalDim[1] = 1;
 
-    cl_event yReduceEvent;
-
     AFK_CLCHK(clEnqueueNDRangeKernel(q, yReduceKernel, 2, 0, &yReduceGlobalDim[0], &yReduceLocalDim[0],
-        eventsInWaitList, eventWaitList, &yReduceEvent))
+        eventsInWaitList, eventWaitList, o_event))
 
     size_t requiredReadbackSize = requiredSize / sizeof(float);
     if (readbackSize < requiredReadbackSize)
@@ -81,8 +80,7 @@ void AFK_YReduce::compute(
      */
     AFK_CLCHK(clEnqueueReadBuffer(q, buf,
         afk_core.computer->isAMD() ? CL_TRUE : CL_FALSE,
-        0, requiredSize, readback, 1, &yReduceEvent, &readbackEvent))
-    AFK_CLCHK(clReleaseEvent(yReduceEvent))
+        0, requiredSize, readback, 1, o_event, &readbackEvent))
 }
 
 void AFK_YReduce::readBack(
@@ -91,8 +89,8 @@ void AFK_YReduce::readBack(
 {
     if (!readbackEvent) return;
 
-    clWaitForEvents(1, &readbackEvent);
-    clReleaseEvent(readbackEvent);
+    AFK_CLCHK(clWaitForEvents(1, &readbackEvent))
+    AFK_CLCHK(clReleaseEvent(readbackEvent))
     readbackEvent = 0;
 
 #if 0

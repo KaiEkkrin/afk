@@ -700,35 +700,58 @@ Vec3<float> AFK_Jigsaw::getPiecePitchSTR(void) const
         1.0f / (float)jigsawSize.v[2]);
 }
 
-cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q, cl_event *o_event)
+cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q, std::vector<cl_event>& o_events)
 {
+    /* Note that acquireForCl() may be called several times (and so
+     * may releaseFromCl() ).  When acquire is called it will
+     * retain the events for you; when release is called it will
+     * retain any release wait events in the event list for further
+     * acquires.
+     */
+
     switch (bufferUsage)
     {
-    case AFK_JIGSAW_BU_CL_GL_COPIED:
+    case AFK_JIGSAW_BU_CL_GL_SHARED:
+        for (unsigned int tex = 0; tex < texCount; ++tex)
+        {
+            cl_event acquireEvent;
+            AFK_CLCHK(clEnqueueAcquireGLObjects(q, 1, &clTex[tex], changeEvents[tex].size(), &changeEvents[tex][0], &acquireEvent))
+            for (std::vector<cl_event>::iterator cEvIt = changeEvents[tex].begin();
+                cEvIt != changeEvents[tex].end(); ++cEvIt)
+            {
+                AFK_CLCHK(clReleaseEvent(*cEvIt))
+            }
+            changeEvents[tex].clear();
+            o_events.push_back(acquireEvent);
+        }
+        break;
+
+    default:
         /* Make sure the change state is reset so that I can start
          * accumulating new changes
          */
         for (unsigned int tex = 0; tex < texCount; ++tex)
         {
-            changeData[tex].clear();
-            changeEvents[tex].clear();
+            /* If there are leftover events the caller needs to wait
+             * for them ...
+             */
+            for (std::vector<cl_event>::iterator cEvIt = changeEvents[tex].begin();
+                cEvIt != changeEvents[tex].end(); ++cEvIt)
+            {
+                AFK_CLCHK(clRetainEvent(*cEvIt))
+                o_events.push_back(*cEvIt);
+            }
         }
-        break;
-
-    case AFK_JIGSAW_BU_CL_GL_SHARED:
-        AFK_CLCHK(clEnqueueAcquireGLObjects(q, texCount, clTex, 0, 0, o_event))
-        break;
-
-    default:
-        /* Nothing to do. */
         break;
     }
 
     return clTex;
 }
 
-void AFK_Jigsaw::releaseFromCl(cl_command_queue q, cl_uint eventsInWaitList, const cl_event *eventWaitList)
+void AFK_Jigsaw::releaseFromCl(cl_command_queue q, const std::vector<cl_event>& eventWaitList)
 {
+    std::vector<cl_event> allWaitList;
+
     switch (bufferUsage)
     {
     case AFK_JIGSAW_BU_CL_GL_COPIED:
@@ -750,6 +773,19 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q, cl_uint eventsInWaitList, con
 
                 requiredChangeDataSize += cuboidSizeInBytes;
                 ++requiredChangeEventCount;
+            }
+
+            /* Make sure that anything pending with that change data has been
+             * finished up because I'm about to re-use the buffer.
+             */
+            if (changeEvents[tex].size() > 0)
+            {
+                AFK_CLCHK(clWaitForEvents(changeEvents[tex].size(), &changeEvents[tex][0]))
+                for (std::vector<cl_event>::iterator cEvIt = changeEvents[tex].begin();
+                    cEvIt != changeEvents[tex].end(); ++cEvIt)
+                {
+                    AFK_CLCHK(clReleaseEvent(*cEvIt))
+                }
             }
 
             changeEvents[tex].resize(requiredChangeEventCount);
@@ -784,7 +820,7 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q, cl_uint eventsInWaitList, con
 
                 AFK_CLCHK(clEnqueueReadImage(
                     q, clTex[tex], CL_FALSE, origin, region, 0, 0, &changeData[tex][changeDataOffset],
-                        eventsInWaitList, eventWaitList, &changeEvents[tex][changeEvent]))
+                        eventWaitList.size(), &eventWaitList[0], &changeEvents[tex][changeEvent]))
                 ++changeEvent;
                 changeDataOffset += cuboidSizeInBytes;
             }
@@ -794,13 +830,43 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q, cl_uint eventsInWaitList, con
     case AFK_JIGSAW_BU_CL_GL_SHARED:
         for (unsigned int tex = 0; tex < texCount; ++tex)
         {
+            /* A release here is contingent on any old change events
+             * being finished, of course.
+             */
+            allWaitList.reserve(eventWaitList.size() + changeEvents[tex].size());
+            for (std::vector<cl_event>::const_iterator evIt = eventWaitList.begin();
+                evIt != eventWaitList.end(); ++evIt)
+            {
+                AFK_CLCHK(clRetainEvent(*evIt))
+                allWaitList.push_back(*evIt);
+            }
+            std::copy(changeEvents[tex].begin(), changeEvents[tex].end(), allWaitList.end());
+
             changeEvents[tex].resize(1);
-            AFK_CLCHK(clEnqueueReleaseGLObjects(q, 1, &clTex[tex], eventsInWaitList, eventWaitList, &changeEvents[tex][0]))
+            AFK_CLCHK(clEnqueueReleaseGLObjects(q, 1, &clTex[tex], allWaitList.size(), &allWaitList[0], &changeEvents[tex][0]))
+            for (std::vector<cl_event>::iterator awIt = allWaitList.begin();
+                awIt != allWaitList.end(); ++awIt)
+            {
+                AFK_CLCHK(clReleaseEvent(*awIt))
+            }
+            allWaitList.clear();
         }
         break;
 
     default:
-        /* Again, nothing to do. */
+        /* The supplied events get retained and fed into the
+         * change event list, so that they can be waited for
+         * upon any subsequent acquire.
+         */
+        for (unsigned int tex = 0; tex < texCount; ++tex)
+        {
+            for (std::vector<cl_event>::const_iterator evIt = eventWaitList.begin();
+                evIt != eventWaitList.end(); ++evIt)
+            {
+                AFK_CLCHK(clRetainEvent(*evIt))
+                changeEvents[tex].push_back(*evIt);
+            }
+        }
         break;
     }
 }
@@ -875,6 +941,21 @@ void AFK_Jigsaw::bindTexture(unsigned int tex)
 
 void AFK_Jigsaw::flipCuboids(const AFK_Frame& currentFrame)
 {
+    /* Make sure any changes are really, properly finished */
+    for (unsigned int tex = 0; tex < texCount; ++tex)
+    {
+        if (changeEvents[tex].size() > 0)
+        {
+            AFK_CLCHK(clWaitForEvents(changeEvents[tex].size(), &changeEvents[tex][0]))
+            for (std::vector<cl_event>::iterator cEvIt = changeEvents[tex].begin();
+                cEvIt != changeEvents[tex].end(); ++cEvIt)
+            {
+                AFK_CLCHK(clReleaseEvent(*cEvIt))
+            }
+            changeEvents[tex].clear();
+        }
+    }
+
     updateCs = (updateCs == 0 ? 1 : 0);
     drawCs = (drawCs == 0 ? 1 : 0);
 

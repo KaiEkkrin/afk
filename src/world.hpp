@@ -12,8 +12,9 @@
 #include <boost/function.hpp>
 #include <boost/thread/thread.hpp>
 
-#include "3d_compute_queue.hpp"
+#include "3d_edge_compute_queue.hpp"
 #include "3d_edge_shape_base.hpp"
+#include "3d_vapour_compute_queue.hpp"
 #include "async/async.hpp"
 #include "async/work_queue.hpp"
 #include "camera.hpp"
@@ -180,8 +181,11 @@ protected:
     AFK_SHAPE_CACHE *shapeCache;
     unsigned int shapeCacheEntries;
 
-    /* The shape computation fair, for when I'm making new ones. */
-    AFK_Fair<AFK_3DComputeQueue> shapeComputeFair;
+    /* For when I'm making new shapes, the vapour and edge
+     * computation fairs.
+     */
+    AFK_Fair<AFK_3DVapourComputeQueue> vapourComputeFair;
+    AFK_Fair<AFK_3DEdgeComputeQueue> edgeComputeFair;
 
     /* The basic shape geometry. */
     GLuint edgeShapeBaseArray;

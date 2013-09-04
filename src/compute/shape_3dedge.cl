@@ -49,13 +49,11 @@ int4 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
 
 #endif /* AFK_FAKE3D */
 
-struct AFK_3DComputeUnit
+struct AFK_3DEdgeComputeUnit
 {
     float4 location;
     int4 vapourPiece;
     int2 edgePiece; /* Points to a 3x2 grid of face textures */
-    int cubeOffset;
-    int cubeCount;
 };
 
 enum AFK_ShapeFace
@@ -133,7 +131,7 @@ int4 makeVapourCoord(int face, int xdim, int zdim, int stepsBack)
 __constant sampler_t vapourSampler = CLK_NORMALIZED_COORDS_FALSE |
     CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
 
-float4 readVapourPoint(__read_only AFK_IMAGE3D vapour, __global const struct AFK_3DComputeUnit *units, int unitOffset, int4 pieceCoord)
+float4 readVapourPoint(__read_only AFK_IMAGE3D vapour, __global const struct AFK_3DEdgeComputeUnit *units, int unitOffset, int4 pieceCoord)
 {
     /* TODO: To avoid needing vapour piece cross-referencing quite yet,
      * I'm going to clamp all the elements of pieceCoord to VDIM-1 and
@@ -151,7 +149,7 @@ float4 readVapourPoint(__read_only AFK_IMAGE3D vapour, __global const struct AFK
     }
 }
 
-int2 makeEdgeJigsawCoord(__global const struct AFK_3DComputeUnit *units, int unitOffset, int face, int xdim, int zdim)
+int2 makeEdgeJigsawCoord(__global const struct AFK_3DEdgeComputeUnit *units, int unitOffset, int face, int xdim, int zdim)
 {
     int2 baseCoord = (int2)(
         units[unitOffset].edgePiece.x * EDIM * 3,
@@ -238,7 +236,7 @@ float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 locati
  */
 float4 make4PointNormal(
     __read_only AFK_IMAGE3D vapour,
-    __global const struct AFK_3DComputeUnit *units,
+    __global const struct AFK_3DEdgeComputeUnit *units,
     int unitOffset,
     int4 thisVapourPointCoord,
     int4 displacement) /* (x, y, z) should each be 1 or -1 */
@@ -293,7 +291,7 @@ float4 make4PointNormal(
 
 __kernel void makeShape3DEdge(
     __read_only AFK_IMAGE3D vapour,
-    __global const struct AFK_3DComputeUnit *units,
+    __global const struct AFK_3DEdgeComputeUnit *units,
     __write_only image2d_t jigsawDisp,
     __write_only image2d_t jigsawColour,
     __write_only image2d_t jigsawNormal,
