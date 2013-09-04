@@ -77,6 +77,9 @@ void AFK_YReduce::compute(
 
     /* TODO If I make this asynchronous (change CL_TRUE to CL_FALSE), I get
      * kersplode on AMD.
+     * I think what's going on is the OpenGL memory management gets
+     * confused in the presence of buffers; try making the readback
+     * an image instead and see if it's happier.
      */
     AFK_CLCHK(clEnqueueReadBuffer(q, buf,
         afk_core.computer->isAMD() ? CL_TRUE : CL_FALSE,
@@ -103,10 +106,10 @@ void AFK_YReduce::readBack(
     std::cout << std::endl;
 #endif
 
-	for (unsigned int i = 0; i < unitCount; ++i)
-	{
-		landscapeTiles[i]->setYBounds(
-			readback[i * 2], readback[i * 2 + 1]);
-	}
+    for (unsigned int i = 0; i < unitCount; ++i)
+    {
+        landscapeTiles[i]->setYBounds(
+            readback[i * 2], readback[i * 2 + 1]);
+    }
 }
 

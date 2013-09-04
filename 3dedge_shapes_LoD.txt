@@ -8,12 +8,12 @@
  - Factor the detail pitch detection stuff out of Worldcell into a new parent class for it and VapourCell: `VisibleCell' maybe. OK
  - Modify that algorithm so that it's aware of vNear and doesn't try to focus in even closer onto things closer to the camera than vNear. OK
  - Shapes may appear in different instances with different sizes so the vapour cell size is necessarily detached from the world cell size.  Honestly there's no good reason why not to start with the largest scale I can, to give the maximum drill-down ability: why not 1<<62? :P <-- The problem with that is it doesn't convert into a float: it's bigger than the highest float exponent.  Try 1<<30 instead.
- - Split apart 3dComputeQueue into a 3DEdgeComputeQueue and a 3DVapourComputeQueue.  (Is there a commonality to compute queues that I can abstract?  I suspect not really.  It'd be too squiffy.)
+ - Split apart 3dComputeQueue into a 3DEdgeComputeQueue and a 3DVapourComputeQueue.  (Is there a commonality to compute queues that I can abstract?  I suspect not really.  It'd be too squiffy.) OK
  - Each vapour cell identified by the enumeration gets enqueued into the vapour compute fair (yes, fair!) if it doesn't have artwork.
  - The relevant edge cells are also enqueued (inner edge culling is TODO).  The edge compute fair is the one that has the strange cross queue numbering, because each queue corresponds to a (vapour jigsaw, edge jigsaw) pair.
  - Whilst the enumeration should be separate for each shape, the jigsaws and vapour cell cache should be universal to save resources.  (It'll need its own eviction doodah and everything).
  - Now is probably the time to break `world' apart, into a master `world' which does the world enumeration, a `landscape' which holds the landscape specific stuff, and move the shape specific stuff into `entity' ?
- - The 3D vapour queue's units will each have just the single vapour cell being computed (and of course the cubes describing its contents.)
+ - The 3D vapour queue's units will each have just the single vapour cell being computed (and of course the cubes describing its contents.) OK
  - The 3D edge queue's units will include the adjacent vapour cubes as well as the home one, to do overlaps.
  - The 3D edge kernel itself should change to produce joins rather than holes in places where there's no edge to be detected.  (Which will require those locals once more.  Mhm.)
  - To have a consistent skeleton: (At least for non-mega shapes) The skeleton shall be plotted once, at the maximum level of detail.  All lower levels of detail shall contain faces in the same places, but extending to 2x2, 4x4, etc grids of those faces rather than just one face.  In addition to this:
