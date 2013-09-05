@@ -658,16 +658,6 @@ bool AFK_World::generateClaimedWorldCell(
     return retval;
 }
 
-/* Utility -- tries to come up with a sensible cache bitness,
- * given the number of entries.
- */
-static unsigned int calculateCacheBitness(unsigned int entries)
-{
-    unsigned int bitness;
-    for (bitness = 0; (1u << bitness) < (entries << 1); ++bitness);
-    return bitness;
-}
-
 AFK_World::AFK_World(
     const AFK_Config *config,
     const AFK_Computer *computer,
@@ -720,7 +710,7 @@ AFK_World::AFK_World(
         false);
 
     tileCacheEntries = landscapeJigsaws->getPieceCount();
-    unsigned int tileCacheBitness = calculateCacheBitness(tileCacheEntries);
+    unsigned int tileCacheBitness = afk_suggestCacheBitness(tileCacheEntries);
 
     landscapeCache = new AFK_LANDSCAPE_CACHE(
         tileCacheBitness, 8, AFK_HashTile(), tileCacheEntries / 2, 0xffffffffu);
@@ -732,7 +722,7 @@ AFK_World::AFK_World(
      */
     unsigned int worldCacheEntrySize = SQUARE(lSizes.pointSubdivisionFactor);
     unsigned int worldCacheEntries = worldCacheSize / worldCacheEntrySize;
-    unsigned int worldCacheBitness = calculateCacheBitness(worldCacheEntries);
+    unsigned int worldCacheBitness = afk_suggestCacheBitness(worldCacheEntries);
 
     worldCache = new AFK_WORLD_CACHE(
         worldCacheBitness, 8, AFK_HashCell(), worldCacheEntries, 0xfffffffeu);
@@ -786,7 +776,7 @@ AFK_World::AFK_World(
         false);
 
     shapeCacheEntries = edgeJigsaws->getPieceCount();
-    unsigned int shapeCacheBitness = calculateCacheBitness(shapeCacheEntries);
+    unsigned int shapeCacheBitness = afk_suggestCacheBitness(shapeCacheEntries);
 
     shapeCache = new AFK_SHAPE_CACHE(
         shapeCacheBitness, 8, boost::hash<unsigned int>(), shapeCacheEntries / 2, 0xfffffffdu); 
