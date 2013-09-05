@@ -27,6 +27,9 @@ enum AFK_ShapeArtworkState
 };
 
 /* This describes one cube in a shape. */
+/* TODO: This wants moving.  Its data should go into the small
+ * cached objects, ShapeCell.
+ */
 class AFK_ShapeCube
 {
 public:
@@ -66,6 +69,8 @@ enum AFK_SkeletonFlag
 
 /* This object describes, across a grid of theoretical cubes,
  * which cubes the skeleton is present in.
+ * TODO: I need to think about this thing's relationship to the
+ * new, LoD'd world of vapour cells and edge cells ...
  */
 class AFK_SkeletonFlagGrid
 {
@@ -85,10 +90,6 @@ public:
 
 /* A Shape describes a single 3D shape, which
  * might be instanced many times by means of Entities.
- *
- * TODO: Should a shape be cached, and Claimable, as well?
- * I suspect it should.  But to test just a single Shape,
- * I don't need that.
  */
 class AFK_Shape: public AFK_Claimable
 {
@@ -121,6 +122,10 @@ protected:
         std::vector<Vec4<int> >& o_skeletonPointCubes);
 
     /* This is a little like the landscape tiles.
+     * TODO -- except, they're going away, because they are moving
+     * into ShapeCell in a cell-by-cell piecemeal manner to be composed
+     * at compute enqueue time a bit like the way the terrain is
+     * composed out of landscape tiles.
      * TODO: In addition to this, when I have more than one cube,
      * I'm going to have the whole skeletons business to think about!
      * Parallelling the landscape tiles in the first instance so that
