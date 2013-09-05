@@ -107,6 +107,15 @@ public:
      * Returns 0 if we're at the smallest subdivision
      * already, else the number of subcells made.
      */
+    /* TODO: I just tried converting this to a boost
+     * iterator_facade and sadly, it looks like there's
+     * some kind of fundamental thread safety issue with
+     * it.
+     * I got lots of holes in the landscape that should
+     * not otherwise have been appearing.
+     * Maybe at some point I should from-scratch my own
+     * iterator-shaped thing for it.  :/
+     */
     unsigned int subdivide(
         AFK_Cell *subCells,
         const size_t subCellsSize,
