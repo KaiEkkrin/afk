@@ -250,11 +250,10 @@ public:
 
     /* Push initial work items into the gang.  Call before calling
      * start().
-     * Err, or while it's running, if you feel brave.  It should
+     * Er, or while it's running, if you feel brave.  It should
      * be fine...
      */
-    AFK_AsyncGang& operator<<(
-        AFK_WorkQueue<ParameterType, ReturnType>::WorkItem workItem)
+    AFK_AsyncGang& operator<<(typename AFK_WorkQueue<ParameterType, ReturnType>::WorkItem workItem)
     {
         queue.push(workItem);
         return *this;

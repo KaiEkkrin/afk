@@ -15,16 +15,6 @@
 
 /* AFK_Cell implementation */
 
-/* TODO Something is relying on this.  I don't know what.  It's highly
- * irritating.  But it doesn't matter for the purpose of being able to
- * add AFK_Cells to lockless queues.
- * (It's not AFK_RealCell .)
- */
-AFK_Cell::AFK_Cell()
-{
-    coord = afk_vec4<long long>(0, 0, 0, 0);
-}
-
 bool AFK_Cell::operator==(const AFK_Cell& _cell) const
 {
     return coord == _cell.coord;

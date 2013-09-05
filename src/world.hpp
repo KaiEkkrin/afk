@@ -36,6 +36,7 @@
 #include "terrain_base_tile.hpp"
 #include "terrain_compute_queue.hpp"
 #include "tile.hpp"
+#include "work.hpp"
 #include "world_cell.hpp"
 
 /* The world of AFK. */
@@ -44,38 +45,14 @@ class AFK_LandscapeDisplayQueue;
 class AFK_LandscapeTile;
 class AFK_World;
 
-struct AFK_WorldCellGenParam;
 
-
-/* This structure describes a cell generation dependency.
- * Every time a cell generating worker gets a parameter with
- * one of these, it decrements `count'.  The worker that
- * decrements `count' to zero enqueues the final cell and
- * deletes this structure.
- */
-struct AFK_WorldCellGenDependency
-{
-    boost::atomic<unsigned int> count;
-    struct AFK_WorldCellGenParam *finalCell;
-};
-
-/* The parameter for the cell generating worker.
- */
-struct AFK_WorldCellGenParam
-{
-    AFK_Cell cell;
-    AFK_World *world;
-    Vec3<float> viewerLocation;
-    const AFK_Camera *camera;
-    unsigned int flags;
-    struct AFK_WorldCellGenDependency *dependency;
-};
+typedef AFK_WorkQueue<union AFK_WorldWorkParam, bool> AFK_WorldWorkQueue;
 
 /* This is the cell generating worker function */
 bool afk_generateWorldCells(
     unsigned int threadId,
-    struct AFK_WorldCellGenParam param,
-    AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>& queue);
+    const union AFK_WorldWorkParam& param,
+    AFK_WorldWorkQueue& queue);
 
 /* This is the world.  AFK_Core will have one of these.
  */
@@ -192,7 +169,7 @@ protected:
     AFK_3DEdgeShapeBase *edgeShapeBase;
 
     /* The cell generating gang */
-    AFK_AsyncGang<struct AFK_WorldCellGenParam, bool> *genGang;
+    AFK_AsyncGang<union AFK_WorldWorkParam, bool> *genGang;
 
     /* Cell generation worker delegates. */
 
@@ -244,7 +221,7 @@ protected:
         AFK_WorldCell& worldCell,
         unsigned int threadId,
         struct AFK_WorldCellGenParam param,
-        AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>& queue);
+        AFK_WorldWorkQueue& queue);
 
 public:
     /* Overall world parameters. */
@@ -333,8 +310,8 @@ public:
 
     friend bool afk_generateWorldCells(
         unsigned int threadId,
-        struct AFK_WorldCellGenParam param,
-        AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>& queue);
+        const union AFK_WorldWorkParam& param,
+        AFK_WorldWorkQueue& queue);
 };
 
 #endif /* _AFK_WORLD_H_ */

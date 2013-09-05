@@ -28,14 +28,14 @@
 
 bool afk_generateWorldCells(
     unsigned int threadId,
-    struct AFK_WorldCellGenParam param,
-    AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>& queue)
+    const union AFK_WorldWorkParam& param,
+    AFK_WorldWorkQueue& queue)
 {
-    const AFK_Cell& cell                = param.cell;
-    AFK_World *world                    = param.world;
+    const AFK_Cell cell                 = param.world.cell;
+    AFK_World *world                    = param.world.world;
 
-    bool renderTerrain                  = ((param.flags & AFK_WCG_FLAG_TERRAIN_RENDER) != 0);
-    bool resume                         = ((param.flags & AFK_WCG_FLAG_RESUME) != 0);
+    bool renderTerrain                  = ((param.world.flags & AFK_WCG_FLAG_TERRAIN_RENDER) != 0);
+    bool resume                         = ((param.world.flags & AFK_WCG_FLAG_RESUME) != 0);
 
     bool retval = true;
 
@@ -56,20 +56,24 @@ bool afk_generateWorldCells(
          * (which isn't at the end of its processing).
          */
         retval = world->generateClaimedWorldCell(
-            worldCell, threadId, param, queue);
+            worldCell, threadId, param.world, queue);
     }
 
     /* If this cell had a dependency ... */
-    if (param.dependency)
+    if (param.world.dependency)
     {
-        if (param.dependency->count.fetch_sub(1) == 1)
+        if (param.world.dependency->count.fetch_sub(1) == 1)
         {
             /* That dependency is complete.  Enqueue the final cell
              * and delete it.
              */
-            queue.push(*(param.dependency->finalCell));
-            delete param.dependency->finalCell;
-            delete param.dependency;
+            AFK_WorldWorkQueue::WorkItem finalItem;
+            finalItem.func = afk_generateWorldCells;
+            finalItem.param.world = *(param.world.dependency->finalCell);
+            queue.push(finalItem);
+
+            delete param.world.dependency->finalCell;
+            delete param.world.dependency;
         }
     }
 
@@ -365,7 +369,7 @@ bool AFK_World::generateClaimedWorldCell(
     AFK_WorldCell& worldCell,
     unsigned int threadId,
     struct AFK_WorldCellGenParam param,
-    AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>& queue)
+    AFK_WorldWorkQueue& queue)
 {
     const AFK_Cell& cell                = param.cell;
     const Vec3<float>& viewerLocation   = param.viewerLocation;
@@ -436,9 +440,11 @@ bool AFK_World::generateClaimedWorldCell(
                  * claim and will fix it so that when we come back
                  * here, the tile will be generated.
                  */
-                struct AFK_WorldCellGenParam resumeParam(param);
-                resumeParam.flags |= AFK_WCG_FLAG_RESUME;
-                queue.push(resumeParam);
+                AFK_WorldWorkQueue::WorkItem resumeItem;
+                resumeItem.func = afk_generateWorldCells;
+                resumeItem.param.world = param;
+                resumeItem.param.world.flags |= AFK_WCG_FLAG_RESUME;
+                queue.push(resumeItem);
                 tilesResumed.fetch_add(1);
             }
         }
@@ -627,14 +633,15 @@ bool AFK_World::generateClaimedWorldCell(
             {
                 for (unsigned int i = 0; i < subcellsCount; ++i)
                 {
-                    struct AFK_WorldCellGenParam subcellParam;
-                    subcellParam.cell               = subcells[i];
-                    subcellParam.world              = param.world;
-                    subcellParam.viewerLocation     = viewerLocation;
-                    subcellParam.camera             = camera;
-                    subcellParam.flags              = (allVisible ? AFK_WCG_FLAG_ENTIRELY_VISIBLE : 0);
-                    subcellParam.dependency         = NULL;
-                    queue.push(subcellParam);
+                    AFK_WorldWorkQueue::WorkItem subcellItem;
+                    subcellItem.func                     = afk_generateWorldCells;
+                    subcellItem.param.world.cell         = subcells[i];
+                    subcellItem.param.world.world        = param.world;
+                    subcellItem.param.world.viewerLocation = viewerLocation;
+                    subcellItem.param.world.camera       = camera;
+                    subcellItem.param.world.flags        = (allVisible ? AFK_WCG_FLAG_ENTIRELY_VISIBLE : 0);
+                    subcellItem.param.world.dependency   = NULL;
+                    queue.push(subcellItem);
                 }
             }
             else
@@ -781,10 +788,8 @@ AFK_World::AFK_World(
     shapeCache = new AFK_SHAPE_CACHE(
         shapeCacheBitness, 8, boost::hash<unsigned int>(), shapeCacheEntries / 2, 0xfffffffdu); 
 
-    genGang = new AFK_AsyncGang<struct AFK_WorldCellGenParam, bool>(
-            boost::function<bool (unsigned int, const struct AFK_WorldCellGenParam,
-                AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>&)>(afk_generateWorldCells),
-            100, config->concurrency);
+    genGang = new AFK_AsyncGang<union AFK_WorldWorkParam, bool>(
+        100, config->concurrency);
 
     /* Set up the landscape shader. */
     landscape_shaderProgram = new AFK_ShaderProgram();
@@ -872,14 +877,15 @@ void AFK_World::enqueueSubcells(
         cell.coord.v[2] + cell.coord.v[3] * modifier.v[2],
         cell.coord.v[3]));
 
-    struct AFK_WorldCellGenParam cellParam;
-    cellParam.cell                  = modifiedCell;
-    cellParam.world                 = this;
-    cellParam.viewerLocation        = viewerLocation;
-    cellParam.camera                = &camera;
-    cellParam.flags                 = 0;
-    cellParam.dependency            = NULL;
-    (*genGang) << cellParam;
+    AFK_WorldWorkQueue::WorkItem cellItem;
+    cellItem.func                        = afk_generateWorldCells;
+    cellItem.param.world.cell            = modifiedCell;
+    cellItem.param.world.world           = this;
+    cellItem.param.world.viewerLocation  = viewerLocation;
+    cellItem.param.world.camera          = &camera;
+    cellItem.param.world.flags           = 0;
+    cellItem.param.world.dependency      = NULL;
+    (*genGang) << cellItem;
 }
 
 void AFK_World::flipRenderQueues(cl_context ctxt, const AFK_Frame& newFrame)
@@ -952,7 +958,7 @@ boost::unique_future<bool> AFK_World::updateWorld(void)
      * therefore be culled
      */
     AFK_Cell cell, parentCell;
-    for (parentCell = protagonistCell;
+    for (cell = parentCell = protagonistCell;
         (float)cell.coord.v[3] < maxDistance;
         cell = parentCell, parentCell = cell.parent(subdivisionFactor));
 

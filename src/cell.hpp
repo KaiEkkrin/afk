@@ -9,6 +9,7 @@
 
 #include <boost/static_assert.hpp>
 #include <boost/type_traits/has_trivial_assign.hpp>
+#include <boost/type_traits/has_trivial_constructor.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
 #include "camera.hpp"
@@ -55,8 +56,6 @@
 class AFK_Cell
 {
 public:
-    AFK_Cell();
-
     /* These co-ordinates are in smallest-cell steps, starting
      * from (0,0,0) at the origin.  The 4th number is the
      * cell size: 2 for smallest, then increasing in factors
@@ -155,6 +154,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_Cell& cell);
 
 /* Important for being able to pass cells around in the queue. */
 BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_Cell>::value));
+BOOST_STATIC_ASSERT((boost::has_trivial_constructor<AFK_Cell>::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_Cell>::value));
 
 #endif /* _AFK_CELL_H_ */

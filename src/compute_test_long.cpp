@@ -106,7 +106,6 @@ bool testComputeWorker(unsigned int id, const struct testComputeParam& param, AF
 void afk_testComputeLong(AFK_Computer *computer, unsigned int concurrency)
 {
     AFK_AsyncGang<struct testComputeParam, bool> testComputeGang(
-        boost::function<bool (unsigned int, struct testComputeParam, AFK_WorkQueue<struct testComputeParam, bool>&)>(testComputeWorker),
         10, concurrency);
     
     cl_kernel testKernel;
@@ -118,7 +117,12 @@ void afk_testComputeLong(AFK_Computer *computer, unsigned int concurrency)
         struct testComputeParam p;
         p.computer = computer;
         p.kernel = testKernel;
-        testComputeGang << p;
+
+        AFK_WorkQueue<struct testComputeParam, bool>::WorkItem workItem;
+        workItem.func = testComputeWorker;
+        workItem.param = p;
+
+        testComputeGang << workItem;
     }
 
     boost::unique_future<bool> finished = testComputeGang.start();

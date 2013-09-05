@@ -49,12 +49,20 @@ template<typename ParameterType, typename ReturnType>
 class AFK_WorkQueue
 {
 public:
-    typedef std::pair<
-        boost::function<ReturnType ( \
-            unsigned int, \
-            const ParameterType&, \
-            AFK_WorkQueue<ParameterType, ReturnType>&) >,
-        ParameterType> WorkItem;
+    /* An old style raw function pointer, because it seems
+     * boost::function<> isn't safe for use in a lockfree queue
+     */
+    typedef ReturnType (*WorkFunc)(
+        unsigned int,
+        const ParameterType&,
+        AFK_WorkQueue<ParameterType, ReturnType>&);
+
+    class WorkItem
+    {
+    public:
+        WorkFunc func;
+        ParameterType param;
+    };
 
 protected:
     boost::lockfree::queue<WorkItem> q;
@@ -84,7 +92,7 @@ public:
         {
             if (q.pop(nextItem))
             {
-                retval = nextItem.first(threadId, nextItem.second, *this);
+                retval = (*(nextItem.func))(threadId, nextItem.param, *this);
                 /* TODO: It's hugely important that the following fetch_sub()
                  * doesn't get reordered with the fetch_add() inside the
                  * function call, or with the load() above.
