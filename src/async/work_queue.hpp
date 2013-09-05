@@ -48,8 +48,16 @@ enum AFK_WorkQueueStatus
 template<typename ParameterType, typename ReturnType>
 class AFK_WorkQueue
 {
+public:
+    typedef std::pair<
+        boost::function<ReturnType ( \
+            unsigned int, \
+            const ParameterType&, \
+            AFK_WorkQueue<ParameterType, ReturnType>&) >,
+        ParameterType> WorkItem;
+
 protected:
-    boost::lockfree::queue<ParameterType> q;
+    boost::lockfree::queue<WorkItem> q;
     boost::atomic<unsigned int> count;
 
 #if WORK_QUEUE_CONDITION_WAIT
@@ -60,24 +68,23 @@ protected:
 public:
     AFK_WorkQueue(): q(100) /* arbitrary */, count(0) {}
 
-    /* Consumes one item from the queue via the supplied function.
+    /* Consumes one item from the queue via its function.
      * If an item was consumed, fills out `retval' with the
      * return value.
      * Returns the work status.
      */
     enum AFK_WorkQueueStatus consume(
         unsigned int threadId,
-        boost::function<ReturnType (unsigned int, const ParameterType&, AFK_WorkQueue<ParameterType, ReturnType>&)> func,
         ReturnType& retval)
     {
-        ParameterType nextParameter;
+        WorkItem nextItem;
 
         boost::atomic_thread_fence(boost::memory_order_seq_cst);
         if (count.load() > 0)
         {
-            if (q.pop(nextParameter))
+            if (q.pop(nextItem))
             {
-                retval = func(threadId, nextParameter, *this);
+                retval = nextItem.first(threadId, nextItem.second, *this);
                 /* TODO: It's hugely important that the following fetch_sub()
                  * doesn't get reordered with the fetch_add() inside the
                  * function call, or with the load() above.
@@ -111,7 +118,7 @@ public:
         }
     }
 
-    void push(ParameterType parameter)
+    void push(WorkItem parameter)
     {
         if (!q.push(parameter)) throw AFK_WorkQueueException(); /* TODO can that happen? */
         count.fetch_add(1);
