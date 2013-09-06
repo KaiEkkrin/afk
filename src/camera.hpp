@@ -10,6 +10,8 @@ class AFK_Camera: protected AFK_Object
 {
 protected:
     /* Basic parameters. */
+    float   zNear;
+    float   zFar;
     int     windowWidth;
     int     windowHeight;
 

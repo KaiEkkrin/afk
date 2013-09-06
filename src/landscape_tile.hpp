@@ -17,7 +17,7 @@
 #include "data/polymer_cache.hpp"
 #include "def.hpp"
 #include "display.hpp"
-#include "jigsaw.hpp"
+#include "jigsaw_collection.hpp"
 #include "landscape_display_queue.hpp"
 #include "landscape_sizes.hpp"
 #include "terrain.hpp"

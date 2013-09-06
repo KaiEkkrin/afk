@@ -50,6 +50,15 @@ void AFK_EntityDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw *
 
     /* Jigsaw initialisation. */
     Vec2<float> jigsawPiecePitchST = jigsaw->getPiecePitchST();
+
+    /* Subtlety: that's a piece pitch for the big 3x2 pieces that
+     * correspond to each cube.  However, 0-1 texture co-ordinates in
+     * the base shape are for each *face*, so I need to divide the
+     * pitch down:
+     */
+    jigsawPiecePitchST = afk_vec2<float>(
+        jigsawPiecePitchST.v[0] / 3.0f,
+        jigsawPiecePitchST.v[1] / 2.0f);
     glUniform2fv(jigsawPiecePitchLocation, 1, &jigsawPiecePitchST.v[0]);
 
     glActiveTexture(GL_TEXTURE0);
@@ -89,7 +98,8 @@ void AFK_EntityDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw *
 #if AFK_GL_DEBUG
     shaderProgram->Validate();
 #endif
-    glDrawElementsInstanced(GL_TRIANGLES, sSizes.iCount * 3, GL_UNSIGNED_SHORT, 0, instanceCount);
+    /* 6 faces here, hence the multiplier */
+    glDrawElementsInstanced(GL_TRIANGLES, sSizes.iCount * 3 * 6, GL_UNSIGNED_SHORT, 0, instanceCount);
     AFK_GLCHK("entity drawElementsInstanced")
 }
 

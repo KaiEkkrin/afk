@@ -2,6 +2,8 @@
 
 #include "afk.hpp"
 
+#include <cmath>
+
 #include "core.hpp"
 #include "exception.hpp"
 #include "world_cell.hpp"
@@ -28,13 +30,18 @@ AFK_WorldCell::~AFK_WorldCell()
     while (moveQueue.pop(e)) delete e;
 }
 
+Vec4<float> AFK_WorldCell::getRealCoord(void) const
+{
+    return visibleCell.getRealCoord();
+}
+
 void AFK_WorldCell::bind(const AFK_Cell& _cell, float _worldScale)
 {
     cell = _cell;
     /* TODO If this actually *changes* something, I need to
      * clear the terrain so that it can be re-made.
      */
-    realCoord = _cell.toWorldSpace(_worldScale);
+    visibleCell.bindToCell(cell, _worldScale);
 }
 
 bool AFK_WorldCell::testDetailPitch(
@@ -42,102 +49,12 @@ bool AFK_WorldCell::testDetailPitch(
     const AFK_Camera& camera,
     const Vec3<float>& viewerLocation) const
 {
-    /* Sample the centre of the cell.  This is wrong: it
-     * will cause artifacts if you manage to get to exactly
-     * the middle of a cell (I can probably test this with
-     * the start position (8192, 8192, 8192)
-     * TODO To fix it properly, I need to pick three points
-     * displaced along the 3 axes by the dot pitch from the
-     * centre of the cell, project them through the camera,
-     * and compare those distances to the detail pitch,
-     * no?
-     * (in fact I'd probably get away with just the x and
-     * z axes)
-     */
-    Vec3<float> centre = afk_vec3<float>(
-        realCoord.v[0] + realCoord.v[3] / 2.0f,
-        realCoord.v[1] + realCoord.v[3] / 2.0f,
-        realCoord.v[2] + realCoord.v[3] / 2.0f);
-    Vec3<float> facing = centre - viewerLocation;
-    float distanceToViewer = facing.magnitude();
-
-    /* Magic */
-    return camera.getDetailPitchAsSeen(realCoord.v[3], distanceToViewer) < detailPitch;
-}
-
-/* Helper for the below. */
-static void testPointVisible(const Vec3<float>& point, const AFK_Camera& camera, bool& io_someVisible, bool& io_allVisible)
-{
-    /* Project the point.  This perspective projection
-     * yields a viewport with the x co-ordinates
-     * (-ar, ar) and the y co-ordinates (-1.0, 1.0).
-     */
-    Vec4<float> projectedPoint = camera.getProjection() * afk_vec4<float>(
-        point.v[0], point.v[1], point.v[2], 1.0f);
-    bool visible = camera.projectedPointIsVisible(projectedPoint);
-
-    io_someVisible |= visible;
-    io_allVisible &= visible;
+    return visibleCell.testDetailPitch(detailPitch, camera, viewerLocation);
 }
 
 void AFK_WorldCell::testVisibility(const AFK_Camera& camera, bool& io_someVisible, bool& io_allVisible) const
 {
-    /* Check whether this cell is actually visible, by
-     * testing all 8 vertices and its midpoint.
-     */
-    testPointVisible(afk_vec3<float>(
-        realCoord.v[0],
-        realCoord.v[1],
-        realCoord.v[2]),
-        camera, io_someVisible, io_allVisible);
-
-    testPointVisible(afk_vec3<float>(
-        realCoord.v[0] + realCoord.v[3],
-        realCoord.v[1],
-        realCoord.v[2]),
-        camera, io_someVisible, io_allVisible);
-
-    testPointVisible(afk_vec3<float>(
-        realCoord.v[0],
-        realCoord.v[1] + realCoord.v[3],
-        realCoord.v[2]),
-        camera, io_someVisible, io_allVisible);
-
-    testPointVisible(afk_vec3<float>(
-        realCoord.v[0] + realCoord.v[3],
-        realCoord.v[1] + realCoord.v[3],
-        realCoord.v[2]),
-        camera, io_someVisible, io_allVisible);
-
-    testPointVisible(afk_vec3<float>(
-        realCoord.v[0],
-        realCoord.v[1],
-        realCoord.v[2] + realCoord.v[3]),
-        camera, io_someVisible, io_allVisible);
-
-    testPointVisible(afk_vec3<float>(
-        realCoord.v[0] + realCoord.v[3],
-        realCoord.v[1],
-        realCoord.v[2] + realCoord.v[3]),
-        camera, io_someVisible, io_allVisible);
-
-    testPointVisible(afk_vec3<float>(
-        realCoord.v[0],
-        realCoord.v[1] + realCoord.v[3],
-        realCoord.v[2] + realCoord.v[3]),
-        camera, io_someVisible, io_allVisible);
-
-    testPointVisible(afk_vec3<float>(
-        realCoord.v[0] + realCoord.v[3],
-        realCoord.v[1] + realCoord.v[3],
-        realCoord.v[2] + realCoord.v[3]),
-        camera, io_someVisible, io_allVisible);
-
-    testPointVisible(afk_vec3<float>(
-        realCoord.v[0] + realCoord.v[3] / 2.0f,
-        realCoord.v[1] + realCoord.v[3] / 2.0f,
-        realCoord.v[2] + realCoord.v[3] / 2.0f),
-        camera, io_someVisible, io_allVisible);
+    return visibleCell.testVisibility(camera, io_someVisible, io_allVisible);
 }
 
 unsigned int AFK_WorldCell::getStartingEntitiesWanted(
@@ -174,10 +91,12 @@ void AFK_WorldCell::addStartingEntity(
 {
     AFK_Entity *e = new AFK_Entity(shape);
 
+    Vec4<float> realCoord = getRealCoord();
+
     /* Fit the entity inside the cell, but don't make it so
      * small as to be a better fit for sub-cells
      */
-    float maxEntitySize = realCoord.v[3] / (float)sSizes.entitySubdivisionFactor;
+    float maxEntitySize = realCoord.v[3] / (/* (float)sSizes.entitySubdivisionFactor * */ (float)sSizes.skeletonFlagGridDim);
     float minEntitySize = maxEntitySize / sSizes.subdivisionFactor;
 
     float entitySize = rng.frand() * (maxEntitySize - minEntitySize) + minEntitySize;
@@ -191,10 +110,37 @@ void AFK_WorldCell::addStartingEntity(
         entityDisplacement.v[j] = realCoord.v[j] + rng.frand() * (maxEntityLocation - minEntityLocation) + minEntityLocation;
     }
 
+    Vec3<float> entityRotation;
+    switch (rng.uirand() % 5)
+    {
+    case 0:
+        entityRotation = afk_vec3<float>(0.0f, 0.0f, 0.0f);
+        break;
+
+    case 1:
+        entityRotation = afk_vec3<float>(rng.frand() * 2.0f * M_PI, 0.0f, 0.0f);
+        break;
+
+    case 2:
+        entityRotation = afk_vec3<float>(0.0f, rng.frand() * 2.0f * M_PI, 0.0f);
+        break;
+
+    case 3:
+        entityRotation = afk_vec3<float>(0.0f, 0.0f, rng.frand() * 2.0f * M_PI);
+        break;
+
+    default:
+        entityRotation = afk_vec3<float>(
+            rng.frand() * 2.0f * M_PI,
+            rng.frand() * 2.0f * M_PI,
+            rng.frand() * 2.0f * M_PI);
+        break;
+    }
+
     e->position(
         afk_vec3<float>(entitySize, entitySize, entitySize),
         entityDisplacement,
-        afk_vec3<float>(0.0f, 0.0f, 0.0f));
+        entityRotation);
 
     entities.push_back(e);
 }

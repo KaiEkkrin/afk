@@ -30,7 +30,13 @@
  * Whilst it might notionally be lovely to use the OpenGL mip-mapping
  * features here, that doesn't really seem to play well with an
  * infinite landscape and the juggled caching model that I'm using.
- * So for now, this will be a flat 2D texture with no mip levels.
+ * So for now, this will be a flat texture with no mip levels.
+ */
+
+/* In order to support both 2D and 3D textures, I'm changing Jigsaw so
+ * that it is inherently 3D.  2D textures will be supported by setting
+ * the `w' co-ordinate (`slice') to 0 at all times, and having a 3rd
+ * jigsaw size dimension of 1.
  */
 
 /* This enumeration describes the jigsaw's texture format.  I'll
@@ -44,6 +50,14 @@ enum AFK_JigsawFormat
     AFK_JIGSAW_4FLOAT8_UNORM,
     AFK_JIGSAW_4FLOAT8_SNORM,
     AFK_JIGSAW_4FLOAT32
+};
+
+/* This enumeration describes what buffers we manage -- CL, GL, both. */
+enum AFK_JigsawBufferUsage
+{
+    AFK_JIGSAW_BU_CL_ONLY,
+    AFK_JIGSAW_BU_CL_GL_COPIED,
+    AFK_JIGSAW_BU_CL_GL_SHARED
 };
 
 class AFK_JigsawFormatDescriptor
@@ -65,8 +79,13 @@ public:
 class AFK_JigsawPiece
 {
 public:
-    Vec2<int> piece;   /* u, v of the jigsaw piece within the jigsaw, in piece units */
-    int puzzle;  /* which jigsaw buffer */
+    /* Co-ordinates within the jigsaw, in piece units */
+    int u;
+    int v;
+    int w;
+
+    /* Which jigsaw puzzle. */
+    int puzzle;
 
     /* This constructor makes the "null" jigsaw piece, which isn't in
      * any puzzle.  Compare against this to decide if a piece has
@@ -74,7 +93,8 @@ public:
      */
     AFK_JigsawPiece();
 
-    AFK_JigsawPiece(const Vec2<int>& _piece, int _puzzle);
+    AFK_JigsawPiece(int _u, int _v, int _w, int _puzzle);
+    AFK_JigsawPiece(const Vec3<int>& _piece, int _puzzle);
 
     bool operator==(const AFK_JigsawPiece& other) const;
     bool operator!=(const AFK_JigsawPiece& other) const;
@@ -88,39 +108,39 @@ BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_JigsawPiece>::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_JigsawPiece>::value));
 
 
-/* This class encapsulates a sub-rectangle within the jigsaw that
+/* This class encapsulates a cuboid within the jigsaw that
  * contains all the updates from a frame (we write to it) or all
  * the draws (we use it to sort out rectangular reads and writes
  * of the texture itself).
  */
-class AFK_JigsawSubRect
+class AFK_JigsawCuboid
 {
 public:
     /* These co-ordinates are in piece units.
-     * During usage, a rectangle can't grow in rows, but it
+     * During usage, a cuboid can't grow in rows or slices, but it
      * can grow in columns.
      */
-    int r, c, rows;
+    int r, c, s, rows, slices;
     boost::atomic<int> columns;
 
-    AFK_JigsawSubRect(int _r, int _c, int _rows);
+    AFK_JigsawCuboid(int _r, int _c, int _s, int _rows, int _slices);
 
-    AFK_JigsawSubRect(const AFK_JigsawSubRect& other);
-    AFK_JigsawSubRect operator=(const AFK_JigsawSubRect& other);
+    AFK_JigsawCuboid(const AFK_JigsawCuboid& other);
+	AFK_JigsawCuboid operator=(const AFK_JigsawCuboid& other);
 
-    friend std::ostream& operator<<(std::ostream& os, const AFK_JigsawSubRect& sr);
+    friend std::ostream& operator<<(std::ostream& os, const AFK_JigsawCuboid& sr);
 };
 
-std::ostream& operator<<(std::ostream& os, const AFK_JigsawSubRect& sr);
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawCuboid& sr);
 
 /* This is an internal thing for indicating whether we grabbed a
- * rectangle piece.
+ * cuboid.
  */
 enum AFK_JigsawPieceGrabStatus
 {
-    AFK_JIGSAW_RECT_OUT_OF_COLUMNS,
-    AFK_JIGSAW_RECT_OUT_OF_ROWS,
-    AFK_JIGSAW_RECT_GRABBED
+    AFK_JIGSAW_CUBOID_OUT_OF_COLUMNS,
+    AFK_JIGSAW_CUBOID_OUT_OF_SPACE,
+    AFK_JIGSAW_CUBOID_GRABBED
 };
 
 
@@ -135,11 +155,12 @@ protected:
     GLuint *glTex;
     cl_mem *clTex;
     const AFK_JigsawFormatDescriptor *format;
+    GLuint texTarget;
     const unsigned int texCount;
 
-    const Vec2<int> pieceSize;
-    const Vec2<int> jigsawSize; /* number of pieces horizontally and vertically */
-    const bool clGlSharing;
+    const Vec3<int> pieceSize;
+    const Vec3<int> jigsawSize; /* number of pieces in each dimension */
+    const enum AFK_JigsawBufferUsage bufferUsage;
 
     /* Each row of the jigsaw has a timestamp.  When the sweep
      * comes around and updates it, that indicates that any old
@@ -148,120 +169,124 @@ protected:
      * (If I don't do forced eviction from the jigsaw like this,
      * I'll end up with jigsaw fragmentation problems.)
      */
-    std::vector<AFK_Frame> rowTimestamp;
+    AFK_Frame **rowTimestamp;
 
     /* We fill each jigsaw row left to right, and only ever clear
      * an entire row at a time.  This stops me from having to track
      * the occupancy of individual pieces.  This list associates
      * each row of the jigsaw with the number of pieces in it that
      * are occupied, starting from the left.
-     * In order to make neat rectangles, the flipRects() function
+     * In order to make neat cuboids, the flipCuboids() function
      * needs to add pretend usage to all short rows that were in the
-     * most recent update's rectangle, of course...
+     * most recent update's cuboid, of course...
+     * Anyway, this is (row, slice).
      */
-    std::vector<int> rowUsage;
+    int **rowUsage;
 
-    /* Each frame, we assign new pieces out of sub-rectangles of
-     * the jigsaw.  We try to make it `concurrency' rows high by
+    /* Each frame, we assign new pieces out of cuboids cut from
+     * the jigsaw.  We try to make it `concurrency' rows high and deep
+     * (or just `concurrency' high by 1 deep for a 2D jigsaw) by
      * as many columns wide as is necessary.  (Hopefully the multi-
      * threading model will cause the rows to be of similar widths.)
-     * These are the current updating and drawing rectangles in piece
+     * These are the current updating and drawing cuboids in piece
      * units.
-     * These things are lists, just in case I need to start a new
-     * sub-rectangle at any point.
      */
     const unsigned int concurrency;
-    std::vector<AFK_JigsawSubRect> rects[2];
-    unsigned int updateRs;
-    unsigned int drawRs;
+    std::vector<AFK_JigsawCuboid> cuboids[2];
+    unsigned int updateCs;
+    unsigned int drawCs;
 
     /* This is the sweep position, which tracks ahead of the update
-     * rectangles.  Every flip, we should move the sweep position up
+     * cuboids.  Every flip, we should move the sweep position up and back
      * and re-timestamp all the rows it passes, telling the enumerators
      * to-regenerate the pieces of any tiles that still have pieces
      * within the sweep.
      */
-    int sweepRow;
+    Vec2<int> sweepPosition;
 
-    /* This is used to control access to the update rectangles. */
-    boost::mutex updateRMut;
+    /* This is used to control access to the update cuboids. */
+    boost::mutex updateCMut;
 
-    /* This is the average number of columns that rectangles seem to
+    /* This is the average number of columns that cuboids seem to
      * be using.  It's used as a heuristic to decide whether to start
-     * rectangles on new rows or not.
-     * Update it in flipRects().
+     * cuboids on new rows or not.
+     * Update it in flipCuboids().
      */
     AFK_MovingAverage<int> columnCounts;
 
-    /* If clGlSharing is disabled, this is the rectangle data I've
+    /* If bufferUsage is cl gl copied, this is the cuboid data I've
      * read back from the CL and that needs to go into the GL.
      * There is one vector per texture.
      */
     std::vector<unsigned char> *changeData;
 
-    /* If clGlSharing is disabled, these are the events I need to
+    /* If bufferUsage is cl gl copied, these are the events I need to
      * wait on before I can push data to the GL.
      * Again, there is one vector per texture.
      */
     std::vector<cl_event> *changeEvents;
 
     /* This utility function attempts to assign a piece out of the
-     * current rectangle.
+     * current cuboid.
      * It returns:
-     * - AFK_JIGSAW_RECT_OUT_OF_COLUMNS if it ran out of columns
-     * (you should start a new rectangle)
-     * - AFK_JIGSAW_RECT_OUT_OF_ROWS if it ran out of rows to use
+     * - AFK_JIGSAW_CUBOID_OUT_OF_COLUMNS if it ran out of columns
+     * (you should start a new cuboid)
+     * - AFK_JIGSAW_CUBOID_OUT_OF_SPACE if it ran out of rows to use
      * (you should give up and tell the collection to use the next
      * jigsaw)
-     * - AFK_JIGSAW_RECT_GRABBED if it succeeded.
+     * - AFK_JIGSAW_CUBOID_GRABBED if it succeeded.
      */
-    enum AFK_JigsawPieceGrabStatus grabPieceFromRect(
-        unsigned int rect,
+    enum AFK_JigsawPieceGrabStatus grabPieceFromCuboid(
+        AFK_JigsawCuboid& cuboid,
         unsigned int threadId,
-        Vec2<int>& o_uv,
-        AFK_Frame& o_timestamp);
+        Vec3<int>& o_uvw,
+        AFK_Frame *o_timestamp);
 
-    /* Helper for the below -- having picked a new rectangle,
+    /* Helper for the below -- having picked a new cuboid,
      * pushes it onto the update list and sets the row usage
      * properly.
      */
-    void pushNewRect(AFK_JigsawSubRect rect);
+    void pushNewCuboid(AFK_JigsawCuboid cuboid);
 
-    /* This utility function attempts to start a new rectangle,
-     * pushing it back onto rects[updateRs], evicting anything
+    /* This utility function attempts to start a new cuboid,
+     * pushing it back onto cuboids[updateCs], evicting anything
      * if required.
      * Set `startNewRow' to false if you'd like it to try to
-     * continue the row that has the last rectangle on it.  You
-     * should probably only be setting that if you're the flipRects()
+     * continue the row that has the last cuboid on it.  You
+     * should probably only be setting that if you're the flipCuboids()
      * call trying to pack the texture nicely, rather than if you're
      * a grab() call that's just run out of room!
      * May return fewer rows than `rowsRequired' if it hits the top.
      * Only actually returns an error if it can't get any rows at all.
      * Returns true on success, else false.
      */
-    bool startNewRect(const AFK_JigsawSubRect& lastRect, bool startNewRow);
+    bool startNewCuboid(const AFK_JigsawCuboid& lastCuboid, bool startNewRow);
 
     int roundUpToConcurrency(int r) const;
-    int getSweepTarget(int latestRow) const;
+    Vec2<int> getSweepTarget(const Vec2<int>& latest) const;
+
+    /* Helper for the below -- sweeps one slice. */
+    void sweepOneSlice(int sweepRowTarget, const AFK_Frame& currentFrame);
 
     /* Actually performs the sweep up to the given target row.
      */
-    void sweep(int sweepTarget, const AFK_Frame& currentFrame);
+    void sweep(const Vec2<int>& sweepTarget, const AFK_Frame& currentFrame);
 
     /* This utility function sweeps in front of the given next
      * free row, hoping to keep far enough ahead of the
      * grabber to not be caught up on.
      */
-    void doSweep(int nextFreeRow, const AFK_Frame& currentFrame);
+    void doSweep(const Vec2<int>& nextFreeRow, const AFK_Frame& currentFrame);
 
 public:
     AFK_Jigsaw(
         cl_context ctxt,
-        const Vec2<int>& _pieceSize,
-        const Vec2<int>& _jigsawSize,
+        const Vec3<int>& _pieceSize,
+        const Vec3<int>& _jigsawSize,
         const AFK_JigsawFormatDescriptor *_format,
+        GLuint _texTarget,
         unsigned int _texCount,
-        bool _clGlSharing,
+        enum AFK_JigsawBufferUsage _bufferUsage,
         unsigned int _concurrency);
     virtual ~AFK_Jigsaw();
 
@@ -274,32 +299,40 @@ public:
      * returning false each frame, so that it doesn't send threads
      * back to the wrong jigsaw after it ran out of space.
      */
-    bool grab(unsigned int threadId, Vec2<int>& o_uv, AFK_Frame& o_timestamp);
+    bool grab(unsigned int threadId, Vec3<int>& o_uvw, AFK_Frame *o_timestamp);
 
     /* Returns the time your piece was last swept.
      * If you retrieved it at that time or later, you're OK and you
      * can hang on to it.
      */
-    AFK_Frame getTimestamp(const Vec2<int>& uv) const;
+    AFK_Frame getTimestamp(const AFK_JigsawPiece& piece) const;
 
     unsigned int getTexCount(void) const;
 
-    /* Returns the (s, t) texture co-ordinates for a given piece
+	/* Returns the (s, t) texture co-ordinates for a given piece
+	 * within the jigsaw.  These will be in the range (0, 1).
+	 */
+	Vec2<float> getTexCoordST(const AFK_JigsawPiece& piece) const;
+
+    /* Returns the (s, t, r) texture co-ordinates for a given piece
      * within the jigsaw.  These will be in the range (0, 1).
      */
-    Vec2<float> getTexCoordST(const AFK_JigsawPiece& piece) const;
+    Vec3<float> getTexCoordSTR(const AFK_JigsawPiece& piece) const;
 
     /* Returns the (s, t) dimensions of one piece within the jigsaw. */
     Vec2<float> getPiecePitchST(void) const;
 
+    /* Returns the (s, t, r) dimensions of one piece within the jigsaw. */
+    Vec3<float> getPiecePitchSTR(void) const;
+
     /* Acquires the buffers for the CL.
-     * If cl_gl sharing is enabled, fills out `o_event' with an
-     * event to wait for to ensure the textures are acquired.
+     * Fills out `o_events' with events you need to wait for
+     * before the buffer is ready (none or more)
      */
-    cl_mem *acquireForCl(cl_context ctxt, cl_command_queue q, cl_event *o_event);
+    cl_mem *acquireForCl(cl_context ctxt, cl_command_queue q, std::vector<cl_event>& o_events);
 
     /* Releases the buffer from the CL. */
-    void releaseFromCl(cl_command_queue q, cl_uint eventsInWaitList, const cl_event *eventWaitList);
+    void releaseFromCl(cl_command_queue q, const std::vector<cl_event>& eventWaitList);
 
     /* Binds a buffer to the GL as a texture.
      * Call once for each texture, having set glActiveTexture()
@@ -307,72 +340,11 @@ public:
      */
     void bindTexture(unsigned int tex);
 
-    /* Signals to the jigsaw to flip the rectangles over and start off
-     * a new update rectangle.
+    /* Signals to the jigsaw to flip the cuboids over and start off
+     * a new update cuboid.
      */
-    void flipRects(const AFK_Frame& currentFrame);
+    void flipCuboids(const AFK_Frame& currentFrame);
 };
-
-/* This encapsulates a collection of jigsawed textures, which are used
- * to give out pieces of the same size and usage.
- * You may get a piece in any of the puzzles.
- */
-class AFK_JigsawCollection
-{
-protected:
-    std::vector<AFK_JigsawFormatDescriptor> format;
-    const unsigned int texCount;
-
-    const Vec2<int> pieceSize;
-    Vec2<int> jigsawSize;
-    int pieceCount;
-    const bool clGlSharing;
-    const unsigned int concurrency;
-
-    std::vector<AFK_Jigsaw*> puzzles;
-
-    boost::mutex mut;
-
-public:
-    AFK_JigsawCollection(
-        cl_context ctxt,
-        const Vec2<int>& _pieceSize,
-        int _pieceCount,
-        int minJigsawCount,
-        enum AFK_JigsawFormat *texFormat,
-        unsigned int _texCount,
-        const AFK_ClDeviceProperties& _clDeviceProps,
-        bool _clGlSharing,
-        unsigned int concurrency);
-    virtual ~AFK_JigsawCollection();
-
-    int getPieceCount(void) const;
-
-    /* Gives you a piece.  This will usually be quick,
-     * but it may stall if we need to add a new jigsaw
-     * to the collection.
-     * Also fills out `o_timestamp' with the timestamp of the row
-     * your piece came from so you can find out when it's
-     * going to be swept.
-     * `minJigsaw' tells it which index jigsaw to try grabbing
-     * from.  This is an attempt at a cunning trick by which I
-     * can separate long-lived pieces (to start at jigsaw 0)
-     * from shorter-lived pieces (to start at a higher jigsaw)
-     * to avoid repeatedly sweeping out long-lived pieces only
-     * to re-create them the same.
-     */
-    AFK_JigsawPiece grab(unsigned int threadId, int minJigsaw, AFK_Frame& o_timestamp);
-
-    /* Gets you the puzzle that matches a particular piece. */
-    AFK_Jigsaw *getPuzzle(const AFK_JigsawPiece& piece) const;
-
-    /* Gets you a numbered puzzle. */
-    AFK_Jigsaw *getPuzzle(int puzzle) const;
-
-    /* Flips the rectangles in all the jigsaws. */
-    void flipRects(cl_context ctxt, const AFK_Frame& currentFrame);
-};
-
 
 #endif /* _AFK_JIGSAW_H_ */
 

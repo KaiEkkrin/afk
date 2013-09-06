@@ -18,6 +18,9 @@
 
 
 /* Fixed transforms for the six faces of a base cube.
+ * TODO -- move this.  I suspect it needs to go back into
+ * 3d_edge_shape_base : the shape_3dedge kernel is producing
+ * single dimension displacements for the six faces.
  */
 static struct FaceTransforms
 {
@@ -51,16 +54,24 @@ static struct FaceTransforms
 } faceTransforms;
 
 
-/* AFK_ShapeFace implementation */
+/* AFK_ShapeCube implementation */
 
-AFK_ShapeFace::AFK_ShapeFace(
-    const Vec4<float>& _location,
-    const Quaternion<float>& _rotation):
-        location(_location), rotation(_rotation),
-        jigsawPiece(), jigsawPieceTimestamp()
+AFK_ShapeCube::AFK_ShapeCube(
+    const Vec4<float>& _location):
+        location(_location),
+        vapourJigsawPiece(), vapourJigsawPieceTimestamp(),
+        edgeJigsawPiece(), edgeJigsawPieceTimestamp()
 {
 }
 
+std::ostream& operator<<(std::ostream& os, const AFK_ShapeCube& cube)
+{
+	os << "ShapeCube(location=" << cube.location;
+	os << ", vapour piece=" << cube.vapourJigsawPiece << " (timestamp " << cube.vapourJigsawPieceTimestamp << ")";
+	os << ", edge piece=" << cube.edgeJigsawPiece << " (timestamp " << cube.edgeJigsawPieceTimestamp << ")";
+	os << ")";
+	return os;
+}
 
 /* AFK_SkeletonFlagGrid implementation */
 
@@ -176,10 +187,16 @@ void AFK_Shape::makeSkeleton(
      * A cube will touch all 27 of the possible point cubes that
      * include it and its surroundings.
      */
-    unsigned int pointGridScale = 1;
+    /* TODO: A point grid scale of 1 is much too small to start
+     * with and just produces random noise.  I think I should
+     * make this configurable (and play until I've got some
+     * good values going on).  8 is a reasonable starting
+     * point.
+     */
+    unsigned int pointGridScale = 8;
     for (int pI = pointGrids.size() - 1; pI >= 0; --pI)
     {
-        Vec3<int> scaledCube = cube / pointGridScale;
+        Vec3<int> scaledCube = cube * pointGridScale;
 
         for (int x = -1; x <= 1; ++x)
         {
@@ -210,17 +227,12 @@ void AFK_Shape::makeSkeleton(
     }
 }
 
-bool AFK_Shape::testRenderSkeletonFace(const Vec3<int>& cube, unsigned int face) const
-{
-    Vec3<int> adj = adjacentCube(cube, face);
-    return (cubeGrid->testFlag(cube) == AFK_SKF_SET && cubeGrid->testFlag(adj) != AFK_SKF_SET);
-}
-
 AFK_Shape::AFK_Shape():
     AFK_Claimable(),
     cubeGrid(NULL),
-    haveShrinkformDescriptor(false),
-    jigsaws(NULL)
+    have3DDescriptor(false),
+    vapourJigsaws(NULL),
+    edgeJigsaws(NULL)
 {
 }
 
@@ -234,16 +246,16 @@ AFK_Shape::~AFK_Shape()
     }
 }
 
-bool AFK_Shape::hasShrinkformDescriptor() const
+bool AFK_Shape::has3DDescriptor() const
 {
-    return haveShrinkformDescriptor;
+    return have3DDescriptor;
 }
 
-void AFK_Shape::makeShrinkformDescriptor(
+void AFK_Shape::make3DDescriptor(
     unsigned int shapeKey,
     const AFK_ShapeSizes& sSizes)
 {
-    if (!haveShrinkformDescriptor)
+    if (!have3DDescriptor)
     {
         /* TODO Interestingly, this is the first time I've actually
          * appeared to need a "better" RNG than Taus88: Taus88
@@ -269,7 +281,7 @@ void AFK_Shape::makeShrinkformDescriptor(
         cubeGrid = new AFK_SkeletonFlagGrid((int)sSizes.skeletonFlagGridDim);
 
         /* ...And also by a set of grids that determine where 
-         * shrinkform points will exist.
+         * vapour features will exist.
          * TODO fix fix -- number of point grids -- and starting to
          * be pretty sure that I'm going to need to not just throw
          * all the cubes into the CL but instead pick a sub-list that
@@ -282,7 +294,7 @@ void AFK_Shape::makeShrinkformDescriptor(
          */
         int pointGridCount;
         for (pointGridCount = 1;
-            (1 << (pointGridCount - 1)) < (int)(sSizes.pointSubdivisionFactor * 4);
+            (1 << (pointGridCount - 1)) < (int)(sSizes.pointSubdivisionFactor / 2);
             ++pointGridCount)
         {
             pointGrids.push_back(new AFK_SkeletonFlagGrid((1 << pointGridCount) + 1));
@@ -309,11 +321,11 @@ void AFK_Shape::makeShrinkformDescriptor(
             /* TODO I'm not convinced there is actually anything AT the
              * higher levels of detail -- or not very much.  Investigate.
              */
-            AFK_DEBUG_PRINTL(shapeKey << ": Using point cube: " << *pointCubeIt)
+            //AFK_DEBUG_PRINTL(shapeKey << ": Using point cube: " << *pointCubeIt)
 
-            AFK_ShrinkformCube cube;
+            AFK_3DVapourCube cube;
             cube.make(
-                shrinkformPoints,
+                vapourFeatures,
                 afk_vec4<float>(
                     (float)pointCubeIt->v[0] * (float)pointCubeIt->v[3],
                     (float)pointCubeIt->v[1] * (float)pointCubeIt->v[3],
@@ -321,12 +333,10 @@ void AFK_Shape::makeShrinkformDescriptor(
                     (float)pointCubeIt->v[3]),
                 sSizes,
                 rng);
-            shrinkformCubes.push_back(cube);
+            vapourCubes.push_back(cube);
         }
 
-        /* ... And for each cube of the actual skeleton, test its
-         * six faces for visibility; add the visible ones to the face
-         * list.
+        /* ... And add all cubes to the cube list.
          * TODO This process is associating all points with all faces,
          * which is very wasteful.  If I turn out to be at all limited
          * in performance by shape creation, I should come up with a
@@ -335,61 +345,107 @@ void AFK_Shape::makeShrinkformDescriptor(
         for (std::vector<Vec3<int> >::iterator cubeIt = skeletonCubes.begin();
             cubeIt != skeletonCubes.end(); ++cubeIt)
         {
-            for (unsigned int face = 0; face < 6; ++face)
-            {
-                if (testRenderSkeletonFace(*cubeIt, face))
-                {
-                    Vec3<float> cube = afk_vec3<float>(
-                        (float)cubeIt->v[0], (float)cubeIt->v[1], (float)cubeIt->v[2]);
-                    faces.push_back(AFK_ShapeFace(
-                        afk_vec4<float>(cube + faceTransforms.obj[face].getTranslation(), 1.0f),
-                        faceTransforms.obj[face].getRotation()));
-                }
-            }
+            Vec3<float> cube = afk_vec3<float>(
+                (float)cubeIt->v[0], (float)cubeIt->v[1], (float)cubeIt->v[2]);
+            /* TODO: With LoD -- that 1.0f scale number down there will change! */
+            cubes.push_back(AFK_ShapeCube(afk_vec4<float>(cube, 1.0f)));
         }
 
-        haveShrinkformDescriptor = true;
+        have3DDescriptor = true;
     }
 }
 
-void AFK_Shape::buildShrinkformList(
-    AFK_ShrinkformList& list)
+void AFK_Shape::build3DList(
+    AFK_3DList& list)
 {
-    list.extend(shrinkformPoints, shrinkformCubes);
+    list.extend(vapourFeatures, vapourCubes);
 }
 
-void AFK_Shape::getFacesForCompute(
+void AFK_Shape::getCubesForCompute(
     unsigned int threadId,
-    int minJigsaw,
-    AFK_JigsawCollection *_jigsaws,
-    std::vector<AFK_ShapeFace>& o_faces)
+    int minVapourJigsaw,
+    int minEdgeJigsaw,
+    AFK_JigsawCollection *_vapourJigsaws,
+    AFK_JigsawCollection *_edgeJigsaws,
+    std::vector<AFK_ShapeCube>& o_cubes)
 {
-    /* Sanity check */
-    if (!jigsaws) jigsaws = _jigsaws;
-    else if (jigsaws != _jigsaws) throw AFK_Exception("AFK_Shape: Mismatched jigsaw collections");
+    /* Sanity checks */
+    if (!vapourJigsaws) vapourJigsaws = _vapourJigsaws;
+    else if (vapourJigsaws != _vapourJigsaws) throw AFK_Exception("AFK_Shape: Mismatched vapour jigsaw collections");
 
-    for (std::vector<AFK_ShapeFace>::iterator faceIt = faces.begin(); faceIt != faces.end(); ++faceIt)
+    if (!edgeJigsaws) edgeJigsaws = _edgeJigsaws;
+    else if (edgeJigsaws != _edgeJigsaws) throw AFK_Exception("AFK_Shape: Mismatched edge jigsaw collections");
+
+    /* Check whether my edge pieces are ok */
+    bool edgeOK = true;
+    for (std::vector<AFK_ShapeCube>::iterator cubeIt = cubes.begin();
+        edgeOK && cubeIt != cubes.end(); ++cubeIt)
     {
-        if (faceIt->jigsawPiece == AFK_JigsawPiece() ||
-            faceIt->jigsawPieceTimestamp != jigsaws->getPuzzle(faceIt->jigsawPiece)->getTimestamp(faceIt->jigsawPiece.piece))
+        edgeOK &= (cubeIt->edgeJigsawPiece != AFK_JigsawPiece() &&
+            cubeIt->edgeJigsawPieceTimestamp == edgeJigsaws->getPuzzle(cubeIt->edgeJigsawPiece)->getTimestamp(cubeIt->edgeJigsawPiece));
+    }
+
+    if (!edgeOK)
+    {
+        /* Check whether my vapour pieces are ok */
+        bool vapourOK = true;
+        for (std::vector<AFK_ShapeCube>::iterator cubeIt = cubes.begin();
+            vapourOK && cubeIt != cubes.end(); ++cubeIt)
         {
-            /* This face needs computing. */
-            faceIt->jigsawPiece = jigsaws->grab(threadId, minJigsaw, faceIt->jigsawPieceTimestamp);
-            o_faces.push_back(*faceIt);
+            vapourOK &= (cubeIt->vapourJigsawPiece != AFK_JigsawPiece() &&
+                cubeIt->vapourJigsawPieceTimestamp == vapourJigsaws->getPuzzle(cubeIt->vapourJigsawPiece)->getTimestamp(cubeIt->vapourJigsawPiece));
+        }
+
+        /* All pieces need to be in the same jigsaw, so that I can
+         * cross-reference during the edge pass:
+         */
+        if (!vapourOK)
+        {
+            AFK_JigsawPiece vapourPieces[cubes.size()];
+            AFK_Frame vapourTimestamps[cubes.size()];
+            vapourJigsaws->grab(
+                threadId,
+                minVapourJigsaw,
+                vapourPieces,
+                vapourTimestamps,
+                cubes.size());
+
+            for (size_t c = 0; c < cubes.size(); ++c)
+            {
+                cubes[c].vapourJigsawPiece = vapourPieces[c];
+                cubes[c].vapourJigsawPieceTimestamp = vapourTimestamps[c];
+            }
+        }
+
+        /* Same for the edge pieces */
+        AFK_JigsawPiece edgePieces[cubes.size()];
+        AFK_Frame edgeTimestamps[cubes.size()];
+        edgeJigsaws->grab(
+            threadId,
+            minEdgeJigsaw,
+            edgePieces,
+            edgeTimestamps,
+            cubes.size());
+
+        for (size_t c = 0; c < cubes.size(); ++c)
+        {
+            cubes[c].edgeJigsawPiece = edgePieces[c];
+            cubes[c].edgeJigsawPieceTimestamp = edgeTimestamps[c];
+            o_cubes.push_back(cubes[c]);
         }
     }
 }
 
 enum AFK_ShapeArtworkState AFK_Shape::artworkState() const
 {
-    if (!hasShrinkformDescriptor()) return AFK_SHAPE_NO_PIECE_ASSIGNED;
+    if (!has3DDescriptor()) return AFK_SHAPE_NO_PIECE_ASSIGNED;
 
-    /* Scan the faces and check for status. */
+    /* Scan the cubes and check for status. */
     enum AFK_ShapeArtworkState status = AFK_SHAPE_HAS_ARTWORK;
-    for (std::vector<AFK_ShapeFace>::const_iterator faceIt = faces.begin(); faceIt != faces.end(); ++faceIt)
+    for (std::vector<AFK_ShapeCube>::const_iterator cubeIt = cubes.begin(); cubeIt != cubes.end(); ++cubeIt)
     {
-        if (faceIt->jigsawPiece == AFK_JigsawPiece()) return AFK_SHAPE_NO_PIECE_ASSIGNED;
-        if (faceIt->jigsawPieceTimestamp != jigsaws->getPuzzle(faceIt->jigsawPiece)->getTimestamp(faceIt->jigsawPiece.piece))
+        if (cubeIt->edgeJigsawPiece == AFK_JigsawPiece()) return AFK_SHAPE_NO_PIECE_ASSIGNED;
+        if (cubeIt->edgeJigsawPieceTimestamp != edgeJigsaws->getPuzzle(cubeIt->edgeJigsawPiece)->getTimestamp(cubeIt->edgeJigsawPiece))
             status = AFK_SHAPE_PIECE_SWEPT;
     }
     return status;
@@ -399,23 +455,15 @@ void AFK_Shape::enqueueDisplayUnits(
     const AFK_Object& object,
     AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const
 {
-    /* TODO: A couple of things to note:
-     * - 1: When I actually have a shrinkform (as opposed to a
-     * test cube), each face will be associated with a jigsaw
-     * piece.  I need to enqueue the faces into the queues
-     * that match those pieces' puzzles.
-     * - 2: When I have composite shapes, I'm going to have more
-     * than six faces here.
-     */
     boost::shared_ptr<AFK_EntityDisplayQueue> q = entityDisplayFair.getUpdateQueue(0);
     Mat4<float> objTransform = object.getTransformation();
 
-    for (std::vector<AFK_ShapeFace>::const_iterator faceIt = faces.begin(); faceIt != faces.end(); ++faceIt)
+    for (std::vector<AFK_ShapeCube>::const_iterator cubeIt = cubes.begin(); cubeIt != cubes.end(); ++cubeIt)
     {
-        AFK_JigsawPiece jigsawPiece = faceIt->jigsawPiece;
+        AFK_JigsawPiece edgeJigsawPiece = cubeIt->edgeJigsawPiece;
         q->add(AFK_EntityDisplayUnit(
-            objTransform, /* The face's orientation is already fixed by the CL */
-            jigsaws->getPuzzle(jigsawPiece)->getTexCoordST(jigsawPiece)));
+            objTransform,
+            edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTexCoordST(edgeJigsawPiece)));
     }
 }
 
@@ -434,7 +482,7 @@ bool AFK_Shape::canBeEvicted(void) const
 std::ostream& operator<<(std::ostream& os, const AFK_Shape& shape)
 {
     os << "Shape";
-    if (shape.haveShrinkformDescriptor) os << " (Shrinkform)";
+    if (shape.have3DDescriptor) os << " (3D descriptor)";
     if (shape.artworkState() == AFK_SHAPE_HAS_ARTWORK) os << " (Computed)";
     return os;
 }

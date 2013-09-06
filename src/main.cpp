@@ -16,6 +16,7 @@
 #include "hash_test.hpp"
 #include "rng/boost_taus88.hpp"
 #include "rng/test.hpp"
+#include "test_jigsaw_fake3d.hpp"
 
 #include "compute_test_long.hpp"
 #include "core.hpp"
@@ -25,6 +26,7 @@
 #define TEST_ASYNC 0
 #define TEST_CACHE 0
 #define TEST_HASH 0
+#define TEST_JIGSAW_FAKE3D 0
 #define TEST_RNGS 0
 #define TEST_SUBSTRATE 0
 
@@ -49,6 +51,10 @@ int main(int argc, char **argv)
     test_rotate();
     test_tileHash();
     test_cellHash();
+#endif
+
+#if TEST_JIGSAW_FAKE3D
+    test_jigsawFake3D();
 #endif
 
 #if TEST_RNGS

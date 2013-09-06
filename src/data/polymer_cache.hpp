@@ -13,6 +13,10 @@
 #include "polymer.hpp"
 
 
+/* Useful function for coming up with a bitness level to try. */
+unsigned int afk_suggestCacheBitness(unsigned int entries);
+
+
 /* This defines the AFK cache as an unguarded polymer cache. */
 
 template<typename Key, typename Value, typename Hasher>

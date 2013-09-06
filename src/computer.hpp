@@ -10,6 +10,7 @@
 #include <boost/thread/mutex.hpp>
 
 #include "config.hpp"
+#include "def.hpp"
 #include "exception.hpp"
 
 /* This defines a list of programs that I know about. */
@@ -56,6 +57,9 @@ public:
     cl_ulong    globalMemSize;
     size_t      image2DMaxWidth;
     size_t      image2DMaxHeight;
+    size_t      image3DMaxWidth;
+    size_t      image3DMaxHeight;
+    size_t      image3DMaxDepth;
     cl_ulong    localMemSize;
     cl_uint     maxConstantArgs;
     cl_uint     maxConstantBufferSize;
@@ -65,9 +69,13 @@ public:
     cl_uint     maxWorkItemDimensions;
 
     size_t *    maxWorkItemSizes;
+
+    std::string extensions;
     
     AFK_ClDeviceProperties(cl_device_id device);
     virtual ~AFK_ClDeviceProperties();
+
+    bool        supportsExtension(const std::string& ext) const;
 };
 
 std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p);
@@ -149,6 +157,11 @@ public:
 
     /* Returns true if on an AMD platform, else false. */
     bool isAMD(void) const;
+
+    /* Returns true if we should use fake 3D images,
+     * else false.
+     */
+    bool useFake3DImages(const AFK_Config *config) const;
 
     /* Locks the CL and gives you back the context and
      * queue.  Be quick, enqueue your thing and release

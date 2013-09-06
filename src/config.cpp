@@ -62,13 +62,19 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     concurrency                 = boost::thread::hardware_concurrency() + 1;
     clProgramsDir               = NULL;
     clGlSharing                 = false; /* TODO hope to default true if I get it reliably working */
+    forceFake3DImages           = false;
 
     startingDetailPitch         = 512.0f;
     maxDetailPitch              = 4096.0f;
     minCellSize                 = 1.0f;
     subdivisionFactor           = 2;
     entitySubdivisionFactor     = 4;
-    pointSubdivisionFactor      = 8;
+
+    terrain_pointSubdivisionFactor      = 8;
+    shape_pointSubdivisionFactor        = 6;
+    shape_skeletonMaxSize               = 24;
+    shape_skeletonFlagGridDim           = 12;
+    shape_edgeThreshold                 = 0.001f;
 
     maxEntitiesPerCell          = 4;
     entitySparseness            = 512;
@@ -143,6 +149,10 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         {
             clGlSharing = true;
         }
+        else if (strcmp(argv[argi], "--force-fake-3D-images") == 0)
+        {
+            forceFake3DImages = true;
+        }
         else if (strcmp(argv[argi], "--starting-detail-pitch") == 0)
         {
             REQUIRE_ARGUMENT("--starting-detail-pitch")
@@ -168,10 +178,30 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
             REQUIRE_ARGUMENT("--entity-subdivision-factor")
             entitySubdivisionFactor = strtoul(argv[argi], NULL, 0);
         }
-        else if (strcmp(argv[argi], "--point-subdivision-factor") == 0)
+        else if (strcmp(argv[argi], "--terrain-point-subdivision-factor") == 0)
         {
-            REQUIRE_ARGUMENT("--point-subdivision-factor")
-            pointSubdivisionFactor = strtoul(argv[argi], NULL, 0);
+            REQUIRE_ARGUMENT("--terrain-point-subdivision-factor")
+            terrain_pointSubdivisionFactor = strtoul(argv[argi], NULL, 0);
+        }
+        else if (strcmp(argv[argi], "--shape-point-subdivision-factor") == 0)
+        {
+            REQUIRE_ARGUMENT("--shape-point-subdivision-factor")
+            shape_pointSubdivisionFactor = strtoul(argv[argi], NULL, 0);
+        }
+        else if (strcmp(argv[argi], "--shape-skeleton-max-size") == 0)
+        {
+            REQUIRE_ARGUMENT("--shape-skeleton-max-size")
+            shape_skeletonMaxSize = strtoul(argv[argi], NULL, 0);
+        }
+        else if (strcmp(argv[argi], "--shape-skeleton-flag-grid-dim") == 0)
+        {
+            REQUIRE_ARGUMENT("--shape-skeleton-flag-grid-dim")
+            shape_skeletonFlagGridDim = strtoul(argv[argi], NULL, 0);
+        }
+        else if (strcmp(argv[argi], "--shape-edge-threshold") == 0)
+        {
+            REQUIRE_ARGUMENT("--shape-edge-threshold")
+            shape_edgeThreshold = strtof(argv[argi], NULL);
         }
         else if (strcmp(argv[argi], "--max-entities-per-cell") == 0)
         {

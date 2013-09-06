@@ -73,5 +73,11 @@ public:
     }
 };
 
+/* Effective for small numbers (because it inflates the queue count rather),
+ * these functions combine two queue indexes into one for use in fairs.
+ */
+int afk_combineTwoPuzzleFairQueue(int puzzle1, int puzzle2);
+void afk_splitTwoPuzzleFairQueue(int queue, int& o_puzzle1, int& o_puzzle2);
+
 #endif /* _AFK_DATA_FAIR_H_ */
 

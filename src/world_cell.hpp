@@ -14,6 +14,7 @@
 #include "rng/rng.hpp"
 #include "shape.hpp"
 #include "shape_sizes.hpp"
+#include "visible_cell.hpp"
 #include "world.hpp"
 
 
@@ -34,13 +35,9 @@ protected:
     /* The obvious. */
     AFK_Cell cell;
 
-    /* The matching world co-ordinates.
-     * TODO This is the thing that needs to change everywhere
-     * when doing a rebase...  Of course, though since the
-     * gen worker calls bind() on every cell it touches maybe
-     * it will be easy...
-     */
-    Vec4<float> realCoord;
+    /* Describes the cell's visibility in the world. */
+    /* TODO: This needs to change upon a rebase ... */
+    AFK_VisibleCell visibleCell;
 
     /* The list of Entities currently homed to this cell. */
     AFK_ENTITY_LIST entities;
@@ -68,9 +65,9 @@ public:
     virtual ~AFK_WorldCell();
 
     const AFK_Cell& getCell(void) const { return cell; }
-    const Vec4<float>& getRealCoord(void) const { return realCoord; }
+    Vec4<float> getRealCoord(void) const;
 
-    /* Binds a landscape cell to the world.  Needs to be called
+    /* Binds a world cell to the world.  Needs to be called
      * before anything else gets done, because WorldCells
      * are created uninitialised in the cache.
      */
@@ -79,12 +76,18 @@ public:
     /* Tests whether this cell is within the specified detail pitch
      * when viewed from the specified location.
      */
-    bool testDetailPitch(float detailPitch, const AFK_Camera& camera, const Vec3<float>& viewerLocation) const;
+    bool testDetailPitch(
+        float detailPitch,
+        const AFK_Camera& camera,
+        const Vec3<float>& viewerLocation) const;
 
     /* Tests whether none, some or all of this cell's vertices are
      * visible when projected with the supplied camera.
      */
-    void testVisibility(const AFK_Camera& camera, bool& io_someVisible, bool& io_allVisible) const;
+    void testVisibility(
+        const AFK_Camera& camera,
+        bool& io_someVisible,
+        bool& io_allVisible) const;
 
     /* For giving this cell a starting entity set. */
     unsigned int getStartingEntitiesWanted(

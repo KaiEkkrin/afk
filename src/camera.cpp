@@ -2,6 +2,8 @@
 
 #include "afk.hpp"
 
+#include <algorithm>
+
 #include "camera.hpp"
 #include "config.hpp"
 #include "core.hpp"
@@ -9,8 +11,8 @@
 void AFK_Camera::updateProjection(void)
 {
     /* Magic perspective projection. */
-    float zNear = afk_core.config->zNear;
-    float zFar = afk_core.config->zFar;
+    zNear = afk_core.config->zNear;
+    zFar = afk_core.config->zFar;
     float zRange = zNear - zFar;
     
     Mat4<float> projectMatrix = afk_mat4<float>(
@@ -60,7 +62,8 @@ void AFK_Camera::setWindowDimensions(int width, int height)
 
 float AFK_Camera::getDetailPitchAsSeen(float scale, float distanceToViewer) const
 {
-    return windowHeight * scale / (tanHalfFov * distanceToViewer);
+    return windowHeight * scale / (tanHalfFov *
+        std::max(std::min(distanceToViewer, zFar), zNear));
 }
 
 bool AFK_Camera::projectedPointIsVisible(const Vec4<float>& projectedPoint) const

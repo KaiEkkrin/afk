@@ -9,6 +9,7 @@
 
 #include <boost/static_assert.hpp>
 #include <boost/type_traits/has_trivial_assign.hpp>
+#include <boost/type_traits/has_trivial_constructor.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
 #include "camera.hpp"
@@ -55,8 +56,6 @@
 class AFK_Cell
 {
 public:
-    AFK_Cell();
-
     /* These co-ordinates are in smallest-cell steps, starting
      * from (0,0,0) at the origin.  The 4th number is the
      * cell size: 2 for smallest, then increasing in factors
@@ -83,6 +82,7 @@ public:
 
     /* Gives the RNG seed value that matches this cell. */
     AFK_RNG_Value rngSeed() const;
+    AFK_RNG_Value rngSeed(size_t combinant) const;
 
     /* A more general subdivide to use internally.
      * `stride' is the gap to put between each subcell
@@ -106,6 +106,15 @@ public:
      * subCellsSize is in units of sizeof(AFK_Cell).
      * Returns 0 if we're at the smallest subdivision
      * already, else the number of subcells made.
+     */
+    /* TODO: I just tried converting this to a boost
+     * iterator_facade and sadly, it looks like there's
+     * some kind of fundamental thread safety issue with
+     * it.
+     * I got lots of holes in the landscape that should
+     * not otherwise have been appearing.
+     * Maybe at some point I should from-scratch my own
+     * iterator-shaped thing for it.  :/
      */
     unsigned int subdivide(
         AFK_Cell *subCells,
@@ -146,6 +155,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_Cell& cell);
 
 /* Important for being able to pass cells around in the queue. */
 BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_Cell>::value));
+BOOST_STATIC_ASSERT((boost::has_trivial_constructor<AFK_Cell>::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_Cell>::value));
 
 #endif /* _AFK_CELL_H_ */

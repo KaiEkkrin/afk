@@ -21,7 +21,7 @@
  - within-cell collision detection between entities.
  - within-cell collision detection between entity and terrain.
  - protagonist as an entity.
- - proper protagonist/camera relationship (use quaternions to track orientation?  proper inverse matrix to get camera angle?)
+ - proper protagonist/camera relationship (use quaternions to track orientation?  proper inverse matrix to get camera angle?) OK
  - use OpenCL to bake terrain.  mostly OK
  - optimised landscape rendering derived from the above. OK
  - shapes split into LoD cubes with random shapes.  (use OpenCL?)

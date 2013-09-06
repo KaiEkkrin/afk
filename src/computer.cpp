@@ -6,10 +6,12 @@
 #include <sstream>
 
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/tokenizer.hpp>
 
 #include "computer.hpp"
 #include "exception.hpp"
 #include "file/readfile.hpp"
+#include "jigsaw_collection.hpp"
 #include "landscape_sizes.hpp"
 #include "shape_sizes.hpp"
 
@@ -20,8 +22,8 @@ struct AFK_ClProgram programs[] = {
     {   0,  "landscape_surface.cl"      },
     {   0,  "landscape_terrain.cl"      },
     {   0,  "landscape_yreduce.cl"      },
-    {   0,  "shape_shrinkform.cl"       },
-    {   0,  "shape_surface.cl"          },
+    {   0,  "shape_3dedge.cl"           },
+    {   0,  "shape_3dvapour.cl"         },
     {   0,  "test.cl"                   },
     {   0,  "vs_test.cl"                },
     {   0,  ""                          }
@@ -31,8 +33,8 @@ struct AFK_ClKernel kernels[] = {
     {   0,  "landscape_surface.cl",     "makeLandscapeSurface"          },
     {   0,  "landscape_terrain.cl",     "makeLandscapeTerrain"          },
     {   0,  "landscape_yreduce.cl",     "makeLandscapeYReduce"          },
-    {   0,  "shape_shrinkform.cl",      "makeShapeShrinkform"           },
-    {   0,  "shape_surface.cl",         "makeShapeSurface"              },
+    {   0,  "shape_3dedge.cl",          "makeShape3DEdge"               },
+    {   0,  "shape_3dvapour.cl",        "makeShape3DVapour"             },
     {   0,  "test.cl",                  "vector_add_gpu"                },
     {   0,  "vs_test.cl",               "mangle_vs"                     },
     {   0,  "",                         ""                              }
@@ -43,6 +45,9 @@ void afk_handleClError(cl_int error)
 {
     if (error != CL_SUCCESS)
     {
+        /* Maybe this will aid debugging ... */
+        assert(error == CL_SUCCESS);
+
         std::ostringstream ss;
         ss << "AFK_Computer: Error occurred: " << error;
         throw AFK_Exception(ss.str());
@@ -105,6 +110,9 @@ AFK_ClDeviceProperties::AFK_ClDeviceProperties(cl_device_id device):
     getClDeviceInfoFixed<cl_ulong>(device, CL_DEVICE_GLOBAL_MEM_SIZE, &globalMemSize, 0);
     getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE2D_MAX_WIDTH, &image2DMaxWidth, 0);
     getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE2D_MAX_HEIGHT, &image2DMaxHeight, 0);
+    getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE3D_MAX_WIDTH, &image3DMaxWidth, 0);
+    getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE3D_MAX_HEIGHT, &image3DMaxHeight, 0);
+    getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE3D_MAX_DEPTH, &image3DMaxDepth, 0);
     getClDeviceInfoFixed<cl_ulong>(device, CL_DEVICE_LOCAL_MEM_SIZE, &localMemSize, 0);
     getClDeviceInfoFixed<cl_uint>(device, CL_DEVICE_MAX_CONSTANT_ARGS, &maxConstantArgs, 0);
     getClDeviceInfoFixed<cl_uint>(device, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, &maxConstantBufferSize, 0);
@@ -123,11 +131,44 @@ AFK_ClDeviceProperties::AFK_ClDeviceProperties(cl_device_id device):
             memset(maxWorkItemSizes, 0, maxWorkItemDimensions * sizeof(size_t));
         }
     }
+
+    size_t extArrSize;
+    cl_int error;
+    error = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, 0, NULL, &extArrSize);
+    if (error == CL_SUCCESS)
+    {
+        char *extArr = new char[extArrSize];
+        error = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, extArrSize, extArr, NULL);
+        if (error == CL_SUCCESS)
+        {
+            extensions = std::string(extArr);
+        }
+
+        delete[] extArr;
+    }
+    if (error != CL_SUCCESS)
+    {
+        std::cout << "Couldn't get extensions: " << error << std::endl;
+    }
 }
 
 AFK_ClDeviceProperties::~AFK_ClDeviceProperties()
 {
     if (maxWorkItemSizes) delete[] maxWorkItemSizes;
+}
+
+bool AFK_ClDeviceProperties::supportsExtension(const std::string& ext) const
+{
+    boost::char_separator<char> spcSep(" ");
+    boost::tokenizer<boost::char_separator<char> > extTok(extensions, spcSep);
+    for (boost::tokenizer<boost::char_separator<char> >::iterator extIt = extTok.begin();
+        extIt != extTok.end(); ++extIt)
+    {
+        std::string testExt = *extIt;
+        if (testExt == ext) return true;
+    }
+
+    return false;
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p)
@@ -136,6 +177,9 @@ std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p)
     os << "Global mem size:                 " << p.globalMemSize << std::endl;
     os << "2D image maximum width:          " << p.image2DMaxWidth << std::endl;
     os << "2D image maximum height:         " << p.image2DMaxHeight << std::endl;
+    os << "3D image maximum width:          " << p.image3DMaxWidth << std::endl;
+    os << "3D image maximum height:         " << p.image3DMaxHeight << std::endl;
+    os << "3D image maximum depth:          " << p.image3DMaxDepth << std::endl;
     os << "Local mem size:                  " << p.localMemSize << std::endl;
     os << "Max constant args:               " << p.maxConstantArgs << std::endl;
     os << "Max constant buffer size:        " << p.maxConstantBufferSize << std::endl;
@@ -154,6 +198,8 @@ std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p)
         }
         os << "]" << std::endl;
     } 
+
+    os << "Extensions:                      " << p.extensions << std::endl;
 
     return os;
 }
@@ -265,11 +311,8 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
 
     /* Compiler arguments here... */
     std::ostringstream args;
-    AFK_LandscapeSizes lSizes(config->subdivisionFactor, config->pointSubdivisionFactor);
-    AFK_ShapeSizes sSizes(
-        config->subdivisionFactor,
-        config->entitySubdivisionFactor,
-        config->pointSubdivisionFactor);
+    AFK_LandscapeSizes lSizes(config);
+    AFK_ShapeSizes sSizes(config);
 
     if (boost::starts_with(p->filename, "landscape_"))
     {
@@ -284,9 +327,23 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
     {
         args << "-D SUBDIVISION_FACTOR="        << sSizes.subdivisionFactor      << " ";
         args << "-D POINT_SUBDIVISION_FACTOR="  << sSizes.pointSubdivisionFactor << " ";
-        args << "-D TDIM="                      << sSizes.tDim                   << " ";
-        args << "-D TDIM_START="                << sSizes.tDimStart              << " ";
-        args << "-D POINT_COUNT_PER_CUBE="      << sSizes.pointCountPerCube      << " ";
+        args << "-D VDIM="                      << sSizes.vDim                   << " ";
+        args << "-D EDIM="                      << sSizes.eDim                   << " ";
+        args << "-D FEATURE_COUNT_PER_CUBE="    << sSizes.featureCountPerCube    << " ";
+        if (useFake3DImages(config))
+        {
+            args << "-D AFK_FAKE3D=1 ";
+            AFK_JigsawFake3DDescriptor fake3D(true, afk_vec3<int>(sSizes.vDim, sSizes.vDim, sSizes.vDim));
+            Vec3<int> fakeSize = fake3D.getFakeSize();
+            int mult = fake3D.getMult();
+            args << "-D VAPOUR_FAKE3D_FAKESIZE_X="  << fakeSize.v[0]                << " ";
+            args << "-D VAPOUR_FAKE3D_FAKESIZE_Y="  << fakeSize.v[1]                << " ";
+            args << "-D VAPOUR_FAKE3D_MULT="        << mult                         << " ";
+        }
+        else
+        {
+            args << "-D AFK_FAKE3D=0";
+        }
     }
 
     std::string argsStr = args.str();
@@ -413,6 +470,12 @@ bool AFK_Computer::testVersion(unsigned int majorVersion, unsigned int minorVers
 bool AFK_Computer::isAMD(void) const
 {
     return platformIsAMD;
+}
+
+bool AFK_Computer::useFake3DImages(const AFK_Config *config) const
+{
+    return (config->forceFake3DImages ||
+        !firstDeviceProps->supportsExtension("cl_khr_3d_image_writes"));
 }
 
 void AFK_Computer::lock(cl_context& o_ctxt, cl_command_queue& o_q)

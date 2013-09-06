@@ -12,6 +12,9 @@
 #include <boost/function.hpp>
 #include <boost/thread/thread.hpp>
 
+#include "3d_edge_compute_queue.hpp"
+#include "3d_edge_shape_base.hpp"
+#include "3d_vapour_compute_queue.hpp"
 #include "async/async.hpp"
 #include "async/work_queue.hpp"
 #include "camera.hpp"
@@ -25,16 +28,15 @@
 #include "def.hpp"
 #include "entity.hpp"
 #include "entity_display_queue.hpp"
-#include "jigsaw.hpp"
+#include "jigsaw_collection.hpp"
 #include "landscape_display_queue.hpp"
 #include "landscape_tile.hpp"
 #include "shader.hpp"
 #include "shape.hpp"
-#include "shrinkform_base.hpp"
-#include "shrinkform_compute_queue.hpp"
 #include "terrain_base_tile.hpp"
 #include "terrain_compute_queue.hpp"
 #include "tile.hpp"
+#include "work.hpp"
 #include "world_cell.hpp"
 
 /* The world of AFK. */
@@ -43,38 +45,14 @@ class AFK_LandscapeDisplayQueue;
 class AFK_LandscapeTile;
 class AFK_World;
 
-struct AFK_WorldCellGenParam;
 
-
-/* This structure describes a cell generation dependency.
- * Every time a cell generating worker gets a parameter with
- * one of these, it decrements `count'.  The worker that
- * decrements `count' to zero enqueues the final cell and
- * deletes this structure.
- */
-struct AFK_WorldCellGenDependency
-{
-    boost::atomic<unsigned int> count;
-    struct AFK_WorldCellGenParam *finalCell;
-};
-
-/* The parameter for the cell generating worker.
- */
-struct AFK_WorldCellGenParam
-{
-    AFK_Cell cell;
-    AFK_World *world;
-    Vec3<float> viewerLocation;
-    const AFK_Camera *camera;
-    unsigned int flags;
-    struct AFK_WorldCellGenDependency *dependency;
-};
+typedef AFK_WorkQueue<union AFK_WorldWorkParam, bool> AFK_WorldWorkQueue;
 
 /* This is the cell generating worker function */
 bool afk_generateWorldCells(
     unsigned int threadId,
-    struct AFK_WorldCellGenParam param,
-    AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>& queue);
+    const union AFK_WorldWorkParam& param,
+    AFK_WorldWorkQueue& queue);
 
 /* This is the world.  AFK_Core will have one of these.
  */
@@ -166,7 +144,8 @@ protected:
     AFK_Fair<AFK_EntityDisplayQueue> entityDisplayFair;
 
     /* These jigsaws form the computed shape artwork. */
-    AFK_JigsawCollection *shapeJigsaws;
+    AFK_JigsawCollection *vapourJigsaws;
+    AFK_JigsawCollection *edgeJigsaws;
 
     /* The cache of shapes we're tracking.
      * (It was kind of inevitable, wasn't it? :) )
@@ -179,17 +158,27 @@ protected:
     AFK_SHAPE_CACHE *shapeCache;
     unsigned int shapeCacheEntries;
 
-    /* The shape computation fair, for when I'm making new ones. */
-    AFK_Fair<AFK_ShrinkformComputeQueue> shapeComputeFair;
+    /* For when I'm making new shapes, the vapour and edge
+     * computation fairs.
+     */
+    AFK_Fair<AFK_3DVapourComputeQueue> vapourComputeFair;
+    AFK_Fair<AFK_3DEdgeComputeQueue> edgeComputeFair;
 
     /* The basic shape geometry. */
-    GLuint shrinkformBaseArray;
-    AFK_ShrinkformBase *shrinkformBase;
+    GLuint edgeShapeBaseArray;
+    AFK_3DEdgeShapeBase *edgeShapeBase;
 
     /* The cell generating gang */
-    AFK_AsyncGang<struct AFK_WorldCellGenParam, bool> *genGang;
+    AFK_AsyncGang<union AFK_WorldWorkParam, bool> *genGang;
 
     /* Cell generation worker delegates. */
+
+    /* Combines two jigsaw numbers into a single number for the
+     * fair, and splits them again.  Assumes the numbers will
+     * be small.
+     */
+    int combineTwoPuzzleFairQueue(int puzzle1, int puzzle2) const;
+    void splitTwoPuzzleFairQueue(int queue, int& o_puzzle1, int& o_puzzle2) const;
 
     /* Makes sure a landscape tile has a terrain descriptor,
      * and checks if its geometry needs generating.
@@ -232,7 +221,7 @@ protected:
         AFK_WorldCell& worldCell,
         unsigned int threadId,
         struct AFK_WorldCellGenParam param,
-        AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>& queue);
+        AFK_WorldWorkQueue& queue);
 
 public:
     /* Overall world parameters. */
@@ -321,8 +310,8 @@ public:
 
     friend bool afk_generateWorldCells(
         unsigned int threadId,
-        struct AFK_WorldCellGenParam param,
-        AFK_WorkQueue<struct AFK_WorldCellGenParam, bool>& queue);
+        const union AFK_WorldWorkParam& param,
+        AFK_WorldWorkQueue& queue);
 };
 
 #endif /* _AFK_WORLD_H_ */

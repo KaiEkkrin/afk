@@ -4,7 +4,7 @@ New-Age LoD Stitching
 Horizontal Stitching -- Same Cell LoD
 -------------------------------------
 
-Sample the y-displacement texture (which should be made separate from the others) as `nearest', not `linear'.  May need some arithmetic tweak to cause values to not have small errors.  It *ought* to end up lining up.
+Sample the y-displacement texture (which should be made separate from the others) as `nearest', not `linear'.  May need some arithmetic tweak to cause values to not have small errors.  It *ought* to end up lining up. OK
 
 Horizontal Stitching -- Different Cell LoD
 ------------------------------------------

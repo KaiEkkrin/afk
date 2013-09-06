@@ -111,7 +111,6 @@ template<class ParameterType, class ReturnType>
 void afk_asyncWorker(
     AFK_AsyncControls& controls,
     unsigned int id,
-    boost::function<ReturnType (unsigned int, const ParameterType&, AFK_WorkQueue<ParameterType, ReturnType>&)> func,
     AFK_WorkQueue<ParameterType, ReturnType>& queue,
     boost::promise<ReturnType>*& promise)
 {
@@ -126,7 +125,7 @@ void afk_asyncWorker(
 
         while (!finished)
         {
-            status = queue.consume(id, func, retval);
+            status = queue.consume(id, retval);
             switch (status)
             {
             case AFK_WQ_BUSY:
@@ -189,14 +188,13 @@ protected:
     std::vector<boost::thread*> workers;
     AFK_AsyncControls controls;
 
-    /* The queue of parameters to future calls of the function. */
+    /* The queue of functions and parameters. */
     AFK_WorkQueue<ParameterType, ReturnType> queue;
 
     /* The promised return value. */
     boost::promise<ReturnType> *promise;
 
-    void initWorkers(boost::function<ReturnType (unsigned int, const ParameterType&, AFK_WorkQueue<ParameterType, ReturnType>&)> func,
-        unsigned int concurrency)
+    void initWorkers(unsigned int concurrency)
     {
         for (unsigned int i = 0; i < concurrency; ++i)
         { 
@@ -204,7 +202,6 @@ protected:
                 afk_asyncWorker<ParameterType, ReturnType>,
                 boost::ref(controls),
                 i,
-                func,
                 boost::ref(queue),
                 boost::ref(promise));
             workers.push_back(t);
@@ -212,23 +209,21 @@ protected:
     }
 
 public:
-    AFK_AsyncGang(boost::function<ReturnType (unsigned int, const ParameterType&, AFK_WorkQueue<ParameterType, ReturnType>&)> func,
-        size_t queueSize, unsigned int concurrency):
-            controls(concurrency), promise(NULL)
+    AFK_AsyncGang(size_t queueSize, unsigned int concurrency):
+        controls(concurrency), promise(NULL)
     {
         /* Make sure the flags for this level of concurrency will fit
          * into a size_t
          */
         assert(concurrency < (sizeof(size_t) * 8));
 
-        initWorkers(func, concurrency);
+        initWorkers(concurrency);
     }
 
-    AFK_AsyncGang(boost::function<ReturnType (unsigned int, const ParameterType&, AFK_WorkQueue<ParameterType, ReturnType>&)> func,
-        size_t queueSize):
-            controls(boost::thread::hardware_concurrency()), promise(NULL)
+    AFK_AsyncGang(size_t queueSize):
+        controls(boost::thread::hardware_concurrency()), promise(NULL)
     {
-        initWorkers(func, boost::thread::hardware_concurrency() + 1);
+        initWorkers(boost::thread::hardware_concurrency() + 1);
     }
 
     virtual ~AFK_AsyncGang()
@@ -253,14 +248,14 @@ public:
         return queue.finished();
     }
 
-    /* Push initial parameters into the gang.  Call before calling
+    /* Push initial work items into the gang.  Call before calling
      * start().
-     * Err, or while it's running, if you feel brave.  It should
+     * Er, or while it's running, if you feel brave.  It should
      * be fine...
      */
-    AFK_AsyncGang& operator<<(const ParameterType& parameter)
+    AFK_AsyncGang& operator<<(typename AFK_WorkQueue<ParameterType, ReturnType>::WorkItem workItem)
     {
-        queue.push(parameter);
+        queue.push(workItem);
         return *this;
     }
 
@@ -289,7 +284,6 @@ public:
         return promise->get_future();
     }
 };
-
 
 #endif /* _AFK_ASYNC_ASYNC_H_ */
 

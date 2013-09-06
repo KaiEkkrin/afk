@@ -27,6 +27,8 @@ struct primeFilterParam
     unsigned int max;
 };
 
+bool primeFilter(unsigned int id, const struct primeFilterParam& param, AFK_WorkQueue<struct primeFilterParam, bool>& queue);
+
 /* Helper. */
 void enqueueFilter(struct primeFilterParam param, AFK_WorkQueue<struct primeFilterParam, bool>& queue)
 {
@@ -40,7 +42,10 @@ void enqueueFilter(struct primeFilterParam param, AFK_WorkQueue<struct primeFilt
 
     if (!isEnqueued)
     {
-        queue.push(param);
+        AFK_WorkQueue<struct primeFilterParam, bool>::WorkItem workItem;
+        workItem.func = primeFilter;
+        workItem.param = param;
+        queue.push(workItem);
     }
 }
 
@@ -96,15 +101,15 @@ void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<
     startTime = boost::posix_time::microsec_clock::local_time();
 
     {
-        struct primeFilterParam p;
-        p.start = 2;
-        p.step = 2;
-        p.max = primeMax;
+        AFK_WorkQueue<struct primeFilterParam, bool>::WorkItem i;
+        i.func              = primeFilter;
+        i.param.start       = 2;
+        i.param.step        = 2;
+        i.param.max         = primeMax;
 
         AFK_AsyncGang<struct primeFilterParam, bool> primeFilterGang(
-            boost::function<bool (unsigned int, const struct primeFilterParam&, AFK_WorkQueue<struct primeFilterParam, bool>&)>(primeFilter),
             primeMax / 100, concurrency);
-        primeFilterGang << p;
+        primeFilterGang << i;
         boost::unique_future<bool> finished = primeFilterGang.start(); 
 
         /* TODO Do something more clever with this.  I need to
