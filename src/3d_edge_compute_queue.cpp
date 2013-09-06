@@ -50,14 +50,16 @@ AFK_3DEdgeComputeQueue::~AFK_3DEdgeComputeQueue()
 }
 
 AFK_3DEdgeComputeUnit AFK_3DEdgeComputeQueue::append(
-    const AFK_ShapeCube& shapeCube)
+    const Vec4<float>& location,
+    const AFK_JigsawPiece& vapourJigsawPiece,
+    const AFK_JigsawPiece& edgeJigsawPiece)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
     AFK_3DEdgeComputeUnit newUnit(
-        shapeCube.location,
-        shapeCube.vapourJigsawPiece,
-        shapeCube.edgeJigsawPiece);
+        location,
+        vapourJigsawPiece,
+        edgeJigsawPiece);
     units.push_back(newUnit);
     return newUnit;
 }

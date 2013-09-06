@@ -83,32 +83,6 @@ bool afk_generateWorldCells(
 
 /* AFK_World implementation */
 
-int AFK_World::combineTwoPuzzleFairQueue(int puzzle1, int puzzle2) const
-{
-    int queue = 1;
-    for (int pc1 = 0; pc1 < puzzle1; ++pc1) queue = queue * 2;
-    for (int pc2 = 0; pc2 < puzzle2; ++pc2) queue = queue * 3;
-    return queue;
-}
-
-void AFK_World::splitTwoPuzzleFairQueue(int queue, int& o_puzzle1, int& o_puzzle2) const
-{
-    o_puzzle1 = 0;
-    o_puzzle2 = 0;
-
-    while (queue > 0 && (queue % 2) == 0)
-    {
-        queue = queue / 2;
-        ++o_puzzle1;
-    }
-
-    while (queue > 0 && (queue % 3) == 0)
-    {
-        queue = queue / 3;
-        ++o_puzzle2;
-    }
-}
-
 bool AFK_World::checkClaimedLandscapeTile(
     const AFK_Tile& tile,
     AFK_LandscapeTile& landscapeTile,
@@ -303,20 +277,20 @@ void AFK_World::generateShapeArtwork(
             }
 
             /* Extend the vapour compute queue with this cube. */
-            cu = vapourComputeQueue->extend(shapeList, *cubeIt, sSizes);
+            cu = vapourComputeQueue->extend(shapeList, cubeIt->location, cubeIt->vapourJigsawPiece, sSizes);
             lastVapourPuzzle = vapourPuzzle;
             lastEdgePuzzle = edgePuzzle;
         }
         else
         {
             /* Add a new Unit for this cube, re-using the list. */
-            cu = vapourComputeQueue->addUnitFromExisting(cu, *cubeIt);
+            cu = vapourComputeQueue->addUnitFromExisting(cu, cubeIt->location, cubeIt->vapourJigsawPiece);
         }
 
         boost::shared_ptr<AFK_3DEdgeComputeQueue> edgeComputeQueue =
-            edgeComputeFair.getUpdateQueue(combineTwoPuzzleFairQueue(vapourPuzzle, edgePuzzle));
+            edgeComputeFair.getUpdateQueue(afk_combineTwoPuzzleFairQueue(vapourPuzzle, edgePuzzle));
 
-        edgeComputeQueue->append(*cubeIt);
+        edgeComputeQueue->append(cubeIt->location, cubeIt->vapourJigsawPiece, cubeIt->edgeJigsawPiece);
     }
 
     shapesComputed.fetch_add(1);
@@ -1003,7 +977,7 @@ void AFK_World::doComputeTasks(void)
     for (unsigned int queue = 0; queue < edgeComputeQueues.size(); ++queue)
     {
         int vapourPuzzle, edgePuzzle;
-        splitTwoPuzzleFairQueue(queue, vapourPuzzle, edgePuzzle);
+        afk_splitTwoPuzzleFairQueue(queue, vapourPuzzle, edgePuzzle);
 
         edgeComputeQueues[queue]->computeStart(
             afk_core.computer,

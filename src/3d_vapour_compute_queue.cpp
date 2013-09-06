@@ -59,7 +59,8 @@ AFK_3DVapourComputeQueue::~AFK_3DVapourComputeQueue()
 
 AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::extend(
     const AFK_3DList& list,
-    const AFK_ShapeCube& shapeCube,
+    const Vec4<float>& location,
+    const AFK_JigsawPiece& vapourJigsawPiece,
     const AFK_ShapeSizes & sSizes)
 {
     boost::unique_lock<boost::mutex> lock(mut);
@@ -68,7 +69,7 @@ AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::extend(
     if (list.cubeCount() == 0)
     {
         std::ostringstream ss;
-        ss << "Pushed empty list to 3D vapour compute queue for piece " << shapeCube;
+        ss << "Pushed empty list to 3D vapour compute queue for piece at " << location;
         throw AFK_Exception(ss.str());
     }
 
@@ -76,8 +77,8 @@ AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::extend(
         throw AFK_Exception("Insane self found");
 
     AFK_3DVapourComputeUnit newUnit(
-        shapeCube.location,
-        shapeCube.vapourJigsawPiece,
+        location,
+        vapourJigsawPiece,
         AFK_3DList::cubeCount(),
         list.cubeCount());
     AFK_3DList::extend(list);
@@ -87,15 +88,16 @@ AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::extend(
 
 AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::addUnitFromExisting(
     const AFK_3DVapourComputeUnit& existingUnit,
-    const AFK_ShapeCube& shapeCube)
+    const Vec4<float>& location,
+    const AFK_JigsawPiece& vapourJigsawPiece)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
     if (existingUnit.uninitialised()) throw AFK_Exception("Tried to add unit from an uninitialised existing one");
 
     AFK_3DVapourComputeUnit newUnit(
-        shapeCube.location,
-        shapeCube.vapourJigsawPiece,
+        location,
+        vapourJigsawPiece,
         existingUnit.cubeOffset,
         existingUnit.cubeCount);
     units.push_back(newUnit);

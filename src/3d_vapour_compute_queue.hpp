@@ -81,7 +81,8 @@ public:
      */
     AFK_3DVapourComputeUnit extend(
         const AFK_3DList& list,
-        const AFK_ShapeCube& shapeCube,
+        const Vec4<float>& location,
+        const AFK_JigsawPiece& vapourJigsawPiece,
         const AFK_ShapeSizes& sSizes);
 
     /* Makes a new compute unit based on an existing one
@@ -90,7 +91,8 @@ public:
      */
     AFK_3DVapourComputeUnit addUnitFromExisting(
         const AFK_3DVapourComputeUnit& existingUnit,
-        const AFK_ShapeCube& shapeCube);
+        const Vec4<float>& location,
+        const AFK_JigsawPiece& vapourJigsawPiece);
 
     /* Starts computing this vapour.
      */

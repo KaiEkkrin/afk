@@ -68,7 +68,10 @@ public:
     virtual ~AFK_3DEdgeComputeQueue();
 
     /* Adds the edges of a shape cube to the queue. */
-    AFK_3DEdgeComputeUnit append(const AFK_ShapeCube& shapeCube);
+    AFK_3DEdgeComputeUnit append(
+        const Vec4<float>& location,
+        const AFK_JigsawPiece& vapourJigsawPiece,
+        const AFK_JigsawPiece& edgeJigsawPiece);
 
     /* Starts the computation.
      */

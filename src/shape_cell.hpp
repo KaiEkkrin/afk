@@ -11,7 +11,9 @@
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
+#include "3d_edge_compute_queue.hpp"
 #include "3d_solid.hpp"
+#include "3d_vapour_compute_queue.hpp"
 #include "cell.hpp"
 #include "data/claimable.hpp"
 #include "data/fair.hpp"
@@ -89,31 +91,33 @@ public:
         unsigned int subdivisionFactor,
         const AFK_SHAPE_CELL_CACHE *cache);
 
-    /* TODO: I suspect that for mega shapes, this is not
-     * going to be sustainable, but for now, it seems
-     * reasonable to try to allocate the pieces in Shape
-     * and have that dole them out.  Less code to change
-     * that way.
-     * When that's all okay and the workers are running
-     * smoothly I can move to a half-cube system here
-     * and throw away the need for all cells of a Shape
-     * to share the same jigsaw puzzles.
+    /* Enqueues the compute units.  Both these functions overwrite
+     * the relevant jigsaw pieces with new ones.
+     * TODO: Cross-reference, over-compute, stitching, and all
+     * that junk.  Have a think.  I really do believe I want to
+     * avoid cross referencing at the cell level, and I *like*
+     * the half-cube paradigm (as demonstrated by its successful
+     * terrain equivalent, the half-tile).
+     * I could consider adding an `adjacency' compute step, or
+     * something.
      */
-    void assignVapourJigsawPiece(
-        const AFK_JigsawPiece& _vapourJigsawPiece,
-        const AFK_Frame& _vapourJigsawPieceTimestamp);
+    void enqueueVapourComputeUnit(
+        unsigned int threadId,
+        const AFK_3DList& list,
+        const AFK_ShapeSizes& sSizes,
+        AFK_JigsawCollection *vapourJigsaws,
+        AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair);
 
-    void assignEdgeJigsawPiece(
-        const AFK_JigsawPiece& _edgeJigsawPiece,
-        const AFK_Frame& _edgeJigsawPieceTimestamp);
+    void enqueueEdgeComputeUnit(
+        unsigned int threadId,
+        AFK_JigsawCollection *vapourJigsaws,
+        AFK_JigsawCollection *edgeJigsaws,
+        AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair);   
 
-    const AFK_JigsawPiece& getVapourJigsawPiece(void) const;
-    const AFK_JigsawPiece& getEdgeJigsawPiece(void) const;
-
-    /* Enqueues a display unit for this cell's edge.
+    /* Enqueues an edge display unit for this cell's edge.
      * TODO: A pure vapour render too would be fab!
      */
-    void enqueueDisplayUnit(
+    void enqueueEdgeDisplayUnit(
         const Mat4<float>& worldTransform,
         AFK_JigsawCollection *edgeJigsaws,
         AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const;

@@ -109,33 +109,37 @@ void AFK_ShapeCell::build3DList(
     }
 }
 
-void AFK_ShapeCell::assignVapourJigsawPiece(
-    const AFK_JigsawPiece& _vapourJigsawPiece,
-    const AFK_Frame& _vapourJigsawPieceTimestamp)
+void AFK_ShapeCell::enqueueVapourComputeUnit(
+    unsigned int threadId,
+    const AFK_3DList& list,
+    const AFK_ShapeSizes& sSizes,
+    AFK_JigsawCollection *vapourJigsaws,
+    AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair)
 {
-    vapourJigsawPiece = _vapourJigsawPiece;
-    vapourJigsawPieceTimestamp = _vapourJigsawPieceTimestamp;
+    vapourJigsaws->grab(threadId, 0, &vapourJigsawPiece, &vapourJigsawPieceTimestamp, 1);
+
+    boost::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
+        vapourComputeFair.getUpdateQueue(vapourJigsawPiece.puzzle);
+
+    vapourComputeQueue->extend(list, cell.toWorldSpace(1.0f), vapourJigsawPiece, sSizes);
 }
 
-void AFK_ShapeCell::assignEdgeJigsawPiece(
-    const AFK_JigsawPiece& _edgeJigsawPiece,
-    const AFK_Frame& _edgeJigsawPieceTimestamp)
+void AFK_ShapeCell::enqueueEdgeComputeUnit(
+    unsigned int threadId,
+    AFK_JigsawCollection *vapourJigsaws,
+    AFK_JigsawCollection *edgeJigsaws,
+    AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair)
 {
-    edgeJigsawPiece = _edgeJigsawPiece;
-    edgeJigsawPieceTimestamp = _edgeJigsawPieceTimestamp;
+    edgeJigsaws->grab(threadId, 0, &edgeJigsawPiece, &edgeJigsawPieceTimestamp, 1);
+
+    boost::shared_ptr<AFK_3DEdgeComputeQueue> edgeComputeQueue =
+        edgeComputeFair.getUpdateQueue(
+            afk_combineTwoPuzzleFairQueue(vapourJigsawPiece.puzzle, edgeJigsawPiece.puzzle));
+
+    edgeComputeQueue->append(cell.toWorldSpace(1.0f), vapourJigsawPiece, edgeJigsawPiece);
 }
 
-const AFK_JigsawPiece& AFK_ShapeCell::getVapourJigsawPiece(void) const
-{
-    return vapourJigsawPiece;
-}
-
-const AFK_JigsawPiece& AFK_ShapeCell::getEdgeJigsawPiece(void) const
-{
-    return edgeJigsawPiece;
-}
-
-void AFK_ShapeCell::enqueueDisplayUnit(
+void AFK_ShapeCell::enqueueEdgeDisplayUnit(
     const Mat4<float>& worldTransform,
     AFK_JigsawCollection *edgeJigsaws,
     AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const
