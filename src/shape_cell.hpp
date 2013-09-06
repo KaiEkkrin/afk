@@ -11,13 +11,28 @@
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
+#include "3d_solid.hpp"
 #include "cell.hpp"
 #include "data/claimable.hpp"
 #include "data/fair.hpp"
 #include "data/frame.hpp"
+#include "data/polymer_cache.hpp"
 #include "def.hpp"
 #include "entity_display_queue.hpp"
-#include "jigsaw.hpp"
+#include "jigsaw_collection.hpp"
+#include "shape_sizes.hpp"
+
+
+/* A ShapeCell has an artificial max distance set really
+ * high, because since all shapes are fully transformed,
+ * it won't have a min distance defined by the global
+ * minCellSize.
+ */
+#define SHAPE_CELL_MAX_DISTANCE (1LL<<30)
+
+#ifndef AFK_SHAPE_CELL_CACHE
+#define AFK_SHAPE_CELL_CACHE AFK_PolymerCache<AFK_Cell, AFK_ShapeCell, AFK_HashCell>
+#endif
 
 /* A ShapeCell describes one level of detail in a 3D
  * shape, and is cached by the Shape.
@@ -35,6 +50,8 @@ protected:
      * and perform the two tests upon it.
      */
     AFK_Cell cell;
+
+    Mat4<float> getCellToShapeTransform(void) const;
 
     /* This cell's vapour information... */
     bool haveVapourDescriptor;
@@ -54,20 +71,23 @@ public:
 
     /* Binds a shape cell to the shape. */
     void bind(const AFK_Cell& _cell);
+    const AFK_Cell& getCell(void) const;
 
-    const AFK_Cell& getCell(void) const { return cell; }
+    bool hasVapourDescriptor(void) const;
+    void makeVapourDescriptor(
+        unsigned int shapeKey,
+        const AFK_ShapeSizes& sSizes);
 
-    bool hasVapour(void) const;
-    bool hasEdges(void) const;
+    bool hasVapour(const AFK_JigsawCollection *vapourJigsaws) const;
+    bool hasEdges(const AFK_JigsawCollection *edgeJigsaws) const;
 
-    /* Builds the 3D list for this cell (adding it onto
-     * what's supplied).
-     * TODO: I'm going to need to know the skeleton here,
-     * aren't I?
+    /* Builds the 3D list for this cell.
      */
     void build3DList(
+        unsigned int threadId,
         AFK_3DList& list,
-        unsigned int subdivisionFactor);
+        unsigned int subdivisionFactor,
+        const AFK_SHAPE_CELL_CACHE *cache);
 
     /* TODO: I suspect that for mega shapes, this is not
      * going to be sustainable, but for now, it seems
@@ -95,7 +115,12 @@ public:
      */
     void enqueueDisplayUnit(
         const Mat4<float>& worldTransform,
+        AFK_JigsawCollection *edgeJigsaws,
         AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const;
+
+    /* For handling claiming and eviction. */
+    virtual AFK_Frame getCurrentFrame(void) const;
+    virtual bool canBeEvicted(void) const;
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_ShapeCell& shapeCell);
 };

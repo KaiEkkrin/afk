@@ -82,6 +82,7 @@ public:
 
     /* Gives the RNG seed value that matches this cell. */
     AFK_RNG_Value rngSeed() const;
+    AFK_RNG_Value rngSeed(size_t combinant) const;
 
     /* A more general subdivide to use internally.
      * `stride' is the gap to put between each subcell

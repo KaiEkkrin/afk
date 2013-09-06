@@ -31,6 +31,13 @@ AFK_RNG_Value AFK_Cell::rngSeed() const
     return AFK_RNG_Value(hash) ^ afk_core.config->masterSeed;
 }
 
+AFK_RNG_Value AFK_Cell::rngSeed(size_t combinant) const
+{
+    size_t hash = combinant;
+    boost::hash_combine(hash, hash_value(*this));
+    return AFK_RNG_Value(hash) ^ afk_core.config->masterSeed;
+}
+
 unsigned int AFK_Cell::subdivide(
     AFK_Cell *subCells,
     const size_t subCellsSize,
