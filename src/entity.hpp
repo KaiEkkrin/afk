@@ -12,6 +12,7 @@
 #include "data/fair.hpp"
 #include "def.hpp"
 #include "entity_display_queue.hpp"
+#include "jigsaw_collection.hpp"
 #include "object.hpp"
 #include "rng/rng.hpp"
 #include "shape.hpp"
@@ -55,6 +56,8 @@ public:
     AFK_Entity(AFK_Shape *_shape);
     virtual ~AFK_Entity();
 
+    const AFK_Shape *getShape(void) const;
+
     /* Positions the entity.
      */
     void position(
@@ -69,6 +72,8 @@ public:
      * on the shape content, and the LoD it's displayed at...)
      */
     void enqueueDisplayUnits(
+        const AFK_JigsawCollection *edgeJigsaws,
+        const AFK_ShapeSizes& sSizes,
         AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair);
 
     /* AFK_Claimable implementation. */

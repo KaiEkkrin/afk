@@ -15,7 +15,6 @@
 #include "computer.hpp"
 #include "def.hpp"
 #include "jigsaw.hpp"
-#include "shape.hpp"
 #include "shape_sizes.hpp"
 
 /* This module marshals 3D object compute data through the

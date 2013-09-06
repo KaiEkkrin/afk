@@ -31,6 +31,7 @@
  * minCellSize.
  */
 #define SHAPE_CELL_MAX_DISTANCE (1LL<<30)
+#define SHAPE_CELL_WORLD_SCALE (1.0f / ((float)SHAPE_CELL_MAX_DISTANCE))
 
 #ifndef AFK_SHAPE_CELL_CACHE
 #define AFK_SHAPE_CELL_CACHE AFK_PolymerCache<AFK_Cell, AFK_ShapeCell, AFK_HashCell>
@@ -68,9 +69,6 @@ protected:
     AFK_Frame edgeJigsawPieceTimestamp;
 
 public:
-    AFK_ShapeCell();
-    virtual ~AFK_ShapeCell();
-
     /* Binds a shape cell to the shape. */
     void bind(const AFK_Cell& _cell);
     const AFK_Cell& getCell(void) const;
@@ -119,7 +117,7 @@ public:
      */
     void enqueueEdgeDisplayUnit(
         const Mat4<float>& worldTransform,
-        AFK_JigsawCollection *edgeJigsaws,
+        const AFK_JigsawCollection *edgeJigsaws,
         AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const;
 
     /* For handling claiming and eviction. */

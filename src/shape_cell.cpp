@@ -59,7 +59,7 @@ void AFK_ShapeCell::makeVapourDescriptor(
         AFK_3DVapourCube cube;
         cube.make(
             vapourFeatures,
-            cell.toWorldSpace(1.0f), /* TODO ??? */
+            cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
             sSizes,
             rng);
         vapourCubes.push_back(cube);
@@ -121,7 +121,7 @@ void AFK_ShapeCell::enqueueVapourComputeUnit(
     boost::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
         vapourComputeFair.getUpdateQueue(vapourJigsawPiece.puzzle);
 
-    vapourComputeQueue->extend(list, cell.toWorldSpace(1.0f), vapourJigsawPiece, sSizes);
+    vapourComputeQueue->extend(list, cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE), vapourJigsawPiece, sSizes);
 }
 
 void AFK_ShapeCell::enqueueEdgeComputeUnit(
@@ -136,12 +136,12 @@ void AFK_ShapeCell::enqueueEdgeComputeUnit(
         edgeComputeFair.getUpdateQueue(
             afk_combineTwoPuzzleFairQueue(vapourJigsawPiece.puzzle, edgeJigsawPiece.puzzle));
 
-    edgeComputeQueue->append(cell.toWorldSpace(1.0f), vapourJigsawPiece, edgeJigsawPiece);
+    edgeComputeQueue->append(cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE), vapourJigsawPiece, edgeJigsawPiece);
 }
 
 void AFK_ShapeCell::enqueueEdgeDisplayUnit(
     const Mat4<float>& worldTransform,
-    AFK_JigsawCollection *edgeJigsaws,
+    const AFK_JigsawCollection *edgeJigsaws,
     AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const
 {
     /* The supplied world transform is for the shape -- to get

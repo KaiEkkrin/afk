@@ -88,6 +88,8 @@ protected:
     boost::atomic<unsigned long long> tilesRecomputedAfterSweep;
     boost::atomic<unsigned long long> entitiesQueued;
     boost::atomic<unsigned long long> entitiesMoved;
+
+    /* TODO: Move the shape statistics, I just unplugged them... */
     boost::atomic<unsigned long long> shapesComputed;
     boost::atomic<unsigned long long> shapesRecomputedAfterSweep;
     boost::atomic<unsigned long long> threadEscapes;
@@ -190,21 +192,10 @@ protected:
         AFK_LandscapeTile& landscapeTile,
         bool display);
 
-    /* The same idea for shapes. */
-    bool checkClaimedShape(
-        unsigned int shapeKey,
-        AFK_Shape& shape);
-
     /* Generates a landscape tile's geometry. */
     void generateLandscapeArtwork(
         const AFK_Tile& tile,
         AFK_LandscapeTile& landscapeTile,
-        unsigned int threadId);
-
-    /* Likewise. */
-    void generateShapeArtwork(
-        unsigned int shapeKey,
-        AFK_Shape& shape,
         unsigned int threadId);
 
     /* Makes one starting entity for a world cell, including generating

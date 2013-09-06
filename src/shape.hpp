@@ -15,9 +15,11 @@
 #include "data/claimable.hpp"
 #include "data/fair.hpp"
 #include "data/frame.hpp"
+#include "data/polymer_cache.hpp"
 #include "entity_display_queue.hpp"
 #include "object.hpp"
 #include "jigsaw_collection.hpp"
+#include "shape_cell.hpp"
 
 enum AFK_ShapeArtworkState
 {
@@ -25,6 +27,10 @@ enum AFK_ShapeArtworkState
     AFK_SHAPE_PIECE_SWEPT,
     AFK_SHAPE_HAS_ARTWORK
 };
+
+#ifndef AFK_SHAPE_CELL_CACHE
+#define AFK_SHAPE_CELL_CACHE AFK_PolymerCache<AFK_Cell, AFK_ShapeCell, AFK_HashCell>
+#endif
 
 /* This describes one cube in a shape. */
 /* TODO: This wants moving.  Its data should go into the small
@@ -52,7 +58,7 @@ public:
 
     AFK_ShapeCube(const Vec4<float>& _location);
 
-	friend std::ostream& operator<<(std::ostream& os, const AFK_ShapeCube& cube);
+    friend std::ostream& operator<<(std::ostream& os, const AFK_ShapeCube& cube);
 };
 
 std::ostream& operator<<(std::ostream& os, const AFK_ShapeCube& cube);
@@ -109,6 +115,12 @@ protected:
      */
     std::vector<AFK_SkeletonFlagGrid *> pointGrids;
 
+    /* This array lists all the individual cubes in the skeleton
+     * in cell co-ordinates.
+     * TODO REMOVEME Use detail pitch / visibility tests instead
+     */
+    std::vector<Vec4<int> > skeletonPointCubes;
+
     /* Recursively builds a skeleton, filling in the flag grid.
      * The point co-ordinates include a scale co-ordinate; this isn't used to refer to
      * grids, which are xyz only.
@@ -118,9 +130,10 @@ protected:
         const AFK_ShapeSizes& sSizes,
         Vec3<int> cube,
         unsigned int *cubesLeft,
-        std::vector<Vec3<int> >& o_skeletonCubes,
-        std::vector<Vec4<int> >& o_skeletonPointCubes);
+        std::vector<Vec3<int> >& o_skeletonCubes);
 
+    bool have3DDescriptor;
+#if 0
     /* This is a little like the landscape tiles.
      * TODO -- except, they're going away, because they are moving
      * into ShapeCell in a cell-by-cell piecemeal manner to be composed
@@ -131,7 +144,6 @@ protected:
      * Parallelling the landscape tiles in the first instance so that
      * I can get the basic thing working.
      */
-    bool have3DDescriptor;
     std::vector<AFK_3DVapourFeature> vapourFeatures;
     std::vector<AFK_3DVapourCube> vapourCubes;
 
@@ -156,6 +168,9 @@ protected:
      * pitch for world cells (no doubt something like
      * [world]detailPitch / sSizes.skeletonMaxSize ) ...
      */
+#else
+    AFK_SHAPE_CELL_CACHE *shapeCellCache;
+#endif
 
 public:
     AFK_Shape();
@@ -164,34 +179,25 @@ public:
     bool has3DDescriptor() const;
 
     void make3DDescriptor(
+        unsigned int threadId,
         unsigned int shapeKey,
         const AFK_ShapeSizes& sSizes);
 
-    void build3DList(
-        AFK_3DList& list);
-
-    /* Fills out `o_cubes' with the cubes that
-     * need to be computed.
-     * TODO This would be faster/eat up less memory if it was
-     * in iterator format, right?  (but more mind bending to
-     * code :P )
+    /* Pushes into the fairs any vapour and edge units that
+     * need computing.
+     * TODO: This ought to be spawning work items and all sorts,
+     * and should probably look different, and blah, and blah,
+     * but right now I just want to successfully move functionality
+     * into shape_cell, so this will follow the skeleton point
+     * cubes that I made earlier.
      */
-    void getCubesForCompute(
+    void enqueueComputeUnits(
         unsigned int threadId,
-        int minVapourJigsaw,
-        int minEdgeJigsaw,
-        AFK_JigsawCollection *_vapourJigsaws,
-        AFK_JigsawCollection *_edgeJigsaws,
-        std::vector<AFK_ShapeCube>& o_cubes);
-
-    /* This function always returns AFK_SHAPE_PIECE_SWEPT if
-     * at least one piece has been swept.
-     * Call getCubesForCompute() and enqueue all the pieces
-     * that come back in the array for computation.
-     * TODO: This checks the edge jigsaws only.  For rendering
-     * the vapour directly we will need a different function.
-     */
-    enum AFK_ShapeArtworkState artworkState() const;
+        const AFK_ShapeSizes& sSizes,
+        AFK_JigsawCollection *vapourJigsaws,
+        AFK_JigsawCollection *edgeJigsaws,
+        AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair,
+        AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair) const;
 
     /* Enqueues the display units for an entity of this shape.
      * (Right now, this refers to enqueueing the *edge shapes*.
@@ -200,6 +206,8 @@ public:
      */
     void enqueueDisplayUnits(
         const AFK_Object& object,
+        const AFK_JigsawCollection *edgeJigsaws,
+        const AFK_ShapeSizes& sSizes,
         AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const;
 
     /* For handling claiming and eviction. */

@@ -18,6 +18,11 @@ AFK_Entity::~AFK_Entity()
 {
 }
 
+const AFK_Shape *AFK_Entity::getShape(void) const
+{
+    return shape;
+}
+
 void AFK_Entity::position(
     const Vec3<float>& scale,
     const Vec3<float>& displacement,
@@ -124,9 +129,11 @@ void AFK_Entity::enqueueForDrawing(unsigned int threadId)
 #endif
 
 void AFK_Entity::enqueueDisplayUnits(
+    const AFK_JigsawCollection *edgeJigsaws,
+    const AFK_ShapeSizes& sSizes,
     AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair)
 {
-    shape->enqueueDisplayUnits(obj, entityDisplayFair);
+    shape->enqueueDisplayUnits(obj, edgeJigsaws, sSizes, entityDisplayFair);
 }
 
 AFK_Frame AFK_Entity::getCurrentFrame(void) const

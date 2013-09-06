@@ -129,38 +129,6 @@ bool AFK_World::checkClaimedLandscapeTile(
     return needsArtwork;
 }
 
-bool AFK_World::checkClaimedShape(
-    unsigned int shapeKey,
-    AFK_Shape& shape)
-{
-    shape.make3DDescriptor(shapeKey, sSizes);
-
-    bool needsArtwork = false;
-    enum AFK_ShapeArtworkState artworkState = shape.artworkState();
-    switch (artworkState)
-    {
-    case AFK_SHAPE_NO_PIECE_ASSIGNED:
-        needsArtwork = true;
-        break;
-
-    case AFK_SHAPE_PIECE_SWEPT:
-        shapesRecomputedAfterSweep.fetch_add(1);
-        needsArtwork = true;
-        break;
-
-    case AFK_SHAPE_HAS_ARTWORK:
-        needsArtwork = false;
-        break;
-
-    default:
-        std::ostringstream ss;
-        ss << "Unrecognised shape artwork state: " << artworkState;
-        throw AFK_Exception(ss.str());
-    }
-
-    return needsArtwork;
-}
-
 
 /* Don't enable these unless you want mega spam */
 #define DEBUG_JIGSAW_ASSOCIATION 0
@@ -218,84 +186,6 @@ void AFK_World::generateLandscapeArtwork(
     tilesComputed.fetch_add(1);
 }
 
-void AFK_World::generateShapeArtwork(
-    unsigned int shapeKey,
-    AFK_Shape& shape,
-    unsigned int threadId)
-{
-    AFK_3DList shapeList;
-    shape.build3DList(shapeList);
-
-    /* Enumerate the cubes that we need to compute ...
-     * TODO: For ephemeral shapes: bump minEdgeJigsaw.
-     * For all shapes whose vapour isn't going to be rendered:
-     * bump minVapourJigsaw.
-     */
-    std::vector<AFK_ShapeCube> cubesForCompute;
-    shape.getCubesForCompute(threadId, 0, 0, vapourJigsaws, edgeJigsaws, cubesForCompute);
-
-    AFK_3DVapourComputeUnit cu;
-    int lastVapourPuzzle = -1;
-    int lastEdgePuzzle = -1;
-
-    /* I can make the assumption here that all cubes in the same
-     * batch share the same vapour and edge jigsaws.
-     * However, since their numbers won't always be the same,
-     * I'm going to do a cunning trick here to combine tracking
-     * a separate edge and vapour jigsaw puzzle number within the
-     * single number given to the queue in the fair.
-     */
-    for (std::vector<AFK_ShapeCube>::iterator cubeIt = cubesForCompute.begin();
-        cubeIt != cubesForCompute.end(); ++cubeIt)
-    {
-        int vapourPuzzle = cubeIt->vapourJigsawPiece.puzzle;
-        int edgePuzzle = cubeIt->edgeJigsawPiece.puzzle;
-
-        /* Right now, there is a one-to-one mapping between
-         * vapour cube and edge set.
-         * This may change (which would muddle this logic all up)
-         */
-        boost::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
-            vapourComputeFair.getUpdateQueue(vapourPuzzle);
-
-        if (cu.uninitialised() || lastVapourPuzzle != vapourPuzzle || lastEdgePuzzle != edgePuzzle)
-        {
-            if (lastVapourPuzzle != -1)
-            {
-                /* This is a bug. */
-                std::ostringstream ss;
-                ss << "Vapour puzzle discrepancy: " << lastVapourPuzzle << " then " << vapourPuzzle;
-                throw AFK_Exception(ss.str());
-            }
-
-            if (lastEdgePuzzle != -1)
-            {
-                /* This is also a bug. */
-                std::ostringstream ss;
-                ss << "Edge puzzle discrepancy: " << lastEdgePuzzle << " then " << edgePuzzle;
-                throw AFK_Exception(ss.str());
-            }
-
-            /* Extend the vapour compute queue with this cube. */
-            cu = vapourComputeQueue->extend(shapeList, cubeIt->location, cubeIt->vapourJigsawPiece, sSizes);
-            lastVapourPuzzle = vapourPuzzle;
-            lastEdgePuzzle = edgePuzzle;
-        }
-        else
-        {
-            /* Add a new Unit for this cube, re-using the list. */
-            cu = vapourComputeQueue->addUnitFromExisting(cu, cubeIt->location, cubeIt->vapourJigsawPiece);
-        }
-
-        boost::shared_ptr<AFK_3DEdgeComputeQueue> edgeComputeQueue =
-            edgeComputeFair.getUpdateQueue(afk_combineTwoPuzzleFairQueue(vapourPuzzle, edgePuzzle));
-
-        edgeComputeQueue->append(cubeIt->location, cubeIt->vapourJigsawPiece, cubeIt->edgeJigsawPiece);
-    }
-
-    shapesComputed.fetch_add(1);
-}
-
 void AFK_World::generateStartingEntity(
     unsigned int shapeKey,
     AFK_WorldCell& worldCell,
@@ -306,9 +196,8 @@ void AFK_World::generateStartingEntity(
     AFK_ClaimStatus shapeClaimStatus = shape.claimYieldLoop(
         threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
 
-    /* Figure out whether I need to generate its artwork. */
-    bool generateArtwork = false;
-    if (!shape.has3DDescriptor() || shape.artworkState() != AFK_SHAPE_HAS_ARTWORK)
+    /* Sort out its descriptor. */
+    if (!shape.has3DDescriptor())
     {
         /* Try to upgrade our claim to the shape. */
         if (shapeClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
@@ -316,7 +205,7 @@ void AFK_World::generateStartingEntity(
 
         if (shapeClaimStatus == AFK_CL_CLAIMED)
         {
-            generateArtwork = checkClaimedShape(shapeKey, shape);
+            shape.make3DDescriptor(threadId, shapeKey, sSizes);
         }
         else
         {
@@ -327,9 +216,6 @@ void AFK_World::generateStartingEntity(
              */
         }
     }
-
-    if (generateArtwork)
-        generateShapeArtwork(shapeKey, shape, threadId);
 
     shape.release(threadId, shapeClaimStatus);
 
@@ -572,7 +458,18 @@ bool AFK_World::generateClaimedWorldCell(
                  * too.  Rah!
                  */
 #endif
-                e->enqueueDisplayUnits(entityDisplayFair);
+                /* Now, make sure everything I need in that shape
+                 * has been computed ...
+                 */
+                e->getShape()->enqueueComputeUnits(
+                    threadId,
+                    sSizes,
+                    vapourJigsaws,
+                    edgeJigsaws,
+                    vapourComputeFair,
+                    edgeComputeFair);
+
+                e->enqueueDisplayUnits(edgeJigsaws, sSizes, entityDisplayFair);
                 entitiesQueued.fetch_add(1);
 
                 e->release(threadId, AFK_CL_CLAIMED);
