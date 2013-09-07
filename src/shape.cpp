@@ -8,6 +8,7 @@
 #include <boost/functional/hash.hpp>
 #include <boost/shared_ptr.hpp>
 
+#include "camera.hpp"
 #include "core.hpp"
 #include "debug.hpp"
 #include "def.hpp"
@@ -16,6 +17,9 @@
 #include "rng/aes.hpp"
 #include "shape.hpp"
 
+
+/* Shape worker flags. */
+#define AFK_SCG_FLAG_ENTIRELY_VISIBLE       1
 
 /* The shape worker */
 
@@ -27,8 +31,13 @@ bool afk_generateShapeCells(
     const AFK_Cell cell                     = param.shape.cell;
     AFK_Entity *entity                      = param.shape.entity;
     AFK_World *world                        = param.shape.world;
+    const Vec3<float>& viewerLocation       = param.shape.viewerLocation;
+    const AFK_Camera *camera                = param.shape.camera;
+
+    bool entirelyVisible                    = ((param.shape.flags & AFK_SCG_FLAG_ENTIRELY_VISIBLE) != 0);
 
     AFK_Shape *shape                        = entity->shape;
+    Mat4<float> worldTransform              = entity->obj.getTransformation();
 
     AFK_JigsawCollection *vapourJigsaws     = world->vapourJigsaws;
     AFK_JigsawCollection *edgeJigsaws       = world->edgeJigsaws;
@@ -37,65 +46,129 @@ bool afk_generateShapeCells(
     shapeCell.bind(cell);
     AFK_ClaimStatus claimStatus = shapeCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
 
-    if (!shapeCell.hasEdges(edgeJigsaws))
+    /* Check for visibility. */
+    bool someVisible = entirelyVisible;
+    bool allVisible = entirelyVisible;
+    AFK_VisibleCell visibleCell;
+    visibleCell.bindToCell(cell, SHAPE_CELL_WORLD_SCALE, worldTransform);
+    if (!entirelyVisible) visibleCell.testVisibility(
+        *camera, someVisible, allVisible);
+    if (!someVisible)
     {
-        /* I need to generate stuff for this cell -- which means I need
-         * to upgrade my claim.
-         */
-        if (claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+        world->shapeCellsInvisible.fetch_add(1);
+        shapeCell.release(threadId, claimStatus);
+        return true;
+    }
+
+    if (visibleCell.testDetailPitch(
+        world->averageDetailPitch.get(), *camera, viewerLocation))
+    {
+        /* Try to get this shape cell set up and enqueued. */
+        if (!shapeCell.hasEdges(edgeJigsaws))
         {
-            claimStatus = shapeCell.upgrade(threadId, claimStatus);
-        }
-
-        switch (claimStatus)
-        {
-        case AFK_CL_CLAIMED:
-            if (!shapeCell.hasVapour(vapourJigsaws))
-            {
-                /* I need to generate the vapour too. */
-                if (shape->enqueueVapourCell(threadId, entity->shapeKey, shapeCell, cell,
-                    world->sSizes, vapourJigsaws, world->vapourComputeFair))
-                {
-                    world->shapeVapoursComputed.fetch_add(1);
-                }
-                else
-                {
-                    /* TODO: Do a resume, come back later. */
-                    shapeCell.release(threadId, claimStatus);
-                    return true;
-                }
-            }
-
-            if (!shapeCell.hasEdges(edgeJigsaws))
-            {
-                shapeCell.enqueueEdgeComputeUnit(
-                    threadId, vapourJigsaws, edgeJigsaws, world->edgeComputeFair);
-                world->shapeEdgesComputed.fetch_add(1);
-            }
-            break;
-
-        case AFK_CL_CLAIMED_SHARED:
-            /* TODO: I need to resume this to see if the situation gets
-             * better.  For now I'll just drop out.
+            /* I need to generate stuff for this cell -- which means I need
+             * to upgrade my claim.
              */
-            shapeCell.release(threadId, claimStatus);
-            return true;
+            if (claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+            {
+                claimStatus = shapeCell.upgrade(threadId, claimStatus);
+            }
 
-        default:
-            /* Likewise. */
-            return true;
+            switch (claimStatus)
+            {
+            case AFK_CL_CLAIMED:
+                if (!shapeCell.hasVapour(vapourJigsaws))
+                {
+                    /* I need to generate the vapour too. */
+                    if (shape->enqueueVapourCell(threadId, entity->shapeKey, shapeCell, cell,
+                        world->sSizes, vapourJigsaws, world->vapourComputeFair))
+                    {
+                        world->shapeVapoursComputed.fetch_add(1);
+                    }
+                    else
+                    {
+                        shapeCell.release(threadId, claimStatus);
+    
+                        /* Enqueue a resume of this one and drop out. */
+                        AFK_WorldWorkQueue::WorkItem resumeItem;
+                        resumeItem.func = afk_generateShapeCells;
+                        resumeItem.param = param;
+                        queue.push(resumeItem);
+                        world->shapeCellsResumed.fetch_add(1);
+    
+                        return true;
+                    }
+                }
+    
+                if (!shapeCell.hasEdges(edgeJigsaws))
+                {
+                    shapeCell.enqueueEdgeComputeUnit(
+                        threadId, vapourJigsaws, edgeJigsaws, world->edgeComputeFair);
+                    world->shapeEdgesComputed.fetch_add(1);
+                }
+                break;
+
+            case AFK_CL_CLAIMED_SHARED:
+                /* TODO: I need to resume this to see if the situation gets
+                 * better.  For now I'll just drop out.
+                 */
+                shapeCell.release(threadId, claimStatus);
+                return true;
+
+            default:
+                /* Likewise. */
+                return true;
+            }
         }
+
+        if (claimStatus == AFK_CL_CLAIMED ||
+            claimStatus == AFK_CL_CLAIMED_UPGRADABLE ||
+            claimStatus == AFK_CL_CLAIMED_SHARED)
+        {
+            shapeCell.enqueueEdgeDisplayUnit(
+                worldTransform,
+                edgeJigsaws,
+                world->entityDisplayFair);
+        }
+    }
+    else
+    {
+        /* This cell failed the detail pitch test: recurse through
+         * the subcells
+         */
+        size_t subcellsSize = CUBE(world->sSizes.subdivisionFactor);
+        AFK_Cell *subcells = new AFK_Cell[subcellsSize];
+        unsigned int subcellsCount = cell.subdivide(subcells, subcellsSize, world->sSizes.subdivisionFactor);
+
+        if (subcellsCount == subcellsSize)
+        {
+            for (unsigned int i = 0; i < subcellsCount; ++i)
+            {
+                AFK_WorldWorkQueue::WorkItem subcellItem;
+                subcellItem.func                            = afk_generateShapeCells;
+                subcellItem.param.shape.cell                = subcells[i];
+                subcellItem.param.shape.entity              = entity;
+                subcellItem.param.shape.world               = world;
+                subcellItem.param.shape.viewerLocation      = viewerLocation;
+                subcellItem.param.shape.camera              = camera;
+                subcellItem.param.shape.flags               = (allVisible ? AFK_SCG_FLAG_ENTIRELY_VISIBLE : 0);
+                queue.push(subcellItem);
+            }
+        }
+        else
+        {
+            std::ostringstream ss;
+            ss << "Cell " << cell << " subdivided into " << subcellsCount << " not " << subcellsSize;
+            throw AFK_Exception(ss.str());
+        }
+
+        delete[] subcells;
     }
 
     if (claimStatus == AFK_CL_CLAIMED ||
         claimStatus == AFK_CL_CLAIMED_UPGRADABLE ||
         claimStatus == AFK_CL_CLAIMED_SHARED)
     {
-        shapeCell.enqueueEdgeDisplayUnit(
-            entity->obj.getTransformation(),
-            edgeJigsaws,
-            world->entityDisplayFair);
-
         shapeCell.release(threadId, claimStatus);
     }
 

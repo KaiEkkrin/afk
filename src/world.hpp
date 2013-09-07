@@ -87,6 +87,8 @@ protected:
     boost::atomic<unsigned long long> entitiesMoved;
 
     /* These ones are updated by the shape worker. */
+    boost::atomic<unsigned long long> shapeCellsInvisible;
+    boost::atomic<unsigned long long> shapeCellsResumed;
     boost::atomic<unsigned long long> shapeVapoursComputed;
     boost::atomic<unsigned long long> shapeEdgesComputed;
 

@@ -680,6 +680,8 @@ AFK_World::AFK_World(
     tilesRecomputedAfterSweep.store(0);
     entitiesQueued.store(0);
     entitiesMoved.store(0);
+    shapeCellsInvisible.store(0);
+    shapeCellsResumed.store(0);
     shapeVapoursComputed.store(0);
     shapeEdgesComputed.store(0);
     threadEscapes.store(0);
@@ -949,6 +951,8 @@ void AFK_World::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckp
     PRINT_RATE_AND_RESET("Tiles recomputed after sweep: ", tilesRecomputedAfterSweep)
     PRINT_RATE_AND_RESET("Entities queued:              ", entitiesQueued)
     PRINT_RATE_AND_RESET("Entities moved:               ", entitiesMoved)
+    PRINT_RATE_AND_RESET("Shape cells found invisible:  ", shapeCellsInvisible)
+    PRINT_RATE_AND_RESET("Shape cells resumed:          ", shapeCellsResumed)
     PRINT_RATE_AND_RESET("Shape vapours computed:       ", shapeVapoursComputed)
     PRINT_RATE_AND_RESET("Shape edges computed:         ", shapeEdgesComputed)
     std::cout <<         "Cumulative thread escapes:    " << threadEscapes.load() << std::endl;
