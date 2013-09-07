@@ -337,20 +337,26 @@ void AFK_Shape::make3DDescriptor(
     }
 }
 
-bool AFK_Shape::build3DList(
+bool AFK_Shape::enqueueVapourCell(
     unsigned int threadId,
     unsigned int shapeKey,
+    AFK_ShapeCell& shapeCell,
     const AFK_Cell& cell,
-    AFK_3DList& list,
-    const AFK_ShapeSizes& sSizes)
+    const AFK_ShapeSizes& sSizes,
+    AFK_JigsawCollection *vapourJigsaws,
+    AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair)
 {
+    unsigned int cubeOffset, cubeCount;
+
     AFK_Cell vc = afk_vapourCell(cell);
     AFK_VapourCell& vapourCell = (*vapourCellCache)[vc];
     vapourCell.bind(vc);
     AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
 
-    if (!vapourCell.hasDescriptor())
+    if (!vapourCell.alreadyEnqueued(cubeOffset, cubeCount))
     {
+        AFK_3DList list;
+
         /* I need to upgrade my claim to generate the descriptor. */
         if (claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
         {
@@ -363,6 +369,14 @@ bool AFK_Shape::build3DList(
             if (!vapourCell.hasDescriptor())
                 vapourCell.makeDescriptor(shapeKey, sSizes);
 
+            vapourCell.build3DList(threadId, list, sSizes.subdivisionFactor, vapourCellCache);
+            shapeCell.enqueueVapourComputeUnitWithNewVapour(
+                threadId, list, sSizes, vapourJigsaws, vapourComputeFair,
+                cubeOffset, cubeCount);
+            vapourCell.enqueued(cubeOffset, cubeCount);
+            vapourCell.release(threadId, claimStatus);
+            return true;
+
         case AFK_CL_CLAIMED_SHARED:
             vapourCell.release(threadId, claimStatus);
             return false;
@@ -371,22 +385,12 @@ bool AFK_Shape::build3DList(
             return false;
         }
     }
-
-    if (claimStatus == AFK_CL_CLAIMED ||
-        claimStatus == AFK_CL_CLAIMED_SHARED ||
-        claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
-    {
-        vapourCell.build3DList(
-            threadId,
-            list,
-            sSizes.subdivisionFactor,
-            vapourCellCache);
-        vapourCell.release(threadId, claimStatus);
-        return true;
-    }
     else
     {
-        return false;
+        shapeCell.enqueueVapourComputeUnitFromExistingVapour(
+            threadId, cubeOffset, cubeCount, sSizes, vapourJigsaws, vapourComputeFair);
+        vapourCell.release(threadId, claimStatus);
+        return true;
     }
 }
 
@@ -422,17 +426,8 @@ void AFK_Shape::enumerateCell(
             if (!shapeCell.hasVapour(vapourJigsaws))
             {
                 /* I need to generate the vapour too. */
-                AFK_3DList list;
-                if (build3DList(threadId, shapeKey, cell, list, sSizes))
-                {
-                    /* TODO: That ability to pull up the place in the vapour
-                     * compute queue where I already pushed the relevant
-                     * vapour cubes
-                     */
-                    shapeCell.enqueueVapourComputeUnit(
-                        threadId, list, sSizes, vapourJigsaws, vapourComputeFair);
-                }
-                else
+                if (!enqueueVapourCell(threadId, shapeKey, shapeCell, cell,
+                    sSizes, vapourJigsaws, vapourComputeFair))
                 {
                     /* TODO: Do a resume, come back later. */
                     shapeCell.release(threadId, claimStatus);

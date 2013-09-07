@@ -74,9 +74,19 @@ public:
      * I could consider adding an `adjacency' compute step, or
      * something.
      */
-    void enqueueVapourComputeUnit(
+    void enqueueVapourComputeUnitWithNewVapour(
         unsigned int threadId,
         const AFK_3DList& list,
+        const AFK_ShapeSizes& sSizes,
+        AFK_JigsawCollection *vapourJigsaws,
+        AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair,
+        unsigned int& o_cubeOffset,
+        unsigned int& o_cubeCount);
+
+    void enqueueVapourComputeUnitFromExistingVapour(
+        unsigned int threadId,
+        unsigned int cubeOffset,
+        unsigned int cubeCount,
         const AFK_ShapeSizes& sSizes,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair);

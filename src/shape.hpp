@@ -147,17 +147,19 @@ protected:
         unsigned int shapeKey,
         const AFK_ShapeSizes& sSizes);
 
-    /* Builds the 3D list for a claimed shape cell.  Sorts out the
+    /* Builds the vapour for a claimed shape cell.  Sorts out the
      * vapour cell business.
      * Returns true if it completed; else false (in that case you
      * should push in a resume)
      */
-    bool build3DList(
+    bool enqueueVapourCell(
         unsigned int threadId,
         unsigned int shapeKey,
+        AFK_ShapeCell& shapeCell,
         const AFK_Cell& cell,
-        AFK_3DList& list,
-        const AFK_ShapeSizes& sSizes);
+        const AFK_ShapeSizes& sSizes,
+        AFK_JigsawCollection *vapourJigsaws,
+        AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair);
 
     /* Enumerates one shape cell and does the necessary to get it
      * displayed.

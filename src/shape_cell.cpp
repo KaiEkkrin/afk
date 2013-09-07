@@ -47,9 +47,32 @@ bool AFK_ShapeCell::hasEdges(const AFK_JigsawCollection *edgeJigsaws) const
         edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTimestamp(edgeJigsawPiece) == edgeJigsawPieceTimestamp);
 }
 
-void AFK_ShapeCell::enqueueVapourComputeUnit(
+void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
     unsigned int threadId,
     const AFK_3DList& list,
+    const AFK_ShapeSizes& sSizes,
+    AFK_JigsawCollection *vapourJigsaws,
+    AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair,
+    unsigned int& o_cubeOffset,
+    unsigned int& o_cubeCount)
+{
+    vapourJigsaws->grab(threadId, 0, &vapourJigsawPiece, &vapourJigsawPieceTimestamp, 1);
+
+    boost::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
+        vapourComputeFair.getUpdateQueue(vapourJigsawPiece.puzzle);
+
+    vapourComputeQueue->extend(list, o_cubeOffset, o_cubeCount);
+    vapourComputeQueue->addUnit(
+        cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
+        vapourJigsawPiece,
+        o_cubeOffset,
+        o_cubeCount);
+}
+
+void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
+    unsigned int threadId,
+    unsigned int cubeOffset,
+    unsigned int cubeCount,
     const AFK_ShapeSizes& sSizes,
     AFK_JigsawCollection *vapourJigsaws,
     AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair)
@@ -59,7 +82,11 @@ void AFK_ShapeCell::enqueueVapourComputeUnit(
     boost::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
         vapourComputeFair.getUpdateQueue(vapourJigsawPiece.puzzle);
 
-    vapourComputeQueue->extend(list, cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE), vapourJigsawPiece, sSizes);
+    vapourComputeQueue->addUnit(
+        cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
+        vapourJigsawPiece,
+        cubeOffset,
+        cubeCount);
 }
 
 void AFK_ShapeCell::enqueueEdgeComputeUnit(

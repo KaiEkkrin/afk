@@ -89,6 +89,32 @@ void AFK_VapourCell::build3DList(
     }
 }
 
+bool AFK_VapourCell::alreadyEnqueued(
+    unsigned int& o_cubeOffset,
+    unsigned int& o_cubeCount) const
+{
+    if (computeCubeFrame == afk_core.computingFrame)
+    {
+        o_cubeOffset = computeCubeOffset;
+        o_cubeCount = computeCubeCount;
+        return true;
+    }
+    else return false;
+}
+
+void AFK_VapourCell::enqueued(
+    unsigned int cubeOffset,
+    unsigned int cubeCount)
+{
+    /* Sanity check */
+    if (computeCubeFrame == afk_core.computingFrame)
+        throw AFK_Exception("Vapour cell enqueue conflict");
+
+    computeCubeOffset = cubeOffset;
+    computeCubeCount = cubeCount;
+    computeCubeFrame = afk_core.computingFrame;
+}
+
 AFK_Frame AFK_VapourCell::getCurrentFrame(void) const
 {
     return afk_core.computingFrame;
