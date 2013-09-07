@@ -23,6 +23,8 @@
 
 /* The shape worker */
 
+#define VISIBLE_CELL_DEBUG 0
+
 bool afk_generateShapeCells(
     unsigned int threadId,
     const union AFK_WorldWorkParam& param,
@@ -51,10 +53,18 @@ bool afk_generateShapeCells(
     bool allVisible = entirelyVisible;
     AFK_VisibleCell visibleCell;
     visibleCell.bindToCell(cell, SHAPE_CELL_WORLD_SCALE, worldTransform);
+
+#if VISIBLE_CELL_DEBUG
+    AFK_DEBUG_PRINTL("testing shape cell " << cell << ": visible cell " << visibleCell)
+#endif
+
     if (!entirelyVisible) visibleCell.testVisibility(
         *camera, someVisible, allVisible);
     if (!someVisible)
     {
+#if VISIBLE_CELL_DEBUG
+        AFK_DEBUG_PRINTL("visible cell " << visibleCell << ": invisible")
+#endif
         world->shapeCellsInvisible.fetch_add(1);
         shapeCell.release(threadId, claimStatus);
         return true;
@@ -63,6 +73,10 @@ bool afk_generateShapeCells(
     if (visibleCell.testDetailPitch(
         world->averageDetailPitch.get(), *camera, viewerLocation))
     {
+#if VISIBLE_CELL_DEBUG
+        AFK_DEBUG_PRINTL("visible cell " << visibleCell << ": within detail pitch " << world->averageDetailPitch.get())
+#endif
+
         /* Try to get this shape cell set up and enqueued. */
         if (!shapeCell.hasEdges(edgeJigsaws))
         {
@@ -133,6 +147,10 @@ bool afk_generateShapeCells(
     }
     else
     {
+#if VISIBLE_CELL_DEBUG
+        AFK_DEBUG_PRINTL("visible cell " << visibleCell << ": without detail pitch " << world->averageDetailPitch.get())
+#endif
+
         /* This cell failed the detail pitch test: recurse through
          * the subcells
          */
