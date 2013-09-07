@@ -6,7 +6,6 @@
 
 #include "core.hpp"
 #include "object.hpp"
-#include "rng/boost_taus88.hpp"
 #include "shape_cell.hpp"
 
 
@@ -36,38 +35,6 @@ const AFK_Cell& AFK_ShapeCell::getCell(void) const
     return cell;
 }
 
-bool AFK_ShapeCell::hasVapourDescriptor(void) const
-{
-    return haveVapourDescriptor;
-}
-
-void AFK_ShapeCell::makeVapourDescriptor(
-    unsigned int shapeKey,
-    const AFK_ShapeSizes& sSizes)
-{
-    if (!haveVapourDescriptor)
-    {
-        AFK_Boost_Taus88_RNG rng;
-
-        /* TODO: Half-cells will go here when I add them (which I
-         * think I might want to).  For now I just make this cell
-         * by itself.
-         */
-        rng.seed(cell.rngSeed(
-            0x0001000100010001LL * shapeKey));
-
-        AFK_3DVapourCube cube;
-        cube.make(
-            vapourFeatures,
-            cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
-            sSizes,
-            rng);
-        vapourCubes.push_back(cube);
-
-        haveVapourDescriptor = true;
-    }
-}
-
 bool AFK_ShapeCell::hasVapour(const AFK_JigsawCollection *vapourJigsaws) const
 {
     return (vapourJigsawPiece != AFK_JigsawPiece() &&
@@ -78,35 +45,6 @@ bool AFK_ShapeCell::hasEdges(const AFK_JigsawCollection *edgeJigsaws) const
 {
     return (edgeJigsawPiece != AFK_JigsawPiece() &&
         edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTimestamp(edgeJigsawPiece) == edgeJigsawPieceTimestamp);
-}
-
-void AFK_ShapeCell::build3DList(
-    unsigned int threadId,
-    AFK_3DList& list,
-    unsigned int subdivisionFactor,
-    const AFK_SHAPE_CELL_CACHE *cache)
-{
-    /* Add the local vapour to the list. */
-    list.extend(vapourFeatures, vapourCubes);
-
-    /* If this isn't the top level cell... */
-    if (cell.coord.v[3] < SHAPE_CELL_MAX_DISTANCE)
-    {
-        /* Pull the parent cell from the cache, and
-         * include its list too
-         */
-        AFK_Cell parentCell = cell.parent(subdivisionFactor);
-        AFK_ShapeCell& parentShapeCell = cache->at(parentCell);
-        enum AFK_ClaimStatus claimStatus = parentShapeCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
-        if (claimStatus != AFK_CL_CLAIMED_SHARED && claimStatus != AFK_CL_CLAIMED_UPGRADABLE)
-        {
-            std::ostringstream ss;
-            ss << "Unable to claim ShapeCell at " << parentCell << ": got status " << claimStatus;
-            throw AFK_Exception(ss.str());
-        }
-        parentShapeCell.build3DList(threadId, list, subdivisionFactor, cache);
-        parentShapeCell.release(threadId, claimStatus);
-    }
 }
 
 void AFK_ShapeCell::enqueueVapourComputeUnit(
@@ -172,7 +110,6 @@ bool AFK_ShapeCell::canBeEvicted(void) const
 std::ostream& operator<<(std::ostream& os, const AFK_ShapeCell& shapeCell)
 {
     os << "Shape cell";
-    if (shapeCell.haveVapourDescriptor) os << " (Vapour)";
     os << " (Vapour piece: " << shapeCell.vapourJigsawPiece << ")";
     os << " (Edge piece: " << shapeCell.edgeJigsawPiece << ")";
     return os;

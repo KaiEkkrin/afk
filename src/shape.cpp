@@ -305,10 +305,6 @@ void AFK_Shape::make3DDescriptor(
                 pointCubeIt->v[1] * pointCubeScale,
                 pointCubeIt->v[2] * pointCubeScale,
                 pointCubeScale));
-#else
-            AFK_Cell cell = afk_cell(afk_vec4<long long>(
-                0, 0, 0, SHAPE_CELL_MAX_DISTANCE));
-#endif
 
             AFK_ShapeCell& shapeCell = (*shapeCellCache)[cell];
             shapeCell.bind(cell);
@@ -334,11 +330,63 @@ void AFK_Shape::make3DDescriptor(
             }
 
             shapeCell.release(threadId, claimStatus);
-#if SKELETON_RENDER
         }
 #endif
 
         have3DDescriptor = true;
+    }
+}
+
+bool AFK_Shape::build3DList(
+    unsigned int threadId,
+    unsigned int shapeKey,
+    const AFK_Cell& cell,
+    AFK_3DList& list,
+    const AFK_ShapeSizes& sSizes)
+{
+    AFK_Cell vc = afk_vapourCell(cell);
+    AFK_VapourCell& vapourCell = (*vapourCellCache)[vc];
+    vapourCell.bind(vc);
+    AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+
+    if (!vapourCell.hasDescriptor())
+    {
+        /* I need to upgrade my claim to generate the descriptor. */
+        if (claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+        {
+            claimStatus = vapourCell.upgrade(threadId, claimStatus);
+        }
+
+        switch (claimStatus)
+        {
+        case AFK_CL_CLAIMED:
+            if (!vapourCell.hasDescriptor())
+                vapourCell.makeDescriptor(shapeKey, sSizes);
+
+        case AFK_CL_CLAIMED_SHARED:
+            vapourCell.release(threadId, claimStatus);
+            return false;
+
+        default:
+            return false;
+        }
+    }
+
+    if (claimStatus == AFK_CL_CLAIMED ||
+        claimStatus == AFK_CL_CLAIMED_SHARED ||
+        claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+    {
+        vapourCell.build3DList(
+            threadId,
+            list,
+            sSizes.subdivisionFactor,
+            vapourCellCache);
+        vapourCell.release(threadId, claimStatus);
+        return true;
+    }
+    else
+    {
+        return false;
     }
 }
 
@@ -374,17 +422,27 @@ void AFK_Shape::enumerateCell(
             if (!shapeCell.hasVapour(vapourJigsaws))
             {
                 /* I need to generate the vapour too. */
-                if (!shapeCell.hasVapourDescriptor())
-                    shapeCell.makeVapourDescriptor(shapeKey, sSizes);
-
                 AFK_3DList list;
-                shapeCell.build3DList(threadId, list, sSizes.subdivisionFactor, shapeCellCache);
-                shapeCell.enqueueVapourComputeUnit(
-                    threadId, list, sSizes, vapourJigsaws, vapourComputeFair);
+                if (build3DList(threadId, shapeKey, cell, list, sSizes))
+                {
+                    /* TODO: That ability to pull up the place in the vapour
+                     * compute queue where I already pushed the relevant
+                     * vapour cubes
+                     */
+                    shapeCell.enqueueVapourComputeUnit(
+                        threadId, list, sSizes, vapourJigsaws, vapourComputeFair);
+                }
+                else
+                {
+                    /* TODO: Do a resume, come back later. */
+                    shapeCell.release(threadId, claimStatus);
+                    return;
+                }
             }
 
-            shapeCell.enqueueEdgeComputeUnit(
-                threadId, vapourJigsaws, edgeJigsaws, edgeComputeFair);
+            if (!shapeCell.hasEdges(edgeJigsaws))
+                shapeCell.enqueueEdgeComputeUnit(
+                    threadId, vapourJigsaws, edgeJigsaws, edgeComputeFair);
             break;
 
         case AFK_CL_CLAIMED_SHARED:
@@ -426,6 +484,13 @@ AFK_Shape::AFK_Shape():
         shapeCellCacheBitness,
         4,
         AFK_HashCell());
+
+    unsigned int vapourCellCacheBitness = afk_suggestCacheBitness(
+        afk_core.config->shape_skeletonMaxSize);
+    vapourCellCache = new AFK_VAPOUR_CELL_CACHE(
+        vapourCellCacheBitness,
+        4,
+        AFK_HashCell());
 }
 
 AFK_Shape::~AFK_Shape()
@@ -437,6 +502,7 @@ AFK_Shape::~AFK_Shape()
         delete *pointGridIt;
     }
 
+    delete vapourCellCache;
     delete shapeCellCache;
 }
 

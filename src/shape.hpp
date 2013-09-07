@@ -20,6 +20,7 @@
 #include "object.hpp"
 #include "jigsaw_collection.hpp"
 #include "shape_cell.hpp"
+#include "vapour_cell.hpp"
 
 enum AFK_ShapeArtworkState
 {
@@ -30,6 +31,10 @@ enum AFK_ShapeArtworkState
 
 #ifndef AFK_SHAPE_CELL_CACHE
 #define AFK_SHAPE_CELL_CACHE AFK_PolymerCache<AFK_Cell, AFK_ShapeCell, AFK_HashCell>
+#endif
+
+#ifndef AFK_VAPOUR_CELL_CACHE
+#define AFK_VAPOUR_CELL_CACHE AFK_PolymerCache<AFK_Cell, AFK_VapourCell, AFK_HashCell>
 #endif
 
 /* This describes one cube in a shape. */
@@ -142,6 +147,18 @@ protected:
         unsigned int shapeKey,
         const AFK_ShapeSizes& sSizes);
 
+    /* Builds the 3D list for a claimed shape cell.  Sorts out the
+     * vapour cell business.
+     * Returns true if it completed; else false (in that case you
+     * should push in a resume)
+     */
+    bool build3DList(
+        unsigned int threadId,
+        unsigned int shapeKey,
+        const AFK_Cell& cell,
+        AFK_3DList& list,
+        const AFK_ShapeSizes& sSizes);
+
     /* Enumerates one shape cell and does the necessary to get it
      * displayed.
      */
@@ -194,6 +211,7 @@ protected:
      */
 #else
     AFK_SHAPE_CELL_CACHE *shapeCellCache;
+    AFK_VAPOUR_CELL_CACHE *vapourCellCache;
 #endif
 
 public:

@@ -6,10 +6,6 @@
 #include "afk.hpp"
 
 #include <sstream>
-#include <vector>
-
-#include <boost/type_traits/has_trivial_assign.hpp>
-#include <boost/type_traits/has_trivial_destructor.hpp>
 
 #include "3d_edge_compute_queue.hpp"
 #include "3d_solid.hpp"
@@ -18,7 +14,6 @@
 #include "data/claimable.hpp"
 #include "data/fair.hpp"
 #include "data/frame.hpp"
-#include "data/polymer_cache.hpp"
 #include "def.hpp"
 #include "entity_display_queue.hpp"
 #include "jigsaw_collection.hpp"
@@ -32,10 +27,6 @@
  */
 #define SHAPE_CELL_MAX_DISTANCE (1LL<<16)
 #define SHAPE_CELL_WORLD_SCALE (1.0f / ((float)SHAPE_CELL_MAX_DISTANCE))
-
-#ifndef AFK_SHAPE_CELL_CACHE
-#define AFK_SHAPE_CELL_CACHE AFK_PolymerCache<AFK_Cell, AFK_ShapeCell, AFK_HashCell>
-#endif
 
 /* A ShapeCell describes one level of detail in a 3D
  * shape, and is cached by the Shape.
@@ -56,11 +47,6 @@ protected:
 
     Mat4<float> getCellToShapeTransform(void) const;
 
-    /* This cell's vapour information... */
-    bool haveVapourDescriptor;
-    std::vector<AFK_3DVapourFeature> vapourFeatures;
-    std::vector<AFK_3DVapourCube> vapourCubes;
-
     AFK_JigsawPiece vapourJigsawPiece;
     AFK_Frame vapourJigsawPieceTimestamp;
 
@@ -73,24 +59,13 @@ public:
     void bind(const AFK_Cell& _cell);
     const AFK_Cell& getCell(void) const;
 
-    bool hasVapourDescriptor(void) const;
-    void makeVapourDescriptor(
-        unsigned int shapeKey,
-        const AFK_ShapeSizes& sSizes);
-
     bool hasVapour(const AFK_JigsawCollection *vapourJigsaws) const;
     bool hasEdges(const AFK_JigsawCollection *edgeJigsaws) const;
 
-    /* Builds the 3D list for this cell.
-     */
-    void build3DList(
-        unsigned int threadId,
-        AFK_3DList& list,
-        unsigned int subdivisionFactor,
-        const AFK_SHAPE_CELL_CACHE *cache);
-
     /* Enqueues the compute units.  Both these functions overwrite
      * the relevant jigsaw pieces with new ones.
+     * Use the matching VapourCell to build the 3D list required
+     * here.
      * TODO: Cross-reference, over-compute, stitching, and all
      * that junk.  Have a think.  I really do believe I want to
      * avoid cross referencing at the cell level, and I *like*
