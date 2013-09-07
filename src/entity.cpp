@@ -9,18 +9,14 @@
 
 /* AFK_Entity implementation */
 
-AFK_Entity::AFK_Entity(AFK_Shape *_shape):
+AFK_Entity::AFK_Entity(unsigned int _shapeKey, AFK_Shape *_shape):
+    shapeKey(_shapeKey),
     shape(_shape)
 {
 }
 
 AFK_Entity::~AFK_Entity()
 {
-}
-
-const AFK_Shape *AFK_Entity::getShape(void) const
-{
-    return shape;
 }
 
 void AFK_Entity::position(
@@ -128,12 +124,17 @@ void AFK_Entity::enqueueForDrawing(unsigned int threadId)
 }
 #endif
 
-void AFK_Entity::enqueueDisplayUnits(
-    const AFK_JigsawCollection *edgeJigsaws,
+void AFK_Entity::enumerate(
+    unsigned int threadId,
     const AFK_ShapeSizes& sSizes,
+    AFK_JigsawCollection *vapourJigsaws,
+    AFK_JigsawCollection *edgeJigsaws,
+    AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair,
+    AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
     AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair)
 {
-    shape->enqueueDisplayUnits(obj, edgeJigsaws, sSizes, entityDisplayFair);
+    shape->enumerate(threadId, shapeKey, obj.getTransformation(), sSizes,
+        vapourJigsaws, edgeJigsaws, vapourComputeFair, edgeComputeFair, entityDisplayFair);
 }
 
 AFK_Frame AFK_Entity::getCurrentFrame(void) const

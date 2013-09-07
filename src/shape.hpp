@@ -133,6 +133,30 @@ protected:
         std::vector<Vec3<int> >& o_skeletonCubes);
 
     bool have3DDescriptor;
+
+    /* Makes the 3D descriptor.  Assumes the shape has been claimed
+     * exclusively.
+     */
+    void make3DDescriptor(
+        unsigned int threadId,
+        unsigned int shapeKey,
+        const AFK_ShapeSizes& sSizes);
+
+    /* Enumerates one shape cell and does the necessary to get it
+     * displayed.
+     */
+    void enumerateCell(
+        unsigned int threadId,
+        unsigned int shapeKey,
+        const AFK_Cell& cell,
+        const Mat4<float>& worldTransform,
+        const AFK_ShapeSizes& sSizes,
+        AFK_JigsawCollection *vapourJigsaws,
+        AFK_JigsawCollection *edgeJigsaws,
+        AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair,
+        AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
+        AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair);
+
 #if 0
     /* This is a little like the landscape tiles.
      * TODO -- except, they're going away, because they are moving
@@ -176,39 +200,19 @@ public:
     AFK_Shape();
     virtual ~AFK_Shape();
 
-    bool has3DDescriptor() const;
-
-    void make3DDescriptor(
+    /* Performs shape enumeration given a particular entity instancing
+     * it.
+     */
+    void enumerate(
         unsigned int threadId,
         unsigned int shapeKey,
-        const AFK_ShapeSizes& sSizes);
-
-    /* Pushes into the fairs any vapour and edge units that
-     * need computing.
-     * TODO: This ought to be spawning work items and all sorts,
-     * and should probably look different, and blah, and blah,
-     * but right now I just want to successfully move functionality
-     * into shape_cell, so this will follow the skeleton point
-     * cubes that I made earlier.
-     */
-    void enqueueComputeUnits(
-        unsigned int threadId,
+        const Mat4<float>& worldTransform,
         const AFK_ShapeSizes& sSizes,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_JigsawCollection *edgeJigsaws,
         AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair,
-        AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair) const;
-
-    /* Enqueues the display units for an entity of this shape.
-     * (Right now, this refers to enqueueing the *edge shapes*.
-     * A render of a vapour cube will require a different
-     * function!)
-     */
-    void enqueueDisplayUnits(
-        const AFK_Object& object,
-        const AFK_JigsawCollection *edgeJigsaws,
-        const AFK_ShapeSizes& sSizes,
-        AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const;
+        AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
+        AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair);
 
     /* For handling claiming and eviction. */
     virtual AFK_Frame getCurrentFrame(void) const;

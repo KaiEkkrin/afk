@@ -33,6 +33,11 @@
 class AFK_Entity: public AFK_Claimable
 {
 protected:
+    /* The shape key is used to vary the RNG output to generate
+     * the shape
+     */
+    const unsigned int shapeKey;
+
     /* This object's shape.  We don't own this pointer -- it's
      * from the world shape list.
      */
@@ -53,10 +58,8 @@ protected:
      */
 
 public:
-    AFK_Entity(AFK_Shape *_shape);
+    AFK_Entity(unsigned int _shapeKey, AFK_Shape *_shape);
     virtual ~AFK_Entity();
-
-    const AFK_Shape *getShape(void) const;
 
     /* Positions the entity.
      */
@@ -66,14 +69,16 @@ public:
         const Vec3<float>& rotation /* pitch, yaw, roll */ /* TODO change to use a quaternion? */
         );
 
-    /* Pushes the display units for this entity into the
-     * display fair.
-     * (Each shape will create a number of units, depending both
-     * on the shape content, and the LoD it's displayed at...)
+    /* Enumerates the entity.  (This is largely a proxy for the
+     * Shape enumeration!)
      */
-    void enqueueDisplayUnits(
-        const AFK_JigsawCollection *edgeJigsaws,
+    void enumerate(
+        unsigned int threadId,
         const AFK_ShapeSizes& sSizes,
+        AFK_JigsawCollection *vapourJigsaws,
+        AFK_JigsawCollection *edgeJigsaws,
+        AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair,
+        AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
         AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair);
 
     /* AFK_Claimable implementation. */

@@ -30,7 +30,7 @@
  * it won't have a min distance defined by the global
  * minCellSize.
  */
-#define SHAPE_CELL_MAX_DISTANCE (1LL<<30)
+#define SHAPE_CELL_MAX_DISTANCE (1LL<<16)
 #define SHAPE_CELL_WORLD_SCALE (1.0f / ((float)SHAPE_CELL_MAX_DISTANCE))
 
 #ifndef AFK_SHAPE_CELL_CACHE

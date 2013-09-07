@@ -71,7 +71,6 @@ bool afk_generateWorldCells(
             finalItem.func = afk_generateWorldCells;
             finalItem.param.world = *(param.world.dependency->finalCell);
             queue.push(finalItem);
-
             delete param.world.dependency->finalCell;
             delete param.world.dependency;
         }
@@ -193,36 +192,11 @@ void AFK_World::generateStartingEntity(
     AFK_RNG& rng)
 {
     AFK_Shape& shape = (*shapeCache)[shapeKey];
-    AFK_ClaimStatus shapeClaimStatus = shape.claimYieldLoop(
-        threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
 
-    /* Sort out its descriptor. */
-    if (!shape.has3DDescriptor())
-    {
-        /* Try to upgrade our claim to the shape. */
-        if (shapeClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
-            shapeClaimStatus = shape.upgrade(threadId, shapeClaimStatus);
-
-        if (shapeClaimStatus == AFK_CL_CLAIMED)
-        {
-            shape.make3DDescriptor(threadId, shapeKey, sSizes);
-        }
-        else
-        {
-            /* TODO: I should be able to count on that shape getting
-             * generated in time to be used.  I'm not going to try to
-             * resume anything.
-             * Let's see what happens.
-             */
-        }
-    }
-
-    shape.release(threadId, shapeClaimStatus);
-
-    /* Having done all of that, I should be able to foist this
-     * shape upon the world cell.
+    /* I don't need to initialise it here.  We'll come to that when
+     * we try to draw it
      */
-    worldCell.addStartingEntity(&shape, sSizes, rng);
+    worldCell.addStartingEntity(shapeKey, &shape, sSizes, rng);
 }
 
 bool AFK_World::generateClaimedWorldCell(
@@ -461,15 +435,9 @@ bool AFK_World::generateClaimedWorldCell(
                 /* Now, make sure everything I need in that shape
                  * has been computed ...
                  */
-                e->getShape()->enqueueComputeUnits(
-                    threadId,
-                    sSizes,
-                    vapourJigsaws,
-                    edgeJigsaws,
-                    vapourComputeFair,
-                    edgeComputeFair);
-
-                e->enqueueDisplayUnits(edgeJigsaws, sSizes, entityDisplayFair);
+                e->enumerate(
+                    threadId, sSizes, vapourJigsaws, edgeJigsaws,
+                    vapourComputeFair, edgeComputeFair, entityDisplayFair);
                 entitiesQueued.fetch_add(1);
 
                 e->release(threadId, AFK_CL_CLAIMED);

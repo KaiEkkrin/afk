@@ -98,6 +98,7 @@ public:
     unsigned int getStartingEntityShapeKey(AFK_RNG& rng);
 
     void addStartingEntity(
+        unsigned int shapeKey,
         AFK_Shape *shape,
         const AFK_ShapeSizes& sSizes,
         AFK_RNG& rng);
