@@ -31,51 +31,20 @@ void AFK_Entity::position(
     if (rotation.v[2] != 0.0f) obj.adjustAttitude(AXIS_ROLL, rotation.v[2]);
 }
 
-/* TODO This is old stuff and needs to be removed.  Deciding
- * where exactly entities go has become the responsibility
- * of the world_cell.
- */
-#if 0
-void AFK_Entity::make(
-    AFK_Shape *_shape,
-    const AFK_Cell& cell,
-    float minCellSize,
-    unsigned int pointSubdivisionFactor,
-    unsigned int subdivisionFactor,
-    AFK_RNG& rng)
+void AFK_Entity::checkShape3DDescriptor(
+    unsigned int threadId,
+    const AFK_ShapeSizes& sSizes)
 {
-    shape = _shape;
-
-    /* For now, I'm going to treat entities like the
-     * landscape and just try to make a tapestry of them
-     * at the "correct" LoD (hah).  This means that I will:
-     * - scale them between (cell scale / pointSubdivisionFactor)
-     * and that divided by subdivisionFactor;
-     * - move them to a random place within the cell.
-     */
-    Vec4<float> realCoord = cell.toWorldSpace(minCellSize);
-
-    float maxScale = realCoord.v[3] / (float)pointSubdivisionFactor;
-    float minScale = maxScale / (float)subdivisionFactor;
-    float objScale = rng.frand() * (maxScale - minScale) + minScale;
-
-    obj.resize(afk_vec3<float>(objScale, objScale, objScale));
-
-    obj.displace(afk_vec3<float>(
-        realCoord.v[0] + rng.frand() * realCoord.v[3],
-        realCoord.v[1] + rng.frand() * realCoord.v[3],
-        realCoord.v[2] + rng.frand() * realCoord.v[3]));
-
-    /* TODO: Decide what I want to do here, w.r.t.
-     * randomly spawned entities.  For now, I'm going to
-     * give everything a default movement ...
-     */
-    unsigned int decider = rng.uirand();
-    velocity = afk_vec3<float>(0.0f, 0.0f, 0.0f);
-    angularVelocity = afk_vec3<float>(0.0f, 0.0f, 0.0f);
-    angularVelocity.v[decider % 3] = rng.frand() / 1000.0f;
+    if (!shape->has3DDescriptor())
+    {
+        AFK_ClaimStatus claimStatus = shape->claimYieldLoop(threadId, AFK_CLT_EXCLUSIVE);
+        if (claimStatus == AFK_CL_CLAIMED)
+        {
+            shape->make3DDescriptor(threadId, shapeKey, sSizes);
+            shape->release(threadId, claimStatus);
+        }
+    }
 }
-#endif
 
 /* TODO This stuff needs to go into OpenCL.  Leaving the old
  * code lying about for now as a crib sheet.
@@ -123,19 +92,6 @@ void AFK_Entity::enqueueForDrawing(unsigned int threadId)
     shape->updatePush(threadId, obj.getTransformation());
 }
 #endif
-
-void AFK_Entity::enumerate(
-    unsigned int threadId,
-    const AFK_ShapeSizes& sSizes,
-    AFK_JigsawCollection *vapourJigsaws,
-    AFK_JigsawCollection *edgeJigsaws,
-    AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair,
-    AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
-    AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair)
-{
-    shape->enumerate(threadId, shapeKey, obj.getTransformation(), sSizes,
-        vapourJigsaws, edgeJigsaws, vapourComputeFair, edgeComputeFair, entityDisplayFair);
-}
 
 AFK_Frame AFK_Entity::getCurrentFrame(void) const
 {

@@ -16,6 +16,7 @@
 #include "object.hpp"
 #include "rng/rng.hpp"
 #include "shape.hpp"
+#include "work.hpp"
 
 /* An Entity is a moveable object that exists within the
  * world cells.
@@ -69,21 +70,21 @@ public:
         const Vec3<float>& rotation /* pitch, yaw, roll */ /* TODO change to use a quaternion? */
         );
 
-    /* Enumerates the entity.  (This is largely a proxy for the
-     * Shape enumeration!)
-     */
-    void enumerate(
+    void checkShape3DDescriptor(
         unsigned int threadId,
-        const AFK_ShapeSizes& sSizes,
-        AFK_JigsawCollection *vapourJigsaws,
-        AFK_JigsawCollection *edgeJigsaws,
-        AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair,
-        AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
-        AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair);
+        const AFK_ShapeSizes& sSizes);
 
     /* AFK_Claimable implementation. */
     virtual AFK_Frame getCurrentFrame(void) const;
     virtual bool canBeEvicted(void) const;
+
+    /* The shape cell generating worker will need to access
+     * the fields here.
+     */
+    friend bool afk_generateShapeCells(
+        unsigned int threadId,
+        const union AFK_WorldWorkParam& param,
+        AFK_WorldWorkQueue& queue);
 };
 
 #endif /* _AFK_ENTITY_H_ */

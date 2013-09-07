@@ -43,10 +43,7 @@
 
 class AFK_LandscapeDisplayQueue;
 class AFK_LandscapeTile;
-class AFK_World;
 
-
-typedef AFK_WorkQueue<union AFK_WorldWorkParam, bool> AFK_WorldWorkQueue;
 
 /* This is the cell generating worker function */
 bool afk_generateWorldCells(
@@ -89,9 +86,10 @@ protected:
     boost::atomic<unsigned long long> entitiesQueued;
     boost::atomic<unsigned long long> entitiesMoved;
 
-    /* TODO: Move the shape statistics, I just unplugged them... */
-    boost::atomic<unsigned long long> shapesComputed;
-    boost::atomic<unsigned long long> shapesRecomputedAfterSweep;
+    /* These ones are updated by the shape worker. */
+    boost::atomic<unsigned long long> shapeVapoursComputed;
+    boost::atomic<unsigned long long> shapeEdgesComputed;
+
     boost::atomic<unsigned long long> threadEscapes;
 
     /* Landscape shader details. */
@@ -298,6 +296,11 @@ public:
     void checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint);
 
     void printCacheStats(std::ostream& ss, const std::string& prefix);
+
+    friend bool afk_generateShapeCells(
+        unsigned int threadId,
+        const union AFK_WorldWorkParam& param,
+        AFK_WorldWorkQueue& queue);
 
     friend bool afk_generateWorldCells(
         unsigned int threadId,

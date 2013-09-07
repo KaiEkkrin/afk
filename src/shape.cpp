@@ -17,6 +17,92 @@
 #include "shape.hpp"
 
 
+/* The shape worker */
+
+bool afk_generateShapeCells(
+    unsigned int threadId,
+    const union AFK_WorldWorkParam& param,
+    AFK_WorldWorkQueue& queue)
+{
+    const AFK_Cell cell                     = param.shape.cell;
+    AFK_Entity *entity                      = param.shape.entity;
+    AFK_World *world                        = param.shape.world;
+
+    AFK_Shape *shape                        = entity->shape;
+
+    AFK_JigsawCollection *vapourJigsaws     = world->vapourJigsaws;
+    AFK_JigsawCollection *edgeJigsaws       = world->edgeJigsaws;
+
+    AFK_ShapeCell& shapeCell = (*(shape->shapeCellCache))[cell];
+    shapeCell.bind(cell);
+    AFK_ClaimStatus claimStatus = shapeCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+
+    if (!shapeCell.hasEdges(edgeJigsaws))
+    {
+        /* I need to generate stuff for this cell -- which means I need
+         * to upgrade my claim.
+         */
+        if (claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+        {
+            claimStatus = shapeCell.upgrade(threadId, claimStatus);
+        }
+
+        switch (claimStatus)
+        {
+        case AFK_CL_CLAIMED:
+            if (!shapeCell.hasVapour(vapourJigsaws))
+            {
+                /* I need to generate the vapour too. */
+                if (shape->enqueueVapourCell(threadId, entity->shapeKey, shapeCell, cell,
+                    world->sSizes, vapourJigsaws, world->vapourComputeFair))
+                {
+                    world->shapeVapoursComputed.fetch_add(1);
+                }
+                else
+                {
+                    /* TODO: Do a resume, come back later. */
+                    shapeCell.release(threadId, claimStatus);
+                    return true;
+                }
+            }
+
+            if (!shapeCell.hasEdges(edgeJigsaws))
+            {
+                shapeCell.enqueueEdgeComputeUnit(
+                    threadId, vapourJigsaws, edgeJigsaws, world->edgeComputeFair);
+                world->shapeEdgesComputed.fetch_add(1);
+            }
+            break;
+
+        case AFK_CL_CLAIMED_SHARED:
+            /* TODO: I need to resume this to see if the situation gets
+             * better.  For now I'll just drop out.
+             */
+            shapeCell.release(threadId, claimStatus);
+            return true;
+
+        default:
+            /* Likewise. */
+            return true;
+        }
+    }
+
+    if (claimStatus == AFK_CL_CLAIMED ||
+        claimStatus == AFK_CL_CLAIMED_UPGRADABLE ||
+        claimStatus == AFK_CL_CLAIMED_SHARED)
+    {
+        shapeCell.enqueueEdgeDisplayUnit(
+            entity->obj.getTransformation(),
+            edgeJigsaws,
+            world->entityDisplayFair);
+
+        shapeCell.release(threadId, claimStatus);
+    }
+
+    return true;
+}
+
+
 /* Fixed transforms for the six faces of a base cube.
  * TODO -- move this.  I suspect it needs to go back into
  * 3d_edge_shape_base : the shape_3dedge kernel is producing
@@ -226,6 +312,103 @@ void AFK_Shape::makeSkeleton(
     }
 }
 
+bool AFK_Shape::enqueueVapourCell(
+    unsigned int threadId,
+    unsigned int shapeKey,
+    AFK_ShapeCell& shapeCell,
+    const AFK_Cell& cell,
+    const AFK_ShapeSizes& sSizes,
+    AFK_JigsawCollection *vapourJigsaws,
+    AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair)
+{
+    unsigned int cubeOffset, cubeCount;
+
+    AFK_Cell vc = afk_vapourCell(cell);
+    AFK_VapourCell& vapourCell = (*vapourCellCache)[vc];
+    vapourCell.bind(vc);
+    AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+
+    if (!vapourCell.alreadyEnqueued(cubeOffset, cubeCount))
+    {
+        AFK_3DList list;
+
+        /* I need to upgrade my claim to generate the descriptor. */
+        if (claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+        {
+            claimStatus = vapourCell.upgrade(threadId, claimStatus);
+        }
+
+        switch (claimStatus)
+        {
+        case AFK_CL_CLAIMED:
+            if (!vapourCell.hasDescriptor())
+                vapourCell.makeDescriptor(shapeKey, sSizes);
+
+            vapourCell.build3DList(threadId, list, sSizes.subdivisionFactor, vapourCellCache);
+            shapeCell.enqueueVapourComputeUnitWithNewVapour(
+                threadId, list, sSizes, vapourJigsaws, vapourComputeFair,
+                cubeOffset, cubeCount);
+            vapourCell.enqueued(cubeOffset, cubeCount);
+            vapourCell.release(threadId, claimStatus);
+            return true;
+
+        case AFK_CL_CLAIMED_SHARED:
+            vapourCell.release(threadId, claimStatus);
+            return false;
+
+        default:
+            return false;
+        }
+    }
+    else
+    {
+        shapeCell.enqueueVapourComputeUnitFromExistingVapour(
+            threadId, cubeOffset, cubeCount, sSizes, vapourJigsaws, vapourComputeFair);
+        vapourCell.release(threadId, claimStatus);
+        return true;
+    }
+}
+
+AFK_Shape::AFK_Shape():
+    AFK_Claimable(),
+    cubeGrid(NULL)
+{
+    /* This is naughty, but I really want an auto-create
+     * here.
+     */
+    unsigned int shapeCellCacheBitness = afk_suggestCacheBitness(
+        afk_core.config->shape_skeletonMaxSize * 4);
+    shapeCellCache = new AFK_SHAPE_CELL_CACHE(
+        shapeCellCacheBitness,
+        4,
+        AFK_HashCell());
+
+    unsigned int vapourCellCacheBitness = afk_suggestCacheBitness(
+        afk_core.config->shape_skeletonMaxSize);
+    vapourCellCache = new AFK_VAPOUR_CELL_CACHE(
+        vapourCellCacheBitness,
+        4,
+        AFK_HashCell());
+}
+
+AFK_Shape::~AFK_Shape()
+{
+    if (cubeGrid) delete cubeGrid;
+    for (std::vector<AFK_SkeletonFlagGrid *>::iterator pointGridIt = pointGrids.begin();
+        pointGridIt != pointGrids.end(); ++pointGridIt)
+    {
+        delete *pointGridIt;
+    }
+
+    delete vapourCellCache;
+    delete shapeCellCache;
+}
+
+bool AFK_Shape::has3DDescriptor(void) const
+{
+    return have3DDescriptor;
+}
+
 void AFK_Shape::make3DDescriptor(
     unsigned int threadId,
     unsigned int shapeKey,
@@ -335,197 +518,6 @@ void AFK_Shape::make3DDescriptor(
 
         have3DDescriptor = true;
     }
-}
-
-bool AFK_Shape::enqueueVapourCell(
-    unsigned int threadId,
-    unsigned int shapeKey,
-    AFK_ShapeCell& shapeCell,
-    const AFK_Cell& cell,
-    const AFK_ShapeSizes& sSizes,
-    AFK_JigsawCollection *vapourJigsaws,
-    AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair)
-{
-    unsigned int cubeOffset, cubeCount;
-
-    AFK_Cell vc = afk_vapourCell(cell);
-    AFK_VapourCell& vapourCell = (*vapourCellCache)[vc];
-    vapourCell.bind(vc);
-    AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
-
-    if (!vapourCell.alreadyEnqueued(cubeOffset, cubeCount))
-    {
-        AFK_3DList list;
-
-        /* I need to upgrade my claim to generate the descriptor. */
-        if (claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
-        {
-            claimStatus = vapourCell.upgrade(threadId, claimStatus);
-        }
-
-        switch (claimStatus)
-        {
-        case AFK_CL_CLAIMED:
-            if (!vapourCell.hasDescriptor())
-                vapourCell.makeDescriptor(shapeKey, sSizes);
-
-            vapourCell.build3DList(threadId, list, sSizes.subdivisionFactor, vapourCellCache);
-            shapeCell.enqueueVapourComputeUnitWithNewVapour(
-                threadId, list, sSizes, vapourJigsaws, vapourComputeFair,
-                cubeOffset, cubeCount);
-            vapourCell.enqueued(cubeOffset, cubeCount);
-            vapourCell.release(threadId, claimStatus);
-            return true;
-
-        case AFK_CL_CLAIMED_SHARED:
-            vapourCell.release(threadId, claimStatus);
-            return false;
-
-        default:
-            return false;
-        }
-    }
-    else
-    {
-        shapeCell.enqueueVapourComputeUnitFromExistingVapour(
-            threadId, cubeOffset, cubeCount, sSizes, vapourJigsaws, vapourComputeFair);
-        vapourCell.release(threadId, claimStatus);
-        return true;
-    }
-}
-
-void AFK_Shape::enumerateCell(
-    unsigned int threadId,
-    unsigned int shapeKey,
-    const AFK_Cell& cell,
-    const Mat4<float>& worldTransform,
-    const AFK_ShapeSizes& sSizes,
-    AFK_JigsawCollection *vapourJigsaws,
-    AFK_JigsawCollection *edgeJigsaws,
-    AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair,
-    AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
-    AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair)
-{
-    AFK_ShapeCell& shapeCell = (*shapeCellCache)[cell];
-    shapeCell.bind(cell);
-    AFK_ClaimStatus claimStatus = shapeCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
-
-    if (!shapeCell.hasEdges(edgeJigsaws))
-    {
-        /* I need to generate stuff for this cell -- which means I need
-         * to upgrade my claim.
-         */
-        if (claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
-        {
-            claimStatus = shapeCell.upgrade(threadId, claimStatus);
-        }
-
-        switch (claimStatus)
-        {
-        case AFK_CL_CLAIMED:
-            if (!shapeCell.hasVapour(vapourJigsaws))
-            {
-                /* I need to generate the vapour too. */
-                if (!enqueueVapourCell(threadId, shapeKey, shapeCell, cell,
-                    sSizes, vapourJigsaws, vapourComputeFair))
-                {
-                    /* TODO: Do a resume, come back later. */
-                    shapeCell.release(threadId, claimStatus);
-                    return;
-                }
-            }
-
-            if (!shapeCell.hasEdges(edgeJigsaws))
-                shapeCell.enqueueEdgeComputeUnit(
-                    threadId, vapourJigsaws, edgeJigsaws, edgeComputeFair);
-            break;
-
-        case AFK_CL_CLAIMED_SHARED:
-            /* TODO: I need to resume this to see if the situation gets
-             * better.  For now I'll just drop out.
-             */
-            shapeCell.release(threadId, claimStatus);
-            return;
-
-        default:
-            /* Likewise. */
-            return;
-        }
-    }
-
-    if (claimStatus == AFK_CL_CLAIMED ||
-        claimStatus == AFK_CL_CLAIMED_UPGRADABLE ||
-        claimStatus == AFK_CL_CLAIMED_SHARED)
-    {
-        shapeCell.enqueueEdgeDisplayUnit(
-            worldTransform,
-            edgeJigsaws,
-            entityDisplayFair);
-
-        shapeCell.release(threadId, claimStatus);
-    }
-}
-
-AFK_Shape::AFK_Shape():
-    AFK_Claimable(),
-    cubeGrid(NULL)
-{
-    /* This is naughty, but I really want an auto-create
-     * here.
-     */
-    unsigned int shapeCellCacheBitness = afk_suggestCacheBitness(
-        afk_core.config->shape_skeletonMaxSize * 4);
-    shapeCellCache = new AFK_SHAPE_CELL_CACHE(
-        shapeCellCacheBitness,
-        4,
-        AFK_HashCell());
-
-    unsigned int vapourCellCacheBitness = afk_suggestCacheBitness(
-        afk_core.config->shape_skeletonMaxSize);
-    vapourCellCache = new AFK_VAPOUR_CELL_CACHE(
-        vapourCellCacheBitness,
-        4,
-        AFK_HashCell());
-}
-
-AFK_Shape::~AFK_Shape()
-{
-    if (cubeGrid) delete cubeGrid;
-    for (std::vector<AFK_SkeletonFlagGrid *>::iterator pointGridIt = pointGrids.begin();
-        pointGridIt != pointGrids.end(); ++pointGridIt)
-    {
-        delete *pointGridIt;
-    }
-
-    delete vapourCellCache;
-    delete shapeCellCache;
-}
-
-void AFK_Shape::enumerate(
-    unsigned int threadId,
-    unsigned int shapeKey,
-    const Mat4<float>& worldTransform,
-    const AFK_ShapeSizes& sSizes,
-    AFK_JigsawCollection *vapourJigsaws,
-    AFK_JigsawCollection *edgeJigsaws,
-    AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair,
-    AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
-    AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair)
-{
-    if (!have3DDescriptor)
-    {
-        make3DDescriptor(threadId, shapeKey, sSizes);
-    }
-
-    /* TODO This next step ought to be done by recursing through
-     * the cells until I find the ones with the correct detail
-     * pitch, etc.  And, asynchronously.  But for now I'll test
-     * with just the one at the top level.
-     */
-    AFK_Cell cell = afk_cell(afk_vec4<long long>(
-        0, 0, 0, SHAPE_CELL_MAX_DISTANCE));
-    enumerateCell(threadId, shapeKey, cell, worldTransform, sSizes, vapourJigsaws, edgeJigsaws,
-        vapourComputeFair, edgeComputeFair, entityDisplayFair);
 }
 
 AFK_Frame AFK_Shape::getCurrentFrame(void) const

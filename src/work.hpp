@@ -5,6 +5,7 @@
 
 #include "afk.hpp"
 
+#include "async/work_queue.hpp"
 #include "cell.hpp"
 #include "def.hpp"
 
@@ -17,7 +18,6 @@
 /* Some forward declarations. */
 class AFK_Camera;
 class AFK_Entity;
-class AFK_Shape;
 class AFK_World;
 
 
@@ -55,7 +55,7 @@ struct AFK_ShapeCellGenParam
 {
     AFK_Cell cell;
     AFK_Entity *entity;
-    AFK_Shape *shape;
+    AFK_World *world;
     Vec3<float> viewerLocation;
     const AFK_Camera *camera;
     unsigned int flags;
@@ -71,6 +71,7 @@ union AFK_WorldWorkParam
     struct AFK_WorldCellGenParam world;
 };
 
+typedef AFK_WorkQueue<union AFK_WorldWorkParam, bool> AFK_WorldWorkQueue;
 
 #endif /* _AFK_WORK_H_ */
 

@@ -21,6 +21,7 @@
 #include "jigsaw_collection.hpp"
 #include "shape_cell.hpp"
 #include "vapour_cell.hpp"
+#include "work.hpp"
 
 enum AFK_ShapeArtworkState
 {
@@ -36,6 +37,14 @@ enum AFK_ShapeArtworkState
 #ifndef AFK_VAPOUR_CELL_CACHE
 #define AFK_VAPOUR_CELL_CACHE AFK_PolymerCache<AFK_Cell, AFK_VapourCell, AFK_HashCell>
 #endif
+
+/* Queued into the world work queue, this function generates
+ * shape cells.
+ */
+bool afk_generateShapeCells(
+    unsigned int threadId,
+    const union AFK_WorldWorkParam& param,
+    AFK_WorldWorkQueue& queue);
 
 /* This describes one cube in a shape. */
 /* TODO: This wants moving.  Its data should go into the small
@@ -139,14 +148,6 @@ protected:
 
     bool have3DDescriptor;
 
-    /* Makes the 3D descriptor.  Assumes the shape has been claimed
-     * exclusively.
-     */
-    void make3DDescriptor(
-        unsigned int threadId,
-        unsigned int shapeKey,
-        const AFK_ShapeSizes& sSizes);
-
     /* Builds the vapour for a claimed shape cell.  Sorts out the
      * vapour cell business.
      * Returns true if it completed; else false (in that case you
@@ -160,21 +161,6 @@ protected:
         const AFK_ShapeSizes& sSizes,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair);
-
-    /* Enumerates one shape cell and does the necessary to get it
-     * displayed.
-     */
-    void enumerateCell(
-        unsigned int threadId,
-        unsigned int shapeKey,
-        const AFK_Cell& cell,
-        const Mat4<float>& worldTransform,
-        const AFK_ShapeSizes& sSizes,
-        AFK_JigsawCollection *vapourJigsaws,
-        AFK_JigsawCollection *edgeJigsaws,
-        AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair,
-        AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
-        AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair);
 
 #if 0
     /* This is a little like the landscape tiles.
@@ -220,23 +206,24 @@ public:
     AFK_Shape();
     virtual ~AFK_Shape();
 
-    /* Performs shape enumeration given a particular entity instancing
-     * it.
+    bool has3DDescriptor(void) const;
+
+    /* Makes the 3D descriptor.  Assumes the shape has been claimed
+     * exclusively.
      */
-    void enumerate(
+    void make3DDescriptor(
         unsigned int threadId,
         unsigned int shapeKey,
-        const Mat4<float>& worldTransform,
-        const AFK_ShapeSizes& sSizes,
-        AFK_JigsawCollection *vapourJigsaws,
-        AFK_JigsawCollection *edgeJigsaws,
-        AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair,
-        AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
-        AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair);
+        const AFK_ShapeSizes& sSizes);
 
     /* For handling claiming and eviction. */
     virtual AFK_Frame getCurrentFrame(void) const;
     virtual bool canBeEvicted(void) const;
+
+    friend bool afk_generateShapeCells(
+        unsigned int threadId,
+        const union AFK_WorldWorkParam& param,
+        AFK_WorldWorkQueue& queue);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_Shape& shape);
 };

@@ -435,9 +435,19 @@ bool AFK_World::generateClaimedWorldCell(
                 /* Now, make sure everything I need in that shape
                  * has been computed ...
                  */
-                e->enumerate(
-                    threadId, sSizes, vapourJigsaws, edgeJigsaws,
-                    vapourComputeFair, edgeComputeFair, entityDisplayFair);
+                e->checkShape3DDescriptor(threadId, sSizes);
+                
+                AFK_WorldWorkQueue::WorkItem shapeCellItem;
+                shapeCellItem.func                          = afk_generateShapeCells;
+                shapeCellItem.param.shape.cell              = afk_cell(afk_vec4<long long>(
+                                                                0, 0, 0, SHAPE_CELL_MAX_DISTANCE));
+                shapeCellItem.param.shape.entity            = e;
+                shapeCellItem.param.shape.world             = this;               
+                shapeCellItem.param.shape.viewerLocation    = viewerLocation;
+                shapeCellItem.param.shape.camera            = camera;
+                shapeCellItem.param.shape.flags             = 0;
+                queue.push(shapeCellItem);
+
                 entitiesQueued.fetch_add(1);
 
                 e->release(threadId, AFK_CL_CLAIMED);
@@ -670,8 +680,8 @@ AFK_World::AFK_World(
     tilesRecomputedAfterSweep.store(0);
     entitiesQueued.store(0);
     entitiesMoved.store(0);
-    shapesComputed.store(0);
-    shapesRecomputedAfterSweep.store(0);
+    shapeVapoursComputed.store(0);
+    shapeEdgesComputed.store(0);
     threadEscapes.store(0);
 }
 
@@ -939,8 +949,8 @@ void AFK_World::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckp
     PRINT_RATE_AND_RESET("Tiles recomputed after sweep: ", tilesRecomputedAfterSweep)
     PRINT_RATE_AND_RESET("Entities queued:              ", entitiesQueued)
     PRINT_RATE_AND_RESET("Entities moved:               ", entitiesMoved)
-    PRINT_RATE_AND_RESET("Shapes computed:              ", shapesComputed)
-    PRINT_RATE_AND_RESET("Shapes recomputed after sweep:", shapesRecomputedAfterSweep)
+    PRINT_RATE_AND_RESET("Shape vapours computed:       ", shapeVapoursComputed)
+    PRINT_RATE_AND_RESET("Shape edges computed:         ", shapeEdgesComputed)
     std::cout <<         "Cumulative thread escapes:    " << threadEscapes.load() << std::endl;
 #endif
 }
