@@ -62,14 +62,14 @@ public:
         const AFK_ShapeSizes& sSizes);
 
     /* Builds the 3D list for this cell.
-     * TODO: Here, for each pass, I should come up with a
-     * way of caching the place in the vapour compute queue
-     * where this list has gone.  Lists are shared between
-     * many shape cells, so it's an important improvement.
+     * Fills the vector `missingCells' with the list of cells
+     * whose vapour descriptor needs to be created first in
+     * order to be able to make this list.
      */
     void build3DList(
         unsigned int threadId,
         AFK_3DList& list,
+        std::vector<AFK_Cell>& missingCells,
         unsigned int subdivisionFactor,
         const AFK_VAPOUR_CELL_CACHE *cache);
 

@@ -63,7 +63,10 @@ bool afk_generateWorldCells(
     if (param.world.dependency)
     {
         if (param.world.dependency->check(queue))
+        {
+            world->dependenciesFollowed.fetch_add(1);
        	    delete param.world.dependency;
+        }
     }
 
     return retval;
@@ -268,6 +271,8 @@ bool AFK_World::generateClaimedWorldCell(
                 resumeItem.func = afk_generateWorldCells;
                 resumeItem.param.world = param;
                 resumeItem.param.world.flags |= AFK_WCG_FLAG_RESUME;
+
+                if (param.dependency) param.dependency->retain();
                 queue.push(resumeItem);
                 tilesResumed.fetch_add(1);
             }
@@ -946,6 +951,8 @@ void AFK_World::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckp
     PRINT_RATE_AND_RESET("Shape cells resumed:          ", shapeCellsResumed)
     PRINT_RATE_AND_RESET("Shape vapours computed:       ", shapeVapoursComputed)
     PRINT_RATE_AND_RESET("Shape edges computed:         ", shapeEdgesComputed)
+    PRINT_RATE_AND_RESET("Separate vapours computed:    ", separateVapoursComputed)
+    PRINT_RATE_AND_RESET("Dependencies followed:        ", dependenciesFollowed)
     std::cout <<         "Cumulative thread escapes:    " << threadEscapes.load() << std::endl;
 #endif
 }

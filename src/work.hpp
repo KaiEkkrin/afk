@@ -28,8 +28,6 @@ union AFK_WorldWorkParam;
 /* A dependent work item is one that will float around at the
  * back of some other work items until they're done, and then
  * get enqueued by means of check().
- * Initialising a WorkDependency grants it ownership of the
- * pointer.
  * TODO: This mechanism is very generic!  Perhaps move it into
  * async/work_queue, so that I don't have to treat it
  * separately in world and shape?
@@ -42,13 +40,13 @@ public:
 
 protected:
     boost::atomic<unsigned int> count;
-    boost::atomic<WorkItem*> finalItem;
+    WorkItem finalItem;
 
 public:
-    AFK_WorkDependency(WorkItem *_finalItem)
+    AFK_WorkDependency(const WorkItem& _finalItem):
+        finalItem(_finalItem)
     {
-        count.store(1);
-        finalItem.store(_finalItem);
+        count.store(0);
     }
 
     void retain(void)
@@ -68,13 +66,8 @@ public:
             /* I just subtracted the last dependent task.
              * Enqueue the final task.
              */
-            WorkItem *fi = finalItem.exchange(NULL);
-            if (fi != NULL)
-            {
-                queue.push(*fi);
-                delete fi;
-                return true;
-            }
+            queue.push(finalItem);
+            return true;
         }
 
         return false;
@@ -87,6 +80,8 @@ public:
  */
 union AFK_WorldWorkParam
 {
+    typedef AFK_WorkDependency<union AFK_WorldWorkParam, bool> Dependency;
+
     struct World
     {
         AFK_Cell cell;
@@ -94,7 +89,7 @@ union AFK_WorldWorkParam
         Vec3<float> viewerLocation;
         const AFK_Camera *camera;
         unsigned int flags;
-        AFK_WorkDependency<union AFK_WorldWorkParam, bool> *dependency;
+        Dependency *dependency;
     } world;
 
     struct Shape
@@ -105,7 +100,7 @@ union AFK_WorldWorkParam
         Vec3<float> viewerLocation;
         const AFK_Camera *camera;
         unsigned int flags;
-        AFK_WorkDependency<union AFK_WorldWorkParam, bool> *dependency;
+        Dependency *dependency;
     } shape;
 };
 

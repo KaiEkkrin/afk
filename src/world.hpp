@@ -92,6 +92,11 @@ protected:
     boost::atomic<unsigned long long> shapeVapoursComputed;
     boost::atomic<unsigned long long> shapeEdgesComputed;
 
+    /* ... and this by that little vapour descriptor worker */
+    boost::atomic<unsigned long long> separateVapoursComputed;
+
+    /* Concurrency stats */
+    boost::atomic<unsigned long long> dependenciesFollowed;
     boost::atomic<unsigned long long> threadEscapes;
 
     /* Landscape shader details. */
@@ -300,6 +305,11 @@ public:
     void printCacheStats(std::ostream& ss, const std::string& prefix);
 
     friend class AFK_Shape;
+
+    friend bool afk_generateVapourDescriptor(
+        unsigned int threadId,
+        const union AFK_WorldWorkParam& param,
+        AFK_WorldWorkQueue& queue);
 
     friend bool afk_generateShapeCells(
         unsigned int threadId,

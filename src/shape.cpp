@@ -21,10 +21,72 @@
 /* Shape worker flags. */
 #define AFK_SCG_FLAG_ENTIRELY_VISIBLE       1
 
+/* The vapour descriptor-only worker */
+
+bool afk_generateVapourDescriptor(
+    unsigned int threadId,
+    const union AFK_WorldWorkParam& param,
+    AFK_WorldWorkQueue& queue)
+{
+    const AFK_Cell cell                     = param.shape.cell;
+    AFK_Entity *entity                      = param.shape.entity;
+    AFK_World *world                        = param.shape.world;
+
+    AFK_Shape *shape                        = entity->shape;
+
+    AFK_Cell vc = afk_vapourCell(cell);
+    AFK_VapourCell& vapourCell = (*(shape->vapourCellCache))[vc];
+    vapourCell.bind(vc);
+    AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+
+    /* I need an exclusive claim for this operation. */
+    if (claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+    {
+        claimStatus = vapourCell.upgrade(threadId, claimStatus);
+    }
+
+    if (claimStatus == AFK_CL_CLAIMED)
+    {
+        if (!vapourCell.hasDescriptor())
+        {
+            vapourCell.makeDescriptor(entity->shapeKey, world->sSizes);
+            world->separateVapoursComputed.fetch_add(1);
+        }
+    }
+    else
+    {
+        /* Oh dear!  I'd better resume the damn thing */
+        AFK_WorldWorkQueue::WorkItem resumeItem;
+        resumeItem.func = afk_generateVapourDescriptor;
+        resumeItem.param = param;
+        if (param.shape.dependency) param.shape.dependency->retain();
+        queue.push(resumeItem);
+    }
+
+    if (claimStatus == AFK_CL_CLAIMED ||
+        claimStatus == AFK_CL_CLAIMED_UPGRADABLE ||
+        claimStatus == AFK_CL_CLAIMED_SHARED)
+    {
+        vapourCell.release(threadId, claimStatus);
+    }
+
+    /* If this cell had a dependency ... */
+    if (param.shape.dependency)
+    {
+        if (param.shape.dependency->check(queue))
+        {
+            world->dependenciesFollowed.fetch_add(1);
+            delete param.shape.dependency;
+        }
+    }
+
+    return true;
+}
+
 /* The shape worker */
 
 #define VISIBLE_CELL_DEBUG 0
-#define NONZERO_CELL_DEBUG 1
+#define NONZERO_CELL_DEBUG 0
 
 bool afk_generateShapeCells(
     unsigned int threadId,
@@ -138,7 +200,10 @@ bool afk_generateShapeCells(
     if (param.shape.dependency)
     {
         if (param.shape.dependency->check(queue))
-           delete param.shape.dependency;
+        {
+            world->dependenciesFollowed.fetch_add(1);
+            delete param.shape.dependency;
+        }
     }
 
     return true;
@@ -358,12 +423,17 @@ bool AFK_Shape::enqueueVapourCell(
     unsigned int threadId,
     unsigned int shapeKey,
     AFK_ShapeCell& shapeCell,
-    const AFK_Cell& cell,
-    const AFK_ShapeSizes& sSizes,
-    AFK_JigsawCollection *vapourJigsaws,
-    AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair)
+    const struct AFK_WorldWorkParam::Shape& param,
+    AFK_WorldWorkQueue& queue)
 {
+    const AFK_Cell cell                     = param.cell;
+    AFK_World *world                        = param.world;
+
+    const AFK_ShapeSizes& sSizes            = world->sSizes;
+    AFK_JigsawCollection *vapourJigsaws     = world->vapourJigsaws;
+
     unsigned int cubeOffset, cubeCount;
+    bool success = false;
 
     AFK_Cell vc = afk_vapourCell(cell);
     AFK_VapourCell& vapourCell = (*vapourCellCache)[vc];
@@ -373,6 +443,7 @@ bool AFK_Shape::enqueueVapourCell(
     if (!vapourCell.alreadyEnqueued(cubeOffset, cubeCount))
     {
         AFK_3DList list;
+        std::vector<AFK_Cell> missingCells;
 
         /* I need to upgrade my claim to generate the descriptor. */
         if (claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
@@ -380,35 +451,66 @@ bool AFK_Shape::enqueueVapourCell(
             claimStatus = vapourCell.upgrade(threadId, claimStatus);
         }
 
-        switch (claimStatus)
+        if (claimStatus == AFK_CL_CLAIMED)
         {
-        case AFK_CL_CLAIMED:
             if (!vapourCell.hasDescriptor())
                 vapourCell.makeDescriptor(shapeKey, sSizes);
 
-            vapourCell.build3DList(threadId, list, sSizes.subdivisionFactor, vapourCellCache);
-            shapeCell.enqueueVapourComputeUnitWithNewVapour(
-                threadId, list, sSizes, vapourJigsaws, vapourComputeFair,
-                cubeOffset, cubeCount);
-            vapourCell.enqueued(cubeOffset, cubeCount);
-            vapourCell.release(threadId, claimStatus);
-            return true;
+            vapourCell.build3DList(threadId, list, missingCells, sSizes.subdivisionFactor, vapourCellCache);
+            if (missingCells.size() > 0)
+            {
+                /* Enqueue these cells for vapour render and a
+                 * dependent resume
+                 */
+                AFK_WorldWorkQueue::WorkItem finalResumeItem;
+                finalResumeItem.func = afk_generateShapeCells;
+                finalResumeItem.param.shape = param;
+                if (param.dependency) param.dependency->retain();
+                AFK_WorldWorkParam::Dependency *dependency = new AFK_WorldWorkParam::Dependency(finalResumeItem);
 
-        case AFK_CL_CLAIMED_SHARED:
-            vapourCell.release(threadId, claimStatus);
-            return false;
+                for (std::vector<AFK_Cell>::iterator mcIt = missingCells.begin();
+                    mcIt != missingCells.end(); ++mcIt)
+                {
+                    AFK_WorldWorkQueue::WorkItem missingCellItem;
+                    missingCellItem.func = afk_generateVapourDescriptor;
+                    missingCellItem.param.shape = param;
+                    missingCellItem.param.shape.cell = *mcIt;
+                    missingCellItem.param.shape.dependency = dependency;
 
-        default:
-            return false;
+                    dependency->retain();
+                    queue.push(missingCellItem);
+                }
+            }
+            else
+            {
+                shapeCell.enqueueVapourComputeUnitWithNewVapour(
+                    threadId, list, sSizes, vapourJigsaws, world->vapourComputeFair,
+                    cubeOffset, cubeCount);
+                vapourCell.enqueued(cubeOffset, cubeCount);
+            }
+
+            success = true; /* I already dealt with the potential resume above */
         }
     }
     else
     {
-        shapeCell.enqueueVapourComputeUnitFromExistingVapour(
-            threadId, cubeOffset, cubeCount, sSizes, vapourJigsaws, vapourComputeFair);
-        vapourCell.release(threadId, claimStatus);
-        return true;
+        if (claimStatus == AFK_CL_CLAIMED_SHARED ||
+            claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+        {
+            shapeCell.enqueueVapourComputeUnitFromExistingVapour(
+                threadId, cubeOffset, cubeCount, sSizes, vapourJigsaws, world->vapourComputeFair);
+            success = true;
+        }
     }
+
+    if (claimStatus == AFK_CL_CLAIMED ||
+        claimStatus == AFK_CL_CLAIMED_SHARED ||
+        claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+    {
+        vapourCell.release(threadId, claimStatus);
+    }
+
+    return success;
 }
 
 void AFK_Shape::generateClaimedShapeCell(
@@ -418,7 +520,6 @@ void AFK_Shape::generateClaimedShapeCell(
     const struct AFK_WorldWorkParam::Shape& param,
     AFK_WorldWorkQueue& queue)
 {
-    const AFK_Cell cell                     = param.cell;
     AFK_Entity *entity                      = param.entity;
     AFK_World *world                        = param.world;
 
@@ -445,14 +546,8 @@ void AFK_Shape::generateClaimedShapeCell(
             if (!shapeCell.hasVapour(vapourJigsaws))
             {
                 /* I need to generate the vapour too. */
-                /* TODO: This may sometimes fail, typically when hopping from under
-                 * to over the landscape, because coarser vapour cells aren't present.
-                 * In that case, I need to enqueue those for vapour-only render,
-                 * then push a dependency to resume this item.
-                 * Uhuh.
-                 */
-                if (shape->enqueueVapourCell(threadId, entity->shapeKey, shapeCell, cell,
-                    world->sSizes, vapourJigsaws, world->vapourComputeFair))
+                if (shape->enqueueVapourCell(threadId, entity->shapeKey, shapeCell,
+                    param, queue))
                 {
                     world->shapeVapoursComputed.fetch_add(1);
                 }
@@ -462,6 +557,8 @@ void AFK_Shape::generateClaimedShapeCell(
                     AFK_WorldWorkQueue::WorkItem resumeItem;
                     resumeItem.func = afk_generateShapeCells;
                     resumeItem.param.shape = param;
+
+                    if (param.dependency) param.dependency->retain();
                     queue.push(resumeItem);
                     world->shapeCellsResumed.fetch_add(1);
 
@@ -482,6 +579,8 @@ void AFK_Shape::generateClaimedShapeCell(
             AFK_WorldWorkQueue::WorkItem resumeItem;
             resumeItem.func = afk_generateShapeCells;
             resumeItem.param.shape = param;
+
+            if (param.dependency) param.dependency->retain();
             queue.push(resumeItem);
             world->shapeCellsResumed.fetch_add(1);
 

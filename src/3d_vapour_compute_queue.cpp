@@ -132,13 +132,6 @@ void AFK_3DVapourComputeQueue::computeStart(
         &units[0], &error);
     afk_handleClError(error);
 
-    /* TODO Remove Spam */
-    for (std::vector<AFK_3DVapourComputeUnit>::iterator cuIt = units.begin();
-        cuIt != units.end(); ++cuIt)
-    {
-        std::cout << "Using 3D vapour compute unit: " << *cuIt << std::endl;
-    }
-
     /* Set up the rest of the vapour parameters */
     preVapourWaitList.clear();
     cl_mem *vapourJigsawMem = vapourJigsaw->acquireForCl(ctxt, q, preVapourWaitList);
