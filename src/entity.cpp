@@ -31,21 +31,6 @@ void AFK_Entity::position(
     if (rotation.v[2] != 0.0f) obj.adjustAttitude(AXIS_ROLL, rotation.v[2]);
 }
 
-void AFK_Entity::checkShape3DDescriptor(
-    unsigned int threadId,
-    const AFK_ShapeSizes& sSizes)
-{
-    if (!shape->has3DDescriptor())
-    {
-        AFK_ClaimStatus claimStatus = shape->claimYieldLoop(threadId, AFK_CLT_EXCLUSIVE);
-        if (claimStatus == AFK_CL_CLAIMED)
-        {
-            shape->make3DDescriptor(threadId, shapeKey, sSizes);
-            shape->release(threadId, claimStatus);
-        }
-    }
-}
-
 /* TODO This stuff needs to go into OpenCL.  Leaving the old
  * code lying about for now as a crib sheet.
  */

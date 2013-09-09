@@ -70,10 +70,6 @@ public:
         const Vec3<float>& rotation /* pitch, yaw, roll */ /* TODO change to use a quaternion? */
         );
 
-    void checkShape3DDescriptor(
-        unsigned int threadId,
-        const AFK_ShapeSizes& sSizes);
-
     /* AFK_Claimable implementation. */
     virtual AFK_Frame getCurrentFrame(void) const;
     virtual bool canBeEvicted(void) const;

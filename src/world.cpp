@@ -65,7 +65,7 @@ bool afk_generateWorldCells(
         if (param.world.dependency->check(queue))
         {
             world->dependenciesFollowed.fetch_add(1);
-       	    delete param.world.dependency;
+               delete param.world.dependency;
         }
     }
 
@@ -358,10 +358,10 @@ bool AFK_World::generateClaimedWorldCell(
             }
         }
 
-		/* TODO: Temporarily disabling entities, so that I can check
-	 	 * that the refactored 3D-supporting jigsaw is still OK with
-		 * the terrain.
-		 */
+        /* TODO: Temporarily disabling entities, so that I can check
+          * that the refactored 3D-supporting jigsaw is still OK with
+         * the terrain.
+         */
         AFK_ENTITY_LIST::iterator eIt = worldCell.entitiesBegin();
         while (eIt != worldCell.entitiesEnd())
         {
@@ -430,8 +430,6 @@ bool AFK_World::generateClaimedWorldCell(
                 /* Now, make sure everything I need in that shape
                  * has been computed ...
                  */
-                e->checkShape3DDescriptor(threadId, sSizes);
-                
                 AFK_WorldWorkQueue::WorkItem shapeCellItem;
                 shapeCellItem.func                          = afk_generateShapeCells;
                 shapeCellItem.param.shape.cell              = afk_cell(afk_vec4<long long>(
