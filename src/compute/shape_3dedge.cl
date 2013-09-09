@@ -52,8 +52,6 @@ int4 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
 struct AFK_3DEdgeComputeUnit
 {
     float4 location;
-    /* TODO REMOVEME */
-    float4 debugColourMult;
     int4 vapourPiece;
     int2 edgePiece; /* Points to a 3x2 grid of face textures */
 };
@@ -333,7 +331,6 @@ __kernel void makeShape3DEdge(
      * sorted; put this back and go back to this stuff after I've got
      * correct cube-LoD and maybe skeletons first...
      */
-#if 1
 
     /* TODO For normals, this -1 here needs to work correctly cross
      * vapour cubes !
@@ -422,18 +419,5 @@ __kernel void makeShape3DEdge(
          */
         write_imagef(jigsawDisp, edgeCoord, (float4)(NAN, NAN, NAN, NAN));
     }
-#else
-    float3 edgeVertexBase = makeEdgeVertexBase(face, xdim, zdim, 0);
-    float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, 0, units[unitOffset].location);
-    write_imagef(jigsawDisp, edgeCoord, edgeVertex);
-    //write_imagef(jigsawColour, edgeCoord, (float4)(1.0f, 0.0f, 0.0f, 0.0f));
-    write_imagef(jigsawColour, edgeCoord,
-        (float4)(
-            (xdim / (float)EDIM) * units[unitOffset].debugColourMult.x,
-            (zdim / (float)EDIM) * units[unitOffset].debugColourMult.y,
-            (xdim / (float)EDIM) * units[unitOffset].debugColourMult.z,
-            0.0f));
-    write_imagef(jigsawNormal, edgeCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
-#endif
 }
 

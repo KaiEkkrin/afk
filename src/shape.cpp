@@ -81,7 +81,7 @@ bool afk_generateShapeCells(
         return true;
     }
 
-    if (visibleCell.testDetailPitch(
+    if (cell.coord.v[3] == MIN_CELL_PITCH || visibleCell.testDetailPitch(
         world->averageDetailPitch.get(), *camera, viewerLocation))
     {
 #if VISIBLE_CELL_DEBUG
@@ -109,6 +109,12 @@ bool afk_generateShapeCells(
                 if (!shapeCell.hasVapour(vapourJigsaws))
                 {
                     /* I need to generate the vapour too. */
+                    /* TODO: This may sometimes fail, typically when hopping from under
+                     * to over the landscape, because coarser vapour cells aren't present.
+                     * In that case, I need to enqueue those for vapour-only render,
+                     * then push a dependency to resume this item.
+                     * Uhuh.
+                     */
                     if (shape->enqueueVapourCell(threadId, entity->shapeKey, shapeCell, cell,
                         world->sSizes, vapourJigsaws, world->vapourComputeFair))
                     {

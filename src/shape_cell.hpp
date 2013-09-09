@@ -25,7 +25,7 @@
  * it won't have a min distance defined by the global
  * minCellSize.
  */
-#define SHAPE_CELL_MAX_DISTANCE (1LL<<8)
+#define SHAPE_CELL_MAX_DISTANCE (1LL<<12)
 #define SHAPE_CELL_WORLD_SCALE (1.0f / ((float)SHAPE_CELL_MAX_DISTANCE))
 
 /* A ShapeCell describes one level of detail in a 3D
@@ -44,8 +44,6 @@ protected:
      * and perform the two tests upon it.
      */
     AFK_Cell cell;
-
-    Mat4<float> getCellToShapeTransform(void) const;
 
     AFK_JigsawPiece vapourJigsawPiece;
     AFK_Frame vapourJigsawPieceTimestamp;

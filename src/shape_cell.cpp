@@ -11,20 +11,6 @@
 
 /* AFK_ShapeCell implementation. */
 
-Mat4<float> AFK_ShapeCell::getCellToShapeTransform(void) const
-{
-    float shapeScale = (float)cell.coord.v[3] * SHAPE_CELL_WORLD_SCALE;
-    Vec3<float> shapeLocation = afk_vec3<float>(
-        (float)cell.coord.v[0] * SHAPE_CELL_WORLD_SCALE,
-        (float)cell.coord.v[1] * SHAPE_CELL_WORLD_SCALE,
-        (float)cell.coord.v[2] * SHAPE_CELL_WORLD_SCALE);
-
-    AFK_Object cellObj;
-    cellObj.resize(afk_vec3<float>(shapeScale, shapeScale, shapeScale));
-    cellObj.displace(shapeLocation);
-    return cellObj.getTransformation();
-}
-
 void AFK_ShapeCell::bind(const AFK_Cell& _cell)
 {
     cell = _cell;
@@ -102,10 +88,6 @@ void AFK_ShapeCell::enqueueEdgeComputeUnit(
             afk_combineTwoPuzzleFairQueue(vapourJigsawPiece.puzzle, edgeJigsawPiece.puzzle));
 
     edgeComputeQueue->append(cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
-        /* TODO REMOVE DEBUG */
-        (cell.coord.v[0] != 0 || cell.coord.v[1] != 0  || cell.coord.v[2] != 0) ?
-            afk_vec4<float>(1.0f, 1.0f, 0.0f, 0.0f) :
-            afk_vec4<float>(0.0f, 0.0f, 1.0f, 0.0f),
         vapourJigsawPiece, edgeJigsawPiece);
 }
 
@@ -114,19 +96,9 @@ void AFK_ShapeCell::enqueueEdgeDisplayUnit(
     const AFK_JigsawCollection *edgeJigsaws,
     AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const
 {
-    /* The supplied world transform is for the shape -- to get
-     * an overall world transform for this specific cell I'll
-     * need to make a cell to shape transform and concatenate
-     * them :
-     */
-#if 0
-    Mat4<float> cellToShapeTransform = getCellToShapeTransform();
-    Mat4<float> cellToWorldTransform = worldTransform * cellToShapeTransform;
-#endif
-
     entityDisplayFair.getUpdateQueue(edgeJigsawPiece.puzzle)->add(
         AFK_EntityDisplayUnit(
-            /* cellToWorldTransform */ worldTransform,
+            worldTransform,
             edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTexCoordST(edgeJigsawPiece)));
 }
 
