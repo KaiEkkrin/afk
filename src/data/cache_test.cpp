@@ -94,7 +94,6 @@ void test_cache(void)
         items[i].param.cache    = &mapCache;
         items[i].param.rng      = new boost::random::taus88();
         items[i].param.rng->seed(rdev());
-        items[i].dependency     = NULL;
         gang << items[i];
     }
 

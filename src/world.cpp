@@ -59,6 +59,13 @@ bool afk_generateWorldCells(
             worldCell, threadId, param.world, queue);
     }
 
+    /* If this cell had a dependency ... */
+    if (param.world.dependency)
+    {
+        param.world.dependency->check(queue);
+        delete param.world.dependency;
+    }
+
     return retval;
 }
 
@@ -261,7 +268,6 @@ bool AFK_World::generateClaimedWorldCell(
                 resumeItem.func = afk_generateWorldCells;
                 resumeItem.param.world = param;
                 resumeItem.param.world.flags |= AFK_WCG_FLAG_RESUME;
-                resumeItem.dependency = NULL;
                 queue.push(resumeItem);
                 tilesResumed.fetch_add(1);
             }
@@ -430,7 +436,7 @@ bool AFK_World::generateClaimedWorldCell(
                 shapeCellItem.param.shape.viewerLocation    = viewerLocation;
                 shapeCellItem.param.shape.camera            = camera;
                 shapeCellItem.param.shape.flags             = 0;
-                shapeCellItem.dependency                    = NULL;
+                shapeCellItem.param.shape.dependency        = NULL;
                 queue.push(shapeCellItem);
 
                 entitiesQueued.fetch_add(1);
@@ -474,7 +480,7 @@ bool AFK_World::generateClaimedWorldCell(
                     subcellItem.param.world.viewerLocation = viewerLocation;
                     subcellItem.param.world.camera       = camera;
                     subcellItem.param.world.flags        = (allVisible ? AFK_WCG_FLAG_ENTIRELY_VISIBLE : 0);
-                    subcellItem.dependency               = NULL;
+                    subcellItem.param.world.dependency   = NULL;
                     queue.push(subcellItem);
                 }
             }
@@ -720,7 +726,7 @@ void AFK_World::enqueueSubcells(
     cellItem.param.world.viewerLocation  = viewerLocation;
     cellItem.param.world.camera          = &camera;
     cellItem.param.world.flags           = 0;
-    cellItem.dependency                  = NULL;
+    cellItem.param.world.dependency      = NULL;
     (*genGang) << cellItem;
 }
 

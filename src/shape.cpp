@@ -112,7 +112,6 @@ bool afk_generateShapeCells(
                     subcellItem.param.shape.viewerLocation      = viewerLocation;
                     subcellItem.param.shape.camera              = camera;
                     subcellItem.param.shape.flags               = (allVisible ? AFK_SCG_FLAG_ENTIRELY_VISIBLE : 0);
-                    subcellItem.dependency                      = NULL;
                     queue.push(subcellItem);
                 }
             }
@@ -457,7 +456,6 @@ void AFK_Shape::generateClaimedShapeCell(
                     AFK_WorldWorkQueue::WorkItem resumeItem;
                     resumeItem.func = afk_generateShapeCells;
                     resumeItem.param.shape = param;
-                    resumeItem.dependency = NULL;
                     queue.push(resumeItem);
                     world->shapeCellsResumed.fetch_add(1);
 
