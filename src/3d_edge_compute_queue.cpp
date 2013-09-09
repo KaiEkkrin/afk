@@ -12,9 +12,11 @@
 
 AFK_3DEdgeComputeUnit::AFK_3DEdgeComputeUnit(
     const Vec4<float>& _location,
+    const Vec4<float>& _debugColourMult,
     const AFK_JigsawPiece& _vapourJigsawPiece,
     const AFK_JigsawPiece& _edgeJigsawPiece):
-        location(_location)
+        location(_location),
+        debugColourMult(_debugColourMult)
 {
 	vapourPiece = afk_vec4<int>(
 		_vapourJigsawPiece.u,
@@ -51,6 +53,7 @@ AFK_3DEdgeComputeQueue::~AFK_3DEdgeComputeQueue()
 
 AFK_3DEdgeComputeUnit AFK_3DEdgeComputeQueue::append(
     const Vec4<float>& location,
+    const Vec4<float>& debugColourMult, /* TODO REMOVEME */
     const AFK_JigsawPiece& vapourJigsawPiece,
     const AFK_JigsawPiece& edgeJigsawPiece)
 {
@@ -58,6 +61,7 @@ AFK_3DEdgeComputeUnit AFK_3DEdgeComputeQueue::append(
 
     AFK_3DEdgeComputeUnit newUnit(
         location,
+        debugColourMult,
         vapourJigsawPiece,
         edgeJigsawPiece);
     units.push_back(newUnit);

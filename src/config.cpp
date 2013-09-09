@@ -77,7 +77,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     shape_edgeThreshold                 = 0.001f;
 
     maxEntitiesPerCell          = 4;
-    entitySparseness            = 512;
+    entitySparseness            = 1024;
     
 
     /* Some hand rolled command line parsing, because it's not very

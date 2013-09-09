@@ -110,7 +110,7 @@ void compute3DVapourFeature(
         (float)features[i].f[AFK_3DVF_G],
         (float)features[i].f[AFK_3DVF_B]) / 256.0f;
 
-    float weight = (float)features[i].f[AFK_3DVF_WEIGHT] / 256.0f;
+    float weight = ((float)features[i].f[AFK_3DVF_WEIGHT] - 128.0f) / 128.0f;
 
     /* If this point is within the feature radius... */
     float dist = distance(location, vl);
@@ -138,11 +138,7 @@ void transformLocationToLocation(
     float4 toCoord)
 {
     *vl = (*vl * fromCoord.w + fromCoord.xyz - toCoord.xyz) / toCoord.w;
-
-    /* TODO Is this the right thing to do with the density?
-     * I may end up strongly following the smallest LoD and ignoring the rest.
-     */
-    //*vc = *vc * fromCoord.w / toCoord.w;
+    *vc = *vc * fromCoord.w / toCoord.w;
 }
 
 void transformCubeToCube(

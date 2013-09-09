@@ -24,6 +24,7 @@
 /* The shape worker */
 
 #define VISIBLE_CELL_DEBUG 0
+#define NONZERO_CELL_DEBUG 1
 
 bool afk_generateShapeCells(
     unsigned int threadId,
@@ -58,12 +59,22 @@ bool afk_generateShapeCells(
     AFK_DEBUG_PRINTL("testing shape cell " << cell << ": visible cell " << visibleCell)
 #endif
 
+#if NONZERO_CELL_DEBUG
+    bool nonzero = (cell.coord.v[0] != 0 || cell.coord.v[1] != 0 || cell.coord.v[2] != 0);
+    if (nonzero)
+        AFK_DEBUG_PRINTL("testing nonzero shape cell: " << cell)
+#endif
+
     if (!entirelyVisible) visibleCell.testVisibility(
         *camera, someVisible, allVisible);
     if (!someVisible)
     {
 #if VISIBLE_CELL_DEBUG
-        AFK_DEBUG_PRINTL("visible cell " << visibleCell << ": invisible")
+        AFK_DEBUG_PRINTL("cell " << cell << ": visible cell " << visibleCell << ": invisible")
+#endif
+#if NONZERO_CELL_DEBUG
+        if (nonzero)
+            AFK_DEBUG_PRINTL("cell " << cell << ": visible cell " << visibleCell << ": invisible")
 #endif
         world->shapeCellsInvisible.fetch_add(1);
         shapeCell.release(threadId, claimStatus);
@@ -75,6 +86,10 @@ bool afk_generateShapeCells(
     {
 #if VISIBLE_CELL_DEBUG
         AFK_DEBUG_PRINTL("visible cell " << visibleCell << ": within detail pitch " << world->averageDetailPitch.get())
+#endif
+#if NONZERO_CELL_DEBUG
+        if (nonzero)
+            AFK_DEBUG_PRINTL("cell " << cell << ": visible cell " << visibleCell << ": within detail pitch " << world->averageDetailPitch.get())
 #endif
 
         /* Try to get this shape cell set up and enqueued. */

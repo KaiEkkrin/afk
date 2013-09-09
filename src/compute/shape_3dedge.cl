@@ -52,6 +52,8 @@ int4 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
 struct AFK_3DEdgeComputeUnit
 {
     float4 location;
+    /* TODO REMOVEME */
+    float4 debugColourMult;
     int4 vapourPiece;
     int2 edgePiece; /* Points to a 3x2 grid of face textures */
 };
@@ -185,13 +187,7 @@ int2 makeEdgeJigsawCoord(__global const struct AFK_3DEdgeComputeUnit *units, int
     return baseCoord;
 }
 
-/* This function makes the displacement co-ordinate at a vapour point.
- * I'm making this as a homogeneous co-ordinate because I've necessarily
- * got a 4-vector, and because it theoretically means I could cram my
- * co-ordinates into lower precision numbers without losing so much
- * accuracy.  The shader needs to cope with it.
- */
-float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 location)
+float3 makeEdgeVertexBase(int face, int xdim, int zdim, int stepsBack)
 {
     float3 baseVertex;
 
@@ -223,9 +219,16 @@ float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 locati
     }
 
     baseVertex = baseVertex / (float)POINT_SUBDIVISION_FACTOR;
+    return baseVertex;
+}
+
+/* This function makes the displacement co-ordinate at a vapour point.
+ */
+float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 location)
+{
     return (float4)(
-        baseVertex + location.xyz,
-        location.w);
+        makeEdgeVertexBase(face, xdim, zdim, stepsBack) + location.xyz / location.w,
+        1.0f / location.w);
 }
 
 /* This function tries to calculate a normal around a vapour
@@ -326,6 +329,12 @@ __kernel void makeShape3DEdge(
     bool foundEdge = false;
     int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
 
+    /* TODO Testing cubes, so that I can ensure the LoD algorithm is
+     * sorted; put this back and go back to this stuff after I've got
+     * correct cube-LoD and maybe skeletons first...
+     */
+#if 1
+
     /* TODO For normals, this -1 here needs to work correctly cross
      * vapour cubes !
      */
@@ -413,5 +422,18 @@ __kernel void makeShape3DEdge(
          */
         write_imagef(jigsawDisp, edgeCoord, (float4)(NAN, NAN, NAN, NAN));
     }
+#else
+    float3 edgeVertexBase = makeEdgeVertexBase(face, xdim, zdim, 0);
+    float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, 0, units[unitOffset].location);
+    write_imagef(jigsawDisp, edgeCoord, edgeVertex);
+    //write_imagef(jigsawColour, edgeCoord, (float4)(1.0f, 0.0f, 0.0f, 0.0f));
+    write_imagef(jigsawColour, edgeCoord,
+        (float4)(
+            (xdim / (float)EDIM) * units[unitOffset].debugColourMult.x,
+            (zdim / (float)EDIM) * units[unitOffset].debugColourMult.y,
+            (xdim / (float)EDIM) * units[unitOffset].debugColourMult.z,
+            0.0f));
+    write_imagef(jigsawNormal, edgeCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
+#endif
 }
 

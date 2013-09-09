@@ -27,6 +27,8 @@ public:
     /* Displacement and scale compared to the base cube. */
     Vec4<float> location;
 
+    Vec4<float> debugColourMult; /* TODO REMOVEME */
+
     /* TODO: This needs to become a full set of vapour adjacency
      * data.
      */
@@ -35,6 +37,7 @@ public:
 
     AFK_3DEdgeComputeUnit(
         const Vec4<float>& _location,
+        const Vec4<float>& _debugColourMult,
         const AFK_JigsawPiece& _vapourJigsawPiece,
         const AFK_JigsawPiece& _edgeJigsawPiece);
 
@@ -69,6 +72,7 @@ public:
     /* Adds the edges of a shape cube to the queue. */
     AFK_3DEdgeComputeUnit append(
         const Vec4<float>& location,
+        const Vec4<float>& debugColourMult,
         const AFK_JigsawPiece& vapourJigsawPiece,
         const AFK_JigsawPiece& edgeJigsawPiece);
 
