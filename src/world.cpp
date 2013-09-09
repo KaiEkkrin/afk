@@ -62,8 +62,8 @@ bool afk_generateWorldCells(
     /* If this cell had a dependency ... */
     if (param.world.dependency)
     {
-        param.world.dependency->check(queue);
-        delete param.world.dependency;
+        if (param.world.dependency->check(queue))
+       	    delete param.world.dependency;
     }
 
     return retval;

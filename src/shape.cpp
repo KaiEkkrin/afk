@@ -112,6 +112,7 @@ bool afk_generateShapeCells(
                     subcellItem.param.shape.viewerLocation      = viewerLocation;
                     subcellItem.param.shape.camera              = camera;
                     subcellItem.param.shape.flags               = (allVisible ? AFK_SCG_FLAG_ENTIRELY_VISIBLE : 0);
+                    subcellItem.param.shape.dependency          = NULL;
                     queue.push(subcellItem);
                 }
             }
@@ -133,8 +134,13 @@ bool afk_generateShapeCells(
         shapeCell.release(threadId, claimStatus);
     }
 
-    /* TODO Dependency.
-     */
+    /* If this cell had a dependency ... */
+    if (param.shape.dependency)
+    {
+        if (param.shape.dependency->check(queue))
+           delete param.shape.dependency;
+    }
+
     return true;
 }
 
@@ -472,9 +478,13 @@ void AFK_Shape::generateClaimedShapeCell(
             break;
 
         default:
-            /* TODO: I need to resume this to see if the situation gets
-             * better.  For now I'll just drop out.
-             */
+            /* Enqueue a resume of this one and drop out. */
+            AFK_WorldWorkQueue::WorkItem resumeItem;
+            resumeItem.func = afk_generateShapeCells;
+            resumeItem.param.shape = param;
+            queue.push(resumeItem);
+            world->shapeCellsResumed.fetch_add(1);
+
             return;
         }
     }

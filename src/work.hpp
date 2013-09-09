@@ -56,7 +56,12 @@ public:
         count.fetch_add(1);
     }
 
-    void check(AFK_WorkQueue<ParameterType, ReturnType>& queue)
+	/* Checks whether this dependency has been fulfilled.
+     * If so, enqueues the final item and returns true (making
+     * you responsible for deleting the object).
+     * Else, returns false.
+     */
+    bool check(AFK_WorkQueue<ParameterType, ReturnType>& queue)
     {
         if (count.fetch_sub(1) == 1)
         {
@@ -68,8 +73,11 @@ public:
             {
                 queue.push(*fi);
                 delete fi;
+                return true;
             }
         }
+
+        return false;
     }
 };
 
