@@ -211,6 +211,9 @@ bool afk_generateShapeCells(
         shapeCell.release(threadId, claimStatus);
     }
 
+    /* TODO Dependency.  Which means, stop returning half
+     * way through this function :P
+     */
     return true;
 }
 

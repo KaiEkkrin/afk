@@ -62,18 +62,8 @@ bool afk_generateWorldCells(
     /* If this cell had a dependency ... */
     if (param.world.dependency)
     {
-        if (param.world.dependency->count.fetch_sub(1) == 1)
-        {
-            /* That dependency is complete.  Enqueue the final cell
-             * and delete it.
-             */
-            AFK_WorldWorkQueue::WorkItem finalItem;
-            finalItem.func = afk_generateWorldCells;
-            finalItem.param.world = *(param.world.dependency->finalCell);
-            queue.push(finalItem);
-            delete param.world.dependency->finalCell;
-            delete param.world.dependency;
-        }
+        param.world.dependency->check(queue);
+        delete param.world.dependency;
     }
 
     return retval;
@@ -202,7 +192,7 @@ void AFK_World::generateStartingEntity(
 bool AFK_World::generateClaimedWorldCell(
     AFK_WorldCell& worldCell,
     unsigned int threadId,
-    struct AFK_WorldCellGenParam param,
+    const struct AFK_WorldWorkParam::World& param,
     AFK_WorldWorkQueue& queue)
 {
     const AFK_Cell& cell                = param.cell;
@@ -446,6 +436,7 @@ bool AFK_World::generateClaimedWorldCell(
                 shapeCellItem.param.shape.viewerLocation    = viewerLocation;
                 shapeCellItem.param.shape.camera            = camera;
                 shapeCellItem.param.shape.flags             = 0;
+                shapeCellItem.param.shape.dependency        = NULL;
                 queue.push(shapeCellItem);
 
                 entitiesQueued.fetch_add(1);

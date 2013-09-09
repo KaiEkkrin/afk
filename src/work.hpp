@@ -5,6 +5,8 @@
 
 #include "afk.hpp"
 
+#include <boost/atomic.hpp>
+
 #include "async/work_queue.hpp"
 #include "cell.hpp"
 #include "def.hpp"
@@ -20,55 +22,80 @@ class AFK_Camera;
 class AFK_Entity;
 class AFK_World;
 
+union AFK_WorldWorkParam;
 
-/* The world cell worker: */
 
-/* This structure describes a world cell generation dependency.
- * Every time a cell generating worker gets a parameter with
- * one of these, it decrements `count'.  The worker that
- * decrements `count' to zero enqueues the final cell and
- * deletes this structure.
+/* A dependent work item is one that will float around at the
+ * back of some other work items until they're done, and then
+ * get enqueued by means of check().
+ * Initialising a WorkDependency grants it ownership of the
+ * pointer.
  */
-struct AFK_WorldCellGenParam;
-
-struct AFK_WorldCellGenDependency
+template<typename ParameterType, typename ReturnType>
+class AFK_WorkDependency
 {
+public:
+    typedef typename AFK_WorkQueue<ParameterType, ReturnType>::WorkItem WorkItem;
+
+protected:
     boost::atomic<unsigned int> count;
-    struct AFK_WorldCellGenParam *finalCell;
+    boost::atomic<WorkItem*> finalItem;
+
+public:
+    AFK_WorkDependency(WorkItem *_finalItem)
+    {
+        count.store(1);
+        finalItem.store(_finalItem);
+    }
+
+    void retain(void)
+    {
+        count.fetch_add(1);
+    }
+
+    void check(AFK_WorkQueue<ParameterType, ReturnType>& queue)
+    {
+        if (count.fetch_sub(1) == 1)
+        {
+            /* I just subtracted the last dependent task.
+             * Enqueue the final task.
+             */
+            WorkItem *fi = finalItem.exchange(NULL);
+            if (fi != NULL)
+            {
+                queue.push(*fi);
+                delete fi;
+            }
+        }
+    }
 };
 
-/* The parameter for the cell generating worker.
- */
-struct AFK_WorldCellGenParam
-{
-    AFK_Cell cell;
-    AFK_World *world;
-    Vec3<float> viewerLocation;
-    const AFK_Camera *camera;
-    unsigned int flags;
-    struct AFK_WorldCellGenDependency *dependency;
-};
 
-
-/* The shape cell worker: */
-struct AFK_ShapeCellGenParam
-{
-    AFK_Cell cell;
-    AFK_Entity *entity;
-    AFK_World *world;
-    Vec3<float> viewerLocation;
-    const AFK_Camera *camera;
-    unsigned int flags;
-};
-
-
-/* The actual work parameter type, being a union of the
- * above:
+/* The work parameter type is a union of all possible
+ * ones :
  */
 union AFK_WorldWorkParam
 {
-    struct AFK_ShapeCellGenParam shape;
-    struct AFK_WorldCellGenParam world;
+    struct World
+    {
+        AFK_Cell cell;
+        AFK_World *world;
+        Vec3<float> viewerLocation;
+        const AFK_Camera *camera;
+        unsigned int flags;
+        AFK_WorkDependency<union AFK_WorldWorkParam, bool> *dependency;
+    } world;
+
+    struct Shape
+    {
+        AFK_Cell cell;
+        AFK_Entity *entity;
+        AFK_World *world;
+        Vec3<float> viewerLocation;
+        const AFK_Camera *camera;
+        unsigned int flags;
+        AFK_WorkDependency<union AFK_WorldWorkParam, bool> *dependency;
+    } shape;
 };
 
 typedef AFK_WorkQueue<union AFK_WorldWorkParam, bool> AFK_WorldWorkQueue;

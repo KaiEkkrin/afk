@@ -211,7 +211,7 @@ protected:
     bool generateClaimedWorldCell(
         AFK_WorldCell& worldCell,
         unsigned int threadId,
-        struct AFK_WorldCellGenParam param,
+        const struct AFK_WorldWorkParam::World& param,
         AFK_WorldWorkQueue& queue);
 
 public:
