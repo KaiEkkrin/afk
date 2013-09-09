@@ -30,6 +30,9 @@ union AFK_WorldWorkParam;
  * get enqueued by means of check().
  * Initialising a WorkDependency grants it ownership of the
  * pointer.
+ * TODO: This mechanism is very generic!  Perhaps move it into
+ * async/work_queue, so that I don't have to treat it
+ * separately in world and shape?
  */
 template<typename ParameterType, typename ReturnType>
 class AFK_WorkDependency

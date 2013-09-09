@@ -299,6 +299,8 @@ public:
 
     void printCacheStats(std::ostream& ss, const std::string& prefix);
 
+    friend class AFK_Shape;
+
     friend bool afk_generateShapeCells(
         unsigned int threadId,
         const union AFK_WorldWorkParam& param,

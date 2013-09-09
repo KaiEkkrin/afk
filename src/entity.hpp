@@ -81,6 +81,8 @@ public:
     /* The shape cell generating worker will need to access
      * the fields here.
      */
+    friend class AFK_Shape;
+
     friend bool afk_generateShapeCells(
         unsigned int threadId,
         const union AFK_WorldWorkParam& param,

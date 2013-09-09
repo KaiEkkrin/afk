@@ -162,6 +162,14 @@ protected:
         AFK_JigsawCollection *vapourJigsaws,
         AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair);
 
+    /* Generates a claimed shape cell at its level of detail. */
+    void generateClaimedShapeCell(
+        AFK_ShapeCell& shapeCell,
+        enum AFK_ClaimStatus& claimStatus,
+        unsigned int threadId,
+        const struct AFK_WorldWorkParam::Shape& param,
+        AFK_WorldWorkQueue& queue);
+
 #if 0
     /* This is a little like the landscape tiles.
      * TODO -- except, they're going away, because they are moving
