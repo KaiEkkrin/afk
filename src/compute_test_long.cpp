@@ -121,6 +121,7 @@ void afk_testComputeLong(AFK_Computer *computer, unsigned int concurrency)
         AFK_WorkQueue<struct testComputeParam, bool>::WorkItem workItem;
         workItem.func = testComputeWorker;
         workItem.param = p;
+        workItem.dependency = NULL;
 
         testComputeGang << workItem;
     }

@@ -45,6 +45,7 @@ void enqueueFilter(struct primeFilterParam param, AFK_WorkQueue<struct primeFilt
         AFK_WorkQueue<struct primeFilterParam, bool>::WorkItem workItem;
         workItem.func = primeFilter;
         workItem.param = param;
+        workItem.dependency = NULL;
         queue.push(workItem);
     }
 }
@@ -106,6 +107,7 @@ void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<
         i.param.start       = 2;
         i.param.step        = 2;
         i.param.max         = primeMax;
+        i.dependency        = NULL;
 
         AFK_AsyncGang<struct primeFilterParam, bool> primeFilterGang(
             primeMax / 100, concurrency);

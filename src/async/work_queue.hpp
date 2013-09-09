@@ -62,6 +62,51 @@ public:
     public:
         WorkFunc func;
         ParameterType param;
+
+        /* A Dependency is something that gets automatically
+         * pushed into the queue after the counter has been
+         * decremented to zero.
+         */
+        class Dependency
+        {
+        protected:
+            boost::atomic<unsigned int> count;
+            boost::atomic<WorkItem*> finalItem;
+
+        public:
+            Dependency(WorkItem *_finalItem)
+            {
+                count.store(0);
+                finalItem.store(_finalItem);
+            }
+
+            void retain(void)
+            {
+                count.fetch_add(1);
+            }
+
+            /* Returns true if it has completed and you should
+             * delete the dependency now, else false.
+             */
+            bool check(AFK_WorkQueue<ParameterType, ReturnType>& queue)
+            {
+                if (count.fetch_sub(1) == 1)
+                {
+                    /* I just subtracted the last dependent task --
+                     * enqueue the final task.
+                     */
+                    WorkItem *fi = finalItem.exchange(NULL);
+                    if (fi)
+                    {
+                        queue.push(*fi);
+                        delete fi;
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        } *dependency;
     };
 
 protected:
@@ -93,6 +138,13 @@ public:
             if (q.pop(nextItem))
             {
                 retval = (*(nextItem.func))(threadId, nextItem.param, *this);
+
+                /* Process the dependency, if any. */
+                if (nextItem.dependency)
+                {
+                    if (nextItem.dependency->check(*this)) delete nextItem.dependency;
+                }
+
                 /* TODO: It's hugely important that the following fetch_sub()
                  * doesn't get reordered with the fetch_add() inside the
                  * function call, or with the load() above.
@@ -128,6 +180,7 @@ public:
 
     void push(WorkItem parameter)
     {
+        if (parameter.dependency) parameter.dependency->retain();
         if (!q.push(parameter)) throw AFK_WorkQueueException(); /* TODO can that happen? */
         count.fetch_add(1);
 #if WORK_QUEUE_CONDITION_WAIT
