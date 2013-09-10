@@ -5,6 +5,7 @@
 #include <boost/functional/hash.hpp>
 
 #include "core.hpp"
+#include "debug.hpp"
 #include "object.hpp"
 #include "shape_cell.hpp"
 
@@ -96,6 +97,9 @@ void AFK_ShapeCell::enqueueEdgeDisplayUnit(
     const AFK_JigsawCollection *edgeJigsaws,
     AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const
 {
+    /* TODO: Speculative debug ... */
+    AFK_DEBUG_PRINTL("Displaying edges at cell " << worldTransform * cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE))
+
     entityDisplayFair.getUpdateQueue(edgeJigsawPiece.puzzle)->add(
         AFK_EntityDisplayUnit(
             worldTransform,
@@ -115,7 +119,7 @@ bool AFK_ShapeCell::canBeEvicted(void) const
 
 std::ostream& operator<<(std::ostream& os, const AFK_ShapeCell& shapeCell)
 {
-    os << "Shape cell";
+    os << "Shape cell at " << shapeCell.cell;
     os << " (Vapour piece: " << shapeCell.vapourJigsawPiece << ")";
     os << " (Edge piece: " << shapeCell.edgeJigsawPiece << ")";
     return os;

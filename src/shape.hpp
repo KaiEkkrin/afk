@@ -21,6 +21,7 @@
 #include "jigsaw_collection.hpp"
 #include "shape_cell.hpp"
 #include "vapour_cell.hpp"
+#include "visible_cell.hpp"
 #include "work.hpp"
 
 enum AFK_ShapeArtworkState
@@ -96,6 +97,7 @@ protected:
 
     /* Generates a claimed shape cell at its level of detail. */
     void generateClaimedShapeCell(
+        const AFK_VisibleCell& visibleCell,
         AFK_ShapeCell& shapeCell,
         enum AFK_ClaimStatus& claimStatus,
         unsigned int threadId,

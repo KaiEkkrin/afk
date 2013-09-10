@@ -244,6 +244,7 @@ bool afk_generateShapeCells(
             world->averageDetailPitch.get(), *camera, viewerLocation))
         {
             shape->generateClaimedShapeCell(
+                visibleCell,
                 shapeCell,
                 claimStatus,
                 threadId,
@@ -374,9 +375,6 @@ enum AFK_Shape::VapourCellState AFK_Shape::enqueueVapourCell(
                     for (std::vector<AFK_Cell>::iterator mcIt = missingCells.begin();
                         mcIt != missingCells.end(); ++mcIt)
                     {
-                        /* TODO remove debug */
-                        AFK_DEBUG_PRINTL("Cell " << cell << ": enqueueing missing cell: " << *mcIt)
-    
                         /* Sanity check */
                         if (mcIt->coord.v[3] >= SHAPE_CELL_MAX_DISTANCE)
                             throw AFK_Exception("Missing the top vapour cell");
@@ -432,6 +430,7 @@ enum AFK_Shape::VapourCellState AFK_Shape::enqueueVapourCell(
 }
 
 void AFK_Shape::generateClaimedShapeCell(
+    const AFK_VisibleCell& visibleCell,
     AFK_ShapeCell& shapeCell,
     enum AFK_ClaimStatus& claimStatus,
     unsigned int threadId,
@@ -515,6 +514,8 @@ void AFK_Shape::generateClaimedShapeCell(
         claimStatus == AFK_CL_CLAIMED_UPGRADABLE ||
         claimStatus == AFK_CL_CLAIMED_SHARED)
     {
+        /* TODO remove debug */
+        //AFK_DEBUG_PRINTL("At visible cell " << visibleCell << ": enqueueing shape cell for display: " << shapeCell.getCell())
         shapeCell.enqueueEdgeDisplayUnit(
             worldTransform,
             edgeJigsaws,
