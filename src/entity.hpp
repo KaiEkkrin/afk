@@ -79,6 +79,11 @@ public:
      */
     friend class AFK_Shape;
 
+    friend bool afk_generateEntity(
+        unsigned int threadId,
+        const union AFK_WorldWorkParam& param,
+        AFK_WorldWorkQueue& queue);
+
     friend bool afk_generateVapourDescriptor(
         unsigned int threadId,
         const union AFK_WorldWorkParam& param,

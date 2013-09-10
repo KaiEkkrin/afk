@@ -25,16 +25,38 @@ Vec4<float> AFK_3DVapourCube::getCubeCoord(void) const
 void AFK_3DVapourCube::make(
     std::vector<AFK_3DVapourFeature>& features,
     const Vec4<float>& _coord,
+    const AFK_Skeleton& skeleton,
     const AFK_ShapeSizes& sSizes,
     AFK_RNG& rng)
 {
     coord = _coord;
 
+    /* I want to locate features around the skeleton, not away from it
+     * (those would just get ignored).
+     * To do this, enumerate the skeleton's bones...
+     */
+    std::vector<AFK_SkeletonCube> bones;
+    AFK_Skeleton::Bones bonesEnum(skeleton);
+    while (bonesEnum.hasNext()) bones.push_back(bonesEnum.next());
+
     for (unsigned int i = 0; i < sSizes.featureCountPerCube; ++i)
     {
         AFK_3DVapourFeature feature;
 
-        for (unsigned int j = 0; j < 8; ++j)
+        unsigned int j;
+        unsigned int b = rng.uirand() % bones.size();
+
+        /* x, y and z must be near the bone. */
+        for (j = 0; j < 3; ++j)
+        {
+            float coordMin = std::max(((((float)bones[b].coord.v[j]) - 0.5f) / (float)sSizes.skeletonFlagGridDim), 0.0f);
+            float coordMax = std::min(((((float)bones[b].coord.v[j]) + 1.5f) / (float)sSizes.skeletonFlagGridDim), 1.0f);
+
+            feature.f[j] = (unsigned char)((rng.frand() * (coordMax - coordMin) + coordMin) * 256.0f);
+        }
+
+        /* The rest can be arbitrary. */
+        for (; j < 8; ++j)
         {
             feature.f[j] = (unsigned char)(rng.frand() * 256.0f);
         }

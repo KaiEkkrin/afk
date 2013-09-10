@@ -21,6 +21,86 @@
 /* Shape worker flags. */
 #define AFK_SCG_FLAG_ENTIRELY_VISIBLE       1
 
+/* The top-level entity worker. */
+bool afk_generateEntity(
+    unsigned int threadId,
+    const union AFK_WorldWorkParam& param,
+    AFK_WorldWorkQueue& queue)
+{
+    AFK_Cell cell                           = param.shape.cell;
+    AFK_Entity *entity                      = param.shape.entity;
+    AFK_World *world                        = param.shape.world;
+
+    AFK_Shape *shape                        = entity->shape;
+
+    AFK_Cell vc = afk_vapourCell(cell, world->sSizes);
+    AFK_VapourCell& vapourCell = (*(shape->vapourCellCache))[vc];
+    vapourCell.bind(vc);
+    AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+
+    if (!vapourCell.hasDescriptor())
+    {
+        /* Get an exclusive claim, and make its descriptor. */
+        if (claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+        {
+            claimStatus = vapourCell.upgrade(threadId, claimStatus);
+        }
+
+        if (claimStatus == AFK_CL_CLAIMED)
+        {
+            if (!vapourCell.hasDescriptor())
+            {
+                vapourCell.makeDescriptor(entity->shapeKey, world->sSizes);
+                world->separateVapoursComputed.fetch_add(1);
+            }        
+        }
+        else
+        {
+            /* I'd better resume this later. */
+            AFK_WorldWorkQueue::WorkItem resumeItem;
+            resumeItem.func = afk_generateEntity;
+            resumeItem.param = param;
+            if (param.shape.dependency) param.shape.dependency->retain();
+            queue.push(resumeItem);
+        }
+    }
+
+    if (vapourCell.hasDescriptor())
+    {
+        /* Go through the skeleton... */
+        AFK_VapourCell::ShapeCells shapeCells(vapourCell, world->sSizes);
+        while (shapeCells.hasNext())
+        {
+            /* Enqueue this shape cell. */
+            AFK_WorldWorkQueue::WorkItem shapeCellItem;
+            shapeCellItem.func = afk_generateShapeCells;
+            shapeCellItem.param = param;
+            shapeCellItem.param.shape.cell = shapeCells.next();
+            shapeCellItem.param.shape.dependency = NULL;
+            queue.push(shapeCellItem);
+        }
+    }
+
+    if (claimStatus == AFK_CL_CLAIMED ||
+        claimStatus == AFK_CL_CLAIMED_UPGRADABLE ||
+        claimStatus == AFK_CL_CLAIMED_SHARED)
+    {
+        vapourCell.release(threadId, claimStatus);
+    }
+
+    /* If this cell had a dependency ... */
+    if (param.shape.dependency)
+    {
+        if (param.shape.dependency->check(queue))
+        {
+            world->dependenciesFollowed.fetch_add(1);
+            delete param.shape.dependency;
+        }
+    }
+
+    return true;
+}
+
 /* The vapour descriptor-only worker */
 
 bool afk_generateVapourDescriptor(
@@ -34,7 +114,7 @@ bool afk_generateVapourDescriptor(
 
     AFK_Shape *shape                        = entity->shape;
 
-    AFK_Cell vc = afk_vapourCell(cell);
+    AFK_Cell vc = afk_vapourCell(cell, world->sSizes);
     AFK_VapourCell& vapourCell = (*(shape->vapourCellCache))[vc];
     vapourCell.bind(vc);
     AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
@@ -49,8 +129,29 @@ bool afk_generateVapourDescriptor(
     {
         if (!vapourCell.hasDescriptor())
         {
-            vapourCell.makeDescriptor(entity->shapeKey, world->sSizes);
-            world->separateVapoursComputed.fetch_add(1);
+            /* We shouldn't get a kersplode here, so long as this
+             * task is enqueued as a dependent task of the tasks
+             * that generate higher-level vapour.
+             */
+            AFK_Cell parentVC = vc.parent(world->sSizes.subdivisionFactor);
+            AFK_VapourCell& upperCell = shape->vapourCellCache->at(parentVC);
+            AFK_ClaimStatus upperClaimStatus = upperCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+            if (upperClaimStatus == AFK_CL_CLAIMED_SHARED ||
+                upperClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+            {
+                vapourCell.makeDescriptor(entity->shapeKey, upperCell, world->sSizes);
+                world->separateVapoursComputed.fetch_add(1);
+                upperCell.release(threadId, upperClaimStatus);
+            }
+            else
+            {
+                /* It's probably still being computed; do a resume */
+                AFK_WorldWorkQueue::WorkItem resumeItem;
+                resumeItem.func = afk_generateVapourDescriptor;
+                resumeItem.param = param;
+                if (param.shape.dependency) param.shape.dependency->retain();
+                queue.push(resumeItem);
+            }
         }
     }
     else
@@ -228,7 +329,7 @@ bool AFK_Shape::enqueueVapourCell(
     unsigned int cubeOffset, cubeCount;
     bool success = false;
 
-    AFK_Cell vc = afk_vapourCell(cell);
+    AFK_Cell vc = afk_vapourCell(cell, world->sSizes);
     AFK_VapourCell& vapourCell = (*vapourCellCache)[vc];
     vapourCell.bind(vc);
     AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
@@ -249,30 +350,40 @@ bool AFK_Shape::enqueueVapourCell(
             if (!vapourCell.hasDescriptor())
                 vapourCell.makeDescriptor(shapeKey, sSizes);
 
-            vapourCell.build3DList(threadId, list, missingCells, sSizes.subdivisionFactor, vapourCellCache);
+            vapourCell.build3DList(threadId, list, missingCells, sSizes, vapourCellCache);
             if (missingCells.size() > 0)
             {
-                /* Enqueue these cells for vapour render and a
-                 * dependent resume
+                /* Enqueue the missing cells for vapour render.  Note
+                 * that each one is dependent on the coarser LoD one
+                 * that follows it, so what I have is a dependency
+                 * chain (I hope this works):
                  */
                 AFK_WorldWorkQueue::WorkItem finalResumeItem;
                 finalResumeItem.func = afk_generateShapeCells;
                 finalResumeItem.param.shape = param;
                 if (param.dependency) param.dependency->retain();
-                AFK_WorldWorkParam::Dependency *dependency = new AFK_WorldWorkParam::Dependency(finalResumeItem);
+                AFK_WorldWorkParam::Dependency *lastDependency = new AFK_WorldWorkParam::Dependency(finalResumeItem);
+
+                AFK_WorldWorkQueue::WorkItem missingCellItem;
 
                 for (std::vector<AFK_Cell>::iterator mcIt = missingCells.begin();
                     mcIt != missingCells.end(); ++mcIt)
                 {
-                    AFK_WorldWorkQueue::WorkItem missingCellItem;
+                    /* Sanity check */
+                    if (mcIt->coord.v[3] >= (SHAPE_CELL_MAX_DISTANCE * sSizes.skeletonFlagGridDim))
+                        throw AFK_Exception("Missing the top vapour cell");
+
                     missingCellItem.func = afk_generateVapourDescriptor;
                     missingCellItem.param.shape = param;
                     missingCellItem.param.shape.cell = *mcIt;
-                    missingCellItem.param.shape.dependency = dependency;
+                    missingCellItem.param.shape.dependency = lastDependency;
+                    missingCellItem.param.shape.dependency->retain();
 
-                    dependency->retain();
-                    queue.push(missingCellItem);
+                    lastDependency = new AFK_WorldWorkParam::Dependency(missingCellItem);
                 }
+
+                queue.push(missingCellItem);
+                delete lastDependency;
             }
             else
             {

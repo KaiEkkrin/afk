@@ -431,7 +431,7 @@ bool AFK_World::generateClaimedWorldCell(
                  * has been computed ...
                  */
                 AFK_WorldWorkQueue::WorkItem shapeCellItem;
-                shapeCellItem.func                          = afk_generateShapeCells;
+                shapeCellItem.func                          = afk_generateEntity;
                 shapeCellItem.param.shape.cell              = afk_cell(afk_vec4<long long>(
                                                                 0, 0, 0, SHAPE_CELL_MAX_DISTANCE));
                 shapeCellItem.param.shape.entity            = e;

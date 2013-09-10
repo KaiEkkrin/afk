@@ -7,18 +7,13 @@
 #include "shape_cell.hpp"
 #include "vapour_cell.hpp"
 
-/* This number defines how much larger than the shape cells
- * the vapour cells shall be.
- */
-#define VAPOUR_CELL_MULTIPLIER 8LL
-
-AFK_Cell afk_vapourCell(const AFK_Cell& cell)
+AFK_Cell afk_vapourCell(const AFK_Cell& cell, const AFK_ShapeSizes& sSizes)
 {
     return afk_cell(afk_vec4<long long>(
-        cell.coord.v[0] * VAPOUR_CELL_MULTIPLIER,
-        cell.coord.v[1] * VAPOUR_CELL_MULTIPLIER,
-        cell.coord.v[2] * VAPOUR_CELL_MULTIPLIER,
-        cell.coord.v[3] * VAPOUR_CELL_MULTIPLIER));
+        cell.coord.v[0] * sSizes.skeletonFlagGridDim,
+        cell.coord.v[1] * sSizes.skeletonFlagGridDim,
+        cell.coord.v[2] * sSizes.skeletonFlagGridDim,
+        cell.coord.v[3] * sSizes.skeletonFlagGridDim));
 }
 
 /* AFK_VapourCell implementation. */
@@ -48,10 +43,13 @@ void AFK_VapourCell::makeDescriptor(
         rng.seed(cell.rngSeed(
             0x0001000100010001LL * shapeKey));
 
+        skeleton.make(rng, sSizes);
+
         AFK_3DVapourCube cube;
         cube.make(
             features,
             cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
+            skeleton,
             sSizes,
             rng);
         cubes.push_back(cube);
@@ -60,11 +58,78 @@ void AFK_VapourCell::makeDescriptor(
     }
 }
 
+void AFK_VapourCell::makeDescriptor(
+    unsigned int shapeKey,
+    const AFK_VapourCell& upperCell,
+    const AFK_ShapeSizes& sSizes)
+{
+    /* Sanity check. */
+    if (!upperCell.hasDescriptor()) throw AFK_Exception("Vapour cell descriptors built in wrong order");
+
+    if (!haveDescriptor)
+    {
+        AFK_Boost_Taus88_RNG rng;
+
+        /* TODO: Half-cells will go here when I add them (which I
+         * think I might want to).  For now I just make this cell
+         * by itself.
+         */
+        rng.seed(cell.rngSeed(
+            0x0001000100010001LL * shapeKey));
+
+        Vec3<long long> thisCellShapeSpace = afk_vec3<long long>(
+            cell.coord.v[0], cell.coord.v[1], cell.coord.v[2]);
+        Vec3<long long> upperCellShapeSpace = afk_vec3<long long>(
+            upperCell.cell.coord.v[0], upperCell.cell.coord.v[1], upperCell.cell.coord.v[2]);
+        Vec3<long long> upperOffset = (upperCellShapeSpace - thisCellShapeSpace) / cell.coord.v[3];
+
+        skeleton.make(
+            upperCell.skeleton,
+            upperOffset,
+            rng,
+            sSizes);
+
+        AFK_3DVapourCube cube;
+        cube.make(
+            features,
+            cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
+            skeleton,
+            sSizes,
+            rng);
+        cubes.push_back(cube);
+
+        haveDescriptor = true;
+    }
+}
+
+AFK_VapourCell::ShapeCells::ShapeCells(const AFK_VapourCell& _vapourCell, const AFK_ShapeSizes& _sSizes):
+    bones(AFK_Skeleton::Bones(_vapourCell.skeleton)),
+    vapourCell(_vapourCell),
+    sSizes(_sSizes)
+{
+}
+
+bool AFK_VapourCell::ShapeCells::hasNext(void)
+{
+    return bones.hasNext();
+}
+
+AFK_Cell AFK_VapourCell::ShapeCells::next(void)
+{
+    AFK_SkeletonCube nextSkeletonCube = bones.next();
+    long long shapeCellScale = vapourCell.cell.coord.v[3] / sSizes.skeletonFlagGridDim;
+    return afk_cell(afk_vec4<long long>(
+        nextSkeletonCube.coord.v[0] * shapeCellScale + vapourCell.cell.coord.v[0],
+        nextSkeletonCube.coord.v[1] * shapeCellScale + vapourCell.cell.coord.v[1],
+        nextSkeletonCube.coord.v[2] * shapeCellScale + vapourCell.cell.coord.v[2],
+        shapeCellScale));
+}
+
 void AFK_VapourCell::build3DList(
     unsigned int threadId,
     AFK_3DList& list,
     std::vector<AFK_Cell>& missingCells,
-    unsigned int subdivisionFactor,
+    const AFK_ShapeSizes& sSizes,
     const AFK_VAPOUR_CELL_CACHE *cache)
 {
     /* Add the local vapour to the list. */
@@ -73,12 +138,12 @@ void AFK_VapourCell::build3DList(
     AFK_Cell currentCell = cell;
 
     /* If this isn't the top level cell... */
-    while (currentCell.coord.v[3] < (VAPOUR_CELL_MULTIPLIER * SHAPE_CELL_MAX_DISTANCE))
+    while (currentCell.coord.v[3] < (sSizes.skeletonFlagGridDim * SHAPE_CELL_MAX_DISTANCE))
     {
         /* Pull the parent cell from the cache, and
          * include its list too
          */
-        AFK_Cell parentCell = currentCell.parent(subdivisionFactor);
+        AFK_Cell parentCell = currentCell.parent(sSizes.subdivisionFactor);
 
         try
         {
@@ -90,7 +155,7 @@ void AFK_VapourCell::build3DList(
                 ss << "Unable to claim VapourCell at " << parentCell << ": got status " << claimStatus;
                 throw AFK_Exception(ss.str());
             }
-            parentVapourCell.build3DList(threadId, list, missingCells, subdivisionFactor, cache);
+            parentVapourCell.build3DList(threadId, list, missingCells, sSizes, cache);
             parentVapourCell.release(threadId, claimStatus);
 
             /* At this point we've actually finished, the recursive

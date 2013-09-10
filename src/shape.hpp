@@ -38,10 +38,24 @@ enum AFK_ShapeArtworkState
 #define AFK_VAPOUR_CELL_CACHE AFK_PolymerCache<AFK_Cell, AFK_VapourCell, AFK_HashCell>
 #endif
 
+/* This is the top level entity worker.  It makes sure that
+ * the top vapour cell has been made and then uses that to
+ * derive the list of top level shape cells and enqueue them
+ * (by generateShapeCells).
+ * You should enqueue it with the top level cell (0, 0, 0,
+ * SHAPE_CELL_MAX_DISTANCE).
+ */
+bool afk_generateEntity(
+    unsigned int threadId,
+    const union AFK_WorldWorkParam& param,
+    AFK_WorldWorkQueue& queue);
+
 /* This is a really simple worker that just generates the
  * vapour descriptor and nothing else.
  * Needed to fill out 3D lists for more detailed vapour
- * cells whose less-detailed versions have never been hit
+ * cells whose less-detailed versions have never been hit.
+ * This one generates finer-LoD vapour, not top-level (see
+ * above).
  */
 bool afk_generateVapourDescriptor(
     unsigned int threadId,
@@ -104,6 +118,11 @@ public:
     /* For handling claiming and eviction. */
     virtual AFK_Frame getCurrentFrame(void) const;
     virtual bool canBeEvicted(void) const;
+
+    friend bool afk_generateEntity(
+        unsigned int threadId,
+        const union AFK_WorldWorkParam& param,
+        AFK_WorldWorkQueue& queue);
 
     friend bool afk_generateVapourDescriptor(
         unsigned int threadId,

@@ -16,6 +16,7 @@
 #include "def.hpp"
 #include "rng/rng.hpp"
 #include "shape_sizes.hpp"
+#include "skeleton.hpp"
 
 /* These need to stay in sync with shape_3d*.cl which
  * do the actual computation.
@@ -52,6 +53,7 @@ public:
     void make(
         std::vector<AFK_3DVapourFeature>& features,
         const Vec4<float>& _coord,
+        const AFK_Skeleton& skeleton,
         const AFK_ShapeSizes& sSizes,
         AFK_RNG& rng);
 

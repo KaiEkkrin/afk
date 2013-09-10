@@ -14,6 +14,7 @@
 #include "data/frame.hpp"
 #include "data/polymer_cache.hpp"
 #include "shape_sizes.hpp"
+#include "skeleton.hpp"
 
 #ifndef AFK_VAPOUR_CELL_CACHE
 #define AFK_VAPOUR_CELL_CACHE AFK_PolymerCache<AFK_Cell, AFK_VapourCell, AFK_HashCell>
@@ -22,7 +23,7 @@
 /* To access a vapour cell cache, use this to transform shape
  * cell coords to vapour cell.
  */
-AFK_Cell afk_vapourCell(const AFK_Cell& cell);
+AFK_Cell afk_vapourCell(const AFK_Cell& cell, const AFK_ShapeSizes& sSizes);
 
 /* A VapourCell describes a cell in a shape with its vapour
  * features and cubes.  I'm making it distinct from a ShapeCell
@@ -36,6 +37,7 @@ protected:
 
     /* The actual features here. */
     bool haveDescriptor;
+    AFK_Skeleton skeleton;
     std::vector<AFK_3DVapourFeature> features;
     std::vector<AFK_3DVapourCube> cubes;
 
@@ -56,21 +58,51 @@ public:
 
     /* Sorts out the vapour descriptor.  Do this under an
      * exclusive claim.
+     * This one makes a top-level vapour cell.
+     * Fills out `bones' with a list of the SkeletonCubes
+     * so that the caller can turn these into shape cells
+     * to enqueue.
      */
     void makeDescriptor(
         unsigned int shapeKey,
         const AFK_ShapeSizes& sSizes);
 
+    /* This one makes a finer detail vapour cell, whose
+     * skeleton is derived from the upper cell.
+     */
+    void makeDescriptor(
+        unsigned int shapeKey,
+        const AFK_VapourCell& upperCell,
+        const AFK_ShapeSizes& sSizes);
+
+    /* This enumerates the shape cells that compose the bones of
+     * the skeleton here, so that they can be easily enqueued.
+     */
+    class ShapeCells
+    {
+    protected:
+        AFK_Skeleton::Bones bones;
+        const AFK_VapourCell& vapourCell;
+        const AFK_ShapeSizes& sSizes;
+
+    public:
+        ShapeCells(const AFK_VapourCell& _vapourCell, const AFK_ShapeSizes& _sSizes);
+
+        bool hasNext(void);
+        AFK_Cell next(void);
+    };
+
     /* Builds the 3D list for this cell.
      * Fills the vector `missingCells' with the list of cells
      * whose vapour descriptor needs to be created first in
-     * order to be able to make this list.
+     * order to be able to make this list.  They go from
+     * smallest to largest cell.
      */
     void build3DList(
         unsigned int threadId,
         AFK_3DList& list,
         std::vector<AFK_Cell>& missingCells,
-        unsigned int subdivisionFactor,
+        const AFK_ShapeSizes& sSizes,
         const AFK_VAPOUR_CELL_CACHE *cache);
 
     /* Checks whether this vapour cell's features have

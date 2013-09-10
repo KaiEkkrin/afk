@@ -174,6 +174,9 @@ AFK_Skeleton::~AFK_Skeleton()
 
 void AFK_Skeleton::make(AFK_RNG& rng, const AFK_ShapeSizes& sSizes)
 {
+    gridDim = sSizes.skeletonFlagGridDim;
+    initGrid();
+
     /* Begin in the middle. */
     int skeletonSize = (int)sSizes.skeletonMaxSize;
     grow(AFK_SkeletonCube(afk_vec3<long long>(gridDim / 2, gridDim / 2, gridDim / 2)),
@@ -188,6 +191,9 @@ void AFK_Skeleton::make(
     AFK_RNG& rng,
     const AFK_ShapeSizes& sSizes)
 {
+    gridDim = sSizes.skeletonFlagGridDim;
+    initGrid();
+
     /* There are lots of ways I could do this.
      * As a relatively simple first approach that _should_ produce
      * good results (without needing insane levels of cross-
