@@ -50,6 +50,7 @@ class AFK_Skeleton
 protected:
     unsigned long long **grid;
     int gridDim;
+    int boneCount;
 
     void initGrid(void);
 
@@ -60,8 +61,9 @@ protected:
 
     /* This "grows" a new skeleton by extending it from
      * this cube.
+     * Returns the number of bones made.
      */
-    void grow(
+    int grow(
         const AFK_SkeletonCube& cube,
         int& bonesLeft,
         AFK_RNG& rng,
@@ -84,24 +86,32 @@ public:
 
     /* This makes a fresh Skeleton from scratch -- a
      * top level one.
+     * Returns the number of bones made.  (If it didn't
+     * make any, you could reasonably throw an
+     * exception)
      */
-    void make(
+    int make(
         AFK_RNG& rng,
         const AFK_ShapeSizes& sSizes);
 
     /* This makes a new Skeleton as a refinement of
-     * the given one.
+     * the given one.  Returns the number of bones in the
+     * skeleton.  This can end up as 0 (e.g. if there are
+     * big gaps in the upper one), at which point you
+     * can cancel enqueueing all the subsequent geometry!
      * TODO Do I instead want to feed this the entire
      * vapour cell cache?  I'm not sure I do, it would
      * be very messy ...
      */
-    void make(
+    int make(
         const AFK_Skeleton& upper,
         const Vec3<long long>& upperOffset, /* I'll use the sub-cube of the upper grid from
                                              * upperOffset to (upperOffset + gridDim / sSizes.subdivisionFactor) in
                                              * each direction */
         AFK_RNG& rng,
         const AFK_ShapeSizes& sSizes);
+
+    int getBoneCount(void) const;
 
     /* This is a device for enumerating the cells that are
      * set within the skeleton.  They come out in skeleton

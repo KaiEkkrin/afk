@@ -77,6 +77,14 @@ public:
         const AFK_VapourCell& upperCell,
         const AFK_ShapeSizes& sSizes);
 
+    /* Having made the descriptor, you can check whether this
+     * vapour cell is actually within the skeleton by calling
+     * this.
+     * If it isn't, just bypass all the subsequent rendering
+     * stuff and reject this cell...
+     */
+    bool withinSkeleton(void) const;
+
     /* This enumerates the shape cells that compose the bones of
      * the skeleton here, so that they can be easily enqueued.
      */

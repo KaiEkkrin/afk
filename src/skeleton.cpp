@@ -130,15 +130,18 @@ void AFK_Skeleton::clearFlag(const AFK_SkeletonCube& where)
         SKELETON_FLAG_XY(where.coord.v[0], where.coord.v[1]) &= ~SKELETON_FLAG_Z(where.coord.v[2]);
 }
 
-void AFK_Skeleton::grow(
+int AFK_Skeleton::grow(
     const AFK_SkeletonCube& cube,
     int& bonesLeft,
     AFK_RNG& rng,
     const AFK_ShapeSizes& sSizes)
 {
+    int bones = 0;
+
     /* Flag this cube. */
     setFlag(cube);
     --bonesLeft;
+    ++bones;
 
     for (int face = 0; face < 6; ++face)
     {
@@ -149,9 +152,11 @@ void AFK_Skeleton::grow(
             rng.frand() < sSizes.skeletonBushiness)
         {
             /* Grow to this face. */
-            grow(adjCube, bonesLeft, rng, sSizes);
+            bones += grow(adjCube, bonesLeft, rng, sSizes);
         }
     }
+
+    return bones;
 }
 
 int AFK_Skeleton::embellish(
@@ -255,20 +260,21 @@ AFK_Skeleton::~AFK_Skeleton()
     }
 }
 
-void AFK_Skeleton::make(AFK_RNG& rng, const AFK_ShapeSizes& sSizes)
+int AFK_Skeleton::make(AFK_RNG& rng, const AFK_ShapeSizes& sSizes)
 {
     gridDim = sSizes.skeletonFlagGridDim;
     initGrid();
 
     /* Begin in the middle. */
     int skeletonSize = (int)sSizes.skeletonMaxSize;
-    grow(AFK_SkeletonCube(afk_vec3<long long>(gridDim / 2, gridDim / 2, gridDim / 2)),
+    boneCount = grow(AFK_SkeletonCube(afk_vec3<long long>(gridDim / 2, gridDim / 2, gridDim / 2)),
         skeletonSize,
         rng,
         sSizes);
+    return boneCount;
 }
 
-void AFK_Skeleton::make(
+int AFK_Skeleton::make(
     const AFK_Skeleton& upper,
     const Vec3<long long>& upperOffset,
     AFK_RNG& rng,
@@ -277,18 +283,22 @@ void AFK_Skeleton::make(
     gridDim = sSizes.skeletonFlagGridDim;
     initGrid();
 
-    /* Try embellishing that upper skeleton. */
-    if (embellish(upper, upperOffset, rng, sSizes.subdivisionFactor, sSizes.skeletonBushiness) == 0)
+    if (upper.getBoneCount() > 0)
     {
-        /* I got no bones, which isn't valid.  That's no good --
-         * do it again, removing the randomness.
-         * TODO: This logic is wrong.  I shouldn't try this.
-         * Instead, I should attempt to cope with the empty
-         * cell...
-         */
-        if (embellish(upper, upperOffset, rng, sSizes.subdivisionFactor, 0.0f) == 0)
-            throw AFK_Exception("Embellish failure");
+        /* Try embellishing that upper skeleton. */
+        boneCount = embellish(upper, upperOffset, rng, sSizes.subdivisionFactor, sSizes.skeletonBushiness);
     }
+    else
+    {
+        boneCount = 0;
+    }
+
+    return boneCount;
+}
+
+int AFK_Skeleton::getBoneCount(void) const
+{
+    return boneCount;
 }
 
 AFK_Skeleton::Bones::Bones(const AFK_Skeleton& _skeleton):
@@ -302,6 +312,12 @@ AFK_Skeleton::Bones::Bones(const AFK_Skeleton& _skeleton):
 
 bool AFK_Skeleton::Bones::hasNext(void)
 {
+    /* Shortcut.
+     * TODO: I can also make one involving checking entire
+     * grid words for zero (there will be plenty like this).
+     */
+    if (skeleton.boneCount == 0) return false;
+
     nextBone = thisBone;
     do
     {   

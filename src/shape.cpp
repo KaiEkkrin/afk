@@ -313,7 +313,7 @@ bool afk_generateShapeCells(
 
 /* AFK_Shape implementation */
 
-bool AFK_Shape::enqueueVapourCell(
+enum AFK_Shape::VapourCellState AFK_Shape::enqueueVapourCell(
     unsigned int threadId,
     unsigned int shapeKey,
     AFK_ShapeCell& shapeCell,
@@ -327,7 +327,7 @@ bool AFK_Shape::enqueueVapourCell(
     AFK_JigsawCollection *vapourJigsaws     = world->vapourJigsaws;
 
     unsigned int cubeOffset, cubeCount;
-    bool success = false;
+    enum VapourCellState state = NeedsResume;
 
     AFK_Cell vc = afk_shapeToVapourCell(cell, sSizes);
     AFK_VapourCell& vapourCell = (*vapourCellCache)[vc];
@@ -353,53 +353,61 @@ bool AFK_Shape::enqueueVapourCell(
             if (!vapourCell.hasDescriptor())
                 vapourCell.makeDescriptor(shapeKey, sSizes);
 
-            vapourCell.build3DList(threadId, list, missingCells, sSizes, vapourCellCache);
-            if (missingCells.size() > 0)
+            if (vapourCell.withinSkeleton())
             {
-                /* Enqueue the missing cells for vapour render.  Note
-                 * that each one is dependent on the coarser LoD one
-                 * that follows it, so what I have is a dependency
-                 * chain (I hope this works):
-                 */
-                AFK_WorldWorkQueue::WorkItem finalResumeItem;
-                finalResumeItem.func = afk_generateShapeCells;
-                finalResumeItem.param.shape = param;
-                if (param.dependency) param.dependency->retain();
-                AFK_WorldWorkParam::Dependency *lastDependency = new AFK_WorldWorkParam::Dependency(finalResumeItem);
-
-                AFK_WorldWorkQueue::WorkItem missingCellItem;
-
-                for (std::vector<AFK_Cell>::iterator mcIt = missingCells.begin();
-                    mcIt != missingCells.end(); ++mcIt)
+                vapourCell.build3DList(threadId, list, missingCells, sSizes, vapourCellCache);
+                if (missingCells.size() > 0)
                 {
-                    /* TODO remove debug */
-                    AFK_DEBUG_PRINTL("Cell " << cell << ": enqueueing missing cell: " << *mcIt)
+                    /* Enqueue the missing cells for vapour render.  Note
+                     * that each one is dependent on the coarser LoD one
+                     * that follows it, so what I have is a dependency
+                     * chain (I hope this works):
+                     */
+                    AFK_WorldWorkQueue::WorkItem finalResumeItem;
+                    finalResumeItem.func = afk_generateShapeCells;
+                    finalResumeItem.param.shape = param;
+                    if (param.dependency) param.dependency->retain();
+                    AFK_WorldWorkParam::Dependency *lastDependency = new AFK_WorldWorkParam::Dependency(finalResumeItem);
 
-                    /* Sanity check */
-                    if (mcIt->coord.v[3] >= SHAPE_CELL_MAX_DISTANCE)
-                        throw AFK_Exception("Missing the top vapour cell");
+                    AFK_WorldWorkQueue::WorkItem missingCellItem;
 
-                    missingCellItem.func = afk_generateVapourDescriptor;
-                    missingCellItem.param.shape = param;
-                    missingCellItem.param.shape.cell = *mcIt;
-                    missingCellItem.param.shape.dependency = lastDependency;
-                    missingCellItem.param.shape.dependency->retain();
+                    for (std::vector<AFK_Cell>::iterator mcIt = missingCells.begin();
+                        mcIt != missingCells.end(); ++mcIt)
+                    {
+                        /* TODO remove debug */
+                        AFK_DEBUG_PRINTL("Cell " << cell << ": enqueueing missing cell: " << *mcIt)
+    
+                        /* Sanity check */
+                        if (mcIt->coord.v[3] >= SHAPE_CELL_MAX_DISTANCE)
+                            throw AFK_Exception("Missing the top vapour cell");
 
-                    lastDependency = new AFK_WorldWorkParam::Dependency(missingCellItem);
+                        missingCellItem.func = afk_generateVapourDescriptor;
+                        missingCellItem.param.shape = param;
+                        missingCellItem.param.shape.cell = *mcIt;
+                        missingCellItem.param.shape.dependency = lastDependency;
+                        missingCellItem.param.shape.dependency->retain();
+
+                        lastDependency = new AFK_WorldWorkParam::Dependency(missingCellItem);
+                    }
+
+                    queue.push(missingCellItem);
+                    delete lastDependency;
+                }
+                else
+                {
+                    shapeCell.enqueueVapourComputeUnitWithNewVapour(
+                        threadId, list, sSizes, vapourJigsaws, world->vapourComputeFair,
+                        cubeOffset, cubeCount);
+                    vapourCell.enqueued(cubeOffset, cubeCount);
                 }
 
-                queue.push(missingCellItem);
-                delete lastDependency;
+                state = Enqueued; /* I already dealt with the potential resume above */
             }
             else
             {
-                shapeCell.enqueueVapourComputeUnitWithNewVapour(
-                    threadId, list, sSizes, vapourJigsaws, world->vapourComputeFair,
-                    cubeOffset, cubeCount);
-                vapourCell.enqueued(cubeOffset, cubeCount);
+                /* Nothing to see here */
+                state = Empty;
             }
-
-            success = true; /* I already dealt with the potential resume above */
         }
     }
     else
@@ -409,7 +417,7 @@ bool AFK_Shape::enqueueVapourCell(
         {
             shapeCell.enqueueVapourComputeUnitFromExistingVapour(
                 threadId, cubeOffset, cubeCount, sSizes, vapourJigsaws, world->vapourComputeFair);
-            success = true;
+            state = Enqueued;
         }
     }
 
@@ -420,7 +428,7 @@ bool AFK_Shape::enqueueVapourCell(
         vapourCell.release(threadId, claimStatus);
     }
 
-    return success;
+    return state;
 }
 
 void AFK_Shape::generateClaimedShapeCell(
@@ -456,13 +464,14 @@ void AFK_Shape::generateClaimedShapeCell(
             if (!shapeCell.hasVapour(vapourJigsaws))
             {
                 /* I need to generate the vapour too. */
-                if (shape->enqueueVapourCell(threadId, entity->shapeKey, shapeCell,
-                    param, queue))
+                switch (shape->enqueueVapourCell(
+                    threadId, entity->shapeKey, shapeCell, param, queue))
                 {
+                case AFK_Shape::Enqueued:
                     world->shapeVapoursComputed.fetch_add(1);
-                }
-                else
-                {
+                    break;
+
+                case AFK_Shape::NeedsResume:
                     /* Enqueue a resume of this one and drop out. */
                     AFK_WorldWorkQueue::WorkItem resumeItem;
                     resumeItem.func = afk_generateShapeCells;
@@ -472,6 +481,10 @@ void AFK_Shape::generateClaimedShapeCell(
                     queue.push(resumeItem);
                     world->shapeCellsResumed.fetch_add(1);
 
+                    return;
+
+                default:
+                    /* This cell is empty, drop out. */
                     return;
                 }
             }

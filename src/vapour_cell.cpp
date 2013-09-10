@@ -90,23 +90,29 @@ void AFK_VapourCell::makeDescriptor(
          * That's almost certainly wrong.  I need to understand what
          * makes them and fix them.
          */
-        skeleton.make(
+        if (skeleton.make(
             upperCell.skeleton,
             upperOffset,
             rng,
-            sSizes);
-
-        AFK_3DVapourCube cube;
-        cube.make(
-            features,
-            cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
-            skeleton,
-            sSizes,
-            rng);
-        cubes.push_back(cube);
+            sSizes) > 0)
+        {
+            AFK_3DVapourCube cube;
+            cube.make(
+                features,
+                cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
+                skeleton,
+                sSizes,
+                rng);
+            cubes.push_back(cube);
+        }
 
         haveDescriptor = true;
     }
+}
+
+bool AFK_VapourCell::withinSkeleton(void) const
+{
+    return (skeleton.getBoneCount() > 0);
 }
 
 AFK_VapourCell::ShapeCells::ShapeCells(const AFK_VapourCell& _vapourCell, const AFK_ShapeSizes& _sSizes):

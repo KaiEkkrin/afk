@@ -76,12 +76,18 @@ bool afk_generateShapeCells(
 class AFK_Shape: public AFK_Claimable
 {
 protected:
+    /* Possible return states for the below. */
+    enum VapourCellState
+    {
+        Enqueued,
+        NeedsResume,
+        Empty
+    };
+
     /* Builds the vapour for a claimed shape cell.  Sorts out the
      * vapour cell business.
-     * Returns true if it completed; else false (in that case you
-     * should push in a resume)
      */
-    bool enqueueVapourCell(
+    enum VapourCellState enqueueVapourCell(
         unsigned int threadId,
         unsigned int shapeKey,
         AFK_ShapeCell& shapeCell,
