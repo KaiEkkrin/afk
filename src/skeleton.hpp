@@ -67,6 +67,17 @@ protected:
         AFK_RNG& rng,
         const AFK_ShapeSizes& sSizes);
 
+    /* This "embellishes" a coarser skeleton into a
+     * finer one.
+     * Returns the number of bones it made.
+     */
+    int embellish(
+        const AFK_Skeleton& upper,
+        const Vec3<long long>& upperOffset,
+        AFK_RNG& rng,
+        int subdivisionFactor,
+        float bushiness);
+
 public:
     AFK_Skeleton();
     virtual ~AFK_Skeleton();

@@ -154,6 +154,89 @@ void AFK_Skeleton::grow(
     }
 }
 
+int AFK_Skeleton::embellish(
+    const AFK_Skeleton& upper,
+    const Vec3<long long>& upperOffset,
+    AFK_RNG& rng,
+    int subdivisionFactor,
+    float bushiness)
+{
+    int bones = 0;
+
+    /* There are lots of ways I could do this.
+     * As a relatively simple first approach that _should_ produce
+     * good results (without needing insane levels of cross-
+     * referencing), I'm going to try:
+     */
+
+    /* (1) Fill out a randomly morphed skeleton that sort of matches
+     * the upper one.
+     */
+    for (AFK_SkeletonCube cube = AFK_SkeletonCube(upperOffset);
+        !cube.atEnd(gridDim); cube.advance(gridDim))
+    {
+        AFK_SkeletonCube upperCube = cube.upperCube(upperOffset, subdivisionFactor);
+        if (upper.testFlag(upperCube) == AFK_SKF_SET)
+        {
+            /* I'll probably set the flag in the lower cube too. */
+            if (rng.frand() >= bushiness)
+            {
+                setFlag(cube);
+                ++bones;
+            }
+        }
+        else
+        {
+            /* If it's got adjacency, I've got a regular chance of
+             * setting it.
+             */
+            bool hasAdjacency = false;
+            for (int face = 0; face < 6; ++face)
+            {
+                AFK_SkeletonCube adjCube = cube.adjacentCube(face);
+                AFK_SkeletonCube adjUpperCube = adjCube.upperCube(upperOffset, subdivisionFactor);
+                if (upper.testFlag(adjUpperCube) == AFK_SKF_SET)
+                {
+                    hasAdjacency = true;
+                    break;
+                }
+            }
+
+            if (hasAdjacency)
+            {
+                if (rng.frand() < bushiness)
+                {
+                    setFlag(cube);
+                    ++bones;
+                }
+            }
+        }
+    }
+
+    /* (2) Go around checking adjacency and plugging gaps.  I don't
+     * want to introduce too many holes!
+     */
+    for (AFK_SkeletonCube cube = AFK_SkeletonCube(upperOffset);
+        !cube.atEnd(gridDim); cube.advance(gridDim))
+    {
+        float chanceToNotPlug = 1.0f;
+        for (int face = 0; face < 6; ++face)
+        {
+            AFK_SkeletonCube adjCube = cube.adjacentCube(face);
+            if (testFlag(adjCube) == AFK_SKF_SET)
+                chanceToNotPlug *= (1.0f - bushiness);
+        }
+
+        if (rng.frand() >= chanceToNotPlug)
+        {
+            setFlag(cube);
+            ++bones;
+        }
+    }
+
+    return bones;
+}
+
 AFK_Skeleton::AFK_Skeleton():
     grid(NULL)
 {
@@ -194,66 +277,17 @@ void AFK_Skeleton::make(
     gridDim = sSizes.skeletonFlagGridDim;
     initGrid();
 
-    /* There are lots of ways I could do this.
-     * As a relatively simple first approach that _should_ produce
-     * good results (without needing insane levels of cross-
-     * referencing), I'm going to try:
-     */
-
-    /* (1) Fill out a randomly morphed skeleton that sort of matches
-     * the upper one.
-     */
-    for (AFK_SkeletonCube cube = AFK_SkeletonCube(upperOffset);
-        !cube.atEnd(gridDim); cube.advance(gridDim))
+    /* Try embellishing that upper skeleton. */
+    if (embellish(upper, upperOffset, rng, sSizes.subdivisionFactor, sSizes.skeletonBushiness) == 0)
     {
-        AFK_SkeletonCube upperCube = cube.upperCube(upperOffset, sSizes.subdivisionFactor);
-        if (upper.testFlag(upperCube) == AFK_SKF_SET)
-        {
-            /* I'll probably set the flag in the lower cube too. */
-            if (rng.frand() >= sSizes.skeletonBushiness)
-                setFlag(cube);
-        }
-        else
-        {
-            /* If it's got adjacency, I've got a regular chance of
-             * setting it.
-             */
-            bool hasAdjacency = false;
-            for (int face = 0; face < 6; ++face)
-            {
-                AFK_SkeletonCube adjCube = cube.adjacentCube(face);
-                AFK_SkeletonCube adjUpperCube = adjCube.upperCube(upperOffset, sSizes.subdivisionFactor);
-                if (upper.testFlag(adjUpperCube) == AFK_SKF_SET)
-                {
-                    hasAdjacency = true;
-                    break;
-                }
-            }
-
-            if (hasAdjacency)
-            {
-                if (rng.frand() < sSizes.skeletonBushiness)
-                    setFlag(cube);
-            }
-        }
-    }
-
-    /* (2) Go around checking adjacency and plugging gaps.  I don't
-     * want to introduce too many holes!
-     */
-    for (AFK_SkeletonCube cube = AFK_SkeletonCube(upperOffset);
-        !cube.atEnd(gridDim); cube.advance(gridDim))
-    {
-        float chanceToNotPlug = 1.0f;
-        for (int face = 0; face < 6; ++face)
-        {
-            AFK_SkeletonCube adjCube = cube.adjacentCube(face);
-            if (testFlag(adjCube) == AFK_SKF_SET)
-                chanceToNotPlug *= (1.0f - sSizes.skeletonBushiness);
-        }
-
-        if (rng.frand() >= chanceToNotPlug)
-            setFlag(cube);
+        /* I got no bones, which isn't valid.  That's no good --
+         * do it again, removing the randomness.
+         * TODO: This logic is wrong.  I shouldn't try this.
+         * Instead, I should attempt to cope with the empty
+         * cell...
+         */
+        if (embellish(upper, upperOffset, rng, sSizes.subdivisionFactor, 0.0f) == 0)
+            throw AFK_Exception("Embellish failure");
     }
 }
 

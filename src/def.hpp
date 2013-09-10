@@ -235,6 +235,20 @@ public:
     {
         return v[0] != p.v[0] || v[1] != p.v[1] || v[2] != p.v[2] || v[3] != p.v[3];
     }
+
+    Vec4<F> operator*(F f) const
+    {
+        Vec4<F> r;
+        r.v[0] = v[0] * f; r.v[1] = v[1] * f; r.v[2] = v[2] * f; r.v[3] = v[3] * f;
+        return r;
+    }
+
+    Vec4<F> operator/(F f) const
+    {
+        Vec4<F> r;
+        r.v[0] = v[0] / f; r.v[1] = v[1] / f; r.v[2] = v[2] / f; r.v[3] = v[3] / f;
+        return r;
+    }
 };
 
 template<typename F>

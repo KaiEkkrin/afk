@@ -7,14 +7,17 @@
 #include "shape_cell.hpp"
 #include "vapour_cell.hpp"
 
-AFK_Cell afk_vapourCell(const AFK_Cell& cell, const AFK_ShapeSizes& sSizes)
+
+AFK_Cell afk_shapeToVapourCell(const AFK_Cell& cell, const AFK_ShapeSizes& sSizes)
 {
-    return afk_cell(afk_vec4<long long>(
-        cell.coord.v[0] * sSizes.skeletonFlagGridDim,
-        cell.coord.v[1] * sSizes.skeletonFlagGridDim,
-        cell.coord.v[2] * sSizes.skeletonFlagGridDim,
-        cell.coord.v[3] * sSizes.skeletonFlagGridDim));
+    return afk_cell(cell.coord * (long long)sSizes.skeletonFlagGridDim);
 }
+
+AFK_Cell afk_vapourToShapeCell(const AFK_Cell& cell, const AFK_ShapeSizes& sSizes)
+{
+    return afk_cell(cell.coord / (long long)sSizes.skeletonFlagGridDim);
+}
+
 
 /* AFK_VapourCell implementation. */
 
@@ -83,6 +86,10 @@ void AFK_VapourCell::makeDescriptor(
             upperCell.cell.coord.v[0], upperCell.cell.coord.v[1], upperCell.cell.coord.v[2]);
         Vec3<long long> upperOffset = (upperCellShapeSpace - thisCellShapeSpace) / cell.coord.v[3];
 
+        /* TODO: I'm seeing co-ordinates of -1 in the upper offset.
+         * That's almost certainly wrong.  I need to understand what
+         * makes them and fix them.
+         */
         skeleton.make(
             upperCell.skeleton,
             upperOffset,
@@ -166,7 +173,7 @@ void AFK_VapourCell::build3DList(
         catch (AFK_PolymerOutOfRange)
         {
             /* Oh dear, we're going to need to recompute this one */
-            missingCells.push_back(parentCell);
+            missingCells.push_back(afk_vapourToShapeCell(parentCell, sSizes));
 
             /* Keep looking for other cells we might be missing so
              * we can do all that at once

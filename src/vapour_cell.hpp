@@ -20,10 +20,12 @@
 #define AFK_VAPOUR_CELL_CACHE AFK_PolymerCache<AFK_Cell, AFK_VapourCell, AFK_HashCell>
 #endif
 
-/* To access a vapour cell cache, use this to transform shape
- * cell coords to vapour cell.
+/* To access a vapour cell cache, use afk_shapeToVapourCell() to
+ * translate cell co-ordinates.  The other function goes the other
+ * way!
  */
-AFK_Cell afk_vapourCell(const AFK_Cell& cell, const AFK_ShapeSizes& sSizes);
+AFK_Cell afk_shapeToVapourCell(const AFK_Cell& cell, const AFK_ShapeSizes& sSizes);
+AFK_Cell afk_vapourToShapeCell(const AFK_Cell& cell, const AFK_ShapeSizes& sSizes);
 
 /* A VapourCell describes a cell in a shape with its vapour
  * features and cubes.  I'm making it distinct from a ShapeCell
@@ -96,7 +98,8 @@ public:
      * Fills the vector `missingCells' with the list of cells
      * whose vapour descriptor needs to be created first in
      * order to be able to make this list.  They go from
-     * smallest to largest cell.
+     * smallest to largest cell, and are in shape space (as
+     * expected by shape workers).
      */
     void build3DList(
         unsigned int threadId,

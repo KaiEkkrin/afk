@@ -33,7 +33,7 @@ bool afk_generateEntity(
 
     AFK_Shape *shape                        = entity->shape;
 
-    AFK_Cell vc = afk_vapourCell(cell, world->sSizes);
+    AFK_Cell vc = afk_shapeToVapourCell(cell, world->sSizes);
     AFK_VapourCell& vapourCell = (*(shape->vapourCellCache))[vc];
     vapourCell.bind(vc);
     AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
@@ -114,7 +114,7 @@ bool afk_generateVapourDescriptor(
 
     AFK_Shape *shape                        = entity->shape;
 
-    AFK_Cell vc = afk_vapourCell(cell, world->sSizes);
+    AFK_Cell vc = afk_shapeToVapourCell(cell, world->sSizes);
     AFK_VapourCell& vapourCell = (*(shape->vapourCellCache))[vc];
     vapourCell.bind(vc);
     AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
@@ -329,11 +329,14 @@ bool AFK_Shape::enqueueVapourCell(
     unsigned int cubeOffset, cubeCount;
     bool success = false;
 
-    AFK_Cell vc = afk_vapourCell(cell, world->sSizes);
+    AFK_Cell vc = afk_shapeToVapourCell(cell, sSizes);
     AFK_VapourCell& vapourCell = (*vapourCellCache)[vc];
     vapourCell.bind(vc);
     AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
 
+    /* TODO Here, I need to cope with empty cells, which _will_
+     * happen.
+     */
     if (!vapourCell.alreadyEnqueued(cubeOffset, cubeCount))
     {
         AFK_3DList list;
@@ -369,8 +372,11 @@ bool AFK_Shape::enqueueVapourCell(
                 for (std::vector<AFK_Cell>::iterator mcIt = missingCells.begin();
                     mcIt != missingCells.end(); ++mcIt)
                 {
+                    /* TODO remove debug */
+                    AFK_DEBUG_PRINTL("Cell " << cell << ": enqueueing missing cell: " << *mcIt)
+
                     /* Sanity check */
-                    if (mcIt->coord.v[3] >= (SHAPE_CELL_MAX_DISTANCE * sSizes.skeletonFlagGridDim))
+                    if (mcIt->coord.v[3] >= SHAPE_CELL_MAX_DISTANCE)
                         throw AFK_Exception("Missing the top vapour cell");
 
                     missingCellItem.func = afk_generateVapourDescriptor;
