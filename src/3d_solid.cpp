@@ -98,3 +98,29 @@ unsigned int AFK_3DList::cubeCount(void) const
     return c.size();
 }
 
+std::ostream& operator<<(std::ostream& os, const AFK_3DList& list)
+{
+    os << "3D List: Cubes: (";
+    bool first = true;
+    for (std::vector<AFK_3DVapourCube>::const_iterator cIt = list.c.begin();
+        cIt != list.c.end(); ++cIt)
+    {
+        if (!first) os << ", ";
+        os << *cIt;
+        first = false;
+    }
+
+    os << "); Features: (";
+    first = true;
+    for (std::vector<AFK_3DVapourFeature>::const_iterator fIt = list.f.begin();
+        fIt != list.f.end(); ++fIt)
+    {
+        if (!first) os << ", ";
+        os << *fIt;
+        first = false;
+    }
+
+    os << ")";
+    return os;
+}
+

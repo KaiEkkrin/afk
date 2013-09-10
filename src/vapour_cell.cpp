@@ -51,7 +51,7 @@ void AFK_VapourCell::makeDescriptor(
         AFK_3DVapourCube cube;
         cube.make(
             features,
-            cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
+            afk_vapourToShapeCell(cell, sSizes).toWorldSpace(SHAPE_CELL_WORLD_SCALE),
             skeleton,
             sSizes,
             rng);
@@ -99,7 +99,7 @@ void AFK_VapourCell::makeDescriptor(
             AFK_3DVapourCube cube;
             cube.make(
                 features,
-                cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
+                afk_vapourToShapeCell(cell, sSizes).toWorldSpace(SHAPE_CELL_WORLD_SCALE),
                 skeleton,
                 sSizes,
                 rng);

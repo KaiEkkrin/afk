@@ -71,11 +71,13 @@ bool afk_generateEntity(
         AFK_VapourCell::ShapeCells shapeCells(vapourCell, world->sSizes);
         while (shapeCells.hasNext())
         {
+            AFK_Cell nextCell = shapeCells.next();
+
             /* Enqueue this shape cell. */
             AFK_WorldWorkQueue::WorkItem shapeCellItem;
             shapeCellItem.func = afk_generateShapeCells;
             shapeCellItem.param = param;
-            shapeCellItem.param.shape.cell = shapeCells.next();
+            shapeCellItem.param.shape.cell = nextCell;
             shapeCellItem.param.shape.dependency = NULL;
             queue.push(shapeCellItem);
         }

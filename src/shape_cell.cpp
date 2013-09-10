@@ -34,6 +34,8 @@ bool AFK_ShapeCell::hasEdges(const AFK_JigsawCollection *edgeJigsaws) const
         edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTimestamp(edgeJigsawPiece) == edgeJigsawPieceTimestamp);
 }
 
+#define SHAPE_COMPUTE_DEBUG 0
+
 void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
     unsigned int threadId,
     const AFK_3DList& list,
@@ -47,6 +49,10 @@ void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
 
     boost::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
         vapourComputeFair.getUpdateQueue(vapourJigsawPiece.puzzle);
+
+#if SHAPE_COMPUTE_DEBUG
+    AFK_DEBUG_PRINTL("Computing vapour at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE) << " with list: " << list)
+#endif
 
     vapourComputeQueue->extend(list, o_cubeOffset, o_cubeCount);
     vapourComputeQueue->addUnit(
@@ -88,17 +94,24 @@ void AFK_ShapeCell::enqueueEdgeComputeUnit(
         edgeComputeFair.getUpdateQueue(
             afk_combineTwoPuzzleFairQueue(vapourJigsawPiece.puzzle, edgeJigsawPiece.puzzle));
 
+#if SHAPE_COMPUTE_DEBUG
+    AFK_DEBUG_PRINTL("Computing edges at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE))
+#endif
+
     edgeComputeQueue->append(cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
         vapourJigsawPiece, edgeJigsawPiece);
 }
+
+#define SHAPE_DISPLAY_DEBUG 0
 
 void AFK_ShapeCell::enqueueEdgeDisplayUnit(
     const Mat4<float>& worldTransform,
     const AFK_JigsawCollection *edgeJigsaws,
     AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const
 {
-    /* TODO: Speculative debug ... */
+#if SHAPE_DISPLAY_DEBUG
     AFK_DEBUG_PRINTL("Displaying edges at cell " << worldTransform * cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE))
+#endif
 
     entityDisplayFair.getUpdateQueue(edgeJigsawPiece.puzzle)->add(
         AFK_EntityDisplayUnit(

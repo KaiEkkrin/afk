@@ -83,7 +83,11 @@ public:
 
     unsigned int featureCount(void) const;
     unsigned int cubeCount(void) const;
+
+    friend std::ostream& operator<<(std::ostream& os, const AFK_3DList& list);
 };
+
+std::ostream& operator<<(std::ostream& os, const AFK_3DList& list);
 
 #endif /* _AFK_3D_SOLID_H_ */
 
