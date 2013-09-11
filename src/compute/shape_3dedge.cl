@@ -295,8 +295,7 @@ __kernel void makeShape3DEdge(
     __global const struct AFK_3DEdgeComputeUnit *units,
     __write_only image2d_t jigsawDisp,
     __write_only image2d_t jigsawColour,
-    __write_only image2d_t jigsawNormal,
-    float threshold)
+    __write_only image2d_t jigsawNormal)
 {
 #if 0
     const int unitOffset = get_global_id(0) / 6;
@@ -322,6 +321,9 @@ __kernel void makeShape3DEdge(
     const int xdim = get_global_id(1); /* 0..EDIM-1 */
     const int zdim = get_global_id(2); /* 0..EDIM-1 */
 #endif
+
+    /* needs to be close to 0, but not actually */
+    float threshold = 0.000000000001f;
 
     /* Iterate through the possible steps back until I find an edge */
     bool foundEdge = false;

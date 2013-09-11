@@ -127,6 +127,8 @@ bool afk_generateVapourDescriptor(
         claimStatus = vapourCell.upgrade(threadId, claimStatus);
     }
 
+    bool needsResume = true;
+
     if (claimStatus == AFK_CL_CLAIMED)
     {
         if (!vapourCell.hasDescriptor())
@@ -136,29 +138,39 @@ bool afk_generateVapourDescriptor(
              * that generate higher-level vapour.
              */
             AFK_Cell parentVC = vc.parent(world->sSizes.subdivisionFactor);
-            AFK_VapourCell& upperCell = shape->vapourCellCache->at(parentVC);
-            AFK_ClaimStatus upperClaimStatus = upperCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
-            if (upperClaimStatus == AFK_CL_CLAIMED_SHARED ||
-                upperClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+            //try
             {
-                vapourCell.makeDescriptor(entity->shapeKey, upperCell, world->sSizes);
-                world->separateVapoursComputed.fetch_add(1);
-                upperCell.release(threadId, upperClaimStatus);
+                AFK_VapourCell& upperCell = shape->vapourCellCache->at(parentVC);
+                AFK_ClaimStatus upperClaimStatus = upperCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+                if (upperClaimStatus == AFK_CL_CLAIMED_SHARED ||
+                    upperClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+                {
+                    vapourCell.makeDescriptor(entity->shapeKey, upperCell, world->sSizes);
+                    world->separateVapoursComputed.fetch_add(1);
+                    upperCell.release(threadId, upperClaimStatus);
+                    needsResume = false;
+                }
             }
-            else
+            //catch (AFK_PolymerOutOfRange)
             {
-                /* It's probably still being computed; do a resume */
-                AFK_WorldWorkQueue::WorkItem resumeItem;
-                resumeItem.func = afk_generateVapourDescriptor;
-                resumeItem.param = param;
-                if (param.shape.dependency) param.shape.dependency->retain();
-                queue.push(resumeItem);
+                /* I should be okay to just let this resume...
+                 * If I find myself entering infinite loops, it's
+                 * probably because the logic that enqueues vapour
+                 * descriptors is wrong and the one this cell wants
+                 * is never enqueued.
+                 * -- okay, confirmed that this hangs...  there's
+                 * something up with that logic, check for
+                 * shape cell/vapour cell correspondance.
+                 */
             }
         }
     }
-    else
+
+    if (needsResume)
     {
-        /* Oh dear!  I'd better resume the damn thing */
+        /* Oh dear!  Try again later; the rest of my logic should
+         * ensure that it'll pop up
+         */
         AFK_WorldWorkQueue::WorkItem resumeItem;
         resumeItem.func = afk_generateVapourDescriptor;
         resumeItem.param = param;

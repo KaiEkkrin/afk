@@ -105,7 +105,6 @@ void AFK_3DEdgeComputeQueue::computeStart(
     AFK_CLCHK(clSetKernelArg(edgeKernel, 2, sizeof(cl_mem), &edgeJigsawMem[0]))
     AFK_CLCHK(clSetKernelArg(edgeKernel, 3, sizeof(cl_mem), &edgeJigsawMem[1]))
     AFK_CLCHK(clSetKernelArg(edgeKernel, 4, sizeof(cl_mem), &edgeJigsawMem[2]))
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 5, sizeof(float), &sSizes.edgeThreshold))
 
     /* TODO: Bringing this down to global only for now and removing
      * the cross-check in an attempt to tackle the

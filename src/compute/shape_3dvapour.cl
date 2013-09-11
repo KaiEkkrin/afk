@@ -138,7 +138,25 @@ void transformLocationToLocation(
     float4 toCoord)
 {
     *vl = (*vl * fromCoord.w + fromCoord.xyz - toCoord.xyz) / toCoord.w;
-    *vc = *vc * fromCoord.w / toCoord.w;
+
+    /* If I don't weight the geometry, the finer detail dominates and
+     * everything disappears.
+     * However, weighting the colours causes everything to wash out
+     * to white.
+     * (Is there a fix to this, around understanding what a proper
+     * value for `edgeThreshold' ought to be and how it should depend
+     * on the LoD?)
+     */
+    /*
+    *vc = (float4)(
+        (*vc).xyz,
+        (*vc).w * fromCoord.w / toCoord.w);
+     */
+
+    /* TODO Experiment ... */
+    *vc = (float4)(
+        (*vc).xyz,
+        (*vc).w - THRESHOLD);
 }
 
 void transformCubeToCube(

@@ -2,12 +2,12 @@
 =======================
 
 10-09-13: obvious steps to take to hook the skeleton stuff in:
- - When a Shape is hit, enqueue a vapour work item first.  This vapour work item's job is to make sure the top level vapour cell for that shape is initialised.  (Using resume if it's busy, etc).
- - After said top level vapour cell is initialised, it enqueues all the shape cubes that are in that top level skeleton into the queue as shape cube computes, and finishes.
- - The shape cube worker recurses as before (it won't need to change a great deal).
- - The build3DList task on vapour needs to know how to initialise intermediate skeletons.  It's already got the cache.  It should roll up to the top level vapour cell, check for that, then roll downwards.
- - When build3DList fails with a missing list, rather than enqueueing the missing in parallel, I need to enqueue the highest level missing with all the rest as a dependent task.
- - vapour_cell's makeDescriptor can be changed to make the top level skeleton, but I'll also need a version that takes a parameter to the upper cell and makes a derived skeleton.
+ - When a Shape is hit, enqueue a vapour work item first.  This vapour work item's job is to make sure the top level vapour cell for that shape is initialised.  (Using resume if it's busy, etc). OK
+ - After said top level vapour cell is initialised, it enqueues all the shape cubes that are in that top level skeleton into the queue as shape cube computes, and finishes. OK
+ - The shape cube worker recurses as before (it won't need to change a great deal). OK
+ - The build3DList task on vapour needs to know how to initialise intermediate skeletons.  It's already got the cache.  It should roll up to the top level vapour cell, check for that, then roll downwards. OK
+ - When build3DList fails with a missing list, rather than enqueueing the missing in parallel, I need to enqueue the highest level missing with all the rest as a dependent task. OK
+ - vapour_cell's makeDescriptor can be changed to make the top level skeleton, but I'll also need a version that takes a parameter to the upper cell and makes a derived skeleton. OK
 
 argh, the below is unreadable o.O
 
