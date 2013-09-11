@@ -108,6 +108,13 @@ bool AFK_Cell::isParent(const AFK_Cell& parent) const
 
 Vec4<float> AFK_Cell::toWorldSpace(float worldScale) const
 {
+    /* TODO The divide by MIN_CELL_PITCH here is ghastly
+     * and wrong.
+     * However, if I remove it, I get lots of holes in the
+     * landscape, for reasons I don't really understand
+     * (if I widen the scope of testVisibility(),
+     * the problem remains).
+     */
     return afk_vec4<float>(
         (float)coord.v[0] * worldScale / MIN_CELL_PITCH,
         (float)coord.v[1] * worldScale / MIN_CELL_PITCH,

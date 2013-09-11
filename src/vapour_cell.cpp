@@ -10,7 +10,7 @@
 
 AFK_Cell afk_shapeToVapourCell(const AFK_Cell& cell, const AFK_ShapeSizes& sSizes)
 {
-    return afk_cell(cell.coord * (long long)sSizes.skeletonFlagGridDim);
+    return cell.parent(sSizes.skeletonFlagGridDim);
 }
 
 AFK_Cell afk_vapourToShapeCell(const AFK_Cell& cell, const AFK_ShapeSizes& sSizes)
@@ -51,7 +51,7 @@ void AFK_VapourCell::makeDescriptor(
         AFK_3DVapourCube cube;
         cube.make(
             features,
-            afk_vapourToShapeCell(cell, sSizes).toWorldSpace(SHAPE_CELL_WORLD_SCALE),
+            cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE * MIN_CELL_PITCH),
             skeleton,
             sSizes,
             rng);
@@ -99,7 +99,7 @@ void AFK_VapourCell::makeDescriptor(
             AFK_3DVapourCube cube;
             cube.make(
                 features,
-                afk_vapourToShapeCell(cell, sSizes).toWorldSpace(SHAPE_CELL_WORLD_SCALE),
+                cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE * MIN_CELL_PITCH),
                 skeleton,
                 sSizes,
                 rng);
