@@ -9,9 +9,8 @@
 
 /* AFK_Entity implementation */
 
-AFK_Entity::AFK_Entity(unsigned int _shapeKey, AFK_Shape *_shape):
-    shapeKey(_shapeKey),
-    shape(_shape)
+AFK_Entity::AFK_Entity(unsigned int _shapeKey):
+    shapeKey(_shapeKey)
 {
 }
 

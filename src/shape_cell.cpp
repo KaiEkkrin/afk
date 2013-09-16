@@ -12,12 +12,12 @@
 
 /* AFK_ShapeCell implementation. */
 
-void AFK_ShapeCell::bind(const AFK_Cell& _cell)
+void AFK_ShapeCell::bind(const AFK_KeyedCell& _cell)
 {
     cell = _cell;
 }
 
-const AFK_Cell& AFK_ShapeCell::getCell(void) const
+const AFK_KeyedCell& AFK_ShapeCell::getCell(void) const
 {
     return cell;
 }

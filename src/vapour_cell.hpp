@@ -9,23 +9,23 @@
 #include <vector>
 
 #include "3d_solid.hpp"
-#include "cell.hpp"
 #include "data/claimable.hpp"
+#include "data/evictable_cache.hpp"
 #include "data/frame.hpp"
-#include "data/polymer_cache.hpp"
+#include "keyed_cell.hpp"
 #include "shape_sizes.hpp"
 #include "skeleton.hpp"
 
 #ifndef AFK_VAPOUR_CELL_CACHE
-#define AFK_VAPOUR_CELL_CACHE AFK_PolymerCache<AFK_Cell, AFK_VapourCell, AFK_HashCell>
+#define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashCell>
 #endif
 
 /* To access a vapour cell cache, use afk_shapeToVapourCell() to
  * translate cell co-ordinates.  The other function goes the other
  * way!
  */
-AFK_Cell afk_shapeToVapourCell(const AFK_Cell& cell, const AFK_ShapeSizes& sSizes);
-AFK_Cell afk_vapourToShapeCell(const AFK_Cell& cell, const AFK_ShapeSizes& sSizes);
+AFK_KeyedCell afk_shapeToVapourCell(const AFK_KeyedCell& cell, const AFK_ShapeSizes& sSizes);
+AFK_KeyedCell afk_vapourToShapeCell(const AFK_KeyedCell& cell, const AFK_ShapeSizes& sSizes);
 
 /* A VapourCell describes a cell in a shape with its vapour
  * features and cubes.  I'm making it distinct from a ShapeCell
@@ -35,7 +35,7 @@ AFK_Cell afk_vapourToShapeCell(const AFK_Cell& cell, const AFK_ShapeSizes& sSize
 class AFK_VapourCell: public AFK_Claimable
 {
 protected:
-    AFK_Cell cell;
+    AFK_KeyedCell cell;
 
     /* The actual features here. */
     bool haveDescriptor;
@@ -54,7 +54,7 @@ protected:
 
 public:
     /* Binds a shape cell to the shape. */
-    void bind(const AFK_Cell& _cell);
+    void bind(const AFK_KeyedCell& _cell);
 
     bool hasDescriptor(void) const;
 
@@ -65,15 +65,12 @@ public:
      * so that the caller can turn these into shape cells
      * to enqueue.
      */
-    void makeDescriptor(
-        unsigned int shapeKey,
-        const AFK_ShapeSizes& sSizes);
+    void makeDescriptor(const AFK_ShapeSizes& sSizes);
 
     /* This one makes a finer detail vapour cell, whose
      * skeleton is derived from the upper cell.
      */
     void makeDescriptor(
-        unsigned int shapeKey,
         const AFK_VapourCell& upperCell,
         const AFK_ShapeSizes& sSizes);
 
@@ -99,7 +96,7 @@ public:
         ShapeCells(const AFK_VapourCell& _vapourCell, const AFK_ShapeSizes& _sSizes);
 
         bool hasNext(void);
-        AFK_Cell next(void);
+        AFK_KeyedCell next(void);
     };
 
     /* Builds the 3D list for this cell.
@@ -112,7 +109,7 @@ public:
     void build3DList(
         unsigned int threadId,
         AFK_3DList& list,
-        std::vector<AFK_Cell>& missingCells,
+        std::vector<AFK_KeyedCell>& missingCells,
         const AFK_ShapeSizes& sSizes,
         const AFK_VAPOUR_CELL_CACHE *cache);
 

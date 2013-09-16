@@ -8,8 +8,8 @@
 #include <boost/atomic.hpp>
 
 #include "async/work_queue.hpp"
-#include "cell.hpp"
 #include "def.hpp"
+#include "keyed_cell.hpp"
 
 /* Defines the work item for the world generator gang.
  * New functions that are valid in the gang need to
@@ -94,7 +94,7 @@ union AFK_WorldWorkParam
 
     struct Shape
     {
-        AFK_Cell cell;
+        AFK_KeyedCell cell;
         AFK_Entity *entity;
         AFK_World *world;
         Vec3<float> viewerLocation;

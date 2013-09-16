@@ -27,13 +27,13 @@ bool afk_generateEntity(
     const union AFK_WorldWorkParam& param,
     AFK_WorldWorkQueue& queue)
 {
-    AFK_Cell cell                           = param.shape.cell;
+    AFK_KeyedCell cell                      = param.shape.cell;
     AFK_Entity *entity                      = param.shape.entity;
     AFK_World *world                        = param.shape.world;
 
     AFK_Shape *shape                        = entity->shape;
 
-    AFK_Cell vc = afk_shapeToVapourCell(cell, world->sSizes);
+    AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
     AFK_VapourCell& vapourCell = (*(shape->vapourCellCache))[vc];
     vapourCell.bind(vc);
     AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
@@ -50,7 +50,7 @@ bool afk_generateEntity(
         {
             if (!vapourCell.hasDescriptor())
             {
-                vapourCell.makeDescriptor(entity->shapeKey, world->sSizes);
+                vapourCell.makeDescriptor(world->sSizes);
                 world->separateVapoursComputed.fetch_add(1);
             }        
         }
@@ -71,7 +71,7 @@ bool afk_generateEntity(
         AFK_VapourCell::ShapeCells shapeCells(vapourCell, world->sSizes);
         while (shapeCells.hasNext())
         {
-            AFK_Cell nextCell = shapeCells.next();
+            AFK_KeyedCell nextCell = shapeCells.next();
 
             /* Enqueue this shape cell. */
             AFK_WorldWorkQueue::WorkItem shapeCellItem;
@@ -110,13 +110,13 @@ bool afk_generateVapourDescriptor(
     const union AFK_WorldWorkParam& param,
     AFK_WorldWorkQueue& queue)
 {
-    const AFK_Cell cell                     = param.shape.cell;
+    const AFK_KeyedCell cell                = param.shape.cell;
     AFK_Entity *entity                      = param.shape.entity;
     AFK_World *world                        = param.shape.world;
 
     AFK_Shape *shape                        = entity->shape;
 
-    AFK_Cell vc = afk_shapeToVapourCell(cell, world->sSizes);
+    AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
     AFK_VapourCell& vapourCell = (*(shape->vapourCellCache))[vc];
     vapourCell.bind(vc);
     AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
@@ -137,7 +137,7 @@ bool afk_generateVapourDescriptor(
              * task is enqueued as a dependent task of the tasks
              * that generate higher-level vapour.
              */
-            AFK_Cell parentVC = vc.parent(world->sSizes.subdivisionFactor);
+            AFK_KeyedCell parentVC = vc.parent(world->sSizes.subdivisionFactor);
             //try
             {
                 AFK_VapourCell& upperCell = shape->vapourCellCache->at(parentVC);
@@ -145,7 +145,7 @@ bool afk_generateVapourDescriptor(
                 if (upperClaimStatus == AFK_CL_CLAIMED_SHARED ||
                     upperClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
                 {
-                    vapourCell.makeDescriptor(entity->shapeKey, upperCell, world->sSizes);
+                    vapourCell.makeDescriptor(upperCell, world->sSizes);
                     world->separateVapoursComputed.fetch_add(1);
                     upperCell.release(threadId, upperClaimStatus);
                     needsResume = false;
@@ -208,7 +208,7 @@ bool afk_generateShapeCells(
     const union AFK_WorldWorkParam& param,
     AFK_WorldWorkQueue& queue)
 {
-    const AFK_Cell cell                     = param.shape.cell;
+    const AFK_KeyedCell cell                = param.shape.cell;
     AFK_Entity *entity                      = param.shape.entity;
     AFK_World *world                        = param.shape.world;
     const Vec3<float>& viewerLocation       = param.shape.viewerLocation;
@@ -275,7 +275,7 @@ bool afk_generateShapeCells(
              * the subcells
              */
             size_t subcellsSize = CUBE(world->sSizes.subdivisionFactor);
-            AFK_Cell *subcells = new AFK_Cell[subcellsSize];
+            AFK_KeyedCell *subcells = new AFK_KeyedCell[subcellsSize];
             unsigned int subcellsCount = cell.subdivide(subcells, subcellsSize, world->sSizes.subdivisionFactor);
 
             if (subcellsCount == subcellsSize)
@@ -335,7 +335,7 @@ enum AFK_Shape::VapourCellState AFK_Shape::enqueueVapourCell(
     const struct AFK_WorldWorkParam::Shape& param,
     AFK_WorldWorkQueue& queue)
 {
-    const AFK_Cell cell                     = param.cell;
+    const AFK_KeyedCell cell                = param.cell;
     AFK_World *world                        = param.world;
 
     const AFK_ShapeSizes& sSizes            = world->sSizes;
@@ -344,7 +344,7 @@ enum AFK_Shape::VapourCellState AFK_Shape::enqueueVapourCell(
     unsigned int cubeOffset, cubeCount;
     enum VapourCellState state = NeedsResume;
 
-    AFK_Cell vc = afk_shapeToVapourCell(cell, sSizes);
+    AFK_KeyedCell vc = afk_shapeToVapourCell(cell, sSizes);
     AFK_VapourCell& vapourCell = (*vapourCellCache)[vc];
     vapourCell.bind(vc);
     AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
@@ -537,25 +537,30 @@ void AFK_Shape::generateClaimedShapeCell(
     }
 }
 
-AFK_Shape::AFK_Shape():
-    AFK_Claimable()
+AFK_Shape::AFK_Shape(
+    const AFK_Config *config,
+    unsigned int shapeCacheEntries)
 {
     /* This is naughty, but I really want an auto-create
      * here.
      */
     unsigned int shapeCellCacheBitness = afk_suggestCacheBitness(
-        afk_core.config->shape_skeletonMaxSize * 4);
+        shapeCacheEntries * config->shape_skeletonMaxSize * 4);
     shapeCellCache = new AFK_SHAPE_CELL_CACHE(
         shapeCellCacheBitness,
         4,
-        AFK_HashCell());
+        AFK_HashCell(),
+        shapeCacheEntries / 2,
+        0xfffffffdu);
 
     unsigned int vapourCellCacheBitness = afk_suggestCacheBitness(
-        afk_core.config->shape_skeletonMaxSize);
+        shapeCacheEntries * config->shape_skeletonMaxSize);
     vapourCellCache = new AFK_VAPOUR_CELL_CACHE(
         vapourCellCacheBitness,
         4,
-        AFK_HashCell());
+        AFK_HashCell(),
+        shapeCacheEntries / 2,
+        0xfffffffcu);
 }
 
 AFK_Shape::~AFK_Shape()
@@ -564,21 +569,15 @@ AFK_Shape::~AFK_Shape()
     delete shapeCellCache;
 }
 
-AFK_Frame AFK_Shape::getCurrentFrame(void) const
+void AFK_Shape::updateWorld(void)
 {
-    return afk_core.computingFrame;
+    shapeCellCache->doEvictionIfNecessary();
+    vapourCellCache->doEvictionIfNecessary();
 }
 
-bool AFK_Shape::canBeEvicted(void) const
+void AFK_Shape::printCacheStats(std::ostream& os, const std::string& prefix)
 {
-    /* This is a tweakable value ... */
-    bool canEvict = ((afk_core.computingFrame - lastSeen) > 10);
-    return canEvict;
-}
-
-std::ostream& operator<<(std::ostream& os, const AFK_Shape& shape)
-{
-    os << "Shape";
-    return os;
+    shapeCellCache->printStats(ss, "Shape cell cache");
+    vapourCellCache->printStats(ss, "Vapour cell cache");
 }
 

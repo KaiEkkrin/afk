@@ -432,8 +432,8 @@ bool AFK_World::generateClaimedWorldCell(
                  */
                 AFK_WorldWorkQueue::WorkItem shapeCellItem;
                 shapeCellItem.func                          = afk_generateEntity;
-                shapeCellItem.param.shape.cell              = afk_cell(afk_vec4<long long>(
-                                                                0, 0, 0, SHAPE_CELL_MAX_DISTANCE));
+                shapeCellItem.param.shape.cell              = afk_keyedCell(afk_vec4<long long>(
+                                                                0, 0, 0, SHAPE_CELL_MAX_DISTANCE), e->shapeKey);
                 shapeCellItem.param.shape.entity            = e;
                 shapeCellItem.param.shape.world             = this;               
                 shapeCellItem.param.shape.viewerLocation    = viewerLocation;
@@ -625,12 +625,6 @@ AFK_World::AFK_World(
         config->concurrency,
         false);
 
-    shapeCacheEntries = edgeJigsaws->getPieceCount();
-    unsigned int shapeCacheBitness = afk_suggestCacheBitness(shapeCacheEntries);
-
-    shapeCache = new AFK_SHAPE_CACHE(
-        shapeCacheBitness, 8, boost::hash<unsigned int>(), shapeCacheEntries / 2, 0xfffffffdu); 
-
     genGang = new AFK_AsyncGang<union AFK_WorldWorkParam, bool>(
         100, config->concurrency);
 
@@ -767,7 +761,7 @@ boost::unique_future<bool> AFK_World::updateWorld(void)
     /* Maintenance. */
     landscapeCache->doEvictionIfNecessary();
     worldCache->doEvictionIfNecessary();
-    shapeCache->doEvictionIfNecessary();
+    shape.updateWorld();
 
     /* First, transform the protagonist location and its facing
      * into integer cell-space.
@@ -960,7 +954,7 @@ void AFK_World::printCacheStats(std::ostream& ss, const std::string& prefix)
 #if PRINT_CACHE_STATS
     worldCache->printStats(ss, "World cache");
     landscapeCache->printStats(ss, "Landscape cache");
-    shapeCache->printStats(ss, "Shape cache");
+    shape.printCacheStats(ss, prefix);
 #endif
 }
 

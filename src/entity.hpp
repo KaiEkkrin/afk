@@ -15,7 +15,6 @@
 #include "jigsaw_collection.hpp"
 #include "object.hpp"
 #include "rng/rng.hpp"
-#include "shape.hpp"
 #include "work.hpp"
 
 /* An Entity is a moveable object that exists within the
@@ -35,14 +34,10 @@ class AFK_Entity: public AFK_Claimable
 {
 protected:
     /* The shape key is used to vary the RNG output to generate
-     * the shape
+     * the shape, and keys the shape cell and vapour cell
+     * caches.
      */
     const unsigned int shapeKey;
-
-    /* This object's shape.  We don't own this pointer -- it's
-     * from the world shape list.
-     */
-    AFK_Shape *shape;
 
     /* Describes where this entity is located. */
     AFK_Object obj;
@@ -59,7 +54,7 @@ protected:
      */
 
 public:
-    AFK_Entity(unsigned int _shapeKey, AFK_Shape *_shape);
+    AFK_Entity(unsigned int _shapeKey);
     virtual ~AFK_Entity();
 
     /* Positions the entity.

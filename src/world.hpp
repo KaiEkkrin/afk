@@ -145,6 +145,13 @@ protected:
     GLuint landscapeTileArray;
     AFK_TerrainBaseTile *landscapeTerrainBase;
 
+    /* This describes the entity shapes.
+     * TODO -- as written in `shape' itself -- move the
+     * below into its purview, cleaning the World up and
+     * making everything make a bit more sense.
+     */
+    AFK_Shape shape;
+
     /* The entity render fair -- a queue of Entities to
      * display onscreen.
      */
@@ -153,17 +160,6 @@ protected:
     /* These jigsaws form the computed shape artwork. */
     AFK_JigsawCollection *vapourJigsaws;
     AFK_JigsawCollection *edgeJigsaws;
-
-    /* The cache of shapes we're tracking.
-     * (It was kind of inevitable, wasn't it? :) )
-     * TODO: I need some sane kind of way of indexing shapes.
-     * Right now I'm just going to give them an integer label.
-     */
-#ifndef AFK_SHAPE_CACHE
-#define AFK_SHAPE_CACHE AFK_EvictableCache<unsigned int, AFK_Shape, boost::hash<unsigned int> >
-#endif
-    AFK_SHAPE_CACHE *shapeCache;
-    unsigned int shapeCacheEntries;
 
     /* For when I'm making new shapes, the vapour and edge
      * computation fairs.

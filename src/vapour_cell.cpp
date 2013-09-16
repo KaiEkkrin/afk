@@ -8,20 +8,23 @@
 #include "vapour_cell.hpp"
 
 
-AFK_Cell afk_shapeToVapourCell(const AFK_Cell& cell, const AFK_ShapeSizes& sSizes)
+AFK_KeyedCell afk_shapeToVapourCell(const AFK_KeyedCell& cell, const AFK_ShapeSizes& sSizes)
 {
     return cell.parent(sSizes.skeletonFlagGridDim);
 }
 
-AFK_Cell afk_vapourToShapeCell(const AFK_Cell& cell, const AFK_ShapeSizes& sSizes)
+AFK_KeyedCell afk_vapourToShapeCell(const AFK_KeyedCell& cell, const AFK_ShapeSizes& sSizes)
 {
-    return afk_cell(cell.coord / (long long)sSizes.skeletonFlagGridDim);
+    /* TODO I'm pretty sure that this is wrong, but only for
+     * co-ordinates < 0, which I'm not currently using
+     */
+    return afk_keyedCell(cell.coord / (long long)sSizes.skeletonFlagGridDim, cell.key);
 }
 
 
 /* AFK_VapourCell implementation. */
 
-void AFK_VapourCell::bind(const AFK_Cell& _cell)
+void AFK_VapourCell::bind(const AFK_KeyedCell& _cell)
 {
     cell = _cell;
 }
@@ -32,7 +35,6 @@ bool AFK_VapourCell::hasDescriptor(void) const
 }
 
 void AFK_VapourCell::makeDescriptor(
-    unsigned int shapeKey,
     const AFK_ShapeSizes& sSizes)
 {
     if (!haveDescriptor)
@@ -43,9 +45,7 @@ void AFK_VapourCell::makeDescriptor(
          * think I might want to).  For now I just make this cell
          * by itself.
          */
-        rng.seed(cell.rngSeed(
-            0x0001000100010001LL * shapeKey));
-
+        rng.seed(cell.rngSeed());
         skeleton.make(rng, sSizes);
 
         AFK_3DVapourCube cube;
@@ -62,7 +62,6 @@ void AFK_VapourCell::makeDescriptor(
 }
 
 void AFK_VapourCell::makeDescriptor(
-    unsigned int shapeKey,
     const AFK_VapourCell& upperCell,
     const AFK_ShapeSizes& sSizes)
 {
@@ -77,8 +76,7 @@ void AFK_VapourCell::makeDescriptor(
          * think I might want to).  For now I just make this cell
          * by itself.
          */
-        rng.seed(cell.rngSeed(
-            0x0001000100010001LL * shapeKey));
+        rng.seed(cell.rngSeed());
 
         Vec3<long long> thisCellShapeSpace = afk_vec3<long long>(
             cell.coord.v[0], cell.coord.v[1], cell.coord.v[2]);
@@ -127,21 +125,21 @@ bool AFK_VapourCell::ShapeCells::hasNext(void)
     return bones.hasNext();
 }
 
-AFK_Cell AFK_VapourCell::ShapeCells::next(void)
+AFK_KeyedCell AFK_VapourCell::ShapeCells::next(void)
 {
     AFK_SkeletonCube nextSkeletonCube = bones.next();
     long long shapeCellScale = vapourCell.cell.coord.v[3] / sSizes.skeletonFlagGridDim;
-    return afk_cell(afk_vec4<long long>(
+    return afk_keyedCell(afk_vec4<long long>(
         nextSkeletonCube.coord.v[0] * shapeCellScale + vapourCell.cell.coord.v[0],
         nextSkeletonCube.coord.v[1] * shapeCellScale + vapourCell.cell.coord.v[1],
         nextSkeletonCube.coord.v[2] * shapeCellScale + vapourCell.cell.coord.v[2],
-        shapeCellScale));
+        shapeCellScale), vapourCell.key);
 }
 
 void AFK_VapourCell::build3DList(
     unsigned int threadId,
     AFK_3DList& list,
-    std::vector<AFK_Cell>& missingCells,
+    std::vector<AFK_KeyedCell>& missingCells,
     const AFK_ShapeSizes& sSizes,
     const AFK_VAPOUR_CELL_CACHE *cache)
 {
@@ -156,7 +154,7 @@ void AFK_VapourCell::build3DList(
         /* Pull the parent cell from the cache, and
          * include its list too
          */
-        AFK_Cell parentCell = currentCell.parent(sSizes.subdivisionFactor);
+        AFK_KeyedCell parentCell = currentCell.parent(sSizes.subdivisionFactor);
 
         try
         {

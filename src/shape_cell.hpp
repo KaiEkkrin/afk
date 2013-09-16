@@ -10,13 +10,13 @@
 #include "3d_edge_compute_queue.hpp"
 #include "3d_solid.hpp"
 #include "3d_vapour_compute_queue.hpp"
-#include "cell.hpp"
 #include "data/claimable.hpp"
 #include "data/fair.hpp"
 #include "data/frame.hpp"
 #include "def.hpp"
 #include "entity_display_queue.hpp"
 #include "jigsaw_collection.hpp"
+#include "keyed_cell.hpp"
 #include "shape_sizes.hpp"
 
 
@@ -43,7 +43,7 @@ protected:
      * `shape' module, I think, to create that VisibleCell
      * and perform the two tests upon it.
      */
-    AFK_Cell cell;
+    AFK_KeyedCell cell;
 
     AFK_JigsawPiece vapourJigsawPiece;
     AFK_Frame vapourJigsawPieceTimestamp;
@@ -54,8 +54,8 @@ protected:
 
 public:
     /* Binds a shape cell to the shape. */
-    void bind(const AFK_Cell& _cell);
-    const AFK_Cell& getCell(void) const;
+    void bind(const AFK_KeyedCell& _cell);
+    const AFK_KeyedCell& getCell(void) const;
 
     bool hasVapour(const AFK_JigsawCollection *vapourJigsaws) const;
     bool hasEdges(const AFK_JigsawCollection *edgeJigsaws) const;
