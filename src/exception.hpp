@@ -19,6 +19,8 @@ public:
     virtual ~AFK_Exception() throw() {}
 
     virtual const char* what() const throw();
+
+    const std::string& getMessage() const;
 };
 
 #endif /* _AFK_EXCEPTION_H_ */

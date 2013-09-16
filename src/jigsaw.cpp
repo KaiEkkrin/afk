@@ -134,6 +134,19 @@ bool AFK_JigsawPiece::operator!=(const AFK_JigsawPiece& other) const
     return (u != other.u || v != other.v || w != other.w || puzzle != other.puzzle);
 }
 
+size_t hash_value(const AFK_JigsawPiece& jigsawPiece)
+{
+    /* Inspired by hash_value(const AFK_Cell&), just in case I
+     * need to use this in anger
+     */
+    size_t hash = 0;
+    boost::hash_combine(hash, jigsawPiece.u * 0x0000c00180030006ll);
+    boost::hash_combine(hash, jigsawPiece.v * 0x00180030006000c0ll);
+    boost::hash_combine(hash, jigsawPiece.w * 0x00030006000c0018ll);
+    boost::hash_combine(hash, jigsawPiece.puzzle * 0x006000c001800300ll);
+    return hash;
+}
+
 std::ostream& operator<<(std::ostream& os, const AFK_JigsawPiece& piece)
 {
     return os << "JigsawPiece(u=" << std::dec << piece.u << ", v=" << piece.v << ", w=" << piece.w << ", puzzle=" << piece.puzzle << ")";
@@ -276,7 +289,7 @@ bool AFK_Jigsaw::startNewCuboid(const AFK_JigsawCuboid& lastCuboid, bool startNe
          * If I can go one row up, use that:
          */
         int newRow, newSlice;
-        if ((lastCuboid.r + lastCuboid.rows + newRowCount) < jigsawSize.v[0])
+        if ((lastCuboid.r + lastCuboid.rows + newRowCount) <= jigsawSize.v[0])
         {
             /* There is room on the next row up. */
             newRow = lastCuboid.r + lastCuboid.rows;
@@ -291,7 +304,7 @@ bool AFK_Jigsaw::startNewCuboid(const AFK_JigsawCuboid& lastCuboid, bool startNe
         }
 
         /* Check I'm not running into the sweep position. */
-        if ((newSlice <= sweepPosition.v[2] && sweepPosition.v[2] < (newSlice + newSliceCount)) &&
+        if ((newSlice <= sweepPosition.v[1] && sweepPosition.v[1] < (newSlice + newSliceCount)) &&
             (newRow <= sweepPosition.v[0] && sweepPosition.v[0] < (newRow + newRowCount)))
         {
             /* Poo. */

@@ -102,6 +102,8 @@ public:
     friend std::ostream& operator<<(std::ostream& os, const AFK_JigsawPiece& piece);
 };
 
+size_t hash_value(const AFK_JigsawPiece& jigsawPiece);
+
 std::ostream& operator<<(std::ostream& os, const AFK_JigsawPiece& piece);
 
 BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_JigsawPiece>::value));

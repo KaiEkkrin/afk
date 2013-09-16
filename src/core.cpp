@@ -14,6 +14,7 @@
 #include "event.hpp"
 #include "exception.hpp"
 #include "rng/boost_taus88.hpp"
+#include "test_jigsaw.hpp"
 #include "window_glx.hpp"
 
 
@@ -25,6 +26,7 @@
 
 
 #define CL_TEST 0
+#define JIGSAW_TEST 1
 
 
 #define CALIBRATION_INTERVAL_MICROS (afk_core.config->targetFrameTimeMicros * afk_core.config->framesPerCalibration)
@@ -309,6 +311,10 @@ void AFK_Core::loop(void)
 
 #if CL_TEST
     afk_testComputeLong(computer, config->concurrency);
+#endif
+
+#if JIGSAW_TEST
+    afk_testJigsaw(computer, config);
 #endif
 
     /* Now that I've set that stuff up, find out how much memory

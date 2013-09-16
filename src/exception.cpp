@@ -39,3 +39,8 @@ const char *AFK_Exception::what() const throw()
     return message.c_str();
 }
 
+const std::string& AFK_Exception::getMessage() const
+{
+    return message;
+}
+
