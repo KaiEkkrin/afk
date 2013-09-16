@@ -119,11 +119,6 @@ void AFK_ShapeCell::enqueueEdgeDisplayUnit(
             edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTexCoordST(edgeJigsawPiece)));
 }
 
-AFK_Frame AFK_ShapeCell::getCurrentFrame(void) const
-{
-    return afk_core.computingFrame;
-}
-
 bool AFK_ShapeCell::canBeEvicted(void) const
 {
     bool canEvict = ((afk_core.computingFrame - lastSeen) > 10);

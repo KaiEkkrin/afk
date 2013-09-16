@@ -82,11 +82,6 @@ void AFK_Entity::enqueueForDrawing(unsigned int threadId)
 }
 #endif
 
-AFK_Frame AFK_Entity::getCurrentFrame(void) const
-{
-    return afk_core.computingFrame;
-}
-
 bool AFK_Entity::canBeEvicted(void) const
 {
     /* We shouldn't actually be calling this.  I'm using

@@ -50,7 +50,8 @@ bool afk_generateWorldCells(
      * I won't do a recursive search.
      */
     if (worldCell.claimYieldLoop(threadId,
-        (renderTerrain || resume) ? AFK_CLT_NONEXCLUSIVE : AFK_CLT_EXCLUSIVE) == AFK_CL_CLAIMED)
+        (renderTerrain || resume) ? AFK_CLT_NONEXCLUSIVE : AFK_CLT_EXCLUSIVE,
+        afk_core.computingFrame) == AFK_CL_CLAIMED)
     {
         /* This releases the world cell itself when it's done
          * (which isn't at the end of its processing).
@@ -240,7 +241,7 @@ bool AFK_World::generateClaimedWorldCell(
          */
         AFK_LandscapeTile& landscapeTile = (*landscapeCache)[tile];
         AFK_ClaimStatus landscapeClaimStatus = landscapeTile.claimYieldLoop(
-            threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+            threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
 
         bool generateArtwork = false;
         if (!landscapeTile.hasTerrainDescriptor() ||
@@ -296,7 +297,7 @@ bool AFK_World::generateClaimedWorldCell(
                  * because the cell is entirely outside the y bounds.
                  */
                 landscapeClaimStatus = landscapeTile.claimYieldLoop(
-                    threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+                    threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
                 AFK_JigsawPiece jigsawPiece;
                 AFK_LandscapeDisplayUnit unit;
                 bool displayThisTile = landscapeTile.makeDisplayUnit(cell, minCellSize, jigsawPiece, unit);
@@ -366,7 +367,7 @@ bool AFK_World::generateClaimedWorldCell(
             AFK_Entity *e = *eIt;
             AFK_ENTITY_LIST::iterator nextEIt = eIt;
             bool updatedEIt = false;
-            if (e->claimYieldLoop(threadId, AFK_CLT_EXCLUSIVE) == AFK_CL_CLAIMED)
+            if (e->claimYieldLoop(threadId, AFK_CLT_EXCLUSIVE, afk_core.computingFrame) == AFK_CL_CLAIMED)
             {
                 /* TODO: Movement wants to move into OpenCL.
                  * I don't want to perpetuate the below.

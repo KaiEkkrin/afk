@@ -180,11 +180,6 @@ void AFK_WorldCell::popMoveQueue(void)
         entities.push_back(e);
 }
 
-AFK_Frame AFK_WorldCell::getCurrentFrame(void) const
-{
-    return afk_core.computingFrame;
-}
-
 bool AFK_WorldCell::canBeEvicted(void) const
 {
     /* This is a tweakable value ... */

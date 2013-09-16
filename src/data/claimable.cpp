@@ -16,10 +16,8 @@ AFK_Claimable::AFK_Claimable()
 {
 }
 
-enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimType type)
+enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimType type, const AFK_Frame& currentFrame)
 {
-    AFK_Frame currentFrame = getCurrentFrame();
-
     AFK_ClaimStatus status = AFK_CL_TAKEN;
 #if CLAIMABLE_MUTEX
     bool gotUpgradeLock = false;
@@ -38,6 +36,8 @@ enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimT
         switch (type)
         {
         case AFK_CLT_EXCLUSIVE:
+            if (currentFrame.getNever()) throw AFK_ClaimException();
+
             if (lastSeenExclusively == currentFrame)
             {
                 /* This cell already got processed this frame,
@@ -56,12 +56,16 @@ enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimT
             break;
 
         case AFK_CLT_NONEXCLUSIVE:
+            if (currentFrame.getNever()) throw AFK_ClaimException();
+
             /* You've definitely got it */
             lastSeen = currentFrame;
             status = AFK_CL_CLAIMED;
             break;
 
         case AFK_CLT_NONEXCLUSIVE_SHARED:
+            if (currentFrame.getNever()) throw AFK_ClaimException();
+
             /* You've also definitely got it, but in what way? */
             lastSeen = currentFrame;
             status = gotUpgradeLock ? AFK_CL_CLAIMED_UPGRADABLE : AFK_CL_CLAIMED_SHARED;
@@ -142,12 +146,12 @@ void AFK_Claimable::release(unsigned int threadId, enum AFK_ClaimStatus status)
 #endif
 }
 
-enum AFK_ClaimStatus AFK_Claimable::claimYieldLoop(unsigned int threadId, enum AFK_ClaimType type)
+enum AFK_ClaimStatus AFK_Claimable::claimYieldLoop(unsigned int threadId, enum AFK_ClaimType type, const AFK_Frame& currentFrame)
 {
     enum AFK_ClaimStatus status = AFK_CL_TAKEN;
     for (unsigned int tries = 0; status == AFK_CL_TAKEN /* && tries < 2 */; ++tries)
     {
-        status = claim(threadId, type);
+        status = claim(threadId, type, currentFrame);
         if (status == AFK_CL_TAKEN) boost::this_thread::yield();
     }
 

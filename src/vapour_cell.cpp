@@ -159,7 +159,7 @@ void AFK_VapourCell::build3DList(
         try
         {
             AFK_VapourCell& parentVapourCell = cache->at(parentCell);
-            enum AFK_ClaimStatus claimStatus = parentVapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+            enum AFK_ClaimStatus claimStatus = parentVapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
             if (claimStatus != AFK_CL_CLAIMED_SHARED && claimStatus != AFK_CL_CLAIMED_UPGRADABLE)
             {
                 std::ostringstream ss;
@@ -211,11 +211,6 @@ void AFK_VapourCell::enqueued(
     computeCubeOffset = cubeOffset;
     computeCubeCount = cubeCount;
     computeCubeFrame = afk_core.computingFrame;
-}
-
-AFK_Frame AFK_VapourCell::getCurrentFrame(void) const
-{
-    return afk_core.computingFrame;
 }
 
 bool AFK_VapourCell::canBeEvicted(void) const

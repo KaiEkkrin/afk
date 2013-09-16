@@ -121,7 +121,6 @@ public:
     void popMoveQueue(void);
 
     /* AFK_Claimable implementation. */
-    virtual AFK_Frame getCurrentFrame(void) const;
 
     /* Says whether this cell can be evicted from the cache.
      */

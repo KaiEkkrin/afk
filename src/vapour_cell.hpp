@@ -132,7 +132,6 @@ public:
         unsigned int cubeCount);
 
     /* For handling claiming and eviction. */
-    virtual AFK_Frame getCurrentFrame(void) const;
     virtual bool canBeEvicted(void) const;
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_VapourCell& vapourCell);

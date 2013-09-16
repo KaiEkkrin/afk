@@ -186,11 +186,11 @@ void afk_idle(void)
             cl_context ctxt;
             cl_command_queue q;
             afk_core.computer->lock(ctxt, q);
-            afk_core.world->flipRenderQueues(ctxt, afk_core.renderingFrame);
+            afk_core.renderingFrame = afk_core.computingFrame;
+            afk_core.computingFrame.increment();
+            afk_core.world->flipRenderQueues(ctxt, afk_core.computingFrame);
             afk_core.computer->unlock();
             afk_core.computingUpdateDelayed = false;
-            afk_core.computingFrame = afk_core.renderingFrame;
-            afk_core.renderingFrame.increment();
 
 #if FRAME_NUMBER_DEBUG
             AFK_DEBUG_PRINTL("Now computing frame " << afk_core.computingFrame)
@@ -301,7 +301,7 @@ void AFK_Core::loop(void)
     /* Shader setup. */
     afk_loadShaders(config->shadersDir);
 
-    renderingFrame.increment();
+    computingFrame.increment();
 
     /* World setup. */
     computer = new AFK_Computer();

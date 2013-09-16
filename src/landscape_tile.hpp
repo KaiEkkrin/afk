@@ -136,7 +136,6 @@ public:
         AFK_LandscapeDisplayUnit& o_unit) const;
 
     /* For handling claiming and eviction. */
-    virtual AFK_Frame getCurrentFrame(void) const;
     virtual bool canBeEvicted(void) const;
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_LandscapeTile& t);

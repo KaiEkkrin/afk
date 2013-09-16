@@ -68,7 +68,6 @@ public:
         );
 
     /* AFK_Claimable implementation. */
-    virtual AFK_Frame getCurrentFrame(void) const;
     virtual bool canBeEvicted(void) const;
 
     /* The shape cell generating worker will need to access

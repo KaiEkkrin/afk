@@ -35,7 +35,7 @@ bool afk_generateEntity(
     AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
     AFK_VapourCell& vapourCell = (*(shape.vapourCellCache))[vc];
     vapourCell.bind(vc);
-    AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+    AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
 
     if (!vapourCell.hasDescriptor())
     {
@@ -117,7 +117,7 @@ bool afk_generateVapourDescriptor(
     AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
     AFK_VapourCell& vapourCell = (*(shape.vapourCellCache))[vc];
     vapourCell.bind(vc);
-    AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+    AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
 
     /* I need an exclusive claim for this operation. */
     if (claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
@@ -139,7 +139,7 @@ bool afk_generateVapourDescriptor(
             //try
             {
                 AFK_VapourCell& upperCell = shape.vapourCellCache->at(parentVC);
-                AFK_ClaimStatus upperClaimStatus = upperCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+                AFK_ClaimStatus upperClaimStatus = upperCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
                 if (upperClaimStatus == AFK_CL_CLAIMED_SHARED ||
                     upperClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
                 {
@@ -219,7 +219,7 @@ bool afk_generateShapeCells(
 
     AFK_ShapeCell& shapeCell = (*(shape.shapeCellCache))[cell];
     shapeCell.bind(cell);
-    AFK_ClaimStatus claimStatus = shapeCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+    AFK_ClaimStatus claimStatus = shapeCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
 
     /* Check for visibility. */
     bool someVisible = entirelyVisible;
@@ -345,7 +345,7 @@ enum AFK_Shape::VapourCellState AFK_Shape::enqueueVapourCell(
     AFK_KeyedCell vc = afk_shapeToVapourCell(cell, sSizes);
     AFK_VapourCell& vapourCell = (*vapourCellCache)[vc];
     vapourCell.bind(vc);
-    AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+    AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
 
     /* TODO Here, I need to cope with empty cells, which _will_
      * happen.

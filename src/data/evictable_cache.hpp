@@ -9,6 +9,7 @@
 #include <boost/thread/thread.hpp>
 
 #include "claimable.hpp"
+#include "frame.hpp"
 #include "polymer_cache.hpp"
 
 /* An evictable cache is a polymer cache that can run an
@@ -58,8 +59,10 @@ protected:
                      * and the world will not be a happy place.
                      * If someone else has it, chances are it's
                      * needed after all and I should let go!
+                     * Note that the evictor claim type never uses
+                     * a real frame number and so the following is OK
                      */
-                    if (candidate->value.claim(threadId, AFK_CLT_EVICTOR) == AFK_CL_CLAIMED)
+                    if (candidate->value.claim(threadId, AFK_CLT_EVICTOR, AFK_Frame()) == AFK_CL_CLAIMED)
                     {
                         bool deleted = false;
 
