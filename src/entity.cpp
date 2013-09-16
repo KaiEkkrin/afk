@@ -18,6 +18,11 @@ AFK_Entity::~AFK_Entity()
 {
 }
 
+unsigned int AFK_Entity::getShapeKey(void) const
+{
+    return shapeKey;
+}
+
 void AFK_Entity::position(
     const Vec3<float>& scale,
     const Vec3<float>& displacement,

@@ -57,6 +57,8 @@ public:
     AFK_Entity(unsigned int _shapeKey);
     virtual ~AFK_Entity();
 
+    unsigned int getShapeKey(void) const;
+
     /* Positions the entity.
      */
     void position(

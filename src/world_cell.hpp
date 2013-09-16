@@ -99,7 +99,6 @@ public:
 
     void addStartingEntity(
         unsigned int shapeKey,
-        AFK_Shape *shape,
         const AFK_ShapeSizes& sSizes,
         AFK_RNG& rng);
 

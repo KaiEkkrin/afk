@@ -40,7 +40,7 @@ void AFK_VisibleCell::bindToCell(const AFK_Cell& cell, float worldScale)
     calculateMidpoint();
 }
 
-void AFK_VisibleCell::bindToCell(const AFK_Cell& cell, float worldScale, const Mat4<float>& worldTransform)
+void AFK_VisibleCell::bindToCell(const AFK_KeyedCell& cell, float worldScale, const Mat4<float>& worldTransform)
 {
     /* Work out the vertices by computing cell adjacency. */
     for (long long x = 0; x <= 1; ++x)
@@ -50,10 +50,10 @@ void AFK_VisibleCell::bindToCell(const AFK_Cell& cell, float worldScale, const M
             for (long long z = 0; z <= 1; ++z)
             {
                 AFK_Cell adjCell = afk_cell(afk_vec4<long long>(
-                    cell.coord.v[0] + x * cell.coord.v[3],
-                    cell.coord.v[1] + y * cell.coord.v[3],
-                    cell.coord.v[2] + z * cell.coord.v[3],
-                    cell.coord.v[3]));
+                    cell.c.coord.v[0] + x * cell.c.coord.v[3],
+                    cell.c.coord.v[1] + y * cell.c.coord.v[3],
+                    cell.c.coord.v[2] + z * cell.c.coord.v[3],
+                    cell.c.coord.v[3]));
 
                 Vec4<float> realCoord = adjCell.toWorldSpace(worldScale);
                 realCoord.v[3] = 1.0f;

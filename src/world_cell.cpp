@@ -93,11 +93,10 @@ unsigned int AFK_WorldCell::getStartingEntityShapeKey(AFK_RNG& rng)
 
 void AFK_WorldCell::addStartingEntity(
     unsigned int shapeKey,
-    AFK_Shape *shape,
     const AFK_ShapeSizes& sSizes,
     AFK_RNG& rng)
 {
-    AFK_Entity *e = new AFK_Entity(shapeKey, shape);
+    AFK_Entity *e = new AFK_Entity(shapeKey);
 
     Vec4<float> realCoord = getRealCoord();
 

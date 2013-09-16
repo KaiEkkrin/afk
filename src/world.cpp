@@ -13,8 +13,8 @@
 #include "world.hpp"
 
 
-#define PRINT_CHECKPOINTS 1
-#define PRINT_CACHE_STATS 0
+#define PRINT_CHECKPOINTS 0
+#define PRINT_CACHE_STATS 1
 
 #define PROTAGONIST_CELL_DEBUG 0
 
@@ -184,12 +184,10 @@ void AFK_World::generateStartingEntity(
     unsigned int threadId,
     AFK_RNG& rng)
 {
-    AFK_Shape& shape = (*shapeCache)[shapeKey];
-
     /* I don't need to initialise it here.  We'll come to that when
      * we try to draw it
      */
-    worldCell.addStartingEntity(shapeKey, &shape, sSizes, rng);
+    worldCell.addStartingEntity(shapeKey, sSizes, rng);
 }
 
 bool AFK_World::generateClaimedWorldCell(
@@ -433,7 +431,7 @@ bool AFK_World::generateClaimedWorldCell(
                 AFK_WorldWorkQueue::WorkItem shapeCellItem;
                 shapeCellItem.func                          = afk_generateEntity;
                 shapeCellItem.param.shape.cell              = afk_keyedCell(afk_vec4<long long>(
-                                                                0, 0, 0, SHAPE_CELL_MAX_DISTANCE), e->shapeKey);
+                                                                0, 0, 0, SHAPE_CELL_MAX_DISTANCE), e->getShapeKey());
                 shapeCellItem.param.shape.entity            = e;
                 shapeCellItem.param.shape.world             = this;               
                 shapeCellItem.param.shape.viewerLocation    = viewerLocation;
@@ -520,6 +518,7 @@ AFK_World::AFK_World(
         maxDetailPitch              (config->maxDetailPitch),
         detailPitch                 (config->startingDetailPitch), /* This is a starting point */
         averageDetailPitch          (config->framesPerCalibration, config->startingDetailPitch),
+        shape                       (config, shapeCacheSize),
         maxDistance                 (_maxDistance),
         subdivisionFactor           (config->subdivisionFactor),
         minCellSize                 (config->minCellSize),
@@ -689,7 +688,6 @@ AFK_World::~AFK_World()
 
     if (edgeJigsaws) delete edgeJigsaws;
     if (vapourJigsaws) delete vapourJigsaws;
-    delete shapeCache;
 
     delete landscape_shaderProgram;
     delete landscape_shaderLight;

@@ -6,32 +6,28 @@
 #include "afk.hpp"
 
 #include "cell.hpp"
+#include "def.hpp"
 
 /* A KeyedCell is like a cell but with an additional "key" value
  * that specifies which thing out of its category it refers to
  * (for shapes etc).
- * The Key is preserved between other transformative operations
- * that apply to Cells.
  */
 
-class AFK_KeyedCell: public AFK_Cell
+class AFK_KeyedCell
 {
 public:
+    AFK_Cell c;
     long long key;
 
-    virtual bool operator==(const AFK_KeyedCell& _cell) const;
-    virtual bool operator!=(const AFK_KeyedCell& _cell) const;
+    bool operator==(const AFK_KeyedCell& _cell) const;
+    bool operator!=(const AFK_KeyedCell& _cell) const;
 
-    virtual AFK_RNG_Value rngSeed() const;
-    virtual AFK_RNG_Value rngSeed(size_t combinant) const;
+    AFK_RNG_Value rngSeed() const;
 
-    unsigned int subdivide(
-        AFK_KeyedCell *subCells,
-        const size_t subCellsSize,
-        unsigned int subdivisionFactor) const;
+    AFK_KeyedCell parent(unsigned int subdivisionFactor) const;
+    bool isParent(const AFK_KeyedCell& parent) const;
 
-    virtual AFK_KeyedCell parent(unsigned int subdivisionFactor) const;
-    virtual bool isParent(const AFK_KeyedCell& parent) const;
+    Vec4<float> toWorldSpace(float worldScale) const { return c.toWorldSpace(worldScale); }
 };
 
 AFK_KeyedCell afk_keyedCell(const AFK_KeyedCell& other);

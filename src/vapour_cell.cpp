@@ -18,7 +18,7 @@ AFK_KeyedCell afk_vapourToShapeCell(const AFK_KeyedCell& cell, const AFK_ShapeSi
     /* TODO I'm pretty sure that this is wrong, but only for
      * co-ordinates < 0, which I'm not currently using
      */
-    return afk_keyedCell(cell.coord / (long long)sSizes.skeletonFlagGridDim, cell.key);
+    return afk_keyedCell(cell.c.coord / (long long)sSizes.skeletonFlagGridDim, cell.key);
 }
 
 
@@ -79,10 +79,10 @@ void AFK_VapourCell::makeDescriptor(
         rng.seed(cell.rngSeed());
 
         Vec3<long long> thisCellShapeSpace = afk_vec3<long long>(
-            cell.coord.v[0], cell.coord.v[1], cell.coord.v[2]);
+            cell.c.coord.v[0], cell.c.coord.v[1], cell.c.coord.v[2]);
         Vec3<long long> upperCellShapeSpace = afk_vec3<long long>(
-            upperCell.cell.coord.v[0], upperCell.cell.coord.v[1], upperCell.cell.coord.v[2]);
-        Vec3<long long> upperOffset = (upperCellShapeSpace - thisCellShapeSpace) / cell.coord.v[3];
+            upperCell.cell.c.coord.v[0], upperCell.cell.c.coord.v[1], upperCell.cell.c.coord.v[2]);
+        Vec3<long long> upperOffset = (upperCellShapeSpace - thisCellShapeSpace) / cell.c.coord.v[3];
 
         /* TODO: I'm seeing co-ordinates of -1 in the upper offset.
          * That's almost certainly wrong.  I need to understand what
@@ -128,12 +128,12 @@ bool AFK_VapourCell::ShapeCells::hasNext(void)
 AFK_KeyedCell AFK_VapourCell::ShapeCells::next(void)
 {
     AFK_SkeletonCube nextSkeletonCube = bones.next();
-    long long shapeCellScale = vapourCell.cell.coord.v[3] / sSizes.skeletonFlagGridDim;
+    long long shapeCellScale = vapourCell.cell.c.coord.v[3] / sSizes.skeletonFlagGridDim;
     return afk_keyedCell(afk_vec4<long long>(
-        nextSkeletonCube.coord.v[0] * shapeCellScale + vapourCell.cell.coord.v[0],
-        nextSkeletonCube.coord.v[1] * shapeCellScale + vapourCell.cell.coord.v[1],
-        nextSkeletonCube.coord.v[2] * shapeCellScale + vapourCell.cell.coord.v[2],
-        shapeCellScale), vapourCell.key);
+        nextSkeletonCube.coord.v[0] * shapeCellScale + vapourCell.cell.c.coord.v[0],
+        nextSkeletonCube.coord.v[1] * shapeCellScale + vapourCell.cell.c.coord.v[1],
+        nextSkeletonCube.coord.v[2] * shapeCellScale + vapourCell.cell.c.coord.v[2],
+        shapeCellScale), vapourCell.cell.key);
 }
 
 void AFK_VapourCell::build3DList(
@@ -146,10 +146,10 @@ void AFK_VapourCell::build3DList(
     /* Add the local vapour to the list. */
     list.extend(features, cubes);
 
-    AFK_Cell currentCell = cell;
+    AFK_KeyedCell currentCell = cell;
 
     /* If this isn't the top level cell... */
-    while (currentCell.coord.v[3] < (sSizes.skeletonFlagGridDim * SHAPE_CELL_MAX_DISTANCE))
+    while (currentCell.c.coord.v[3] < (sSizes.skeletonFlagGridDim * SHAPE_CELL_MAX_DISTANCE))
     {
         /* Pull the parent cell from the cache, and
          * include its list too

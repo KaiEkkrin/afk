@@ -77,12 +77,12 @@ public:
      */
 
     /* Obligatory thingies. */
-    virtual bool operator==(const AFK_Cell& _cell) const;
-    virtual bool operator!=(const AFK_Cell& _cell) const;
+    bool operator==(const AFK_Cell& _cell) const;
+    bool operator!=(const AFK_Cell& _cell) const;
 
     /* Gives the RNG seed value that matches this cell. */
-    virtual AFK_RNG_Value rngSeed() const;
-    virtual AFK_RNG_Value rngSeed(size_t combinant) const;
+    AFK_RNG_Value rngSeed() const;
+    AFK_RNG_Value rngSeed(size_t combinant) const;
 
     /* A more general subdivide to use internally.
      * `stride' is the gap to put between each subcell
@@ -122,16 +122,16 @@ public:
         unsigned int subdivisionFactor) const;
 
     /* Returns the parent cell to this one. */
-    virtual AFK_Cell parent(unsigned int subdivisionFactor) const;
+    AFK_Cell parent(unsigned int subdivisionFactor) const;
 
     /* Checks whether the given cell could be a parent
      * to this one.  (Quicker than generating the
      * parent anew, doesn't require modulus)
      */
-    virtual bool isParent(const AFK_Cell& parent) const;
+    bool isParent(const AFK_Cell& parent) const;
 
     /* Transforms this cell's co-ordinates to world space. */
-    virtual Vec4<float> toWorldSpace(float worldScale) const;
+    Vec4<float> toWorldSpace(float worldScale) const;
 };
 
 /* Useful ways of making cells. */

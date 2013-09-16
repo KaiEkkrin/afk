@@ -32,11 +32,11 @@ enum AFK_ShapeArtworkState
 };
 
 #ifndef AFK_SHAPE_CELL_CACHE
-#define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashCell>
+#define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell>
 #endif
 
 #ifndef AFK_VAPOUR_CELL_CACHE
-#define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashCell>
+#define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashKeyedCell>
 #endif
 
 /* This is the top level entity worker.  It makes sure that
