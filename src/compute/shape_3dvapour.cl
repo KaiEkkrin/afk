@@ -131,6 +131,8 @@ struct AFK_3DVapourCube
     float4 coord; /* x, y, z, scale */
 };
 
+__constant float reboundPoint = 100.0f;
+
 void transformLocationToLocation(
     float3 *vl,
     float4 *vc,
@@ -153,10 +155,42 @@ void transformLocationToLocation(
         (*vc).w * fromCoord.w / toCoord.w);
      */
 
-    /* TODO Experiment ... */
+    /* This one (and thresholding to something very small in shape_3dedge)
+     * appears to work better:
+     */
+    /*
     *vc = (float4)(
         (*vc).xyz,
         (*vc).w - THRESHOLD);
+     */
+
+    /* I'm going to refine this to try to avoid large areas of high
+     * density vapour solid (which makes for boring/nonexistent geometry)
+     * by trying to "rebound" the vapour from some point a bit
+     * higher than the threshold:
+     * TODO: I'm going to have a problem of suitably scaling up the finer
+     * levels of detail here so that they actually have an effect, and no
+     * doubt want to move that "normalize" so that it's applied to each
+     * LoD separately, but I'll test it like this for now.
+     */
+
+    /* First, normalize the density so that the "threshold" value is 1 */
+    float density = max((*vc).w / THRESHOLD, 0.0f);
+
+    /* Next, get a value that's between 0 and a "rebound point" */
+    float densityMod = fmod(density, reboundPoint);
+
+    /* Finally, invert that modulus density if `density' goes into the
+     * rebound divisor an odd number of times: that should give me a
+     * smooth "rebound" effect rather than instantly resetting the modulus
+     * density to 0 whenever it passes the upper line
+     */
+    if (trunc(fmod(density / reboundPoint, reboundPoint)) != 0.0f)
+        densityMod = reboundPoint - densityMod;
+
+    *vc = (float4)(
+        (*vc).xyz,
+        (densityMod - 1.0f) * THRESHOLD);
 }
 
 void transformCubeToCube(

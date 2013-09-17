@@ -45,9 +45,6 @@ void afk_handleClError(cl_int error)
 {
     if (error != CL_SUCCESS)
     {
-        /* Maybe this will aid debugging ... */
-        assert(error == CL_SUCCESS);
-
         std::ostringstream ss;
         ss << "AFK_Computer: Error occurred: " << error;
         throw AFK_Exception(ss.str());

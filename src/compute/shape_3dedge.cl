@@ -384,9 +384,6 @@ __kernel void makeShape3DEdge(
     const int zdim = get_global_id(2); /* 0..EDIM-1 */
 #endif
 
-    /* needs to be close to 0, but not actually */
-    float threshold = 0.000000000001f;
-
     /* Iterate through the possible steps back until I find an edge */
     bool foundEdge = false;
     int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
@@ -430,7 +427,7 @@ __kernel void makeShape3DEdge(
             barrier(CLK_LOCAL_MEM_FENCE);
 
             /* TODO fix for `last' and `this' */
-            if (thisVapourPoint.w < threshold && nextVapourPoint.w >= threshold &&
+            if (thisVapourPoint.w <= 0.0f && nextVapourPoint.w > 0.0f &&
                 testFace == face &&
                 pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z] == -1)
             {
@@ -447,7 +444,7 @@ __kernel void makeShape3DEdge(
             }
         }
 #else
-        if (lastVapourPoint.w < threshold && thisVapourPoint.w >= threshold)
+        if (lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f)
         {
             /* This is an edge, and it's mine! */
             float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);

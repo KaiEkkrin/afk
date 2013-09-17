@@ -327,9 +327,6 @@ void AFK_Core::loop(void)
     /* Initialise the starting objects. */
     float worldMaxDistance = config->zFar / 2.0f;
 
-    /* For now, I'll try allocating 1/8th mem for the tile cache,
-     * and another 1/8th for the world cache.
-     */
     cl_context ctxt;
     cl_command_queue q;
     computer->lock(ctxt, q);
@@ -351,7 +348,13 @@ void AFK_Core::loop(void)
     /* TODO: Move the camera to somewhere above the landscape to
      * start with.
      * (A bit unclear how to best do this ... )
+     * For now, I'll just start them nice and high to reduce the
+     * chance of spawning under the landscape (very annoying)
      */
+    Vec3<float> startingMovement = afk_vec3<float>(0.0f, 8192.0f, 0.0f);
+    Vec3<float> startingRotation = afk_vec3<float>(0.0f, 0.0f, 0.0f);
+    protagonist->object.drive(startingMovement, startingRotation);
+    camera->driveAndUpdateProjection(startingMovement, startingRotation);
 
     /* First checkpoint */
     startOfFrameTime = lastFrameTime = lastCheckpoint = lastCalibration =
