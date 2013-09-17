@@ -51,7 +51,6 @@ AFK_Exception::AFK_Exception(const std::string& _message, const GLubyte *_glMess
 
 AFK_Exception::~AFK_Exception() throw()
 {
-    if (backtraceBuf) free(backtraceBuf);
 }
 
 const char *AFK_Exception::what() const throw()

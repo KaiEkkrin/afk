@@ -161,7 +161,7 @@ void transformLocationToLocation(
     /*
     *vc = (float4)(
         (*vc).xyz,
-        (*vc).w - THRESHOLD);
+        (*vc).w - (float)THRESHOLD);
      */
 
     /* I'm going to refine this to try to avoid large areas of high
@@ -175,7 +175,7 @@ void transformLocationToLocation(
      */
 
     /* First, normalize the density so that the "threshold" value is 1 */
-    float density = max((*vc).w / THRESHOLD, 0.0f);
+    float density = max((*vc).w / (float)THRESHOLD, 0.0f);
 
     /* Next, get a value that's between 0 and a "rebound point" */
     float densityMod = fmod(density, reboundPoint);
