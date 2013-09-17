@@ -133,7 +133,14 @@ int4 makeVapourCoord(int face, int xdim, int zdim, int stepsBack)
 __constant sampler_t vapourSampler = CLK_NORMALIZED_COORDS_FALSE |
     CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
 
-float4 readVapourPoint(__read_only AFK_IMAGE3D vapour, __global const struct AFK_3DEdgeComputeUnit *units, int unitOffset, int4 pieceCoord)
+float4 readVapourPoint(
+    __read_only AFK_IMAGE3D vapour0,
+    __read_only AFK_IMAGE3D vapour1,
+    __read_only AFK_IMAGE3D vapour2,
+    __read_only AFK_IMAGE3D vapour3,
+    __global const struct AFK_3DEdgeComputeUnit *units,
+    int unitOffset,
+    int4 pieceCoord)
 {
     int4 myVapourPiece = units[unitOffset].vapourPiece[0];
 
@@ -179,7 +186,20 @@ float4 readVapourPoint(__read_only AFK_IMAGE3D vapour, __global const struct AFK
         myVapourPiece = units[unitOffset].vapourPiece[6];
     }
     
-    return read_imagef(vapour, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
+    switch (myVapourPiece.w) /* This identifies the jigsaw */
+    {
+    case 0:
+        return read_imagef(vapour0, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
+
+    case 1:
+        return read_imagef(vapour1, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
+
+    case 2:
+        return read_imagef(vapour2, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
+
+    default:
+        return read_imagef(vapour3, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
+    }
 }
 
 int2 makeEdgeJigsawCoord(__global const struct AFK_3DEdgeComputeUnit *units, int unitOffset, int face, int xdim, int zdim)
@@ -269,7 +289,10 @@ float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 locati
  * kernel isn't on the critical path anyway...
  */
 float4 make4PointNormal(
-    __read_only AFK_IMAGE3D vapour,
+    __read_only AFK_IMAGE3D vapour0,
+    __read_only AFK_IMAGE3D vapour1,
+    __read_only AFK_IMAGE3D vapour2,
+    __read_only AFK_IMAGE3D vapour3,
     __global const struct AFK_3DEdgeComputeUnit *units,
     int unitOffset,
     int4 thisVapourPointCoord,
@@ -310,10 +333,10 @@ float4 make4PointNormal(
     int4 yVapourPointCoord = thisVapourPointCoord - (int4)(0, displacement.y, 0, 0);
     int4 zVapourPointCoord = thisVapourPointCoord - (int4)(0, 0, displacement.z, 0);
 
-    float4 thisVapourPoint = readVapourPoint(vapour, units, unitOffset, thisVapourPointCoord);
-    float4 xVapourPoint = readVapourPoint(vapour, units, unitOffset, xVapourPointCoord);
-    float4 yVapourPoint = readVapourPoint(vapour, units, unitOffset, yVapourPointCoord);
-    float4 zVapourPoint = readVapourPoint(vapour, units, unitOffset, zVapourPointCoord);
+    float4 thisVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord);
+    float4 xVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, xVapourPointCoord);
+    float4 yVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, yVapourPointCoord);
+    float4 zVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, zVapourPointCoord);
 
     float3 combinedVectors = (float3)(
         (xVapourPoint.w - thisVapourPoint.w) * displacement.x,
@@ -323,8 +346,14 @@ float4 make4PointNormal(
     return (float4)(normalize(combinedVectors), 0.0f);
 }
 
+/* This parameter list should be sufficient that I will always be able to
+ * address all vapour jigsaws in the same place.  I hope!
+ */
 __kernel void makeShape3DEdge(
-    __read_only AFK_IMAGE3D vapour,
+    __read_only AFK_IMAGE3D vapour0,
+    __read_only AFK_IMAGE3D vapour1,
+    __read_only AFK_IMAGE3D vapour2,
+    __read_only AFK_IMAGE3D vapour3,
     __global const struct AFK_3DEdgeComputeUnit *units,
     __write_only image2d_t jigsawDisp,
     __write_only image2d_t jigsawColour,
@@ -371,13 +400,13 @@ __kernel void makeShape3DEdge(
      * vapour cubes !
      */
     int4 lastVapourPointCoord = makeVapourCoord(face, xdim, zdim, -1);
-    float4 lastVapourPoint = readVapourPoint(vapour, units, unitOffset, lastVapourPointCoord);
+    float4 lastVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, lastVapourPointCoord);
 
     for (int stepsBack = 0; !foundEdge && stepsBack < EDIM; ++stepsBack)
     {
         /* Read the next point to compare with */
         int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack);
-        float4 thisVapourPoint = readVapourPoint(vapour, units, unitOffset, thisVapourPointCoord);
+        float4 thisVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord);
 
         /* Figure out which face it goes to, if any.
          * Upon conflict, the faces get priority in 
@@ -432,7 +461,7 @@ __kernel void makeShape3DEdge(
                 {
                     for (int zN = -1; zN <= 1; zN += 2)
                     {
-                        normal += make4PointNormal(vapour, units, unitOffset, thisVapourPointCoord, (int4)(xN, yN, zN, 0));
+                        normal += make4PointNormal(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord, (int4)(xN, yN, zN, 0));
                     }
                 }
             }

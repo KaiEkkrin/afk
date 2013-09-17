@@ -381,6 +381,11 @@ AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(int puzzle) const
     return puzzles[puzzle];
 }
 
+int AFK_JigsawCollection::getPuzzleCount(void) const
+{
+    return (int)puzzles.size();
+}
+
 void AFK_JigsawCollection::flipCuboids(cl_context ctxt, const AFK_Frame& currentFrame)
 {
     boost::unique_lock<boost::mutex> lock(mut);

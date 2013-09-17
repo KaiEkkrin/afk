@@ -130,6 +130,9 @@ public:
     /* Gets you a numbered puzzle. */
     AFK_Jigsaw *getPuzzle(int puzzle) const;
 
+    /* Gets you the puzzle count. */
+    int getPuzzleCount(void) const;
+
     /* Flips the cuboids in all the jigsaws. */
     void flipCuboids(cl_context ctxt, const AFK_Frame& currentFrame);
 

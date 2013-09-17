@@ -14,7 +14,7 @@
 
 #include "computer.hpp"
 #include "def.hpp"
-#include "jigsaw.hpp"
+#include "jigsaw_collection.hpp"
 #include "shape_sizes.hpp"
 
 /* This module marshals 3D object compute data through the
@@ -29,10 +29,8 @@ public:
     /* Displacement and scale compared to the base cube. */
     Vec4<float> location;
 
-    Vec4<int> vapourPiece[AFK_3DECU_VPCOUNT]; /* a vec4 because OpenCL wants one to access a 3D texture;
-                                               * plus adjacencies.
-                                               * TODO: Supply all possible puzzles to the kernel here,
-                                               * and make the 4th component of the vec4 the puzzle id?
+    Vec4<int> vapourPiece[AFK_3DECU_VPCOUNT]; /* (u, v, w (0 for 2D), puzzle),
+                                               * home piece first, then adjacencies
                                                */
     Vec2<int> edgePiece;
 
@@ -79,7 +77,7 @@ public:
      */
     void computeStart(
         AFK_Computer *computer,
-        AFK_Jigsaw *vapourJigsaw,
+        AFK_JigsawCollection *vapourJigsaws,
         AFK_Jigsaw *edgeJigsaw,
         const AFK_ShapeSizes& sSizes);
     void computeFinish(void);

@@ -176,13 +176,6 @@ protected:
 
     /* Cell generation worker delegates. */
 
-    /* Combines two jigsaw numbers into a single number for the
-     * fair, and splits them again.  Assumes the numbers will
-     * be small.
-     */
-    int combineTwoPuzzleFairQueue(int puzzle1, int puzzle2) const;
-    void splitTwoPuzzleFairQueue(int queue, int& o_puzzle1, int& o_puzzle2) const;
-
     /* Makes sure a landscape tile has a terrain descriptor,
      * and checks if its geometry needs generating.
      * Returns true if this thread is to generate the tile's

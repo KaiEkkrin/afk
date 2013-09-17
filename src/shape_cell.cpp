@@ -123,12 +123,6 @@ void AFK_ShapeCell::enqueueEdgeComputeUnit(
             {
                 ++adjFound;
                 thisAdjFound = true;
-
-                /* TODO: Fix it so that I can cope with cross-puzzle,
-                 * or w/e ...
-                 */
-                if (vapourAdjacency[i].puzzle != vapourJigsawPiece.puzzle)
-                    throw AFK_Exception("Mismatching vapour puzzles -- not supported");
             }
         }
         catch (AFK_PolymerOutOfRange) {}
@@ -144,8 +138,7 @@ void AFK_ShapeCell::enqueueEdgeComputeUnit(
         edgeJigsaws->grab(threadId, 0, &edgeJigsawPiece, &edgeJigsawPieceTimestamp, 1);
 
         boost::shared_ptr<AFK_3DEdgeComputeQueue> edgeComputeQueue =
-            edgeComputeFair.getUpdateQueue(
-                afk_combineTwoPuzzleFairQueue(vapourJigsawPiece.puzzle, edgeJigsawPiece.puzzle));
+            edgeComputeFair.getUpdateQueue(edgeJigsawPiece.puzzle);
 
 #if SHAPE_COMPUTE_DEBUG
         AFK_DEBUG_PRINTL("Computing edges at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE))

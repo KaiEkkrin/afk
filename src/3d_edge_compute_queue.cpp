@@ -22,7 +22,7 @@ AFK_3DEdgeComputeUnit::AFK_3DEdgeComputeUnit(
 		    _vapourJigsawPieces[i].u,
     		_vapourJigsawPieces[i].v,
     		_vapourJigsawPieces[i].w,
-    		0);
+    		_vapourJigsawPieces[i].puzzle);
     }
 
 	edgePiece = afk_vec2<int>(
@@ -74,7 +74,7 @@ AFK_3DEdgeComputeUnit AFK_3DEdgeComputeQueue::append(
 
 void AFK_3DEdgeComputeQueue::computeStart(
     AFK_Computer *computer,
-    AFK_Jigsaw *vapourJigsaw,
+    AFK_JigsawCollection *vapourJigsaws,
     AFK_Jigsaw *edgeJigsaw,
     const AFK_ShapeSizes& sSizes)
 {
@@ -103,16 +103,35 @@ void AFK_3DEdgeComputeQueue::computeStart(
 
     /* Set up the rest of the parameters */
     preEdgeWaitList.clear();
-    cl_mem *vapourJigsawMem = vapourJigsaw->acquireForCl(ctxt, q, preEdgeWaitList);
+    cl_mem *vapourJigsawsMem[4];
+    int jpI, jpCount;
+    jpCount = vapourJigsaws->getPuzzleCount();
+    if (jpCount > 4) throw AFK_Exception("Too many vapour jigsaws");
+    for (jpI = 0; jpI < jpCount; ++jpI)
+        vapourJigsawsMem[jpI] = vapourJigsaws->getPuzzle(jpI)->acquireForCl(ctxt, q, preEdgeWaitList);
+    for (; jpI < 4; ++jpI)
+        vapourJigsawsMem[jpI] = NULL;
+
     cl_mem *edgeJigsawMem = edgeJigsaw->acquireForCl(ctxt, q, preEdgeWaitList);
 
     /* Now, I need to run the edge kernel.
+     * Note that vapour jigsaws that don't exist yet won't ever
+     * be referred to in the pieces list so it doesn't matter
+     * what I set as the argument, but I must set something
+     * valid, because OpenCL doesn't support NULL image
+     * arguments: I'll use the first jigsaw, which will always
+     * exist.
      */
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 0, sizeof(cl_mem), &vapourJigsawMem[0]))
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 1, sizeof(cl_mem), &unitsBuf))
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 2, sizeof(cl_mem), &edgeJigsawMem[0]))
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 3, sizeof(cl_mem), &edgeJigsawMem[1]))
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 4, sizeof(cl_mem), &edgeJigsawMem[2]))
+    for (jpI = 0; jpI < 4; ++jpI)
+        if (vapourJigsawsMem[jpI])
+            AFK_CLCHK(clSetKernelArg(edgeKernel, jpI, sizeof(cl_mem), vapourJigsawsMem[jpI]))
+        else
+            AFK_CLCHK(clSetKernelArg(edgeKernel, jpI, sizeof(cl_mem), vapourJigsawsMem[0]))
+
+    AFK_CLCHK(clSetKernelArg(edgeKernel, 4, sizeof(cl_mem), &unitsBuf))
+    AFK_CLCHK(clSetKernelArg(edgeKernel, 5, sizeof(cl_mem), &edgeJigsawMem[0]))
+    AFK_CLCHK(clSetKernelArg(edgeKernel, 6, sizeof(cl_mem), &edgeJigsawMem[1]))
+    AFK_CLCHK(clSetKernelArg(edgeKernel, 7, sizeof(cl_mem), &edgeJigsawMem[2]))
 
     /* TODO: Bringing this down to global only for now and removing
      * the cross-check in an attempt to tackle the
@@ -145,7 +164,8 @@ void AFK_3DEdgeComputeQueue::computeStart(
 
     postEdgeWaitList.clear();
     postEdgeWaitList.push_back(edgeEvent);
-    vapourJigsaw->releaseFromCl(q, postEdgeWaitList);
+    for (jpI = 0; jpI < jpCount; ++jpI)
+        vapourJigsaws->getPuzzle(jpI)->releaseFromCl(q, postEdgeWaitList);
     edgeJigsaw->releaseFromCl(q, postEdgeWaitList);
     AFK_CLCHK(clReleaseEvent(edgeEvent))
 

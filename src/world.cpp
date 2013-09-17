@@ -839,15 +839,12 @@ void AFK_World::doComputeTasks(void)
     std::vector<boost::shared_ptr<AFK_3DEdgeComputeQueue> > edgeComputeQueues;
     edgeComputeFair.getDrawQueues(edgeComputeQueues);
 
-    for (unsigned int queue = 0; queue < edgeComputeQueues.size(); ++queue)
+    for (unsigned int puzzle = 0; puzzle < edgeComputeQueues.size(); ++puzzle)
     {
-        int vapourPuzzle, edgePuzzle;
-        afk_splitTwoPuzzleFairQueue(queue, vapourPuzzle, edgePuzzle);
-
-        edgeComputeQueues[queue]->computeStart(
+        edgeComputeQueues[puzzle]->computeStart(
             afk_core.computer,
-            vapourJigsaws->getPuzzle(vapourPuzzle),
-            edgeJigsaws->getPuzzle(edgePuzzle),
+            vapourJigsaws,
+            edgeJigsaws->getPuzzle(puzzle),
             sSizes);
     }
 
@@ -865,9 +862,9 @@ void AFK_World::doComputeTasks(void)
         vapourComputeQueues[puzzle]->computeFinish();
     }
 
-    for (unsigned int queue = 0; queue < edgeComputeQueues.size(); ++queue)
+    for (unsigned int puzzle = 0; puzzle < edgeComputeQueues.size(); ++puzzle)
     {
-        edgeComputeQueues[queue]->computeFinish();
+        edgeComputeQueues[puzzle]->computeFinish();
     }
 }
 
