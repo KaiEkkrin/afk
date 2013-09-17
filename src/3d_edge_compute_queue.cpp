@@ -12,15 +12,18 @@
 
 AFK_3DEdgeComputeUnit::AFK_3DEdgeComputeUnit(
     const Vec4<float>& _location,
-    const AFK_JigsawPiece& _vapourJigsawPiece,
+    const AFK_JigsawPiece *_vapourJigsawPieces,
     const AFK_JigsawPiece& _edgeJigsawPiece):
         location(_location)
 {
-	vapourPiece = afk_vec4<int>(
-		_vapourJigsawPiece.u,
-		_vapourJigsawPiece.v,
-		_vapourJigsawPiece.w,
-		0);
+    for (int i = 0; i < AFK_3DECU_VPCOUNT; ++i)
+    {
+	    vapourPiece[i] = afk_vec4<int>(
+		    _vapourJigsawPieces[i].u,
+    		_vapourJigsawPieces[i].v,
+    		_vapourJigsawPieces[i].w,
+    		0);
+    }
 
 	edgePiece = afk_vec2<int>(
 		_edgeJigsawPiece.u,
@@ -31,8 +34,13 @@ std::ostream& operator<<(std::ostream& os, const AFK_3DEdgeComputeUnit& unit)
 {
     os << "(SCU: ";
     os << "location=" << std::dec << unit.location;
-    os << ", vapourPiece=" << std::dec << unit.vapourPiece;
-    os << ", edgePiece=" << std::dec << unit.edgePiece;
+    os << ", vapourPieces=(";
+    for (int i = 0; i < AFK_3DECU_VPCOUNT; ++i)
+    {
+        if (i > 0) os << ", ";
+        os << unit.vapourPiece[i];
+    }
+    os << "), edgePiece=" << unit.edgePiece;
     os << ")";
     return os;
 }
@@ -51,14 +59,14 @@ AFK_3DEdgeComputeQueue::~AFK_3DEdgeComputeQueue()
 
 AFK_3DEdgeComputeUnit AFK_3DEdgeComputeQueue::append(
     const Vec4<float>& location,
-    const AFK_JigsawPiece& vapourJigsawPiece,
+    const AFK_JigsawPiece *vapourJigsawPieces,
     const AFK_JigsawPiece& edgeJigsawPiece)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
     AFK_3DEdgeComputeUnit newUnit(
         location,
-        vapourJigsawPiece,
+        vapourJigsawPieces,
         edgeJigsawPiece);
     units.push_back(newUnit);
     return newUnit;

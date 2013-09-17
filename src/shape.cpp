@@ -20,6 +20,7 @@
 
 /* Shape worker flags. */
 #define AFK_SCG_FLAG_ENTIRELY_VISIBLE       1
+#define AFK_SCG_FLAG_RENDER_VAPOUR          2
 
 /* The top-level entity worker. */
 bool afk_generateEntity(
@@ -213,6 +214,7 @@ bool afk_generateShapeCells(
     const AFK_Camera *camera                = param.shape.camera;
 
     bool entirelyVisible                    = ((param.shape.flags & AFK_SCG_FLAG_ENTIRELY_VISIBLE) != 0);
+    bool renderVapour                       = ((param.shape.flags & AFK_SCG_FLAG_RENDER_VAPOUR) != 0);
 
     AFK_Shape& shape                        = world->shape;
     Mat4<float> worldTransform              = entity->obj.getTransformation();
@@ -239,7 +241,7 @@ bool afk_generateShapeCells(
 
     if (!entirelyVisible) visibleCell.testVisibility(
         *camera, someVisible, allVisible);
-    if (!someVisible)
+    if (!someVisible && !renderVapour)
     {
 #if VISIBLE_CELL_DEBUG
         AFK_DEBUG_PRINTL("cell " << cell << ": visible cell " << visibleCell << ": invisible")
@@ -252,8 +254,9 @@ bool afk_generateShapeCells(
     }
     else
     {
-        if (cell.c.coord.v[3] == MIN_CELL_PITCH || visibleCell.testDetailPitch(
-            world->averageDetailPitch.get(), *camera, viewerLocation))
+        if (renderVapour || (
+            cell.c.coord.v[3] == MIN_CELL_PITCH || visibleCell.testDetailPitch(
+            world->averageDetailPitch.get(), *camera, viewerLocation)))
         {
             shape.generateClaimedShapeCell(
                 visibleCell,
@@ -451,6 +454,7 @@ void AFK_Shape::generateClaimedShapeCell(
 {
     AFK_Entity *entity                      = param.entity;
     AFK_World *world                        = param.world;
+    bool renderVapour                       = ((param.flags & AFK_SCG_FLAG_RENDER_VAPOUR) != 0);
 
     AFK_Shape& shape                        = world->shape;
     Mat4<float> worldTransform              = entity->obj.getTransformation();
@@ -459,7 +463,7 @@ void AFK_Shape::generateClaimedShapeCell(
     AFK_JigsawCollection *edgeJigsaws       = world->edgeJigsaws;
 
     /* Try to get this shape cell set up and enqueued. */
-    if (!shapeCell.hasEdges(edgeJigsaws))
+    if (!shapeCell.hasEdges(edgeJigsaws) || renderVapour)
     {
         /* I need to generate stuff for this cell -- which means I need
          * to upgrade my claim.
@@ -500,11 +504,48 @@ void AFK_Shape::generateClaimedShapeCell(
                 }
             }
 
-            if (!shapeCell.hasEdges(edgeJigsaws))
+            if (!shapeCell.hasEdges(edgeJigsaws) && !renderVapour)
             {
+                /* I may need to do extra vapour computation and resume. */
+                std::vector<AFK_KeyedCell> missingCells;
+                missingCells.reserve(7);
+
                 shapeCell.enqueueEdgeComputeUnit(
-                    threadId, vapourJigsaws, edgeJigsaws, world->edgeComputeFair);
-                world->shapeEdgesComputed.fetch_add(1);
+                    threadId, missingCells, shapeCellCache, vapourJigsaws, edgeJigsaws, world->edgeComputeFair);
+                if (missingCells.size() == 0)
+                {
+                    world->shapeEdgesComputed.fetch_add(1);
+                }
+                else
+                {
+                    /* Enqueue all the missing vapour cells for compute, followed
+                     * by a resume of this one.
+                     */
+                    AFK_WorldWorkQueue::WorkItem finalResumeItem;
+                    finalResumeItem.func = afk_generateShapeCells;
+                    finalResumeItem.param.shape = param;
+                    if (param.dependency) param.dependency->retain();
+
+                    AFK_WorldWorkParam::Dependency *dep = new AFK_WorldWorkParam::Dependency(finalResumeItem);
+                    dep->retain(missingCells.size());
+
+                    for (std::vector<AFK_KeyedCell>::iterator mcIt = missingCells.begin();
+                        mcIt != missingCells.end(); ++mcIt)
+                    {
+                        AFK_WorldWorkQueue::WorkItem missingCellItem;
+                        missingCellItem.func = afk_generateShapeCells;
+                        missingCellItem.param.shape = param;
+                        missingCellItem.param.shape.cell = *mcIt;
+                        missingCellItem.param.shape.flags |= AFK_SCG_FLAG_RENDER_VAPOUR;
+                        missingCellItem.param.shape.dependency = dep;
+                        queue.push(missingCellItem);
+                    }
+
+                    /* Make sure that we don't try to render the cell now.
+                     * The resume will do that.
+                     */
+                    renderVapour = true;
+                }
             }
             break;
 
@@ -522,9 +563,9 @@ void AFK_Shape::generateClaimedShapeCell(
         }
     }
 
-    if (claimStatus == AFK_CL_CLAIMED ||
+    if ((claimStatus == AFK_CL_CLAIMED ||
         claimStatus == AFK_CL_CLAIMED_UPGRADABLE ||
-        claimStatus == AFK_CL_CLAIMED_SHARED)
+        claimStatus == AFK_CL_CLAIMED_SHARED) && !renderVapour)
     {
         /* TODO remove debug */
         //AFK_DEBUG_PRINTL("At visible cell " << visibleCell << ": enqueueing shape cell for display: " << shapeCell.getCell())

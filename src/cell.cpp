@@ -81,6 +81,24 @@ unsigned int AFK_Cell::subdivide(AFK_Cell *subCells, const size_t subCellsSize, 
         subdivisionFactor);
 }
 
+void AFK_Cell::faceAdjacency(AFK_Cell *adjacency, const size_t adjacencySize) const
+{
+    if (adjacencySize != 6) throw AFK_Exception("Bad face adjacency");
+
+    adjacency[0] = afk_cell(afk_vec4<long long>(
+        coord.v[0], coord.v[1] - coord.v[3], coord.v[2], coord.v[3]));
+    adjacency[1] = afk_cell(afk_vec4<long long>(
+        coord.v[0] - coord.v[3], coord.v[1], coord.v[2], coord.v[3]));
+    adjacency[2] = afk_cell(afk_vec4<long long>(
+        coord.v[0], coord.v[1], coord.v[2] - coord.v[3], coord.v[3]));
+    adjacency[3] = afk_cell(afk_vec4<long long>(
+        coord.v[0], coord.v[1], coord.v[2] + coord.v[3], coord.v[3]));
+    adjacency[4] = afk_cell(afk_vec4<long long>(
+        coord.v[0] + coord.v[3], coord.v[1], coord.v[2], coord.v[3]));
+    adjacency[5] = afk_cell(afk_vec4<long long>(
+        coord.v[0], coord.v[1] + coord.v[3], coord.v[2], coord.v[3]));
+}
+
 AFK_Cell AFK_Cell::parent(unsigned int subdivisionFactor) const
 {
     long long parentCellScale = coord.v[3] * subdivisionFactor;

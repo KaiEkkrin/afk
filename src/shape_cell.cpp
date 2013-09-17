@@ -34,6 +34,18 @@ bool AFK_ShapeCell::hasEdges(const AFK_JigsawCollection *edgeJigsaws) const
         edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTimestamp(edgeJigsawPiece) == edgeJigsawPieceTimestamp);
 }
 
+bool AFK_ShapeCell::getVapourJigsawPiece(
+    const AFK_JigsawCollection *vapourJigsaws,
+    AFK_JigsawPiece *o_jigsawPiece) const
+{
+    if (hasVapour(vapourJigsaws))
+    {
+        *o_jigsawPiece = vapourJigsawPiece;
+        return true;
+    }
+    else return false;
+}
+
 #define SHAPE_COMPUTE_DEBUG 0
 
 void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
@@ -84,22 +96,64 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
 
 void AFK_ShapeCell::enqueueEdgeComputeUnit(
     unsigned int threadId,
+    std::vector<AFK_KeyedCell>& missingCells,
+    const AFK_SHAPE_CELL_CACHE *cache,
     AFK_JigsawCollection *vapourJigsaws,
     AFK_JigsawCollection *edgeJigsaws,
     AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair)
 {
-    edgeJigsaws->grab(threadId, 0, &edgeJigsawPiece, &edgeJigsawPieceTimestamp, 1);
+    /* First of all, build the vapour adjacency list to make sure
+     * that I have everything I need.
+     */
+    AFK_Cell adjacentCells[7];
+    AFK_JigsawPiece vapourAdjacency[7];
+    adjacentCells[0] = cell.c;
+    cell.c.faceAdjacency(&adjacentCells[1], 6);
 
-    boost::shared_ptr<AFK_3DEdgeComputeQueue> edgeComputeQueue =
-        edgeComputeFair.getUpdateQueue(
-            afk_combineTwoPuzzleFairQueue(vapourJigsawPiece.puzzle, edgeJigsawPiece.puzzle));
+    vapourAdjacency[0] = vapourJigsawPiece;
+    int adjFound = 1;
+    for (int i = 1; i < 7; ++i)
+    {
+        bool thisAdjFound = false;
+        AFK_KeyedCell thisCell = afk_keyedCell(adjacentCells[i], cell.key);
+        try
+        {
+            if (cache->at(thisCell).getVapourJigsawPiece(
+                vapourJigsaws, &vapourAdjacency[i]))
+            {
+                ++adjFound;
+                thisAdjFound = true;
+
+                /* TODO: Fix it so that I can cope with cross-puzzle,
+                 * or w/e ...
+                 */
+                if (vapourAdjacency[i].puzzle != vapourJigsawPiece.puzzle)
+                    throw AFK_Exception("Mismatching vapour puzzles -- not supported");
+            }
+        }
+        catch (AFK_PolymerOutOfRange) {}
+
+        if (!thisAdjFound)
+        {
+            missingCells.push_back(thisCell);
+        }
+    }
+
+    if (adjFound == 7)
+    {
+        edgeJigsaws->grab(threadId, 0, &edgeJigsawPiece, &edgeJigsawPieceTimestamp, 1);
+
+        boost::shared_ptr<AFK_3DEdgeComputeQueue> edgeComputeQueue =
+            edgeComputeFair.getUpdateQueue(
+                afk_combineTwoPuzzleFairQueue(vapourJigsawPiece.puzzle, edgeJigsawPiece.puzzle));
 
 #if SHAPE_COMPUTE_DEBUG
-    AFK_DEBUG_PRINTL("Computing edges at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE))
+        AFK_DEBUG_PRINTL("Computing edges at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE))
 #endif
 
-    edgeComputeQueue->append(cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
-        vapourJigsawPiece, edgeJigsawPiece);
+        edgeComputeQueue->append(cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
+            vapourAdjacency, edgeJigsawPiece);
+    }
 }
 
 #define SHAPE_DISPLAY_DEBUG 0

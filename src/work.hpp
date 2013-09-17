@@ -54,6 +54,11 @@ public:
         count.fetch_add(1);
     }
 
+    void retain(unsigned int times)
+    {
+        count.fetch_add(times);
+    }
+
 	/* Checks whether this dependency has been fulfilled.
      * If so, enqueues the final item and returns true (making
      * you responsible for deleting the object).

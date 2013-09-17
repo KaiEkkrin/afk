@@ -19,6 +19,10 @@
 #include "keyed_cell.hpp"
 #include "shape_sizes.hpp"
 
+#ifndef AFK_SHAPE_CELL_CACHE
+#define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell>
+#endif
+
 
 /* A ShapeCell has an artificial max distance set really
  * high, because since all shapes are fully transformed,
@@ -60,6 +64,8 @@ public:
     bool hasVapour(const AFK_JigsawCollection *vapourJigsaws) const;
     bool hasEdges(const AFK_JigsawCollection *edgeJigsaws) const;
 
+    bool getVapourJigsawPiece(const AFK_JigsawCollection *vapourJigsaws, AFK_JigsawPiece *o_jigsawPiece) const;
+
     /* Enqueues the compute units.  Both these functions overwrite
      * the relevant jigsaw pieces with new ones.
      * Use the matching VapourCell to build the 3D list required
@@ -89,8 +95,15 @@ public:
         AFK_JigsawCollection *vapourJigsaws,
         AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair);
 
+    /* This function fills out `missingCells' with the missing 
+     * cells that it needs for vapour adjacency information if it can't find
+     * all the necessary.
+     * You should compute those and resume.
+     */
     void enqueueEdgeComputeUnit(
         unsigned int threadId,
+        std::vector<AFK_KeyedCell>& missingCells,
+        const AFK_SHAPE_CELL_CACHE *cache,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_JigsawCollection *edgeJigsaws,
         AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair);   

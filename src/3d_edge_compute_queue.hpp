@@ -21,21 +21,24 @@
  * 3D edge compute kernel.
  */
 
+#define AFK_3DECU_VPCOUNT 7
+
 class AFK_3DEdgeComputeUnit
 {
 public:
     /* Displacement and scale compared to the base cube. */
     Vec4<float> location;
 
-    /* TODO: This needs to become a full set of vapour adjacency
-     * data.
-     */
-    Vec4<int> vapourPiece; /* a vec4 because OpenCL wants one to access a 3D texture */
+    Vec4<int> vapourPiece[AFK_3DECU_VPCOUNT]; /* a vec4 because OpenCL wants one to access a 3D texture;
+                                               * plus adjacencies.
+                                               * TODO: Supply all possible puzzles to the kernel here,
+                                               * and make the 4th component of the vec4 the puzzle id?
+                                               */
     Vec2<int> edgePiece;
 
     AFK_3DEdgeComputeUnit(
         const Vec4<float>& _location,
-        const AFK_JigsawPiece& _vapourJigsawPiece,
+        const AFK_JigsawPiece *_vapourJigsawPieces,
         const AFK_JigsawPiece& _edgeJigsawPiece);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_3DEdgeComputeUnit& unit);
@@ -69,7 +72,7 @@ public:
     /* Adds the edges of a shape cube to the queue. */
     AFK_3DEdgeComputeUnit append(
         const Vec4<float>& location,
-        const AFK_JigsawPiece& vapourJigsawPiece,
+        const AFK_JigsawPiece *vapourJigsawPieces, /* array of AFK_3DECU_VPCOUNT */
         const AFK_JigsawPiece& edgeJigsawPiece);
 
     /* Starts the computation.

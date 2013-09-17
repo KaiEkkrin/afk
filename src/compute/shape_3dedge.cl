@@ -52,7 +52,9 @@ int4 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
 struct AFK_3DEdgeComputeUnit
 {
     float4 location;
-    int4 vapourPiece;
+    int4 vapourPiece[7]; /* Adjacency: my vapour piece, then bottom, left, front,
+                          * back, right, top.
+                          */
     int2 edgePiece; /* Points to a 3x2 grid of face textures */
 };
 
@@ -133,20 +135,51 @@ __constant sampler_t vapourSampler = CLK_NORMALIZED_COORDS_FALSE |
 
 float4 readVapourPoint(__read_only AFK_IMAGE3D vapour, __global const struct AFK_3DEdgeComputeUnit *units, int unitOffset, int4 pieceCoord)
 {
-    /* TODO: To avoid needing vapour piece cross-referencing quite yet,
-     * I'm going to clamp all the elements of pieceCoord to VDIM-1 and
-     * not stray up to VDIM (next piece)
+    int4 myVapourPiece = units[unitOffset].vapourPiece[0];
+
+    /* TODO: I'm only doing full-face adjacency here, not cube edge or
+     * vertex.  This saves a lot of extra space in the units array,
+     * some complexity, and probably a fair bit of extra vapour processing
+     * too.  I want to see how it looks before trying to include the full
+     * 27-cube adjacency.
      */
-    if (pieceCoord.x < 0 || pieceCoord.x >= VDIM ||
-        pieceCoord.y < 0 || pieceCoord.y >= VDIM ||
-        pieceCoord.z < 0 || pieceCoord.z >= VDIM)
+    if (pieceCoord.y < 0)
     {
-        return (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+        pieceCoord.y += VDIM;
+        myVapourPiece = units[unitOffset].vapourPiece[1];
     }
-    else
+
+    if (pieceCoord.x < 0)
     {
-        return read_imagef(vapour, vapourSampler, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, pieceCoord));
+        pieceCoord.x += VDIM;
+        myVapourPiece = units[unitOffset].vapourPiece[2];
     }
+
+    if (pieceCoord.z < 0)
+    {
+        pieceCoord.z += VDIM;
+        myVapourPiece = units[unitOffset].vapourPiece[3];
+    }
+
+    if (pieceCoord.z >= VDIM)
+    {
+        pieceCoord.z -= VDIM;
+        myVapourPiece = units[unitOffset].vapourPiece[4];
+    }
+
+    if (pieceCoord.x >= VDIM)
+    {
+        pieceCoord.x -= VDIM;
+        myVapourPiece = units[unitOffset].vapourPiece[5];
+    }
+
+    if (pieceCoord.y >= VDIM)
+    {
+        pieceCoord.y -= VDIM;
+        myVapourPiece = units[unitOffset].vapourPiece[6];
+    }
+    
+    return read_imagef(vapour, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
 }
 
 int2 makeEdgeJigsawCoord(__global const struct AFK_3DEdgeComputeUnit *units, int unitOffset, int face, int xdim, int zdim)
