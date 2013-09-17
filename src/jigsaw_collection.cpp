@@ -304,6 +304,8 @@ AFK_JigsawCollection::AFK_JigsawCollection(
     }
 
     spare = makeNewJigsaw(ctxt);
+
+    spills.store(0);
 }
 
 AFK_JigsawCollection::~AFK_JigsawCollection()
@@ -390,6 +392,17 @@ void AFK_JigsawCollection::flipCuboids(cl_context ctxt, const AFK_Frame& current
     {
         /* Make a new one to push along. */
         spare = makeNewJigsaw(ctxt);
+    }
+}
+
+void AFK_JigsawCollection::printStats(std::ostream& os, const std::string& prefix)
+{
+    std::cout << prefix << "\t: Spills:               " << spills.exchange(0) << std::endl;
+    for (int puzzle = 0; puzzle < (int)puzzles.size(); ++puzzle)
+    {
+        std::ostringstream puzPf;
+        puzPf << prefix << " " << std::dec << puzzle;
+        puzzles[puzzle]->printStats(os, puzPf.str());
     }
 }
 

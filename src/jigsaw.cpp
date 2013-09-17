@@ -225,6 +225,7 @@ enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromCuboid(
         /* We have!  Grab one. */
         o_uvw = afk_vec3<int>(row, rowUsage[row][slice]++, slice);
         *o_timestamp = rowTimestamp[row][slice];
+        piecesGrabbed.fetch_add(1);
 
         /* If I just gave the cuboid another column, update its columns
          * field to match
@@ -325,6 +326,7 @@ bool AFK_Jigsaw::startNewCuboid(const AFK_JigsawCuboid& lastCuboid, bool startNe
         pushNewCuboid(AFK_JigsawCuboid(lastCuboid.r, lastCuboid.c + lastCuboid.columns.load(), lastCuboid.s, newRowCount, newSliceCount));
     }
 
+    cuboidsStarted.fetch_add(1);
     return true;
 }
 
@@ -372,6 +374,8 @@ void AFK_Jigsaw::sweep(const Vec2<int>& sweepTarget, const AFK_Frame& currentFra
          */
         rowTimestamp[sweepPosition.v[0]][sweepPosition.v[1]] = currentFrame;
         ++(sweepPosition.v[0]);
+        piecesSwept.fetch_add(jigsawSize.v[0]);
+
         if (sweepPosition.v[0] == jigsawSize.v[0])
         {
             /* I hit the top of the row, set back down again and
@@ -608,6 +612,10 @@ AFK_Jigsaw::AFK_Jigsaw(
 
     changeData = new std::vector<unsigned char>[texCount];
     changeEvents = new std::vector<cl_event>[texCount];
+
+    piecesGrabbed.store(0);
+    cuboidsStarted.store(0);
+    piecesSwept.store(0);
 }
 
 AFK_Jigsaw::~AFK_Jigsaw()
@@ -1020,5 +1028,13 @@ void AFK_Jigsaw::flipCuboids(const AFK_Frame& currentFrame)
 
     /* This shouldn't happen, *but* ... */
     if (!continued) throw AFK_Exception("flipCuboids() failed");
+}
+
+void AFK_Jigsaw::printStats(std::ostream& os, const std::string& prefix)
+{
+    /* TODO Time intervals or something?  (Really the relative numbers are more interesting) */
+    std::cout << prefix << "\t: Pieces grabbed:       " << piecesGrabbed.exchange(0) << std::endl;
+    std::cout << prefix << "\t: Cuboids started:      " << cuboidsStarted.exchange(0) << std::endl;
+    std::cout << prefix << "\t: Pieces swept:         " << piecesSwept.exchange(0) << std::endl;  
 }
 

@@ -82,6 +82,9 @@ protected:
 
     AFK_Jigsaw *makeNewJigsaw(cl_context ctxt) const;
 
+    /* For stats. */
+    boost::atomic<unsigned long long> spills;
+
 public:
     AFK_JigsawCollection(
         cl_context ctxt,
@@ -129,6 +132,8 @@ public:
 
     /* Flips the cuboids in all the jigsaws. */
     void flipCuboids(cl_context ctxt, const AFK_Frame& currentFrame);
+
+    void printStats(std::ostream& os, const std::string& prefix);
 };
 
 #endif /* _AFK_JIGSAW_COLLECTION_H_ */

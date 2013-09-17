@@ -128,7 +128,7 @@ public:
     AFK_JigsawCuboid(int _r, int _c, int _s, int _rows, int _slices);
 
     AFK_JigsawCuboid(const AFK_JigsawCuboid& other);
-	AFK_JigsawCuboid operator=(const AFK_JigsawCuboid& other);
+    AFK_JigsawCuboid operator=(const AFK_JigsawCuboid& other);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_JigsawCuboid& sr);
 };
@@ -280,6 +280,11 @@ protected:
      */
     void doSweep(const Vec2<int>& nextFreeRow, const AFK_Frame& currentFrame);
 
+    /* Some internal stats: */
+    boost::atomic<unsigned long long> piecesGrabbed;
+    boost::atomic<unsigned long long> cuboidsStarted;
+    boost::atomic<unsigned long long> piecesSwept;
+
 public:
     AFK_Jigsaw(
         cl_context ctxt,
@@ -311,10 +316,10 @@ public:
 
     unsigned int getTexCount(void) const;
 
-	/* Returns the (s, t) texture co-ordinates for a given piece
-	 * within the jigsaw.  These will be in the range (0, 1).
-	 */
-	Vec2<float> getTexCoordST(const AFK_JigsawPiece& piece) const;
+    /* Returns the (s, t) texture co-ordinates for a given piece
+     * within the jigsaw.  These will be in the range (0, 1).
+     */
+    Vec2<float> getTexCoordST(const AFK_JigsawPiece& piece) const;
 
     /* Returns the (s, t, r) texture co-ordinates for a given piece
      * within the jigsaw.  These will be in the range (0, 1).
@@ -346,6 +351,8 @@ public:
      * a new update cuboid.
      */
     void flipCuboids(const AFK_Frame& currentFrame);
+
+    void printStats(std::ostream& os, const std::string& prefix);
 };
 
 #endif /* _AFK_JIGSAW_H_ */

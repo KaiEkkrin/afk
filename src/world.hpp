@@ -299,6 +299,7 @@ public:
     void checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint);
 
     void printCacheStats(std::ostream& ss, const std::string& prefix);
+    void printJigsawStats(std::ostream& ss, const std::string& prefix);
 
     friend class AFK_Shape;
 

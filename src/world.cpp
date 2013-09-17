@@ -14,7 +14,8 @@
 
 
 #define PRINT_CHECKPOINTS 0
-#define PRINT_CACHE_STATS 1
+#define PRINT_CACHE_STATS 0
+#define PRINT_JIGSAW_STATS 1
 
 #define PROTAGONIST_CELL_DEBUG 0
 
@@ -923,8 +924,7 @@ static float toRatePerSecond(unsigned long long quantity, boost::posix_time::tim
     return (float)quantity * 1000.0f / (float)interval.total_milliseconds();
 }
 
-#define PRINT_RATE_AND_RESET(s, v) std::cout << s << toRatePerSecond((v).load(), timeSinceLastCheckpoint) << "/second" << std::endl; \
-    (v).store(0);
+#define PRINT_RATE_AND_RESET(s, v) std::cout << s << toRatePerSecond((v).exchange(0), timeSinceLastCheckpoint) << "/second" << std::endl;
 #endif
 
 void AFK_World::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint)
@@ -954,6 +954,15 @@ void AFK_World::printCacheStats(std::ostream& ss, const std::string& prefix)
     worldCache->printStats(ss, "World cache");
     landscapeCache->printStats(ss, "Landscape cache");
     shape.printCacheStats(ss, prefix);
+#endif
+}
+
+void AFK_World::printJigsawStats(std::ostream& ss, const std::string& prefix)
+{
+#if PRINT_JIGSAW_STATS
+    landscapeJigsaws->printStats(ss, "Landscape");
+    vapourJigsaws->printStats(ss, "Vapour");
+    edgeJigsaws->printStats(ss, "Edge");
 #endif
 }
 
