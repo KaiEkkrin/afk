@@ -21,13 +21,24 @@ enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimT
     AFK_ClaimStatus status = AFK_CL_TAKEN;
 #if CLAIMABLE_MUTEX
     bool gotUpgradeLock = false;
-    if (type == AFK_CLT_NONEXCLUSIVE_SHARED)
+    switch (type)
     {
+    case AFK_CLT_NONEXCLUSIVE_SHARED:
         /* Try to give you an upgradable context. */
         if (claimingMut.try_lock_upgrade()) gotUpgradeLock = true;
         else claimingMut.lock_shared();
+        break;
+
+    case AFK_CLT_NONEXCLUSIVE_UPGRADE:
+        /* Always give you an upgradable context. */
+        claimingMut.lock_upgrade();
+        gotUpgradeLock = true;
+        break;
+
+    default:
+        claimingMut.lock();
+        break;
     }
-    else claimingMut.lock();
 #else
     unsigned int expectedId = UNCLAIMED;
     if (claimingThreadId.compare_exchange_strong(expectedId, threadId))
@@ -64,6 +75,7 @@ enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimT
             break;
 
         case AFK_CLT_NONEXCLUSIVE_SHARED:
+        case AFK_CLT_NONEXCLUSIVE_UPGRADE:
             if (currentFrame.getNever()) throw AFK_ClaimException();
 
             /* You've also definitely got it, but in what way? */

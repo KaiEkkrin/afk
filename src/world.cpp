@@ -471,30 +471,21 @@ bool AFK_World::generateClaimedWorldCell(
             size_t subcellsSize = CUBE(subdivisionFactor);
             AFK_Cell *subcells = new AFK_Cell[subcellsSize]; /* TODO avoid heap thrashing somehow.  Maybe make it an iterator */
             unsigned int subcellsCount = cell.subdivide(subcells, subcellsSize, subdivisionFactor);
+            assert(subcellsCount == subcellsSize);
 
-            if (subcellsCount == subcellsSize)
+            for (unsigned int i = 0; i < subcellsCount; ++i)
             {
-                for (unsigned int i = 0; i < subcellsCount; ++i)
-                {
-                    AFK_WorldWorkQueue::WorkItem subcellItem;
-                    subcellItem.func                     = afk_generateWorldCells;
-                    subcellItem.param.world.cell         = subcells[i];
-                    subcellItem.param.world.world        = param.world;
-                    subcellItem.param.world.viewerLocation = viewerLocation;
-                    subcellItem.param.world.camera       = camera;
-                    subcellItem.param.world.flags        = (allVisible ? AFK_WCG_FLAG_ENTIRELY_VISIBLE : 0);
-                    subcellItem.param.world.dependency   = NULL;
-                    queue.push(subcellItem);
-                }
+                AFK_WorldWorkQueue::WorkItem subcellItem;
+                subcellItem.func                     = afk_generateWorldCells;
+                subcellItem.param.world.cell         = subcells[i];
+                subcellItem.param.world.world        = param.world;
+                subcellItem.param.world.viewerLocation = viewerLocation;
+                subcellItem.param.world.camera       = camera;
+                subcellItem.param.world.flags        = (allVisible ? AFK_WCG_FLAG_ENTIRELY_VISIBLE : 0);
+                subcellItem.param.world.dependency   = NULL;
+                queue.push(subcellItem);
             }
-            else
-            {
-                /* That's clearly a bug :P */
-                std::ostringstream ss;
-                ss << "Cell " << cell << " subdivided into " << subcellsCount << " not " << subcellsSize;
-                throw AFK_Exception(ss.str());
-            }
-        
+
             delete[] subcells;
         }
     }
