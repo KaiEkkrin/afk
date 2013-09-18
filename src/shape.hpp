@@ -57,6 +57,9 @@ bool afk_generateEntity(
  * cells whose less-detailed versions have never been hit.
  * This one generates finer-LoD vapour, not top-level (see
  * above).
+ * Also unlike the others, this one expects the `cell' field
+ * to contain a *vapour* cell location, not a shape cell one
+ * (see the function `afk_shapeToVapourCell').
  */
 bool afk_generateVapourDescriptor(
     unsigned int threadId,

@@ -13,14 +13,6 @@ AFK_KeyedCell afk_shapeToVapourCell(const AFK_KeyedCell& cell, const AFK_ShapeSi
     return cell.parent(sSizes.skeletonFlagGridDim);
 }
 
-AFK_KeyedCell afk_vapourToShapeCell(const AFK_KeyedCell& cell, const AFK_ShapeSizes& sSizes)
-{
-    /* TODO I'm pretty sure that this is wrong, but only for
-     * co-ordinates < 0, which I'm not currently using
-     */
-    return afk_keyedCell(cell.c.coord / (long long)sSizes.skeletonFlagGridDim, cell.key);
-}
-
 
 /* AFK_VapourCell implementation. */
 
@@ -177,7 +169,7 @@ void AFK_VapourCell::build3DList(
         catch (AFK_PolymerOutOfRange)
         {
             /* Oh dear, we're going to need to recompute this one */
-            missingCells.push_back(afk_vapourToShapeCell(parentCell, sSizes));
+            missingCells.push_back(parentCell);
 
             /* Keep looking for other cells we might be missing so
              * we can do all that at once

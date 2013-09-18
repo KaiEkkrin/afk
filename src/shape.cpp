@@ -110,12 +110,11 @@ bool afk_generateVapourDescriptor(
     const union AFK_WorldWorkParam& param,
     AFK_WorldWorkQueue& queue)
 {
-    const AFK_KeyedCell cell                = param.shape.cell;
+    const AFK_KeyedCell vc                  = param.shape.cell;
     AFK_World *world                        = param.shape.world;
 
     AFK_Shape& shape                        = world->shape;
 
-    AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
     AFK_VapourCell& vapourCell = (*(shape.vapourCellCache))[vc];
     vapourCell.bind(vc);
     AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
@@ -391,7 +390,7 @@ enum AFK_Shape::VapourCellState AFK_Shape::enqueueVapourCell(
                         mcIt != missingCells.end(); ++mcIt)
                     {
                         /* Sanity check */
-                        if (mcIt->c.coord.v[3] >= SHAPE_CELL_MAX_DISTANCE)
+                        if (mcIt->c.coord.v[3] >= (SHAPE_CELL_MAX_DISTANCE * sSizes.skeletonFlagGridDim))
                             throw AFK_Exception("Missing the top vapour cell");
 
                         missingCellItem.func = afk_generateVapourDescriptor;
