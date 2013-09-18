@@ -1,0 +1,13 @@
+Lockless claiming
+=================
+
+I think I need this to fix the bug with trying to lock incompletely-initialised boost::mutex objects.  Trying to sort some fencing out such that I never hit those would surely be fraught.
+
+What I need to do:
+
+ - Make polymer no longer store a pointer to the Monomer, but instead the Monomer in its entirety as an atomic.
+ - Make all the values stored in polymers conform to the atomic constraints in the boost::atomic documentation.  That means they need a non-throwing default constructor (append `throw()' to the declaration); they need to be trivially copyable and comparable.
+   o In the first instance, try achieving this by changing all the various STL vectors/lists and other complicated things to pointers to them, initialised to NULL, and new'd on first use.
+   o If I get failures with that, I can turn those things into static structures and change the relevant runtime sizes (in landscape_sizes / shape_sizes) into compile-time sizes.
+ - Get rid of Claimable in its current form (because the above constraints preclude subclassing).  Instead, make a Claimable<Value> template that holds the value as one of its fields, returning a reference to it when you successfully claimed it.  And re-implement the methods without locking.
+

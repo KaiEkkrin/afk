@@ -192,6 +192,12 @@ protected:
      * threading model will cause the rows to be of similar widths.)
      * These are the current updating and drawing cuboids in piece
      * units.
+     * TODO: Currently, I have a problem with concurrent access to
+     * `cuboids' resulting in corruption.  I think I should replace
+     * `updateCMut' with an upgrade mutex that is acquired before *all*
+     * access to `cuboids'.  Then, when I actually need to modify
+     * `cuboids', I should upgrade the mutex (and loop on a yield-
+     * check-reacquire thing if it fails) before doing so.
      */
     const unsigned int concurrency;
     std::vector<AFK_JigsawCuboid> cuboids[2];
