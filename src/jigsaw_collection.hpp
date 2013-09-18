@@ -69,7 +69,7 @@ protected:
     std::vector<AFK_Jigsaw*> puzzles;
     AFK_Jigsaw *spare;
 
-    boost::mutex mut;
+    boost::upgrade_mutex mut;
 
     /* Internal helpers. */
     GLuint getGlTextureTarget(void) const;
@@ -125,13 +125,18 @@ public:
         size_t count);
 
     /* Gets you the puzzle that matches a particular piece. */
-    AFK_Jigsaw *getPuzzle(const AFK_JigsawPiece& piece) const;
+    AFK_Jigsaw *getPuzzle(const AFK_JigsawPiece& piece);
 
     /* Gets you a numbered puzzle. */
-    AFK_Jigsaw *getPuzzle(int puzzle) const;
+    AFK_Jigsaw *getPuzzle(int puzzle);
 
-    /* Gets you the puzzle count. */
-    int getPuzzleCount(void) const;
+    /* Gets you the puzzle count.
+     * TODO This is naughty -- it might change!  However, I know
+     * that it never goes down, only up.  I really ought to
+     * supply an iterator over a snapshot of the puzzles instead,
+     * but ...
+     */
+    int getPuzzleCount(void);
 
     /* Flips the cuboids in all the jigsaws. */
     void flipCuboids(cl_context ctxt, const AFK_Frame& currentFrame);

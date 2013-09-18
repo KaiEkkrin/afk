@@ -1,16 +1,18 @@
 /* AFK (c) Alex Holloway 2013 */
 
+#include "afk.hpp"
+
+#include <climits>
+#include <cmath>
+#include <cstring>
+#include <iostream>
+
 #include "computer.hpp"
 #include "core.hpp"
 #include "debug.hpp"
 #include "display.hpp"
 #include "exception.hpp"
 #include "jigsaw.hpp"
-
-#include <climits>
-#include <cmath>
-#include <cstring>
-#include <iostream>
 
 
 #define GRAB_DEBUG 0
@@ -649,19 +651,27 @@ AFK_Jigsaw::~AFK_Jigsaw()
 
 bool AFK_Jigsaw::grab(unsigned int threadId, Vec3<int>& o_uvw, AFK_Frame *o_timestamp)
 {
+    bool grabSuccessful = false;
+    bool gotUpgradeLock = false;
+    if (cuboidMuts[updateCs].try_lock_upgrade()) gotUpgradeLock = true;
+    else cuboidMuts[updateCs].lock_shared();
+
     /* Let's see if I can use an existing cuboid. */
     unsigned int cI;
     for (cI = 0; cI < cuboids[updateCs].size(); ++cI)
     {
         switch (grabPieceFromCuboid(cuboids[updateCs][cI], threadId, o_uvw, o_timestamp))
         {
+#if 0
         case AFK_JIGSAW_CUBOID_OUT_OF_SPACE:
             /* This means I'm out of room in the jigsaw. */
-            return false;
+            goto grab_return;
+#endif
 
         case AFK_JIGSAW_CUBOID_GRABBED:
             /* I got one! */
-            return true;
+            grabSuccessful = true;
+            goto grab_return;
 
         default:
             /* Keep looking. */
@@ -670,15 +680,32 @@ bool AFK_Jigsaw::grab(unsigned int threadId, Vec3<int>& o_uvw, AFK_Frame *o_time
     }
 
     /* I ran out of cuboids.  Try to start a new one. */
-    if (cI == 0) return false;
+    if (cI == 0) goto grab_return;
 
-    boost::unique_lock<boost::mutex> lock(updateCMut);
-    if (cI == cuboids[updateCs].size())
+    if (!gotUpgradeLock)
     {
-        if (!startNewCuboid(cuboids[updateCs][cI-1], true)) return false;
+        cuboidMuts[updateCs].unlock_shared();
+        cuboidMuts[updateCs].lock_upgrade();
+        gotUpgradeLock = true;
     }
 
-    return grabPieceFromCuboid(cuboids[updateCs][cI], threadId, o_uvw, o_timestamp) == AFK_JIGSAW_CUBOID_GRABBED;
+    cuboidMuts[updateCs].unlock_upgrade_and_lock();
+
+    {
+        bool retry = true;
+        if (cI == cuboids[updateCs].size())
+            retry = startNewCuboid(cuboids[updateCs][cI-1], true);
+
+        cuboidMuts[updateCs].unlock();
+        if (!retry) return false;
+    }
+
+    return grab(threadId, o_uvw, o_timestamp);
+
+grab_return:
+    if (gotUpgradeLock) cuboidMuts[updateCs].unlock_upgrade();
+    else cuboidMuts[updateCs].unlock_shared();
+    return grabSuccessful;
 }
 
 AFK_Frame AFK_Jigsaw::getTimestamp(const AFK_JigsawPiece& piece) const
@@ -723,6 +750,8 @@ Vec3<float> AFK_Jigsaw::getPiecePitchSTR(void) const
 
 cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q, std::vector<cl_event>& o_events)
 {
+    boost::shared_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
+
     /* Note that acquireForCl() may be called several times (and so
      * may releaseFromCl() ).  When acquire is called it will
      * retain the events for you; when release is called it will
@@ -771,6 +800,8 @@ cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q, std::vecto
 
 void AFK_Jigsaw::releaseFromCl(cl_command_queue q, const std::vector<cl_event>& eventWaitList)
 {
+    boost::shared_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
+
     std::vector<cl_event> allWaitList;
 
     switch (bufferUsage)
@@ -894,6 +925,8 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q, const std::vector<cl_event>& 
 
 void AFK_Jigsaw::bindTexture(unsigned int tex)
 {
+    boost::shared_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
+
     glBindTexture(texTarget, glTex[tex]);
 
     if (bufferUsage == AFK_JIGSAW_BU_CL_GL_COPIED)
@@ -976,6 +1009,12 @@ void AFK_Jigsaw::flipCuboids(const AFK_Frame& currentFrame)
             changeEvents[tex].clear();
         }
     }
+
+    boost::upgrade_lock<boost::upgrade_mutex> ulock0(cuboidMuts[0]);
+    boost::upgrade_to_unique_lock<boost::upgrade_mutex> utoulock0(ulock0);
+
+    boost::upgrade_lock<boost::upgrade_mutex> ulock1(cuboidMuts[1]);
+    boost::upgrade_to_unique_lock<boost::upgrade_mutex> utoulock1(ulock0);
 
     updateCs = (updateCs == 0 ? 1 : 0);
     drawCs = (drawCs == 0 ? 1 : 0);

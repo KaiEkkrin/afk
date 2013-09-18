@@ -61,10 +61,10 @@ public:
     void bind(const AFK_KeyedCell& _cell);
     const AFK_KeyedCell& getCell(void) const;
 
-    bool hasVapour(const AFK_JigsawCollection *vapourJigsaws) const;
-    bool hasEdges(const AFK_JigsawCollection *edgeJigsaws) const;
+    bool hasVapour(AFK_JigsawCollection *vapourJigsaws) const;
+    bool hasEdges(AFK_JigsawCollection *edgeJigsaws) const;
 
-    bool getVapourJigsawPiece(const AFK_JigsawCollection *vapourJigsaws, AFK_JigsawPiece *o_jigsawPiece) const;
+    bool getVapourJigsawPiece(AFK_JigsawCollection *vapourJigsaws, AFK_JigsawPiece *o_jigsawPiece) const;
 
     /* Enqueues the compute units.  Both these functions overwrite
      * the relevant jigsaw pieces with new ones.
@@ -113,7 +113,7 @@ public:
      */
     void enqueueEdgeDisplayUnit(
         const Mat4<float>& worldTransform,
-        const AFK_JigsawCollection *edgeJigsaws,
+        AFK_JigsawCollection *edgeJigsaws,
         AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const;
 
     /* For handling claiming and eviction. */

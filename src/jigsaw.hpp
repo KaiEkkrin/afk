@@ -13,7 +13,7 @@
 #include <boost/atomic.hpp>
 #include <boost/function.hpp>
 #include <boost/lockfree/queue.hpp>
-#include <boost/thread/mutex.hpp>
+#include <boost/thread/shared_mutex.hpp>
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
@@ -192,17 +192,16 @@ protected:
      * threading model will cause the rows to be of similar widths.)
      * These are the current updating and drawing cuboids in piece
      * units.
-     * TODO: Currently, I have a problem with concurrent access to
-     * `cuboids' resulting in corruption.  I think I should replace
-     * `updateCMut' with an upgrade mutex that is acquired before *all*
-     * access to `cuboids'.  Then, when I actually need to modify
-     * `cuboids', I should upgrade the mutex (and loop on a yield-
-     * check-reacquire thing if it fails) before doing so.
+     * Note that all the protected utility functions assume that
+     * the right `cuboidMut' has already been acquired appropriately.
+     * There's one each for the update and draw cuboids, flipping just
+     * like the cuboid vectors themselves.
      */
     const unsigned int concurrency;
     std::vector<AFK_JigsawCuboid> cuboids[2];
     unsigned int updateCs;
     unsigned int drawCs;
+    boost::upgrade_mutex cuboidMuts[2];
 
     /* This is the sweep position, which tracks ahead of the update
      * cuboids.  Every flip, we should move the sweep position up and back
@@ -211,9 +210,6 @@ protected:
      * within the sweep.
      */
     Vec2<int> sweepPosition;
-
-    /* This is used to control access to the update cuboids. */
-    boost::mutex updateCMut;
 
     /* This is the average number of columns that cuboids seem to
      * be using.  It's used as a heuristic to decide whether to start

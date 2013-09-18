@@ -22,20 +22,20 @@ const AFK_KeyedCell& AFK_ShapeCell::getCell(void) const
     return cell;
 }
 
-bool AFK_ShapeCell::hasVapour(const AFK_JigsawCollection *vapourJigsaws) const
+bool AFK_ShapeCell::hasVapour(AFK_JigsawCollection *vapourJigsaws) const
 {
     return (vapourJigsawPiece != AFK_JigsawPiece() &&
         vapourJigsaws->getPuzzle(vapourJigsawPiece)->getTimestamp(vapourJigsawPiece) == vapourJigsawPieceTimestamp);
 }
 
-bool AFK_ShapeCell::hasEdges(const AFK_JigsawCollection *edgeJigsaws) const
+bool AFK_ShapeCell::hasEdges(AFK_JigsawCollection *edgeJigsaws) const
 {
     return (edgeJigsawPiece != AFK_JigsawPiece() &&
         edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTimestamp(edgeJigsawPiece) == edgeJigsawPieceTimestamp);
 }
 
 bool AFK_ShapeCell::getVapourJigsawPiece(
-    const AFK_JigsawCollection *vapourJigsaws,
+    AFK_JigsawCollection *vapourJigsaws,
     AFK_JigsawPiece *o_jigsawPiece) const
 {
     if (hasVapour(vapourJigsaws))
@@ -153,7 +153,7 @@ void AFK_ShapeCell::enqueueEdgeComputeUnit(
 
 void AFK_ShapeCell::enqueueEdgeDisplayUnit(
     const Mat4<float>& worldTransform,
-    const AFK_JigsawCollection *edgeJigsaws,
+    AFK_JigsawCollection *edgeJigsaws,
     AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const
 {
 #if SHAPE_DISPLAY_DEBUG

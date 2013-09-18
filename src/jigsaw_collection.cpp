@@ -139,14 +139,9 @@ bool AFK_JigsawCollection::grabPieceFromPuzzle(
     if (puzzles[puzzle]->grab(threadId, uvw, o_timestamp))
     {
         /* This check has caught a few bugs in the past... */
-        if (uvw.v[0] < 0 || uvw.v[0] >= jigsawSize.v[0] ||
-            uvw.v[1] < 0 || uvw.v[1] >= jigsawSize.v[1] ||
-            uvw.v[2] < 0 || uvw.v[2] >= jigsawSize.v[2])
-        {
-            std::ostringstream ss;
-            ss << "Got erroneous piece: " << uvw << " (jigsaw size: " << jigsawSize << ")";
-            throw AFK_Exception(ss.str());
-        }
+        assert(uvw.v[0] >= 0 && uvw.v[0] < jigsawSize.v[0] &&
+            uvw.v[1] >= 0 && uvw.v[1] < jigsawSize.v[1] &&
+            uvw.v[2] >= 0 && uvw.v[2] < jigsawSize.v[2]);
 
         *o_piece = AFK_JigsawPiece(uvw, puzzle);
         return true;
@@ -331,6 +326,10 @@ void AFK_JigsawCollection::grab(
     AFK_Frame *o_timestamps,
     size_t count)
 {
+    bool gotUpgradeLock = false;
+    if (mut.try_lock_upgrade()) gotUpgradeLock = true;
+    else mut.lock_shared();
+
     int puzzle;
     AFK_JigsawPiece piece;
     for (puzzle = minJigsaw; puzzle < (int)puzzles.size(); ++puzzle)
@@ -342,53 +341,65 @@ void AFK_JigsawCollection::grab(
             
         }
 
-        if (haveAllPieces) return;
+        if (haveAllPieces) goto grab_return;
     }
 
     /* If I get here I've run out of room entirely.  See if I have
      * a spare jigsaw to push in.
      */
-    boost::unique_lock<boost::mutex> lock(mut);
+    if (!gotUpgradeLock)
+    {
+        mut.unlock_shared();
+        mut.lock_upgrade();
+        gotUpgradeLock = true;
+    }
+
+    mut.unlock_upgrade_and_lock();
+
     if (spare)
     {
         puzzles.push_back(spare);
         spare = NULL;
-
-        /* Try allocating from the spare. */
-        bool haveAllPieces = true;
-        for (size_t pieceIdx = 0; haveAllPieces && pieceIdx < count; ++pieceIdx)
-        {
-            haveAllPieces &= grabPieceFromPuzzle(threadId, puzzle, &o_pieces[pieceIdx], &o_timestamps[pieceIdx]);
-            
-        }
-
-        if (haveAllPieces) return;
     }
 
-    /* If I get here, I've failed :(
-     */
-    throw AFK_Exception("Jigsaw ran out of room");
+    if ((int)puzzles.size() == puzzle)
+    {
+        /* Properly out of room.  Failed. */
+        mut.unlock();
+        throw AFK_Exception("Jigsaw ran out of room");
+    }
+
+    mut.unlock();
+    return grab(threadId, puzzle, o_pieces, o_timestamps, count);
+
+grab_return:
+    if (gotUpgradeLock) mut.unlock_upgrade();
+    else mut.unlock_shared();
 }
 
-AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(const AFK_JigsawPiece& piece) const
+AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(const AFK_JigsawPiece& piece)
 {
     if (piece == AFK_JigsawPiece()) throw AFK_Exception("AFK_JigsawCollection: Called getPuzzle() with the null piece");
+    boost::shared_lock<boost::upgrade_mutex> lock(mut);
     return puzzles[piece.puzzle];
 }
 
-AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(int puzzle) const
+AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(int puzzle)
 {
+    boost::shared_lock<boost::upgrade_mutex> lock(mut);
     return puzzles[puzzle];
 }
 
-int AFK_JigsawCollection::getPuzzleCount(void) const
+int AFK_JigsawCollection::getPuzzleCount(void)
 {
+    boost::shared_lock<boost::upgrade_mutex> lock(mut);
     return (int)puzzles.size();
 }
 
 void AFK_JigsawCollection::flipCuboids(cl_context ctxt, const AFK_Frame& currentFrame)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    boost::upgrade_lock<boost::upgrade_mutex> ulock(mut);
+    boost::upgrade_to_unique_lock<boost::upgrade_mutex> utoulock(ulock);
 
     for (int puzzle = 0; puzzle < (int)puzzles.size(); ++puzzle)
         puzzles[puzzle]->flipCuboids(currentFrame);
@@ -402,6 +413,7 @@ void AFK_JigsawCollection::flipCuboids(cl_context ctxt, const AFK_Frame& current
 
 void AFK_JigsawCollection::printStats(std::ostream& os, const std::string& prefix)
 {
+    boost::shared_lock<boost::upgrade_mutex> lock(mut);
     std::cout << prefix << "\t: Spills:               " << spills.exchange(0) << std::endl;
     for (int puzzle = 0; puzzle < (int)puzzles.size(); ++puzzle)
     {
