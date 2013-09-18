@@ -437,6 +437,15 @@ enum AFK_Shape::VapourCellState AFK_Shape::enqueueVapourCell(
         if (claimStatus == AFK_CL_CLAIMED_SHARED ||
             claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
         {
+            /* TODO: Bug here -- `cubeOffset' and `cubeCount' can refer to
+             * a different vapour compute queue (the first cell these params
+             * were enqueued for got a jigsaw piece in a different puzzle).
+             * The obvious way to fix this is to make only one vapour compute
+             * queue that takes all puzzles as parameter, which should be OK
+             * since each edge compute queue now needs to take all vapour
+             * puzzles as parameter.
+             * I need to try implementing this.
+             */
             shapeCell.enqueueVapourComputeUnitFromExistingVapour(
                 threadId, cubeOffset, cubeCount, sSizes, vapourJigsaws, world->vapourComputeFair);
             state = Enqueued;

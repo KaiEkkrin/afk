@@ -65,8 +65,7 @@ void AFK_3DVapourComputeQueue::extend(
     boost::unique_lock<boost::mutex> lock(mut);
 
     /* Sanity checks */
-    if (list.cubeCount() == 0)
-        throw AFK_Exception("Pushed empty list to 3D vapour compute queue");
+    assert(list.cubeCount() > 0);
 
     o_cubeOffset = AFK_3DList::cubeCount();
     o_cubeCount = list.cubeCount();
@@ -80,6 +79,11 @@ AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::addUnit(
     unsigned int cubeCount)
 {
     boost::unique_lock<boost::mutex> lock(mut);
+
+    /* Sanity checks */
+    assert(cubeOffset >= 0 && cubeOffset < c.size());
+    assert(cubeCount > 0);
+    assert((cubeOffset + cubeCount) <= c.size());
 
     AFK_3DVapourComputeUnit newUnit(
         location,
