@@ -217,7 +217,10 @@ __kernel void makeShape3DVapour(
     __global const struct AFK_3DVapourFeature *features,
     __global const struct AFK_3DVapourCube *cubes,
     __global const struct AFK_3DVapourComputeUnit *units,
-    __write_only AFK_IMAGE3D vapour)
+    __write_only AFK_IMAGE3D vapour0,
+    __write_only AFK_IMAGE3D vapour1,
+    __write_only AFK_IMAGE3D vapour2,
+    __write_only AFK_IMAGE3D vapour3)
 {
     /* We're necessarily going to operate across the
      * three dimensions of a cube.
@@ -280,6 +283,23 @@ __kernel void makeShape3DVapour(
      * simplest.
      */
     int4 vapourPieceCoord = (int4)(xdim, ydim, zdim, 0);
-    write_imagef(vapour, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, vapourPieceCoord), vc);
+    switch (units[unitOffset].vapourPiece.w)
+    {
+    case 0:
+        write_imagef(vapour0, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, vapourPieceCoord), vc);
+        break;
+
+    case 1:
+        write_imagef(vapour1, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, vapourPieceCoord), vc);
+        break;
+
+    case 2:
+        write_imagef(vapour2, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, vapourPieceCoord), vc);
+        break;
+
+    default:
+        write_imagef(vapour3, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, vapourPieceCoord), vc);
+        break;
+    }
 }
 

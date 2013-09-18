@@ -130,13 +130,27 @@ public:
     /* Gets you a numbered puzzle. */
     AFK_Jigsaw *getPuzzle(int puzzle);
 
-    /* Gets you the puzzle count.
-     * TODO This is naughty -- it might change!  However, I know
-     * that it never goes down, only up.  I really ought to
-     * supply an iterator over a snapshot of the puzzles instead,
-     * but ...
+    /* Acquires all puzzles for the CL (up to `count').
+     * Complains if there are more than `count' puzzles.
+     * If there are fewer puzzles, fills out the remaining
+     * fields of the array with the first one.
+     * Returns the actual number of puzzles acquired.
      */
-    int getPuzzleCount(void);
+    int acquireAllForCl(
+        cl_context ctxt,
+        cl_command_queue q,
+        cl_mem **allMem,
+        int count,
+        std::vector<cl_event>& o_events);
+
+    /* Releases all puzzles from the CL, when acquired with the above.
+     * `count' should be the number returned by acquireAllFromCl.
+     */
+    void releaseAllFromCl(
+        cl_command_queue q,
+        cl_mem **allMem,
+        int count,
+        const std::vector<cl_event>& eventWaitList);    
 
     /* Flips the cuboids in all the jigsaws. */
     void flipCuboids(cl_context ctxt, const AFK_Frame& currentFrame);

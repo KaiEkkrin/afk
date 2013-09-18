@@ -26,7 +26,7 @@ AFK_3DVapourComputeUnit::AFK_3DVapourComputeUnit(
 		_vapourJigsawPiece.u,
 		_vapourJigsawPiece.v,
 		_vapourJigsawPiece.w,
-		0);
+		_vapourJigsawPiece.puzzle);
 }
 
 bool AFK_3DVapourComputeUnit::uninitialised(void) const
@@ -96,7 +96,7 @@ AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::addUnit(
 
 void AFK_3DVapourComputeQueue::computeStart(
     AFK_Computer *computer,
-    AFK_Jigsaw *vapourJigsaw,
+    AFK_JigsawCollection *vapourJigsaws,
     const AFK_ShapeSizes& sSizes)
 {
     boost::unique_lock<boost::mutex> lock(mut);
@@ -138,12 +138,15 @@ void AFK_3DVapourComputeQueue::computeStart(
 
     /* Set up the rest of the vapour parameters */
     preVapourWaitList.clear();
-    cl_mem *vapourJigsawMem = vapourJigsaw->acquireForCl(ctxt, q, preVapourWaitList);
+    cl_mem *vapourJigsawsMem[4];
+    int jpCount = vapourJigsaws->acquireAllForCl(ctxt, q, vapourJigsawsMem, 4, preVapourWaitList);
 
     AFK_CLCHK(clSetKernelArg(vapourKernel, 0, sizeof(cl_mem), &vapourBufs[0]))
     AFK_CLCHK(clSetKernelArg(vapourKernel, 1, sizeof(cl_mem), &vapourBufs[1]))
     AFK_CLCHK(clSetKernelArg(vapourKernel, 2, sizeof(cl_mem), &vapourBufs[2]))
-    AFK_CLCHK(clSetKernelArg(vapourKernel, 3, sizeof(cl_mem), &vapourJigsawMem[0]))
+
+    for (int jpI = 0; jpI < 4; ++jpI)
+        AFK_CLCHK(clSetKernelArg(vapourKernel, jpI + 3, sizeof(cl_mem), vapourJigsawsMem[jpI]))
 
     size_t vapourDim[3];
     vapourDim[0] = sSizes.vDim * unitCount;
@@ -170,7 +173,7 @@ void AFK_3DVapourComputeQueue::computeStart(
 
     postVapourWaitList.clear();
     postVapourWaitList.push_back(vapourEvent);
-    vapourJigsaw->releaseFromCl(q, postVapourWaitList);
+    vapourJigsaws->releaseAllFromCl(q, vapourJigsawsMem, jpCount, postVapourWaitList);
     AFK_CLCHK(clReleaseEvent(vapourEvent))
 
     computer->unlock();

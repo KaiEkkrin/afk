@@ -59,8 +59,12 @@ void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
 {
     vapourJigsaws->grab(threadId, 0, &vapourJigsawPiece, &vapourJigsawPieceTimestamp, 1);
 
+    /* There's only ever one update queue and one draw queue;
+     * all vapours are computed by the same kernel, so that
+     * I don't need to worry about cross-vapour stuff.
+     */
     boost::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
-        vapourComputeFair.getUpdateQueue(vapourJigsawPiece.puzzle);
+        vapourComputeFair.getUpdateQueue(0);
 
 #if SHAPE_COMPUTE_DEBUG
     AFK_DEBUG_PRINTL("Computing vapour at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE) << " with list: " << list)
@@ -85,7 +89,7 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
     vapourJigsaws->grab(threadId, 0, &vapourJigsawPiece, &vapourJigsawPieceTimestamp, 1);
 
     boost::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
-        vapourComputeFair.getUpdateQueue(vapourJigsawPiece.puzzle);
+        vapourComputeFair.getUpdateQueue(0);
 
     vapourComputeQueue->addUnit(
         cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),

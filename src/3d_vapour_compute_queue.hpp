@@ -15,7 +15,7 @@
 #include "3d_solid.hpp"
 #include "computer.hpp"
 #include "def.hpp"
-#include "jigsaw.hpp"
+#include "jigsaw_collection.hpp"
 #include "shape_sizes.hpp"
 
 /* This module marshals 3D object compute data through the
@@ -97,11 +97,11 @@ public:
         unsigned int cubeOffset,
         unsigned int cubeCount);
 
-    /* Starts computing this vapour.
+    /* Starts computing the vapour.
      */
     void computeStart(
         AFK_Computer *computer,
-        AFK_Jigsaw *vapourJigsaw,
+        AFK_JigsawCollection *vapourJigsaws,
         const AFK_ShapeSizes& sSizes);
     void computeFinish(void);
 

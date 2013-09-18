@@ -104,29 +104,11 @@ void AFK_3DEdgeComputeQueue::computeStart(
     /* Set up the rest of the parameters */
     preEdgeWaitList.clear();
     cl_mem *vapourJigsawsMem[4];
-    int jpI, jpCount;
-    jpCount = vapourJigsaws->getPuzzleCount();
-    if (jpCount > 4) throw AFK_Exception("Too many vapour jigsaws");
-    for (jpI = 0; jpI < jpCount; ++jpI)
-        vapourJigsawsMem[jpI] = vapourJigsaws->getPuzzle(jpI)->acquireForCl(ctxt, q, preEdgeWaitList);
-    for (; jpI < 4; ++jpI)
-        vapourJigsawsMem[jpI] = NULL;
-
+    int jpCount = vapourJigsaws->acquireAllForCl(ctxt, q, vapourJigsawsMem, 4, preEdgeWaitList);
     cl_mem *edgeJigsawMem = edgeJigsaw->acquireForCl(ctxt, q, preEdgeWaitList);
 
-    /* Now, I need to run the edge kernel.
-     * Note that vapour jigsaws that don't exist yet won't ever
-     * be referred to in the pieces list so it doesn't matter
-     * what I set as the argument, but I must set something
-     * valid, because OpenCL doesn't support NULL image
-     * arguments: I'll use the first jigsaw, which will always
-     * exist.
-     */
-    for (jpI = 0; jpI < 4; ++jpI)
-        if (vapourJigsawsMem[jpI])
-            AFK_CLCHK(clSetKernelArg(edgeKernel, jpI, sizeof(cl_mem), vapourJigsawsMem[jpI]))
-        else
-            AFK_CLCHK(clSetKernelArg(edgeKernel, jpI, sizeof(cl_mem), vapourJigsawsMem[0]))
+    for (int jpI = 0; jpI < 4; ++jpI)
+        AFK_CLCHK(clSetKernelArg(edgeKernel, jpI, sizeof(cl_mem), vapourJigsawsMem[jpI]))
 
     AFK_CLCHK(clSetKernelArg(edgeKernel, 4, sizeof(cl_mem), &unitsBuf))
     AFK_CLCHK(clSetKernelArg(edgeKernel, 5, sizeof(cl_mem), &edgeJigsawMem[0]))
@@ -164,8 +146,7 @@ void AFK_3DEdgeComputeQueue::computeStart(
 
     postEdgeWaitList.clear();
     postEdgeWaitList.push_back(edgeEvent);
-    for (jpI = 0; jpI < jpCount; ++jpI)
-        vapourJigsaws->getPuzzle(jpI)->releaseFromCl(q, postEdgeWaitList);
+    vapourJigsaws->releaseAllFromCl(q, vapourJigsawsMem, jpCount, postEdgeWaitList);
     edgeJigsaw->releaseFromCl(q, postEdgeWaitList);
     AFK_CLCHK(clReleaseEvent(edgeEvent))
 
