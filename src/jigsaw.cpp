@@ -500,7 +500,7 @@ AFK_Jigsaw::AFK_Jigsaw(
                 }
 #pragma GCC diagnostic pop
             }
-            afk_handleClError(error);
+            AFK_HANDLE_CL_ERROR(error);
         }
     }
 
@@ -582,7 +582,7 @@ AFK_Jigsaw::AFK_Jigsaw(
                     }
 #pragma GCC diagnostic pop
                 }
-                afk_handleClError(error);
+                AFK_HANDLE_CL_ERROR(error);
             }
         }
     }

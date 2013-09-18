@@ -105,6 +105,8 @@ bool afk_generateEntity(
 
 /* The vapour descriptor-only worker */
 
+#define VAPOUR_RESUME_DEBUG 1
+
 bool afk_generateVapourDescriptor(
     unsigned int threadId,
     const union AFK_WorldWorkParam& param,
@@ -164,23 +166,27 @@ bool afk_generateVapourDescriptor(
         }
     }
 
-    if (needsResume)
-    {
-        /* Oh dear!  Try again later; the rest of my logic should
-         * ensure that it'll pop up
-         */
-        AFK_WorldWorkQueue::WorkItem resumeItem;
-        resumeItem.func = afk_generateVapourDescriptor;
-        resumeItem.param = param;
-        if (param.shape.dependency) param.shape.dependency->retain();
-        queue.push(resumeItem);
-    }
-
     if (claimStatus == AFK_CL_CLAIMED ||
         claimStatus == AFK_CL_CLAIMED_UPGRADABLE ||
         claimStatus == AFK_CL_CLAIMED_SHARED)
     {
         vapourCell.release(threadId, claimStatus);
+    }
+
+    if (needsResume)
+    {
+        /* Oh dear!  Try again later; the rest of my logic should
+         * ensure that it'll pop up
+         */
+#if VAPOUR_RESUME_DEBUG
+        AFK_DEBUG_PRINTL("Thread " << threadId << ": resuming vapour cell " << vc)
+#endif
+
+        AFK_WorldWorkQueue::WorkItem resumeItem;
+        resumeItem.func = afk_generateVapourDescriptor;
+        resumeItem.param = param;
+        if (param.shape.dependency) param.shape.dependency->retain();
+        queue.push(resumeItem);
     }
 
     /* If this cell had a dependency ... */
@@ -399,6 +405,10 @@ enum AFK_Shape::VapourCellState AFK_Shape::enqueueVapourCell(
                         missingCellItem.param.shape.dependency = lastDependency;
                         missingCellItem.param.shape.dependency->retain();
 
+#if VAPOUR_RESUME_DEBUG
+                        AFK_DEBUG_PRINTL("Thread " << threadId << ": enqueueing missing vapour cell from 3D list: " << *mcIt)
+#endif
+
                         lastDependency = new AFK_WorldWorkParam::Dependency(missingCellItem);
                     }
 
@@ -537,6 +547,11 @@ void AFK_Shape::generateClaimedShapeCell(
                         missingCellItem.param.shape.cell = *mcIt;
                         missingCellItem.param.shape.flags |= AFK_SCG_FLAG_RENDER_VAPOUR;
                         missingCellItem.param.shape.dependency = dep;
+
+#if VAPOUR_RESUME_DEBUG
+                        AFK_DEBUG_PRINTL("Thread " << threadId << ": enqueueing missing vapour cell from edge compute: " << *mcIt)
+#endif
+
                         queue.push(missingCellItem);
                     }
 

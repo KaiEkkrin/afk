@@ -29,13 +29,15 @@ struct AFK_ClKernel
 };
 
 /* Handles an OpenCL error. */
-void afk_handleClError(cl_int error);
+void afk_handleClError(cl_int error, const char *_file, const int _line);
 
 #define AFK_CLCHK(call) \
     { \
         cl_int error = call; \
-        if (error != CL_SUCCESS) afk_handleClError(error); \
+        if (error != CL_SUCCESS) afk_handleClError(error, __FILE__, __LINE__); \
     }
+
+#define AFK_HANDLE_CL_ERROR(error) afk_handleClError(error, __FILE__, __LINE__)
 
 /* Collections of properties that might be useful.
  */

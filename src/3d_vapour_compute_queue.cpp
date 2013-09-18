@@ -118,19 +118,19 @@ void AFK_3DVapourComputeQueue::computeStart(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         f.size() * sizeof(AFK_3DVapourFeature),
         &f[0], &error);
-    afk_handleClError(error);
+    AFK_HANDLE_CL_ERROR(error);
 
     vapourBufs[1] = clCreateBuffer(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         c.size() * sizeof(AFK_3DVapourCube),
         &c[0], &error);
-    afk_handleClError(error);
+    AFK_HANDLE_CL_ERROR(error);
 
     vapourBufs[2] = clCreateBuffer(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         units.size() * sizeof(AFK_3DVapourComputeUnit),
         &units[0], &error);
-    afk_handleClError(error);
+    AFK_HANDLE_CL_ERROR(error);
 
     /* Set up the rest of the vapour parameters */
     preVapourWaitList.clear();

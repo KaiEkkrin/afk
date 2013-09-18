@@ -99,7 +99,7 @@ void AFK_3DEdgeComputeQueue::computeStart(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         units.size() * sizeof(AFK_3DEdgeComputeUnit),
         &units[0], &error);
-    afk_handleClError(error);
+    AFK_HANDLE_CL_ERROR(error);
 
     /* Set up the rest of the parameters */
     preEdgeWaitList.clear();
