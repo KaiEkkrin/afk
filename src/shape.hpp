@@ -51,23 +51,10 @@ bool afk_generateEntity(
     const union AFK_WorldWorkParam& param,
     AFK_WorldWorkQueue& queue);
 
-/* This is a really simple worker that just generates the
- * vapour descriptor and nothing else.
- * Needed to fill out 3D lists for more detailed vapour
- * cells whose less-detailed versions have never been hit.
- * This one generates finer-LoD vapour, not top-level (see
- * above).
- * Also unlike the others, this one expects the `cell' field
- * to contain a *vapour* cell location, not a shape cell one
- * (see the function `afk_shapeToVapourCell').
- */
-bool afk_generateVapourDescriptor(
-    unsigned int threadId,
-    const union AFK_WorldWorkParam& param,
-    AFK_WorldWorkQueue& queue);
-
 /* Queued into the world work queue, this function generates
  * shape cells.
+ * It also makes sure that all intermediate vapour descriptors
+ * have been made as it goes down.
  */
 bool afk_generateShapeCells(
     unsigned int threadId,
@@ -82,7 +69,7 @@ class AFK_Shape
 {
 protected:
     /* Possible return states for the below. */
-    enum VapourCellState
+    enum CellRenderState
     {
         Enqueued,
         NeedsResume,
@@ -91,16 +78,20 @@ protected:
 
     /* Builds the vapour for a claimed shape cell.  Sorts out the
      * vapour cell business.
+     * Only actually renders the vapour if `doRender' is set --
+     * otherwise, stops after the descriptor is done (enough for
+     * finer LoD vapour cells to be rendered.)
      */
-    enum VapourCellState enqueueVapourCell(
+    enum CellRenderState renderVapourCell(
         unsigned int threadId,
         unsigned int shapeKey,
         AFK_ShapeCell& shapeCell,
+        bool doRender,
         const struct AFK_WorldWorkParam::Shape& param,
         AFK_WorldWorkQueue& queue);
 
     /* Generates a claimed shape cell at its level of detail. */
-    void generateClaimedShapeCell(
+    enum CellRenderState generateClaimedShapeCell(
         const AFK_VisibleCell& visibleCell,
         AFK_ShapeCell& shapeCell,
         enum AFK_ClaimStatus& claimStatus,

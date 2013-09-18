@@ -106,7 +106,6 @@ public:
     void build3DList(
         unsigned int threadId,
         AFK_3DList& list,
-        std::vector<AFK_KeyedCell>& missingCells,
         const AFK_ShapeSizes& sSizes,
         const AFK_VAPOUR_CELL_CACHE *cache);
 

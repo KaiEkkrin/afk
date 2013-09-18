@@ -197,8 +197,14 @@ float4 readVapourPoint(
     case 2:
         return read_imagef(vapour2, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
 
-    default:
+    case 3:
         return read_imagef(vapour3, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
+
+    default:
+        /* This will sometimes happen (adjacencies off the edge
+         * of the skeleton).  Return default zeroes.
+         */
+        return (float4)(0.0f, 0.0f, 0.0f, 0.0f);    
     }
 }
 

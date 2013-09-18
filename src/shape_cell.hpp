@@ -102,7 +102,6 @@ public:
      */
     void enqueueEdgeComputeUnit(
         unsigned int threadId,
-        std::vector<AFK_KeyedCell>& missingCells,
         const AFK_SHAPE_CELL_CACHE *cache,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_JigsawCollection *edgeJigsaws,

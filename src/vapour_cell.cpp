@@ -131,7 +131,6 @@ AFK_KeyedCell AFK_VapourCell::ShapeCells::next(void)
 void AFK_VapourCell::build3DList(
     unsigned int threadId,
     AFK_3DList& list,
-    std::vector<AFK_KeyedCell>& missingCells,
     const AFK_ShapeSizes& sSizes,
     const AFK_VAPOUR_CELL_CACHE *cache)
 {
@@ -141,41 +140,22 @@ void AFK_VapourCell::build3DList(
     AFK_KeyedCell currentCell = cell;
 
     /* If this isn't the top level cell... */
-    while (currentCell.c.coord.v[3] < (sSizes.skeletonFlagGridDim * SHAPE_CELL_MAX_DISTANCE))
+    if (currentCell.c.coord.v[3] < (sSizes.skeletonFlagGridDim * SHAPE_CELL_MAX_DISTANCE))
     {
         /* Pull the parent cell from the cache, and
          * include its list too
          */
         AFK_KeyedCell parentCell = currentCell.parent(sSizes.subdivisionFactor);
-
-        try
+        AFK_VapourCell& parentVapourCell = cache->at(parentCell);
+        enum AFK_ClaimStatus claimStatus = parentVapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
+        if (claimStatus != AFK_CL_CLAIMED_SHARED && claimStatus != AFK_CL_CLAIMED_UPGRADABLE)
         {
-            AFK_VapourCell& parentVapourCell = cache->at(parentCell);
-            enum AFK_ClaimStatus claimStatus = parentVapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
-            if (claimStatus != AFK_CL_CLAIMED_SHARED && claimStatus != AFK_CL_CLAIMED_UPGRADABLE)
-            {
-                std::ostringstream ss;
-                ss << "Unable to claim VapourCell at " << parentCell << ": got status " << claimStatus;
-                throw AFK_Exception(ss.str());
-            }
-            parentVapourCell.build3DList(threadId, list, missingCells, sSizes, cache);
-            parentVapourCell.release(threadId, claimStatus);
-
-            /* At this point we've actually finished, the recursive
-             * call did the rest
-             */
-            return;
+            std::ostringstream ss;
+            ss << "Unable to claim VapourCell at " << parentCell << ": got status " << claimStatus;
+            throw AFK_Exception(ss.str());
         }
-        catch (AFK_PolymerOutOfRange)
-        {
-            /* Oh dear, we're going to need to recompute this one */
-            missingCells.push_back(parentCell);
-
-            /* Keep looking for other cells we might be missing so
-             * we can do all that at once
-             */
-            currentCell = parentCell;
-        }
+        parentVapourCell.build3DList(threadId, list, sSizes, cache);
+        parentVapourCell.release(threadId, claimStatus);
     }
 }
 

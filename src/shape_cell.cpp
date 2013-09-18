@@ -98,9 +98,39 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
         cubeCount);
 }
 
+/* Helper for the below. */
+static void getVapourJigsawPieceAt(
+    unsigned int threadId,
+    const AFK_KeyedCell& cell,
+    const AFK_SHAPE_CELL_CACHE *cache,
+    AFK_JigsawCollection *vapourJigsaws,
+    AFK_JigsawPiece *o_jigsawPiece)
+{
+    bool gotPiece = false;
+
+    try
+    {
+        AFK_ShapeCell& shapeCell = cache->at(cell);
+        AFK_ClaimStatus claimStatus = shapeCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
+        gotPiece = shapeCell.getVapourJigsawPiece(vapourJigsaws, o_jigsawPiece);
+        shapeCell.release(threadId, claimStatus);
+    }
+    catch (AFK_PolymerOutOfRange) {}
+
+    if (!gotPiece)
+    {
+        /* It's normal to be missing some adjacent cells, e.g.
+         * when they're outside the skeleton.
+         * I'll provide this special jigsaw piece instead:
+         * the OpenCL will use default zeroes when it finds
+         * a skeleton-edge adjacency piece like this.
+         */
+        *o_jigsawPiece = AFK_JigsawPiece(0, 0, 0, -1);
+    }
+}
+
 void AFK_ShapeCell::enqueueEdgeComputeUnit(
     unsigned int threadId,
-    std::vector<AFK_KeyedCell>& missingCells,
     const AFK_SHAPE_CELL_CACHE *cache,
     AFK_JigsawCollection *vapourJigsaws,
     AFK_JigsawCollection *edgeJigsaws,
@@ -108,6 +138,22 @@ void AFK_ShapeCell::enqueueEdgeComputeUnit(
 {
     /* First of all, build the vapour adjacency list to make sure
      * that I have everything I need.
+     * TODO I suspect that this is a very bad idea and I should
+     * move to half-cubes instead, like the landscape: doing this
+     * means I'm introducing a vapour cell cross-dependency.
+     * However, by substituting zero cells for unfulfilled
+     * dependencies rather than enqueueing a dependent task and
+     * resuming I shouldn't be causing deadlocks, just getting
+     * spurious black borders appearing in the middle of pieces.
+     * We'll see.
+     * - TODO *2: okay, actually it deadlocks right away, as
+     * all the threads pile into trying to lock cells for
+     * adjacencies all the while holding exclusive locks for
+     * adjacent cells in order to build their contents.
+     * Maybe I should throw adjacency away, give in, and
+     * compute the adjacent vertices in each vapour cube after
+     * all?  Even though it triples the size of each cube at
+     * the small sizes I'm working with?  :(
      */
     AFK_Cell adjacentCells[7];
     AFK_JigsawPiece vapourAdjacency[7];
@@ -115,42 +161,23 @@ void AFK_ShapeCell::enqueueEdgeComputeUnit(
     cell.c.faceAdjacency(&adjacentCells[1], 6);
 
     vapourAdjacency[0] = vapourJigsawPiece;
-    int adjFound = 1;
     for (int i = 1; i < 7; ++i)
     {
-        bool thisAdjFound = false;
         AFK_KeyedCell thisCell = afk_keyedCell(adjacentCells[i], cell.key);
-        try
-        {
-            if (cache->at(thisCell).getVapourJigsawPiece(
-                vapourJigsaws, &vapourAdjacency[i]))
-            {
-                ++adjFound;
-                thisAdjFound = true;
-            }
-        }
-        catch (AFK_PolymerOutOfRange) {}
-
-        if (!thisAdjFound)
-        {
-            missingCells.push_back(thisCell);
-        }
+        getVapourJigsawPieceAt(threadId, thisCell, cache, vapourJigsaws, &vapourAdjacency[i]);
     }
 
-    if (adjFound == 7)
-    {
-        edgeJigsaws->grab(threadId, 0, &edgeJigsawPiece, &edgeJigsawPieceTimestamp, 1);
+    edgeJigsaws->grab(threadId, 0, &edgeJigsawPiece, &edgeJigsawPieceTimestamp, 1);
 
-        boost::shared_ptr<AFK_3DEdgeComputeQueue> edgeComputeQueue =
-            edgeComputeFair.getUpdateQueue(edgeJigsawPiece.puzzle);
+    boost::shared_ptr<AFK_3DEdgeComputeQueue> edgeComputeQueue =
+        edgeComputeFair.getUpdateQueue(edgeJigsawPiece.puzzle);
 
 #if SHAPE_COMPUTE_DEBUG
-        AFK_DEBUG_PRINTL("Computing edges at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE))
+     AFK_DEBUG_PRINTL("Computing edges at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE))
 #endif
 
-        edgeComputeQueue->append(cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
-            vapourAdjacency, edgeJigsawPiece);
-    }
+     edgeComputeQueue->append(cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
+         vapourAdjacency, edgeJigsawPiece);
 }
 
 #define SHAPE_DISPLAY_DEBUG 0
