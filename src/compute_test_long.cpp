@@ -32,13 +32,13 @@ void testComputeInternal(AFK_Computer *computer, cl_kernel kernel, unsigned int 
     computer->lock(ctxt, q);
 
     cl_mem src_a_b = clCreateBuffer(ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, size * sizeof(float), src_a_h, &error);
-    afk_handleClError(error);
+    AFK_HANDLE_CL_ERROR(error);
 
     cl_mem src_b_b = clCreateBuffer(ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, size * sizeof(float), src_b_h, &error);
-    afk_handleClError(error);
+    AFK_HANDLE_CL_ERROR(error);
     
     cl_mem res_b = clCreateBuffer(ctxt, CL_MEM_WRITE_ONLY, size * sizeof(float), NULL, &error);
-    afk_handleClError(error);
+    AFK_HANDLE_CL_ERROR(error);
 
     AFK_CLCHK(clSetKernelArg(kernel, 0, sizeof(cl_mem), &src_a_b))
     AFK_CLCHK(clSetKernelArg(kernel, 1, sizeof(cl_mem), &src_b_b))

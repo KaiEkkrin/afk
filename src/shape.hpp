@@ -13,11 +13,16 @@
 
 #include "3d_solid.hpp"
 #include "data/claimable.hpp"
+#include "data/evictable_cache.hpp"
 #include "data/fair.hpp"
 #include "data/frame.hpp"
 #include "entity_display_queue.hpp"
 #include "object.hpp"
 #include "jigsaw_collection.hpp"
+#include "shape_cell.hpp"
+#include "vapour_cell.hpp"
+#include "visible_cell.hpp"
+#include "work.hpp"
 
 enum AFK_ShapeArtworkState
 {
@@ -26,190 +31,106 @@ enum AFK_ShapeArtworkState
     AFK_SHAPE_HAS_ARTWORK
 };
 
-/* This describes one cube in a shape. */
-/* TODO: This wants moving.  Its data should go into the small
- * cached objects, ShapeCell.
+#ifndef AFK_SHAPE_CELL_CACHE
+#define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell>
+#endif
+
+#ifndef AFK_VAPOUR_CELL_CACHE
+#define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashKeyedCell>
+#endif
+
+/* This is the top level entity worker.  It makes sure that
+ * the top vapour cell has been made and then uses that to
+ * derive the list of top level shape cells and enqueue them
+ * (by generateShapeCells).
+ * You should enqueue it with the top level cell (0, 0, 0,
+ * SHAPE_CELL_MAX_DISTANCE).
  */
-class AFK_ShapeCube
-{
-public:
-    Vec4<float> location;
+bool afk_generateEntity(
+    unsigned int threadId,
+    const union AFK_WorldWorkParam& param,
+    AFK_WorldWorkQueue& queue);
 
-    /* This is where the 3D vapour numbers get computed.
-     * TODO: Right now it's long lived.  It's also going to
-     * be quite large.  Will I be wanting to make it more
-     * transient?  (I *am* going to want the vapour at
-     * some point to render directly, of course!)
-     */
-    AFK_JigsawPiece vapourJigsawPiece;
-    AFK_Frame vapourJigsawPieceTimestamp;
-
-    /* This is where the edge data has gone (for drawing the
-     * shape as a solid).
-     */
-    AFK_JigsawPiece edgeJigsawPiece;
-    AFK_Frame edgeJigsawPieceTimestamp;
-
-    AFK_ShapeCube(const Vec4<float>& _location);
-
-	friend std::ostream& operator<<(std::ostream& os, const AFK_ShapeCube& cube);
-};
-
-std::ostream& operator<<(std::ostream& os, const AFK_ShapeCube& cube);
-
-BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_ShapeCube>::value));
-BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_ShapeCube>::value));
-
-enum AFK_SkeletonFlag
-{
-    AFK_SKF_OUTSIDE_GRID,
-    AFK_SKF_CLEAR,
-    AFK_SKF_SET
-};
-
-/* This object describes, across a grid of theoretical cubes,
- * which cubes the skeleton is present in.
- * TODO: I need to think about this thing's relationship to the
- * new, LoD'd world of vapour cells and edge cells ...
+/* Queued into the world work queue, this function generates
+ * shape cells.
+ * It also makes sure that all intermediate vapour descriptors
+ * have been made as it goes down.
  */
-class AFK_SkeletonFlagGrid
+bool afk_generateShapeCells(
+    unsigned int threadId,
+    const union AFK_WorldWorkParam& param,
+    AFK_WorldWorkQueue& queue);
+
+/* This class has changed, and now describes all shapes.
+ * (It turned out that all information specific to single
+ * shapes ended up in ShapeCell and VapourCell.)
+ */
+class AFK_Shape
 {
 protected:
-    unsigned long long **grid;
-    int gridDim;
+    /* Possible return states for the below. */
+    enum CellRenderState
+    {
+        Enqueued,
+        NeedsResume,
+        Empty
+    };
+
+    /* Builds the vapour for a claimed shape cell.  Sorts out the
+     * vapour cell business.
+     * Only actually renders the vapour if `doRender' is set --
+     * otherwise, stops after the descriptor is done (enough for
+     * finer LoD vapour cells to be rendered.)
+     */
+    enum CellRenderState renderVapourCell(
+        unsigned int threadId,
+        unsigned int shapeKey,
+        AFK_ShapeCell& shapeCell,
+        bool doRender,
+        const struct AFK_WorldWorkParam::Shape& param,
+        AFK_WorldWorkQueue& queue);
+
+    /* Generates a claimed shape cell at its level of detail. */
+    enum CellRenderState generateClaimedShapeCell(
+        const AFK_VisibleCell& visibleCell,
+        AFK_ShapeCell& shapeCell,
+        enum AFK_ClaimStatus& claimStatus,
+        unsigned int threadId,
+        const struct AFK_WorldWorkParam::Shape& param,
+        AFK_WorldWorkQueue& queue);
+
+    /* TODO: Try to move the shape-dependent stuff out of
+     * `world' into here, so that I can stop sending along
+     * the world pointer.
+     * But that's a bit more of a long term cleanup task.
+     */
+    AFK_SHAPE_CELL_CACHE *shapeCellCache;
+    AFK_VAPOUR_CELL_CACHE *vapourCellCache;
 
 public:
-    AFK_SkeletonFlagGrid(int _gridDim);
-    virtual ~AFK_SkeletonFlagGrid();
-
-    /* Basic operations on the grid. */
-    enum AFK_SkeletonFlag testFlag(const Vec3<int>& cube) const;
-    void setFlag(const Vec3<int>& cube);
-    void clearFlag(const Vec3<int>& cube);
-};
-
-/* A Shape describes a single 3D shape, which
- * might be instanced many times by means of Entities.
- */
-class AFK_Shape: public AFK_Claimable
-{
-protected:
-    /* This grid of flags describes, for each point, whether the
-     * skeleton should include a cube there.
-     * It's x by y by (bitfield) z.
-     * TODO: With LoDs, I'm going to need several ...
-     */
-    AFK_SkeletonFlagGrid *cubeGrid;
-
-    /* These grids, which are in order biggest -> smallest,
-     * describe whether to create vapour features at the
-     * particular cubes in the grids.
-     * Each one's resolution is 2x as coarse along each axis
-     * as the next one.
-     */
-    std::vector<AFK_SkeletonFlagGrid *> pointGrids;
-
-    /* Recursively builds a skeleton, filling in the flag grid.
-     * The point co-ordinates include a scale co-ordinate; this isn't used to refer to
-     * grids, which are xyz only.
-     */
-    void makeSkeleton(
-        AFK_RNG& rng,
-        const AFK_ShapeSizes& sSizes,
-        Vec3<int> cube,
-        unsigned int *cubesLeft,
-        std::vector<Vec3<int> >& o_skeletonCubes,
-        std::vector<Vec4<int> >& o_skeletonPointCubes);
-
-    /* This is a little like the landscape tiles.
-     * TODO -- except, they're going away, because they are moving
-     * into ShapeCell in a cell-by-cell piecemeal manner to be composed
-     * at compute enqueue time a bit like the way the terrain is
-     * composed out of landscape tiles.
-     * TODO: In addition to this, when I have more than one cube,
-     * I'm going to have the whole skeletons business to think about!
-     * Parallelling the landscape tiles in the first instance so that
-     * I can get the basic thing working.
-     */
-    bool have3DDescriptor;
-    std::vector<AFK_3DVapourFeature> vapourFeatures;
-    std::vector<AFK_3DVapourCube> vapourCubes;
-
-    std::vector<AFK_ShapeCube> cubes;
-    AFK_JigsawCollection *vapourJigsaws;
-    AFK_JigsawCollection *edgeJigsaws;
-
-    /* TODO: Cube link-up and LoD.
-     * I think that rather than the above, I want to have a polymer
-     * backed cache here, caching the vapour piece (and edge pieces)
-     * by co-ordinate within the skeleton.
-     * Which means I'm going to want to divide the skeleton up into
-     * Cells (!) and do a whole lot of things that are similar to
-     * what I do with the World, w.r.t. level of detail, etc etc.
-     * I also observe that in the world I didn't do adjacency, which
-     * is hard, and maybe I should reverse my decision on that here
-     * too.  I can use a global space for edge claiming by faces,
-     * it's probably no big deal ...
-     * I need to go back through the way the world enumerator works
-     * and write this down on paper before proceeding.  I'm going
-     * to want a detail pitch for the cubes just like I have a detail
-     * pitch for world cells (no doubt something like
-     * [world]detailPitch / sSizes.skeletonMaxSize ) ...
-     */
-
-public:
-    AFK_Shape();
+    AFK_Shape(
+        const AFK_Config *config,
+        unsigned int shapeCacheSize);
     virtual ~AFK_Shape();
 
-    bool has3DDescriptor() const;
+    void updateWorld(void);
+    void printCacheStats(std::ostream& os, const std::string& prefix);
 
-    void make3DDescriptor(
-        unsigned int shapeKey,
-        const AFK_ShapeSizes& sSizes);
-
-    void build3DList(
-        AFK_3DList& list);
-
-    /* Fills out `o_cubes' with the cubes that
-     * need to be computed.
-     * TODO This would be faster/eat up less memory if it was
-     * in iterator format, right?  (but more mind bending to
-     * code :P )
-     */
-    void getCubesForCompute(
+    friend bool afk_generateEntity(
         unsigned int threadId,
-        int minVapourJigsaw,
-        int minEdgeJigsaw,
-        AFK_JigsawCollection *_vapourJigsaws,
-        AFK_JigsawCollection *_edgeJigsaws,
-        std::vector<AFK_ShapeCube>& o_cubes);
+        const union AFK_WorldWorkParam& param,
+        AFK_WorldWorkQueue& queue);
 
-    /* This function always returns AFK_SHAPE_PIECE_SWEPT if
-     * at least one piece has been swept.
-     * Call getCubesForCompute() and enqueue all the pieces
-     * that come back in the array for computation.
-     * TODO: This checks the edge jigsaws only.  For rendering
-     * the vapour directly we will need a different function.
-     */
-    enum AFK_ShapeArtworkState artworkState() const;
+    friend bool afk_generateVapourDescriptor(
+        unsigned int threadId,
+        const union AFK_WorldWorkParam& param,
+        AFK_WorldWorkQueue& queue);
 
-    /* Enqueues the display units for an entity of this shape.
-     * (Right now, this refers to enqueueing the *edge shapes*.
-     * A render of a vapour cube will require a different
-     * function!)
-     */
-    void enqueueDisplayUnits(
-        const AFK_Object& object,
-        AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const;
-
-    /* For handling claiming and eviction. */
-    virtual AFK_Frame getCurrentFrame(void) const;
-    virtual bool canBeEvicted(void) const;
-
-    friend std::ostream& operator<<(std::ostream& os, const AFK_Shape& shape);
+    friend bool afk_generateShapeCells(
+        unsigned int threadId,
+        const union AFK_WorldWorkParam& param,
+        AFK_WorldWorkQueue& queue);
 };
-
-std::ostream& operator<<(std::ostream& os, const AFK_Shape& shape);
 
 
 #endif /* _AFK_SHAPE_H_ */

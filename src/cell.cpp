@@ -81,6 +81,24 @@ unsigned int AFK_Cell::subdivide(AFK_Cell *subCells, const size_t subCellsSize, 
         subdivisionFactor);
 }
 
+void AFK_Cell::faceAdjacency(AFK_Cell *adjacency, const size_t adjacencySize) const
+{
+    if (adjacencySize != 6) throw AFK_Exception("Bad face adjacency");
+
+    adjacency[0] = afk_cell(afk_vec4<long long>(
+        coord.v[0], coord.v[1] - coord.v[3], coord.v[2], coord.v[3]));
+    adjacency[1] = afk_cell(afk_vec4<long long>(
+        coord.v[0] - coord.v[3], coord.v[1], coord.v[2], coord.v[3]));
+    adjacency[2] = afk_cell(afk_vec4<long long>(
+        coord.v[0], coord.v[1], coord.v[2] - coord.v[3], coord.v[3]));
+    adjacency[3] = afk_cell(afk_vec4<long long>(
+        coord.v[0], coord.v[1], coord.v[2] + coord.v[3], coord.v[3]));
+    adjacency[4] = afk_cell(afk_vec4<long long>(
+        coord.v[0] + coord.v[3], coord.v[1], coord.v[2], coord.v[3]));
+    adjacency[5] = afk_cell(afk_vec4<long long>(
+        coord.v[0], coord.v[1] + coord.v[3], coord.v[2], coord.v[3]));
+}
+
 AFK_Cell AFK_Cell::parent(unsigned int subdivisionFactor) const
 {
     long long parentCellScale = coord.v[3] * subdivisionFactor;
@@ -108,6 +126,13 @@ bool AFK_Cell::isParent(const AFK_Cell& parent) const
 
 Vec4<float> AFK_Cell::toWorldSpace(float worldScale) const
 {
+    /* TODO The divide by MIN_CELL_PITCH here is ghastly
+     * and wrong.
+     * However, if I remove it, I get lots of holes in the
+     * landscape, for reasons I don't really understand
+     * (if I widen the scope of testVisibility(),
+     * the problem remains).
+     */
     return afk_vec4<float>(
         (float)coord.v[0] * worldScale / MIN_CELL_PITCH,
         (float)coord.v[1] * worldScale / MIN_CELL_PITCH,

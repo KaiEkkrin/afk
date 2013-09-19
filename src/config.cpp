@@ -74,10 +74,10 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     shape_pointSubdivisionFactor        = 6;
     shape_skeletonMaxSize               = 24;
     shape_skeletonFlagGridDim           = 12;
-    shape_edgeThreshold                 = 0.001f;
+    shape_edgeThreshold                 = 0.0001f;
 
     maxEntitiesPerCell          = 4;
-    entitySparseness            = 512;
+    entitySparseness            = 1024;
     
 
     /* Some hand rolled command line parsing, because it's not very

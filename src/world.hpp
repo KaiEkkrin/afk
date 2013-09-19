@@ -43,10 +43,7 @@
 
 class AFK_LandscapeDisplayQueue;
 class AFK_LandscapeTile;
-class AFK_World;
 
-
-typedef AFK_WorkQueue<union AFK_WorldWorkParam, bool> AFK_WorldWorkQueue;
 
 /* This is the cell generating worker function */
 bool afk_generateWorldCells(
@@ -88,8 +85,18 @@ protected:
     boost::atomic<unsigned long long> tilesRecomputedAfterSweep;
     boost::atomic<unsigned long long> entitiesQueued;
     boost::atomic<unsigned long long> entitiesMoved;
-    boost::atomic<unsigned long long> shapesComputed;
-    boost::atomic<unsigned long long> shapesRecomputedAfterSweep;
+
+    /* These ones are updated by the shape worker. */
+    boost::atomic<unsigned long long> shapeCellsInvisible;
+    boost::atomic<unsigned long long> shapeCellsResumed;
+    boost::atomic<unsigned long long> shapeVapoursComputed;
+    boost::atomic<unsigned long long> shapeEdgesComputed;
+
+    /* ... and this by that little vapour descriptor worker */
+    boost::atomic<unsigned long long> separateVapoursComputed;
+
+    /* Concurrency stats */
+    boost::atomic<unsigned long long> dependenciesFollowed;
     boost::atomic<unsigned long long> threadEscapes;
 
     /* Landscape shader details. */
@@ -138,6 +145,13 @@ protected:
     GLuint landscapeTileArray;
     AFK_TerrainBaseTile *landscapeTerrainBase;
 
+    /* This describes the entity shapes.
+     * TODO -- as written in `shape' itself -- move the
+     * below into its purview, cleaning the World up and
+     * making everything make a bit more sense.
+     */
+    AFK_Shape shape;
+
     /* The entity render fair -- a queue of Entities to
      * display onscreen.
      */
@@ -146,17 +160,6 @@ protected:
     /* These jigsaws form the computed shape artwork. */
     AFK_JigsawCollection *vapourJigsaws;
     AFK_JigsawCollection *edgeJigsaws;
-
-    /* The cache of shapes we're tracking.
-     * (It was kind of inevitable, wasn't it? :) )
-     * TODO: I need some sane kind of way of indexing shapes.
-     * Right now I'm just going to give them an integer label.
-     */
-#ifndef AFK_SHAPE_CACHE
-#define AFK_SHAPE_CACHE AFK_EvictableCache<unsigned int, AFK_Shape, boost::hash<unsigned int> >
-#endif
-    AFK_SHAPE_CACHE *shapeCache;
-    unsigned int shapeCacheEntries;
 
     /* For when I'm making new shapes, the vapour and edge
      * computation fairs.
@@ -173,13 +176,6 @@ protected:
 
     /* Cell generation worker delegates. */
 
-    /* Combines two jigsaw numbers into a single number for the
-     * fair, and splits them again.  Assumes the numbers will
-     * be small.
-     */
-    int combineTwoPuzzleFairQueue(int puzzle1, int puzzle2) const;
-    void splitTwoPuzzleFairQueue(int queue, int& o_puzzle1, int& o_puzzle2) const;
-
     /* Makes sure a landscape tile has a terrain descriptor,
      * and checks if its geometry needs generating.
      * Returns true if this thread is to generate the tile's
@@ -190,21 +186,10 @@ protected:
         AFK_LandscapeTile& landscapeTile,
         bool display);
 
-    /* The same idea for shapes. */
-    bool checkClaimedShape(
-        unsigned int shapeKey,
-        AFK_Shape& shape);
-
     /* Generates a landscape tile's geometry. */
     void generateLandscapeArtwork(
         const AFK_Tile& tile,
         AFK_LandscapeTile& landscapeTile,
-        unsigned int threadId);
-
-    /* Likewise. */
-    void generateShapeArtwork(
-        unsigned int shapeKey,
-        AFK_Shape& shape,
         unsigned int threadId);
 
     /* Makes one starting entity for a world cell, including generating
@@ -220,7 +205,7 @@ protected:
     bool generateClaimedWorldCell(
         AFK_WorldCell& worldCell,
         unsigned int threadId,
-        struct AFK_WorldCellGenParam param,
+        const struct AFK_WorldWorkParam::World& param,
         AFK_WorldWorkQueue& queue);
 
 public:
@@ -307,6 +292,24 @@ public:
     void checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint);
 
     void printCacheStats(std::ostream& ss, const std::string& prefix);
+    void printJigsawStats(std::ostream& ss, const std::string& prefix);
+
+    friend class AFK_Shape;
+
+    friend bool afk_generateEntity(
+        unsigned int threadId,
+        const union AFK_WorldWorkParam& param,
+        AFK_WorldWorkQueue& queue);
+
+    friend bool afk_generateVapourDescriptor(
+        unsigned int threadId,
+        const union AFK_WorldWorkParam& param,
+        AFK_WorldWorkQueue& queue);
+
+    friend bool afk_generateShapeCells(
+        unsigned int threadId,
+        const union AFK_WorldWorkParam& param,
+        AFK_WorldWorkQueue& queue);
 
     friend bool afk_generateWorldCells(
         unsigned int threadId,

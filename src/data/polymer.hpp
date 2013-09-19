@@ -145,7 +145,7 @@ public:
     {
         AFK_Monomer<KeyType, ValueType> *expected = NULL;
         size_t offset = chainOffset(hops, baseHash);
-        return chain[offset].compare_exchange_weak(expected, monomer);
+        return chain[offset].compare_exchange_strong(expected, monomer);
     }
 
     /* Erases a monomer from a specific place.
@@ -262,7 +262,7 @@ public:
         }
         else
         {
-            return chain[slot].compare_exchange_weak(monomer, NULL);
+            return chain[slot].compare_exchange_strong(monomer, NULL);
         }
     }
 
@@ -279,7 +279,7 @@ public:
         else
         {
             AFK_Monomer<KeyType, ValueType> *expected = NULL;
-            return chain[slot].compare_exchange_weak(expected, monomer);
+            return chain[slot].compare_exchange_strong(expected, monomer);
         }
     }
 };

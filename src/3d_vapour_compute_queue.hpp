@@ -12,10 +12,10 @@
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
+#include "3d_solid.hpp"
 #include "computer.hpp"
 #include "def.hpp"
-#include "jigsaw.hpp"
-#include "shape.hpp"
+#include "jigsaw_collection.hpp"
 #include "shape_sizes.hpp"
 
 /* This module marshals 3D object compute data through the
@@ -76,29 +76,32 @@ public:
     AFK_3DVapourComputeQueue();
     virtual ~AFK_3DVapourComputeQueue();
 
-    /* Pushes a 3DList into the queue and makes a Unit for it
-     * (which goes in too).
+    /* Pushes a 3DList into the queue and fills out the
+     * `cubeOffset' and `cubeCount' parameters, which are
+     * needed to push in a compute unit.
+     * (You'll want several compute units to share the same
+     * offsets, I'm sure.)
      */
-    AFK_3DVapourComputeUnit extend(
+    void extend(
         const AFK_3DList& list,
+        unsigned int& o_cubeOffset,
+        unsigned int& o_cubeCount);
+
+    /* Pushes a new compute unit into the queue using the
+     * offsets you got earlier.
+     * (And returns it.)
+     */
+    AFK_3DVapourComputeUnit addUnit(
         const Vec4<float>& location,
         const AFK_JigsawPiece& vapourJigsawPiece,
-        const AFK_ShapeSizes& sSizes);
+        unsigned int cubeOffset,
+        unsigned int cubeCount);
 
-    /* Makes a new compute unit based on an existing one
-     * (so that I can re-use the offsets rather than having
-     * to push the same data back into the queue).
-     */
-    AFK_3DVapourComputeUnit addUnitFromExisting(
-        const AFK_3DVapourComputeUnit& existingUnit,
-        const Vec4<float>& location,
-        const AFK_JigsawPiece& vapourJigsawPiece);
-
-    /* Starts computing this vapour.
+    /* Starts computing the vapour.
      */
     void computeStart(
         AFK_Computer *computer,
-        AFK_Jigsaw *vapourJigsaw,
+        AFK_JigsawCollection *vapourJigsaws,
         const AFK_ShapeSizes& sSizes);
     void computeFinish(void);
 

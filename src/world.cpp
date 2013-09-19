@@ -13,8 +13,9 @@
 #include "world.hpp"
 
 
-#define PRINT_CHECKPOINTS 1
+#define PRINT_CHECKPOINTS 0
 #define PRINT_CACHE_STATS 0
+#define PRINT_JIGSAW_STATS 1
 
 #define PROTAGONIST_CELL_DEBUG 0
 
@@ -50,7 +51,8 @@ bool afk_generateWorldCells(
      * I won't do a recursive search.
      */
     if (worldCell.claimYieldLoop(threadId,
-        (renderTerrain || resume) ? AFK_CLT_NONEXCLUSIVE : AFK_CLT_EXCLUSIVE) == AFK_CL_CLAIMED)
+        (renderTerrain || resume) ? AFK_CLT_NONEXCLUSIVE : AFK_CLT_EXCLUSIVE,
+        afk_core.computingFrame) == AFK_CL_CLAIMED)
     {
         /* This releases the world cell itself when it's done
          * (which isn't at the end of its processing).
@@ -62,18 +64,10 @@ bool afk_generateWorldCells(
     /* If this cell had a dependency ... */
     if (param.world.dependency)
     {
-        if (param.world.dependency->count.fetch_sub(1) == 1)
+        if (param.world.dependency->check(queue))
         {
-            /* That dependency is complete.  Enqueue the final cell
-             * and delete it.
-             */
-            AFK_WorldWorkQueue::WorkItem finalItem;
-            finalItem.func = afk_generateWorldCells;
-            finalItem.param.world = *(param.world.dependency->finalCell);
-            queue.push(finalItem);
-
-            delete param.world.dependency->finalCell;
-            delete param.world.dependency;
+            world->dependenciesFollowed.fetch_add(1);
+               delete param.world.dependency;
         }
     }
 
@@ -126,38 +120,6 @@ bool AFK_World::checkClaimedLandscapeTile(
             throw AFK_Exception(ss.str());
         }
     }
-    return needsArtwork;
-}
-
-bool AFK_World::checkClaimedShape(
-    unsigned int shapeKey,
-    AFK_Shape& shape)
-{
-    shape.make3DDescriptor(shapeKey, sSizes);
-
-    bool needsArtwork = false;
-    enum AFK_ShapeArtworkState artworkState = shape.artworkState();
-    switch (artworkState)
-    {
-    case AFK_SHAPE_NO_PIECE_ASSIGNED:
-        needsArtwork = true;
-        break;
-
-    case AFK_SHAPE_PIECE_SWEPT:
-        shapesRecomputedAfterSweep.fetch_add(1);
-        needsArtwork = true;
-        break;
-
-    case AFK_SHAPE_HAS_ARTWORK:
-        needsArtwork = false;
-        break;
-
-    default:
-        std::ostringstream ss;
-        ss << "Unrecognised shape artwork state: " << artworkState;
-        throw AFK_Exception(ss.str());
-    }
-
     return needsArtwork;
 }
 
@@ -218,131 +180,22 @@ void AFK_World::generateLandscapeArtwork(
     tilesComputed.fetch_add(1);
 }
 
-void AFK_World::generateShapeArtwork(
-    unsigned int shapeKey,
-    AFK_Shape& shape,
-    unsigned int threadId)
-{
-    AFK_3DList shapeList;
-    shape.build3DList(shapeList);
-
-    /* Enumerate the cubes that we need to compute ...
-     * TODO: For ephemeral shapes: bump minEdgeJigsaw.
-     * For all shapes whose vapour isn't going to be rendered:
-     * bump minVapourJigsaw.
-     */
-    std::vector<AFK_ShapeCube> cubesForCompute;
-    shape.getCubesForCompute(threadId, 0, 0, vapourJigsaws, edgeJigsaws, cubesForCompute);
-
-    AFK_3DVapourComputeUnit cu;
-    int lastVapourPuzzle = -1;
-    int lastEdgePuzzle = -1;
-
-    /* I can make the assumption here that all cubes in the same
-     * batch share the same vapour and edge jigsaws.
-     * However, since their numbers won't always be the same,
-     * I'm going to do a cunning trick here to combine tracking
-     * a separate edge and vapour jigsaw puzzle number within the
-     * single number given to the queue in the fair.
-     */
-    for (std::vector<AFK_ShapeCube>::iterator cubeIt = cubesForCompute.begin();
-        cubeIt != cubesForCompute.end(); ++cubeIt)
-    {
-        int vapourPuzzle = cubeIt->vapourJigsawPiece.puzzle;
-        int edgePuzzle = cubeIt->edgeJigsawPiece.puzzle;
-
-        /* Right now, there is a one-to-one mapping between
-         * vapour cube and edge set.
-         * This may change (which would muddle this logic all up)
-         */
-        boost::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
-            vapourComputeFair.getUpdateQueue(vapourPuzzle);
-
-        if (cu.uninitialised() || lastVapourPuzzle != vapourPuzzle || lastEdgePuzzle != edgePuzzle)
-        {
-            if (lastVapourPuzzle != -1)
-            {
-                /* This is a bug. */
-                std::ostringstream ss;
-                ss << "Vapour puzzle discrepancy: " << lastVapourPuzzle << " then " << vapourPuzzle;
-                throw AFK_Exception(ss.str());
-            }
-
-            if (lastEdgePuzzle != -1)
-            {
-                /* This is also a bug. */
-                std::ostringstream ss;
-                ss << "Edge puzzle discrepancy: " << lastEdgePuzzle << " then " << edgePuzzle;
-                throw AFK_Exception(ss.str());
-            }
-
-            /* Extend the vapour compute queue with this cube. */
-            cu = vapourComputeQueue->extend(shapeList, cubeIt->location, cubeIt->vapourJigsawPiece, sSizes);
-            lastVapourPuzzle = vapourPuzzle;
-            lastEdgePuzzle = edgePuzzle;
-        }
-        else
-        {
-            /* Add a new Unit for this cube, re-using the list. */
-            cu = vapourComputeQueue->addUnitFromExisting(cu, cubeIt->location, cubeIt->vapourJigsawPiece);
-        }
-
-        boost::shared_ptr<AFK_3DEdgeComputeQueue> edgeComputeQueue =
-            edgeComputeFair.getUpdateQueue(afk_combineTwoPuzzleFairQueue(vapourPuzzle, edgePuzzle));
-
-        edgeComputeQueue->append(cubeIt->location, cubeIt->vapourJigsawPiece, cubeIt->edgeJigsawPiece);
-    }
-
-    shapesComputed.fetch_add(1);
-}
-
 void AFK_World::generateStartingEntity(
     unsigned int shapeKey,
     AFK_WorldCell& worldCell,
     unsigned int threadId,
     AFK_RNG& rng)
 {
-    AFK_Shape& shape = (*shapeCache)[shapeKey];
-    AFK_ClaimStatus shapeClaimStatus = shape.claimYieldLoop(
-        threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
-
-    /* Figure out whether I need to generate its artwork. */
-    bool generateArtwork = false;
-    if (!shape.has3DDescriptor() || shape.artworkState() != AFK_SHAPE_HAS_ARTWORK)
-    {
-        /* Try to upgrade our claim to the shape. */
-        if (shapeClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
-            shapeClaimStatus = shape.upgrade(threadId, shapeClaimStatus);
-
-        if (shapeClaimStatus == AFK_CL_CLAIMED)
-        {
-            generateArtwork = checkClaimedShape(shapeKey, shape);
-        }
-        else
-        {
-            /* TODO: I should be able to count on that shape getting
-             * generated in time to be used.  I'm not going to try to
-             * resume anything.
-             * Let's see what happens.
-             */
-        }
-    }
-
-    if (generateArtwork)
-        generateShapeArtwork(shapeKey, shape, threadId);
-
-    shape.release(threadId, shapeClaimStatus);
-
-    /* Having done all of that, I should be able to foist this
-     * shape upon the world cell.
+    /* I don't need to initialise it here.  We'll come to that when
+     * we try to draw it
      */
-    worldCell.addStartingEntity(&shape, sSizes, rng);
+    worldCell.addStartingEntity(shapeKey, sSizes, rng);
 }
 
 bool AFK_World::generateClaimedWorldCell(
     AFK_WorldCell& worldCell,
     unsigned int threadId,
-    struct AFK_WorldCellGenParam param,
+    const struct AFK_WorldWorkParam::World& param,
     AFK_WorldWorkQueue& queue)
 {
     const AFK_Cell& cell                = param.cell;
@@ -389,7 +242,7 @@ bool AFK_World::generateClaimedWorldCell(
          */
         AFK_LandscapeTile& landscapeTile = (*landscapeCache)[tile];
         AFK_ClaimStatus landscapeClaimStatus = landscapeTile.claimYieldLoop(
-            threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+            threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
 
         bool generateArtwork = false;
         if (!landscapeTile.hasTerrainDescriptor() ||
@@ -418,6 +271,8 @@ bool AFK_World::generateClaimedWorldCell(
                 resumeItem.func = afk_generateWorldCells;
                 resumeItem.param.world = param;
                 resumeItem.param.world.flags |= AFK_WCG_FLAG_RESUME;
+
+                if (param.dependency) param.dependency->retain();
                 queue.push(resumeItem);
                 tilesResumed.fetch_add(1);
             }
@@ -443,7 +298,7 @@ bool AFK_World::generateClaimedWorldCell(
                  * because the cell is entirely outside the y bounds.
                  */
                 landscapeClaimStatus = landscapeTile.claimYieldLoop(
-                    threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+                    threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
                 AFK_JigsawPiece jigsawPiece;
                 AFK_LandscapeDisplayUnit unit;
                 bool displayThisTile = landscapeTile.makeDisplayUnit(cell, minCellSize, jigsawPiece, unit);
@@ -503,17 +358,17 @@ bool AFK_World::generateClaimedWorldCell(
             }
         }
 
-		/* TODO: Temporarily disabling entities, so that I can check
-	 	 * that the refactored 3D-supporting jigsaw is still OK with
-		 * the terrain.
-		 */
+        /* TODO: Temporarily disabling entities, so that I can check
+          * that the refactored 3D-supporting jigsaw is still OK with
+         * the terrain.
+         */
         AFK_ENTITY_LIST::iterator eIt = worldCell.entitiesBegin();
         while (eIt != worldCell.entitiesEnd())
         {
             AFK_Entity *e = *eIt;
             AFK_ENTITY_LIST::iterator nextEIt = eIt;
             bool updatedEIt = false;
-            if (e->claimYieldLoop(threadId, AFK_CLT_EXCLUSIVE) == AFK_CL_CLAIMED)
+            if (e->claimYieldLoop(threadId, AFK_CLT_EXCLUSIVE, afk_core.computingFrame) == AFK_CL_CLAIMED)
             {
                 /* TODO: Movement wants to move into OpenCL.
                  * I don't want to perpetuate the below.
@@ -572,7 +427,21 @@ bool AFK_World::generateClaimedWorldCell(
                  * too.  Rah!
                  */
 #endif
-                e->enqueueDisplayUnits(entityDisplayFair);
+                /* Now, make sure everything I need in that shape
+                 * has been computed ...
+                 */
+                AFK_WorldWorkQueue::WorkItem shapeCellItem;
+                shapeCellItem.func                          = afk_generateEntity;
+                shapeCellItem.param.shape.cell              = afk_keyedCell(afk_vec4<long long>(
+                                                                0, 0, 0, SHAPE_CELL_MAX_DISTANCE), e->getShapeKey());
+                shapeCellItem.param.shape.entity            = e;
+                shapeCellItem.param.shape.world             = this;               
+                shapeCellItem.param.shape.viewerLocation    = viewerLocation;
+                shapeCellItem.param.shape.camera            = camera;
+                shapeCellItem.param.shape.flags             = 0;
+                shapeCellItem.param.shape.dependency        = NULL;
+                queue.push(shapeCellItem);
+
                 entitiesQueued.fetch_add(1);
 
                 e->release(threadId, AFK_CL_CLAIMED);
@@ -602,30 +471,21 @@ bool AFK_World::generateClaimedWorldCell(
             size_t subcellsSize = CUBE(subdivisionFactor);
             AFK_Cell *subcells = new AFK_Cell[subcellsSize]; /* TODO avoid heap thrashing somehow.  Maybe make it an iterator */
             unsigned int subcellsCount = cell.subdivide(subcells, subcellsSize, subdivisionFactor);
+            assert(subcellsCount == subcellsSize);
 
-            if (subcellsCount == subcellsSize)
+            for (unsigned int i = 0; i < subcellsCount; ++i)
             {
-                for (unsigned int i = 0; i < subcellsCount; ++i)
-                {
-                    AFK_WorldWorkQueue::WorkItem subcellItem;
-                    subcellItem.func                     = afk_generateWorldCells;
-                    subcellItem.param.world.cell         = subcells[i];
-                    subcellItem.param.world.world        = param.world;
-                    subcellItem.param.world.viewerLocation = viewerLocation;
-                    subcellItem.param.world.camera       = camera;
-                    subcellItem.param.world.flags        = (allVisible ? AFK_WCG_FLAG_ENTIRELY_VISIBLE : 0);
-                    subcellItem.param.world.dependency   = NULL;
-                    queue.push(subcellItem);
-                }
+                AFK_WorldWorkQueue::WorkItem subcellItem;
+                subcellItem.func                     = afk_generateWorldCells;
+                subcellItem.param.world.cell         = subcells[i];
+                subcellItem.param.world.world        = param.world;
+                subcellItem.param.world.viewerLocation = viewerLocation;
+                subcellItem.param.world.camera       = camera;
+                subcellItem.param.world.flags        = (allVisible ? AFK_WCG_FLAG_ENTIRELY_VISIBLE : 0);
+                subcellItem.param.world.dependency   = NULL;
+                queue.push(subcellItem);
             }
-            else
-            {
-                /* That's clearly a bug :P */
-                std::ostringstream ss;
-                ss << "Cell " << cell << " subdivided into " << subcellsCount << " not " << subcellsSize;
-                throw AFK_Exception(ss.str());
-            }
-        
+
             delete[] subcells;
         }
     }
@@ -651,6 +511,7 @@ AFK_World::AFK_World(
         maxDetailPitch              (config->maxDetailPitch),
         detailPitch                 (config->startingDetailPitch), /* This is a starting point */
         averageDetailPitch          (config->framesPerCalibration, config->startingDetailPitch),
+        shape                       (config, shapeCacheSize),
         maxDistance                 (_maxDistance),
         subdivisionFactor           (config->subdivisionFactor),
         minCellSize                 (config->minCellSize),
@@ -708,9 +569,9 @@ AFK_World::AFK_World(
     worldCache = new AFK_WORLD_CACHE(
         worldCacheBitness, 8, AFK_HashCell(), worldCacheEntries, 0xfffffffeu);
 
-    unsigned int shapeCacheEntries = shapeCacheSize / (12 * SQUARE(sSizes.eDim) * 6 + CUBE(sSizes.vDim));
+    unsigned int shapeCacheEntries = shapeCacheSize / (32 * SQUARE(sSizes.eDim) * 6 + 16 * CUBE(sSizes.tDim));
 
-    Vec3<int> vapourPieceSize = afk_vec3<int>(sSizes.vDim, sSizes.vDim, sSizes.vDim);
+    Vec3<int> vapourPieceSize = afk_vec3<int>(sSizes.tDim, sSizes.tDim, sSizes.tDim);
     enum AFK_JigsawFormat vapourTexFormat = AFK_JIGSAW_4FLOAT32;
     vapourJigsaws = new AFK_JigsawCollection(
         ctxt,
@@ -756,12 +617,6 @@ AFK_World::AFK_World(
         config->concurrency,
         false);
 
-    shapeCacheEntries = edgeJigsaws->getPieceCount();
-    unsigned int shapeCacheBitness = afk_suggestCacheBitness(shapeCacheEntries);
-
-    shapeCache = new AFK_SHAPE_CACHE(
-        shapeCacheBitness, 8, boost::hash<unsigned int>(), shapeCacheEntries / 2, 0xfffffffdu); 
-
     genGang = new AFK_AsyncGang<union AFK_WorldWorkParam, bool>(
         100, config->concurrency);
 
@@ -805,8 +660,10 @@ AFK_World::AFK_World(
     tilesRecomputedAfterSweep.store(0);
     entitiesQueued.store(0);
     entitiesMoved.store(0);
-    shapesComputed.store(0);
-    shapesRecomputedAfterSweep.store(0);
+    shapeCellsInvisible.store(0);
+    shapeCellsResumed.store(0);
+    shapeVapoursComputed.store(0);
+    shapeEdgesComputed.store(0);
     threadEscapes.store(0);
 }
 
@@ -824,7 +681,6 @@ AFK_World::~AFK_World()
 
     if (edgeJigsaws) delete edgeJigsaws;
     if (vapourJigsaws) delete vapourJigsaws;
-    delete shapeCache;
 
     delete landscape_shaderProgram;
     delete landscape_shaderLight;
@@ -896,7 +752,7 @@ boost::unique_future<bool> AFK_World::updateWorld(void)
     /* Maintenance. */
     landscapeCache->doEvictionIfNecessary();
     worldCache->doEvictionIfNecessary();
-    shapeCache->doEvictionIfNecessary();
+    shape.updateWorld();
 
     /* First, transform the protagonist location and its facing
      * into integer cell-space.
@@ -965,24 +821,19 @@ void AFK_World::doComputeTasks(void)
 
     std::vector<boost::shared_ptr<AFK_3DVapourComputeQueue> > vapourComputeQueues;
     vapourComputeFair.getDrawQueues(vapourComputeQueues);
-
-    for (unsigned int puzzle = 0; puzzle < vapourComputeQueues.size(); ++puzzle)
-    {
-        vapourComputeQueues[puzzle]->computeStart(afk_core.computer, vapourJigsaws->getPuzzle(puzzle), sSizes);
-    }
+    assert(vapourComputeQueues.size() <= 1);
+    if (vapourComputeQueues.size() == 1)
+        vapourComputeQueues[0]->computeStart(afk_core.computer, vapourJigsaws, sSizes);
 
     std::vector<boost::shared_ptr<AFK_3DEdgeComputeQueue> > edgeComputeQueues;
     edgeComputeFair.getDrawQueues(edgeComputeQueues);
 
-    for (unsigned int queue = 0; queue < edgeComputeQueues.size(); ++queue)
+    for (unsigned int puzzle = 0; puzzle < edgeComputeQueues.size(); ++puzzle)
     {
-        int vapourPuzzle, edgePuzzle;
-        afk_splitTwoPuzzleFairQueue(queue, vapourPuzzle, edgePuzzle);
-
-        edgeComputeQueues[queue]->computeStart(
+        edgeComputeQueues[puzzle]->computeStart(
             afk_core.computer,
-            vapourJigsaws->getPuzzle(vapourPuzzle),
-            edgeJigsaws->getPuzzle(edgePuzzle),
+            vapourJigsaws,
+            edgeJigsaws->getPuzzle(puzzle),
             sSizes);
     }
 
@@ -995,14 +846,12 @@ void AFK_World::doComputeTasks(void)
         terrainComputeQueues[puzzle]->computeFinish();
     }
 
-    for (unsigned int puzzle = 0; puzzle < vapourComputeQueues.size(); ++puzzle)
-    {
-        vapourComputeQueues[puzzle]->computeFinish();
-    }
+    if (vapourComputeQueues.size() == 1)
+        vapourComputeQueues[0]->computeFinish();
 
-    for (unsigned int queue = 0; queue < edgeComputeQueues.size(); ++queue)
+    for (unsigned int puzzle = 0; puzzle < edgeComputeQueues.size(); ++puzzle)
     {
-        edgeComputeQueues[queue]->computeFinish();
+        edgeComputeQueues[puzzle]->computeFinish();
     }
 }
 
@@ -1059,8 +908,7 @@ static float toRatePerSecond(unsigned long long quantity, boost::posix_time::tim
     return (float)quantity * 1000.0f / (float)interval.total_milliseconds();
 }
 
-#define PRINT_RATE_AND_RESET(s, v) std::cout << s << toRatePerSecond((v).load(), timeSinceLastCheckpoint) << "/second" << std::endl; \
-    (v).store(0);
+#define PRINT_RATE_AND_RESET(s, v) std::cout << s << toRatePerSecond((v).exchange(0), timeSinceLastCheckpoint) << "/second" << std::endl;
 #endif
 
 void AFK_World::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint)
@@ -1074,8 +922,12 @@ void AFK_World::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckp
     PRINT_RATE_AND_RESET("Tiles recomputed after sweep: ", tilesRecomputedAfterSweep)
     PRINT_RATE_AND_RESET("Entities queued:              ", entitiesQueued)
     PRINT_RATE_AND_RESET("Entities moved:               ", entitiesMoved)
-    PRINT_RATE_AND_RESET("Shapes computed:              ", shapesComputed)
-    PRINT_RATE_AND_RESET("Shapes recomputed after sweep:", shapesRecomputedAfterSweep)
+    PRINT_RATE_AND_RESET("Shape cells found invisible:  ", shapeCellsInvisible)
+    PRINT_RATE_AND_RESET("Shape cells resumed:          ", shapeCellsResumed)
+    PRINT_RATE_AND_RESET("Shape vapours computed:       ", shapeVapoursComputed)
+    PRINT_RATE_AND_RESET("Shape edges computed:         ", shapeEdgesComputed)
+    PRINT_RATE_AND_RESET("Separate vapours computed:    ", separateVapoursComputed)
+    PRINT_RATE_AND_RESET("Dependencies followed:        ", dependenciesFollowed)
     std::cout <<         "Cumulative thread escapes:    " << threadEscapes.load() << std::endl;
 #endif
 }
@@ -1085,7 +937,16 @@ void AFK_World::printCacheStats(std::ostream& ss, const std::string& prefix)
 #if PRINT_CACHE_STATS
     worldCache->printStats(ss, "World cache");
     landscapeCache->printStats(ss, "Landscape cache");
-    shapeCache->printStats(ss, "Shape cache");
+    shape.printCacheStats(ss, prefix);
+#endif
+}
+
+void AFK_World::printJigsawStats(std::ostream& ss, const std::string& prefix)
+{
+#if PRINT_JIGSAW_STATS
+    landscapeJigsaws->printStats(ss, "Landscape");
+    vapourJigsaws->printStats(ss, "Vapour");
+    edgeJigsaws->printStats(ss, "Edge");
 #endif
 }
 

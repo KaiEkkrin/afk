@@ -44,7 +44,7 @@ int2 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
 
 int4 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
 {
-    return pieceCoord * VDIM + pointCoord;
+    return pieceCoord * TDIM + pointCoord;
 }
 
 #endif /* AFK_FAKE3D */
@@ -54,9 +54,9 @@ int4 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
  */
 
 /* This kernel should run across:
- * (0..VDIM) * unitCount,
- * (0..VDIM),
- * (0..VDIM).
+ * (0..TDIM) * unitCount,
+ * (0..TDIM),
+ * (0..TDIM).
  */
 
 /* TODO: The feature should get bigger, in order to
@@ -110,7 +110,7 @@ void compute3DVapourFeature(
         (float)features[i].f[AFK_3DVF_G],
         (float)features[i].f[AFK_3DVF_B]) / 256.0f;
 
-    float weight = (float)features[i].f[AFK_3DVF_WEIGHT] / 256.0f;
+    float weight = ((float)features[i].f[AFK_3DVF_WEIGHT] - 128.0f) / 128.0f;
 
     /* If this point is within the feature radius... */
     float dist = distance(location, vl);
@@ -131,6 +131,8 @@ struct AFK_3DVapourCube
     float4 coord; /* x, y, z, scale */
 };
 
+__constant float reboundPoint = 100.0f;
+
 void transformLocationToLocation(
     float3 *vl,
     float4 *vc,
@@ -139,10 +141,56 @@ void transformLocationToLocation(
 {
     *vl = (*vl * fromCoord.w + fromCoord.xyz - toCoord.xyz) / toCoord.w;
 
-    /* TODO Is this the right thing to do with the density?
-     * I may end up strongly following the smallest LoD and ignoring the rest.
+    /* If I don't weight the geometry, the finer detail dominates and
+     * everything disappears.
+     * However, weighting the colours causes everything to wash out
+     * to white.
+     * (Is there a fix to this, around understanding what a proper
+     * value for `edgeThreshold' ought to be and how it should depend
+     * on the LoD?)
      */
-    //*vc = *vc * fromCoord.w / toCoord.w;
+    /*
+    *vc = (float4)(
+        (*vc).xyz,
+        (*vc).w * fromCoord.w / toCoord.w);
+     */
+
+    /* This one (and thresholding to something very small in shape_3dedge)
+     * appears to work better:
+     */
+    /*
+    *vc = (float4)(
+        (*vc).xyz,
+        (*vc).w - (float)THRESHOLD);
+     */
+
+    /* I'm going to refine this to try to avoid large areas of high
+     * density vapour solid (which makes for boring/nonexistent geometry)
+     * by trying to "rebound" the vapour from some point a bit
+     * higher than the threshold:
+     * TODO: I'm going to have a problem of suitably scaling up the finer
+     * levels of detail here so that they actually have an effect, and no
+     * doubt want to move that "normalize" so that it's applied to each
+     * LoD separately, but I'll test it like this for now.
+     */
+
+    /* First, normalize the density so that the "threshold" value is 1 */
+    float density = max((*vc).w / (float)THRESHOLD, 0.0f);
+
+    /* Next, get a value that's between 0 and a "rebound point" */
+    float densityMod = fmod(density, reboundPoint);
+
+    /* Finally, invert that modulus density if `density' goes into the
+     * rebound divisor an odd number of times: that should give me a
+     * smooth "rebound" effect rather than instantly resetting the modulus
+     * density to 0 whenever it passes the upper line
+     */
+    if (trunc(fmod(density / reboundPoint, reboundPoint)) != 0.0f)
+        densityMod = reboundPoint - densityMod;
+
+    *vc = (float4)(
+        (*vc).xyz,
+        (densityMod - 1.0f) * THRESHOLD);
 }
 
 void transformCubeToCube(
@@ -169,23 +217,26 @@ __kernel void makeShape3DVapour(
     __global const struct AFK_3DVapourFeature *features,
     __global const struct AFK_3DVapourCube *cubes,
     __global const struct AFK_3DVapourComputeUnit *units,
-    __write_only AFK_IMAGE3D vapour)
+    __write_only AFK_IMAGE3D vapour0,
+    __write_only AFK_IMAGE3D vapour1,
+    __write_only AFK_IMAGE3D vapour2,
+    __write_only AFK_IMAGE3D vapour3)
 {
     /* We're necessarily going to operate across the
      * three dimensions of a cube.
      * The first dimension should be multiplied up by
      * the unit offset, like so.
      */
-    const int unitOffset = get_global_id(0) / VDIM;
-    const int xdim = get_global_id(0) % VDIM;
+    const int unitOffset = get_global_id(0) / TDIM;
+    const int xdim = get_global_id(0) % TDIM;
     const int ydim = get_global_id(1);
     const int zdim = get_global_id(2);
 
     /* Initialise the base points. */
     float3 vl = (float3)(
-        (float)xdim / (float)POINT_SUBDIVISION_FACTOR, 
-        (float)ydim / (float)POINT_SUBDIVISION_FACTOR, 
-        (float)zdim / (float)POINT_SUBDIVISION_FACTOR);
+        (float)(xdim - 1) / (float)POINT_SUBDIVISION_FACTOR, 
+        (float)(ydim - 1) / (float)POINT_SUBDIVISION_FACTOR, 
+        (float)(zdim - 1) / (float)POINT_SUBDIVISION_FACTOR);
 
     /* Initialise this point's vapour numbers. */
     float4 vc = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
@@ -217,9 +268,9 @@ __kernel void makeShape3DVapour(
     /* TODO: Colour testing. */
 #if 0
     vc = (float4)(
-        (float)xdim / (float)VDIM,
-        (float)ydim / (float)VDIM,
-        (float)zdim / (float)VDIM,
+        (float)xdim / (float)TDIM,
+        (float)ydim / (float)TDIM,
+        (float)zdim / (float)TDIM,
         vc.w);
 #endif
 
@@ -232,6 +283,23 @@ __kernel void makeShape3DVapour(
      * simplest.
      */
     int4 vapourPieceCoord = (int4)(xdim, ydim, zdim, 0);
-    write_imagef(vapour, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, vapourPieceCoord), vc);
+    switch (units[unitOffset].vapourPiece.w)
+    {
+    case 0:
+        write_imagef(vapour0, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, vapourPieceCoord), vc);
+        break;
+
+    case 1:
+        write_imagef(vapour1, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, vapourPieceCoord), vc);
+        break;
+
+    case 2:
+        write_imagef(vapour2, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, vapourPieceCoord), vc);
+        break;
+
+    default:
+        write_imagef(vapour3, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, vapourPieceCoord), vc);
+        break;
+    }
 }
 

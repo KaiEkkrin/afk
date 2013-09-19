@@ -65,9 +65,16 @@ unsigned int AFK_WorldCell::getStartingEntitiesWanted(
     unsigned int entityCount = 0;
     if (entities.size() == 0)
     {
+#if 0
+        Vec4<float> realCoord = getRealCoord();
+        float sparseMult = log(realCoord.v[3]);
+#else
+        float sparseMult = 1.0f;
+#endif
+
         for (unsigned int entitySlot = 0; entitySlot < maxEntitiesPerCell; ++entitySlot)
         {
-            if (rng.frand() < (1.0f / ((float)entitySparseness)))
+            if (rng.frand() < (sparseMult / ((float)entitySparseness)))
                 ++entityCount;
         }
     }
@@ -85,18 +92,19 @@ unsigned int AFK_WorldCell::getStartingEntityShapeKey(AFK_RNG& rng)
 }
 
 void AFK_WorldCell::addStartingEntity(
-    AFK_Shape *shape,
+    unsigned int shapeKey,
     const AFK_ShapeSizes& sSizes,
     AFK_RNG& rng)
 {
-    AFK_Entity *e = new AFK_Entity(shape);
+    AFK_Entity *e = new AFK_Entity(shapeKey);
 
     Vec4<float> realCoord = getRealCoord();
 
     /* Fit the entity inside the cell, but don't make it so
      * small as to be a better fit for sub-cells
      */
-    float maxEntitySize = realCoord.v[3] / (/* (float)sSizes.entitySubdivisionFactor * */ (float)sSizes.skeletonFlagGridDim);
+    //float maxEntitySize = realCoord.v[3] / (/* (float)sSizes.entitySubdivisionFactor * */ (float)sSizes.skeletonFlagGridDim);
+    float maxEntitySize = realCoord.v[3];
     float minEntitySize = maxEntitySize / sSizes.subdivisionFactor;
 
     float entitySize = rng.frand() * (maxEntitySize - minEntitySize) + minEntitySize;
@@ -170,11 +178,6 @@ void AFK_WorldCell::popMoveQueue(void)
     AFK_Entity *e;
     while (moveQueue.pop(e))
         entities.push_back(e);
-}
-
-AFK_Frame AFK_WorldCell::getCurrentFrame(void) const
-{
-    return afk_core.computingFrame;
 }
 
 bool AFK_WorldCell::canBeEvicted(void) const

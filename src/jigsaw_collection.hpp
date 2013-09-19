@@ -69,7 +69,7 @@ protected:
     std::vector<AFK_Jigsaw*> puzzles;
     AFK_Jigsaw *spare;
 
-    boost::mutex mut;
+    boost::upgrade_mutex mut;
 
     /* Internal helpers. */
     GLuint getGlTextureTarget(void) const;
@@ -81,6 +81,9 @@ protected:
         AFK_Frame *o_timestamp);
 
     AFK_Jigsaw *makeNewJigsaw(cl_context ctxt) const;
+
+    /* For stats. */
+    boost::atomic<unsigned long long> spills;
 
 public:
     AFK_JigsawCollection(
@@ -122,13 +125,37 @@ public:
         size_t count);
 
     /* Gets you the puzzle that matches a particular piece. */
-    AFK_Jigsaw *getPuzzle(const AFK_JigsawPiece& piece) const;
+    AFK_Jigsaw *getPuzzle(const AFK_JigsawPiece& piece);
 
     /* Gets you a numbered puzzle. */
-    AFK_Jigsaw *getPuzzle(int puzzle) const;
+    AFK_Jigsaw *getPuzzle(int puzzle);
+
+    /* Acquires all puzzles for the CL (up to `count').
+     * Complains if there are more than `count' puzzles.
+     * If there are fewer puzzles, fills out the remaining
+     * fields of the array with the first one.
+     * Returns the actual number of puzzles acquired.
+     */
+    int acquireAllForCl(
+        cl_context ctxt,
+        cl_command_queue q,
+        cl_mem **allMem,
+        int count,
+        std::vector<cl_event>& o_events);
+
+    /* Releases all puzzles from the CL, when acquired with the above.
+     * `count' should be the number returned by acquireAllFromCl.
+     */
+    void releaseAllFromCl(
+        cl_command_queue q,
+        cl_mem **allMem,
+        int count,
+        const std::vector<cl_event>& eventWaitList);    
 
     /* Flips the cuboids in all the jigsaws. */
     void flipCuboids(cl_context ctxt, const AFK_Frame& currentFrame);
+
+    void printStats(std::ostream& os, const std::string& prefix);
 };
 
 #endif /* _AFK_JIGSAW_COLLECTION_H_ */

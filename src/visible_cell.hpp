@@ -10,6 +10,7 @@
 #include "camera.hpp"
 #include "cell.hpp"
 #include "def.hpp"
+#include "keyed_cell.hpp"
 
 /* A VisibleCell is any cell whose apparent size to the viewer needs to
  * be detected.  It encapsulates a transformation of a Cell into world
@@ -29,7 +30,7 @@ protected:
 public:
     /* Call these to set up. */
     void bindToCell(const AFK_Cell& cell, float worldScale);
-    void bindToCell(const AFK_Cell& cell, const Mat4<float>& worldTransform);
+    void bindToCell(const AFK_KeyedCell& cell, float worldScale, const Mat4<float>& worldTransform);
 
     /* Returns (x, y, z, scale), just like a Cell. */
     Vec4<float> getRealCoord() const;

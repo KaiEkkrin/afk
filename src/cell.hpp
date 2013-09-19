@@ -121,6 +121,16 @@ public:
         const size_t subCellsSize,
         unsigned int subdivisionFactor) const;
 
+    /* Fills out the supplied array of uninitialised AFK_Cells
+     * with the face adjacency information: (bottom, left, front,
+     * back, right, top).
+     * There must be six in the array.
+     * TODO: iterator type construct, again?
+     */
+    void faceAdjacency(
+        AFK_Cell *adjacency,
+        const size_t adjacencySize) const;
+
     /* Returns the parent cell to this one. */
     AFK_Cell parent(unsigned int subdivisionFactor) const;
 

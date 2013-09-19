@@ -13,7 +13,7 @@
 #include <boost/atomic.hpp>
 #include <boost/function.hpp>
 #include <boost/lockfree/queue.hpp>
-#include <boost/thread/mutex.hpp>
+#include <boost/thread/shared_mutex.hpp>
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
@@ -102,6 +102,8 @@ public:
     friend std::ostream& operator<<(std::ostream& os, const AFK_JigsawPiece& piece);
 };
 
+size_t hash_value(const AFK_JigsawPiece& jigsawPiece);
+
 std::ostream& operator<<(std::ostream& os, const AFK_JigsawPiece& piece);
 
 BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_JigsawPiece>::value));
@@ -126,7 +128,7 @@ public:
     AFK_JigsawCuboid(int _r, int _c, int _s, int _rows, int _slices);
 
     AFK_JigsawCuboid(const AFK_JigsawCuboid& other);
-	AFK_JigsawCuboid operator=(const AFK_JigsawCuboid& other);
+    AFK_JigsawCuboid operator=(const AFK_JigsawCuboid& other);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_JigsawCuboid& sr);
 };
@@ -190,11 +192,16 @@ protected:
      * threading model will cause the rows to be of similar widths.)
      * These are the current updating and drawing cuboids in piece
      * units.
+     * Note that all the protected utility functions assume that
+     * the right `cuboidMut' has already been acquired appropriately.
+     * There's one each for the update and draw cuboids, flipping just
+     * like the cuboid vectors themselves.
      */
     const unsigned int concurrency;
     std::vector<AFK_JigsawCuboid> cuboids[2];
     unsigned int updateCs;
     unsigned int drawCs;
+    boost::upgrade_mutex cuboidMuts[2];
 
     /* This is the sweep position, which tracks ahead of the update
      * cuboids.  Every flip, we should move the sweep position up and back
@@ -203,9 +210,6 @@ protected:
      * within the sweep.
      */
     Vec2<int> sweepPosition;
-
-    /* This is used to control access to the update cuboids. */
-    boost::mutex updateCMut;
 
     /* This is the average number of columns that cuboids seem to
      * be using.  It's used as a heuristic to decide whether to start
@@ -278,6 +282,11 @@ protected:
      */
     void doSweep(const Vec2<int>& nextFreeRow, const AFK_Frame& currentFrame);
 
+    /* Some internal stats: */
+    boost::atomic<unsigned long long> piecesGrabbed;
+    boost::atomic<unsigned long long> cuboidsStarted;
+    boost::atomic<unsigned long long> piecesSwept;
+
 public:
     AFK_Jigsaw(
         cl_context ctxt,
@@ -309,10 +318,10 @@ public:
 
     unsigned int getTexCount(void) const;
 
-	/* Returns the (s, t) texture co-ordinates for a given piece
-	 * within the jigsaw.  These will be in the range (0, 1).
-	 */
-	Vec2<float> getTexCoordST(const AFK_JigsawPiece& piece) const;
+    /* Returns the (s, t) texture co-ordinates for a given piece
+     * within the jigsaw.  These will be in the range (0, 1).
+     */
+    Vec2<float> getTexCoordST(const AFK_JigsawPiece& piece) const;
 
     /* Returns the (s, t, r) texture co-ordinates for a given piece
      * within the jigsaw.  These will be in the range (0, 1).
@@ -344,6 +353,8 @@ public:
      * a new update cuboid.
      */
     void flipCuboids(const AFK_Frame& currentFrame);
+
+    void printStats(std::ostream& os, const std::string& prefix);
 };
 
 #endif /* _AFK_JIGSAW_H_ */

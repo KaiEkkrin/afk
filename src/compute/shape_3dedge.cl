@@ -44,7 +44,7 @@ int2 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
 
 int4 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
 {
-    return pieceCoord * VDIM + pointCoord;
+    return pieceCoord * TDIM + pointCoord;
 }
 
 #endif /* AFK_FAKE3D */
@@ -52,7 +52,7 @@ int4 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
 struct AFK_3DEdgeComputeUnit
 {
     float4 location;
-    int4 vapourPiece;
+    int4 vapourPiece; /* Contains 1 texel adjacency on all sides */
     int2 edgePiece; /* Points to a 3x2 grid of face textures */
 };
 
@@ -72,7 +72,11 @@ enum AFK_ShapeFace
  */
 int4 makeVapourCoord(int face, int xdim, int zdim, int stepsBack)
 {
-    int4 coord = (int4)(0, 0, 0, 0);
+    /* Because of the single step of adjacency in the vapour,
+     * each new vapour co-ordinate starts at (1, 1, 1).
+     * -1 values to xdim, zdim, and stepsBack are valid.
+     */
+    int4 coord = (int4)(1, 1, 1, 0);
 
     switch (face)
     {
@@ -131,21 +135,33 @@ int4 makeVapourCoord(int face, int xdim, int zdim, int stepsBack)
 __constant sampler_t vapourSampler = CLK_NORMALIZED_COORDS_FALSE |
     CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
 
-float4 readVapourPoint(__read_only AFK_IMAGE3D vapour, __global const struct AFK_3DEdgeComputeUnit *units, int unitOffset, int4 pieceCoord)
+float4 readVapourPoint(
+    __read_only AFK_IMAGE3D vapour0,
+    __read_only AFK_IMAGE3D vapour1,
+    __read_only AFK_IMAGE3D vapour2,
+    __read_only AFK_IMAGE3D vapour3,
+    __global const struct AFK_3DEdgeComputeUnit *units,
+    int unitOffset,
+    int4 pieceCoord)
 {
-    /* TODO: To avoid needing vapour piece cross-referencing quite yet,
-     * I'm going to clamp all the elements of pieceCoord to VDIM-1 and
-     * not stray up to VDIM (next piece)
-     */
-    if (pieceCoord.x < 0 || pieceCoord.x >= VDIM ||
-        pieceCoord.y < 0 || pieceCoord.y >= VDIM ||
-        pieceCoord.z < 0 || pieceCoord.z >= VDIM)
+    int4 myVapourPiece = units[unitOffset].vapourPiece;
+    switch (myVapourPiece.w) /* This identifies the jigsaw */
     {
+    case 0:
+        return read_imagef(vapour0, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
+
+    case 1:
+        return read_imagef(vapour1, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
+
+    case 2:
+        return read_imagef(vapour2, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
+
+    case 3:
+        return read_imagef(vapour3, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
+
+    default:
+        /* This really oughtn't to happen, of course... */
         return (float4)(0.0f, 0.0f, 0.0f, 0.0f);
-    }
-    else
-    {
-        return read_imagef(vapour, vapourSampler, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, pieceCoord));
     }
 }
 
@@ -185,13 +201,7 @@ int2 makeEdgeJigsawCoord(__global const struct AFK_3DEdgeComputeUnit *units, int
     return baseCoord;
 }
 
-/* This function makes the displacement co-ordinate at a vapour point.
- * I'm making this as a homogeneous co-ordinate because I've necessarily
- * got a 4-vector, and because it theoretically means I could cram my
- * co-ordinates into lower precision numbers without losing so much
- * accuracy.  The shader needs to cope with it.
- */
-float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 location)
+float3 makeEdgeVertexBase(int face, int xdim, int zdim, int stepsBack)
 {
     float3 baseVertex;
 
@@ -223,9 +233,16 @@ float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 locati
     }
 
     baseVertex = baseVertex / (float)POINT_SUBDIVISION_FACTOR;
+    return baseVertex;
+}
+
+/* This function makes the displacement co-ordinate at a vapour point.
+ */
+float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 location)
+{
     return (float4)(
-        baseVertex + location.xyz,
-        location.w);
+        makeEdgeVertexBase(face, xdim, zdim, stepsBack) + location.xyz / location.w,
+        1.0f / location.w);
 }
 
 /* This function tries to calculate a normal around a vapour
@@ -235,7 +252,10 @@ float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 locati
  * kernel isn't on the critical path anyway...
  */
 float4 make4PointNormal(
-    __read_only AFK_IMAGE3D vapour,
+    __read_only AFK_IMAGE3D vapour0,
+    __read_only AFK_IMAGE3D vapour1,
+    __read_only AFK_IMAGE3D vapour2,
+    __read_only AFK_IMAGE3D vapour3,
     __global const struct AFK_3DEdgeComputeUnit *units,
     int unitOffset,
     int4 thisVapourPointCoord,
@@ -276,10 +296,10 @@ float4 make4PointNormal(
     int4 yVapourPointCoord = thisVapourPointCoord - (int4)(0, displacement.y, 0, 0);
     int4 zVapourPointCoord = thisVapourPointCoord - (int4)(0, 0, displacement.z, 0);
 
-    float4 thisVapourPoint = readVapourPoint(vapour, units, unitOffset, thisVapourPointCoord);
-    float4 xVapourPoint = readVapourPoint(vapour, units, unitOffset, xVapourPointCoord);
-    float4 yVapourPoint = readVapourPoint(vapour, units, unitOffset, yVapourPointCoord);
-    float4 zVapourPoint = readVapourPoint(vapour, units, unitOffset, zVapourPointCoord);
+    float4 thisVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord);
+    float4 xVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, xVapourPointCoord);
+    float4 yVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, yVapourPointCoord);
+    float4 zVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, zVapourPointCoord);
 
     float3 combinedVectors = (float3)(
         (xVapourPoint.w - thisVapourPoint.w) * displacement.x,
@@ -289,13 +309,18 @@ float4 make4PointNormal(
     return (float4)(normalize(combinedVectors), 0.0f);
 }
 
+/* This parameter list should be sufficient that I will always be able to
+ * address all vapour jigsaws in the same place.  I hope!
+ */
 __kernel void makeShape3DEdge(
-    __read_only AFK_IMAGE3D vapour,
+    __read_only AFK_IMAGE3D vapour0,
+    __read_only AFK_IMAGE3D vapour1,
+    __read_only AFK_IMAGE3D vapour2,
+    __read_only AFK_IMAGE3D vapour3,
     __global const struct AFK_3DEdgeComputeUnit *units,
     __write_only image2d_t jigsawDisp,
     __write_only image2d_t jigsawColour,
-    __write_only image2d_t jigsawNormal,
-    float threshold)
+    __write_only image2d_t jigsawNormal)
 {
 #if 0
     const int unitOffset = get_global_id(0) / 6;
@@ -308,10 +333,10 @@ __kernel void makeShape3DEdge(
      * Each word starts at -1 and is updated with which face got the
      * right to draw that edge. 
      */
-    __local char pointsDrawn[VDIM][VDIM][VDIM];
+    __local char pointsDrawn[EDIM][EDIM][EDIM];
 
     /* Initialize that flag array. */
-    for (int y = face; y < VDIM; y += face)
+    for (int y = face; y < EDIM; y += face)
     {
         pointsDrawn[xdim][y][zdim] = -1;
     }
@@ -326,17 +351,22 @@ __kernel void makeShape3DEdge(
     bool foundEdge = false;
     int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
 
+    /* TODO Testing cubes, so that I can ensure the LoD algorithm is
+     * sorted; put this back and go back to this stuff after I've got
+     * correct cube-LoD and maybe skeletons first...
+     */
+
     /* TODO For normals, this -1 here needs to work correctly cross
      * vapour cubes !
      */
     int4 lastVapourPointCoord = makeVapourCoord(face, xdim, zdim, -1);
-    float4 lastVapourPoint = readVapourPoint(vapour, units, unitOffset, lastVapourPointCoord);
+    float4 lastVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, lastVapourPointCoord);
 
     for (int stepsBack = 0; !foundEdge && stepsBack < EDIM; ++stepsBack)
     {
         /* Read the next point to compare with */
         int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack);
-        float4 thisVapourPoint = readVapourPoint(vapour, units, unitOffset, thisVapourPointCoord);
+        float4 thisVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord);
 
         /* Figure out which face it goes to, if any.
          * Upon conflict, the faces get priority in 
@@ -353,6 +383,10 @@ __kernel void makeShape3DEdge(
          * For now, I'm going to ignore the overlap test and
          * just let overlaps happen.  I really want this kind
          * of logic to work, though.
+         * Consider, rather than having a separate thread per
+         * face, instead making each thread do all 6 faces
+         * interleaved.  That would reduce the workgroup size a
+         * great deal, and thence allow me to have bigger cells.
          */
 #if 0
         for (int testFace = 0; testFace < 6; ++testFace)
@@ -360,7 +394,7 @@ __kernel void makeShape3DEdge(
             barrier(CLK_LOCAL_MEM_FENCE);
 
             /* TODO fix for `last' and `this' */
-            if (thisVapourPoint.w < threshold && nextVapourPoint.w >= threshold &&
+            if (thisVapourPoint.w <= 0.0f && nextVapourPoint.w > 0.0f &&
                 testFace == face &&
                 pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z] == -1)
             {
@@ -377,7 +411,7 @@ __kernel void makeShape3DEdge(
             }
         }
 #else
-        if (lastVapourPoint.w < threshold && thisVapourPoint.w >= threshold)
+        if (lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f)
         {
             /* This is an edge, and it's mine! */
             float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
@@ -391,7 +425,7 @@ __kernel void makeShape3DEdge(
                 {
                     for (int zN = -1; zN <= 1; zN += 2)
                     {
-                        normal += make4PointNormal(vapour, units, unitOffset, thisVapourPointCoord, (int4)(xN, yN, zN, 0));
+                        normal += make4PointNormal(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord, (int4)(xN, yN, zN, 0));
                     }
                 }
             }

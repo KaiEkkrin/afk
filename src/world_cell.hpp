@@ -98,7 +98,7 @@ public:
     unsigned int getStartingEntityShapeKey(AFK_RNG& rng);
 
     void addStartingEntity(
-        AFK_Shape *shape,
+        unsigned int shapeKey,
         const AFK_ShapeSizes& sSizes,
         AFK_RNG& rng);
 
@@ -121,7 +121,6 @@ public:
     void popMoveQueue(void);
 
     /* AFK_Claimable implementation. */
-    virtual AFK_Frame getCurrentFrame(void) const;
 
     /* Says whether this cell can be evicted from the cache.
      */

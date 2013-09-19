@@ -12,9 +12,10 @@
 #include "data/fair.hpp"
 #include "def.hpp"
 #include "entity_display_queue.hpp"
+#include "jigsaw_collection.hpp"
 #include "object.hpp"
 #include "rng/rng.hpp"
-#include "shape.hpp"
+#include "work.hpp"
 
 /* An Entity is a moveable object that exists within the
  * world cells.
@@ -32,10 +33,11 @@
 class AFK_Entity: public AFK_Claimable
 {
 protected:
-    /* This object's shape.  We don't own this pointer -- it's
-     * from the world shape list.
+    /* The shape key is used to vary the RNG output to generate
+     * the shape, and keys the shape cell and vapour cell
+     * caches.
      */
-    AFK_Shape *shape;
+    const unsigned int shapeKey;
 
     /* Describes where this entity is located. */
     AFK_Object obj;
@@ -52,8 +54,10 @@ protected:
      */
 
 public:
-    AFK_Entity(AFK_Shape *_shape);
+    AFK_Entity(unsigned int _shapeKey);
     virtual ~AFK_Entity();
+
+    unsigned int getShapeKey(void) const;
 
     /* Positions the entity.
      */
@@ -63,17 +67,28 @@ public:
         const Vec3<float>& rotation /* pitch, yaw, roll */ /* TODO change to use a quaternion? */
         );
 
-    /* Pushes the display units for this entity into the
-     * display fair.
-     * (Each shape will create a number of units, depending both
-     * on the shape content, and the LoD it's displayed at...)
-     */
-    void enqueueDisplayUnits(
-        AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair);
-
     /* AFK_Claimable implementation. */
-    virtual AFK_Frame getCurrentFrame(void) const;
     virtual bool canBeEvicted(void) const;
+
+    /* The shape cell generating worker will need to access
+     * the fields here.
+     */
+    friend class AFK_Shape;
+
+    friend bool afk_generateEntity(
+        unsigned int threadId,
+        const union AFK_WorldWorkParam& param,
+        AFK_WorldWorkQueue& queue);
+
+    friend bool afk_generateVapourDescriptor(
+        unsigned int threadId,
+        const union AFK_WorldWorkParam& param,
+        AFK_WorldWorkQueue& queue);
+
+    friend bool afk_generateShapeCells(
+        unsigned int threadId,
+        const union AFK_WorldWorkParam& param,
+        AFK_WorldWorkQueue& queue);
 };
 
 #endif /* _AFK_ENTITY_H_ */

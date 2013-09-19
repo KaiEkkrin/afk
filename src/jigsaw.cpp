@@ -1,16 +1,18 @@
 /* AFK (c) Alex Holloway 2013 */
 
+#include "afk.hpp"
+
+#include <climits>
+#include <cmath>
+#include <cstring>
+#include <iostream>
+
 #include "computer.hpp"
 #include "core.hpp"
 #include "debug.hpp"
 #include "display.hpp"
 #include "exception.hpp"
 #include "jigsaw.hpp"
-
-#include <climits>
-#include <cmath>
-#include <cstring>
-#include <iostream>
 
 
 #define GRAB_DEBUG 0
@@ -134,6 +136,19 @@ bool AFK_JigsawPiece::operator!=(const AFK_JigsawPiece& other) const
     return (u != other.u || v != other.v || w != other.w || puzzle != other.puzzle);
 }
 
+size_t hash_value(const AFK_JigsawPiece& jigsawPiece)
+{
+    /* Inspired by hash_value(const AFK_Cell&), just in case I
+     * need to use this in anger
+     */
+    size_t hash = 0;
+    boost::hash_combine(hash, jigsawPiece.u * 0x0000c00180030006ll);
+    boost::hash_combine(hash, jigsawPiece.v * 0x00180030006000c0ll);
+    boost::hash_combine(hash, jigsawPiece.w * 0x00030006000c0018ll);
+    boost::hash_combine(hash, jigsawPiece.puzzle * 0x006000c001800300ll);
+    return hash;
+}
+
 std::ostream& operator<<(std::ostream& os, const AFK_JigsawPiece& piece)
 {
     return os << "JigsawPiece(u=" << std::dec << piece.u << ", v=" << piece.v << ", w=" << piece.w << ", puzzle=" << piece.puzzle << ")";
@@ -212,6 +227,7 @@ enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromCuboid(
         /* We have!  Grab one. */
         o_uvw = afk_vec3<int>(row, rowUsage[row][slice]++, slice);
         *o_timestamp = rowTimestamp[row][slice];
+        piecesGrabbed.fetch_add(1);
 
         /* If I just gave the cuboid another column, update its columns
          * field to match
@@ -276,7 +292,7 @@ bool AFK_Jigsaw::startNewCuboid(const AFK_JigsawCuboid& lastCuboid, bool startNe
          * If I can go one row up, use that:
          */
         int newRow, newSlice;
-        if ((lastCuboid.r + lastCuboid.rows + newRowCount) < jigsawSize.v[0])
+        if ((lastCuboid.r + lastCuboid.rows + newRowCount) <= jigsawSize.v[0])
         {
             /* There is room on the next row up. */
             newRow = lastCuboid.r + lastCuboid.rows;
@@ -291,7 +307,7 @@ bool AFK_Jigsaw::startNewCuboid(const AFK_JigsawCuboid& lastCuboid, bool startNe
         }
 
         /* Check I'm not running into the sweep position. */
-        if ((newSlice <= sweepPosition.v[2] && sweepPosition.v[2] < (newSlice + newSliceCount)) &&
+        if ((newSlice <= sweepPosition.v[1] && sweepPosition.v[1] < (newSlice + newSliceCount)) &&
             (newRow <= sweepPosition.v[0] && sweepPosition.v[0] < (newRow + newRowCount)))
         {
             /* Poo. */
@@ -312,6 +328,7 @@ bool AFK_Jigsaw::startNewCuboid(const AFK_JigsawCuboid& lastCuboid, bool startNe
         pushNewCuboid(AFK_JigsawCuboid(lastCuboid.r, lastCuboid.c + lastCuboid.columns.load(), lastCuboid.s, newRowCount, newSliceCount));
     }
 
+    cuboidsStarted.fetch_add(1);
     return true;
 }
 
@@ -359,6 +376,8 @@ void AFK_Jigsaw::sweep(const Vec2<int>& sweepTarget, const AFK_Frame& currentFra
          */
         rowTimestamp[sweepPosition.v[0]][sweepPosition.v[1]] = currentFrame;
         ++(sweepPosition.v[0]);
+        piecesSwept.fetch_add(jigsawSize.v[0]);
+
         if (sweepPosition.v[0] == jigsawSize.v[0])
         {
             /* I hit the top of the row, set back down again and
@@ -481,7 +500,7 @@ AFK_Jigsaw::AFK_Jigsaw(
                 }
 #pragma GCC diagnostic pop
             }
-            afk_handleClError(error);
+            AFK_HANDLE_CL_ERROR(error);
         }
     }
 
@@ -563,7 +582,7 @@ AFK_Jigsaw::AFK_Jigsaw(
                     }
 #pragma GCC diagnostic pop
                 }
-                afk_handleClError(error);
+                AFK_HANDLE_CL_ERROR(error);
             }
         }
     }
@@ -595,6 +614,10 @@ AFK_Jigsaw::AFK_Jigsaw(
 
     changeData = new std::vector<unsigned char>[texCount];
     changeEvents = new std::vector<cl_event>[texCount];
+
+    piecesGrabbed.store(0);
+    cuboidsStarted.store(0);
+    piecesSwept.store(0);
 }
 
 AFK_Jigsaw::~AFK_Jigsaw()
@@ -628,19 +651,27 @@ AFK_Jigsaw::~AFK_Jigsaw()
 
 bool AFK_Jigsaw::grab(unsigned int threadId, Vec3<int>& o_uvw, AFK_Frame *o_timestamp)
 {
+    bool grabSuccessful = false;
+    bool gotUpgradeLock = false;
+    if (cuboidMuts[updateCs].try_lock_upgrade()) gotUpgradeLock = true;
+    else cuboidMuts[updateCs].lock_shared();
+
     /* Let's see if I can use an existing cuboid. */
     unsigned int cI;
     for (cI = 0; cI < cuboids[updateCs].size(); ++cI)
     {
         switch (grabPieceFromCuboid(cuboids[updateCs][cI], threadId, o_uvw, o_timestamp))
         {
+#if 0
         case AFK_JIGSAW_CUBOID_OUT_OF_SPACE:
             /* This means I'm out of room in the jigsaw. */
-            return false;
+            goto grab_return;
+#endif
 
         case AFK_JIGSAW_CUBOID_GRABBED:
             /* I got one! */
-            return true;
+            grabSuccessful = true;
+            goto grab_return;
 
         default:
             /* Keep looking. */
@@ -649,15 +680,32 @@ bool AFK_Jigsaw::grab(unsigned int threadId, Vec3<int>& o_uvw, AFK_Frame *o_time
     }
 
     /* I ran out of cuboids.  Try to start a new one. */
-    if (cI == 0) return false;
+    if (cI == 0) goto grab_return;
 
-    boost::unique_lock<boost::mutex> lock(updateCMut);
-    if (cI == cuboids[updateCs].size())
+    if (!gotUpgradeLock)
     {
-        if (!startNewCuboid(cuboids[updateCs][cI-1], true)) return false;
+        cuboidMuts[updateCs].unlock_shared();
+        cuboidMuts[updateCs].lock_upgrade();
+        gotUpgradeLock = true;
     }
 
-    return grabPieceFromCuboid(cuboids[updateCs][cI], threadId, o_uvw, o_timestamp) == AFK_JIGSAW_CUBOID_GRABBED;
+    cuboidMuts[updateCs].unlock_upgrade_and_lock();
+
+    {
+        bool retry = true;
+        if (cI == cuboids[updateCs].size())
+            retry = startNewCuboid(cuboids[updateCs][cI-1], true);
+
+        cuboidMuts[updateCs].unlock();
+        if (!retry) return false;
+    }
+
+    return grab(threadId, o_uvw, o_timestamp);
+
+grab_return:
+    if (gotUpgradeLock) cuboidMuts[updateCs].unlock_upgrade();
+    else cuboidMuts[updateCs].unlock_shared();
+    return grabSuccessful;
 }
 
 AFK_Frame AFK_Jigsaw::getTimestamp(const AFK_JigsawPiece& piece) const
@@ -702,6 +750,8 @@ Vec3<float> AFK_Jigsaw::getPiecePitchSTR(void) const
 
 cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q, std::vector<cl_event>& o_events)
 {
+    boost::shared_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
+
     /* Note that acquireForCl() may be called several times (and so
      * may releaseFromCl() ).  When acquire is called it will
      * retain the events for you; when release is called it will
@@ -750,6 +800,8 @@ cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q, std::vecto
 
 void AFK_Jigsaw::releaseFromCl(cl_command_queue q, const std::vector<cl_event>& eventWaitList)
 {
+    boost::shared_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
+
     std::vector<cl_event> allWaitList;
 
     switch (bufferUsage)
@@ -873,6 +925,8 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q, const std::vector<cl_event>& 
 
 void AFK_Jigsaw::bindTexture(unsigned int tex)
 {
+    boost::shared_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
+
     glBindTexture(texTarget, glTex[tex]);
 
     if (bufferUsage == AFK_JIGSAW_BU_CL_GL_COPIED)
@@ -956,6 +1010,12 @@ void AFK_Jigsaw::flipCuboids(const AFK_Frame& currentFrame)
         }
     }
 
+    boost::upgrade_lock<boost::upgrade_mutex> ulock0(cuboidMuts[0]);
+    boost::upgrade_to_unique_lock<boost::upgrade_mutex> utoulock0(ulock0);
+
+    boost::upgrade_lock<boost::upgrade_mutex> ulock1(cuboidMuts[1]);
+    boost::upgrade_to_unique_lock<boost::upgrade_mutex> utoulock1(ulock0);
+
     updateCs = (updateCs == 0 ? 1 : 0);
     drawCs = (drawCs == 0 ? 1 : 0);
 
@@ -1007,5 +1067,13 @@ void AFK_Jigsaw::flipCuboids(const AFK_Frame& currentFrame)
 
     /* This shouldn't happen, *but* ... */
     if (!continued) throw AFK_Exception("flipCuboids() failed");
+}
+
+void AFK_Jigsaw::printStats(std::ostream& os, const std::string& prefix)
+{
+    /* TODO Time intervals or something?  (Really the relative numbers are more interesting) */
+    std::cout << prefix << "\t: Pieces grabbed:       " << piecesGrabbed.exchange(0) << std::endl;
+    std::cout << prefix << "\t: Cuboids started:      " << cuboidsStarted.exchange(0) << std::endl;
+    std::cout << prefix << "\t: Pieces swept:         " << piecesSwept.exchange(0) << std::endl;  
 }
 

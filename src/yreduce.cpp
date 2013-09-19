@@ -47,7 +47,7 @@ void AFK_YReduce::compute(
             requiredSize,
             NULL,
             &error);
-        afk_handleClError(error);
+        AFK_HANDLE_CL_ERROR(error);
         bufSize = requiredSize;
     }
 

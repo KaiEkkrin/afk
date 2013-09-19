@@ -14,6 +14,7 @@
 #include "event.hpp"
 #include "exception.hpp"
 #include "rng/boost_taus88.hpp"
+#include "test_jigsaw.hpp"
 #include "window_glx.hpp"
 
 
@@ -25,6 +26,7 @@
 
 
 #define CL_TEST 0
+#define JIGSAW_TEST 0
 
 
 #define CALIBRATION_INTERVAL_MICROS (afk_core.config->targetFrameTimeMicros * afk_core.config->framesPerCalibration)
@@ -186,11 +188,11 @@ void afk_idle(void)
             cl_context ctxt;
             cl_command_queue q;
             afk_core.computer->lock(ctxt, q);
-            afk_core.world->flipRenderQueues(ctxt, afk_core.renderingFrame);
+            afk_core.renderingFrame = afk_core.computingFrame;
+            afk_core.computingFrame.increment();
+            afk_core.world->flipRenderQueues(ctxt, afk_core.computingFrame);
             afk_core.computer->unlock();
             afk_core.computingUpdateDelayed = false;
-            afk_core.computingFrame = afk_core.renderingFrame;
-            afk_core.renderingFrame.increment();
 
 #if FRAME_NUMBER_DEBUG
             AFK_DEBUG_PRINTL("Now computing frame " << afk_core.computingFrame)
@@ -301,7 +303,7 @@ void AFK_Core::loop(void)
     /* Shader setup. */
     afk_loadShaders(config->shadersDir);
 
-    renderingFrame.increment();
+    computingFrame.increment();
 
     /* World setup. */
     computer = new AFK_Computer();
@@ -309,6 +311,10 @@ void AFK_Core::loop(void)
 
 #if CL_TEST
     afk_testComputeLong(computer, config->concurrency);
+#endif
+
+#if JIGSAW_TEST
+    afk_testJigsaw(computer, config);
 #endif
 
     /* Now that I've set that stuff up, find out how much memory
@@ -321,9 +327,6 @@ void AFK_Core::loop(void)
     /* Initialise the starting objects. */
     float worldMaxDistance = config->zFar / 2.0f;
 
-    /* For now, I'll try allocating 1/8th mem for the tile cache,
-     * and another 1/8th for the world cache.
-     */
     cl_context ctxt;
     cl_command_queue q;
     computer->lock(ctxt, q);
@@ -333,7 +336,7 @@ void AFK_Core::loop(void)
         worldMaxDistance,   /* maxDistance -- zFar must be a lot bigger or things will vanish */
         clGlMaxAllocSize / 4,
         clGlMaxAllocSize / 4,
-        clGlMaxAllocSize / 8,
+        clGlMaxAllocSize / 4,
         ctxt);
     computer->unlock();
     protagonist = new AFK_DisplayedProtagonist();
@@ -345,7 +348,13 @@ void AFK_Core::loop(void)
     /* TODO: Move the camera to somewhere above the landscape to
      * start with.
      * (A bit unclear how to best do this ... )
+     * For now, I'll just start them nice and high to reduce the
+     * chance of spawning under the landscape (very annoying)
      */
+    Vec3<float> startingMovement = afk_vec3<float>(0.0f, 8192.0f, 0.0f);
+    Vec3<float> startingRotation = afk_vec3<float>(0.0f, 0.0f, 0.0f);
+    protagonist->object.drive(startingMovement, startingRotation);
+    camera->driveAndUpdateProjection(startingMovement, startingRotation);
 
     /* First checkpoint */
     startOfFrameTime = lastFrameTime = lastCheckpoint = lastCalibration =
@@ -400,7 +409,11 @@ void AFK_Core::checkpoint(boost::posix_time::ptime& now, bool definitely)
          * catching an exception, it looks like the destructors are
          * being called in a strange order
          */
-        if (!definitely) world->printCacheStats(std::cout, "Cache");
+        if (!definitely)
+        {
+            world->printCacheStats(std::cout, "Cache");
+            world->printJigsawStats(std::cout, "Jigsaw");
+        }
 
         std::cout << occasionalPrints.str();
     }

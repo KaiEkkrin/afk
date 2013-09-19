@@ -50,6 +50,11 @@ enum AFK_ClaimType
                                  * writing, you'd better release your claim and go do something else
                                  * for a while before retrying.
                                  */
+    AFK_CLT_NONEXCLUSIVE_UPGRADE,/* This is like AFK_CLT_NONEXCLUSIVE_SHARED, but will always
+                                  * return AFK_CL_CLAIMED_UPGRADEABLE (or AFK_CL_TAKEN).  It may
+                                  * be slower.  For those occasions when you know you're going
+                                  * to upgrade on a shared claimable
+                                  */
     AFK_CLT_EVICTOR             /* We're the evictor.  Don't bump the frame. */
 };
 
@@ -97,7 +102,7 @@ public:
     /* Tries to claim this object for processing.
      * When finished, release it by calling release().
      */
-    enum AFK_ClaimStatus claim(unsigned int threadId, enum AFK_ClaimType type);
+    enum AFK_ClaimStatus claim(unsigned int threadId, enum AFK_ClaimType type, const AFK_Frame& currentFrame);
 
     /* Upgrades a shared claim to a non-shared one.
      * Again, call release() to finish.
@@ -109,10 +114,9 @@ public:
     /* Helper -- tries a bit harder to claim the cell.
      * Returns the resulting status.
      */
-    enum AFK_ClaimStatus claimYieldLoop(unsigned int threadId, enum AFK_ClaimType type);
+    enum AFK_ClaimStatus claimYieldLoop(unsigned int threadId, enum AFK_ClaimType type, const AFK_Frame& currentFrame);
 
     /* Things the implementer needs to define. */
-    virtual AFK_Frame getCurrentFrame(void) const = 0;
     virtual bool canBeEvicted(void) const = 0;
 };
 

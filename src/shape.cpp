@@ -8,6 +8,7 @@
 #include <boost/functional/hash.hpp>
 #include <boost/shared_ptr.hpp>
 
+#include "camera.hpp"
 #include "core.hpp"
 #include "debug.hpp"
 #include "def.hpp"
@@ -17,473 +18,424 @@
 #include "shape.hpp"
 
 
-/* Fixed transforms for the six faces of a base cube.
- * TODO -- move this.  I suspect it needs to go back into
- * 3d_edge_shape_base : the shape_3dedge kernel is producing
- * single dimension displacements for the six faces.
- */
-static struct FaceTransforms
-{
-    /* These are, in order:
-     * - bottom
-     * - left
-     * - front
-     * - back
-     * - right
-     * - top
-     */
-    AFK_Object obj[6];
-    Mat4<float> trans[6];
+/* Shape worker flags. */
+#define AFK_SCG_FLAG_ENTIRELY_VISIBLE       1
 
-    FaceTransforms()
+/* The top-level entity worker. */
+bool afk_generateEntity(
+    unsigned int threadId,
+    const union AFK_WorldWorkParam& param,
+    AFK_WorldWorkQueue& queue)
+{
+    AFK_KeyedCell cell                      = param.shape.cell;
+    AFK_World *world                        = param.shape.world;
+
+    AFK_Shape& shape                        = world->shape;
+
+    bool resume = false;
+
+    AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
+    AFK_VapourCell& vapourCell = (*(shape.vapourCellCache))[vc];
+    vapourCell.bind(vc);
+    AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_UPGRADE, afk_core.computingFrame);
+
+    if (!vapourCell.hasDescriptor())
     {
-        obj[1].adjustAttitude(AXIS_ROLL, -M_PI_2);
-        obj[1].displace(afk_vec3<float>(0.0f, 1.0f, 0.0f));
-        obj[2].adjustAttitude(AXIS_PITCH, M_PI_2);
-        obj[2].displace(afk_vec3<float>(0.0f, 1.0f, 0.0f));
-        obj[3].adjustAttitude(AXIS_PITCH, -M_PI_2);
-        obj[3].displace(afk_vec3<float>(0.0f, 0.0f, 1.0f));
-        obj[4].adjustAttitude(AXIS_ROLL, M_PI_2);
-        obj[4].displace(afk_vec3<float>(1.0f, 0.0f, 0.0f));
-        obj[5].adjustAttitude(AXIS_PITCH, M_PI);
-        obj[5].displace(afk_vec3<float>(0.0f, 1.0f, 1.0f));
+        /* Get an exclusive claim, and make its descriptor. */
+        claimStatus = vapourCell.upgrade(threadId, claimStatus);
 
-        for (int i = 0; i < 6; ++i)
-            trans[i] = obj[i].getTransformation();
-    }
-} faceTransforms;
-
-
-/* AFK_ShapeCube implementation */
-
-AFK_ShapeCube::AFK_ShapeCube(
-    const Vec4<float>& _location):
-        location(_location),
-        vapourJigsawPiece(), vapourJigsawPieceTimestamp(),
-        edgeJigsawPiece(), edgeJigsawPieceTimestamp()
-{
-}
-
-std::ostream& operator<<(std::ostream& os, const AFK_ShapeCube& cube)
-{
-	os << "ShapeCube(location=" << cube.location;
-	os << ", vapour piece=" << cube.vapourJigsawPiece << " (timestamp " << cube.vapourJigsawPieceTimestamp << ")";
-	os << ", edge piece=" << cube.edgeJigsawPiece << " (timestamp " << cube.edgeJigsawPieceTimestamp << ")";
-	os << ")";
-	return os;
-}
-
-/* AFK_SkeletonFlagGrid implementation */
-
-AFK_SkeletonFlagGrid::AFK_SkeletonFlagGrid(int _gridDim):
-    gridDim(_gridDim)
-{
-    assert((unsigned long long)gridDim < (sizeof(unsigned long long) * 8));
-    grid = new unsigned long long *[gridDim];
-    for (int x = 0; x < gridDim; ++x)
-    {
-        grid[x] = new unsigned long long[gridDim];
-        memset(grid[x], 0, sizeof(unsigned long long) * gridDim);
-    }
-}
-
-AFK_SkeletonFlagGrid::~AFK_SkeletonFlagGrid()
-{
-    for (int x = 0; x < gridDim; ++x)
-    {
-        delete[] grid[x];
+        if (claimStatus == AFK_CL_CLAIMED)
+        {
+            if (!vapourCell.hasDescriptor())
+            {
+                vapourCell.makeDescriptor(world->sSizes);
+                world->separateVapoursComputed.fetch_add(1);
+            }        
+        }
+        else
+        {
+            /* I'd better resume this later. */
+            resume = true;
+        }
     }
 
-    delete[] grid;
+    if (vapourCell.hasDescriptor())
+    {
+        /* Go through the skeleton... */
+        AFK_VapourCell::ShapeCells shapeCells(vapourCell, world->sSizes);
+        while (shapeCells.hasNext())
+        {
+            AFK_KeyedCell nextCell = shapeCells.next();
+
+            /* Enqueue this shape cell. */
+            AFK_WorldWorkQueue::WorkItem shapeCellItem;
+            shapeCellItem.func = afk_generateShapeCells;
+            shapeCellItem.param = param;
+            shapeCellItem.param.shape.cell = nextCell;
+            shapeCellItem.param.shape.dependency = NULL;
+            queue.push(shapeCellItem);
+        }
+    }
+
+    vapourCell.release(threadId, claimStatus);
+
+    if (resume)
+    {
+        AFK_WorldWorkQueue::WorkItem resumeItem;
+        resumeItem.func = afk_generateEntity;
+        resumeItem.param = param;
+        if (param.shape.dependency) param.shape.dependency->retain();
+        queue.push(resumeItem);
+    }
+
+    /* If this cell had a dependency ... */
+    if (param.shape.dependency)
+    {
+        if (param.shape.dependency->check(queue))
+        {
+            world->dependenciesFollowed.fetch_add(1);
+            delete param.shape.dependency;
+        }
+    }
+
+    return true;
 }
 
-/* Skeleton flag grid co-ordinates are such that (0, 0, 0) is in the middle. */
-#define WITHIN_SKELETON_FLAG_GRID(x, y, z) \
-    (((x) >= -(gridDim / 2) && (x) < (gridDim / 2)) && \
-    ((y) >= -(gridDim / 2) && (y) < (gridDim / 2)) && \
-    ((z) >= -(gridDim / 2) && (z) < (gridDim / 2)))
+/* The shape worker */
 
-#define SKELETON_FLAG_XY(x, y) grid[(x) + gridDim / 2][(y) + gridDim / 2]
-#define SKELETON_FLAG_Z(z) (1uLL << ((z) + gridDim / 2))
+#define VISIBLE_CELL_DEBUG 0
+#define NONZERO_CELL_DEBUG 0
 
-enum AFK_SkeletonFlag AFK_SkeletonFlagGrid::testFlag(const Vec3<int>& cube) const
+bool afk_generateShapeCells(
+    unsigned int threadId,
+    const union AFK_WorldWorkParam& param,
+    AFK_WorldWorkQueue& queue)
 {
-    if (WITHIN_SKELETON_FLAG_GRID(cube.v[0], cube.v[1], cube.v[2]))
-        return (SKELETON_FLAG_XY(cube.v[0], cube.v[1]) & SKELETON_FLAG_Z(cube.v[2])) ?
-            AFK_SKF_SET : AFK_SKF_CLEAR;
+    const AFK_KeyedCell cell                = param.shape.cell;
+    AFK_Entity *entity                      = param.shape.entity;
+    AFK_World *world                        = param.shape.world;
+    const Vec3<float>& viewerLocation       = param.shape.viewerLocation;
+    const AFK_Camera *camera                = param.shape.camera;
+
+    bool entirelyVisible                    = ((param.shape.flags & AFK_SCG_FLAG_ENTIRELY_VISIBLE) != 0);
+
+    AFK_Shape& shape                        = world->shape;
+    Mat4<float> worldTransform              = entity->obj.getTransformation();
+
+    /* Next, handle the shape cell ... */
+    AFK_ShapeCell& shapeCell = (*(shape.shapeCellCache))[cell];
+    shapeCell.bind(cell);
+    AFK_ClaimStatus claimStatus = shapeCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
+
+    bool recurse = false, resume = false;
+
+    /* Check for visibility. */
+    bool someVisible = entirelyVisible;
+    bool allVisible = entirelyVisible;
+    AFK_VisibleCell visibleCell;
+    visibleCell.bindToCell(cell, SHAPE_CELL_WORLD_SCALE, worldTransform);
+
+#if VISIBLE_CELL_DEBUG
+    AFK_DEBUG_PRINTL("testing shape cell " << cell << ": visible cell " << visibleCell)
+#endif
+
+#if NONZERO_CELL_DEBUG
+    bool nonzero = (cell.coord.v[0] != 0 || cell.coord.v[1] != 0 || cell.coord.v[2] != 0);
+    if (nonzero)
+        AFK_DEBUG_PRINTL("testing nonzero shape cell: " << cell)
+#endif
+
+    if (!entirelyVisible) visibleCell.testVisibility(
+        *camera, someVisible, allVisible);
+    if (!someVisible)
+    {
+#if VISIBLE_CELL_DEBUG
+        AFK_DEBUG_PRINTL("cell " << cell << ": visible cell " << visibleCell << ": invisible")
+#endif
+#if NONZERO_CELL_DEBUG
+        if (nonzero)
+            AFK_DEBUG_PRINTL("cell " << cell << ": visible cell " << visibleCell << ": invisible")
+#endif
+        world->shapeCellsInvisible.fetch_add(1);
+    }
     else
-        return AFK_SKF_OUTSIDE_GRID;
-}
+    {
+        bool display = (
+            cell.c.coord.v[3] == MIN_CELL_PITCH || visibleCell.testDetailPitch(
+                world->averageDetailPitch.get(), *camera, viewerLocation));
 
-void AFK_SkeletonFlagGrid::setFlag(const Vec3<int>& cube)
-{
-    if (WITHIN_SKELETON_FLAG_GRID(cube.v[0], cube.v[1], cube.v[2]))
-        SKELETON_FLAG_XY(cube.v[0], cube.v[1]) |= SKELETON_FLAG_Z(cube.v[2]);
-}
+        /* Always build the vapour descriptor, because other cells
+         * will need it.
+         * Only do the render if we actually intend to display the
+         * cell, however.
+         */
+        switch (shape.renderVapourCell(
+            threadId,
+            entity->getShapeKey(),
+            shapeCell,
+            display,
+            param.shape,
+            queue))
+        {
+        case AFK_Shape::Enqueued:
+            if (display)
+            {
+                /* TODO Produce, and deal with, empties here.  Being able
+                 * to track this is an important optimisation, I think.
+                 */
+                if (shape.generateClaimedShapeCell(
+                    visibleCell,
+                    shapeCell,
+                    claimStatus,
+                    threadId,
+                    param.shape,
+                    queue) == AFK_Shape::NeedsResume)
+                {
+                    resume = true;
+                }
+            }
+            else
+            {
+#if VISIBLE_CELL_DEBUG
+                AFK_DEBUG_PRINTL("visible cell " << visibleCell << ": without detail pitch " << world->averageDetailPitch.get())
+#endif
+                /* This cell failed the detail pitch test: recurse through
+                 * the subcells
+                 */
+                recurse = true;
+            }
+            break;
 
-void AFK_SkeletonFlagGrid::clearFlag(const Vec3<int>& cube)
-{
-    if (WITHIN_SKELETON_FLAG_GRID(cube.v[0], cube.v[1], cube.v[2]))
-        SKELETON_FLAG_XY(cube.v[0], cube.v[1]) &= ~SKELETON_FLAG_Z(cube.v[2]);
+        case AFK_Shape::NeedsResume:
+            resume = true;
+            /* Push a resume of this shape cell. */
+            break;
+
+        default:
+            /* This cell is empty. */
+            break;
+        }
+    }
+
+    if (claimStatus != AFK_CL_TAKEN)
+    {
+        shapeCell.release(threadId, claimStatus);
+    }
+
+    if (resume)
+    {
+        AFK_WorldWorkQueue::WorkItem resumeItem;
+        resumeItem.func = afk_generateShapeCells;
+        resumeItem.param = param;
+        if (param.shape.dependency) param.shape.dependency->retain();
+        queue.push(resumeItem);
+        world->shapeCellsResumed.fetch_add(1);
+    }
+
+    if (recurse)
+    {
+        size_t subcellsSize = CUBE(world->sSizes.subdivisionFactor);
+        AFK_Cell *subcells = new AFK_Cell[subcellsSize];
+        unsigned int subcellsCount = cell.c.subdivide(subcells, subcellsSize, world->sSizes.subdivisionFactor);
+        assert(subcellsCount == subcellsSize);
+
+        for (unsigned int i = 0; i < subcellsCount; ++i)
+        {
+            AFK_WorldWorkQueue::WorkItem subcellItem;
+            subcellItem.func                            = afk_generateShapeCells;
+            subcellItem.param.shape.cell                = afk_keyedCell(subcells[i], cell.key);
+            subcellItem.param.shape.entity              = entity;
+            subcellItem.param.shape.world               = world;
+            subcellItem.param.shape.viewerLocation      = viewerLocation;
+            subcellItem.param.shape.camera              = camera;
+            subcellItem.param.shape.flags               = (allVisible ? AFK_SCG_FLAG_ENTIRELY_VISIBLE : 0);
+            subcellItem.param.shape.dependency          = NULL;
+            queue.push(subcellItem);
+        }
+
+        delete[] subcells;
+    }
+
+    /* If this cell had a dependency ... */
+    if (param.shape.dependency)
+    {
+        if (param.shape.dependency->check(queue))
+        {
+            world->dependenciesFollowed.fetch_add(1);
+            delete param.shape.dependency;
+        }
+    }
+
+    return true;
 }
 
 
 /* AFK_Shape implementation */
 
-static Vec3<int> adjacentCube(const Vec3<int>& cube, unsigned int face)
+enum AFK_Shape::CellRenderState AFK_Shape::renderVapourCell(
+    unsigned int threadId,
+    unsigned int shapeKey,
+    AFK_ShapeCell& shapeCell,
+    bool doRender,
+    const struct AFK_WorldWorkParam::Shape& param,
+    AFK_WorldWorkQueue& queue)
 {
-    Vec3<int> adj;
+    const AFK_KeyedCell cell                = param.cell;
+    AFK_World *world                        = param.world;
 
-    switch (face)
+    const AFK_ShapeSizes& sSizes            = world->sSizes;
+    AFK_JigsawCollection *vapourJigsaws     = world->vapourJigsaws;
+
+    unsigned int cubeOffset, cubeCount;
+    enum CellRenderState state = NeedsResume;
+
+    AFK_KeyedCell vc = afk_shapeToVapourCell(cell, sSizes);
+    AFK_VapourCell& vapourCell = (*vapourCellCache)[vc];
+    vapourCell.bind(vc);
+    AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
+
+    if (!doRender || !vapourCell.alreadyEnqueued(cubeOffset, cubeCount))
     {
-    case 0: /* bottom */
-        adj = afk_vec3<int>(cube.v[0], cube.v[1] - 1, cube.v[2]);
-        break;
+        AFK_3DList list;
 
-    case 1: /* left */
-        adj = afk_vec3<int>(cube.v[0] - 1, cube.v[1], cube.v[2]);
-        break;
-
-    case 2: /* front */
-        adj = afk_vec3<int>(cube.v[0], cube.v[1], cube.v[2] - 1);
-        break;
-
-    case 3: /* back */
-        adj = afk_vec3<int>(cube.v[0], cube.v[1], cube.v[2] + 1);
-        break;
-
-    case 4: /* right */
-        adj = afk_vec3<int>(cube.v[0] + 1, cube.v[1], cube.v[2]);
-        break;
-
-    case 5: /* top */
-        adj = afk_vec3<int>(cube.v[0], cube.v[1] + 1, cube.v[2]);
-        break;
-
-    default:
-        throw AFK_Exception("Invalid face");
-    }
-
-    return adj;
-}
-
-void AFK_Shape::makeSkeleton(
-    AFK_RNG& rng,
-    const AFK_ShapeSizes& sSizes,
-    Vec3<int> cube,
-    unsigned int *cubesLeft,
-    std::vector<Vec3<int> >& o_skeletonCubes,
-    std::vector<Vec4<int> >& o_skeletonPointCubes)
-{
-    /* Update the cubes. */
-    if (*cubesLeft == 0) return;
-    if (cubeGrid->testFlag(cube) != AFK_SKF_CLEAR) return;
-    cubeGrid->setFlag(cube);
-    o_skeletonCubes.push_back(cube);
-    --(*cubesLeft);
-
-    /* Update the point cubes with any that aren't included
-     * already.
-     * A cube will touch all 27 of the possible point cubes that
-     * include it and its surroundings.
-     */
-    /* TODO: A point grid scale of 1 is much too small to start
-     * with and just produces random noise.  I think I should
-     * make this configurable (and play until I've got some
-     * good values going on).  8 is a reasonable starting
-     * point.
-     */
-    unsigned int pointGridScale = 8;
-    for (int pI = pointGrids.size() - 1; pI >= 0; --pI)
-    {
-        Vec3<int> scaledCube = cube * pointGridScale;
-
-        for (int x = -1; x <= 1; ++x)
+        if (!vapourCell.hasDescriptor())
         {
-            for (int y = -1; y <= 1; ++y)
+            if (claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+                claimStatus = vapourCell.upgrade(threadId, claimStatus);
+
+            if (claimStatus == AFK_CL_CLAIMED)
+                vapourCell.makeDescriptor(sSizes);
+        }
+
+        if (doRender)
+        {
+            if (claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+                claimStatus = vapourCell.upgrade(threadId, claimStatus);
+
+            if (claimStatus == AFK_CL_CLAIMED)
             {
-                for (int z = -1; z <= 1; ++z)
+                if (vapourCell.withinSkeleton())
                 {
-                    Vec3<int> pointCube = scaledCube + afk_vec3<int>(x, y, z);
-                    if (pointGrids[pI]->testFlag(pointCube) == AFK_SKF_CLEAR)
-                    {
-                        pointGrids[pI]->setFlag(pointCube);
-                        o_skeletonPointCubes.push_back(afk_vec4<int>(pointCube, pointGridScale));
-                    }
+                    vapourCell.build3DList(threadId, list, sSizes, vapourCellCache);
+                    shapeCell.enqueueVapourComputeUnitWithNewVapour(
+                        threadId, list, sSizes, vapourJigsaws, world->vapourComputeFair,
+                        cubeOffset, cubeCount);
+                    vapourCell.enqueued(cubeOffset, cubeCount);
+                    state = Enqueued;
+                    world->shapeVapoursComputed.fetch_add(1);
+                }
+                else
+                {
+                    /* Nothing to see here. */
+                    state = Empty;
                 }
             }
         }
-
-        pointGridScale = pointGridScale * 2;
     }
-
-    for (unsigned int face = 0; face < 6 && *cubesLeft; ++face)
+    else
     {
-        Vec3<int> adj = adjacentCube(cube, face);
-        if (rng.frand() < sSizes.skeletonBushiness)
-        {
-            makeSkeleton(rng, sSizes, adj, cubesLeft, o_skeletonCubes, o_skeletonPointCubes);
-        }
+        shapeCell.enqueueVapourComputeUnitFromExistingVapour(
+            threadId, cubeOffset, cubeCount, sSizes, vapourJigsaws, world->vapourComputeFair);
+        state = Enqueued;
+        world->shapeVapoursComputed.fetch_add(1);
     }
+
+    vapourCell.release(threadId, claimStatus);
+    return state;
 }
 
-AFK_Shape::AFK_Shape():
-    AFK_Claimable(),
-    cubeGrid(NULL),
-    have3DDescriptor(false),
-    vapourJigsaws(NULL),
-    edgeJigsaws(NULL)
+enum AFK_Shape::CellRenderState AFK_Shape::generateClaimedShapeCell(
+    const AFK_VisibleCell& visibleCell,
+    AFK_ShapeCell& shapeCell,
+    enum AFK_ClaimStatus& claimStatus,
+    unsigned int threadId,
+    const struct AFK_WorldWorkParam::Shape& param,
+    AFK_WorldWorkQueue& queue)
 {
+    AFK_Entity *entity                      = param.entity;
+    AFK_World *world                        = param.world;
+
+    Mat4<float> worldTransform              = entity->obj.getTransformation();
+
+    AFK_JigsawCollection *vapourJigsaws     = world->vapourJigsaws;
+    AFK_JigsawCollection *edgeJigsaws       = world->edgeJigsaws;
+
+    enum CellRenderState state = NeedsResume;
+
+    /* Try to get this shape cell set up and enqueued. */
+    if (!shapeCell.hasEdges(edgeJigsaws))
+    {
+        /* I need to generate stuff for this cell -- which means I need
+         * to upgrade my claim.
+         */
+        if (claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+            claimStatus = shapeCell.upgrade(threadId, claimStatus);
+
+        if (claimStatus == AFK_CL_CLAIMED)
+        {
+            /* The vapour must be there already. */
+            assert(shapeCell.hasVapour(vapourJigsaws));
+            shapeCell.enqueueEdgeComputeUnit(
+                threadId, shapeCellCache, vapourJigsaws, edgeJigsaws, world->edgeComputeFair);
+            world->shapeEdgesComputed.fetch_add(1);
+        }
+    }
+
+    if (shapeCell.hasEdges(edgeJigsaws))
+    {
+        shapeCell.enqueueEdgeDisplayUnit(
+            worldTransform,
+            edgeJigsaws,
+            world->entityDisplayFair);
+        state = Enqueued;
+    }
+
+    return state;
+}
+
+AFK_Shape::AFK_Shape(
+    const AFK_Config *config,
+    unsigned int shapeCacheSize)
+{
+    /* This is naughty, but I really want an auto-create
+     * here.
+     */
+    unsigned int shapeCellCacheEntries = shapeCacheSize /
+        (2 * config->shape_skeletonMaxSize * 6 * SQUARE(config->shape_pointSubdivisionFactor));
+    unsigned int shapeCellCacheBitness = afk_suggestCacheBitness(shapeCellCacheEntries);
+    shapeCellCache = new AFK_SHAPE_CELL_CACHE(
+        shapeCellCacheBitness,
+        4,
+        AFK_HashKeyedCell(),
+        shapeCellCacheEntries / 2,
+        0xfffffffdu);
+
+    unsigned int vapourCellCacheEntries = shapeCacheSize /
+        (2 * config->shape_skeletonMaxSize * CUBE(config->shape_pointSubdivisionFactor));
+    unsigned int vapourCellCacheBitness = afk_suggestCacheBitness(vapourCellCacheEntries);
+    vapourCellCache = new AFK_VAPOUR_CELL_CACHE(
+        vapourCellCacheBitness,
+        4,
+        AFK_HashKeyedCell(),
+        vapourCellCacheEntries / 2,
+        0xfffffffcu);
 }
 
 AFK_Shape::~AFK_Shape()
 {
-    if (cubeGrid) delete cubeGrid;
-    for (std::vector<AFK_SkeletonFlagGrid *>::iterator pointGridIt = pointGrids.begin();
-        pointGridIt != pointGrids.end(); ++pointGridIt)
-    {
-        delete *pointGridIt;
-    }
+    delete vapourCellCache;
+    delete shapeCellCache;
 }
 
-bool AFK_Shape::has3DDescriptor() const
+void AFK_Shape::updateWorld(void)
 {
-    return have3DDescriptor;
+    shapeCellCache->doEvictionIfNecessary();
+    vapourCellCache->doEvictionIfNecessary();
 }
 
-void AFK_Shape::make3DDescriptor(
-    unsigned int shapeKey,
-    const AFK_ShapeSizes& sSizes)
+void AFK_Shape::printCacheStats(std::ostream& os, const std::string& prefix)
 {
-    if (!have3DDescriptor)
-    {
-        /* TODO Interestingly, this is the first time I've actually
-         * appeared to need a "better" RNG than Taus88: Taus88
-         * doesn't appear to give enough randomness when seeded
-         * with such a small number as the shapeKey.
-         * If I end up randomly making lots of new shapes the
-         * time taken to make a new AES RNG here is going to
-         * become a bottleneck.
-         */
-        AFK_AES_RNG rng;
-        boost::hash<unsigned int> uiHash;
-        rng.seed(uiHash(shapeKey));
-
-        /* TODO: Planes of symmetry and all sorts, here.  Lots to
-         * experiment with in the quest for nice objects.
-         */
-
-        /* Come up with a skeleton.
-         * A skeleton is characterised by a grid of flags, each
-         * bit saying whether or not there is a cube in that
-         * location.
-         */
-        cubeGrid = new AFK_SkeletonFlagGrid((int)sSizes.skeletonFlagGridDim);
-
-        /* ...And also by a set of grids that determine where 
-         * vapour features will exist.
-         * TODO fix fix -- number of point grids -- and starting to
-         * be pretty sure that I'm going to need to not just throw
-         * all the cubes into the CL but instead pick a sub-list that
-         * is used by each face...  flibble
-         * Although, I'm also pretty sure I don't need the finest-
-         * detail ones.  I can compress what I'm doing a great deal
-         * by changing the point grids to contain a few large
-         * points (with scale between cube size and cube size/subdivision factor,
-         * say).
-         */
-        int pointGridCount;
-        for (pointGridCount = 1;
-            (1 << (pointGridCount - 1)) < (int)(sSizes.pointSubdivisionFactor / 2);
-            ++pointGridCount)
-        {
-            pointGrids.push_back(new AFK_SkeletonFlagGrid((1 << pointGridCount) + 1));
-        }
-    
-        std::vector<Vec3<int> > skeletonCubes;
-        std::vector<Vec4<int> > skeletonPointCubes;
-        Vec3<int> startingCube = afk_vec3<int>(0, 0, 0);
-        unsigned int skeletonCubesLeft = rng.uirand() % sSizes.skeletonMaxSize;
-        makeSkeleton(rng, sSizes, startingCube, &skeletonCubesLeft, skeletonCubes, skeletonPointCubes);
-
-        /* Now, for each skeleton point cube, add its points...
-         */
-        /* TODO Having a go at doing this in inverse order to see
-         * if the large cubes crop up in the CL first
-         */
-        //for (std::vector<Vec4<int> >::iterator pointCubeIt = skeletonPointCubes.begin();
-        //    pointCubeIt != skeletonPointCubes.end(); ++pointCubeIt)
-        for (std::vector<Vec4<int> >::reverse_iterator pointCubeIt = skeletonPointCubes.rbegin();
-            pointCubeIt != skeletonPointCubes.rend(); ++pointCubeIt)
-        {
-            /* TODO Individually debugging the various LoDs. */
-            //if (pointCubeIt->v[3] == 1) continue;
-            /* TODO I'm not convinced there is actually anything AT the
-             * higher levels of detail -- or not very much.  Investigate.
-             */
-            //AFK_DEBUG_PRINTL(shapeKey << ": Using point cube: " << *pointCubeIt)
-
-            AFK_3DVapourCube cube;
-            cube.make(
-                vapourFeatures,
-                afk_vec4<float>(
-                    (float)pointCubeIt->v[0] * (float)pointCubeIt->v[3],
-                    (float)pointCubeIt->v[1] * (float)pointCubeIt->v[3],
-                    (float)pointCubeIt->v[2] * (float)pointCubeIt->v[3],
-                    (float)pointCubeIt->v[3]),
-                sSizes,
-                rng);
-            vapourCubes.push_back(cube);
-        }
-
-        /* ... And add all cubes to the cube list.
-         * TODO This process is associating all points with all faces,
-         * which is very wasteful.  If I turn out to be at all limited
-         * in performance by shape creation, I should come up with a
-         * better scheme.
-         */
-        for (std::vector<Vec3<int> >::iterator cubeIt = skeletonCubes.begin();
-            cubeIt != skeletonCubes.end(); ++cubeIt)
-        {
-            Vec3<float> cube = afk_vec3<float>(
-                (float)cubeIt->v[0], (float)cubeIt->v[1], (float)cubeIt->v[2]);
-            /* TODO: With LoD -- that 1.0f scale number down there will change! */
-            cubes.push_back(AFK_ShapeCube(afk_vec4<float>(cube, 1.0f)));
-        }
-
-        have3DDescriptor = true;
-    }
-}
-
-void AFK_Shape::build3DList(
-    AFK_3DList& list)
-{
-    list.extend(vapourFeatures, vapourCubes);
-}
-
-void AFK_Shape::getCubesForCompute(
-    unsigned int threadId,
-    int minVapourJigsaw,
-    int minEdgeJigsaw,
-    AFK_JigsawCollection *_vapourJigsaws,
-    AFK_JigsawCollection *_edgeJigsaws,
-    std::vector<AFK_ShapeCube>& o_cubes)
-{
-    /* Sanity checks */
-    if (!vapourJigsaws) vapourJigsaws = _vapourJigsaws;
-    else if (vapourJigsaws != _vapourJigsaws) throw AFK_Exception("AFK_Shape: Mismatched vapour jigsaw collections");
-
-    if (!edgeJigsaws) edgeJigsaws = _edgeJigsaws;
-    else if (edgeJigsaws != _edgeJigsaws) throw AFK_Exception("AFK_Shape: Mismatched edge jigsaw collections");
-
-    /* Check whether my edge pieces are ok */
-    bool edgeOK = true;
-    for (std::vector<AFK_ShapeCube>::iterator cubeIt = cubes.begin();
-        edgeOK && cubeIt != cubes.end(); ++cubeIt)
-    {
-        edgeOK &= (cubeIt->edgeJigsawPiece != AFK_JigsawPiece() &&
-            cubeIt->edgeJigsawPieceTimestamp == edgeJigsaws->getPuzzle(cubeIt->edgeJigsawPiece)->getTimestamp(cubeIt->edgeJigsawPiece));
-    }
-
-    if (!edgeOK)
-    {
-        /* Check whether my vapour pieces are ok */
-        bool vapourOK = true;
-        for (std::vector<AFK_ShapeCube>::iterator cubeIt = cubes.begin();
-            vapourOK && cubeIt != cubes.end(); ++cubeIt)
-        {
-            vapourOK &= (cubeIt->vapourJigsawPiece != AFK_JigsawPiece() &&
-                cubeIt->vapourJigsawPieceTimestamp == vapourJigsaws->getPuzzle(cubeIt->vapourJigsawPiece)->getTimestamp(cubeIt->vapourJigsawPiece));
-        }
-
-        /* All pieces need to be in the same jigsaw, so that I can
-         * cross-reference during the edge pass:
-         */
-        if (!vapourOK)
-        {
-            AFK_JigsawPiece vapourPieces[cubes.size()];
-            AFK_Frame vapourTimestamps[cubes.size()];
-            vapourJigsaws->grab(
-                threadId,
-                minVapourJigsaw,
-                vapourPieces,
-                vapourTimestamps,
-                cubes.size());
-
-            for (size_t c = 0; c < cubes.size(); ++c)
-            {
-                cubes[c].vapourJigsawPiece = vapourPieces[c];
-                cubes[c].vapourJigsawPieceTimestamp = vapourTimestamps[c];
-            }
-        }
-
-        /* Same for the edge pieces */
-        AFK_JigsawPiece edgePieces[cubes.size()];
-        AFK_Frame edgeTimestamps[cubes.size()];
-        edgeJigsaws->grab(
-            threadId,
-            minEdgeJigsaw,
-            edgePieces,
-            edgeTimestamps,
-            cubes.size());
-
-        for (size_t c = 0; c < cubes.size(); ++c)
-        {
-            cubes[c].edgeJigsawPiece = edgePieces[c];
-            cubes[c].edgeJigsawPieceTimestamp = edgeTimestamps[c];
-            o_cubes.push_back(cubes[c]);
-        }
-    }
-}
-
-enum AFK_ShapeArtworkState AFK_Shape::artworkState() const
-{
-    if (!has3DDescriptor()) return AFK_SHAPE_NO_PIECE_ASSIGNED;
-
-    /* Scan the cubes and check for status. */
-    enum AFK_ShapeArtworkState status = AFK_SHAPE_HAS_ARTWORK;
-    for (std::vector<AFK_ShapeCube>::const_iterator cubeIt = cubes.begin(); cubeIt != cubes.end(); ++cubeIt)
-    {
-        if (cubeIt->edgeJigsawPiece == AFK_JigsawPiece()) return AFK_SHAPE_NO_PIECE_ASSIGNED;
-        if (cubeIt->edgeJigsawPieceTimestamp != edgeJigsaws->getPuzzle(cubeIt->edgeJigsawPiece)->getTimestamp(cubeIt->edgeJigsawPiece))
-            status = AFK_SHAPE_PIECE_SWEPT;
-    }
-    return status;
-}
-
-void AFK_Shape::enqueueDisplayUnits(
-    const AFK_Object& object,
-    AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const
-{
-    boost::shared_ptr<AFK_EntityDisplayQueue> q = entityDisplayFair.getUpdateQueue(0);
-    Mat4<float> objTransform = object.getTransformation();
-
-    for (std::vector<AFK_ShapeCube>::const_iterator cubeIt = cubes.begin(); cubeIt != cubes.end(); ++cubeIt)
-    {
-        AFK_JigsawPiece edgeJigsawPiece = cubeIt->edgeJigsawPiece;
-        q->add(AFK_EntityDisplayUnit(
-            objTransform,
-            edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTexCoordST(edgeJigsawPiece)));
-    }
-}
-
-AFK_Frame AFK_Shape::getCurrentFrame(void) const
-{
-    return afk_core.computingFrame;
-}
-
-bool AFK_Shape::canBeEvicted(void) const
-{
-    /* This is a tweakable value ... */
-    bool canEvict = ((afk_core.computingFrame - lastSeen) > 10);
-    return canEvict;
-}
-
-std::ostream& operator<<(std::ostream& os, const AFK_Shape& shape)
-{
-    os << "Shape";
-    if (shape.have3DDescriptor) os << " (3D descriptor)";
-    if (shape.artworkState() == AFK_SHAPE_HAS_ARTWORK) os << " (Computed)";
-    return os;
+    shapeCellCache->printStats(os, "Shape cell cache");
+    vapourCellCache->printStats(os, "Vapour cell cache");
 }
 

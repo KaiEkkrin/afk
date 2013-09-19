@@ -14,13 +14,14 @@
 
 #include "computer.hpp"
 #include "def.hpp"
-#include "jigsaw.hpp"
-#include "shape.hpp"
+#include "jigsaw_collection.hpp"
 #include "shape_sizes.hpp"
 
 /* This module marshals 3D object compute data through the
  * 3D edge compute kernel.
  */
+
+#define AFK_3DECU_VPCOUNT 7
 
 class AFK_3DEdgeComputeUnit
 {
@@ -28,10 +29,7 @@ public:
     /* Displacement and scale compared to the base cube. */
     Vec4<float> location;
 
-    /* TODO: This needs to become a full set of vapour adjacency
-     * data.
-     */
-    Vec4<int> vapourPiece; /* a vec4 because OpenCL wants one to access a 3D texture */
+    Vec4<int> vapourPiece;
     Vec2<int> edgePiece;
 
     AFK_3DEdgeComputeUnit(
@@ -77,7 +75,7 @@ public:
      */
     void computeStart(
         AFK_Computer *computer,
-        AFK_Jigsaw *vapourJigsaw,
+        AFK_JigsawCollection *vapourJigsaws,
         AFK_Jigsaw *edgeJigsaw,
         const AFK_ShapeSizes& sSizes);
     void computeFinish(void);

@@ -41,16 +41,18 @@ struct AFK_ClKernel kernels[] = {
 };
 
 
-void afk_handleClError(cl_int error)
+void afk_handleClError(cl_int error, const char *_file, const int _line)
 {
     if (error != CL_SUCCESS)
     {
-        /* Maybe this will aid debugging ... */
+#if 1
+        std::cerr << "AFK_Computer: Error " << std::dec << error << " occurred at " << _file << ":" << _line << std::endl;
         assert(error == CL_SUCCESS);
-
+#else
         std::ostringstream ss;
-        ss << "AFK_Computer: Error occurred: " << error;
+        ss << "AFK_Computer: Error " << std::dec << error << " occurred at " << _file << ":" << _line;
         throw AFK_Exception(ss.str());
+#endif
     }
 }
 
@@ -288,7 +290,7 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
 
         cl_int error;
         ctxt = clCreateContext(clGlProperties, devicesSize, devices, NULL, NULL, &error);
-        afk_handleClError(error);
+        AFK_HANDLE_CL_ERROR(error);
         return true;
     }
     else return false;
@@ -307,7 +309,7 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
         throw AFK_Exception("AFK_Computer: " + errStream.str());
 
     p->program = clCreateProgramWithSource(ctxt, 1, (const char **)&source, &sourceLength, &error);
-    afk_handleClError(error);
+    AFK_HANDLE_CL_ERROR(error);
 
     /* Compiler arguments here... */
     std::ostringstream args;
@@ -329,11 +331,13 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
         args << "-D POINT_SUBDIVISION_FACTOR="  << sSizes.pointSubdivisionFactor << " ";
         args << "-D VDIM="                      << sSizes.vDim                   << " ";
         args << "-D EDIM="                      << sSizes.eDim                   << " ";
+        args << "-D TDIM="                      << sSizes.tDim                   << " ";
         args << "-D FEATURE_COUNT_PER_CUBE="    << sSizes.featureCountPerCube    << " ";
+        args << "-D THRESHOLD="                 << sSizes.edgeThreshold          << " ";
         if (useFake3DImages(config))
         {
             args << "-D AFK_FAKE3D=1 ";
-            AFK_JigsawFake3DDescriptor fake3D(true, afk_vec3<int>(sSizes.vDim, sSizes.vDim, sSizes.vDim));
+            AFK_JigsawFake3DDescriptor fake3D(true, afk_vec3<int>(sSizes.tDim, sSizes.tDim, sSizes.tDim));
             Vec3<int> fakeSize = fake3D.getFakeSize();
             int mult = fake3D.getMult();
             args << "-D VAPOUR_FAKE3D_FAKESIZE_X="  << fakeSize.v[0]                << " ";
@@ -353,7 +357,7 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
     for (size_t dI = 0; dI < devicesSize; ++dI)
         printBuildLog(std::cout, p->program, devices[dI]);
 
-    afk_handleClError(error);
+    AFK_HANDLE_CL_ERROR(error);
 }
 
 AFK_Computer::AFK_Computer():
@@ -385,7 +389,7 @@ AFK_Computer::AFK_Computer():
     /* TODO Multiple queues for multiple devices? */
     cl_int error;
     q = clCreateCommandQueue(ctxt, devices[0], CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &error);
-    afk_handleClError(error);
+    AFK_HANDLE_CL_ERROR(error);
 }
 
 AFK_Computer::~AFK_Computer()
@@ -428,7 +432,7 @@ void AFK_Computer::loadPrograms(const AFK_Config *config)
             if (kernels[i].programFilename == programs[j].filename)
             {
                 kernels[i].kernel = clCreateKernel(programs[j].program, kernels[i].kernelName.c_str(), &error);
-                afk_handleClError(error);
+                AFK_HANDLE_CL_ERROR(error);
                 identified = true;
             }
         }

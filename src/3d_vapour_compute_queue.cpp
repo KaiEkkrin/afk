@@ -26,7 +26,7 @@ AFK_3DVapourComputeUnit::AFK_3DVapourComputeUnit(
 		_vapourJigsawPiece.u,
 		_vapourJigsawPiece.v,
 		_vapourJigsawPiece.w,
-		0);
+		_vapourJigsawPiece.puzzle);
 }
 
 bool AFK_3DVapourComputeUnit::uninitialised(void) const
@@ -57,56 +57,46 @@ AFK_3DVapourComputeQueue::~AFK_3DVapourComputeQueue()
 {
 }
 
-AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::extend(
+void AFK_3DVapourComputeQueue::extend(
     const AFK_3DList& list,
-    const Vec4<float>& location,
-    const AFK_JigsawPiece& vapourJigsawPiece,
-    const AFK_ShapeSizes & sSizes)
+    unsigned int& o_cubeOffset,
+    unsigned int& o_cubeCount)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
     /* Sanity checks */
-    if (list.cubeCount() == 0)
-    {
-        std::ostringstream ss;
-        ss << "Pushed empty list to 3D vapour compute queue for piece at " << location;
-        throw AFK_Exception(ss.str());
-    }
+    assert(list.cubeCount() > 0);
 
-    if (list.featureCount() != (list.cubeCount() * sSizes.featureCountPerCube))
-        throw AFK_Exception("Insane self found");
-
-    AFK_3DVapourComputeUnit newUnit(
-        location,
-        vapourJigsawPiece,
-        AFK_3DList::cubeCount(),
-        list.cubeCount());
+    o_cubeOffset = AFK_3DList::cubeCount();
+    o_cubeCount = list.cubeCount();
     AFK_3DList::extend(list);
-    units.push_back(newUnit);
-    return newUnit;
 }
 
-AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::addUnitFromExisting(
-    const AFK_3DVapourComputeUnit& existingUnit,
+AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::addUnit(
     const Vec4<float>& location,
-    const AFK_JigsawPiece& vapourJigsawPiece)
+    const AFK_JigsawPiece& vapourJigsawPiece,
+    unsigned int cubeOffset,
+    unsigned int cubeCount)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
-    if (existingUnit.uninitialised()) throw AFK_Exception("Tried to add unit from an uninitialised existing one");
+    /* Sanity checks */
+    assert(cubeOffset >= 0 && cubeOffset < c.size());
+    assert(cubeCount > 0);
+    assert((cubeOffset + cubeCount) <= c.size());
 
     AFK_3DVapourComputeUnit newUnit(
         location,
         vapourJigsawPiece,
-        existingUnit.cubeOffset,
-        existingUnit.cubeCount);
+        cubeOffset,
+        cubeCount);
     units.push_back(newUnit);
     return newUnit;
 }
 
 void AFK_3DVapourComputeQueue::computeStart(
     AFK_Computer *computer,
-    AFK_Jigsaw *vapourJigsaw,
+    AFK_JigsawCollection *vapourJigsaws,
     const AFK_ShapeSizes& sSizes)
 {
     boost::unique_lock<boost::mutex> lock(mut);
@@ -132,39 +122,35 @@ void AFK_3DVapourComputeQueue::computeStart(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         f.size() * sizeof(AFK_3DVapourFeature),
         &f[0], &error);
-    afk_handleClError(error);
+    AFK_HANDLE_CL_ERROR(error);
 
     vapourBufs[1] = clCreateBuffer(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         c.size() * sizeof(AFK_3DVapourCube),
         &c[0], &error);
-    afk_handleClError(error);
+    AFK_HANDLE_CL_ERROR(error);
 
     vapourBufs[2] = clCreateBuffer(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         units.size() * sizeof(AFK_3DVapourComputeUnit),
         &units[0], &error);
-    afk_handleClError(error);
-
-    /* TODO Remove Spam */
-    for (std::vector<AFK_3DVapourComputeUnit>::iterator cuIt = units.begin();
-        cuIt != units.end(); ++cuIt)
-    {
-        std::cout << "Using 3D vapour compute unit: " << *cuIt << std::endl;
-    }
+    AFK_HANDLE_CL_ERROR(error);
 
     /* Set up the rest of the vapour parameters */
     preVapourWaitList.clear();
-    cl_mem *vapourJigsawMem = vapourJigsaw->acquireForCl(ctxt, q, preVapourWaitList);
+    cl_mem *vapourJigsawsMem[4];
+    int jpCount = vapourJigsaws->acquireAllForCl(ctxt, q, vapourJigsawsMem, 4, preVapourWaitList);
 
     AFK_CLCHK(clSetKernelArg(vapourKernel, 0, sizeof(cl_mem), &vapourBufs[0]))
     AFK_CLCHK(clSetKernelArg(vapourKernel, 1, sizeof(cl_mem), &vapourBufs[1]))
     AFK_CLCHK(clSetKernelArg(vapourKernel, 2, sizeof(cl_mem), &vapourBufs[2]))
-    AFK_CLCHK(clSetKernelArg(vapourKernel, 3, sizeof(cl_mem), &vapourJigsawMem[0]))
+
+    for (int jpI = 0; jpI < 4; ++jpI)
+        AFK_CLCHK(clSetKernelArg(vapourKernel, jpI + 3, sizeof(cl_mem), vapourJigsawsMem[jpI]))
 
     size_t vapourDim[3];
-    vapourDim[0] = sSizes.vDim * unitCount;
-    vapourDim[1] = vapourDim[2] = sSizes.vDim;
+    vapourDim[0] = sSizes.tDim * unitCount;
+    vapourDim[1] = vapourDim[2] = sSizes.tDim;
 
     cl_event vapourEvent;
 
@@ -187,7 +173,7 @@ void AFK_3DVapourComputeQueue::computeStart(
 
     postVapourWaitList.clear();
     postVapourWaitList.push_back(vapourEvent);
-    vapourJigsaw->releaseFromCl(q, postVapourWaitList);
+    vapourJigsaws->releaseAllFromCl(q, vapourJigsawsMem, jpCount, postVapourWaitList);
     AFK_CLCHK(clReleaseEvent(vapourEvent))
 
     computer->unlock();

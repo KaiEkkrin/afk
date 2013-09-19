@@ -127,19 +127,19 @@ void AFK_TerrainComputeQueue::computeStart(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         f.size() * sizeof(AFK_TerrainFeature),
         &f[0], &error);
-    afk_handleClError(error);
+    AFK_HANDLE_CL_ERROR(error);
 
     terrainBufs[1] = clCreateBuffer(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         t.size() * sizeof(AFK_TerrainTile),
         &t[0], &error);
-    afk_handleClError(error);
+    AFK_HANDLE_CL_ERROR(error);
 
     terrainBufs[2] = clCreateBuffer(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         units.size() * sizeof(AFK_TerrainComputeUnit),
         &units[0], &error);
-    afk_handleClError(error);
+    AFK_HANDLE_CL_ERROR(error);
 
     /* Set up the rest of the terrain parameters */
     preTerrainWaitList.clear();
@@ -176,7 +176,7 @@ void AFK_TerrainComputeQueue::computeStart(
         CL_ADDRESS_CLAMP_TO_EDGE,
         CL_FILTER_NEAREST,
         &error);
-    afk_handleClError(error);
+    AFK_HANDLE_CL_ERROR(error);
 
     /* Now, I need to run the kernel to bake the surface normals.
      */

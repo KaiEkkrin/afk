@@ -84,7 +84,7 @@ void AFK_LandscapeTile::buildTerrainList(
          */
         AFK_Tile parentTile = tile.parent(subdivisionFactor);
         AFK_LandscapeTile& parentLandscapeTile = cache->at(parentTile);
-        enum AFK_ClaimStatus claimStatus = parentLandscapeTile.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED);
+        enum AFK_ClaimStatus claimStatus = parentLandscapeTile.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
         if (claimStatus != AFK_CL_CLAIMED_SHARED && claimStatus != AFK_CL_CLAIMED_UPGRADABLE)
         {
             std::ostringstream ss;
@@ -177,11 +177,6 @@ bool AFK_LandscapeTile::makeDisplayUnit(
     }
 
     return displayed;
-}
-
-AFK_Frame AFK_LandscapeTile::getCurrentFrame(void) const
-{
-    return afk_core.computingFrame;
 }
 
 bool AFK_LandscapeTile::canBeEvicted(void) const
