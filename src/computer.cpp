@@ -331,12 +331,13 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
         args << "-D POINT_SUBDIVISION_FACTOR="  << sSizes.pointSubdivisionFactor << " ";
         args << "-D VDIM="                      << sSizes.vDim                   << " ";
         args << "-D EDIM="                      << sSizes.eDim                   << " ";
+        args << "-D TDIM="                      << sSizes.tDim                   << " ";
         args << "-D FEATURE_COUNT_PER_CUBE="    << sSizes.featureCountPerCube    << " ";
         args << "-D THRESHOLD="                 << sSizes.edgeThreshold          << " ";
         if (useFake3DImages(config))
         {
             args << "-D AFK_FAKE3D=1 ";
-            AFK_JigsawFake3DDescriptor fake3D(true, afk_vec3<int>(sSizes.vDim, sSizes.vDim, sSizes.vDim));
+            AFK_JigsawFake3DDescriptor fake3D(true, afk_vec3<int>(sSizes.tDim, sSizes.tDim, sSizes.tDim));
             Vec3<int> fakeSize = fake3D.getFakeSize();
             int mult = fake3D.getMult();
             args << "-D VAPOUR_FAKE3D_FAKESIZE_X="  << fakeSize.v[0]                << " ";

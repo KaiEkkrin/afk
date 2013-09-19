@@ -17,8 +17,10 @@ public:
                                                  * entity that fits into that cell
                                                  */
     const unsigned int pointSubdivisionFactor;
-    const unsigned int vDim; /* Number of vertices along one dimension of the vapour */
+    const unsigned int vDim; /* Number of vertices along one dimension of each notional distinct cell */
     const unsigned int eDim; /* Number of vertices along one edge of the base face (includes enough to join up to the next face) */
+    const unsigned int tDim; /* Number of vertices along one dimension of the vapour
+                              * (includes one cell's worth of overlap on the - sides and 2 on the + sides) */
     const unsigned int iDim; /* Number of triangles along an edge */
     const unsigned int iCount; /* Total number of index structures */
     const unsigned int featureCountPerCube; /* Number of features per cube */

@@ -419,7 +419,6 @@ void AFK_JigsawCollection::releaseAllFromCl(
 {
     boost::shared_lock<boost::upgrade_mutex> lock(mut);
     
-    assert((int)puzzles.size() == count);
     for (int i = 0; i < count; ++i)
         puzzles[i]->releaseFromCl(q, eventWaitList);
 }

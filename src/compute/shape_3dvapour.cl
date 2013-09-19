@@ -44,7 +44,7 @@ int2 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
 
 int4 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
 {
-    return pieceCoord * VDIM + pointCoord;
+    return pieceCoord * TDIM + pointCoord;
 }
 
 #endif /* AFK_FAKE3D */
@@ -54,9 +54,9 @@ int4 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
  */
 
 /* This kernel should run across:
- * (0..VDIM) * unitCount,
- * (0..VDIM),
- * (0..VDIM).
+ * (0..TDIM) * unitCount,
+ * (0..TDIM),
+ * (0..TDIM).
  */
 
 /* TODO: The feature should get bigger, in order to
@@ -227,16 +227,16 @@ __kernel void makeShape3DVapour(
      * The first dimension should be multiplied up by
      * the unit offset, like so.
      */
-    const int unitOffset = get_global_id(0) / VDIM;
-    const int xdim = get_global_id(0) % VDIM;
+    const int unitOffset = get_global_id(0) / TDIM;
+    const int xdim = get_global_id(0) % TDIM;
     const int ydim = get_global_id(1);
     const int zdim = get_global_id(2);
 
     /* Initialise the base points. */
     float3 vl = (float3)(
-        (float)xdim / (float)POINT_SUBDIVISION_FACTOR, 
-        (float)ydim / (float)POINT_SUBDIVISION_FACTOR, 
-        (float)zdim / (float)POINT_SUBDIVISION_FACTOR);
+        (float)(xdim - 1) / (float)POINT_SUBDIVISION_FACTOR, 
+        (float)(ydim - 1) / (float)POINT_SUBDIVISION_FACTOR, 
+        (float)(zdim - 1) / (float)POINT_SUBDIVISION_FACTOR);
 
     /* Initialise this point's vapour numbers. */
     float4 vc = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
@@ -268,9 +268,9 @@ __kernel void makeShape3DVapour(
     /* TODO: Colour testing. */
 #if 0
     vc = (float4)(
-        (float)xdim / (float)VDIM,
-        (float)ydim / (float)VDIM,
-        (float)zdim / (float)VDIM,
+        (float)xdim / (float)TDIM,
+        (float)ydim / (float)TDIM,
+        (float)zdim / (float)TDIM,
         vc.w);
 #endif
 

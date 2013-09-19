@@ -29,14 +29,12 @@ public:
     /* Displacement and scale compared to the base cube. */
     Vec4<float> location;
 
-    Vec4<int> vapourPiece[AFK_3DECU_VPCOUNT]; /* (u, v, w (0 for 2D), puzzle),
-                                               * home piece first, then adjacencies
-                                               */
+    Vec4<int> vapourPiece;
     Vec2<int> edgePiece;
 
     AFK_3DEdgeComputeUnit(
         const Vec4<float>& _location,
-        const AFK_JigsawPiece *_vapourJigsawPieces,
+        const AFK_JigsawPiece& _vapourJigsawPiece,
         const AFK_JigsawPiece& _edgeJigsawPiece);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_3DEdgeComputeUnit& unit);
@@ -70,7 +68,7 @@ public:
     /* Adds the edges of a shape cube to the queue. */
     AFK_3DEdgeComputeUnit append(
         const Vec4<float>& location,
-        const AFK_JigsawPiece *vapourJigsawPieces, /* array of AFK_3DECU_VPCOUNT */
+        const AFK_JigsawPiece& vapourJigsawPiece,
         const AFK_JigsawPiece& edgeJigsawPiece);
 
     /* Starts the computation.

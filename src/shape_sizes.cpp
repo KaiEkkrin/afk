@@ -11,6 +11,7 @@ AFK_ShapeSizes::AFK_ShapeSizes(
     pointSubdivisionFactor(config->shape_pointSubdivisionFactor),
     vDim(config->shape_pointSubdivisionFactor),
     eDim(config->shape_pointSubdivisionFactor + 1), /* one extra vertex along the top and right sides to join with the adjacent tile */
+    tDim(config->shape_pointSubdivisionFactor + 3),
     iDim(config->shape_pointSubdivisionFactor),
     iCount(SQUARE(config->shape_pointSubdivisionFactor) * 2), /* two triangles per vertex */
     featureCountPerCube(CUBE(config->shape_pointSubdivisionFactor / 2)), /* TODO Probably wants experimenting with */

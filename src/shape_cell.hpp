@@ -64,8 +64,6 @@ public:
     bool hasVapour(AFK_JigsawCollection *vapourJigsaws) const;
     bool hasEdges(AFK_JigsawCollection *edgeJigsaws) const;
 
-    bool getVapourJigsawPiece(AFK_JigsawCollection *vapourJigsaws, AFK_JigsawPiece *o_jigsawPiece) const;
-
     /* Enqueues the compute units.  Both these functions overwrite
      * the relevant jigsaw pieces with new ones.
      * Use the matching VapourCell to build the 3D list required

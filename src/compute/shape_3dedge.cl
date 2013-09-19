@@ -44,7 +44,7 @@ int2 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
 
 int4 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
 {
-    return pieceCoord * VDIM + pointCoord;
+    return pieceCoord * TDIM + pointCoord;
 }
 
 #endif /* AFK_FAKE3D */
@@ -52,9 +52,7 @@ int4 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
 struct AFK_3DEdgeComputeUnit
 {
     float4 location;
-    int4 vapourPiece[7]; /* Adjacency: my vapour piece, then bottom, left, front,
-                          * back, right, top.
-                          */
+    int4 vapourPiece; /* Contains 1 texel adjacency on all sides */
     int2 edgePiece; /* Points to a 3x2 grid of face textures */
 };
 
@@ -74,7 +72,11 @@ enum AFK_ShapeFace
  */
 int4 makeVapourCoord(int face, int xdim, int zdim, int stepsBack)
 {
-    int4 coord = (int4)(0, 0, 0, 0);
+    /* Because of the single step of adjacency in the vapour,
+     * each new vapour co-ordinate starts at (1, 1, 1).
+     * -1 values to xdim, zdim, and stepsBack are valid.
+     */
+    int4 coord = (int4)(1, 1, 1, 0);
 
     switch (face)
     {
@@ -142,50 +144,7 @@ float4 readVapourPoint(
     int unitOffset,
     int4 pieceCoord)
 {
-    int4 myVapourPiece = units[unitOffset].vapourPiece[0];
-
-    /* TODO: I'm only doing full-face adjacency here, not cube edge or
-     * vertex.  This saves a lot of extra space in the units array,
-     * some complexity, and probably a fair bit of extra vapour processing
-     * too.  I want to see how it looks before trying to include the full
-     * 27-cube adjacency.
-     */
-    if (pieceCoord.y < 0)
-    {
-        pieceCoord.y += VDIM;
-        myVapourPiece = units[unitOffset].vapourPiece[1];
-    }
-
-    if (pieceCoord.x < 0)
-    {
-        pieceCoord.x += VDIM;
-        myVapourPiece = units[unitOffset].vapourPiece[2];
-    }
-
-    if (pieceCoord.z < 0)
-    {
-        pieceCoord.z += VDIM;
-        myVapourPiece = units[unitOffset].vapourPiece[3];
-    }
-
-    if (pieceCoord.z >= VDIM)
-    {
-        pieceCoord.z -= VDIM;
-        myVapourPiece = units[unitOffset].vapourPiece[4];
-    }
-
-    if (pieceCoord.x >= VDIM)
-    {
-        pieceCoord.x -= VDIM;
-        myVapourPiece = units[unitOffset].vapourPiece[5];
-    }
-
-    if (pieceCoord.y >= VDIM)
-    {
-        pieceCoord.y -= VDIM;
-        myVapourPiece = units[unitOffset].vapourPiece[6];
-    }
-    
+    int4 myVapourPiece = units[unitOffset].vapourPiece;
     switch (myVapourPiece.w) /* This identifies the jigsaw */
     {
     case 0:
@@ -201,10 +160,8 @@ float4 readVapourPoint(
         return read_imagef(vapour3, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
 
     default:
-        /* This will sometimes happen (adjacencies off the edge
-         * of the skeleton).  Return default zeroes.
-         */
-        return (float4)(0.0f, 0.0f, 0.0f, 0.0f);    
+        /* This really oughtn't to happen, of course... */
+        return (float4)(0.0f, 0.0f, 0.0f, 0.0f);
     }
 }
 
@@ -376,10 +333,10 @@ __kernel void makeShape3DEdge(
      * Each word starts at -1 and is updated with which face got the
      * right to draw that edge. 
      */
-    __local char pointsDrawn[VDIM][VDIM][VDIM];
+    __local char pointsDrawn[EDIM][EDIM][EDIM];
 
     /* Initialize that flag array. */
-    for (int y = face; y < VDIM; y += face)
+    for (int y = face; y < EDIM; y += face)
     {
         pointsDrawn[xdim][y][zdim] = -1;
     }
@@ -426,6 +383,10 @@ __kernel void makeShape3DEdge(
          * For now, I'm going to ignore the overlap test and
          * just let overlaps happen.  I really want this kind
          * of logic to work, though.
+         * Consider, rather than having a separate thread per
+         * face, instead making each thread do all 6 faces
+         * interleaved.  That would reduce the workgroup size a
+         * great deal, and thence allow me to have bigger cells.
          */
 #if 0
         for (int testFace = 0; testFace < 6; ++testFace)

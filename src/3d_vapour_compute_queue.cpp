@@ -149,8 +149,8 @@ void AFK_3DVapourComputeQueue::computeStart(
         AFK_CLCHK(clSetKernelArg(vapourKernel, jpI + 3, sizeof(cl_mem), vapourJigsawsMem[jpI]))
 
     size_t vapourDim[3];
-    vapourDim[0] = sSizes.vDim * unitCount;
-    vapourDim[1] = vapourDim[2] = sSizes.vDim;
+    vapourDim[0] = sSizes.tDim * unitCount;
+    vapourDim[1] = vapourDim[2] = sSizes.tDim;
 
     cl_event vapourEvent;
 
