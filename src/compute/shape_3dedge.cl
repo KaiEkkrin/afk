@@ -369,6 +369,11 @@ __kernel void makeShape3DEdge(
             if (!(foundEdge & (1<<face)) && lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f)
             {
 #if CULL_COMMON_POINTS
+                /* TODO: I think some of the gapping that is happening here might be
+                 * because I'm cross-checking the wrong stuff.
+                 * Think about which triangles each of these points governs,
+                 * not just what the bottom left (in edge space) point is.
+                 */
                 int zFlag = 1<<thisVapourPointCoord.z;
                 if ((atom_or(&pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y], zFlag) & zFlag) == 0)
                 {
