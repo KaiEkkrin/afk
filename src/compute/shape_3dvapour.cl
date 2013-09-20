@@ -158,12 +158,10 @@ void transformLocationToLocation(
     /* This one (and thresholding to something very small in shape_3dedge)
      * appears to work better:
      */
-    /*
-    *vc = (float4)(
-        (*vc).xyz,
-        (*vc).w - (float)THRESHOLD);
-     */
+    float density = (*vc).w - (float)THRESHOLD;
+    *vc = (float4)((*vc).xyz, density);
 
+#if 0
     /* I'm going to refine this to try to avoid large areas of high
      * density vapour solid (which makes for boring/nonexistent geometry)
      * by trying to "rebound" the vapour from some point a bit
@@ -191,6 +189,7 @@ void transformLocationToLocation(
     *vc = (float4)(
         (*vc).xyz,
         (densityMod - 1.0f) * THRESHOLD);
+#endif
 }
 
 void transformCubeToCube(
@@ -205,10 +204,78 @@ void transformCubeToCube(
     transformLocationToLocation(vl, vc, fromCoord, toCoord);
 }
 
+float transformFaceDensity(float density, int xdim, int ydim, int zdim, int adjacency)
+{
+    /* Check nearby faces for adjacency.  If there's no adjacency, I
+     * want to run the density down in a gradient, so that I don't
+     * have dense fog at skeleton borders.
+     * TODO: In order to do this correctly, I need to include adjacency
+     * information for the overlapped faces too, but I'll try it the
+     * simple way first.
+     */
+    int closestFace = -1;
+    int distanceFromClosestFace = 1<<30;
+    for (int face = 0; face < 6; ++face)
+    {
+        int distanceFromThisFace = 1<<30;
+        if (adjacency & (1<<face)) continue;
+
+        switch (face)
+        {
+        case 0:
+            distanceFromThisFace = ydim;
+            break;
+
+        case 1:
+            distanceFromThisFace = xdim;
+            break;
+
+        case 2:
+            distanceFromThisFace = zdim;
+            break;
+
+        case 3:
+            distanceFromThisFace = TDIM - zdim;
+            break;
+
+        case 4:
+            distanceFromThisFace = TDIM - xdim;
+            break;
+
+        case 5:
+            distanceFromThisFace = TDIM - ydim;
+            break;
+        }
+
+        if (distanceFromThisFace < (TDIM / 2) &&
+            distanceFromThisFace < distanceFromClosestFace)
+        {
+            closestFace = face;
+            distanceFromClosestFace = distanceFromThisFace;
+        }
+    }
+
+    if (closestFace != -1)
+    {
+        /* I want a gradient of the density from -THRESHOLD
+         * to the real value, tending towards the former at
+         * the face and the latter at the middle.
+         */
+        float dff = (float)distanceFromClosestFace;
+        float dfc = (float)(TDIM / 2);
+        density = (
+            -THRESHOLD * (dfc - dff) / dfc +
+            density * dff / dfc);
+    }
+
+    return density;
+}
+
 struct AFK_3DVapourComputeUnit
 {
     float4 location;
     int4 vapourPiece;
+    int adjacency;
     int cubeOffset;
     int cubeCount;
 };
@@ -264,6 +331,11 @@ __kernel void makeShape3DVapour(
 
     /* Transform out of the space of the last cube. */
     transformLocationToLocation(&vl, &vc, cubes[i-1].coord, units[unitOffset].location);
+
+    /* TODO: Should I do this every time, or only on the
+     * last?  I've yet to be sure.
+     */
+    vc.w = transformFaceDensity(vc.w, xdim, ydim, zdim, units[unitOffset].adjacency);
 
     /* TODO: Colour testing. */
 #if 0

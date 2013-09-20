@@ -68,6 +68,13 @@ bool afk_generateEntity(
             AFK_KeyedCell nextCell = shapeCells.next();
 
             /* Enqueue this shape cell. */
+            /* TODO I think I've actually forgotten to do the
+             * equivalent operation with finer-LoD vapour cells,
+             * so the embellish() function of the skeleton can't
+             * really do anything useful right now (apart from
+             * make it vanish, I guess).
+             * Fix this.
+             */
             AFK_WorldWorkQueue::WorkItem shapeCellItem;
             shapeCellItem.func = afk_generateShapeCells;
             shapeCellItem.param = param;
