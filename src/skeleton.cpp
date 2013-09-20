@@ -181,10 +181,24 @@ int AFK_Skeleton::embellish(
         !cube.atEnd(gridDim); cube.advance(gridDim))
     {
         AFK_SkeletonCube upperCube = cube.upperCube(upperOffset, subdivisionFactor);
+
+        /* Calculate the upper cube's adjacency number (0 for none, to 6 for everywhere) */
+        int upperAdjacencyNumber = 0;
+        for (int face = 0; face < 6; ++face)
+        {
+            AFK_SkeletonCube adjCube = upperCube.adjacentCube(face);
+            if (upper.testFlag(adjCube) == AFK_SKF_SET) ++upperAdjacencyNumber;
+        }
+
         if (upper.testFlag(upperCube) == AFK_SKF_SET)
         {
-            /* I'll probably set the flag in the lower cube too. */
-            if (rng.frand() >= bushiness)
+            /* If the upper cube has maximum adjacency I must always
+             * set the flag in the lower cube: I don't want to introduce
+             * invisible holes in the middle of shapes.
+             * Otherwise, I'll merely *probably* set the flag in the
+             * lower cube.
+             */
+            if ((upperAdjacencyNumber == 6) || (rng.frand() >= bushiness))
             {
                 setFlag(cube);
                 ++bones;
@@ -195,25 +209,10 @@ int AFK_Skeleton::embellish(
             /* If it's got adjacency, I've got a regular chance of
              * setting it.
              */
-            bool hasAdjacency = false;
-            for (int face = 0; face < 6; ++face)
+            if ((upperAdjacencyNumber > 0) && (rng.frand() < bushiness))
             {
-                AFK_SkeletonCube adjCube = cube.adjacentCube(face);
-                AFK_SkeletonCube adjUpperCube = adjCube.upperCube(upperOffset, subdivisionFactor);
-                if (upper.testFlag(adjUpperCube) == AFK_SKF_SET)
-                {
-                    hasAdjacency = true;
-                    break;
-                }
-            }
-
-            if (hasAdjacency)
-            {
-                if (rng.frand() < bushiness)
-                {
-                    setFlag(cube);
-                    ++bones;
-                }
+                setFlag(cube);
+                ++bones;
             }
         }
     }

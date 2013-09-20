@@ -272,6 +272,17 @@ bool afk_generateShapeCells(
 
 /* AFK_Shape implementation */
 
+/* TODO This function is all wrong.  I need to, separately:
+ * - Ensure that there's a vapour descriptor (for *every* cell --
+ * that bit is correct: I'm always calling this function, but it
+ * does too much).
+ * - Check whether the vapour cell is within the skeleton, and
+ * stop both render and recursing if it isn't
+ * - Else, ensure the shape cell has vapour (by enqueueing the
+ * render)
+ * - And then finally, if the shape cell doesn't have edges,
+ * enqueue that.
+ */
 enum AFK_Shape::CellRenderState AFK_Shape::renderVapourCell(
     unsigned int threadId,
     unsigned int shapeKey,

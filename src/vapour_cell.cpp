@@ -102,7 +102,10 @@ void AFK_VapourCell::makeDescriptor(
 
 bool AFK_VapourCell::withinSkeleton(void) const
 {
-    return (skeleton.getBoneCount() > 0);
+    /* Make skeletons hollow, so that I don't waste
+     * lots of time generating cells in the middle.
+     */
+    return (skeleton.getBoneCount() > 0 && skeleton.getBoneCount() < 6);
 }
 
 AFK_VapourCell::ShapeCells::ShapeCells(const AFK_VapourCell& _vapourCell, const AFK_ShapeSizes& _sSizes):
