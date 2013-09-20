@@ -309,6 +309,8 @@ float4 make4PointNormal(
     return (float4)(normalize(combinedVectors), 0.0f);
 }
 
+#define CULL_COMMON_POINTS 1
+
 /* This parameter list should be sufficient that I will always be able to
  * address all vapour jigsaws in the same place.  I hope!
  */
@@ -322,7 +324,7 @@ __kernel void makeShape3DEdge(
     __write_only image2d_t jigsawColour,
     __write_only image2d_t jigsawNormal)
 {
-#if 1
+#if CULL_COMMON_POINTS
     const int unitOffset = get_global_id(0);
     const int xdim = get_local_id(1); /* 0..EDIM-1 */
     const int zdim = get_local_id(2); /* 0..EDIM-1 */
@@ -358,7 +360,7 @@ __kernel void makeShape3DEdge(
 
             int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack);
             float4 thisVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord);
-#if 1
+#if CULL_COMMON_POINTS
             /* Has a different face already drawn this point? */
             barrier(CLK_LOCAL_MEM_FENCE);
 
