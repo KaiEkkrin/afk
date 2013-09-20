@@ -125,7 +125,7 @@ bool afk_generateShapeCells(
     /* Next, handle the shape cell ... */
     AFK_ShapeCell& shapeCell = (*(shape.shapeCellCache))[cell];
     shapeCell.bind(cell);
-    AFK_ClaimStatus claimStatus = shapeCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
+    AFK_ClaimStatus shapeCellClaimStatus = shapeCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
 
     bool recurse = false, resume = false;
 
@@ -169,57 +169,46 @@ bool afk_generateShapeCells(
          * Only do the render if we actually intend to display the
          * cell, however.
          */
-        switch (shape.renderVapourCell(
-            threadId,
-            entity->getShapeKey(),
-            shapeCell,
-            display,
-            param.shape,
-            queue))
+        AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
+        AFK_VapourCell& vapourCell = (*(shape.vapourCellCache))[vc];
+        vapourCell.bind(vc);
+        AFK_ClaimStatus vapourCellClaimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
+
+        if (!vapourCell.hasDescriptor())
         {
-        case AFK_Shape::Enqueued:
-            if (display)
+            if (vapourCellClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+                vapourCellClaimStatus = vapourCell.upgrade(threadId, vapourCellClaimStatus);
+
+            if (vapourCellClaimStatus == AFK_CL_CLAIMED)
+                vapourCell.makeDescriptor(world->sSizes);
+        }
+
+        if (vapourCell.hasDescriptor())
+        {
+            if (vapourCell.withinSkeleton())
             {
-                /* TODO Produce, and deal with, empties here.  Being able
-                 * to track this is an important optimisation, I think.
-                 */
-                if (shape.generateClaimedShapeCell(
-                    visibleCell,
-                    shapeCell,
-                    claimStatus,
-                    threadId,
-                    param.shape,
-                    queue) == AFK_Shape::NeedsResume)
+                if (display) 
                 {
-                    resume = true;
+                    if (!shape.generateClaimedShapeCell(
+                        threadId, vapourCell, shapeCell, vapourCellClaimStatus, shapeCellClaimStatus, worldTransform, world))
+                    {
+                        resume = true;
+                    }
                 }
+                else recurse = true;
             }
-            else
-            {
-#if VISIBLE_CELL_DEBUG
-                AFK_DEBUG_PRINTL("visible cell " << visibleCell << ": without detail pitch " << world->averageDetailPitch.get())
-#endif
-                /* This cell failed the detail pitch test: recurse through
-                 * the subcells
-                 */
-                recurse = true;
-            }
-            break;
+        }
+        else resume = true;
 
-        case AFK_Shape::NeedsResume:
-            resume = true;
-            /* Push a resume of this shape cell. */
-            break;
-
-        default:
-            /* This cell is empty. */
-            break;
+        if (vapourCellClaimStatus != AFK_CL_TAKEN)
+        {
+            vapourCell.release(threadId, vapourCellClaimStatus);
         }
     }
 
-    if (claimStatus != AFK_CL_TAKEN)
+    if (shapeCellClaimStatus != AFK_CL_TAKEN)
     {
-        shapeCell.release(threadId, claimStatus);
+        shapeCell.release(threadId, shapeCellClaimStatus);
     }
 
     if (resume)
@@ -272,106 +261,19 @@ bool afk_generateShapeCells(
 
 /* AFK_Shape implementation */
 
-/* TODO This function is all wrong.  I need to, separately:
- * - Ensure that there's a vapour descriptor (for *every* cell --
- * that bit is correct: I'm always calling this function, but it
- * does too much).
- * - Check whether the vapour cell is within the skeleton, and
- * stop both render and recursing if it isn't
- * - Else, ensure the shape cell has vapour (by enqueueing the
- * render)
- * - And then finally, if the shape cell doesn't have edges,
- * enqueue that.
- */
-enum AFK_Shape::CellRenderState AFK_Shape::renderVapourCell(
+bool AFK_Shape::generateClaimedShapeCell(
     unsigned int threadId,
-    unsigned int shapeKey,
+    AFK_VapourCell& vapourCell,
     AFK_ShapeCell& shapeCell,
-    bool doRender,
-    const struct AFK_WorldWorkParam::Shape& param,
-    AFK_WorldWorkQueue& queue)
+    enum AFK_ClaimStatus& vapourCellClaimStatus,
+    enum AFK_ClaimStatus& shapeCellClaimStatus,
+    const Mat4<float>& worldTransform,
+    AFK_World *world)
 {
-    const AFK_KeyedCell cell                = param.cell;
-    AFK_World *world                        = param.world;
-
-    const AFK_ShapeSizes& sSizes            = world->sSizes;
-    AFK_JigsawCollection *vapourJigsaws     = world->vapourJigsaws;
-
-    unsigned int cubeOffset, cubeCount;
-    enum CellRenderState state = NeedsResume;
-
-    AFK_KeyedCell vc = afk_shapeToVapourCell(cell, sSizes);
-    AFK_VapourCell& vapourCell = (*vapourCellCache)[vc];
-    vapourCell.bind(vc);
-    AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
-
-    if (!doRender || !vapourCell.alreadyEnqueued(cubeOffset, cubeCount))
-    {
-        AFK_3DList list;
-
-        if (!vapourCell.hasDescriptor())
-        {
-            if (claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
-                claimStatus = vapourCell.upgrade(threadId, claimStatus);
-
-            if (claimStatus == AFK_CL_CLAIMED)
-                vapourCell.makeDescriptor(sSizes);
-        }
-
-        if (doRender)
-        {
-            if (claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
-                claimStatus = vapourCell.upgrade(threadId, claimStatus);
-
-            if (claimStatus == AFK_CL_CLAIMED)
-            {
-                if (vapourCell.withinSkeleton())
-                {
-                    vapourCell.build3DList(threadId, list, sSizes, vapourCellCache);
-                    shapeCell.enqueueVapourComputeUnitWithNewVapour(
-                        threadId, list, sSizes, vapourJigsaws, world->vapourComputeFair,
-                        cubeOffset, cubeCount);
-                    vapourCell.enqueued(cubeOffset, cubeCount);
-                    state = Enqueued;
-                    world->shapeVapoursComputed.fetch_add(1);
-                }
-                else
-                {
-                    /* Nothing to see here. */
-                    state = Empty;
-                }
-            }
-        }
-    }
-    else
-    {
-        shapeCell.enqueueVapourComputeUnitFromExistingVapour(
-            threadId, cubeOffset, cubeCount, sSizes, vapourJigsaws, world->vapourComputeFair);
-        state = Enqueued;
-        world->shapeVapoursComputed.fetch_add(1);
-    }
-
-    vapourCell.release(threadId, claimStatus);
-    return state;
-}
-
-enum AFK_Shape::CellRenderState AFK_Shape::generateClaimedShapeCell(
-    const AFK_VisibleCell& visibleCell,
-    AFK_ShapeCell& shapeCell,
-    enum AFK_ClaimStatus& claimStatus,
-    unsigned int threadId,
-    const struct AFK_WorldWorkParam::Shape& param,
-    AFK_WorldWorkQueue& queue)
-{
-    AFK_Entity *entity                      = param.entity;
-    AFK_World *world                        = param.world;
-
-    Mat4<float> worldTransform              = entity->obj.getTransformation();
-
     AFK_JigsawCollection *vapourJigsaws     = world->vapourJigsaws;
     AFK_JigsawCollection *edgeJigsaws       = world->edgeJigsaws;
 
-    enum CellRenderState state = NeedsResume;
+    bool success = false;
 
     /* Try to get this shape cell set up and enqueued. */
     if (!shapeCell.hasEdges(edgeJigsaws))
@@ -379,16 +281,54 @@ enum AFK_Shape::CellRenderState AFK_Shape::generateClaimedShapeCell(
         /* I need to generate stuff for this cell -- which means I need
          * to upgrade my claim.
          */
-        if (claimStatus == AFK_CL_CLAIMED_UPGRADABLE)
-            claimStatus = shapeCell.upgrade(threadId, claimStatus);
+        if (shapeCellClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+            shapeCellClaimStatus = shapeCell.upgrade(threadId, shapeCellClaimStatus);
 
-        if (claimStatus == AFK_CL_CLAIMED)
+        if (shapeCellClaimStatus == AFK_CL_CLAIMED)
         {
-            /* The vapour must be there already. */
-            assert(shapeCell.hasVapour(vapourJigsaws));
-            shapeCell.enqueueEdgeComputeUnit(
-                threadId, shapeCellCache, vapourJigsaws, edgeJigsaws, world->edgeComputeFair);
-            world->shapeEdgesComputed.fetch_add(1);
+            /* The vapour descriptor must be there already. */
+            assert(vapourCell.hasDescriptor());
+            assert(vapourCell.withinSkeleton());
+
+            /* Check whether we have rendered vapour here.  If we don't,
+             * we need to make that first.
+             */
+            if (!shapeCell.hasVapour(vapourJigsaws))
+            {
+                /* Have we already enqueued a different part of this vapour
+                 * cell for compute?
+                 */
+                unsigned int cubeOffset, cubeCount;
+                if (vapourCell.alreadyEnqueued(cubeOffset, cubeCount))
+                {
+                    shapeCell.enqueueVapourComputeUnitFromExistingVapour(
+                        threadId, cubeOffset, cubeCount, world->sSizes, vapourJigsaws, world->vapourComputeFair);
+                    world->shapeVapoursComputed.fetch_add(1);
+                }
+                else
+                {
+                    /* I need to upgrade my vapour cell claim first */
+                    if (vapourCellClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+                        vapourCellClaimStatus = vapourCell.upgrade(threadId, vapourCellClaimStatus);
+
+                    if (vapourCellClaimStatus == AFK_CL_CLAIMED)
+                    {
+                        AFK_3DList list;
+                        vapourCell.build3DList(threadId, list, world->sSizes, vapourCellCache);
+                        shapeCell.enqueueVapourComputeUnitWithNewVapour(
+                            threadId, list, world->sSizes, vapourJigsaws, world->vapourComputeFair, cubeOffset, cubeCount);
+                        vapourCell.enqueued(cubeOffset, cubeCount);
+                        world->shapeVapoursComputed.fetch_add(1);
+                    }
+                }
+            }
+
+            if (shapeCell.hasVapour(vapourJigsaws))
+            {
+                shapeCell.enqueueEdgeComputeUnit(
+                    threadId, shapeCellCache, vapourJigsaws, edgeJigsaws, world->edgeComputeFair);
+                world->shapeEdgesComputed.fetch_add(1);
+            }
         }
     }
 
@@ -398,10 +338,10 @@ enum AFK_Shape::CellRenderState AFK_Shape::generateClaimedShapeCell(
             worldTransform,
             edgeJigsaws,
             world->entityDisplayFair);
-        state = Enqueued;
+        success = true;
     }
 
-    return state;
+    return success;
 }
 
 AFK_Shape::AFK_Shape(

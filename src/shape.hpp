@@ -68,36 +68,18 @@ bool afk_generateShapeCells(
 class AFK_Shape
 {
 protected:
-    /* Possible return states for the below. */
-    enum CellRenderState
-    {
-        Enqueued,
-        NeedsResume,
-        Empty
-    };
-
-    /* Builds the vapour for a claimed shape cell.  Sorts out the
-     * vapour cell business.
-     * Only actually renders the vapour if `doRender' is set --
-     * otherwise, stops after the descriptor is done (enough for
-     * finer LoD vapour cells to be rendered.)
+    /* Generates a claimed shape cell at its level of detail.
+     * Returns true if successful, or false if you need to
+     * resume.
      */
-    enum CellRenderState renderVapourCell(
+    bool generateClaimedShapeCell(
         unsigned int threadId,
-        unsigned int shapeKey,
+        AFK_VapourCell& vapourCell,
         AFK_ShapeCell& shapeCell,
-        bool doRender,
-        const struct AFK_WorldWorkParam::Shape& param,
-        AFK_WorldWorkQueue& queue);
-
-    /* Generates a claimed shape cell at its level of detail. */
-    enum CellRenderState generateClaimedShapeCell(
-        const AFK_VisibleCell& visibleCell,
-        AFK_ShapeCell& shapeCell,
-        enum AFK_ClaimStatus& claimStatus,
-        unsigned int threadId,
-        const struct AFK_WorldWorkParam::Shape& param,
-        AFK_WorldWorkQueue& queue);
+        enum AFK_ClaimStatus& vapourCellClaimStatus,
+        enum AFK_ClaimStatus& shapeCellClaimStatus,
+        const Mat4<float>& worldTransform,
+        AFK_World *world);
 
     /* TODO: Try to move the shape-dependent stuff out of
      * `world' into here, so that I can stop sending along

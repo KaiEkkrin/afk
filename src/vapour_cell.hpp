@@ -107,7 +107,7 @@ public:
         unsigned int threadId,
         AFK_3DList& list,
         const AFK_ShapeSizes& sSizes,
-        const AFK_VAPOUR_CELL_CACHE *cache);
+        const AFK_VAPOUR_CELL_CACHE *cache) const;
 
     /* Checks whether this vapour cell's features have
      * already gone into the compute queue this frame.
@@ -118,7 +118,7 @@ public:
         unsigned int& o_cubeOffset,
         unsigned int& o_cubeCount) const;
 
-    /* If the above retuned false, you need to build the
+    /* If the above returned false, you need to build the
      * 3D list, do an extend on the queue and (while still
      * holding your exclusive claim) call this to push
      * the queue position.

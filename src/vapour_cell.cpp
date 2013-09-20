@@ -104,8 +104,11 @@ bool AFK_VapourCell::withinSkeleton(void) const
 {
     /* Make skeletons hollow, so that I don't waste
      * lots of time generating cells in the middle.
+     * TODO: Okay, so I thought this was correct, but
+     * when I do this, everything vanishes :/  I think
+     * I might really need edge feedback instead
      */
-    return (skeleton.getBoneCount() > 0 && skeleton.getBoneCount() < 6);
+    return (skeleton.getBoneCount() > 0 /* && skeleton.getBoneCount() < 6 */);
 }
 
 AFK_VapourCell::ShapeCells::ShapeCells(const AFK_VapourCell& _vapourCell, const AFK_ShapeSizes& _sSizes):
@@ -135,7 +138,7 @@ void AFK_VapourCell::build3DList(
     unsigned int threadId,
     AFK_3DList& list,
     const AFK_ShapeSizes& sSizes,
-    const AFK_VAPOUR_CELL_CACHE *cache)
+    const AFK_VAPOUR_CELL_CACHE *cache) const
 {
     /* Add the local vapour to the list. */
     list.extend(features, cubes);
