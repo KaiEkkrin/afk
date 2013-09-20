@@ -112,7 +112,7 @@ void AFK_3DEdgeComputeQueue::computeStart(
      * repeated freezing.
      */
     size_t edgeGlobalDim[3];
-    edgeGlobalDim[0] = 6 * unitCount;
+    edgeGlobalDim[0] = unitCount;
     edgeGlobalDim[1] = edgeGlobalDim[2] = sSizes.eDim;
 
 #if 0
