@@ -322,20 +322,18 @@ __kernel void makeShape3DEdge(
     __write_only image2d_t jigsawColour,
     __write_only image2d_t jigsawNormal)
 {
-#if 0
+#if 1
     const int unitOffset = get_global_id(0);
     const int xdim = get_local_id(1); /* 0..EDIM-1 */
     const int zdim = get_local_id(2); /* 0..EDIM-1 */
 
     /* Here I track whether each of the vapour points has already been
      * written as an edge.
-     * Each word starts at -1 and is updated with which face got the
-     * right to draw that edge. 
+     * If it has, I write the face that got it (might as well).
+     * TODO: Can I make this an array of atomic bit-flags?
      */
     __local char pointsDrawn[EDIM][EDIM][EDIM];
-
-    /* Initialize that flag array. */
-    for (int y = 0; y < EDIM; ++y)
+    for (int y = 0; y < 6; ++y)
     {
         pointsDrawn[xdim][y][zdim] = -1;
     }
@@ -360,36 +358,13 @@ __kernel void makeShape3DEdge(
 
             int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack);
             float4 thisVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord);
+#if 1
+            /* Has a different face already drawn this point? */
+            barrier(CLK_LOCAL_MEM_FENCE);
 
-            /* Figure out which face it goes to, if any.
-             * Upon conflict, the faces get priority in 
-             * numerical order, via this looping contortion.
-             */
-
-            /* TODO For no reason I can fathom right now, all
-             * variants on this logic that I've tried make
-             * my AMD system hang and need the reset button.
-             * :-(
-             * On second thoughts, I think square pyramids are a
-             * bad idea: they pretty much preclude lots of kinds of
-             * irregular shapes.
-             * For now, I'm going to ignore the overlap test and
-             * just let overlaps happen.  I really want this kind
-             * of logic to work, though.
-             * Consider, rather than having a separate thread per
-             * face, instead making each thread do all 6 faces
-             * interleaved.  That would reduce the workgroup size a
-             * great deal, and thence allow me to have bigger cells.
-             */
-#if 0
-            for (int testFace = 0; testFace < 6; ++testFace)
+            if (pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z] == -1)
             {
-                barrier(CLK_LOCAL_MEM_FENCE);
-
-                /* TODO fix for `last' and `this' */
-                if (thisVapourPoint.w <= 0.0f && nextVapourPoint.w > 0.0f &&
-                    testFace == face &&
-                    pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z] == -1)
+                if (!(foundEdge & (1<<face)) && lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f)
                 {
                     /* This is an edge, and it's mine! */
                     int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
@@ -398,11 +373,21 @@ __kernel void makeShape3DEdge(
                     write_imagef(jigsawDisp, edgeCoord, edgeVertex);
                     write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
 
-                    /* TODO Compute the normal here. */
-                    write_imagef(jigsawNormal, edgeCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
-
-                    foundEdge = true;
-                    //pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z] = face;
+                    float4 normal = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+                    for (int xN = -1; xN <= 1; xN += 2)
+                    {
+                        for (int yN = -1; yN <= 1; yN += 2)
+                        {
+                            for (int zN = -1; zN <= 1; zN += 2)
+                            {
+                                normal += make4PointNormal(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord, (int4)(xN, yN, zN, 0));
+                            }
+                        }
+                    }
+    
+                    write_imagef(jigsawNormal, edgeCoord, normalize(normal));
+                    foundEdge |= (1<<face);
+                    pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z] = face;
                 }
             }
 #else
@@ -434,8 +419,8 @@ __kernel void makeShape3DEdge(
             /* TODO I should also set the `found edge' flag if one side `catches up'
              * with the other -- right?
              */
-        }
 #endif
+        }
     }
 
     for (int face = 0; face < 6; ++face)
