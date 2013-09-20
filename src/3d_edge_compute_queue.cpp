@@ -64,6 +64,8 @@ AFK_3DEdgeComputeUnit AFK_3DEdgeComputeQueue::append(
     return newUnit;
 }
 
+#define CULL_COMMON_POINTS 1
+
 void AFK_3DEdgeComputeQueue::computeStart(
     AFK_Computer *computer,
     AFK_JigsawCollection *vapourJigsaws,
@@ -107,23 +109,24 @@ void AFK_3DEdgeComputeQueue::computeStart(
     AFK_CLCHK(clSetKernelArg(edgeKernel, 6, sizeof(cl_mem), &edgeJigsawMem[1]))
     AFK_CLCHK(clSetKernelArg(edgeKernel, 7, sizeof(cl_mem), &edgeJigsawMem[2]))
 
-    /* TODO: Bringing this down to global only for now and removing
-     * the cross-check in an attempt to tackle the
-     * repeated freezing.
-     */
     size_t edgeGlobalDim[3];
     edgeGlobalDim[0] = unitCount;
     edgeGlobalDim[1] = edgeGlobalDim[2] = sSizes.eDim;
 
-#if 0
+#if CULL_COMMON_POINTS
     size_t edgeLocalDim[3];
-    edgeLocalDim[0] = 6; /* one for each of the 6 face orientations */
+    edgeLocalDim[0] = 1;
     edgeLocalDim[1] = edgeLocalDim[2] = sSizes.eDim;
 #endif
 
     cl_event edgeEvent;
 
-    AFK_CLCHK(clEnqueueNDRangeKernel(q, edgeKernel, 3, 0, &edgeGlobalDim[0], /* &edgeLocalDim[0] */ NULL,
+    AFK_CLCHK(clEnqueueNDRangeKernel(q, edgeKernel, 3, 0, &edgeGlobalDim[0],
+#if CULL_COMMON_POINTS
+        &edgeLocalDim[0],
+#else
+        NULL,
+#endif
         preEdgeWaitList.size(),
         &preEdgeWaitList[0],
         &edgeEvent))
