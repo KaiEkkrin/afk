@@ -9,6 +9,12 @@
  * deformable faces of a cube onto it.
  */
 
+#define CULL_COMMON_POINTS 1
+
+#if CULL_COMMON_POINTS
+#pragma OPENCL EXTENSION cl_khr_local_int32_extended_atomics : enable
+#endif
+
 /* Abstraction around 3D images to support emulation.
  * TODO Pull out into some kind of library .cl.
  */
@@ -309,8 +315,6 @@ float4 make4PointNormal(
     return (float4)(normalize(combinedVectors), 0.0f);
 }
 
-#define CULL_COMMON_POINTS 1
-
 /* This parameter list should be sufficient that I will always be able to
  * address all vapour jigsaws in the same place.  I hope!
  */
@@ -331,14 +335,12 @@ __kernel void makeShape3DEdge(
 
     /* Here I track whether each of the vapour points has already been
      * written as an edge.
-     * If it has, I write the face that got it (might as well).
-     * TODO: Can I make this an array of atomic bit-flags?
+     * These are atomic bitfields across z, indexed by x and y.
+     * (Hence applying an upper limit of 32 to EDIM; but I don't think
+     * I'll hit that any time soon)
      */
-    __local char pointsDrawn[EDIM][EDIM][EDIM];
-    for (int y = 0; y < 6; ++y)
-    {
-        pointsDrawn[xdim][y][zdim] = -1;
-    }
+    __local int pointsDrawn[EDIM][EDIM];
+    pointsDrawn[xdim][zdim] = 0;
 #else
     const int unitOffset = get_global_id(0);
     const int xdim = get_global_id(1); /* 0..EDIM-1 */
@@ -361,13 +363,16 @@ __kernel void makeShape3DEdge(
             int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack);
             float4 thisVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord);
 #if CULL_COMMON_POINTS
-            /* Has a different face already drawn this point? */
             barrier(CLK_LOCAL_MEM_FENCE);
+#endif
 
-            if (pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z] == -1)
+            if (!(foundEdge & (1<<face)) && lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f)
             {
-                if (!(foundEdge & (1<<face)) && lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f)
+#if CULL_COMMON_POINTS
+                int zFlag = 1<<thisVapourPointCoord.z;
+                if ((atom_or(&pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y], zFlag) & zFlag) == 0)
                 {
+#endif
                     /* This is an edge, and it's mine! */
                     int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
                     float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
@@ -389,39 +394,10 @@ __kernel void makeShape3DEdge(
     
                     write_imagef(jigsawNormal, edgeCoord, normalize(normal));
                     foundEdge |= (1<<face);
-                    pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z] = face;
+#if CULL_COMMON_POINTS
                 }
-            }
-#else
-            if (!(foundEdge & (1<<face)) && lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f)
-            {
-                /* This is an edge, and it's mine! */
-                int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
-                float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
-
-                write_imagef(jigsawDisp, edgeCoord, edgeVertex);
-                write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
-
-                float4 normal = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
-                for (int xN = -1; xN <= 1; xN += 2)
-                {
-                    for (int yN = -1; yN <= 1; yN += 2)
-                    {
-                        for (int zN = -1; zN <= 1; zN += 2)
-                        {
-                            normal += make4PointNormal(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord, (int4)(xN, yN, zN, 0));
-                        }
-                    }
-                }
-
-                write_imagef(jigsawNormal, edgeCoord, normalize(normal));
-                foundEdge |= (1<<face);
-            }
-
-            /* TODO I should also set the `found edge' flag if one side `catches up'
-             * with the other -- right?
-             */
 #endif
+            }
         }
     }
 
