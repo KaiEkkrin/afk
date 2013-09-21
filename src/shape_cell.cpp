@@ -38,6 +38,7 @@ bool AFK_ShapeCell::hasEdges(AFK_JigsawCollection *edgeJigsaws) const
 
 void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
     unsigned int threadId,
+    int adjacency,
     const AFK_3DList& list,
     const AFK_ShapeSizes& sSizes,
     AFK_JigsawCollection *vapourJigsaws,
@@ -63,13 +64,14 @@ void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
         cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
         vapourJigsawPiece,
         //(1<<6) - 1, /* TODO: For now, pretending full adjancency */
-        0,
+        adjacency,
         o_cubeOffset,
         o_cubeCount);
 }
 
 void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
     unsigned int threadId,
+    int adjacency,
     unsigned int cubeOffset,
     unsigned int cubeCount,
     const AFK_ShapeSizes& sSizes,
@@ -85,7 +87,7 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
         cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
         vapourJigsawPiece,
         //(1<<6) - 1, /* TODO: For now, pretending full adjancency */
-        0,
+        adjacency,
         cubeOffset,
         cubeCount);
 }

@@ -305,8 +305,9 @@ bool AFK_Shape::generateClaimedShapeCell(
                 unsigned int cubeOffset, cubeCount;
                 if (vapourCell.alreadyEnqueued(cubeOffset, cubeCount))
                 {
+                    int adjacency = vapourCell.skeletonAdjacency(shapeCell.getCell(), world->sSizes);
                     shapeCell.enqueueVapourComputeUnitFromExistingVapour(
-                        threadId, cubeOffset, cubeCount, world->sSizes, vapourJigsaws, world->vapourComputeFair);
+                        threadId, adjacency, cubeOffset, cubeCount, world->sSizes, vapourJigsaws, world->vapourComputeFair);
                     world->shapeVapoursComputed.fetch_add(1);
                 }
                 else
@@ -319,8 +320,10 @@ bool AFK_Shape::generateClaimedShapeCell(
                     {
                         AFK_3DList list;
                         vapourCell.build3DList(threadId, list, world->sSizes, vapourCellCache);
+
+                        int adjacency = vapourCell.skeletonAdjacency(shapeCell.getCell(), world->sSizes);
                         shapeCell.enqueueVapourComputeUnitWithNewVapour(
-                            threadId, list, world->sSizes, vapourJigsaws, world->vapourComputeFair, cubeOffset, cubeCount);
+                            threadId, adjacency, list, world->sSizes, vapourJigsaws, world->vapourComputeFair, cubeOffset, cubeCount);
                         vapourCell.enqueued(cubeOffset, cubeCount);
                         world->shapeVapoursComputed.fetch_add(1);
                     }
