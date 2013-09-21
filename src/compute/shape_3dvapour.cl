@@ -136,6 +136,7 @@ struct AFK_3DVapourCube
 };
 
 __constant float reboundPoint = 100.0f;
+__constant float maxDensity = 2.0f * THRESHOLD * FEATURE_COUNT_PER_CUBE;
 
 void transformLocationToLocation(
     float3 *vl,
@@ -163,7 +164,7 @@ void transformLocationToLocation(
      * appears to work better:
      */
     float density = (*vc).w - (float)THRESHOLD;
-    *vc = (float4)((*vc).xyz, density);
+    *vc = (float4)((*vc).xyz, clamp(density, -maxDensity, maxDensity));
 
 #if 0
     /* I'm going to refine this to try to avoid large areas of high
