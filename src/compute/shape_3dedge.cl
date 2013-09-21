@@ -9,7 +9,7 @@
  * deformable faces of a cube onto it.
  */
 
-#define CULL_COMMON_POINTS 1
+#define CULL_COMMON_POINTS 0
 
 #if CULL_COMMON_POINTS
 #pragma OPENCL EXTENSION cl_khr_local_int32_extended_atomics : enable

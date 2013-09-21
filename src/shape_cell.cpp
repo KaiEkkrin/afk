@@ -62,7 +62,8 @@ void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
     vapourComputeQueue->addUnit(
         cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
         vapourJigsawPiece,
-        (1<<6) - 1, /* TODO: For now, pretending full adjancency */
+        //(1<<6) - 1, /* TODO: For now, pretending full adjancency */
+        0,
         o_cubeOffset,
         o_cubeCount);
 }
@@ -83,7 +84,8 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
     vapourComputeQueue->addUnit(
         cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
         vapourJigsawPiece,
-        (1<<6) - 1, /* TODO: For now, pretending full adjancency */
+        //(1<<6) - 1, /* TODO: For now, pretending full adjancency */
+        0,
         cubeOffset,
         cubeCount);
 }

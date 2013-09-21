@@ -118,11 +118,15 @@ void compute3DVapourFeature(
     {
         /* TODO: Vary the operators here. */
         float density = weight * (radius - dist);
+#if 0
         if ((*vc).w < density)
         {
             /* TODO: More exciting things with colour! */
             (*vc) = (float4)(colour, density);
         }
+#else
+        (*vc) += (float4)(colour, density);
+#endif
     }
 }
 
@@ -204,7 +208,7 @@ void transformCubeToCube(
     transformLocationToLocation(vl, vc, fromCoord, toCoord);
 }
 
-float transformFaceDensity(float density, int xdim, int ydim, int zdim, int adjacency)
+void transformFaceDensity(float4 *vc, int xdim, int ydim, int zdim, int adjacency)
 {
     /* Check nearby faces for adjacency.  If there's no adjacency, I
      * want to run the density down in a gradient, so that I don't
@@ -235,15 +239,15 @@ float transformFaceDensity(float density, int xdim, int ydim, int zdim, int adja
             break;
 
         case 3:
-            distanceFromThisFace = TDIM - zdim;
+            distanceFromThisFace = TDIM - 1 - zdim;
             break;
 
         case 4:
-            distanceFromThisFace = TDIM - xdim;
+            distanceFromThisFace = TDIM - 1 - xdim;
             break;
 
         case 5:
-            distanceFromThisFace = TDIM - ydim;
+            distanceFromThisFace = TDIM - 1 - ydim;
             break;
         }
 
@@ -257,18 +261,29 @@ float transformFaceDensity(float density, int xdim, int ydim, int zdim, int adja
 
     if (closestFace != -1)
     {
-        /* I want a gradient of the density from -THRESHOLD
+        /* I want a gradient of the density from `faceDensity'
          * to the real value, tending towards the former at
          * the face and the latter at the middle.
+         * TODO: How do I choose a good value for faceDensity ??
+         * TODO: I'm also swapping in debug colours here, so that
+         * I can check which faces are being gradiented and which
+         * are not.
          */
+        float4 vcnew = *vc;
+        vcnew.xyz = (float3)(0.0f, 1.0f, 0.0f);
+
+        float4 faceDensity = (float4)(
+            1.0f, 0.0f, 1.0f,
+            -THRESHOLD * FEATURE_COUNT_PER_CUBE);
         float dff = (float)distanceFromClosestFace;
         float dfc = (float)(TDIM / 2);
-        density = (
-            -THRESHOLD * (dfc - dff) / dfc +
-            density * dff / dfc);
-    }
 
-    return density;
+        vcnew = (
+            faceDensity * (dfc - dff) / dfc +
+            vcnew * dff / dfc);
+
+        *vc = vcnew;
+    }
 }
 
 struct AFK_3DVapourComputeUnit
@@ -314,9 +329,12 @@ __kernel void makeShape3DVapour(
 
     /* Compute the number field by 
      * iterating across all of the cubes and features.
+     * TODO: I'm going to temporarily ignore all but the top level of
+     * vapour.  This is so that I can debug the other things I'm working
+     * on to turn this into a a real solid random shape.
      */
     int i;
-    for (i = units[unitOffset].cubeOffset; i < (units[unitOffset].cubeOffset + units[unitOffset].cubeCount); ++i)
+    for (i = units[unitOffset].cubeOffset; i < (units[unitOffset].cubeOffset + /* units[unitOffset].cubeCount */ 1); ++i)
     {
         if (i > units[unitOffset].cubeOffset)
         {
@@ -335,7 +353,7 @@ __kernel void makeShape3DVapour(
     /* TODO: Should I do this every time, or only on the
      * last?  I've yet to be sure.
      */
-    vc.w = transformFaceDensity(vc.w, xdim, ydim, zdim, units[unitOffset].adjacency);
+    transformFaceDensity(&vc, xdim, ydim, zdim, units[unitOffset].adjacency);
 
     /* TODO: Colour testing. */
 #if 0
