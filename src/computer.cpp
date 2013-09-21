@@ -350,6 +350,8 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
         }
     }
 
+    args << "-cl-mad-enable -cl-strict-aliasing -Werror";
+
     std::string argsStr = args.str();
     if (argsStr.size() > 0)
         std::cout << "AFK: Passing compiler arguments: " << argsStr << std::endl;
