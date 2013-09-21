@@ -7,6 +7,7 @@
 
 #include "def.hpp"
 #include "exception.hpp"
+#include "keyed_cell.hpp"
 #include "rng/rng.hpp"
 #include "shape_sizes.hpp"
 
@@ -26,11 +27,21 @@ public:
     AFK_SkeletonCube();
     AFK_SkeletonCube(const Vec3<long long>& _coord);
 
+    /* Makes a SkeletonCube out of a particular part of a
+     * vapour cell.
+     */
+    AFK_SkeletonCube(const AFK_KeyedCell& vapourCell, const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes);
+
     /* Gives the adjacency for the given face (bottom, left, front, back, right, top). */
     AFK_SkeletonCube adjacentCube(int face) const;
 
     /* Gives the upper cube for this cube. */
     AFK_SkeletonCube upperCube(const Vec3<long long>& upperOffset, unsigned int subdivisionFactor) const;
+
+    /* Makes a KeyedCell describing the shape cell within a
+     * vapour cell that would correspond to this skeleton cube.
+     */
+    AFK_KeyedCell toShapeCell(const AFK_KeyedCell& vapourCell, const AFK_ShapeSizes& sSizes) const;
 
     /* Using this cube as an iterator, advances it. */
     void advance(int gridDim);
@@ -112,6 +123,14 @@ public:
         const AFK_ShapeSizes& sSizes);
 
     int getBoneCount(void) const;
+
+    /* Checks whether a specific cube is within the skeleton. */
+    bool within(const AFK_SkeletonCube& cube) const;
+
+    /* Gets the adjacency for a particular skeleton cube, as
+     * a bit field (bits 0-5 inclusive, usual order).
+     */
+    int getAdjacency(const AFK_SkeletonCube& cube) const;
 
     /* This is a device for enumerating the cells that are
      * set within the skeleton.  They come out in skeleton

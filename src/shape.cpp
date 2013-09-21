@@ -134,7 +134,7 @@ bool afk_generateShapeCells(
     shapeCell.bind(cell);
     AFK_ClaimStatus shapeCellClaimStatus = shapeCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
 
-    bool recurse = false, resume = false;
+    bool resume = false;
 
     /* Check for visibility. */
     bool someVisible = entirelyVisible;
@@ -192,7 +192,7 @@ bool afk_generateShapeCells(
 
         if (vapourCell.hasDescriptor())
         {
-            if (vapourCell.withinSkeleton())
+            if (vapourCell.withinSkeleton(shapeCell.getCell(), world->sSizes))
             {
                 if (display) 
                 {
@@ -202,7 +202,29 @@ bool afk_generateShapeCells(
                         resume = true;
                     }
                 }
-                else recurse = true;
+                else
+                {
+                    size_t subcellsSize = CUBE(world->sSizes.subdivisionFactor);
+                    AFK_Cell *subcells = new AFK_Cell[subcellsSize];
+                    unsigned int subcellsCount = cell.c.subdivide(subcells, subcellsSize, world->sSizes.subdivisionFactor);
+                    assert(subcellsCount == subcellsSize);
+
+                    for (unsigned int i = 0; i < subcellsCount; ++i)
+                    {
+                        AFK_WorldWorkQueue::WorkItem subcellItem;
+                        subcellItem.func                            = afk_generateShapeCells;
+                        subcellItem.param.shape.cell                = afk_keyedCell(subcells[i], cell.key);
+                        subcellItem.param.shape.entity              = entity;
+                        subcellItem.param.shape.world               = world;
+                        subcellItem.param.shape.viewerLocation      = viewerLocation;
+                        subcellItem.param.shape.camera              = camera;
+                        subcellItem.param.shape.flags               = (allVisible ? AFK_SCG_FLAG_ENTIRELY_VISIBLE : 0);
+                        subcellItem.param.shape.dependency          = NULL;
+                        queue.push(subcellItem);
+                    }
+            
+                    delete[] subcells;
+                }
             }
         }
         else resume = true;
@@ -226,30 +248,6 @@ bool afk_generateShapeCells(
         if (param.shape.dependency) param.shape.dependency->retain();
         queue.push(resumeItem);
         world->shapeCellsResumed.fetch_add(1);
-    }
-
-    if (recurse)
-    {
-        size_t subcellsSize = CUBE(world->sSizes.subdivisionFactor);
-        AFK_Cell *subcells = new AFK_Cell[subcellsSize];
-        unsigned int subcellsCount = cell.c.subdivide(subcells, subcellsSize, world->sSizes.subdivisionFactor);
-        assert(subcellsCount == subcellsSize);
-
-        for (unsigned int i = 0; i < subcellsCount; ++i)
-        {
-            AFK_WorldWorkQueue::WorkItem subcellItem;
-            subcellItem.func                            = afk_generateShapeCells;
-            subcellItem.param.shape.cell                = afk_keyedCell(subcells[i], cell.key);
-            subcellItem.param.shape.entity              = entity;
-            subcellItem.param.shape.world               = world;
-            subcellItem.param.shape.viewerLocation      = viewerLocation;
-            subcellItem.param.shape.camera              = camera;
-            subcellItem.param.shape.flags               = (allVisible ? AFK_SCG_FLAG_ENTIRELY_VISIBLE : 0);
-            subcellItem.param.shape.dependency          = NULL;
-            queue.push(subcellItem);
-        }
-
-        delete[] subcells;
     }
 
     /* If this cell had a dependency ... */
@@ -295,7 +293,6 @@ bool AFK_Shape::generateClaimedShapeCell(
         {
             /* The vapour descriptor must be there already. */
             assert(vapourCell.hasDescriptor());
-            assert(vapourCell.withinSkeleton());
 
             /* Check whether we have rendered vapour here.  If we don't,
              * we need to make that first.

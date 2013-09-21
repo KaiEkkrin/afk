@@ -72,13 +72,15 @@ public:
         const AFK_VapourCell& upperCell,
         const AFK_ShapeSizes& sSizes);
 
-    /* Having made the descriptor, you can check whether this
-     * vapour cell is actually within the skeleton by calling
-     * this.
-     * If it isn't, just bypass all the subsequent rendering
-     * stuff and reject this cell...
+    /* You can check whether a specific ShapeCell is within
+     * the skeleton, so long as a descriptor is present ...
      */
-    bool withinSkeleton(void) const;
+    bool withinSkeleton(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const;
+
+    /* ...and obtain its adjacency (flags; 0-5 inclusive; in the
+     * usual order).
+     */
+    int skeletonAdjacency(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const;
 
     /* This enumerates the shape cells that compose the bones of
      * the skeleton here, so that they can be easily enqueued.

@@ -2,6 +2,7 @@
 
 #include "afk.hpp"
 
+#include <cassert>
 #include <cstring>
 
 #include "skeleton.hpp"
@@ -18,6 +19,15 @@ AFK_SkeletonCube::AFK_SkeletonCube()
 AFK_SkeletonCube::AFK_SkeletonCube(const Vec3<long long>& _coord):
     coord(_coord)
 {
+}
+
+AFK_SkeletonCube::AFK_SkeletonCube(const AFK_KeyedCell& vapourCell, const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes)
+{
+    long long shapeCellScale = vapourCell.c.coord.v[3] / sSizes.skeletonFlagGridDim;
+    coord = afk_vec3<long long>(
+        (shapeCell.c.coord.v[0] - vapourCell.c.coord.v[0]) / shapeCellScale,
+        (shapeCell.c.coord.v[1] - vapourCell.c.coord.v[1]) / shapeCellScale,
+        (shapeCell.c.coord.v[2] - vapourCell.c.coord.v[2]) / shapeCellScale);
 }
 
 AFK_SkeletonCube AFK_SkeletonCube::adjacentCube(int face) const
@@ -63,6 +73,16 @@ AFK_SkeletonCube AFK_SkeletonCube::upperCube(const Vec3<long long>& upperOffset,
         coord.v[0] / subdivisionFactor,
         coord.v[1] / subdivisionFactor,
         coord.v[2] / subdivisionFactor) + upperOffset);
+}
+
+AFK_KeyedCell AFK_SkeletonCube::toShapeCell(const AFK_KeyedCell& vapourCell, const AFK_ShapeSizes& sSizes) const
+{
+    long long shapeCellScale = vapourCell.c.coord.v[3] / sSizes.skeletonFlagGridDim;
+    return afk_keyedCell(afk_vec4<long long>(
+        coord.v[0] * shapeCellScale + vapourCell.c.coord.v[0],
+        coord.v[1] * shapeCellScale + vapourCell.c.coord.v[1],
+        coord.v[2] * shapeCellScale + vapourCell.c.coord.v[2],
+        shapeCellScale), vapourCell.key);
 }
 
 void AFK_SkeletonCube::advance(int gridDim)
@@ -168,6 +188,13 @@ int AFK_Skeleton::embellish(
 {
     int bones = 0;
 
+    /* TODO: This stuff isn't correct right now, because the cell subdivision
+     * doesn't correctly track the possible skeleton embellishments.
+     * I'm going to temporarily suppress it (by forcing `bushiness' to 0)
+     * while I work on other bits.
+     */
+    float embBushiness = /* bushiness */ 0.0f;
+
     /* There are lots of ways I could do this.
      * As a relatively simple first approach that _should_ produce
      * good results (without needing insane levels of cross-
@@ -198,7 +225,7 @@ int AFK_Skeleton::embellish(
              * Otherwise, I'll merely *probably* set the flag in the
              * lower cube.
              */
-            if ((upperAdjacencyNumber == 6) || (rng.frand() >= bushiness))
+            if ((upperAdjacencyNumber == 6) || (rng.frand() >= embBushiness))
             {
                 setFlag(cube);
                 ++bones;
@@ -209,7 +236,7 @@ int AFK_Skeleton::embellish(
             /* If it's got adjacency, I've got a regular chance of
              * setting it.
              */
-            if ((upperAdjacencyNumber > 0) && (rng.frand() < bushiness))
+            if ((upperAdjacencyNumber > 0) && (rng.frand() < embBushiness))
             {
                 setFlag(cube);
                 ++bones;
@@ -228,7 +255,7 @@ int AFK_Skeleton::embellish(
         {
             AFK_SkeletonCube adjCube = cube.adjacentCube(face);
             if (testFlag(adjCube) == AFK_SKF_SET)
-                chanceToNotPlug *= (1.0f - bushiness);
+                chanceToNotPlug *= (1.0f - embBushiness);
         }
 
         if (rng.frand() >= chanceToNotPlug)
@@ -300,6 +327,23 @@ int AFK_Skeleton::getBoneCount(void) const
     return boneCount;
 }
 
+bool AFK_Skeleton::within(const AFK_SkeletonCube& cube) const
+{
+    return (testFlag(cube) == AFK_SKF_SET);
+}
+
+int AFK_Skeleton::getAdjacency(const AFK_SkeletonCube& cube) const
+{
+    int adj = 0;
+    for (int face = 0; face < 6; ++face)
+    {
+        if (testFlag(cube.adjacentCube(face)) == AFK_SKF_SET)
+            adj |= (1<<face);
+    }
+
+    return adj;
+}
+
 AFK_Skeleton::Bones::Bones(const AFK_Skeleton& _skeleton):
     skeleton(_skeleton)
 {
@@ -331,6 +375,10 @@ AFK_SkeletonCube AFK_Skeleton::Bones::next(void)
 {
     if (!hasNext()) throw AFK_Exception("Skeleton ran out of bones");
     thisBone = nextBone;
+
+    /* TODO remove sanity check -- want to ensure consistency here */
+    assert(skeleton.within(thisBone));
+
     return thisBone;
 }
 
