@@ -132,6 +132,12 @@ public:
      */
     int getAdjacency(const AFK_SkeletonCube& cube) const;
 
+    /* Gets the "full adjacency" for a particular skeleton cube:
+     * flags between +1 and -1 inclusive in all 3 directions.
+     * z is the units, y is the 3s, x is the 9s.
+     */
+    int getFullAdjacency(const AFK_SkeletonCube& cube) const;
+
     /* This is a device for enumerating the cells that are
      * set within the skeleton.  They come out in skeleton
      * co-ordinates (between 0 and gridDim).

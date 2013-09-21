@@ -82,6 +82,11 @@ public:
      */
     int skeletonAdjacency(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const;
 
+    /* As above, but returns the full adjacency (see description
+     * in skeleton.hpp)
+     */
+    int skeletonFullAdjacency(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const;
+
     /* This enumerates the shape cells that compose the bones of
      * the skeleton here, so that they can be easily enqueued.
      */

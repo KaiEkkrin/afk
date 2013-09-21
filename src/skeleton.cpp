@@ -344,6 +344,25 @@ int AFK_Skeleton::getAdjacency(const AFK_SkeletonCube& cube) const
     return adj;
 }
 
+int AFK_Skeleton::getFullAdjacency(const AFK_SkeletonCube& cube) const
+{
+    int adj = 0;
+    for (long long x = -1; x <= 1; ++x)
+    {
+        for (long long y = -1; y <= 1; ++y)
+        {
+            for (long long z = -1; z <= 1; ++z)
+            {
+                AFK_SkeletonCube adjCube(cube.coord + afk_vec3<long long>(x, y, z));
+                if (testFlag(adjCube) == AFK_SKF_SET)
+                    adj |= (1<<((x+1)*9 + (y+1)*3 + (z+1)));
+            }
+        }
+    }
+
+    return adj;
+}
+
 AFK_Skeleton::Bones::Bones(const AFK_Skeleton& _skeleton):
     skeleton(_skeleton)
 {

@@ -118,6 +118,14 @@ int AFK_VapourCell::skeletonAdjacency(const AFK_KeyedCell& shapeCell, const AFK_
     return skeleton.getAdjacency(cube);
 }
 
+int AFK_VapourCell::skeletonFullAdjacency(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const
+{
+    assert(shapeCell.c.coord.v[3] == cell.c.coord.v[3] / sSizes.skeletonFlagGridDim);
+
+    AFK_SkeletonCube cube(cell, shapeCell, sSizes);
+    return skeleton.getFullAdjacency(cube);
+}
+
 AFK_VapourCell::ShapeCells::ShapeCells(const AFK_VapourCell& _vapourCell, const AFK_ShapeSizes& _sSizes):
     bones(AFK_Skeleton::Bones(_vapourCell.skeleton)),
     vapourCell(_vapourCell),
