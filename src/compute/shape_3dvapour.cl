@@ -209,103 +209,51 @@ void transformCubeToCube(
     transformLocationToLocation(vl, vc, fromCoord, toCoord);
 }
 
-bool testFullAdjacency(int3 base, int face, int adjacency)
+bool testFullAdjacency(int3 base, int adjacency)
+{
+    if (base.x >= -1 && base.x <= 1 &&
+        base.y >= -1 && base.y <= 1 &&
+        base.z >= -1 && base.z <= 1)
+    {
+        base += 1;
+        return (adjacency & (1 << (base.x * 9 + base.y * 3 + base.z))) != 0;
+    }
+    else return false;
+}
+
+int3 getAdjacentFace(int3 coord, int face)
 {
     switch (face)
     {
-    case 0:
-        --base.y;
-        if (base.y < -1) return false;
-        break;
-
-    case 1:
-        --base.x;
-        if (base.x < -1) return false;
-        break;
-
-    case 2:
-        --base.z;
-        if (base.z < -1) return false;
-        break;
-
-    case 3:
-        ++base.z;
-        if (base.z > 1) return false;
-        break;
-
-    case 4:
-        ++base.x;
-        if (base.x > 1) return false;
-        break;
-
-    case 5:
-        ++base.y;
-        if (base.y > 1) return false;
-        break;
+    case 0: --coord.y; break;
+    case 1: --coord.x; break;
+    case 2: --coord.z; break;
+    case 3: ++coord.z; break;
+    case 4: ++coord.x; break;
+    case 5: ++coord.y; break;
     }
 
-    base += 1;
-    return (adjacency & (1 << (base.x * 9 + base.y * 3 + base.z))) != 0;
+    return coord;
 }
 
-void transformFaceDensity(float4 *vc, int xdim, int ydim, int zdim, int adjacency)
+void transformAdjacentFaceDensity(float4 *vc, int xdim, int ydim, int zdim, int3 adjCoord, int adjacency)
 {
-    /* Check nearby faces for adjacency.  If there's no adjacency, I
-     * want to run the density down in a gradient, so that I don't
-     * have dense fog at skeleton borders.
-     * Because the borders at dimension 0 are for the real cell at -1,
-     * and at dimension TDIM-1 or TDIM-2 are for the real cell +1,
-     * I need to do a bit of a contortion in order to calculate their
-     * adjacency:
-     */
-
-    int3 adjacencyBase = (int3)(0, 0, 0);
-    /* TODO This is wrong.  I've misunderstood what this algorithm
-     * ought to do.  Think about it harder.
-     */
-#if 0
-    if (xdim == 0) adjacencyBase.x = -1;
-    else if (xdim >= VDIM) adjacencyBase.x = 1;
-
-    if (ydim == 0) adjacencyBase.y = -1;
-    else if (ydim >= VDIM) adjacencyBase.y = 1;
-
-    if (zdim == 0) adjacencyBase.z = -1;
-    else if (zdim >= VDIM) adjacencyBase.z = 1;
-#endif
-
     int closestFace = -1;
     int distanceFromClosestFace = 1<<30;
+
     for (int face = 0; face < 6; ++face)
     {
         int distanceFromThisFace = 1<<30;
-        if (testFullAdjacency(adjacencyBase, face, adjacency)) continue;
+        if (testFullAdjacency(getAdjacentFace(adjCoord, face), adjacency)) continue;
 
         switch (face)
         {
-        case 0:
-            distanceFromThisFace = ydim - 1;
-            break;
-
-        case 1:
-            distanceFromThisFace = xdim - 1;
-            break;
-
-        case 2:
-            distanceFromThisFace = zdim - 1;
-            break;
-
-        case 3:
-            distanceFromThisFace = VDIM - zdim;
-            break;
-
-        case 4:
-            distanceFromThisFace = VDIM - xdim;
-            break;
-
-        case 5:
-            distanceFromThisFace = VDIM - ydim;
-            break;
+        case 0: distanceFromThisFace = ydim - 1; break;
+        case 1: distanceFromThisFace = xdim - 1; break;
+        case 2: distanceFromThisFace = zdim - 1; break;
+        case 3: distanceFromThisFace = VDIM - zdim; break;
+        case 4: distanceFromThisFace = VDIM - xdim; break;
+        case 5: distanceFromThisFace = VDIM - ydim; break;
         }
 
         if (distanceFromThisFace < (VDIM / 2) &&
@@ -341,6 +289,57 @@ void transformFaceDensity(float4 *vc, int xdim, int ydim, int zdim, int adjacenc
 
         *vc = vcnew;
     }
+}
+
+bool inAdjacentTexel(int xdim, int ydim, int zdim, int face)
+{
+    switch (face)
+    {
+    case 0: return (ydim == 0);
+    case 1: return (xdim == 0);
+    case 2: return (zdim == 0);
+    case 3: return (zdim >= VDIM);
+    case 4: return (xdim >= VDIM);
+    default: return (ydim >= VDIM);
+    }
+}
+
+void transformFaceDensity(float4 *vc, int xdim, int ydim, int zdim, int adjacency)
+{
+    /* Check nearby faces for adjacency.  If there's no adjacency, I
+     * want to run the density down in a gradient, so that I don't
+     * have dense fog at skeleton borders.
+     * Because the borders at dimension 0 are for the real cell at -1,
+     * and at dimension TDIM-1 or TDIM-2 are for the real cell +1,
+     * I need to do a bit of a contortion in order to calculate their
+     * adjacency:
+     */
+
+    int3 adjBase = (int3)(0, 0, 0);
+    /* TODO This is wrong.  I've misunderstood what this algorithm
+     * ought to do.  Think about it harder.
+     * 
+     * Here's what I really want to do:
+     * - If I'm a centre texel and the closest face has no adjacency, do the below.
+     * - If I'm a face texel and that face has no adjacency, do as per the centre texel.
+     * - If I'm a face texel and that face has adjacency, test adjacency for that face
+     * cube and do the below.
+     * - If I'm an edge texel and neither face has adjacency, do as per the centre texel.
+     * - If I'm an edge texel and one face has adjacency, do as per the face texel with adjacency.
+     * - If I'm an edge texel and both faces have adjacency, test adjacency for the edge cube and
+     * do the below.
+     * - If I'm a corner texel...  You see the pattern now?
+     */
+    for (int face = 0; face < 6; ++face)
+    {
+        if (inAdjacentTexel(xdim, ydim, zdim, face))
+        {
+            int3 adjCoord = getAdjacentFace(adjBase, face);
+            if (testFullAdjacency(adjCoord, adjacency)) adjBase = adjCoord;
+        }
+    }
+
+    transformAdjacentFaceDensity(vc, xdim, ydim, zdim, adjBase, adjacency);
 }
 
 struct AFK_3DVapourComputeUnit
