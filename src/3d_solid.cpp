@@ -98,6 +98,9 @@ unsigned int AFK_3DList::cubeCount(void) const
     return c.size();
 }
 
+/* Only enable this if you want a very great deal of spam */
+#define PRINT_FEATURES 0
+
 std::ostream& operator<<(std::ostream& os, const AFK_3DList& list)
 {
     os << "3D List: Cubes: (";
@@ -110,7 +113,9 @@ std::ostream& operator<<(std::ostream& os, const AFK_3DList& list)
         first = false;
     }
 
-    os << "); Features: (";
+    os << ")";
+#if PRINT_FEATURES
+    os << "; Features: (";
     first = true;
     for (std::vector<AFK_3DVapourFeature>::const_iterator fIt = list.f.begin();
         fIt != list.f.end(); ++fIt)
@@ -121,6 +126,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_3DList& list)
     }
 
     os << ")";
+#endif
     return os;
 }
 

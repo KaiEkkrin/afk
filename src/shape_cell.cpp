@@ -34,7 +34,7 @@ bool AFK_ShapeCell::hasEdges(AFK_JigsawCollection *edgeJigsaws) const
         edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTimestamp(edgeJigsawPiece) == edgeJigsawPieceTimestamp);
 }
 
-#define SHAPE_COMPUTE_DEBUG 0
+#define SHAPE_COMPUTE_DEBUG 1
 
 void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
     unsigned int threadId,
@@ -56,7 +56,7 @@ void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
         vapourComputeFair.getUpdateQueue(0);
 
 #if SHAPE_COMPUTE_DEBUG
-    AFK_DEBUG_PRINTL("Computing new vapour at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE) << " with adjacency: " << std::hex << adjacency)
+    AFK_DEBUG_PRINTL("Computing new vapour at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE) << " with adjacency: " << std::hex << adjacency << " and list " << list)
 #endif
 
     vapourComputeQueue->extend(list, o_cubeOffset, o_cubeCount);

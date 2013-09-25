@@ -154,14 +154,17 @@ void transformLocationToLocation(
      * value for `edgeThreshold' ought to be and how it should depend
      * on the LoD?)
      */
-    /*
+#if 0
     *vc = (float4)(
         (*vc).xyz,
         (*vc).w * fromCoord.w / toCoord.w);
-     */
+#endif
 
     /* This one (and thresholding to something very small in shape_3dedge)
      * appears to work better:
+     * ...does it ???
+     * TODO: Having a go at moving this out to something that only gets
+     * run at the end of all passes.
      */
     float density = (*vc).w - (float)THRESHOLD;
     *vc = (float4)((*vc).xyz, clamp(density, -maxDensity, maxDensity));
@@ -309,6 +312,11 @@ bool inAdjacentTexel(int xdim, int ydim, int zdim, int face)
 
 void transformFaceDensity(float4 *vc, int xdim, int ydim, int zdim, int adjacency)
 {
+    /* TODO: Is this the right place for this operation, after all? */
+    //float density = (*vc).w - (float)THRESHOLD;
+    //*vc = (float4)((*vc).xyz, clamp(density, -maxDensity, maxDensity));
+    //*vc = (float4)((*vc).xyz, density);
+
     /* Check nearby faces for adjacency.  If there's no adjacency, I
      * want to run the density down in a gradient, so that I don't
      * have dense fog at skeleton borders.
@@ -319,11 +327,7 @@ void transformFaceDensity(float4 *vc, int xdim, int ydim, int zdim, int adjacenc
      */
 
     int3 adjBase = (int3)(0, 0, 0);
-    /* TODO This is wrong.  I've misunderstood what this algorithm
-     * ought to do.  Think about it harder.
-     * 
-     * Here's what I really want to do:
-     * - If I'm a centre texel and the closest face has no adjacency, do the below.
+    /* - If I'm a centre texel and the closest face has no adjacency, do the below.
      * - If I'm a face texel and that face has no adjacency, do as per the centre texel.
      * - If I'm a face texel and that face has adjacency, test adjacency for that face
      * cube and do the below.
@@ -393,13 +397,21 @@ __kernel void makeShape3DVapour(
      * on to turn this into a a real solid random shape.
      */
     int i;
-    for (i = units[unitOffset].cubeOffset; i < (units[unitOffset].cubeOffset + /* units[unitOffset].cubeCount */ 1); ++i)
+    for (i = units[unitOffset].cubeOffset; i < (units[unitOffset].cubeOffset + units[unitOffset].cubeCount); ++i)
     {
         if (i > units[unitOffset].cubeOffset)
         {
             transformCubeToCube(&vl, &vc, cubes, i-1, i);
         }
 
+        /* TODO: Right now the LoD conversion makes everything vanish.
+         * I want extra LoDs to make a small transformation to the
+         * geometry, not disappear the whole damned lot.
+         * For now, I'm going to simply only compute the highest level
+         * stuff, in order to verify that transformation; later, I should
+         * try to add in the finer cubes, *each with proportionately smaller
+         * effects*
+         */
         for (int j = i * FEATURE_COUNT_PER_CUBE; j < ((i + 1) * FEATURE_COUNT_PER_CUBE); ++j)
         {
             compute3DVapourFeature(vl, &vc, features, j);
