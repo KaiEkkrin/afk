@@ -56,7 +56,7 @@ void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
         vapourComputeFair.getUpdateQueue(0);
 
 #if SHAPE_COMPUTE_DEBUG
-    AFK_DEBUG_PRINTL("Computing vapour at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE) << " with list: " << list)
+    AFK_DEBUG_PRINTL("Computing new vapour at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE) << " with adjacency: " << std::hex << adjacency)
 #endif
 
     vapourComputeQueue->extend(list, o_cubeOffset, o_cubeCount);
@@ -81,6 +81,10 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
 
     boost::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
         vapourComputeFair.getUpdateQueue(0);
+
+#if SHAPE_COMPUTE_DEBUG
+    AFK_DEBUG_PRINTL("Computing existing vapour at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE) << " with adjacency: " << std::hex << adjacency)
+#endif
 
     vapourComputeQueue->addUnit(
         cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),

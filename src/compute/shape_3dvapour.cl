@@ -215,10 +215,13 @@ bool testFullAdjacency(int3 base, int adjacency)
         base.y >= -1 && base.y <= 1 &&
         base.z >= -1 && base.z <= 1)
     {
-        base += 1;
+        base += (int3)(1, 1, 1);
         return (adjacency & (1 << (base.x * 9 + base.y * 3 + base.z))) != 0;
     }
-    else return false;
+    else return true; /* needs to be true, otherwise we'll keep thinking,
+                       * we're adjacent to fictitious gaps around the far
+                       * sides.  remember "true" means "don't deform" below!
+                       */
 }
 
 int3 getAdjacentFace(int3 coord, int face)
@@ -281,7 +284,7 @@ void transformAdjacentFaceDensity(float4 *vc, int xdim, int ydim, int zdim, int3
             1.0f, 0.0f, 1.0f,
             -THRESHOLD * FEATURE_COUNT_PER_CUBE);
         float dff = (float)distanceFromClosestFace;
-        float dfc = (float)(TDIM / 2);
+        float dfc = (float)(VDIM / 2);
 
         vcnew = (
             faceDensity * (dfc - dff) / dfc +
