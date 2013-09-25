@@ -226,9 +226,12 @@ bool AFK_World::generateClaimedWorldCell(
     {
         /* We display geometry at a cell if its detail pitch is at the
          * target detail pitch, or if it's already the smallest
-         * possible cell
+         * possible cell.
+         * Note that the smallest possible cell is 2.  I can't go to 1,
+         * because it will preclude landscape half-tiles (which would
+         * be at +/- 0.5).
          */
-        bool display = (cell.coord.v[3] == MIN_CELL_PITCH ||
+        bool display = (cell.coord.v[3] == 2 ||
             worldCell.testDetailPitch(averageDetailPitch.get(), *camera, viewerLocation));
 
         /* Find the tile where any landscape at this cell would be
