@@ -166,8 +166,8 @@ void transformLocationToLocation(
      * TODO: Having a go at moving this out to something that only gets
      * run at the end of all passes.
      */
-    float density = (*vc).w - (float)THRESHOLD;
-    *vc = (float4)((*vc).xyz, clamp(density, -maxDensity, maxDensity));
+//    float density = (*vc).w - (float)THRESHOLD;
+//    *vc = (float4)((*vc).xyz, clamp(density, -maxDensity, maxDensity));
 
 #if 0
     /* I'm going to refine this to try to avoid large areas of high
@@ -313,8 +313,8 @@ bool inAdjacentTexel(int xdim, int ydim, int zdim, int face)
 void transformFaceDensity(float4 *vc, int xdim, int ydim, int zdim, int adjacency)
 {
     /* TODO: Is this the right place for this operation, after all? */
-    //float density = (*vc).w - (float)THRESHOLD;
-    //*vc = (float4)((*vc).xyz, clamp(density, -maxDensity, maxDensity));
+    float density = (*vc).w - (float)THRESHOLD;
+    *vc = (float4)((*vc).xyz, clamp(density, -maxDensity, maxDensity));
     //*vc = (float4)((*vc).xyz, density);
 
     /* Check nearby faces for adjacency.  If there's no adjacency, I
@@ -412,6 +412,7 @@ __kernel void makeShape3DVapour(
          * try to add in the finer cubes, *each with proportionately smaller
          * effects*
          */
+        if (cubes[i].coord.w < 12.0f) continue; /* TODO REMOVE DEBUG */
         for (int j = i * FEATURE_COUNT_PER_CUBE; j < ((i + 1) * FEATURE_COUNT_PER_CUBE); ++j)
         {
             compute3DVapourFeature(vl, &vc, features, j);
