@@ -2,7 +2,7 @@
 //
 // Shape vertex colour and ambient and diffuse lighting.
 
-#version 330
+#version 400
 
 // This is the jigsaw colour texture.
 uniform sampler2D JigsawColourTex;

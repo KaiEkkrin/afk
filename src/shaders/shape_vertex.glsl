@@ -3,59 +3,24 @@
 // Shape vertex shader.  Looks up the world transform of each instance
 // in a texture buffer.
 
-#version 330
+#version 400
 
 layout (location = 0) in vec2 TexCoord;
 
-// This is the displacement jigsaw texture.
-// We sample (x, y, z, w).
-uniform sampler2D JigsawDispTex;
-
-// ...and the normal
-uniform sampler2D JigsawNormalTex;
-
-// This is the entity display queue.  There are five texels
-// per instance, which contain:
-// - first 4: the 4 rows of the transform matrix for the instance
-// - fifth: (x, y) are the (s, t) jigsaw co-ordinates.
-uniform samplerBuffer DisplayTBO; 
-
-// This is the size of an individual jigsaw piece
-// in (s, t) co-ordinates.
-uniform vec2 JigsawPiecePitch;
-
-uniform mat4 ProjectionTransform;
-
 out VertexData
 {
-    vec3 normal;
-    vec2 jigsawCoord;
+    int instanceId; /* Because gl_InstanceID isn't accessible in a
+                     * geometry shader
+                     */
+    vec2 texCoord;
 } outData;
 
 void main()
 {
-    outData.jigsawCoord = texelFetch(DisplayTBO, gl_InstanceID * 5 + 4).xy + JigsawPiecePitch * TexCoord.st;
-
-    // Apply the displacement in face space.
-    vec4 dispPosition = textureLod(JigsawDispTex, outData.jigsawCoord, 0);
-
-    // Reconstruct the world transform matrix for this instance.
-    // Of course, AFK is row-major...  :/
-    vec4 WTRow1 = texelFetch(DisplayTBO, gl_InstanceID * 5);
-    vec4 WTRow2 = texelFetch(DisplayTBO, gl_InstanceID * 5 + 1);
-    vec4 WTRow3 = texelFetch(DisplayTBO, gl_InstanceID * 5 + 2);
-    vec4 WTRow4 = texelFetch(DisplayTBO, gl_InstanceID * 5 + 3);
-
-    mat4 WorldTransform = mat4(
-        vec4(WTRow1.x, WTRow2.x, WTRow3.x, WTRow4.x),
-        vec4(WTRow1.y, WTRow2.y, WTRow3.y, WTRow4.y),
-        vec4(WTRow1.z, WTRow2.z, WTRow3.z, WTRow4.z),
-        vec4(WTRow1.w, WTRow2.w, WTRow3.w, WTRow4.w));
-
-    gl_Position = (ProjectionTransform * WorldTransform) * dispPosition;
-
-    // Transform the normal to world space.
-    vec4 normal = textureLod(JigsawNormalTex, outData.jigsawCoord, 0);
-    outData.normal = (WorldTransform * normal).xyz;
+    /* All the hard work is now done by the geometry shader.  This
+     * vertex shader is a passthrough only.
+     */
+    outData.instanceId = gl_InstanceID;
+    outData.texCoord = TexCoord.st;
 }
 
