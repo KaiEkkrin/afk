@@ -5,6 +5,8 @@
 #include "3d_edge_shape_base.hpp"
 #include "display.hpp"
 
+#define RESTART_INDEX 65535
+
 /* This utility function gets two-dimensional face co-ordinates.
  */
 static void make2DTexCoords(
@@ -64,18 +66,8 @@ void AFK_3DEdgeShapeBase::pushBaseFace(unsigned int sOffset, unsigned int tOffse
                 indices.push_back(i_r2c1);
             }
 
-            indices.push_back(i_r1c2);
-
-            if (flip)
-            {
-                indices.push_back(i_r2c1);
-                indices.push_back(i_r2c2);
-            }
-            else
-            {
-                indices.push_back(i_r2c2);
-                indices.push_back(i_r2c1);
-            }
+            indices.push_back(i_r2c2);
+            indices.push_back(RESTART_INDEX);
         }
     }
 }
@@ -93,6 +85,14 @@ AFK_3DEdgeShapeBase::AFK_3DEdgeShapeBase(const AFK_ShapeSizes& sSizes):
      * shape_3dedge arranges these in a 3x2 sized jigsaw piece.  I just
      * need to write the vertices (texture co-ordinates) and indices
      * to match.
+     */
+
+    /* TODO: I think I want to change this to instead have just one base
+     * face (the bottom one), and use geometry shader instancing to
+     * make the other 5.
+     * That will give me a convenient integer to check overlap with, but
+     * I'll need to include jigsaw sizes as uniform variables so that I
+     * can compute the correct texture offsets on the fly.
      */
     for (unsigned int t = 0; t < 2; ++t)
     {
@@ -132,11 +132,19 @@ void AFK_3DEdgeShapeBase::initGL()
 
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vec2<float>), 0);
+
+    /* Overlap works based on squares of 2 triangles.  Since I
+     * want to be able to cull in pairs, I'm going to use
+     * triangle strips with primitive restart as my base
+     * geometry type.
+     */
+    glEnable(GL_PRIMITIVE_RESTART);
+    glPrimitiveRestartIndex(RESTART_INDEX);
 }
 
 void AFK_3DEdgeShapeBase::draw(unsigned int instanceCount) const
 {
-    glDrawElementsInstanced(GL_TRIANGLES, indices.size(), GL_UNSIGNED_SHORT, 0, instanceCount);
+    glDrawElementsInstanced(GL_LINE_STRIP_ADJACENCY, indices.size(), GL_UNSIGNED_SHORT, 0, instanceCount);
     AFK_GLCHK("3d edge shape draw")
 }
 

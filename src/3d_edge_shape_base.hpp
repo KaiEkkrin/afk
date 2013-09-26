@@ -23,13 +23,11 @@
  * the shaders.
  *
  * In order to avoid overlap of triangles from different faces, the
- * overlap edge texture will contain the face identifier each triangle strip
- * is homed to, so that the geometry shader can drop it from other faces.
- *
- * In an immense hack, the GLSL can calculate which face it is at by
- * computing (texcoord.x / vdim) % 3, and (texcoord.y / vdim) % 2 ...
- * saving me from having to do nasty things like make one draw call per face,
- * etc.
+ * overlap edge texture will contain the face identifier each group of
+ * vertices is homed to, so that the geometry shader can drop it from
+ * other faces.  Because I want to group vertices in 4s, I'm going to
+ * counter-intuitively use a line_adjacency primitive, which the geometry
+ * shader can transform into a triangle_strip for proper rendering.
  */
 
 class AFK_3DEdgeShapeBase

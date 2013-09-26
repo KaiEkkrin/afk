@@ -6,9 +6,9 @@
 
 #version 330
 
-layout (triangles) in;
+layout (lines_adjacency) in;
 layout (triangle_strip) out;
-layout (max_vertices = 3) out;
+layout (max_vertices = 4) out;
 
 in VertexData
 {
@@ -24,8 +24,11 @@ out GeometryData
 
 void main()
 {
+    /* TODO Remove the nan check and replace it with a lookup
+     * of the overlap texture.
+     */
     bool haveNan = false;
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 4; ++i)
     {
         if (isnan(gl_in[i].gl_Position.x) ||
             isnan(gl_in[i].gl_Position.y) ||
@@ -38,7 +41,7 @@ void main()
 
     if (!haveNan)
     {
-        for (int i = 0; i < 3; ++i)
+        for (int i = 0; i < 4; ++i)
         {
             gl_Position = gl_in[i].gl_Position;
             outData.normal = inData[i].normal;

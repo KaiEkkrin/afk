@@ -5,6 +5,8 @@
 #include "display.hpp"
 #include "terrain_base_tile.hpp"
 
+#define RESTART_INDEX 65535
+
 AFK_TerrainBaseTileVertex::AFK_TerrainBaseTileVertex(
     const Vec3<float>& _location,
     const Vec2<float>& _tileCoord):
@@ -48,10 +50,8 @@ AFK_TerrainBaseTile::AFK_TerrainBaseTile(const AFK_LandscapeSizes& lSizes):
             indices.push_back(i_r1c1);
             indices.push_back(i_r1c2);
             indices.push_back(i_r2c1);
-
-            indices.push_back(i_r1c2);
             indices.push_back(i_r2c2);
-            indices.push_back(i_r2c1);
+            indices.push_back(RESTART_INDEX);
         }
     }
 }
@@ -86,11 +86,14 @@ void AFK_TerrainBaseTile::initGL()
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, AFK_TER_BASE_VERTEX_SIZE, 0);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, AFK_TER_BASE_VERTEX_SIZE, (GLvoid *)sizeof(Vec3<float>));
+
+    glEnable(GL_PRIMITIVE_RESTART);
+    glPrimitiveRestartIndex(RESTART_INDEX);
 }
 
 void AFK_TerrainBaseTile::draw(unsigned int instanceCount) const
 {
-    glDrawElementsInstanced(GL_TRIANGLES, indices.size(), GL_UNSIGNED_SHORT, 0, instanceCount);
+    glDrawElementsInstanced(GL_TRIANGLE_STRIP, indices.size(), GL_UNSIGNED_SHORT, 0, instanceCount);
     AFK_GLCHK("terrain draw")
 }
 
