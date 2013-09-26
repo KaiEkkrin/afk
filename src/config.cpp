@@ -18,6 +18,43 @@
 #include "config.hpp"
 #include "exception.hpp"
 
+
+/* This utility function pulls AFK's executable path and names a directory
+ * in the same location.
+ */
+static char *getDirAtExecPath(const char *leafname, const char *execname)
+{
+    size_t dirnameMaxSize = strlen(execname) + strlen(leafname) + 2;
+    char *dirname = (char *)malloc(dirnameMaxSize);
+    strcpy(dirname, execname);
+    int i;
+    for (i = strlen(execname) - 1; i >= 0; --i)
+    {
+        if (dirname[i] == '/' || dirname[i] == '\\') break;
+    }
+
+    if (i > -1)
+    {
+        /* Found the lowest level directory path.  Copy the leafname
+         * in here.
+         */
+        strcpy(&dirname[i+1], leafname);
+    }
+    else
+    {
+        /* I can't find a lowest level directory path, use the CWD
+         * instead.
+         */
+        char *currentDir = get_current_dir_name();
+        size_t cwdDirnameMaxSize = strlen(currentDir) + strlen(leafname) + 2;
+        if (cwdDirnameMaxSize > dirnameMaxSize) dirname = (char *)realloc(dirname, cwdDirnameMaxSize);
+        sprintf(dirname, "%s/%s", currentDir, leafname);
+        free(currentDir);
+    }
+
+    return dirname;
+}
+
 #define REQUIRE_ARGUMENT(option) \
     ++argi;\
     if (argi == *argcp)\
@@ -223,18 +260,8 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     }
 
     /* Apply defaults. */
-    if (!shadersDir)
-    {
-        char *currentDir;
-        const char *shadersDirLeafName = "shaders";
-        size_t shadersDirLength;
-
-        currentDir = get_current_dir_name();
-        shadersDirLength = strlen(currentDir) + 1 + strlen(shadersDirLeafName) + 1;
-        shadersDir = (char *) malloc(sizeof(char) * shadersDirLength);
-        snprintf(shadersDir, shadersDirLength, "%s/%s", currentDir, shadersDirLeafName);
-        free(currentDir);
-    }
+    if (!shadersDir) shadersDir = getDirAtExecPath("shaders", argv[0]);
+    if (!clProgramsDir) clProgramsDir = getDirAtExecPath("compute", argv[0]);
 
     if (!masterSeed.v.ull[0] && !masterSeed.v.ull[1])
     {
@@ -280,19 +307,6 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     {
         DEFAULT_MOUSE_AXIS_CONTROL(MOUSE_AXIS_X, CTRL_AXIS_ROLL)
         DEFAULT_MOUSE_AXIS_CONTROL(MOUSE_AXIS_Y, CTRL_AXIS_PITCH)
-    }
-
-    if (!clProgramsDir)
-    {
-        char *currentDir;
-        const char *clProgramsDirLeafName = "compute";
-        size_t clProgramsDirLength;
-
-        currentDir = get_current_dir_name();
-        clProgramsDirLength = strlen(currentDir) + 1 + strlen(clProgramsDirLeafName) + 1;
-        clProgramsDir = (char *) malloc(sizeof(char) * clProgramsDirLength);
-        snprintf(clProgramsDir, clProgramsDirLength, "%s/%s", currentDir, clProgramsDirLeafName);
-        free(currentDir);
     }
 
     /* Print a little dump. */

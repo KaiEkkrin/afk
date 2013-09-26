@@ -34,7 +34,7 @@ bool AFK_ShapeCell::hasEdges(AFK_JigsawCollection *edgeJigsaws) const
         edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTimestamp(edgeJigsawPiece) == edgeJigsawPieceTimestamp);
 }
 
-#define SHAPE_COMPUTE_DEBUG 1
+#define SHAPE_COMPUTE_DEBUG 0
 
 void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
     unsigned int threadId,
