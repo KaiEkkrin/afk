@@ -7,6 +7,7 @@
 #version 400
 
 layout (lines_adjacency) in;
+layout (invocations = 6) in; /* one for each face */
 layout (triangle_strip) out;
 layout (max_vertices = 4) out;
 
@@ -47,11 +48,21 @@ void main()
      */
     vec2 jigsawPieceCoord = texelFetch(DisplayTBO, inData[0].instanceId * 5 + 4).xy;
 
-    /* Calculate my input jigsaw coord and position here.
-     * TODO: Use geometry shader instancing to replicate this
-     * across the 6 faces, rather than having the 6 faces in
-     * fixed geometry.
+    /* Displace the texture coord according to the
+     * way the faces are lined up in the edge jigsaws.
+     * gl_InvocationID 0 means the bottom face (no displacement).
      */
+    vec2 texCoordDisp = vec2(0.0, 0.0);
+    switch (gl_InvocationID)
+    {
+    case 1: texCoordDisp = vec2(1.0, 0.0); break;
+    case 2: texCoordDisp = vec2(2.0, 0.0); break;
+    case 3: texCoordDisp = vec2(0.0, 1.0); break;
+    case 4: texCoordDisp = vec2(1.0, 1.0); break;
+    case 5: texCoordDisp = vec2(2.0, 1.0); break;
+    }
+
+    /* Calculate my input jigsaw coord and position here. */
     vec2 jigsawCoord[4];
     vec4 dispPosition[4];
 
@@ -61,7 +72,7 @@ void main()
     bool haveNan = false;
     for (int i = 0; i < 4; ++i)
     {
-        jigsawCoord[i] = jigsawPieceCoord + JigsawPiecePitch * inData[i].texCoord;
+        jigsawCoord[i] = jigsawPieceCoord + JigsawPiecePitch * (inData[i].texCoord + texCoordDisp);
         dispPosition[i] = textureLod(JigsawDispTex, jigsawCoord[i], 0);
 
         if (isnan(dispPosition[i].x) || isnan(dispPosition[i].y) ||
@@ -87,8 +98,21 @@ void main()
             vec4(WTRow1.z, WTRow2.z, WTRow3.z, WTRow4.z),
             vec4(WTRow1.w, WTRow2.w, WTRow3.w, WTRow4.w));
 
-        for (int i = 0; i < 4; ++i)
+        for (int iBase = 0; iBase < 4; ++iBase)
         {
+            /* For the left, front, and top faces, I need to flip the
+             * winding order in order to keep everything facing
+             * outwards.
+             */
+            int i = iBase;
+            switch (gl_InvocationID)
+            {
+            case 1: case 2: case 5:
+                if (iBase == 1) i = 2;
+                else if (iBase == 2) i = 1;
+                break;
+            }
+
             gl_Position = (ProjectionTransform * WorldTransform) * dispPosition[i];
 
             vec4 normal = textureLod(JigsawNormalTex, jigsawCoord[i], 0);

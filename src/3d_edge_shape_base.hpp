@@ -39,9 +39,6 @@ protected:
     GLuint vertexArray;
     GLuint *bufs;
 
-    /* Initialisation utility. */
-    void pushBaseFace(unsigned int sOffset, unsigned int tOffset, bool flip, const AFK_ShapeSizes& sSizes);
-
 public:
     AFK_3DEdgeShapeBase(const AFK_ShapeSizes& sSizes);
     virtual ~AFK_3DEdgeShapeBase();

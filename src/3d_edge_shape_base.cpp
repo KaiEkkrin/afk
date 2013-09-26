@@ -7,40 +7,19 @@
 
 #define RESTART_INDEX 65535
 
-/* This utility function gets two-dimensional face co-ordinates.
- */
-static void make2DTexCoords(
-    const AFK_ShapeSizes& sSizes,
-    unsigned int sOffset,
-    unsigned int tOffset,
-    unsigned int s,
-    unsigned int t,
-    float& o_sTex,
-    float& o_tTex)
+AFK_3DEdgeShapeBase::AFK_3DEdgeShapeBase(const AFK_ShapeSizes& sSizes):
+    bufs(NULL)
 {
-    /* The texture co-ordinates for each jigsaw piece range
-     * from (0, 1), with eDim texels along each side, including
-     * the join-up to the next face.  Therefore, to access the
-     * correct texels, I need to skip the padding, like so:
-     * (The +0.25f offset is to stop nvidia cards from nearest-
-     * neighbour sampling down to the *previous* point, which they
-     * seem to tend to do with no offset ... )
+    /* The base shape is now a single face once more.  It's instanced
+     * into six in shape_geometry.glsl.
      */
-    o_sTex = (float)sOffset + ((float)s + 0.25f) / (float)sSizes.eDim;
-    o_tTex = (float)tOffset + ((float)t + 0.25f) / (float)sSizes.eDim;
-}
-
-void AFK_3DEdgeShapeBase::pushBaseFace(unsigned int sOffset, unsigned int tOffset, bool flip, const AFK_ShapeSizes& sSizes)
-{
-    unsigned short texOffset = (unsigned short)vertices.size();
-
     for (unsigned int x = 0; x < sSizes.eDim; ++x)
     {
         for (unsigned int z = 0; z < sSizes.eDim; ++z)
         {
-            float sTex, tTex;
-            make2DTexCoords(sSizes, sOffset, tOffset, x, z, sTex, tTex);
-            vertices.push_back(afk_vec2<float>(sTex, tTex));
+            vertices.push_back(afk_vec2<float>(
+                ((float)x + 0.25f) / (float)sSizes.eDim,
+                ((float)z + 0.25f) / (float)sSizes.eDim));
         }
     }
 
@@ -48,58 +27,16 @@ void AFK_3DEdgeShapeBase::pushBaseFace(unsigned int sOffset, unsigned int tOffse
     {
         for (unsigned short t = 0; t < sSizes.pointSubdivisionFactor; ++t)
         {
-            unsigned short i_r1c1 = texOffset + s * sSizes.eDim + t;
-            unsigned short i_r2c1 = texOffset + (s + 1) * sSizes.eDim + t;
-            unsigned short i_r1c2 = texOffset + s * sSizes.eDim + (t + 1);
-            unsigned short i_r2c2 = texOffset + (s + 1) * sSizes.eDim + (t + 1);
+            unsigned short i_r1c1 = s * sSizes.eDim + t;
+            unsigned short i_r2c1 = (s + 1) * sSizes.eDim + t;
+            unsigned short i_r1c2 = s * sSizes.eDim + (t + 1);
+            unsigned short i_r2c2 = (s + 1) * sSizes.eDim + (t + 1);
 
             indices.push_back(i_r1c1);
-
-            if (flip)
-            {
-                indices.push_back(i_r2c1);
-                indices.push_back(i_r1c2);
-            }
-            else
-            {
-                indices.push_back(i_r1c2);
-                indices.push_back(i_r2c1);
-            }
-
+            indices.push_back(i_r1c2);
+            indices.push_back(i_r2c1);
             indices.push_back(i_r2c2);
             indices.push_back(RESTART_INDEX);
-        }
-    }
-}
-    
-AFK_3DEdgeShapeBase::AFK_3DEdgeShapeBase(const AFK_ShapeSizes& sSizes):
-    bufs(NULL)
-{
-    /* A base cube has six faces:
-     * - bottom (normal -y)     t=0, s=0    noflip
-     * - left (normal -x)       t=0, s=1    flip
-     * - front (normal -z)      t=0, s=2    flip
-     * - back (normal +z)       t=1, s=0    noflip
-     * - right (normal +x)      t=1, s=1    noflip
-     * - top (normal +y)        t=1, s=2    flip
-     * shape_3dedge arranges these in a 3x2 sized jigsaw piece.  I just
-     * need to write the vertices (texture co-ordinates) and indices
-     * to match.
-     */
-
-    /* TODO: I think I want to change this to instead have just one base
-     * face (the bottom one), and use geometry shader instancing to
-     * make the other 5.
-     * That will give me a convenient integer to check overlap with, but
-     * I'll need to include jigsaw sizes as uniform variables so that I
-     * can compute the correct texture offsets on the fly.
-     */
-    for (unsigned int t = 0; t < 2; ++t)
-    {
-        for (unsigned int s = 0; s < 3; ++s)
-        {
-            pushBaseFace(s, t, 
-                (t == 0 && s > 0) || (t == 1 && s == 2), sSizes);
         }
     }
 }
