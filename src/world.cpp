@@ -341,7 +341,8 @@ bool AFK_World::generateClaimedWorldCell(
         staticRng.seed(cell.rngSeed());
 
         if (/* !landscapeTile.hasArtwork() || */
-            worldCell.getRealCoord().v[1] >= landscapeTile.getYBoundUpper())
+            //worldCell.getRealCoord().v[1] >= landscapeTile.getYBoundUpper() ||
+            cell.coord.v[0] == 0 && cell.coord.v[1] == 0 && cell.coord.v[2] == 0 && cell.coord.v[3] == 16) /* TODO Debug of specific entity */
         {
             //if (cell.coord.v[3] == 1024)
             //if (cell.coord.v[0] == 0 && cell.coord.v[1] == 0 && cell.coord.v[2] == 0)

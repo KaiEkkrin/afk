@@ -351,7 +351,7 @@ void AFK_Core::loop(void)
      * For now, I'll just start them nice and high to reduce the
      * chance of spawning under the landscape (very annoying)
      */
-    Vec3<float> startingMovement = afk_vec3<float>(0.0f, 8192.0f, 0.0f);
+    Vec3<float> startingMovement = afk_vec3<float>(0.0f, /* 8192.0f */ 0.0f, 0.0f); /* TODO put back; using for entity debug */
     Vec3<float> startingRotation = afk_vec3<float>(0.0f, 0.0f, 0.0f);
     protagonist->object.drive(startingMovement, startingRotation);
     camera->driveAndUpdateProjection(startingMovement, startingRotation);

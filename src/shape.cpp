@@ -110,8 +110,13 @@ bool afk_generateEntity(
 
 /* The shape worker */
 
-#define VISIBLE_CELL_DEBUG 0
-#define NONZERO_CELL_DEBUG 0
+#define VISIBLE_CELL_DEBUG 1
+
+#if VISIBLE_CELL_DEBUG
+#define DEBUG_VISIBLE_CELL(message) AFK_DEBUG_PRINTL("cell " << cell << ": visible cell " << visibleCell << ": " << message)
+#else
+#define DEBUG_VISIBLE_CELL(message)
+#endif
 
 bool afk_generateShapeCells(
     unsigned int threadId,
@@ -142,27 +147,11 @@ bool afk_generateShapeCells(
     AFK_VisibleCell visibleCell;
     visibleCell.bindToCell(cell, SHAPE_CELL_WORLD_SCALE, worldTransform);
 
-#if VISIBLE_CELL_DEBUG
-    AFK_DEBUG_PRINTL("testing shape cell " << cell << ": visible cell " << visibleCell)
-#endif
-
-#if NONZERO_CELL_DEBUG
-    bool nonzero = (cell.coord.v[0] != 0 || cell.coord.v[1] != 0 || cell.coord.v[2] != 0);
-    if (nonzero)
-        AFK_DEBUG_PRINTL("testing nonzero shape cell: " << cell)
-#endif
-
     if (!entirelyVisible) visibleCell.testVisibility(
         *camera, someVisible, allVisible);
     if (!someVisible)
     {
-#if VISIBLE_CELL_DEBUG
-        AFK_DEBUG_PRINTL("cell " << cell << ": visible cell " << visibleCell << ": invisible")
-#endif
-#if NONZERO_CELL_DEBUG
-        if (nonzero)
-            AFK_DEBUG_PRINTL("cell " << cell << ": visible cell " << visibleCell << ": invisible")
-#endif
+        DEBUG_VISIBLE_CELL("invisible")
         world->shapeCellsInvisible.fetch_add(1);
     }
     else
@@ -199,11 +188,18 @@ bool afk_generateShapeCells(
                     if (!shape.generateClaimedShapeCell(
                         threadId, vapourCell, shapeCell, vapourCellClaimStatus, shapeCellClaimStatus, worldTransform, world))
                     {
+                        DEBUG_VISIBLE_CELL("needs resume")
                         resume = true;
+                    }
+                    else
+                    {
+                        DEBUG_VISIBLE_CELL("generated")
                     }
                 }
                 else
                 {
+                    DEBUG_VISIBLE_CELL("recursing into subcells")
+
                     size_t subcellsSize = CUBE(world->sSizes.subdivisionFactor);
                     AFK_Cell *subcells = new AFK_Cell[subcellsSize];
                     unsigned int subcellsCount = cell.c.subdivide(subcells, subcellsSize, world->sSizes.subdivisionFactor);
@@ -226,8 +222,16 @@ bool afk_generateShapeCells(
                     delete[] subcells;
                 }
             }
+            else
+            {
+                DEBUG_VISIBLE_CELL("outside skeleton")
+            }
         }
-        else resume = true;
+        else
+        {
+            DEBUG_VISIBLE_CELL("needs resume at top level")
+            resume = true;
+        }
 
         if (vapourCellClaimStatus != AFK_CL_TAKEN)
         {
