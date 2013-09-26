@@ -118,11 +118,15 @@ void compute3DVapourFeature(
     {
         /* TODO: Vary the operators here. */
         float density = weight * (radius - dist);
+#if 0
         if ((*vc).w < density)
         {
             /* TODO: More exciting things with colour! */
             (*vc) = (float4)(colour, density);
         }
+#else
+        (*vc) += (float4)(colour, density);
+#endif
     }
 }
 
@@ -132,6 +136,7 @@ struct AFK_3DVapourCube
 };
 
 __constant float reboundPoint = 100.0f;
+__constant float maxDensity = 2.0f * THRESHOLD * FEATURE_COUNT_PER_CUBE;
 
 void transformLocationToLocation(
     float3 *vl,
@@ -149,21 +154,22 @@ void transformLocationToLocation(
      * value for `edgeThreshold' ought to be and how it should depend
      * on the LoD?)
      */
-    /*
+#if 0
     *vc = (float4)(
         (*vc).xyz,
         (*vc).w * fromCoord.w / toCoord.w);
-     */
+#endif
 
     /* This one (and thresholding to something very small in shape_3dedge)
      * appears to work better:
+     * ...does it ???
+     * TODO: Having a go at moving this out to something that only gets
+     * run at the end of all passes.
      */
-    /*
-    *vc = (float4)(
-        (*vc).xyz,
-        (*vc).w - (float)THRESHOLD);
-     */
+//    float density = (*vc).w - (float)THRESHOLD;
+//    *vc = (float4)((*vc).xyz, clamp(density, -maxDensity, maxDensity));
 
+#if 0
     /* I'm going to refine this to try to avoid large areas of high
      * density vapour solid (which makes for boring/nonexistent geometry)
      * by trying to "rebound" the vapour from some point a bit
@@ -191,6 +197,7 @@ void transformLocationToLocation(
     *vc = (float4)(
         (*vc).xyz,
         (densityMod - 1.0f) * THRESHOLD);
+#endif
 }
 
 void transformCubeToCube(
@@ -205,10 +212,149 @@ void transformCubeToCube(
     transformLocationToLocation(vl, vc, fromCoord, toCoord);
 }
 
+bool testFullAdjacency(int3 base, int adjacency)
+{
+    if (base.x >= -1 && base.x <= 1 &&
+        base.y >= -1 && base.y <= 1 &&
+        base.z >= -1 && base.z <= 1)
+    {
+        base += (int3)(1, 1, 1);
+        return (adjacency & (1 << (base.x * 9 + base.y * 3 + base.z))) != 0;
+    }
+    else return true; /* needs to be true, otherwise we'll keep thinking,
+                       * we're adjacent to fictitious gaps around the far
+                       * sides.  remember "true" means "don't deform" below!
+                       */
+}
+
+int3 getAdjacentFace(int3 coord, int face)
+{
+    switch (face)
+    {
+    case 0: --coord.y; break;
+    case 1: --coord.x; break;
+    case 2: --coord.z; break;
+    case 3: ++coord.z; break;
+    case 4: ++coord.x; break;
+    case 5: ++coord.y; break;
+    }
+
+    return coord;
+}
+
+void transformAdjacentFaceDensity(float4 *vc, int xdim, int ydim, int zdim, int3 adjCoord, int adjacency)
+{
+    int closestFace = -1;
+    int distanceFromClosestFace = 1<<30;
+
+    for (int face = 0; face < 6; ++face)
+    {
+        int distanceFromThisFace = 1<<30;
+        if (testFullAdjacency(getAdjacentFace(adjCoord, face), adjacency)) continue;
+
+        switch (face)
+        {
+        case 0: distanceFromThisFace = ydim - 1; break;
+        case 1: distanceFromThisFace = xdim - 1; break;
+        case 2: distanceFromThisFace = zdim - 1; break;
+        case 3: distanceFromThisFace = VDIM - zdim; break;
+        case 4: distanceFromThisFace = VDIM - xdim; break;
+        case 5: distanceFromThisFace = VDIM - ydim; break;
+        }
+
+        if (distanceFromThisFace < (VDIM / 2) &&
+            distanceFromThisFace < distanceFromClosestFace)
+        {
+            closestFace = face;
+            distanceFromClosestFace = distanceFromThisFace;
+        }
+    }
+
+    if (closestFace != -1)
+    {
+        /* I want a gradient of the density from `faceDensity'
+         * to the real value, tending towards the former at
+         * the face and the latter at the middle.
+         * TODO: How do I choose a good value for faceDensity ??
+         * TODO: I'm also swapping in debug colours here, so that
+         * I can check which faces are being gradiented and which
+         * are not.
+         */
+        float4 vcnew = *vc;
+        vcnew.xyz = (float3)(0.0f, 1.0f, 0.0f);
+
+        float4 faceDensity = (float4)(
+            1.0f, 0.0f, 1.0f,
+            //(*vc).xyz,
+            -THRESHOLD * FEATURE_COUNT_PER_CUBE);
+        float dff = (float)distanceFromClosestFace;
+        float dfc = (float)(VDIM / 2);
+
+        vcnew = (
+            faceDensity * (dfc - dff) / dfc +
+            vcnew * dff / dfc);
+
+        *vc = vcnew;
+    }
+}
+
+bool inAdjacentTexel(int xdim, int ydim, int zdim, int face)
+{
+    switch (face)
+    {
+    case 0: return (ydim == 0);
+    case 1: return (xdim == 0);
+    case 2: return (zdim == 0);
+    case 3: return (zdim >= VDIM);
+    case 4: return (xdim >= VDIM);
+    default: return (ydim >= VDIM);
+    }
+}
+
+void transformFaceDensity(float4 *vc, int xdim, int ydim, int zdim, int adjacency)
+{
+    /* TODO: Is this the right place for this operation, after all? */
+    float density = (*vc).w - (float)THRESHOLD;
+    *vc = (float4)((*vc).xyz, clamp(density, -maxDensity, maxDensity));
+    //*vc = (float4)((*vc).xyz, density);
+
+    /* Check nearby faces for adjacency.  If there's no adjacency, I
+     * want to run the density down in a gradient, so that I don't
+     * have dense fog at skeleton borders.
+     * Because the borders at dimension 0 are for the real cell at -1,
+     * and at dimension TDIM-1 or TDIM-2 are for the real cell +1,
+     * I need to do a bit of a contortion in order to calculate their
+     * adjacency:
+     */
+
+    int3 adjBase = (int3)(0, 0, 0);
+    /* - If I'm a centre texel and the closest face has no adjacency, do the below.
+     * - If I'm a face texel and that face has no adjacency, do as per the centre texel.
+     * - If I'm a face texel and that face has adjacency, test adjacency for that face
+     * cube and do the below.
+     * - If I'm an edge texel and neither face has adjacency, do as per the centre texel.
+     * - If I'm an edge texel and one face has adjacency, do as per the face texel with adjacency.
+     * - If I'm an edge texel and both faces have adjacency, test adjacency for the edge cube and
+     * do the below.
+     * - If I'm a corner texel...  You see the pattern now?
+     */
+    for (int face = 0; face < 6; ++face)
+    {
+        if (inAdjacentTexel(xdim, ydim, zdim, face))
+        {
+            int3 adjCoord = getAdjacentFace(adjBase, face);
+            if (testFullAdjacency(adjCoord, adjacency)) adjBase = adjCoord;
+        }
+    }
+
+    transformAdjacentFaceDensity(vc, xdim, ydim, zdim, adjBase, adjacency);
+}
+
 struct AFK_3DVapourComputeUnit
 {
     float4 location;
     int4 vapourPiece;
+    int adjacency;
     int cubeOffset;
     int cubeCount;
 };
@@ -247,6 +393,9 @@ __kernel void makeShape3DVapour(
 
     /* Compute the number field by 
      * iterating across all of the cubes and features.
+     * TODO: I'm going to temporarily ignore all but the top level of
+     * vapour.  This is so that I can debug the other things I'm working
+     * on to turn this into a a real solid random shape.
      */
     int i;
     for (i = units[unitOffset].cubeOffset; i < (units[unitOffset].cubeOffset + units[unitOffset].cubeCount); ++i)
@@ -264,6 +413,11 @@ __kernel void makeShape3DVapour(
 
     /* Transform out of the space of the last cube. */
     transformLocationToLocation(&vl, &vc, cubes[i-1].coord, units[unitOffset].location);
+
+    /* TODO: Should I do this every time, or only on the
+     * last?  I've yet to be sure.
+     */
+    transformFaceDensity(&vc, xdim, ydim, zdim, units[unitOffset].adjacency);
 
     /* TODO: Colour testing. */
 #if 0

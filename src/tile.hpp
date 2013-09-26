@@ -11,11 +11,6 @@
 
 #include "cell.hpp"
 
-/* Note that just like Cells, Tiles have a minimum pitch.  They use
- * MIN_CELL_PITCH, because I want cell and tile scales to be the
- * same.
- */
-
 class AFK_Tile
 {
 public:

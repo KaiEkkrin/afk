@@ -65,17 +65,25 @@ unsigned int AFK_WorldCell::getStartingEntitiesWanted(
     unsigned int entityCount = 0;
     if (entities.size() == 0)
     {
-#if 0
-        Vec4<float> realCoord = getRealCoord();
-        float sparseMult = log(realCoord.v[3]);
+        /* TODO Debug of specific entity */
+        if (cell.coord.v[0] == 0 && cell.coord.v[1] == 0 && cell.coord.v[2] == 0 && cell.coord.v[3] == 16)
+        {
+            entityCount = 1;
+        }
+        else
+        {
+#if 1
+            Vec4<float> realCoord = getRealCoord();
+            float sparseMult = log(realCoord.v[3]);
 #else
-        float sparseMult = 1.0f;
+            float sparseMult = 1.0f;
 #endif
 
-        for (unsigned int entitySlot = 0; entitySlot < maxEntitiesPerCell; ++entitySlot)
-        {
-            if (rng.frand() < (sparseMult / ((float)entitySparseness)))
-                ++entityCount;
+            for (unsigned int entitySlot = 0; entitySlot < maxEntitiesPerCell; ++entitySlot)
+            {
+                if (rng.frand() < (sparseMult / ((float)entitySparseness)))
+                    ++entityCount;
+            }
         }
     }
 
@@ -104,13 +112,13 @@ void AFK_WorldCell::addStartingEntity(
      * small as to be a better fit for sub-cells
      */
     //float maxEntitySize = realCoord.v[3] / (/* (float)sSizes.entitySubdivisionFactor * */ (float)sSizes.skeletonFlagGridDim);
-    float maxEntitySize = realCoord.v[3];
+    float maxEntitySize = realCoord.v[3] / (float)sSizes.skeletonFlagGridDim;
     float minEntitySize = maxEntitySize / sSizes.subdivisionFactor;
 
     float entitySize = rng.frand() * (maxEntitySize - minEntitySize) + minEntitySize;
 
-    float minEntityLocation = 0.0f;
-    float maxEntityLocation = realCoord.v[3];
+    float minEntityLocation = entitySize;
+    float maxEntityLocation = realCoord.v[3] - 2.0f * entitySize;
 
     Vec3<float> entityDisplacement;
     for (unsigned int j = 0; j < 3; ++j)

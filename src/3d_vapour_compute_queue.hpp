@@ -29,6 +29,11 @@ public:
     Vec4<float> location;
 
     Vec4<int> vapourPiece; /* a vec4 because OpenCL wants one to access a 3D texture */
+
+    int adjacencies; /* Bitmask: for faces 0-5 inclusive,
+                      * whether or not the skeleton continues
+                      * from that adjacent face.
+                      */
     
     /* Where the cube details are in the data stream.
      * TODO If I duplicate all the cubes for a large shape, there
@@ -43,6 +48,7 @@ public:
     AFK_3DVapourComputeUnit(
         const Vec4<float>& _location,
         const AFK_JigsawPiece& _vapourJigsawPiece,
+        int _adjacencies,
         int _cubeOffset,
         int _cubeCount);
 
@@ -94,6 +100,7 @@ public:
     AFK_3DVapourComputeUnit addUnit(
         const Vec4<float>& location,
         const AFK_JigsawPiece& vapourJigsawPiece,
+        int adjacencies,
         unsigned int cubeOffset,
         unsigned int cubeCount);
 

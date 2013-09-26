@@ -72,13 +72,20 @@ public:
         const AFK_VapourCell& upperCell,
         const AFK_ShapeSizes& sSizes);
 
-    /* Having made the descriptor, you can check whether this
-     * vapour cell is actually within the skeleton by calling
-     * this.
-     * If it isn't, just bypass all the subsequent rendering
-     * stuff and reject this cell...
+    /* You can check whether a specific ShapeCell is within
+     * the skeleton, so long as a descriptor is present ...
      */
-    bool withinSkeleton(void) const;
+    bool withinSkeleton(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const;
+
+    /* ...and obtain its adjacency (flags; 0-5 inclusive; in the
+     * usual order).
+     */
+    int skeletonAdjacency(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const;
+
+    /* As above, but returns the full adjacency (see description
+     * in skeleton.hpp)
+     */
+    int skeletonFullAdjacency(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const;
 
     /* This enumerates the shape cells that compose the bones of
      * the skeleton here, so that they can be easily enqueued.
@@ -107,7 +114,7 @@ public:
         unsigned int threadId,
         AFK_3DList& list,
         const AFK_ShapeSizes& sSizes,
-        const AFK_VAPOUR_CELL_CACHE *cache);
+        const AFK_VAPOUR_CELL_CACHE *cache) const;
 
     /* Checks whether this vapour cell's features have
      * already gone into the compute queue this frame.
@@ -118,7 +125,7 @@ public:
         unsigned int& o_cubeOffset,
         unsigned int& o_cubeCount) const;
 
-    /* If the above retuned false, you need to build the
+    /* If the above returned false, you need to build the
      * 3D list, do an extend on the queue and (while still
      * holding your exclusive claim) call this to push
      * the queue position.

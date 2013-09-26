@@ -38,6 +38,7 @@ bool AFK_ShapeCell::hasEdges(AFK_JigsawCollection *edgeJigsaws) const
 
 void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
     unsigned int threadId,
+    int adjacency,
     const AFK_3DList& list,
     const AFK_ShapeSizes& sSizes,
     AFK_JigsawCollection *vapourJigsaws,
@@ -55,19 +56,21 @@ void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
         vapourComputeFair.getUpdateQueue(0);
 
 #if SHAPE_COMPUTE_DEBUG
-    AFK_DEBUG_PRINTL("Computing vapour at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE) << " with list: " << list)
+    AFK_DEBUG_PRINTL("Shape cell " << cell << ": Computing new vapour at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE) << " with adjacency: " << std::hex << adjacency << " and list " << list)
 #endif
 
     vapourComputeQueue->extend(list, o_cubeOffset, o_cubeCount);
     vapourComputeQueue->addUnit(
         cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
         vapourJigsawPiece,
+        adjacency,
         o_cubeOffset,
         o_cubeCount);
 }
 
 void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
     unsigned int threadId,
+    int adjacency,
     unsigned int cubeOffset,
     unsigned int cubeCount,
     const AFK_ShapeSizes& sSizes,
@@ -79,9 +82,14 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
     boost::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
         vapourComputeFair.getUpdateQueue(0);
 
+#if SHAPE_COMPUTE_DEBUG
+    AFK_DEBUG_PRINTL("Shape cell " << cell << ": Computing existing vapour at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE) << " with adjacency: " << std::hex << adjacency)
+#endif
+
     vapourComputeQueue->addUnit(
         cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
         vapourJigsawPiece,
+        adjacency,
         cubeOffset,
         cubeCount);
 }

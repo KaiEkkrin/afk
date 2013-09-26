@@ -45,7 +45,7 @@ unsigned int AFK_Cell::subdivide(
     long long points) const
 {
     /* Check whether we're at smallest subdivision */
-    if (coord.v[3] == MIN_CELL_PITCH) return 0;
+    if (coord.v[3] == 1) return 0;
 
     /* Check for programming error */
     if (subCellsSize != (size_t)CUBE(points))
@@ -78,7 +78,7 @@ unsigned int AFK_Cell::subdivide(AFK_Cell *subCells, const size_t subCellsSize, 
         subCells,
         subCellsSize,
         coord.v[3] / subdivisionFactor,
-        subdivisionFactor);
+        (long long)subdivisionFactor);
 }
 
 void AFK_Cell::faceAdjacency(AFK_Cell *adjacency, const size_t adjacencySize) const
@@ -126,18 +126,11 @@ bool AFK_Cell::isParent(const AFK_Cell& parent) const
 
 Vec4<float> AFK_Cell::toWorldSpace(float worldScale) const
 {
-    /* TODO The divide by MIN_CELL_PITCH here is ghastly
-     * and wrong.
-     * However, if I remove it, I get lots of holes in the
-     * landscape, for reasons I don't really understand
-     * (if I widen the scope of testVisibility(),
-     * the problem remains).
-     */
     return afk_vec4<float>(
-        (float)coord.v[0] * worldScale / MIN_CELL_PITCH,
-        (float)coord.v[1] * worldScale / MIN_CELL_PITCH,
-        (float)coord.v[2] * worldScale / MIN_CELL_PITCH,
-        (float)coord.v[3] * worldScale / MIN_CELL_PITCH);
+        (float)coord.v[0] * worldScale,
+        (float)coord.v[1] * worldScale,
+        (float)coord.v[2] * worldScale,
+        (float)coord.v[3] * worldScale);
 }
 
 AFK_Cell afk_cell(const AFK_Cell& other)
@@ -164,7 +157,7 @@ AFK_Cell afk_cellContaining(const Vec3<float>& _coord, long long scale, float wo
     Vec3<long long> cellScaleCoord = afk_vec3<long long>(
         (long long)std::floor(_coord.v[0] / worldScale),
         (long long)std::floor(_coord.v[1] / worldScale),
-        (long long)std::floor(_coord.v[2] / worldScale)) * MIN_CELL_PITCH;
+        (long long)std::floor(_coord.v[2] / worldScale));
 
     /* ...and now, round them down to the next cell boundary
      * of the requested size

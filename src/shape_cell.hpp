@@ -78,6 +78,7 @@ public:
      */
     void enqueueVapourComputeUnitWithNewVapour(
         unsigned int threadId,
+        int adjacency,
         const AFK_3DList& list,
         const AFK_ShapeSizes& sSizes,
         AFK_JigsawCollection *vapourJigsaws,
@@ -87,6 +88,7 @@ public:
 
     void enqueueVapourComputeUnitFromExistingVapour(
         unsigned int threadId,
+        int adjacency,
         unsigned int cubeOffset,
         unsigned int cubeCount,
         const AFK_ShapeSizes& sSizes,

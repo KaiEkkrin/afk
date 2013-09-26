@@ -9,6 +9,12 @@
  * deformable faces of a cube onto it.
  */
 
+#define CULL_COMMON_POINTS 0
+
+#if CULL_COMMON_POINTS
+#pragma OPENCL EXTENSION cl_khr_local_int32_extended_atomics : enable
+#endif
+
 /* Abstraction around 3D images to support emulation.
  * TODO Pull out into some kind of library .cl.
  */
@@ -322,130 +328,94 @@ __kernel void makeShape3DEdge(
     __write_only image2d_t jigsawColour,
     __write_only image2d_t jigsawNormal)
 {
-#if 0
-    const int unitOffset = get_global_id(0) / 6;
-    const int face = get_local_id(0); /* 0..6 */
+#if CULL_COMMON_POINTS
+    const int unitOffset = get_global_id(0);
     const int xdim = get_local_id(1); /* 0..EDIM-1 */
     const int zdim = get_local_id(2); /* 0..EDIM-1 */
 
     /* Here I track whether each of the vapour points has already been
      * written as an edge.
-     * Each word starts at -1 and is updated with which face got the
-     * right to draw that edge. 
+     * These are atomic bitfields across z, indexed by x and y.
+     * (Hence applying an upper limit of 32 to EDIM; but I don't think
+     * I'll hit that any time soon)
      */
-    __local char pointsDrawn[EDIM][EDIM][EDIM];
-
-    /* Initialize that flag array. */
-    for (int y = face; y < EDIM; y += face)
-    {
-        pointsDrawn[xdim][y][zdim] = -1;
-    }
+    __local int pointsDrawn[EDIM][EDIM];
+    pointsDrawn[xdim][zdim] = 0;
 #else
-    const int unitOffset = get_global_id(0) / 6;
-    const int face = get_global_id(0) % 6; /* 0..6 */
+    const int unitOffset = get_global_id(0);
     const int xdim = get_global_id(1); /* 0..EDIM-1 */
     const int zdim = get_global_id(2); /* 0..EDIM-1 */
 #endif
 
-    /* Iterate through the possible steps back until I find an edge */
-    bool foundEdge = false;
-    int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
-
-    /* TODO Testing cubes, so that I can ensure the LoD algorithm is
-     * sorted; put this back and go back to this stuff after I've got
-     * correct cube-LoD and maybe skeletons first...
+    /* Iterate through the possible steps back until I find an edge.
+     * There is one flag each in this bit field for faces 0-5 incl.
      */
+    unsigned int foundEdge = 0;
 
-    /* TODO For normals, this -1 here needs to work correctly cross
-     * vapour cubes !
-     */
-    int4 lastVapourPointCoord = makeVapourCoord(face, xdim, zdim, -1);
-    float4 lastVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, lastVapourPointCoord);
-
-    for (int stepsBack = 0; !foundEdge && stepsBack < EDIM; ++stepsBack)
+    for (int stepsBack = 0; foundEdge != ((1<<6) - 1) && stepsBack < EDIM; ++stepsBack)
     {
-        /* Read the next point to compare with */
-        int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack);
-        float4 thisVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord);
-
-        /* Figure out which face it goes to, if any.
-         * Upon conflict, the faces get priority in 
-         * numerical order, via this looping contortion.
-         */
-
-        /* TODO For no reason I can fathom right now, all
-         * variants on this logic that I've tried make
-         * my AMD system hang and need the reset button.
-         * :-(
-         * On second thoughts, I think square pyramids are a
-         * bad idea: they pretty much preclude lots of kinds of
-         * irregular shapes.
-         * For now, I'm going to ignore the overlap test and
-         * just let overlaps happen.  I really want this kind
-         * of logic to work, though.
-         * Consider, rather than having a separate thread per
-         * face, instead making each thread do all 6 faces
-         * interleaved.  That would reduce the workgroup size a
-         * great deal, and thence allow me to have bigger cells.
-         */
-#if 0
-        for (int testFace = 0; testFace < 6; ++testFace)
+        for (int face = 0; face < 6; ++face)
         {
+            /* Read the next points to compare with */
+            int4 lastVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack - 1);
+            float4 lastVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, lastVapourPointCoord);
+
+            int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack);
+            float4 thisVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord);
+#if CULL_COMMON_POINTS
             barrier(CLK_LOCAL_MEM_FENCE);
-
-            /* TODO fix for `last' and `this' */
-            if (thisVapourPoint.w <= 0.0f && nextVapourPoint.w > 0.0f &&
-                testFace == face &&
-                pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z] == -1)
-            {
-                /* This is an edge, and it's mine! */
-                float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
-                write_imagef(jigsawDisp, edgeCoord, edgeVertex);
-                write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
-
-                /* TODO Compute the normal here. */
-                write_imagef(jigsawNormal, edgeCoord, (float4)(0.0f, 1.0f, 0.0f, 0.0f));
-
-                foundEdge = true;
-                //pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z] = face;
-            }
-        }
-#else
-        if (lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f)
-        {
-            /* This is an edge, and it's mine! */
-            float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
-            write_imagef(jigsawDisp, edgeCoord, edgeVertex);
-            write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
-
-            float4 normal = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
-            for (int xN = -1; xN <= 1; xN += 2)
-            {
-                for (int yN = -1; yN <= 1; yN += 2)
-                {
-                    for (int zN = -1; zN <= 1; zN += 2)
-                    {
-                        normal += make4PointNormal(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord, (int4)(xN, yN, zN, 0));
-                    }
-                }
-            }
-
-            write_imagef(jigsawNormal, edgeCoord, normalize(normal));
-
-            foundEdge = true;
-        }
 #endif
 
-        lastVapourPointCoord = thisVapourPointCoord;
-        lastVapourPoint = thisVapourPoint;
+            if (!(foundEdge & (1<<face)) && lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f)
+            {
+#if CULL_COMMON_POINTS
+                /* TODO: I think some of the gapping that is happening here might be
+                 * because I'm cross-checking the wrong stuff.
+                 * Think about which triangles each of these points governs,
+                 * not just what the bottom left (in edge space) point is.
+                 */
+                int zFlag = 1<<thisVapourPointCoord.z;
+                if ((atom_or(&pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y], zFlag) & zFlag) == 0)
+                {
+#endif
+                    /* This is an edge, and it's mine! */
+                    int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
+                    float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
+
+                    write_imagef(jigsawDisp, edgeCoord, edgeVertex);
+                    write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
+
+                    float4 normal = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+                    for (int xN = -1; xN <= 1; xN += 2)
+                    {
+                        for (int yN = -1; yN <= 1; yN += 2)
+                        {
+                            for (int zN = -1; zN <= 1; zN += 2)
+                            {
+                                normal += make4PointNormal(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord, (int4)(xN, yN, zN, 0));
+                            }
+                        }
+                    }
+    
+                    write_imagef(jigsawNormal, edgeCoord, normalize(normal));
+                    foundEdge |= (1<<face);
+#if CULL_COMMON_POINTS
+                }
+#endif
+            }
+        }
     }
 
-    if (!foundEdge)
+    for (int face = 0; face < 6; ++face)
     {
-        /* This is a gap (that's normal).  Write a displacement that the
-         * geometry shader will edit out.
-         */
-        write_imagef(jigsawDisp, edgeCoord, (float4)(NAN, NAN, NAN, NAN));
+        if (!(foundEdge & (1<<face)))
+        {
+            /* This is a gap (that's normal).  Write a displacement that the
+             * geometry shader will edit out.
+             */
+            int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
+            write_imagef(jigsawDisp, edgeCoord, (float4)(NAN, NAN, NAN, NAN));
+        }
     }
 }
 

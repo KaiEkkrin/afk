@@ -16,9 +16,11 @@ AFK_3DVapourComputeUnit::AFK_3DVapourComputeUnit():
 AFK_3DVapourComputeUnit::AFK_3DVapourComputeUnit(
     const Vec4<float>& _location,
     const AFK_JigsawPiece& _vapourJigsawPiece,
+    int _adjacencies,
     int _cubeOffset,
     int _cubeCount):
         location(_location),
+        adjacencies(_adjacencies),
         cubeOffset(_cubeOffset),
         cubeCount(_cubeCount)
 {
@@ -38,6 +40,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_3DVapourComputeUnit& unit)
 {
     os << "(SCU: ";
     os << "location=" << std::dec << unit.location;
+    os << ", adjacencies=" << std::hex << unit.adjacencies;
     os << ", cubeOffset=" << std::dec << unit.cubeOffset;
     os << ", cubeCount=" << std::dec << unit.cubeCount;
     os << ", vapourPiece=" << std::dec << unit.vapourPiece;
@@ -75,6 +78,7 @@ void AFK_3DVapourComputeQueue::extend(
 AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::addUnit(
     const Vec4<float>& location,
     const AFK_JigsawPiece& vapourJigsawPiece,
+    int adjacencies,
     unsigned int cubeOffset,
     unsigned int cubeCount)
 {
@@ -88,6 +92,7 @@ AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::addUnit(
     AFK_3DVapourComputeUnit newUnit(
         location,
         vapourJigsawPiece,
+        adjacencies,
         cubeOffset,
         cubeCount);
     units.push_back(newUnit);

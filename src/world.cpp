@@ -13,9 +13,9 @@
 #include "world.hpp"
 
 
-#define PRINT_CHECKPOINTS 0
+#define PRINT_CHECKPOINTS 1
 #define PRINT_CACHE_STATS 0
-#define PRINT_JIGSAW_STATS 1
+#define PRINT_JIGSAW_STATS 0
 
 #define PROTAGONIST_CELL_DEBUG 0
 
@@ -226,9 +226,12 @@ bool AFK_World::generateClaimedWorldCell(
     {
         /* We display geometry at a cell if its detail pitch is at the
          * target detail pitch, or if it's already the smallest
-         * possible cell
+         * possible cell.
+         * Note that the smallest possible cell is 2.  I can't go to 1,
+         * because it will preclude landscape half-tiles (which would
+         * be at +/- 0.5).
          */
-        bool display = (cell.coord.v[3] == MIN_CELL_PITCH ||
+        bool display = (cell.coord.v[3] == 2 ||
             worldCell.testDetailPitch(averageDetailPitch.get(), *camera, viewerLocation));
 
         /* Find the tile where any landscape at this cell would be
@@ -339,6 +342,7 @@ bool AFK_World::generateClaimedWorldCell(
 
         if (/* !landscapeTile.hasArtwork() || */
             worldCell.getRealCoord().v[1] >= landscapeTile.getYBoundUpper())
+            //cell.coord.v[0] == 0 && cell.coord.v[1] == 0 && cell.coord.v[2] == 0 && cell.coord.v[3] == 16) /* TODO Debug of specific entity */
         {
             //if (cell.coord.v[3] == 1024)
             //if (cell.coord.v[0] == 0 && cell.coord.v[1] == 0 && cell.coord.v[2] == 0)

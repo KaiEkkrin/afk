@@ -24,9 +24,6 @@
  */
 
 
-#define MIN_CELL_PITCH 2
-
-
 /* The C++ integer modulus operator's behaviour with
  * negative numbers is just shocking.
  * This utility is used for making the parents of both

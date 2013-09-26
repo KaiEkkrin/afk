@@ -2,7 +2,10 @@
 
 #include "afk.hpp"
 
+#include <cassert>
+
 #include "core.hpp"
+#include "debug.hpp"
 #include "rng/boost_taus88.hpp"
 #include "shape_cell.hpp"
 #include "vapour_cell.hpp"
@@ -43,7 +46,7 @@ void AFK_VapourCell::makeDescriptor(
         AFK_3DVapourCube cube;
         cube.make(
             features,
-            cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE * MIN_CELL_PITCH),
+            cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
             skeleton,
             sSizes,
             rng);
@@ -74,7 +77,10 @@ void AFK_VapourCell::makeDescriptor(
             cell.c.coord.v[0], cell.c.coord.v[1], cell.c.coord.v[2]);
         Vec3<long long> upperCellShapeSpace = afk_vec3<long long>(
             upperCell.cell.c.coord.v[0], upperCell.cell.c.coord.v[1], upperCell.cell.c.coord.v[2]);
-        Vec3<long long> upperOffset = (upperCellShapeSpace - thisCellShapeSpace) / cell.c.coord.v[3];
+        Vec3<long long> upperOffset = (thisCellShapeSpace - upperCellShapeSpace) * (sSizes.skeletonFlagGridDim/2) / cell.c.coord.v[3];
+
+        /* TODO REMOVE DEBUG */
+        AFK_DEBUG_PRINTL(cell << ": Embellishing skeleton with upper cell " << upperCell.cell << ", upper offset " << upperOffset)
 
         /* TODO: I'm seeing co-ordinates of -1 in the upper offset.
          * That's almost certainly wrong.  I need to understand what
@@ -89,7 +95,7 @@ void AFK_VapourCell::makeDescriptor(
             AFK_3DVapourCube cube;
             cube.make(
                 features,
-                cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE * MIN_CELL_PITCH),
+                cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
                 skeleton,
                 sSizes,
                 rng);
@@ -100,9 +106,28 @@ void AFK_VapourCell::makeDescriptor(
     }
 }
 
-bool AFK_VapourCell::withinSkeleton(void) const
+bool AFK_VapourCell::withinSkeleton(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const
 {
-    return (skeleton.getBoneCount() > 0);
+    assert(shapeCell.c.coord.v[3] == cell.c.coord.v[3] / sSizes.skeletonFlagGridDim);
+
+    AFK_SkeletonCube cube(cell, shapeCell, sSizes);
+    return skeleton.within(cube);
+}
+
+int AFK_VapourCell::skeletonAdjacency(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const
+{
+    assert(shapeCell.c.coord.v[3] == cell.c.coord.v[3] / sSizes.skeletonFlagGridDim);
+
+    AFK_SkeletonCube cube(cell, shapeCell, sSizes);
+    return skeleton.getAdjacency(cube);
+}
+
+int AFK_VapourCell::skeletonFullAdjacency(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const
+{
+    assert(shapeCell.c.coord.v[3] == cell.c.coord.v[3] / sSizes.skeletonFlagGridDim);
+
+    AFK_SkeletonCube cube(cell, shapeCell, sSizes);
+    return skeleton.getFullAdjacency(cube);
 }
 
 AFK_VapourCell::ShapeCells::ShapeCells(const AFK_VapourCell& _vapourCell, const AFK_ShapeSizes& _sSizes):
@@ -120,19 +145,18 @@ bool AFK_VapourCell::ShapeCells::hasNext(void)
 AFK_KeyedCell AFK_VapourCell::ShapeCells::next(void)
 {
     AFK_SkeletonCube nextSkeletonCube = bones.next();
-    long long shapeCellScale = vapourCell.cell.c.coord.v[3] / sSizes.skeletonFlagGridDim;
-    return afk_keyedCell(afk_vec4<long long>(
-        nextSkeletonCube.coord.v[0] * shapeCellScale + vapourCell.cell.c.coord.v[0],
-        nextSkeletonCube.coord.v[1] * shapeCellScale + vapourCell.cell.c.coord.v[1],
-        nextSkeletonCube.coord.v[2] * shapeCellScale + vapourCell.cell.c.coord.v[2],
-        shapeCellScale), vapourCell.cell.key);
+    AFK_KeyedCell nextCell = nextSkeletonCube.toShapeCell(vapourCell.cell, sSizes);
+
+    /* TODO remove sanity check -- trying to ensure consistency here */
+    assert(vapourCell.withinSkeleton(nextCell, sSizes));
+    return nextCell;
 }
 
 void AFK_VapourCell::build3DList(
     unsigned int threadId,
     AFK_3DList& list,
     const AFK_ShapeSizes& sSizes,
-    const AFK_VAPOUR_CELL_CACHE *cache)
+    const AFK_VAPOUR_CELL_CACHE *cache) const
 {
     /* Add the local vapour to the list. */
     list.extend(features, cubes);

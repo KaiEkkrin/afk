@@ -47,9 +47,9 @@ AFK_Tile AFK_Tile::parent(unsigned int subdivisionFactor) const
 Vec3<float> AFK_Tile::toWorldSpace(float worldScale) const
 {
     return afk_vec3<float>(
-        (float)coord.v[0] * worldScale / MIN_CELL_PITCH,
-        (float)coord.v[1] * worldScale / MIN_CELL_PITCH,
-        (float)coord.v[2] * worldScale / MIN_CELL_PITCH);
+        (float)coord.v[0] * worldScale,
+        (float)coord.v[1] * worldScale,
+        (float)coord.v[2] * worldScale);
 }
 
 void AFK_Tile::enumerateHalfTiles(AFK_Tile *halfTiles, size_t halfTilesSize) const
@@ -60,6 +60,8 @@ void AFK_Tile::enumerateHalfTiles(AFK_Tile *halfTiles, size_t halfTilesSize) con
         ss << "Tried to enumerate half tiles of count " << halfTilesSize;
         throw AFK_Exception(ss.str());
     }
+
+    if (coord.v[2] < 2) throw AFK_Exception("Tried to enumerate half tiles with overly small scale");
 
     unsigned int halfTilesIdx = 0;
     for (long long xd = -1; xd <= 1; xd += 2)
