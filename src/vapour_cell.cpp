@@ -5,6 +5,7 @@
 #include <cassert>
 
 #include "core.hpp"
+#include "debug.hpp"
 #include "rng/boost_taus88.hpp"
 #include "shape_cell.hpp"
 #include "vapour_cell.hpp"
@@ -76,7 +77,10 @@ void AFK_VapourCell::makeDescriptor(
             cell.c.coord.v[0], cell.c.coord.v[1], cell.c.coord.v[2]);
         Vec3<long long> upperCellShapeSpace = afk_vec3<long long>(
             upperCell.cell.c.coord.v[0], upperCell.cell.c.coord.v[1], upperCell.cell.c.coord.v[2]);
-        Vec3<long long> upperOffset = (upperCellShapeSpace - thisCellShapeSpace) / cell.c.coord.v[3];
+        Vec3<long long> upperOffset = (thisCellShapeSpace - upperCellShapeSpace) * (sSizes.skeletonFlagGridDim/2) / cell.c.coord.v[3];
+
+        /* TODO REMOVE DEBUG */
+        AFK_DEBUG_PRINTL(cell << ": Embellishing skeleton with upper cell " << upperCell.cell << ", upper offset " << upperOffset)
 
         /* TODO: I'm seeing co-ordinates of -1 in the upper offset.
          * That's almost certainly wrong.  I need to understand what

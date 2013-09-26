@@ -110,7 +110,7 @@ bool afk_generateEntity(
 
 /* The shape worker */
 
-#define VISIBLE_CELL_DEBUG 1
+#define VISIBLE_CELL_DEBUG 0
 
 #if VISIBLE_CELL_DEBUG
 #define DEBUG_VISIBLE_CELL(message) AFK_DEBUG_PRINTL("cell " << cell << ": visible cell " << visibleCell << ": " << message)
@@ -158,7 +158,7 @@ bool afk_generateShapeCells(
     {
         bool display = (
             cell.c.coord.v[3] == 1 || visibleCell.testDetailPitch(
-                world->averageDetailPitch.get() / 4.0f, *camera, viewerLocation));
+                world->averageDetailPitch.get() / 2.0f, *camera, viewerLocation));
 
         /* Always build the vapour descriptor, because other cells
          * will need it.
@@ -176,12 +176,30 @@ bool afk_generateShapeCells(
                 vapourCellClaimStatus = vapourCell.upgrade(threadId, vapourCellClaimStatus);
 
             if (vapourCellClaimStatus == AFK_CL_CLAIMED)
-                vapourCell.makeDescriptor(world->sSizes);
+            {
+                /* This is a lower level vapour cell (the top level ones were
+                 * made in afk_generateEntity() ) and is dependent on its
+                 * parent vapour cell's descriptor
+                 */
+                AFK_KeyedCell upperVC = vc.parent(world->sSizes.subdivisionFactor);
+                AFK_VapourCell& upperVapourCell = shape.vapourCellCache->at(upperVC);
+                AFK_ClaimStatus upperVCClaimStatus = upperVapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
+                vapourCell.makeDescriptor(upperVapourCell, world->sSizes);
+                upperVapourCell.release(threadId, upperVCClaimStatus);
+            }
         }
 
         if (vapourCell.hasDescriptor())
         {
-            if (vapourCell.withinSkeleton(shapeCell.getCell(), world->sSizes))
+            /* TODO: I can't cull inner cells by solidity here, but instead
+             * need to rely on feedback from the edge compute step.
+             * Arrange that, and update vapour cells with whether or not
+             * they're solid (a bit like the y reduce feedback), so that I
+             * can decide whether or not to recurse into finer detail vapour
+             * cells based on whether they're surrounded by solid cells or
+             * not.
+             */
+            if (vapourCell.withinSkeleton(cell, world->sSizes))
             {
                 if (display) 
                 {

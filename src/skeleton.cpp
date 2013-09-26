@@ -204,8 +204,7 @@ int AFK_Skeleton::embellish(
     /* (1) Fill out a randomly morphed skeleton that sort of matches
      * the upper one.
      */
-    for (AFK_SkeletonCube cube = AFK_SkeletonCube(upperOffset);
-        !cube.atEnd(gridDim); cube.advance(gridDim))
+    for (AFK_SkeletonCube cube = AFK_SkeletonCube(); !cube.atEnd(gridDim); cube.advance(gridDim))
     {
         AFK_SkeletonCube upperCube = cube.upperCube(upperOffset, subdivisionFactor);
 
