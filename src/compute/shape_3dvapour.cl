@@ -281,11 +281,11 @@ void transformAdjacentFaceDensity(float4 *vc, int xdim, int ydim, int zdim, int3
          * are not.
          */
         float4 vcnew = *vc;
-        //vcnew.xyz = (float3)(0.0f, 1.0f, 0.0f);
+        vcnew.xyz = (float3)(0.0f, 1.0f, 0.0f);
 
         float4 faceDensity = (float4)(
-            //1.0f, 0.0f, 1.0f,
-            (*vc).xyz,
+            1.0f, 0.0f, 1.0f,
+            //(*vc).xyz,
             -THRESHOLD * FEATURE_COUNT_PER_CUBE);
         float dff = (float)distanceFromClosestFace;
         float dfc = (float)(VDIM / 2);
