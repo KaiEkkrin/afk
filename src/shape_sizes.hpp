@@ -22,7 +22,6 @@ public:
     const unsigned int tDim; /* Number of vertices along one dimension of the vapour
                               * (includes one cell's worth of overlap on the - sides and 2 on the + sides) */
     const unsigned int iDim; /* Number of triangles along an edge */
-    const unsigned int iCount; /* Total number of index structures */
     const unsigned int featureCountPerCube; /* Number of features per cube */
     const unsigned int skeletonMaxSize; /* Maximum number of points in a skeleton */
     const unsigned int skeletonFlagGridDim; /* Dimensions of the skeleton flag-grid */

@@ -1,5 +1,8 @@
 /* AFK (c) Alex Holloway 2013 */
 
+#include "afk.hpp"
+
+#include "display.hpp"
 #include "terrain_base_tile.hpp"
 
 AFK_TerrainBaseTileVertex::AFK_TerrainBaseTileVertex(
@@ -83,6 +86,12 @@ void AFK_TerrainBaseTile::initGL()
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, AFK_TER_BASE_VERTEX_SIZE, 0);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, AFK_TER_BASE_VERTEX_SIZE, (GLvoid *)sizeof(Vec3<float>));
+}
+
+void AFK_TerrainBaseTile::draw(unsigned int instanceCount) const
+{
+    glDrawElementsInstanced(GL_TRIANGLES, indices.size(), GL_UNSIGNED_SHORT, 0, instanceCount);
+    AFK_GLCHK("terrain draw")
 }
 
 void AFK_TerrainBaseTile::teardownGL(void) const

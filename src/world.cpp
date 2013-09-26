@@ -596,7 +596,7 @@ AFK_World::AFK_World(
      */
     Vec3<int> edgePieceSize = afk_vec3<int>(sSizes.eDim * 3, sSizes.eDim * 2, 1);
 
-    enum AFK_JigsawFormat edgeTexFormat[3];
+    enum AFK_JigsawFormat edgeTexFormat[4];
     edgeTexFormat[0] = AFK_JIGSAW_4FLOAT32;        /* Displacement */
     edgeTexFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;   /* Colour */
 
@@ -608,6 +608,8 @@ AFK_World::AFK_World(
     else
         edgeTexFormat[2] = AFK_JIGSAW_4FLOAT8_SNORM;
 
+    edgeTexFormat[3] = AFK_JIGSAW_UINT8;            /* Overlap */
+
     edgeJigsaws = new AFK_JigsawCollection(
         ctxt,
         edgePieceSize,
@@ -615,7 +617,7 @@ AFK_World::AFK_World(
         1, /* TODO I'll no doubt be expanding on this */
         AFK_JIGSAW_2D,
         edgeTexFormat,
-        3,
+        4,
         computer->getFirstDeviceProps(),
         config->clGlSharing ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED,
         config->concurrency,
@@ -880,7 +882,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     /* Those queues are in puzzle order. */
     for (unsigned int puzzle = 0; puzzle < landscapeDrawQueues.size(); ++puzzle)
     {
-        landscapeDrawQueues[puzzle]->draw(landscape_shaderProgram, landscapeJigsaws->getPuzzle(puzzle), lSizes);
+        landscapeDrawQueues[puzzle]->draw(landscape_shaderProgram, landscapeJigsaws->getPuzzle(puzzle), landscapeTerrainBase, lSizes);
     }
 
     glBindVertexArray(0);
@@ -899,7 +901,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
 
     for (unsigned int puzzle = 0; puzzle < entityDrawQueues.size(); ++puzzle)
     {
-        entityDrawQueues[puzzle]->draw(entity_shaderProgram, edgeJigsaws->getPuzzle(puzzle), sSizes);
+        entityDrawQueues[puzzle]->draw(entity_shaderProgram, edgeJigsaws->getPuzzle(puzzle), edgeShapeBase, sSizes);
     }
 
     glBindVertexArray(0);

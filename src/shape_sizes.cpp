@@ -13,7 +13,6 @@ AFK_ShapeSizes::AFK_ShapeSizes(
     eDim(config->shape_pointSubdivisionFactor + 1), /* one extra vertex along the top and right sides to join with the adjacent tile */
     tDim(config->shape_pointSubdivisionFactor + 3),
     iDim(config->shape_pointSubdivisionFactor),
-    iCount(SQUARE(config->shape_pointSubdivisionFactor) * 2), /* two triangles per vertex */
     featureCountPerCube(CUBE(config->shape_pointSubdivisionFactor / 2)), /* TODO Probably wants experimenting with */
     skeletonMaxSize(config->shape_skeletonMaxSize * 2),
     skeletonFlagGridDim(config->shape_skeletonFlagGridDim),

@@ -11,6 +11,7 @@
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
+#include "3d_edge_shape_base.hpp"
 #include "def.hpp"
 #include "shader.hpp"
 #include "shape_sizes.hpp"
@@ -81,7 +82,7 @@ public:
      * function draws the parts of the entities represented by this
      * queue.
      */
-    void draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw *jigsaw, const AFK_ShapeSizes& sSizes);
+    void draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw *jigsaw, const AFK_3DEdgeShapeBase *baseShape, const AFK_ShapeSizes& sSizes);
 
     bool empty(void);
 

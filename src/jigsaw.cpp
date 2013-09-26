@@ -25,6 +25,15 @@ AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat e)
 {
     switch (e)
     {
+    case AFK_JIGSAW_UINT8:
+        glInternalFormat                    = GL_R8UI;
+        glFormat                            = GL_RED;
+        glDataType                          = GL_UNSIGNED_BYTE;
+        clFormat.image_channel_order        = CL_R;
+        clFormat.image_channel_data_type    = CL_UNSIGNED_INT8;
+        texelSize                           = sizeof(unsigned char);
+        break;
+
     case AFK_JIGSAW_FLOAT32:
         glInternalFormat                    = GL_R32F;
         glFormat                            = GL_RED;

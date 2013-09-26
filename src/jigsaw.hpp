@@ -44,6 +44,7 @@
  */
 enum AFK_JigsawFormat
 {
+    AFK_JIGSAW_UINT8,
     AFK_JIGSAW_FLOAT32,
     AFK_JIGSAW_555A1,
     AFK_JIGSAW_101010A2,

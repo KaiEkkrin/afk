@@ -34,7 +34,7 @@ void AFK_EntityDisplayQueue::add(const AFK_EntityDisplayUnit& _unit)
     queue.push_back(_unit);
 }
 
-void AFK_EntityDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw *jigsaw, const AFK_ShapeSizes& sSizes)
+void AFK_EntityDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw *jigsaw, const AFK_3DEdgeShapeBase *baseShape, const AFK_ShapeSizes& sSizes)
 {
     unsigned int instanceCount = queue.size();
     if (instanceCount == 0) return;
@@ -98,9 +98,8 @@ void AFK_EntityDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw *
 #if AFK_GL_DEBUG
     shaderProgram->Validate();
 #endif
-    /* 6 faces here, hence the multiplier */
-    glDrawElementsInstanced(GL_TRIANGLES, sSizes.iCount * 3 * 6, GL_UNSIGNED_SHORT, 0, instanceCount);
-    AFK_GLCHK("entity drawElementsInstanced")
+
+    baseShape->draw(instanceCount);
 }
 
 bool AFK_EntityDisplayQueue::empty(void)

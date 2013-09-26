@@ -1,6 +1,9 @@
 /* AFK (c) Alex Holloway 2013 */
 
+#include "afk.hpp"
+
 #include "3d_edge_shape_base.hpp"
+#include "display.hpp"
 
 /* This utility function gets two-dimensional face co-ordinates.
  */
@@ -129,6 +132,12 @@ void AFK_3DEdgeShapeBase::initGL()
 
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vec2<float>), 0);
+}
+
+void AFK_3DEdgeShapeBase::draw(unsigned int instanceCount) const
+{
+    glDrawElementsInstanced(GL_TRIANGLES, indices.size(), GL_UNSIGNED_SHORT, 0, instanceCount);
+    AFK_GLCHK("3d edge shape draw")
 }
 
 void AFK_3DEdgeShapeBase::teardownGL(void) const

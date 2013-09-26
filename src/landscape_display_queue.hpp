@@ -15,6 +15,7 @@
 #include "def.hpp"
 #include "landscape_sizes.hpp"
 #include "shader.hpp"
+#include "terrain_base_tile.hpp"
 
 class AFK_Jigsaw;
 class AFK_LandscapeTile;
@@ -83,7 +84,7 @@ public:
      * this queue, assuming that the basic VAO for the landscape tiles
      * has already been selected
      */
-    void draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw* jigsaw, const AFK_LandscapeSizes& lSizes);
+    void draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw* jigsaw, const AFK_TerrainBaseTile *baseTile, const AFK_LandscapeSizes& lSizes);
 
     bool empty(void);
 
