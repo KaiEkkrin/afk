@@ -26,15 +26,16 @@ AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat e)
     switch (e)
     {
     case AFK_JIGSAW_UINT8:
-        /* TODO This is wrong.  This format is getting corrupted upon copy.
-         * I don't understand.
+        /* TODO: Bytes give me humongous corruption on copy here, and I
+         * don't understand why.  Int32 is obviously bad from a space used
+         * point of view but appear to actually work...
          */
-        glInternalFormat                    = GL_R8UI;
+        glInternalFormat                    = GL_R32UI;
         glFormat                            = GL_RED_INTEGER;
-        glDataType                          = GL_UNSIGNED_BYTE;
+        glDataType                          = GL_UNSIGNED_INT;
         clFormat.image_channel_order        = CL_R;
-        clFormat.image_channel_data_type    = CL_UNSIGNED_INT8;
-        texelSize                           = sizeof(unsigned char);
+        clFormat.image_channel_data_type    = CL_UNSIGNED_INT32;
+        texelSize                           = sizeof(unsigned int);
         break;
 
     case AFK_JIGSAW_FLOAT32:

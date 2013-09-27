@@ -458,6 +458,8 @@ __kernel void makeShape3DEdge(
             if ((flaggedSecondTriangle & (1<<face)) != 0 &&
                 (flaggedSecondTriangle & ((1<<face) - 1)) == 0) overlap |= 2;
 
+            //overlap = 8;
+
             write_imageui(jigsawOverlap, edgeCoord, (uint4)(overlap, 0, 0, 0));
         }
 #endif
