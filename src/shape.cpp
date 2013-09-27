@@ -158,7 +158,7 @@ bool afk_generateShapeCells(
     {
         bool display = (
             cell.c.coord.v[3] == 1 || visibleCell.testDetailPitch(
-                world->averageDetailPitch.get() / 2.0f, *camera, viewerLocation));
+                world->getEntityDetailPitch(), *camera, viewerLocation));
 
         /* Always build the vapour descriptor, because other cells
          * will need it.

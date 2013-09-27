@@ -19,8 +19,6 @@ uniform sampler2D JigsawDispTex;
 uniform sampler2D JigsawNormalTex;
 
 // ...and the overlap information.
-// (1 to display this triangle pair; 0 to skip it, because it's
-// overlapped to another face.)
 uniform usampler2D JigsawOverlapTex;
 
 // This is the entity display queue.  There are five texels
@@ -47,6 +45,20 @@ out GeometryData
     vec2 jigsawCoord;
 } outData;
 
+
+void emitShapeVertex(mat4 ClipTransform, mat4 WorldTransform, vec2 jigsawPieceCoord, vec2 texCoordDisp, int i)
+{
+    vec2 jigsawCoord = jigsawPieceCoord + JigsawPiecePitch * (inData[i].texCoord + texCoordDisp);
+    vec4 dispPosition = textureLod(JigsawDispTex, jigsawCoord, 0);
+
+    gl_Position = ClipTransform * dispPosition;
+
+    vec4 normal = textureLod(JigsawNormalTex, jigsawCoord, 0);
+    outData.normal = (WorldTransform * normal).xyz;
+    outData.jigsawCoord = jigsawCoord;
+    EmitVertex();
+}
+
 void main()
 {
     /* Reconstruct this instance's jigsaw piece coord.
@@ -69,12 +81,18 @@ void main()
 
     /* Check whether this triangle pair is overlapped to another
      * face.
+     * TODO: Currently, this data is corrupt if I disable
+     * --cl-gl-sharing :-(
+     * (And possibly with it enabled too, although I hope not.
+     * I know that the adjacency for the edges is wrong right now:
+     * I need to expand their dimensions from eDim to tDim so that
+     * they can include correct normal and colour overlap info.)
      */
-    uint showPair = textureLod(JigsawOverlapTex,
+    uint overlap = textureLod(JigsawOverlapTex,
         jigsawPieceCoord + JigsawPiecePitch * (inData[0].texCoord + texCoordDisp),
         0).x;
 
-    if (showPair != 0)
+    if (overlap != 0)
     {
         /* Reconstruct the world transform matrix that I
          * now want ...
@@ -90,30 +108,37 @@ void main()
             vec4(WTRow1.z, WTRow2.z, WTRow3.z, WTRow4.z),
             vec4(WTRow1.w, WTRow2.w, WTRow3.w, WTRow4.w));
 
-        for (int iBase = 0; iBase < 4; ++iBase)
+        mat4 ClipTransform = ProjectionTransform * WorldTransform;
+
+        /* For the left, front, and top faces, I need to flip the
+         * winding order in order to keep everything facing
+         * outwards.
+         * However, if I skip the first triangle, I need to invert
+         * this again!
+         */
+        bool flipWindingOrder = (gl_InvocationID == 1 || gl_InvocationID == 2 || gl_InvocationID == 5);
+        if (overlap == 2) flipWindingOrder = !flipWindingOrder;
+
+        /* If bit 1 of overlap is set we emit the first triangle;
+         * if bit 2 is set we emit the second.
+         */
+        if ((overlap & 1) != 0)
+            emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 0);
+
+        if (flipWindingOrder)
         {
-            /* For the left, front, and top faces, I need to flip the
-             * winding order in order to keep everything facing
-             * outwards.
-             */
-            int i = iBase;
-            switch (gl_InvocationID)
-            {
-            case 1: case 2: case 5:
-                if (iBase == 1) i = 2;
-                else if (iBase == 2) i = 1;
-                break;
-            }
+            emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 2);
+            emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 1);
+        }
+        else
+        {
+            emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 1);
+            emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 2);
+        }
 
-            vec2 jigsawCoord = jigsawPieceCoord + JigsawPiecePitch * (inData[i].texCoord + texCoordDisp);
-            vec4 dispPosition = textureLod(JigsawDispTex, jigsawCoord, 0);
-
-            gl_Position = (ProjectionTransform * WorldTransform) * dispPosition;
-
-            vec4 normal = textureLod(JigsawNormalTex, jigsawCoord, 0);
-            outData.normal = (WorldTransform * normal).xyz;
-            outData.jigsawCoord = jigsawCoord;
-            EmitVertex();
+        if ((overlap & 2) != 0)
+        {
+            emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 3);
         }
 
         EndPrimitive();

@@ -232,7 +232,7 @@ bool AFK_World::generateClaimedWorldCell(
          * be at +/- 0.5).
          */
         bool display = (cell.coord.v[3] == 2 ||
-            worldCell.testDetailPitch(averageDetailPitch.get(), *camera, viewerLocation));
+            worldCell.testDetailPitch(getLandscapeDetailPitch(), *camera, viewerLocation));
 
         /* Find the tile where any landscape at this cell would be
          * homed
@@ -751,6 +751,17 @@ void AFK_World::alterDetail(float adjustment)
         detailPitch = std::min(detailPitch * adjustment, maxDetailPitch);
 
     averageDetailPitch.push(detailPitch);
+}
+
+float AFK_World::getLandscapeDetailPitch(void) const
+{
+    return averageDetailPitch.get();
+}
+
+float AFK_World::getEntityDetailPitch(void) const
+{
+    return averageDetailPitch.get() *
+        (float)sSizes.pointSubdivisionFactor / (float)lSizes.pointSubdivisionFactor;
 }
 
 boost::unique_future<bool> AFK_World::updateWorld(void)

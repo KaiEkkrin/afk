@@ -9,11 +9,7 @@
  * deformable faces of a cube onto it.
  */
 
-#define CULL_COMMON_POINTS 0
-
-#if CULL_COMMON_POINTS
 #pragma OPENCL EXTENSION cl_khr_local_int32_extended_atomics : enable
-#endif
 
 /* Abstraction around 3D images to support emulation.
  * TODO Pull out into some kind of library .cl.
@@ -329,57 +325,54 @@ __kernel void makeShape3DEdge(
     __write_only image2d_t jigsawNormal,
     __write_only image2d_t jigsawOverlap)
 {
-#if CULL_COMMON_POINTS
     const int unitOffset = get_global_id(0);
     const int xdim = get_local_id(1); /* 0..EDIM-1 */
     const int zdim = get_local_id(2); /* 0..EDIM-1 */
 
-    /* Here I track whether each of the vapour points has already been
-     * written as an edge.
-     * These are atomic bitfields across z, indexed by x and y.
-     * (Hence applying an upper limit of 32 to EDIM; but I don't think
-     * I'll hit that any time soon)
+    /* Here I track which face(s) can claim each vapour point.
+     * Indexed by (x, y, z/4), each byte contains a bitfield
+     * of the faces (top bits ignored).
      */
-    __local int pointsDrawn[EDIM][EDIM];
-    pointsDrawn[xdim][zdim] = 0;
-#else
-    const int unitOffset = get_global_id(0);
-    const int xdim = get_global_id(1); /* 0..EDIM-1 */
-    const int zdim = get_global_id(2); /* 0..EDIM-1 */
-#endif
+    __local int pointsDrawn[EDIM][EDIM][EDIM/4 + 1];
+    for (int i = 0; i < (EDIM/4 + 1); ++i)
+    {
+        pointsDrawn[xdim][zdim][i] = 0;
+    }
 
     /* Iterate through the possible steps back until I find an edge.
      * There is one flag each in this bit field for faces 0-5 incl.
      */
     unsigned int foundEdge = 0;
 
-    for (int stepsBack = 0; foundEdge != ((1<<6) - 1) && stepsBack < EDIM; ++stepsBack)
+    /* This tracks how many steps back each of my found edges are. */
+    __local int edgeStepsBack[EDIM][EDIM][6];
+    for (int i = 0; i < 6; ++i)
+    {
+        edgeStepsBack[xdim][zdim][i] = -1;
+    }
+
+    for (int stepsBack = 0; stepsBack < EDIM; ++stepsBack)
     {
         for (int face = 0; face < 6; ++face)
         {
+            barrier(CLK_LOCAL_MEM_FENCE);
+            if ((foundEdge & (1<<face)) != 0) continue;
+
             /* Read the next points to compare with */
             int4 lastVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack - 1);
             float4 lastVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, lastVapourPointCoord);
 
             int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack);
             float4 thisVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord);
-#if CULL_COMMON_POINTS
-            barrier(CLK_LOCAL_MEM_FENCE);
-#endif
 
-            if (!(foundEdge & (1<<face)) && lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f)
+            barrier(CLK_LOCAL_MEM_FENCE);
+
+            if (lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f)
             {
-#if CULL_COMMON_POINTS
-                /* TODO: I think some of the gapping that is happening here might be
-                 * because I'm cross-checking the wrong stuff.
-                 * Think about which triangles each of these points governs,
-                 * not just what the bottom left (in edge space) point is.
-                 */
-                int zFlag = 1<<thisVapourPointCoord.z;
-                if ((atom_or(&pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y], zFlag) & zFlag) == 0)
+                int zFlag = ((1<<face) << (8 * (thisVapourPointCoord.z % 4)));
+                if ((atom_or(&pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z/4], zFlag) & zFlag) == 0)
                 {
-#endif
-                    /* This is an edge, and it's mine! */
+                    /* This is an edge, write its coord. */
                     int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
                     float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
 
@@ -400,58 +393,84 @@ __kernel void makeShape3DEdge(
     
                     write_imagef(jigsawNormal, edgeCoord, normalize(normal));
                     foundEdge |= (1<<face);
-#if CULL_COMMON_POINTS
+                    edgeStepsBack[xdim][zdim][face] = stepsBack;
                 }
-#endif
             }
         }
     }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    /* Now, calculate which of the faces each of my edge
+     * points pertains to.
+     */
+    int firstTriangleFace = -1;
+    int secondTriangleFace = -1;
 
     for (int face = 0; face < 6; ++face)
     {
         int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
 
-        if (!(foundEdge & (1<<face)))
+        if ((foundEdge & (1<<face)) == 0)
         {
             /* This is a gap (that's normal).  Write a displacement that the
              * geometry shader will edit out.
              */
-            //write_imagef(jigsawDisp, edgeCoord, (float4)(NAN, NAN, NAN, NAN));
-
-            /* TODO: In order to get the below thing right, I need to identify
-             * things per face not by individual texels (here) but by the 2x2
-             * blocks that the geometry shader will turn into triangles.
-             * So I probably want one pass (above) to record which faces hit
-             * which texels, and then another pass here to choose, for each
-             * quad, which face wins it?
-             * Or do I in fact want to do the latter thing within the
-             * geometry shader itself and bypass this step somehow?
-             *
-             * Try:
-             * - Above, keep a local bit flag array (byte will do) for a single
-             * face shape.
-             * - Whenever we hit a texel, flag it with 1<<face in the flag array
-             * and stop looking for that face.  I'll need to use atomics to
-             * write the flag array, of course.
-             * - At the end, write the combined flag array contents to the
-             * overlap texture.  (Use only face 0.  Finesse: expand jigsaw to
-             * allow different piece sizes for different textures in the jigsaw.)
-             * - In the geometry shader, fetch the flag array for all 4 vertices
-             * in the shape.  Bitwise-AND them together.
-             * - In the result, if 1<<face is set, and (1<<face)-1 is all clear,
-             * then we own the quad and should render it.
-             */
-            write_imageui(jigsawOverlap, edgeCoord, (uint4)(0, 0, 0, 0));
+            write_imagef(jigsawDisp, edgeCoord, (float4)(NAN, NAN, NAN, NAN));
         }
         else
         {
-            /* TODO Determine this value properly rather
-             * than writing blindly the value 1!
-             * (Here now to make sure everything else
-             * is in place OK)
-             */
-            write_imageui(jigsawOverlap, edgeCoord, (uint4)(1, 0, 0, 0));
+            /* TODO This block barfs for unknown reasons right now :( */
+#if 1
+            if (xdim < (EDIM-1) && zdim < (EDIM-1))
+            {
+                /* Inspect the local quad. */
+                bool pointAt[2][2];
+
+                for (int x = 0; x <= 1; ++x)
+                {
+                    for (int z = 0; z <= 1; ++z)
+                    {
+                        pointAt[x][z] = false;
+
+                        int esb = edgeStepsBack[xdim+x][zdim+z][face];
+                        if (esb >= 0 && esb < EDIM) /* TODO how the fuck is this ending up >= EDIM ?!?!?!?!?! */
+                        {
+                            int4 coord = makeVapourCoord(face, xdim+x, zdim+z, esb);
+
+                            /* TODO This is wrong: as well as checking for this number face
+                             * I want to check for the absence of lower numbered ones, right?
+                             * There's a cunning big bitwise AND that I can do.
+                             * Also, I want to throw away firstTriangleFace and secondTriangleFace
+                             * which restrict xdim and zdim to one single face and cause holes, right?
+                             * I dunno really, this is brain melting.
+                             */
+                            int zFlag = ((1<<face) << (8*(coord.z % 4)));
+
+                            if ((pointsDrawn[coord.x][coord.y][coord.z/4] & zFlag) != 0)
+                                pointAt[x][z] = true;
+                        }
+                    }
+                }
+
+                if (firstTriangleFace == -1 && pointAt[0][0] && pointAt[0][1] && pointAt[1][0]) firstTriangleFace = face;
+                if (secondTriangleFace == -1 && pointAt[0][1] && pointAt[1][0] && pointAt[1][1]) secondTriangleFace = face;
+            }
+#endif
         }
+    }
+
+    /* And now I can write the overlap information!
+     * Overlap has 2 bits: bit 1 == first triangle here,
+     * bit 2 == second triangle here.
+     */
+    for (int face = 0; face < 6; ++face)
+    {
+        int2 overlapCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
+        uint overlap = 0;
+        if (firstTriangleFace == face) overlap |= 1;
+        if (secondTriangleFace == face) overlap |= 2;
+        write_imageui(jigsawOverlap, overlapCoord, (uint4)(overlap, 0, 0, 0));
     }
 }
 

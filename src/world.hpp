@@ -273,6 +273,9 @@ public:
      */
     void alterDetail(float adjustment);
 
+    float getLandscapeDetailPitch(void) const;
+    float getEntityDetailPitch(void) const;
+
     /* This function drives the cell generating worker to
      * update the world cache and enqueue visible
      * cells.  Returns a future that becomes available

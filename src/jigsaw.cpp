@@ -26,8 +26,11 @@ AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat e)
     switch (e)
     {
     case AFK_JIGSAW_UINT8:
+        /* TODO This is wrong.  This format is getting corrupted upon copy.
+         * I don't understand.
+         */
         glInternalFormat                    = GL_R8UI;
-        glFormat                            = GL_RED;
+        glFormat                            = GL_RED_INTEGER;
         glDataType                          = GL_UNSIGNED_BYTE;
         clFormat.image_channel_order        = CL_R;
         clFormat.image_channel_data_type    = CL_UNSIGNED_INT8;
