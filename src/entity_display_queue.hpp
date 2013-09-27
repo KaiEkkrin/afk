@@ -70,6 +70,7 @@ protected:
     GLuint jigsawDispTexSamplerLocation;
     GLuint jigsawColourTexSamplerLocation;
     GLuint jigsawNormalTexSamplerLocation;
+    GLuint jigsawOverlapTexSamplerLocation;
     GLuint displayTBOSamplerLocation;
 
 public:

@@ -17,6 +17,7 @@ AFK_EntityDisplayQueue::AFK_EntityDisplayQueue():
     jigsawDispTexSamplerLocation(0),
     jigsawColourTexSamplerLocation(0),
     jigsawNormalTexSamplerLocation(0),
+    jigsawOverlapTexSamplerLocation(0),
     displayTBOSamplerLocation(0)
 {
 }
@@ -45,6 +46,7 @@ void AFK_EntityDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw *
         jigsawDispTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawDispTex");
         jigsawColourTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawColourTex");
         jigsawNormalTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawNormalTex");
+        jigsawOverlapTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawOverlapTex");
         displayTBOSamplerLocation = glGetUniformLocation(shaderProgram->program, "DisplayTBO");
     }
 
@@ -78,9 +80,15 @@ void AFK_EntityDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw *
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glUniform1i(jigsawNormalTexSamplerLocation, 2);
+
+    glActiveTexture(GL_TEXTURE3);
+    jigsaw->bindTexture(3);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glUniform1i(jigsawOverlapTexSamplerLocation, 3);
     
     /* Set up the entity display texbuf. */
-    glActiveTexture(GL_TEXTURE3);
+    glActiveTexture(GL_TEXTURE4);
     if (!buf) glGenBuffers(1, &buf);
     glBindBuffer(GL_TEXTURE_BUFFER, buf);
     glBufferData(
@@ -93,7 +101,7 @@ void AFK_EntityDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw *
         GL_RGBA32F,
         buf);
     AFK_GLCHK("entity display queue texBuffer")
-    glUniform1i(displayTBOSamplerLocation, 3);
+    glUniform1i(displayTBOSamplerLocation, 4);
 
 #if AFK_GL_DEBUG
     shaderProgram->Validate();

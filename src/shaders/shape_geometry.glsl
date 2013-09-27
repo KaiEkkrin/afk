@@ -18,6 +18,11 @@ uniform sampler2D JigsawDispTex;
 // ...and the normal
 uniform sampler2D JigsawNormalTex;
 
+// ...and the overlap information.
+// (1 to display this triangle pair; 0 to skip it, because it's
+// overlapped to another face.)
+uniform usampler2D JigsawOverlapTex;
+
 // This is the entity display queue.  There are five texels
 // per instance, which contain:
 // - first 4: the 4 rows of the transform matrix for the instance
@@ -62,27 +67,14 @@ void main()
     case 5: texCoordDisp = vec2(2.0, 1.0); break;
     }
 
-    /* Calculate my input jigsaw coord and position here. */
-    vec2 jigsawCoord[4];
-    vec4 dispPosition[4];
-
-    /* TODO Remove the nan check and replace it with a lookup
-     * of the overlap texture.
+    /* Check whether this triangle pair is overlapped to another
+     * face.
      */
-    bool haveNan = false;
-    for (int i = 0; i < 4; ++i)
-    {
-        jigsawCoord[i] = jigsawPieceCoord + JigsawPiecePitch * (inData[i].texCoord + texCoordDisp);
-        dispPosition[i] = textureLod(JigsawDispTex, jigsawCoord[i], 0);
+    uint showPair = textureLod(JigsawOverlapTex,
+        jigsawPieceCoord + JigsawPiecePitch * (inData[0].texCoord + texCoordDisp),
+        0).x;
 
-        if (isnan(dispPosition[i].x) || isnan(dispPosition[i].y) ||
-            isnan(dispPosition[i].z) || isnan(dispPosition[i].w))
-        {
-            haveNan = true;
-        }
-    }
-
-    if (!haveNan)
+    if (showPair != 0)
     {
         /* Reconstruct the world transform matrix that I
          * now want ...
@@ -113,12 +105,14 @@ void main()
                 break;
             }
 
-            gl_Position = (ProjectionTransform * WorldTransform) * dispPosition[i];
+            vec2 jigsawCoord = jigsawPieceCoord + JigsawPiecePitch * (inData[i].texCoord + texCoordDisp);
+            vec4 dispPosition = textureLod(JigsawDispTex, jigsawCoord, 0);
 
-            vec4 normal = textureLod(JigsawNormalTex, jigsawCoord[i], 0);
+            gl_Position = (ProjectionTransform * WorldTransform) * dispPosition;
+
+            vec4 normal = textureLod(JigsawNormalTex, jigsawCoord, 0);
             outData.normal = (WorldTransform * normal).xyz;
-
-            outData.jigsawCoord = jigsawCoord[i];
+            outData.jigsawCoord = jigsawCoord;
             EmitVertex();
         }
 

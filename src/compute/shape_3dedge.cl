@@ -326,7 +326,8 @@ __kernel void makeShape3DEdge(
     __global const struct AFK_3DEdgeComputeUnit *units,
     __write_only image2d_t jigsawDisp,
     __write_only image2d_t jigsawColour,
-    __write_only image2d_t jigsawNormal)
+    __write_only image2d_t jigsawNormal,
+    __write_only image2d_t jigsawOverlap)
 {
 #if CULL_COMMON_POINTS
     const int unitOffset = get_global_id(0);
@@ -408,13 +409,48 @@ __kernel void makeShape3DEdge(
 
     for (int face = 0; face < 6; ++face)
     {
+        int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
+
         if (!(foundEdge & (1<<face)))
         {
             /* This is a gap (that's normal).  Write a displacement that the
              * geometry shader will edit out.
              */
-            int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
-            write_imagef(jigsawDisp, edgeCoord, (float4)(NAN, NAN, NAN, NAN));
+            //write_imagef(jigsawDisp, edgeCoord, (float4)(NAN, NAN, NAN, NAN));
+
+            /* TODO: In order to get the below thing right, I need to identify
+             * things per face not by individual texels (here) but by the 2x2
+             * blocks that the geometry shader will turn into triangles.
+             * So I probably want one pass (above) to record which faces hit
+             * which texels, and then another pass here to choose, for each
+             * quad, which face wins it?
+             * Or do I in fact want to do the latter thing within the
+             * geometry shader itself and bypass this step somehow?
+             *
+             * Try:
+             * - Above, keep a local bit flag array (byte will do) for a single
+             * face shape.
+             * - Whenever we hit a texel, flag it with 1<<face in the flag array
+             * and stop looking for that face.  I'll need to use atomics to
+             * write the flag array, of course.
+             * - At the end, write the combined flag array contents to the
+             * overlap texture.  (Use only face 0.  Finesse: expand jigsaw to
+             * allow different piece sizes for different textures in the jigsaw.)
+             * - In the geometry shader, fetch the flag array for all 4 vertices
+             * in the shape.  Bitwise-AND them together.
+             * - In the result, if 1<<face is set, and (1<<face)-1 is all clear,
+             * then we own the quad and should render it.
+             */
+            write_imageui(jigsawOverlap, edgeCoord, (uint4)(0, 0, 0, 0));
+        }
+        else
+        {
+            /* TODO Determine this value properly rather
+             * than writing blindly the value 1!
+             * (Here now to make sure everything else
+             * is in place OK)
+             */
+            write_imageui(jigsawOverlap, edgeCoord, (uint4)(1, 0, 0, 0));
         }
     }
 }
