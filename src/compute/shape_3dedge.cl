@@ -404,9 +404,6 @@ __kernel void makeShape3DEdge(
     /* Now, calculate which of the faces each of my edge
      * points pertains to.
      */
-    int firstTriangleFace = -1;
-    int secondTriangleFace = -1;
-
     for (int face = 0; face < 6; ++face)
     {
         int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
@@ -418,59 +415,52 @@ __kernel void makeShape3DEdge(
              */
             write_imagef(jigsawDisp, edgeCoord, (float4)(NAN, NAN, NAN, NAN));
         }
-        else
-        {
-            /* TODO This block barfs for unknown reasons right now :( */
+
+        /* ... not an else! */
 #if 1
-            if (xdim < (EDIM-1) && zdim < (EDIM-1))
+        if (xdim < (EDIM-1) && zdim < (EDIM-1))
+        {
+            /* Inspect the local quad. */
+            /* TODO Does this make cross-overlaps if I test the two triangles
+             * separately rather than both combined?
+             * ...no, apparently not.  I think this might be wrong, but it's
+             * tied up with the cubes also being incomplete right now and all
+             * sorts.  I should probably debug that first, otherwise, too
+             * confusing.
+             */
+            int flaggedFirstTriangle = ((1<<6) - 1);
+            int flaggedSecondTriangle = ((1<<6) - 1);
+
+            for (int x = 0; x <= 1; ++x)
             {
-                /* Inspect the local quad. */
-                bool pointAt[2][2];
-
-                for (int x = 0; x <= 1; ++x)
+                for (int z = 0; z <= 1; ++z)
                 {
-                    for (int z = 0; z <= 1; ++z)
+                    int esb = edgeStepsBack[xdim+x][zdim+z][face];
+                    if (esb >= 0 && esb < EDIM) /* TODO how the fuck is this ending up >= EDIM ?!?!?!?!?! */
                     {
-                        pointAt[x][z] = false;
+                        /* Don't allow zany triangles? */
+                        if (x != z && abs_diff(esb, edgeStepsBack[xdim][zdim][face]) > 1) flaggedFirstTriangle = 0;
+                        if (x != z && abs_diff(esb, edgeStepsBack[xdim+1][zdim+1][face]) > 1) flaggedSecondTriangle = 0;
 
-                        int esb = edgeStepsBack[xdim+x][zdim+z][face];
-                        if (esb >= 0 && esb < EDIM) /* TODO how the fuck is this ending up >= EDIM ?!?!?!?!?! */
-                        {
-                            int4 coord = makeVapourCoord(face, xdim+x, zdim+z, esb);
-
-                            /* TODO This is wrong: as well as checking for this number face
-                             * I want to check for the absence of lower numbered ones, right?
-                             * There's a cunning big bitwise AND that I can do.
-                             * Also, I want to throw away firstTriangleFace and secondTriangleFace
-                             * which restrict xdim and zdim to one single face and cause holes, right?
-                             * I dunno really, this is brain melting.
-                             */
-                            int zFlag = ((1<<face) << (8*(coord.z % 4)));
-
-                            if ((pointsDrawn[coord.x][coord.y][coord.z/4] & zFlag) != 0)
-                                pointAt[x][z] = true;
-                        }
+                        int4 coord = makeVapourCoord(face, xdim+x, zdim+z, esb);
+                        if (x == 0 || z == 0)
+                            flaggedFirstTriangle &= ((pointsDrawn[coord.x][coord.y][coord.z/4] >> (8*(coord.z % 4))) & ((1<<6) - 1));
+                        if (x == 1 || z == 1)
+                            flaggedSecondTriangle &= ((pointsDrawn[coord.x][coord.y][coord.z/4] >> (8*(coord.z % 4))) & ((1<<6) - 1));
                     }
                 }
-
-                if (firstTriangleFace == -1 && pointAt[0][0] && pointAt[0][1] && pointAt[1][0]) firstTriangleFace = face;
-                if (secondTriangleFace == -1 && pointAt[0][1] && pointAt[1][0] && pointAt[1][1]) secondTriangleFace = face;
             }
-#endif
-        }
-    }
 
-    /* And now I can write the overlap information!
-     * Overlap has 2 bits: bit 1 == first triangle here,
-     * bit 2 == second triangle here.
-     */
-    for (int face = 0; face < 6; ++face)
-    {
-        int2 overlapCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
-        uint overlap = 0;
-        if (firstTriangleFace == face) overlap |= 1;
-        if (secondTriangleFace == face) overlap |= 2;
-        write_imageui(jigsawOverlap, overlapCoord, (uint4)(overlap, 0, 0, 0));
+            uint overlap = 0;
+            if ((flaggedFirstTriangle & (1<<face)) != 0 &&
+                (flaggedFirstTriangle & ((1<<face) - 1)) == 0) overlap |= 1;
+
+            if ((flaggedSecondTriangle & (1<<face)) != 0 &&
+                (flaggedSecondTriangle & ((1<<face) - 1)) == 0) overlap |= 2;
+
+            write_imageui(jigsawOverlap, edgeCoord, (uint4)(overlap, 0, 0, 0));
+        }
+#endif
     }
 }
 
