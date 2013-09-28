@@ -311,6 +311,25 @@ float4 make4PointNormal(
     return (float4)(normalize(combinedVectors), 0.0f);
 }
 
+/* A raw normal will be correct only for the top face --
+ * this fixes it for the others.
+ */
+float4 rotateNormal(float4 rawNormal, int face)
+{
+    float4 rotNormal = rawNormal;
+
+    switch (face)
+    {
+    case AFK_SHF_BOTTOM : rotNormal = (float4)(rawNormal.x, -rawNormal.y, rawNormal.z, rawNormal.w); break;
+    case AFK_SHF_LEFT   : rotNormal = (float4)(-rawNormal.y, rawNormal.x, rawNormal.z, rawNormal.w); break;
+    case AFK_SHF_FRONT  : rotNormal = (float4)(rawNormal.x, rawNormal.z, -rawNormal.y, rawNormal.w); break;
+    case AFK_SHF_BACK   : rotNormal = (float4)(rawNormal.x, -rawNormal.z, rawNormal.y, rawNormal.w); break;
+    case AFK_SHF_RIGHT  : rotNormal = (float4)(rawNormal.y, -rawNormal.x, rawNormal.z, rawNormal.w); break;
+    }
+
+    return rotNormal;
+}
+
 #define TEST_CUBE 1
 
 /* This parameter list should be sufficient that I will always be able to
@@ -346,7 +365,7 @@ __kernel void makeShape3DEdge(
             ((float)zdim / (float)EDIM),
             0.0f, 0.0f);
 
-        float4 testNormal = (float4)(0.0f, 1.0f, 0.0f, 0.0f);
+        float4 testNormal = rotateNormal((float4)(0.0f, 1.0f, 0.0f, 0.0f), face);
 
         uint4 testOverlap = (uint4)(3, 0, 0, 0);
 
@@ -419,7 +438,7 @@ __kernel void makeShape3DEdge(
                         }
                     }
     
-                    write_imagef(jigsawNormal, edgeCoord, normalize(normal));
+                    write_imagef(jigsawNormal, edgeCoord, rotateNormal(normalize(normal), face));
                     foundEdge |= (1<<face);
                     edgeStepsBack[xdim][zdim][face] = stepsBack;
                 }
