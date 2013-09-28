@@ -351,7 +351,7 @@ __kernel void makeShape3DEdge(
         edgeStepsBack[xdim][zdim][i] = -1;
     }
 
-    for (int stepsBack = 0; stepsBack < EDIM; ++stepsBack)
+    for (int stepsBack = 0; stepsBack < (EDIM-1); ++stepsBack)
     {
         for (int face = 0; face < 6; ++face)
         {
