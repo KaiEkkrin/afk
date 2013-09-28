@@ -311,6 +311,8 @@ float4 make4PointNormal(
     return (float4)(normalize(combinedVectors), 0.0f);
 }
 
+#define TEST_CUBE 1
+
 /* This parameter list should be sufficient that I will always be able to
  * address all vapour jigsaws in the same place.  I hope!
  */
@@ -329,6 +331,32 @@ __kernel void makeShape3DEdge(
     const int xdim = get_local_id(1); /* 0..EDIM-1 */
     const int zdim = get_local_id(2); /* 0..EDIM-1 */
 
+#if TEST_CUBE
+    /* Important feature: Here, I produce a set of test faces
+     * to use to verify that the shaders and other portions of
+     * the shape render pipeline are correct.
+     */
+    for (int face = 0; face < 6; ++face)
+    {
+        int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
+        float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, 0 /* stepsBack */, units[unitOffset].location);
+
+        float4 testColour = (float4)(
+            ((float)xdim / (float)EDIM),
+            ((float)zdim / (float)EDIM),
+            0.0f, 0.0f);
+
+        float4 testNormal = (float4)(0.0f, 1.0f, 0.0f, 0.0f);
+
+        uint4 testOverlap = (uint4)(3, 0, 0, 0);
+
+        write_imagef(jigsawDisp, edgeCoord, edgeVertex);
+        write_imagef(jigsawColour, edgeCoord, testColour);
+        write_imagef(jigsawNormal, edgeCoord, testNormal);
+        write_imageui(jigsawOverlap, edgeCoord, testOverlap);
+    }
+
+#else
     /* Here I track which face(s) can claim each vapour point.
      * Indexed by (x, y, z/4), each byte contains a bitfield
      * of the faces (top bits ignored).
@@ -469,7 +497,19 @@ __kernel void makeShape3DEdge(
 
             write_imageui(jigsawOverlap, edgeCoord, (uint4)(overlap, 0, 0, 0));
         }
+        else
+        {
+            /* TODO Let's verify something.  This should have no effect.  :/  */
+            /* TODO Yes, this does indeed have no effect.  I think I need to get to
+             * dumping the contents of the compute images to the prompt to find out
+             * why I have a big gap along one side of the X.
+             * Argh.  :-(  :-(
+             */
+            write_imageui(jigsawOverlap, edgeCoord, (uint4)(3, 0, 0, 0));
+        }
 #endif
     }
+
+#endif /* TEST_CUBE */
 }
 

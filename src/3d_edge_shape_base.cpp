@@ -7,6 +7,13 @@
 
 #define RESTART_INDEX 65535
 
+#if 0
+#define SAMPLE_WIGGLE 0.25f
+#else
+/* 0.5 seems correct on nvidia.  0.25 gives occasional colour misses. */
+#define SAMPLE_WIGGLE 0.5f
+#endif
+
 AFK_3DEdgeShapeBase::AFK_3DEdgeShapeBase(const AFK_ShapeSizes& sSizes):
     bufs(NULL)
 {
@@ -18,8 +25,8 @@ AFK_3DEdgeShapeBase::AFK_3DEdgeShapeBase(const AFK_ShapeSizes& sSizes):
         for (unsigned int z = 0; z < sSizes.eDim; ++z)
         {
             vertices.push_back(afk_vec2<float>(
-                ((float)x + 0.25f) / (float)sSizes.eDim,
-                ((float)z + 0.25f) / (float)sSizes.eDim));
+                ((float)x + SAMPLE_WIGGLE) / (float)sSizes.eDim,
+                ((float)z + SAMPLE_WIGGLE) / (float)sSizes.eDim));
         }
     }
 

@@ -127,7 +127,10 @@ void AFK_WorldCell::addStartingEntity(
     }
 
     Vec3<float> entityRotation;
-    switch (rng.uirand() % 5)
+    /* TODO REMOVE DEBUG -- removing orientation to try to figure out
+     * cell edge gaps bug
+     */
+    switch (/* rng.uirand() % 5 */ 0)
     {
     case 0:
         entityRotation = afk_vec3<float>(0.0f, 0.0f, 0.0f);
