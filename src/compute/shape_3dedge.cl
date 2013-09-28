@@ -330,7 +330,7 @@ float4 rotateNormal(float4 rawNormal, int face)
     return rotNormal;
 }
 
-#define TEST_CUBE 1
+#define TEST_CUBE 0
 
 /* This parameter list should be sufficient that I will always be able to
  * address all vapour jigsaws in the same place.  I hope!
@@ -367,7 +367,11 @@ __kernel void makeShape3DEdge(
 
         float4 testNormal = rotateNormal((float4)(0.0f, 1.0f, 0.0f, 0.0f), face);
 
+        /* TODO Testing the overlap here to make sure all is
+         * in order ...
+         */
         uint4 testOverlap = (uint4)(3, 0, 0, 0);
+        if (xdim == (EDIM-1) || zdim == (EDIM-1)) testOverlap = (uint4)(0, 0, 0, 0); /* Always ignored */
 
         write_imagef(jigsawDisp, edgeCoord, edgeVertex);
         write_imagef(jigsawColour, edgeCoord, testColour);
@@ -380,14 +384,16 @@ __kernel void makeShape3DEdge(
      * Indexed by (x, y, z/4), each byte contains a bitfield
      * of the faces (top bits ignored).
      */
-    __local int pointsDrawn[EDIM][EDIM][EDIM/4 + 1];
-    for (int i = 0; i < (EDIM/4 + 1); ++i)
+    __local int pointsDrawn[EDIM][EDIM][(EDIM>>2) + 1];
+    for (int i = 0; i < ((EDIM>>2) + 1); ++i)
     {
         pointsDrawn[xdim][zdim][i] = 0;
     }
 
     /* Iterate through the possible steps back until I find an edge.
      * There is one flag each in this bit field for faces 0-5 incl.
+     * TODO I should be able to remove this and use just
+     * `edgeStepsBack'.
      */
     unsigned int foundEdge = 0;
 
@@ -395,7 +401,7 @@ __kernel void makeShape3DEdge(
     __local int edgeStepsBack[EDIM][EDIM][6];
     for (int i = 0; i < 6; ++i)
     {
-        edgeStepsBack[xdim][zdim][i] = -1;
+        edgeStepsBack[xdim][zdim][i] = -255;
     }
 
     for (int stepsBack = 0; stepsBack < (EDIM-1); ++stepsBack)
@@ -412,12 +418,31 @@ __kernel void makeShape3DEdge(
             int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack);
             float4 thisVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord);
 
-            barrier(CLK_LOCAL_MEM_FENCE);
+#define FAKE_TEST_VAPOUR 1
+
+#if FAKE_TEST_VAPOUR
+            /* Always claiming right away should result in a cube. */
+            if ((foundEdge & (1<<face)) == 0)
+            {
+                int zFlag = ((1<<face) << (8 * (thisVapourPointCoord.z % 4)));
+                atom_or(&pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z>>2], zFlag);
+
+                int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
+                float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
+
+                write_imagef(jigsawDisp, edgeCoord, edgeVertex);
+                write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
+                write_imagef(jigsawNormal, edgeCoord, rotateNormal((float4)(0.0f, 1.0f, 0.0f, 0.0f), face));
+
+                foundEdge |= (1<<face);
+                edgeStepsBack[xdim][zdim][face] = stepsBack;
+            }
+#else
 
             if (lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f)
             {
-                int zFlag = ((1<<face) << (8 * (thisVapourPointCoord.z % 4)));
-                if ((atom_or(&pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z/4], zFlag) & zFlag) == 0)
+                int zFlag = ((1<<face) << (8 * (thisVapourPointCoord.z & 3)));
+                if ((atom_or(&pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z>>2], zFlag) & zFlag) == 0)
                 {
                     /* This is an edge, write its coord. */
                     int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
@@ -443,7 +468,15 @@ __kernel void makeShape3DEdge(
                     edgeStepsBack[xdim][zdim][face] = stepsBack;
                 }
             }
+#endif /* FAKE_TEST_VAPOUR */
         }
+    }
+
+    /* TODO DELETEME AWFUL DREADFUL HORROR */
+    barrier(CLK_LOCAL_MEM_FENCE);
+    for (int face = 0; face < 6; ++face)
+    {
+        edgeStepsBack[xdim][zdim][face] = 0;
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -464,7 +497,6 @@ __kernel void makeShape3DEdge(
         }
 
         /* ... not an else! */
-#if 1
         if (xdim < (EDIM-1) && zdim < (EDIM-1))
         {
             /* Inspect the local quad. */
@@ -482,6 +514,8 @@ __kernel void makeShape3DEdge(
             int firstX = (flipTriangles ? 1 : 0);
             int secondX = (flipTriangles ? 0 : 1);
 
+#if FAKE_TEST_VAPOUR
+#else
             for (int x = firstX;
                 x == firstX || x == secondX;
                 x += (secondX - firstX))
@@ -491,42 +525,48 @@ __kernel void makeShape3DEdge(
                     int esb = edgeStepsBack[xdim+x][zdim+z][face];
                     if (esb >= 0 && esb < EDIM) /* TODO how the fuck is this ending up >= EDIM ?!?!?!?!?! */
                     {
-                        /* Don't allow zany triangles? */
-                        bool diagonal = (flipTriangles ? ((1-x) != z) : (x != z));
-                        if (diagonal && abs_diff(esb, edgeStepsBack[xdim+firstX][zdim][face]) > 1) flaggedFirstTriangle = 0;
-                        if (diagonal && abs_diff(esb, edgeStepsBack[xdim+secondX][zdim+1][face]) > 1) flaggedSecondTriangle = 0;
-
+                        /* TODO: This code is bugged, and gapping the
+                         * +x faces (I think).  :-(
+                         */
                         int4 coord = makeVapourCoord(face, xdim+x, zdim+z, esb);
                         if (x == firstX || z == 0)
-                            flaggedFirstTriangle &= ((pointsDrawn[coord.x][coord.y][coord.z/4] >> (8*(coord.z % 4))) & ((1<<6) - 1));
+                            flaggedFirstTriangle &= ((pointsDrawn[coord.x][coord.y][coord.z>>2] >> (8*(coord.z & 3))) & ((1<<6) - 1));
                         if (x == secondX || z == 1)
-                            flaggedSecondTriangle &= ((pointsDrawn[coord.x][coord.y][coord.z/4] >> (8*(coord.z % 4))) & ((1<<6) - 1));
+                            flaggedSecondTriangle &= ((pointsDrawn[coord.x][coord.y][coord.z>>2] >> (8*(coord.z & 3))) & ((1<<6) - 1));
                     }
                 }
             }
+#endif
+
+            /* TODO: Within these if expressions I include a test for
+             * jagged triangles (ones that span overly far).  I believe
+             * this test is "correct" in that it will eliminate them.
+             * However, when one has been eliminated I need to figure
+             * out how to defer the triangle to a face that won't
+             * make it overly jagged.  Right now it'll just get gapped.
+             * I think doing this will require a third pass and local
+             * fence in order to get the threads to agree?
+             */
 
             uint overlap = 0;
             if ((flaggedFirstTriangle & (1<<face)) != 0 &&
-                (flaggedFirstTriangle & ((1<<face) - 1)) == 0) overlap |= 1;
+#if FAKE_TEST_VAPOUR
+#else
+                (flaggedFirstTriangle & ((1<<face) - 1)) == 0 &&
+#endif
+                abs_diff(edgeStepsBack[xdim+firstX][zdim][face], edgeStepsBack[xdim+secondX][zdim][face]) <= 1 &&
+                abs_diff(edgeStepsBack[xdim+firstX][zdim][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1) overlap |= 1;
 
             if ((flaggedSecondTriangle & (1<<face)) != 0 &&
-                (flaggedSecondTriangle & ((1<<face) - 1)) == 0) overlap |= 2;
-
-            //overlap = 8;
+#if FAKE_TEST_VAPOUR
+#else
+                (flaggedSecondTriangle & ((1<<face) - 1)) == 0 &&
+#endif
+                abs_diff(edgeStepsBack[xdim+secondX][zdim+1][face], edgeStepsBack[xdim+secondX][zdim][face]) <= 1 &&
+                abs_diff(edgeStepsBack[xdim+secondX][zdim+1][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1) overlap |= 2;
 
             write_imageui(jigsawOverlap, edgeCoord, (uint4)(overlap, 0, 0, 0));
         }
-        else
-        {
-            /* TODO Let's verify something.  This should have no effect.  :/  */
-            /* TODO Yes, this does indeed have no effect.  I think I need to get to
-             * dumping the contents of the compute images to the prompt to find out
-             * why I have a big gap along one side of the X.
-             * Argh.  :-(  :-(
-             */
-            write_imageui(jigsawOverlap, edgeCoord, (uint4)(3, 0, 0, 0));
-        }
-#endif
     }
 
 #endif /* TEST_CUBE */
