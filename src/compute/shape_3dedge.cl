@@ -431,7 +431,16 @@ __kernel void makeShape3DEdge(
             int flaggedFirstTriangle = ((1<<6) - 1);
             int flaggedSecondTriangle = ((1<<6) - 1);
 
-            for (int x = 0; x <= 1; ++x)
+            bool flipTriangles = (face == 1 || face == 2 || face == 5);
+            int firstX = (flipTriangles ? 1 : 0);
+            int secondX = (flipTriangles ? 0 : 1);
+
+            int2 firstDia = (int2)(secondX, 0);
+            int2 secondDia = (int2)(firstX, 1);
+
+            for (int x = firstX;
+                x == firstX || x == secondX;
+                x += (secondX - firstX))
             {
                 for (int z = 0; z <= 1; ++z)
                 {
@@ -439,13 +448,24 @@ __kernel void makeShape3DEdge(
                     if (esb >= 0 && esb < EDIM) /* TODO how the fuck is this ending up >= EDIM ?!?!?!?!?! */
                     {
                         /* Don't allow zany triangles? */
-                        if (x != z && abs_diff(esb, edgeStepsBack[xdim][zdim][face]) > 1) flaggedFirstTriangle = 0;
-                        if (x != z && abs_diff(esb, edgeStepsBack[xdim+1][zdim+1][face]) > 1) flaggedSecondTriangle = 0;
+#if 0
+                        if (x == firstDia.x && z == firstDia.y &&
+                            abs_diff(esb, edgeStepsBack[xdim+firstX][zdim][face] > 1))
+                        {
+                            flaggedFirstTriangle = 0;
+                        }
+
+                        if (x == secondDia.x && z == secondDia.y &&
+                            abs_diff(esb, edgeStepsBack[xdim+secondX][zdim+1][face] > 1))
+                        {
+                            flaggedSecondTriangle = 0;
+                        }
+#endif
 
                         int4 coord = makeVapourCoord(face, xdim+x, zdim+z, esb);
-                        if (x == 0 || z == 0)
+                        if (x == firstX || z == 0)
                             flaggedFirstTriangle &= ((pointsDrawn[coord.x][coord.y][coord.z/4] >> (8*(coord.z % 4))) & ((1<<6) - 1));
-                        if (x == 1 || z == 1)
+                        if (x == secondX || z == 1)
                             flaggedSecondTriangle &= ((pointsDrawn[coord.x][coord.y][coord.z/4] >> (8*(coord.z % 4))) & ((1<<6) - 1));
                     }
                 }
