@@ -435,9 +435,6 @@ __kernel void makeShape3DEdge(
             int firstX = (flipTriangles ? 1 : 0);
             int secondX = (flipTriangles ? 0 : 1);
 
-            int2 firstDia = (int2)(secondX, 0);
-            int2 secondDia = (int2)(firstX, 1);
-
             for (int x = firstX;
                 x == firstX || x == secondX;
                 x += (secondX - firstX))
@@ -448,19 +445,9 @@ __kernel void makeShape3DEdge(
                     if (esb >= 0 && esb < EDIM) /* TODO how the fuck is this ending up >= EDIM ?!?!?!?!?! */
                     {
                         /* Don't allow zany triangles? */
-#if 0
-                        if (x == firstDia.x && z == firstDia.y &&
-                            abs_diff(esb, edgeStepsBack[xdim+firstX][zdim][face] > 1))
-                        {
-                            flaggedFirstTriangle = 0;
-                        }
-
-                        if (x == secondDia.x && z == secondDia.y &&
-                            abs_diff(esb, edgeStepsBack[xdim+secondX][zdim+1][face] > 1))
-                        {
-                            flaggedSecondTriangle = 0;
-                        }
-#endif
+                        bool diagonal = (flipTriangles ? ((1-x) != z) : (x != z));
+                        if (diagonal && abs_diff(esb, edgeStepsBack[xdim+firstX][zdim][face]) > 1) flaggedFirstTriangle = 0;
+                        if (diagonal && abs_diff(esb, edgeStepsBack[xdim+secondX][zdim+1][face]) > 1) flaggedSecondTriangle = 0;
 
                         int4 coord = makeVapourCoord(face, xdim+x, zdim+z, esb);
                         if (x == firstX || z == 0)
