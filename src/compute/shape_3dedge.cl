@@ -409,7 +409,6 @@ __kernel void makeShape3DEdge(
         for (int face = 0; face < 6; ++face)
         {
             barrier(CLK_LOCAL_MEM_FENCE);
-            if ((foundEdge & (1<<face)) != 0) continue;
 
             /* Read the next points to compare with */
             int4 lastVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack - 1);
@@ -418,14 +417,19 @@ __kernel void makeShape3DEdge(
             int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack);
             float4 thisVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord);
 
+            /* `pointsDrawn' needs to be offset from thisVapourPointCoord to
+             * avoid the tDim gap
+             */
+            int4 thisPointsDrawnCoord = thisVapourPointCoord - (int4)(1, 1, 1, 0);
+
 #define FAKE_TEST_VAPOUR 1
 
 #if FAKE_TEST_VAPOUR
             /* Always claiming right away should result in a cube. */
             if ((foundEdge & (1<<face)) == 0)
             {
-                int zFlag = ((1<<face) << (8 * (thisVapourPointCoord.z % 4)));
-                atom_or(&pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z>>2], zFlag);
+                int zFlag = ((1<<face) << (8 * (thisPointsDrawnCoord.z & 3)));
+                atom_or(&pointsDrawn[thisPointsDrawnCoord.x][thisPointsDrawnCoord.y][thisPointsDrawnCoord.z>>2], zFlag);
 
                 int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
                 float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
@@ -441,8 +445,8 @@ __kernel void makeShape3DEdge(
 
             if (lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f)
             {
-                int zFlag = ((1<<face) << (8 * (thisVapourPointCoord.z & 3)));
-                if ((atom_or(&pointsDrawn[thisVapourPointCoord.x][thisVapourPointCoord.y][thisVapourPointCoord.z>>2], zFlag) & zFlag) == 0)
+                int zFlag = ((1<<face) << (8 * (thisPointsDrawnCoord.z & 3)));
+                if ((atom_or(&pointsDrawn[thisPointsDrawnCoord.x][thisPointsDrawnCoord.y][thisPointsDrawnCoord.z>>2], zFlag) & zFlag) == 0)
                 {
                     /* This is an edge, write its coord. */
                     int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
@@ -470,13 +474,6 @@ __kernel void makeShape3DEdge(
             }
 #endif /* FAKE_TEST_VAPOUR */
         }
-    }
-
-    /* TODO DELETEME AWFUL DREADFUL HORROR */
-    barrier(CLK_LOCAL_MEM_FENCE);
-    for (int face = 0; face < 6; ++face)
-    {
-        edgeStepsBack[xdim][zdim][face] = 0;
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -514,8 +511,6 @@ __kernel void makeShape3DEdge(
             int firstX = (flipTriangles ? 1 : 0);
             int secondX = (flipTriangles ? 0 : 1);
 
-#if FAKE_TEST_VAPOUR
-#else
             for (int x = firstX;
                 x == firstX || x == secondX;
                 x += (secondX - firstX))
@@ -523,12 +518,9 @@ __kernel void makeShape3DEdge(
                 for (int z = 0; z <= 1; ++z)
                 {
                     int esb = edgeStepsBack[xdim+x][zdim+z][face];
-                    if (esb >= 0 && esb < EDIM) /* TODO how the fuck is this ending up >= EDIM ?!?!?!?!?! */
+                    if (esb >= 0)
                     {
-                        /* TODO: This code is bugged, and gapping the
-                         * +x faces (I think).  :-(
-                         */
-                        int4 coord = makeVapourCoord(face, xdim+x, zdim+z, esb);
+                        int4 coord = makeVapourCoord(face, xdim+x, zdim+z, esb) - (int4)(1, 1, 1, 0);
                         if (x == firstX || z == 0)
                             flaggedFirstTriangle &= ((pointsDrawn[coord.x][coord.y][coord.z>>2] >> (8*(coord.z & 3))) & ((1<<6) - 1));
                         if (x == secondX || z == 1)
@@ -536,7 +528,6 @@ __kernel void makeShape3DEdge(
                     }
                 }
             }
-#endif
 
             /* TODO: Within these if expressions I include a test for
              * jagged triangles (ones that span overly far).  I believe
