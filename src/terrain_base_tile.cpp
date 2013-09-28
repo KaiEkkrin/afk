@@ -29,8 +29,8 @@ AFK_TerrainBaseTile::AFK_TerrainBaseTile(const AFK_LandscapeSizes& lSizes):
              * the padding all the way round.  Therefore, to access the
              * correct texels, I need to skip the padding, like so:
              */
-            float xTex = ((float)x - (float)lSizes.tDimStart + 0.25f) / (float)lSizes.tDim;
-            float zTex = ((float)z - (float)lSizes.tDimStart + 0.25f) / (float)lSizes.tDim;
+            float xTex = ((float)x - (float)lSizes.tDimStart + AFK_SAMPLE_WIGGLE) / (float)lSizes.tDim;
+            float zTex = ((float)z - (float)lSizes.tDimStart + AFK_SAMPLE_WIGGLE) / (float)lSizes.tDim;
 
             vertices.push_back(AFK_TerrainBaseTileVertex(
                 afk_vec3<float>(xCoord, 0.0f, zCoord),

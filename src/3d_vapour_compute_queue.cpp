@@ -168,7 +168,7 @@ void AFK_3DVapourComputeQueue::computeStart(
     for (std::vector<cl_event>::iterator evIt = preVapourWaitList.begin();
         evIt != preVapourWaitList.end(); ++evIt)
     {
-        AFK_CLCHK(clReleaseEvent(*evIt))
+        if (*evIt) AFK_CLCHK(clReleaseEvent(*evIt))
     }
 
     for (unsigned int i = 0; i < 3; ++i)
@@ -179,7 +179,7 @@ void AFK_3DVapourComputeQueue::computeStart(
     postVapourWaitList.clear();
     postVapourWaitList.push_back(vapourEvent);
     vapourJigsaws->releaseAllFromCl(q, vapourJigsawsMem, jpCount, postVapourWaitList);
-    AFK_CLCHK(clReleaseEvent(vapourEvent))
+    if (vapourEvent) AFK_CLCHK(clReleaseEvent(vapourEvent))
 
     computer->unlock();
 }
