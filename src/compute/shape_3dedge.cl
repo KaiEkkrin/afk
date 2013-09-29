@@ -134,6 +134,52 @@ int4 makeVapourCoord(int face, int xdim, int zdim, int stepsBack)
     return coord;
 }
 
+/* The obvious reverse. */
+void reverseVapourCoord(int face, int4 coord, int *o_xdim, int *o_zdim, int *o_stepsBack)
+{
+    /* Remove the single-step adjacency thingummy. */
+    coord -= (int4)(1, 1, 1, 0);
+
+    switch (face)
+    {
+    case AFK_SHF_BOTTOM:
+        *o_xdim = coord.x;
+        *o_stepsBack = coord.y;
+        *o_zdim = coord.z;
+        break;
+
+    case AFK_SHF_LEFT:
+        *o_stepsBack = coord.x;
+        *o_xdim = coord.y;
+        *o_zdim = coord.z;
+        break;
+
+    case AFK_SHF_FRONT:
+        *o_xdim = coord.x;
+        *o_zdim = coord.y;
+        *o_stepsBack = coord.z;
+        break;
+
+    case AFK_SHF_BACK:
+        *o_xdim = coord.x;
+        *o_zdim = coord.y;
+        *o_stepsBack = VDIM - coord.z;
+        break;
+
+    case AFK_SHF_RIGHT:
+        *o_stepsBack = VDIM - coord.x;
+        *o_xdim = coord.y;
+        *o_zdim = coord.z;
+        break;
+
+    case AFK_SHF_TOP:
+        *o_xdim = coord.x;
+        *o_stepsBack = VDIM - coord.y;
+        *o_zdim = coord.z;
+        break;
+    }
+}
+
 __constant sampler_t vapourSampler = CLK_NORMALIZED_COORDS_FALSE |
     CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
 
@@ -616,25 +662,23 @@ __kernel void makeShape3DEdge(
                      * and this one.
                      * If so, I need to drop this triangle, because it would
                      * criss-cross with the previous one.
-                     *
-                     * ...TODO this is wrong, but useful attempt (again).  What
-                     * I need to do is find the (xdim, zdim) of the conflicting face,
-                     * wind back across the vapour (!) of the three (xdim+1, zdim+1, both)
-                     * to find their stepsBack, check them for sanity in the above manner
-                     * with the abs_diff to get rid of auto rejects, and then verify
-                     * the point distances like below.
-                     * Yeesh...  :-)
                      */
-                    int4 lowerFaceCoord = makeVapourCoord(lowerFace, xdim, zdim, edgeStepsBack[xdim][zdim][lowerFace]) - (int4)(1, 1, 1, 0);
+                    int lowerXdim, lowerZdim, lowerStepsBack;
+                    reverseVapourCoord(lowerFace, triCoord + (int4)(1, 1, 1, 0), &lowerXdim, &lowerZdim, &lowerStepsBack);
+
                     for (int x = 0; x <= 1; ++x)
                     {
                         for (int z = 0; z <= 1; ++z)
                         {
                             if (x == 0 && z == 0) continue;
-                            float4 lowerEdgeVertex = makeEdgeVertex(
-                                lowerFace, xdim+x, zdim+z, edgeStepsBack[xdim+x][zdim+z][lowerFace], units[unitOffset].location);
 
-                            lowerFaceOverlaps |= (distance(myEdgeVertices[x][z], lowerEdgeVertex) < 0.00001f); /* TODO make distance relative */
+                            int4 lowerTriCoord = makeVapourCoord(lowerFace, lowerXdim + x, lowerZdim + z,
+                                edgeStepsBack[lowerXdim+x][lowerZdim+z][lowerFace]) - (int4)(1, 1, 1, 0);
+
+                            lowerFaceOverlaps |= (
+                                lowerTriCoord.x == triCoord.x &&
+                                lowerTriCoord.y == triCoord.y &&
+                                lowerTriCoord.z == triCoord.z);
                         }
                     }
                 }
