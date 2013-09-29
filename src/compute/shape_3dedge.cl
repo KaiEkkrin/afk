@@ -422,7 +422,7 @@ __kernel void makeShape3DEdge(
              */
             int4 thisPointsDrawnCoord = thisVapourPointCoord - (int4)(1, 1, 1, 0);
 
-#define FAKE_TEST_VAPOUR 0
+#define FAKE_TEST_VAPOUR 1
 
 #if FAKE_TEST_VAPOUR
             /* Always claiming right away should result in a cube. */
@@ -503,6 +503,15 @@ __kernel void makeShape3DEdge(
              * tied up with the cubes also being incomplete right now and all
              * sorts.  I should probably debug that first, otherwise, too
              * confusing.
+             *
+             * TODO: This flip isn't correct -- I still sometimes get bowties.
+             * I think what I need to do is make an inventory of where the
+             * faces won't line up when folded onto each other (using the
+             * fake test vapour) and then decide, on a per-quad basis, what
+             * rotations to use and encode that into the overlap texture.
+             * If the quad has an ambiguous facing, it doesn't matter --
+             * that's a rare case -- but if I want to finesse it, I should try
+             * to clamp the quad to a single face in that case...
              */
             int flaggedFirstTriangle = ((1<<6) - 1);
             int flaggedSecondTriangle = ((1<<6) - 1);
@@ -546,7 +555,8 @@ __kernel void makeShape3DEdge(
                 (flaggedFirstTriangle & ((1<<face) - 1)) == 0 &&
 #endif
                 abs_diff(edgeStepsBack[xdim+firstX][zdim][face], edgeStepsBack[xdim+secondX][zdim][face]) <= 1 &&
-                abs_diff(edgeStepsBack[xdim+firstX][zdim][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1) overlap |= 1;
+                abs_diff(edgeStepsBack[xdim+firstX][zdim][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1 &&
+                abs_diff(edgeStepsBack[xdim+secondX][zdim][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1) overlap |= 1;
 
             if ((flaggedSecondTriangle & (1<<face)) != 0 &&
 #if FAKE_TEST_VAPOUR
@@ -554,7 +564,8 @@ __kernel void makeShape3DEdge(
                 (flaggedSecondTriangle & ((1<<face) - 1)) == 0 &&
 #endif
                 abs_diff(edgeStepsBack[xdim+secondX][zdim+1][face], edgeStepsBack[xdim+secondX][zdim][face]) <= 1 &&
-                abs_diff(edgeStepsBack[xdim+secondX][zdim+1][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1) overlap |= 2;
+                abs_diff(edgeStepsBack[xdim+secondX][zdim+1][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1 &&
+                abs_diff(edgeStepsBack[xdim+secondX][zdim][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1) overlap |= 2;
 
             write_imageui(jigsawOverlap, edgeCoord, (uint4)(overlap, 0, 0, 0));
         }
