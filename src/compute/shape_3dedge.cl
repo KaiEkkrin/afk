@@ -587,17 +587,59 @@ __kernel void makeShape3DEdge(
                 abs_diff(edgeStepsBack[xdim+secondX][zdim+1][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1 &&
                 abs_diff(edgeStepsBack[xdim+secondX][zdim][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1)
             {
-                /* TODO: For debug purposes, drawing ALL triangles
-                 * that qualify under the above test. */
-#if 1
-                /* I can draw this triangle.
+                /* I can probably draw this triangle.
                  * Re-set the trianglesComplete flag for this face, so
                  * that the next face doesn't try to overdraw it.
                  */
-                int lowerFaceMask = ((1<<(face+1)) - 1) << (8 * (triCoord.z & 3));
                 int quadFlag = (1<<face) << (8 * (triCoord.z & 3));
-                if ((atom_or(&trianglesComplete[triCoord.x][triCoord.y][triCoord.z>>2], quadFlag) & lowerFaceMask) == 0)
-#endif
+                int lowerFaces = (atom_or(&trianglesComplete[triCoord.x][triCoord.y][triCoord.z>>2], quadFlag) >> (8 * (triCoord.z & 3))) & ((1<<face) - 1);
+                bool lowerFaceOverlaps = false;
+
+                float4 myEdgeVertices[2][2];
+                for (int x = 0; x <= 1; ++x)
+                {
+                    for (int z = 0; z <= 1; ++z)
+                    {
+                        if (x == 0 && z == 0) continue;
+                        myEdgeVertices[x][z] = makeEdgeVertex(
+                            face, xdim+x, zdim+z, edgeStepsBack[xdim+x][zdim+z][face], units[unitOffset].location);
+                    }
+                }
+
+                for (int lowerFace = 0; !lowerFaceOverlaps && lowerFace < face; ++lowerFace)
+                {
+                    if ((lowerFaces & (1<<lowerFace)) == 0) continue;
+
+                    /* For each lower face that covers this quad, check whether
+                     * there are overlaps.  That is, whether any points other
+                     * than the `home point' are the same between that face
+                     * and this one.
+                     * If so, I need to drop this triangle, because it would
+                     * criss-cross with the previous one.
+                     *
+                     * ...TODO this is wrong, but useful attempt (again).  What
+                     * I need to do is find the (xdim, zdim) of the conflicting face,
+                     * wind back across the vapour (!) of the three (xdim+1, zdim+1, both)
+                     * to find their stepsBack, check them for sanity in the above manner
+                     * with the abs_diff to get rid of auto rejects, and then verify
+                     * the point distances like below.
+                     * Yeesh...  :-)
+                     */
+                    int4 lowerFaceCoord = makeVapourCoord(lowerFace, xdim, zdim, edgeStepsBack[xdim][zdim][lowerFace]) - (int4)(1, 1, 1, 0);
+                    for (int x = 0; x <= 1; ++x)
+                    {
+                        for (int z = 0; z <= 1; ++z)
+                        {
+                            if (x == 0 && z == 0) continue;
+                            float4 lowerEdgeVertex = makeEdgeVertex(
+                                lowerFace, xdim+x, zdim+z, edgeStepsBack[xdim+x][zdim+z][lowerFace], units[unitOffset].location);
+
+                            lowerFaceOverlaps |= (distance(myEdgeVertices[x][z], lowerEdgeVertex) < 0.00001f); /* TODO make distance relative */
+                        }
+                    }
+                }
+
+                if (!lowerFaceOverlaps)
                 {
                     write_imageui(jigsawOverlap, edgeCoord, (uint4)(3, 0, 0, 0));
                     facesDrawn |= (1<<face);
