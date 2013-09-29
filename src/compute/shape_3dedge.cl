@@ -422,7 +422,7 @@ __kernel void makeShape3DEdge(
              */
             int4 thisPointsDrawnCoord = thisVapourPointCoord - (int4)(1, 1, 1, 0);
 
-#define FAKE_TEST_VAPOUR 0
+#define FAKE_TEST_VAPOUR 1
 
 #if FAKE_TEST_VAPOUR
             /* Always claiming right away should result in a cube. */
@@ -553,8 +553,6 @@ __kernel void makeShape3DEdge(
      */
     int facesDrawn = 0;
 
-    /* TODO yanking temporarily for debug */
-#if 0
     for (int face = 0; face < 6; ++face)
     {
         barrier(CLK_LOCAL_MEM_FENCE);
@@ -567,8 +565,8 @@ __kernel void makeShape3DEdge(
         if (xdim < VDIM && zdim < VDIM)
         {
             /* Yank this quad from the complete triangles set: */
-            int quadMask = (((1<<6) - 1) ^ (1<<face)) << (8 * (triCoord.z & 3));
-            haveCompleteQuad = ((atom_and(&trianglesComplete[triCoord.x][triCoord.y][triCoord.z>>2], quadMask) & quadMask) != 0);
+            int quadFlag = ((1<<face) << (8 * (triCoord.z & 3)));
+            haveCompleteQuad = ((atom_and(&trianglesComplete[triCoord.x][triCoord.y][triCoord.z>>2], ~quadFlag) & quadFlag) != 0);
         }
 
         barrier(CLK_LOCAL_MEM_FENCE);
@@ -589,13 +587,17 @@ __kernel void makeShape3DEdge(
                 abs_diff(edgeStepsBack[xdim+secondX][zdim+1][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1 &&
                 abs_diff(edgeStepsBack[xdim+secondX][zdim][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1)
             {
+                /* TODO: For debug purposes, drawing ALL triangles
+                 * that qualify under the above test. */
+#if 1
                 /* I can draw this triangle.
                  * Re-set the trianglesComplete flag for this face, so
                  * that the next face doesn't try to overdraw it.
                  */
                 int lowerFaceMask = ((1<<(face+1)) - 1) << (8 * (triCoord.z & 3));
-                int quadFlag = (1<<face) << (8 * (triCoord.z * 3));
+                int quadFlag = (1<<face) << (8 * (triCoord.z & 3));
                 if ((atom_or(&trianglesComplete[triCoord.x][triCoord.y][triCoord.z>>2], quadFlag) & lowerFaceMask) == 0)
+#endif
                 {
                     write_imageui(jigsawOverlap, edgeCoord, (uint4)(3, 0, 0, 0));
                     facesDrawn |= (1<<face);
@@ -603,7 +605,6 @@ __kernel void makeShape3DEdge(
             }
         }
     }
-#endif
 
     /* Fill out any required zeroes in the overlap texture. */
     for (int face = 0; face < 6; ++face)
