@@ -422,7 +422,7 @@ __kernel void makeShape3DEdge(
              */
             int4 thisPointsDrawnCoord = thisVapourPointCoord - (int4)(1, 1, 1, 0);
 
-#define FAKE_TEST_VAPOUR 1
+#define FAKE_TEST_VAPOUR 0
 
 #if FAKE_TEST_VAPOUR
             /* Always claiming right away should result in a cube. */
@@ -476,13 +476,26 @@ __kernel void makeShape3DEdge(
         }
     }
 
-    barrier(CLK_LOCAL_MEM_FENCE);
 
-    /* Now, calculate which of the faces each of my edge
-     * points pertains to.
+    /* In each quad, work out which faces have a complete triangle pair
+     * that could be used for drawing.
+     * This array is packed in the same way as `pointsDrawn', but it's
+     * one smaller in each dimension, because we don't have quads at the
+     * extreme sides.
      */
+    __local int trianglesComplete[VDIM][VDIM][(VDIM>>2) + 1];
+    for (int i = 0; i < ((VDIM>>2) + 1); ++i)
+    {
+        if (xdim < VDIM && zdim < VDIM)
+        {
+            trianglesComplete[xdim][zdim][i] = 0;
+        }
+    }
+
     for (int face = 0; face < 6; ++face)
     {
+        barrier(CLK_LOCAL_MEM_FENCE);
+
         int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
 
         if ((foundEdge & (1<<face)) == 0)
@@ -494,24 +507,12 @@ __kernel void makeShape3DEdge(
         }
 
         /* ... not an else! */
-        if (xdim < (EDIM-1) && zdim < (EDIM-1))
+        if (xdim < VDIM && zdim < VDIM)
         {
             /* Inspect the local quad. */
-            /* TODO Does this make cross-overlaps if I test the two triangles
-             * separately rather than both combined?
-             * ...no, apparently not.  I think this might be wrong, but it's
-             * tied up with the cubes also being incomplete right now and all
-             * sorts.  I should probably debug that first, otherwise, too
-             * confusing.
-             *
-             * TODO: This flip isn't correct -- I still sometimes get bowties.
-             * I think what I need to do is make an inventory of where the
-             * faces won't line up when folded onto each other (using the
-             * fake test vapour) and then decide, on a per-quad basis, what
-             * rotations to use and encode that into the overlap texture.
-             * If the quad has an ambiguous facing, it doesn't matter --
-             * that's a rare case -- but if I want to finesse it, I should try
-             * to clamp the quad to a single face in that case...
+
+            /* TODO If this is all okay, crush first and second triangles into
+             * a single data point for the quad?
              */
             int flaggedFirstTriangle = ((1<<6) - 1);
             int flaggedSecondTriangle = ((1<<6) - 1);
@@ -538,39 +539,82 @@ __kernel void makeShape3DEdge(
                 }
             }
 
-            /* TODO: Within these if expressions I include a test for
-             * jagged triangles (ones that span overly far).  I believe
-             * this test is "correct" in that it will eliminate them.
-             * However, when one has been eliminated I need to figure
-             * out how to defer the triangle to a face that won't
-             * make it overly jagged.  Right now it'll just get gapped.
-             * I think doing this will require a third pass and local
-             * fence in order to get the threads to agree?
-             */
-
-            uint overlap = 0;
-            if ((flaggedFirstTriangle & (1<<face)) != 0 &&
-#if FAKE_TEST_VAPOUR
-#else
-                (flaggedFirstTriangle & ((1<<face) - 1)) == 0 &&
-#endif
-                abs_diff(edgeStepsBack[xdim+firstX][zdim][face], edgeStepsBack[xdim+secondX][zdim][face]) <= 1 &&
-                abs_diff(edgeStepsBack[xdim+firstX][zdim][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1 &&
-                abs_diff(edgeStepsBack[xdim+secondX][zdim][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1) overlap |= 1;
-
-            if ((flaggedSecondTriangle & (1<<face)) != 0 &&
-#if FAKE_TEST_VAPOUR
-#else
-                (flaggedSecondTriangle & ((1<<face) - 1)) == 0 &&
-#endif
-                abs_diff(edgeStepsBack[xdim+secondX][zdim+1][face], edgeStepsBack[xdim+secondX][zdim][face]) <= 1 &&
-                abs_diff(edgeStepsBack[xdim+secondX][zdim+1][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1 &&
-                abs_diff(edgeStepsBack[xdim+secondX][zdim][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1) overlap |= 2;
-
-            write_imageui(jigsawOverlap, edgeCoord, (uint4)(overlap, 0, 0, 0));
+            int4 triCoord = makeVapourCoord(face, xdim, zdim, edgeStepsBack[xdim][zdim][face]) - (int4)(1, 1, 1, 0);
+            int quadFlag = ((flaggedFirstTriangle & flaggedSecondTriangle) << (8 * (triCoord.z & 3)));
+            atom_or(&trianglesComplete[triCoord.x][triCoord.y][triCoord.z>>2], quadFlag);        
         }
     }
 
+
+    /* Finally, now that I've got an array that contains
+     * candidate information for which faces could claim
+     * what, go through the possible quads and check them
+     * for sanity (criss-crossing etc).
+     */
+    int facesDrawn = 0;
+
+    /* TODO yanking temporarily for debug */
+#if 0
+    for (int face = 0; face < 6; ++face)
+    {
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
+
+        int4 triCoord = makeVapourCoord(face, xdim, zdim, edgeStepsBack[xdim][zdim][face]) - (int4)(1, 1, 1, 0);
+        bool haveCompleteQuad = false;
+
+        if (xdim < VDIM && zdim < VDIM)
+        {
+            /* Yank this quad from the complete triangles set: */
+            int quadMask = (((1<<6) - 1) ^ (1<<face)) << (8 * (triCoord.z & 3));
+            haveCompleteQuad = ((atom_and(&trianglesComplete[triCoord.x][triCoord.y][triCoord.z>>2], quadMask) & quadMask) != 0);
+        }
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        /* If I have a complete quad and no other face has previously
+         * drawn it...
+         */
+        if (haveCompleteQuad)
+        {
+            /* Check for jaggedness. */
+            bool flipTriangles = (face == 1 || face == 2 || face == 5);
+            int firstX = (flipTriangles ? 1 : 0);
+            int secondX = (flipTriangles ? 0 : 1);
+
+            if (abs_diff(edgeStepsBack[xdim+firstX][zdim][face], edgeStepsBack[xdim+secondX][zdim][face]) <= 1 &&
+                abs_diff(edgeStepsBack[xdim+firstX][zdim][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1 &&
+                abs_diff(edgeStepsBack[xdim+secondX][zdim+1][face], edgeStepsBack[xdim+secondX][zdim][face]) <= 1 &&
+                abs_diff(edgeStepsBack[xdim+secondX][zdim+1][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1 &&
+                abs_diff(edgeStepsBack[xdim+secondX][zdim][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1)
+            {
+                /* I can draw this triangle.
+                 * Re-set the trianglesComplete flag for this face, so
+                 * that the next face doesn't try to overdraw it.
+                 */
+                int lowerFaceMask = ((1<<(face+1)) - 1) << (8 * (triCoord.z & 3));
+                int quadFlag = (1<<face) << (8 * (triCoord.z * 3));
+                if ((atom_or(&trianglesComplete[triCoord.x][triCoord.y][triCoord.z>>2], quadFlag) & lowerFaceMask) == 0)
+                {
+                    write_imageui(jigsawOverlap, edgeCoord, (uint4)(3, 0, 0, 0));
+                    facesDrawn |= (1<<face);
+                }
+            }
+        }
+    }
+#endif
+
+    /* Fill out any required zeroes in the overlap texture. */
+    for (int face = 0; face < 6; ++face)
+    {
+        int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
+
+        if ((facesDrawn & (1<<face)) == 0)
+        {
+            write_imageui(jigsawOverlap, edgeCoord, (uint4)(0, 0, 0, 0));
+        }
+    }
 #endif /* TEST_CUBE */
 }
 
