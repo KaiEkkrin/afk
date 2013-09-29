@@ -422,7 +422,7 @@ __kernel void makeShape3DEdge(
              */
             int4 thisPointsDrawnCoord = thisVapourPointCoord - (int4)(1, 1, 1, 0);
 
-#define FAKE_TEST_VAPOUR 1
+#define FAKE_TEST_VAPOUR 0
 
 #if FAKE_TEST_VAPOUR
             /* Always claiming right away should result in a cube. */

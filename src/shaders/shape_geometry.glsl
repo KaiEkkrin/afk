@@ -43,10 +43,13 @@ out GeometryData
 {
     vec3 normal;
     vec2 jigsawCoord;
+
+    // TODO REMOVE DEBUG
+    vec4 shaderDebugColour;
 } outData;
 
 
-void emitShapeVertex(mat4 ClipTransform, mat4 WorldTransform, vec2 jigsawPieceCoord, vec2 texCoordDisp, int i)
+void emitShapeVertex(mat4 ClipTransform, mat4 WorldTransform, vec2 jigsawPieceCoord, vec2 texCoordDisp, int i, vec4 debugColour)
 {
     vec2 jigsawCoord = jigsawPieceCoord + JigsawPiecePitch * (inData[i].texCoord + texCoordDisp);
     vec4 dispPosition = textureLod(JigsawDispTex, jigsawCoord, 0);
@@ -56,11 +59,16 @@ void emitShapeVertex(mat4 ClipTransform, mat4 WorldTransform, vec2 jigsawPieceCo
     vec4 normal = textureLod(JigsawNormalTex, jigsawCoord, 0);
     outData.normal = (WorldTransform * normal).xyz;
     outData.jigsawCoord = jigsawCoord;
+    outData.shaderDebugColour = debugColour;
     EmitVertex();
 }
 
 void main()
 {
+    vec4 debugColourTri1 = vec4(1.0, 0.0, 1.0, 0.0);
+    vec4 debugColourTri2 = vec4(0.0, 1.0, 0.0, 0.0);
+    vec4 debugColourBoth = normalize(debugColourTri1 + debugColourTri2);
+
     /* Reconstruct this instance's jigsaw piece coord.
      */
     vec2 jigsawPieceCoord = texelFetch(DisplayTBO, inData[0].instanceId * 5 + 4).xy;
@@ -122,22 +130,22 @@ void main()
             switch (overlap)
             {
             case 1:
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 2);
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 3);
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 0);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 2, debugColourTri1);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 3, debugColourTri1);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 0, debugColourTri1);
                 break;
 
             case 2:
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 3);
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 1);
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 0);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 3, debugColourTri2);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 1, debugColourTri2);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 0, debugColourTri2);
                 break;
 
             case 3:
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 2);
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 3);
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 0);
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 1);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 2, debugColourTri1);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 3, debugColourBoth);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 0, debugColourBoth);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 1, debugColourTri2);
                 break;
             }
         }
@@ -146,22 +154,22 @@ void main()
             switch (overlap)
             {
             case 1:
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 0);
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 1);
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 2);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 0, debugColourTri1);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 1, debugColourTri1);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 2, debugColourTri1);
                 break;
                 
             case 2:
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 1);
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 3);
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 2);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 1, debugColourTri2);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 3, debugColourTri2);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 2, debugColourTri2);
                 break;
 
             case 3:
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 0);
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 1);
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 2);
-                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 3);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 0, debugColourTri1);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 1, debugColourBoth);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 2, debugColourBoth);
+                emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 3, debugColourTri2);
                 break;
             }
         }
