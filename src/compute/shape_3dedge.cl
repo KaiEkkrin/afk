@@ -461,14 +461,11 @@ enum AFK_TriangleId getSecondTriangleId(int face)
     }
 }
 
-/* This function identifies the small cube that a triangle resides in,
- * returning true (and filling out `o_cubeCoord') if it found one, or
- * false if the triangle spans cubes and therefore ought to be omitted
- * because another face could draw that part of the edge shape more
- * precisely.
- * `o_cubeCoord' comes out in vapour co-ordinates.
+/* This function identifies the vapour coords of a triangle based
+ * on its face coords and so forth.
+ * Returns true if there is a triangle here, else false.
  */
-bool triangleInSmallCube(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int zdim, int face, enum AFK_TriangleId id, int4 *o_cubeCoord)
+bool makeTriangleVapourCoord(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int zdim, int face, enum AFK_TriangleId id, int4 o_triCoord[3])
 {
     /* Make an array of the 3 face co-ordinates that I'm
      * aiming for.
@@ -502,14 +499,25 @@ bool triangleInSmallCube(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int zdim
     }
 
     /* Next, work out the vapour coords ... */
-    int4 vapourCoord[3];
     for (int i = 0; i < 3; ++i)
     {
         int esb = edgeStepsBack[faceCoord[i].x][faceCoord[i].y][face];
         if (esb == NO_EDGE) return false;
-        vapourCoord[i] = makeVapourCoord(face, faceCoord[i].x, faceCoord[i].y, esb);
+        o_triCoord[i] = makeVapourCoord(face, faceCoord[i].x, faceCoord[i].y, esb);
     }
 
+    return true;
+}
+
+/* This function identifies the small cube that a triangle resides in,
+ * returning true (and filling out `o_cubeCoord') if it found one, or
+ * false if the triangle spans cubes and therefore ought to be omitted
+ * because another face could draw that part of the edge shape more
+ * precisely.
+ * `o_cubeCoord' comes out in vapour co-ordinates.
+ */
+bool triangleInSmallCube(int4 vapourCoord[3], int4 *o_cubeCoord)
+{
     /* The cube is at the min of the vapour coords. */
     int4 cubeCoord = (int4)(
         min(min(vapourCoord[0].x, vapourCoord[1].x), vapourCoord[2].x),
@@ -531,6 +539,48 @@ bool triangleInSmallCube(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int zdim
     *o_cubeCoord = cubeCoord;
     return true;
 }
+
+/* In this array, we write which triangles of which faces have been emitted,
+ * indexed by the coords of the possible small cube.
+ * We pack the array: 6 faces in an int, by allocating 4 bits to each face
+ * using the above triangle ID enumeration plus a spare bit.
+ */
+#define DECL_EMITTED_TRIANGLES(emittedTriangles) __local int emittedTriangles[VDIM][VDIM][VDIM]
+
+void initEmittedTriangles(DECL_EMITTED_TRIANGLES(emittedTriangles), int xdim, int zdim)
+{
+    for (int y = 0; y < VDIM; ++y)
+    {
+        if (xdim < VDIM && zdim < VDIM)
+        {
+            emittedTriangles[xdim][y][zdim] = 0;
+        }
+    }
+}
+
+bool testTriangleEmitted(DECL_EMITTED_TRIANGLES(emittedTriangles), int4 coord, int face, enum AFK_TriangleId id)
+{
+    int emittedBits = (emittedTriangles[coord.x][coord.y][coord.z] >> (4 * face)) & 0xf;
+    if ((emittedBits & 0x4) != 0)
+    {
+        /* This triangle is flipped. */
+        return ((id & 0x4) != 0 && (emittedBits & 0x3) == (id & 0x3));
+    }
+    else
+    {
+        return ((id & 0x4) == 0 && (emittedBits & 0x3) == (id & 0x3));
+    }
+}
+
+void setTriangleEmitted(DECL_EMITTED_TRIANGLES(emittedTriangles), int4 coord, int face, enum AFK_TriangleId id)
+{
+    emittedTriangles[coord.x][coord.y][coord.z] |= (id << (4 * face));
+}
+
+/* Call this function with a small cube.  It tests for the overlap of
+ * previously emitted triangles.
+ */
+//void emitTriangleUnlessOverlap(DECL_EMITTED_TRIANGLES(emittedTriangles), int4 cubeCoord, int4 
 
 
 #define TEST_CUBE 0
@@ -686,6 +736,9 @@ __kernel void makeShape3DEdge(
      * For each triangle, look up the cube, and look up the cube occupancy (the third
      * function, above).  Write the cube occupancy to the overlap texture.
      */
+    DECL_EMITTED_TRIANGLES(emittedTriangles);
+    initEmittedTriangles(emittedTriangles, xdim, zdim);
+
     __local int trianglesComplete[VDIM][VDIM][(VDIM>>2) + 1];
     for (int i = 0; i < ((VDIM>>2) + 1); ++i)
     {
