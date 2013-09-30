@@ -558,8 +558,10 @@ void initEmittedTriangles(DECL_EMITTED_TRIANGLES(emittedTriangles), int xdim, in
     }
 }
 
-bool testTriangleEmitted(DECL_EMITTED_TRIANGLES(emittedTriangles), int4 coord, int face, enum AFK_TriangleId id)
+bool testTriangleEmitted(DECL_EMITTED_TRIANGLES(emittedTriangles), int4 cubeCoord, int face, enum AFK_TriangleId id)
 {
+    int4 coord = cubeCoord - (int4)(1, 1, 1, 0);
+
     int emittedBits = (emittedTriangles[coord.x][coord.y][coord.z] >> (4 * face)) & 0xf;
     if ((emittedBits & 0x4) != 0)
     {
@@ -572,15 +574,113 @@ bool testTriangleEmitted(DECL_EMITTED_TRIANGLES(emittedTriangles), int4 coord, i
     }
 }
 
-void setTriangleEmitted(DECL_EMITTED_TRIANGLES(emittedTriangles), int4 coord, int face, enum AFK_TriangleId id)
+void setTriangleEmitted(DECL_EMITTED_TRIANGLES(emittedTriangles), int4 cubeCoord, int face, enum AFK_TriangleId id)
 {
-    emittedTriangles[coord.x][coord.y][coord.z] |= (id << (4 * face));
+    int4 coord = cubeCoord - (int4)(1, 1, 1, 0);
+    atom_or(&emittedTriangles[coord.x][coord.y][coord.z], (id << (4 * face)));
 }
 
-/* Call this function with a small cube.  It tests for the overlap of
- * previously emitted triangles.
+/* Tests whether two triangles overlap or not, assuming they're in
+ * the same small cube, *and that the triangles are real triangles*
+ * (no identical vertices within a triangle).
  */
-//void emitTriangleUnlessOverlap(DECL_EMITTED_TRIANGLES(emittedTriangles), int4 cubeCoord, int4 
+bool trianglesOverlap(int4 tri1[3], int4 tri2[3])
+{
+    /* Count the number of identical vertices. */
+    int identicalVertices = 0;
+
+    for (int i1 = 0; i1 < 3; ++i1)
+    {
+        for (int i2 = 0; i2 <= 3; ++i2)
+        {
+            if (tri1[i1].x == tri2[i2].x &&
+                tri1[i1].y == tri2[i2].y &&
+                tri1[i1].z == tri2[i2].z) ++identicalVertices;
+        }
+    }
+
+    switch (identicalVertices)
+    {
+    case 0: case 2:
+        /* They definitely don't overlap. */
+        return false;
+
+    case 1:
+        /* TODO: The subtle case.  For now returning true to test what happens */
+        return true;
+
+    default:
+        /* They definitely overlap. */
+        return true;
+    }
+}
+
+/* Worker function for the below. */
+bool tryOverlappingFace(
+    DECL_EDGE_STEPS_BACK(edgeStepsBack),
+    DECL_EMITTED_TRIANGLES(emittedTriangles),
+    int4 triCoord[3],
+    int4 cubeCoord,
+    int lowerXdim,
+    int lowerZdim,
+    int lowerFace,
+    enum AFK_TriangleId lowerId)
+{
+    int4 lowerTriCoord[3];
+    if (makeTriangleVapourCoord(edgeStepsBack, lowerXdim, lowerZdim, lowerFace, lowerId, lowerTriCoord))
+    {
+        int4 lowerCubeCoord;
+        if (triangleInSmallCube(lowerTriCoord, &lowerCubeCoord))
+        {
+            if (lowerCubeCoord.x == cubeCoord.x &&
+                lowerCubeCoord.y == cubeCoord.y &&
+                lowerCubeCoord.z == cubeCoord.z &&
+                testTriangleEmitted(emittedTriangles, cubeCoord, lowerFace, lowerId) &&
+                trianglesOverlap(triCoord, lowerTriCoord))
+            {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+/* Checks whether a triangle at this location, with the given orientation,
+ * would overlap.
+ */
+bool checkForOverlap(
+    DECL_EDGE_STEPS_BACK(edgeStepsBack),
+    DECL_EMITTED_TRIANGLES(emittedTriangles),
+    int xdim,
+    int zdim,
+    int face,
+    enum AFK_TriangleId id)
+{
+    /* Work out where this triangle is. */
+    int4 triCoord[3];
+    if (!makeTriangleVapourCoord(edgeStepsBack, xdim, zdim, face, id, triCoord)) return false;
+
+    int4 cubeCoord;
+    if (!triangleInSmallCube(triCoord, &cubeCoord)) return false;
+
+    for (int lowerFace = 0; lowerFace < face; ++lowerFace)
+    {
+        /* Reconstruct the triangles emitted at this face and cube. */
+        int lowerXdim, lowerZdim, lowerStepsBack;
+        reverseVapourCoord(lowerFace, cubeCoord, &lowerXdim, &lowerZdim, &lowerStepsBack);
+
+        if (!tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST) ||
+            !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND) ||
+            !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST_FLIPPED) ||
+            !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND_FLIPPED))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 
 #define TEST_CUBE 0
