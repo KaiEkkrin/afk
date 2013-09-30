@@ -376,6 +376,163 @@ float4 rotateNormal(float4 rawNormal, int face)
     return rotNormal;
 }
 
+
+/* Follows stuff for resolving the faces and culling triangle overlaps. */
+
+/* In this array, we write which points are occupied by which faces. */
+#define DECL_POINTS_DRAWN(pointsDrawn) __local int pointsDrawn[EDIM][EDIM][(EDIM>>2)+1]
+
+void initPointsDrawn(DECL_POINTS_DRAWN(pointsDrawn), int xdim, int zdim)
+{
+    for (int i = 0; i < ((EDIM>>2) + 1); ++i)
+    {
+        pointsDrawn[xdim][zdim][i] = 0;
+    }
+}
+
+/* Call when we're about to draw a point at the given coord and face.
+ * Returns true if it hasn't been drawn yet, else false.
+ */
+bool setPointDrawn(DECL_POINTS_DRAWN(pointsDrawn), int4 vapourPointCoord, int face)
+{
+    /* `pointsDrawn' is offset from vapourPointCoord to avoid
+     * the tDim gap.
+     */
+    int4 coord = vapourPointCoord - (int4)(1, 1, 1, 0);
+    int zFlag = ((1<<face) << (8 * (coord.z & 3)));
+    return ((atom_or(&pointsDrawn[coord.x][coord.y][coord.z>>2], zFlag) & zFlag) == 0);
+}
+
+/* Yanks a drawn point out of the set.  Returns true if it had been drawn,
+ * else false.
+ */
+bool clearPointDrawn(DECL_POINTS_DRAWN(pointsDrawn), int4 vapourPointCoord, int face)
+{
+    int4 coord = vapourPointCoord - (int4)(1, 1, 1, 0);
+    int zFlag = ((1<<face) << (8 * (coord.z & 3)));
+    return ((atom_and(&pointsDrawn[coord.x][coord.y][coord.z>>2], ~zFlag) & zFlag) != 0);
+}
+
+/* In this array, we write how far back each edge point is from the face.
+ * TODO: Try packing it tighter.
+ */
+#define DECL_EDGE_STEPS_BACK(edgeStepsBack) __local int edgeStepsBack[EDIM][EDIM][6]
+
+#define NO_EDGE -127
+
+void initEdgeStepsBack(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int zdim)
+{
+    for (int i = 0; i < 6; ++i)
+    {
+        edgeStepsBack[xdim][zdim][i] = NO_EDGE;
+    }
+}
+
+/* This enumeration identifies the different triangles that make up
+ * square sections of the faces in a manner that can be OR'd together
+ * to produce the final overlap texture.
+ */
+enum AFK_TriangleId
+{
+    AFK_TRI_FIRST           = 1,
+    AFK_TRI_SECOND          = 2,
+    AFK_TRI_FIRST_FLIPPED   = 5,
+    AFK_TRI_SECOND_FLIPPED  = 6
+};
+
+/* These functions get the ids of the first and second triangle by
+ * face.
+ */
+enum AFK_TriangleId getFirstTriangleId(int face)
+{
+    switch (face)
+    {
+    case 1: case 2: case 5:     return AFK_TRI_FIRST_FLIPPED;
+    default:                    return AFK_TRI_FIRST;
+    }
+}
+
+enum AFK_TriangleId getSecondTriangleId(int face)
+{
+    switch (face)
+    {
+    case 1: case 2: case 5:     return AFK_TRI_SECOND_FLIPPED;
+    default:                    return AFK_TRI_SECOND;
+    }
+}
+
+/* This function identifies the small cube that a triangle resides in,
+ * returning true (and filling out `o_cubeCoord') if it found one, or
+ * false if the triangle spans cubes and therefore ought to be omitted
+ * because another face could draw that part of the edge shape more
+ * precisely.
+ * `o_cubeCoord' comes out in vapour co-ordinates.
+ */
+bool triangleInSmallCube(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int zdim, int face, enum AFK_TriangleId id, int4 *o_cubeCoord)
+{
+    /* Make an array of the 3 face co-ordinates that I'm
+     * aiming for.
+     */
+    int2 faceCoord[3];
+
+    switch (id)
+    {
+    case AFK_TRI_FIRST_FLIPPED:
+        faceCoord[0] = (int2)(xdim+1, zdim);
+        faceCoord[1] = (int2)(xdim+1, zdim+1);
+        faceCoord[2] = (int2)(xdim, zdim);
+        break;
+
+    case AFK_TRI_SECOND_FLIPPED:
+        faceCoord[0] = (int2)(xdim+1, zdim+1);
+        faceCoord[1] = (int2)(xdim, zdim);
+        faceCoord[2] = (int2)(xdim, zdim+1);
+
+    case AFK_TRI_FIRST:
+        faceCoord[0] = (int2)(xdim, zdim);
+        faceCoord[1] = (int2)(xdim, zdim+1);
+        faceCoord[2] = (int2)(xdim+1, zdim);
+        break;
+
+    case AFK_TRI_SECOND:
+        faceCoord[0] = (int2)(xdim, zdim+1);
+        faceCoord[1] = (int2)(xdim+1, zdim);
+        faceCoord[2] = (int2)(xdim+1, zdim+1);
+        break;
+    }
+
+    /* Next, work out the vapour coords ... */
+    int4 vapourCoord[3];
+    for (int i = 0; i < 3; ++i)
+    {
+        int esb = edgeStepsBack[faceCoord[i].x][faceCoord[i].y][face];
+        if (esb == NO_EDGE) return false;
+        vapourCoord[i] = makeVapourCoord(face, faceCoord[i].x, faceCoord[i].y, esb);
+    }
+
+    /* The cube is at the min of the vapour coords. */
+    int4 cubeCoord = (int4)(
+        min(min(vapourCoord[0].x, vapourCoord[1].x), vapourCoord[2].x),
+        min(min(vapourCoord[0].y, vapourCoord[1].y), vapourCoord[2].y),
+        min(min(vapourCoord[0].z, vapourCoord[1].z), vapourCoord[2].z),
+        0);
+
+    /* Check for stretched triangles. */
+    for (int i = 0; i < 3; ++i)
+    {
+        if ((vapourCoord[i].x - cubeCoord.x) > 1 ||
+            (vapourCoord[i].y - cubeCoord.y) > 1 ||
+            (vapourCoord[i].z - cubeCoord.z) > 1)
+        {
+            return false;
+        }
+    }
+
+    *o_cubeCoord = cubeCoord;
+    return true;
+}
+
+
 #define TEST_CUBE 0
 
 /* This parameter list should be sufficient that I will always be able to
@@ -426,15 +583,8 @@ __kernel void makeShape3DEdge(
     }
 
 #else
-    /* Here I track which face(s) can claim each vapour point.
-     * Indexed by (x, y, z/4), each byte contains a bitfield
-     * of the faces (top bits ignored).
-     */
-    __local int pointsDrawn[EDIM][EDIM][(EDIM>>2) + 1];
-    for (int i = 0; i < ((EDIM>>2) + 1); ++i)
-    {
-        pointsDrawn[xdim][zdim][i] = 0;
-    }
+    DECL_POINTS_DRAWN(pointsDrawn);
+    initPointsDrawn(pointsDrawn, xdim, zdim);
 
     /* Iterate through the possible steps back until I find an edge.
      * There is one flag each in this bit field for faces 0-5 incl.
@@ -443,12 +593,8 @@ __kernel void makeShape3DEdge(
      */
     unsigned int foundEdge = 0;
 
-    /* This tracks how many steps back each of my found edges are. */
-    __local int edgeStepsBack[EDIM][EDIM][6];
-    for (int i = 0; i < 6; ++i)
-    {
-        edgeStepsBack[xdim][zdim][i] = -127;
-    }
+    DECL_EDGE_STEPS_BACK(edgeStepsBack);
+    initEdgeStepsBack(edgeStepsBack, xdim, zdim);
 
     for (int stepsBack = 0; stepsBack < (EDIM-1); ++stepsBack)
     {
@@ -463,19 +609,13 @@ __kernel void makeShape3DEdge(
             int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack);
             float4 thisVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord);
 
-            /* `pointsDrawn' needs to be offset from thisVapourPointCoord to
-             * avoid the tDim gap
-             */
-            int4 thisPointsDrawnCoord = thisVapourPointCoord - (int4)(1, 1, 1, 0);
-
 #define FAKE_TEST_VAPOUR 0
 
 #if FAKE_TEST_VAPOUR
             /* Always claiming right away should result in a cube. */
             if ((foundEdge & (1<<face)) == 0)
             {
-                int zFlag = ((1<<face) << (8 * (thisPointsDrawnCoord.z & 3)));
-                atom_or(&pointsDrawn[thisPointsDrawnCoord.x][thisPointsDrawnCoord.y][thisPointsDrawnCoord.z>>2], zFlag);
+                setPointDrawn(pointsDrawn, thisVapourPointCoord, face);
 
                 int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
                 float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
@@ -491,8 +631,7 @@ __kernel void makeShape3DEdge(
 
             if (lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f)
             {
-                int zFlag = ((1<<face) << (8 * (thisPointsDrawnCoord.z & 3)));
-                if ((atom_or(&pointsDrawn[thisPointsDrawnCoord.x][thisPointsDrawnCoord.y][thisPointsDrawnCoord.z>>2], zFlag) & zFlag) == 0)
+                if (setPointDrawn(pointsDrawn, thisVapourPointCoord, face))
                 {
                     /* This is an edge, write its coord. */
                     int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
@@ -533,7 +672,8 @@ __kernel void makeShape3DEdge(
      * - For each preceding face:
      *   o For each of the two triangle in that face: (Use reverseVapourCoord().  Make
      * a function that fetches the first or second triangle.  Send that to the function,
-     * above, that identifies the cube.  Verify that it's resident in the same cube as
+     * above, that identifies the cube.  (Combined in triangleInSmallCube() . )
+     * Verify that it's resident in the same cube as
      * the above triangle, *and that it's been emitted (a third function)*.  If so:
      *     x Count the number of common vertices.
      *       - If zero, emit the triangle.  (a fourth function.  Populates a local array
@@ -630,15 +770,14 @@ __kernel void makeShape3DEdge(
 
         int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
 
-        int4 triCoord = makeVapourCoord(face, xdim, zdim, edgeStepsBack[xdim][zdim][face]) - (int4)(1, 1, 1, 0);
+        int4 vapourCoord = makeVapourCoord(face, xdim, zdim, edgeStepsBack[xdim][zdim][face]);
+        int4 triCoord = vapourCoord - (int4)(1, 1, 1, 0);
         bool haveCompleteQuad = false;
 
         if (xdim < VDIM && zdim < VDIM &&
             edgeStepsBack[xdim][zdim][face] >= 0)
         {
-            /* Yank this quad from the complete triangles set: */
-            int quadFlag = ((1<<face) << (8 * (triCoord.z & 3)));
-            haveCompleteQuad = ((atom_and(&trianglesComplete[triCoord.x][triCoord.y][triCoord.z>>2], ~quadFlag) & quadFlag) != 0);
+            haveCompleteQuad = clearPointDrawn(pointsDrawn, vapourCoord, face);
         }
 
         barrier(CLK_LOCAL_MEM_FENCE);
