@@ -447,7 +447,7 @@ __kernel void makeShape3DEdge(
     __local int edgeStepsBack[EDIM][EDIM][6];
     for (int i = 0; i < 6; ++i)
     {
-        edgeStepsBack[xdim][zdim][i] = -255;
+        edgeStepsBack[xdim][zdim][i] = -127;
     }
 
     for (int stepsBack = 0; stepsBack < (EDIM-1); ++stepsBack)
@@ -468,7 +468,7 @@ __kernel void makeShape3DEdge(
              */
             int4 thisPointsDrawnCoord = thisVapourPointCoord - (int4)(1, 1, 1, 0);
 
-#define FAKE_TEST_VAPOUR 1
+#define FAKE_TEST_VAPOUR 0
 
 #if FAKE_TEST_VAPOUR
             /* Always claiming right away should result in a cube. */
@@ -525,9 +525,6 @@ __kernel void makeShape3DEdge(
 
     /* In each quad, work out which faces have a complete triangle pair
      * that could be used for drawing.
-     * This array is packed in the same way as `pointsDrawn', but it's
-     * one smaller in each dimension, because we don't have quads at the
-     * extreme sides.
      */
     __local int trianglesComplete[VDIM][VDIM][(VDIM>>2) + 1];
     for (int i = 0; i < ((VDIM>>2) + 1); ++i)
@@ -585,9 +582,17 @@ __kernel void makeShape3DEdge(
                 }
             }
 
-            int4 triCoord = makeVapourCoord(face, xdim, zdim, edgeStepsBack[xdim][zdim][face]) - (int4)(1, 1, 1, 0);
-            int quadFlag = ((flaggedFirstTriangle & flaggedSecondTriangle) << (8 * (triCoord.z & 3)));
-            atom_or(&trianglesComplete[triCoord.x][triCoord.y][triCoord.z>>2], quadFlag);        
+            /* TODO: By addressing `trianglesComplete' using the result
+             * of this function, I'm not doing correct conflict resolution
+             * in the `VDIM-<blah>' cases, am I?
+             */
+            int esb = edgeStepsBack[xdim][zdim][face];
+            if (esb >= 0)
+            {
+                int4 triCoord = makeVapourCoord(face, xdim, zdim, edgeStepsBack[xdim][zdim][face]) - (int4)(1, 1, 1, 0);
+                int quadFlag = ((flaggedFirstTriangle & flaggedSecondTriangle) << (8 * (triCoord.z & 3)));
+                atom_or(&trianglesComplete[triCoord.x][triCoord.y][triCoord.z>>2], quadFlag);        
+            }
         }
     }
 
@@ -608,7 +613,8 @@ __kernel void makeShape3DEdge(
         int4 triCoord = makeVapourCoord(face, xdim, zdim, edgeStepsBack[xdim][zdim][face]) - (int4)(1, 1, 1, 0);
         bool haveCompleteQuad = false;
 
-        if (xdim < VDIM && zdim < VDIM)
+        if (xdim < VDIM && zdim < VDIM &&
+            edgeStepsBack[xdim][zdim][face] >= 0)
         {
             /* Yank this quad from the complete triangles set: */
             int quadFlag = ((1<<face) << (8 * (triCoord.z & 3)));
