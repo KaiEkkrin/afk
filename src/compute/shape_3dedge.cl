@@ -525,6 +525,26 @@ __kernel void makeShape3DEdge(
 
     /* In each quad, work out which faces have a complete triangle pair
      * that could be used for drawing.
+     * TODO: This is all wrong, again.
+     * Here is what I think I need to do (and fucking hell I hope I'm right this time):
+     * - For each face, for each triangle, as below, identify the small cube
+     * that it resides in.  (Make a function that does this, and returns true
+     * if the triangle sits correctly in a small cube, or false if it doesn't.)
+     * - For each preceding face:
+     *   o For each of the two triangle in that face: (Use reverseVapourCoord().  Make
+     * a function that fetches the first or second triangle.  Send that to the function,
+     * above, that identifies the cube.  Verify that it's resident in the same cube as
+     * the above triangle, *and that it's been emitted (a third function)*.  If so:
+     *     x Count the number of common vertices.
+     *       - If zero, emit the triangle.  (a fourth function.  Populates a local array
+     * of emitted triangles.  Does not yet call write_imageui().)
+     *       - If one, check whether the two triangles are coplanar.  (A fifth function.
+     * TODO: Difficult.)  Only emit the triangle if they are not.
+     *       - If two, emit the triangle.
+     *       - If three, don't emit the triangle.
+     * - After all that is done, iterate through the faces and their triangles again.
+     * For each triangle, look up the cube, and look up the cube occupancy (the third
+     * function, above).  Write the cube occupancy to the overlap texture.
      */
     __local int trianglesComplete[VDIM][VDIM][(VDIM>>2) + 1];
     for (int i = 0; i < ((VDIM>>2) + 1); ++i)
