@@ -906,6 +906,7 @@ __kernel void makeShape3DEdge(
             case 1: case 2: case 5:
                 firstId = AFK_TRI_FIRST_FLIPPED;
                 secondId = AFK_TRI_SECOND_FLIPPED;
+                overlap = 4;
                 break;
 
             default:
