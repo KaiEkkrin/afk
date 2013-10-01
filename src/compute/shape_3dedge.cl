@@ -618,7 +618,9 @@ bool trianglesOverlap(int4 tri1[3], int4 tri2[3])
     }
 }
 
-/* Worker function for the below. */
+/* Worker function for the below.  Returns false if these faces overlap,
+ * else true.
+ */
 bool tryOverlappingFace(
     DECL_EDGE_STEPS_BACK(edgeStepsBack),
     DECL_EMITTED_TRIANGLES(emittedTriangles),
@@ -680,16 +682,16 @@ void emitIfNoOverlap(
         switch (lowerFace)
         {
         case 1: case 2: case 5:
-            if (!tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST) ||
-                !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND))
+            if (!tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST_FLIPPED) ||
+                !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND_FLIPPED))
             {
                 return;
             }
             break;
 
         default:
-            if (!tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST_FLIPPED) ||
-                !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND_FLIPPED))
+            if (!tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST) ||
+                !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND))
             {
                 return;
             }
@@ -872,11 +874,26 @@ __kernel void makeShape3DEdge(
             case 1: case 2: case 5:
                 /* Face is flipped. */
                 emitIfNoOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_FIRST_FLIPPED);
-                emitIfNoOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_SECOND_FLIPPED);
                 break;
 
             default:
                 emitIfNoOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_FIRST);
+                break;
+            }
+        }
+
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        if (xdim < VDIM && zdim < VDIM)
+        {
+            switch (face)
+            {
+            case 1: case 2: case 5:
+                /* Face is flipped. */
+                emitIfNoOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_SECOND_FLIPPED);
+                break;
+
+            default:
                 emitIfNoOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_SECOND);
                 break;
             }
