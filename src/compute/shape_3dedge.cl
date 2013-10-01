@@ -647,9 +647,10 @@ bool tryOverlappingFace(
 }
 
 /* Checks whether a triangle at this location, with the given orientation,
- * would overlap.
+ * would overlap.  Emits the triangle (writes it into `emittedTriangles',
+ * that's all) if false.
  */
-bool checkForOverlap(
+void emitIfNoOverlap(
     DECL_EDGE_STEPS_BACK(edgeStepsBack),
     DECL_EMITTED_TRIANGLES(emittedTriangles),
     int xdim,
@@ -659,10 +660,10 @@ bool checkForOverlap(
 {
     /* Work out where this triangle is. */
     int4 triCoord[3];
-    if (!makeTriangleVapourCoord(edgeStepsBack, xdim, zdim, face, id, triCoord)) return false;
+    if (!makeTriangleVapourCoord(edgeStepsBack, xdim, zdim, face, id, triCoord)) return;
 
     int4 cubeCoord;
-    if (!triangleInSmallCube(triCoord, &cubeCoord)) return false;
+    if (!triangleInSmallCube(triCoord, &cubeCoord)) return;
 
     for (int lowerFace = 0; lowerFace < face; ++lowerFace)
     {
@@ -675,11 +676,11 @@ bool checkForOverlap(
             !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST_FLIPPED) ||
             !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND_FLIPPED))
         {
-            return false;
+            return;
         }
     }
 
-    return true;
+    setTriangleEmitted(emittedTriangles, cubeCoord, face, id);
 }
 
 
@@ -839,186 +840,84 @@ __kernel void makeShape3DEdge(
     DECL_EMITTED_TRIANGLES(emittedTriangles);
     initEmittedTriangles(emittedTriangles, xdim, zdim);
 
-    __local int trianglesComplete[VDIM][VDIM][(VDIM>>2) + 1];
-    for (int i = 0; i < ((VDIM>>2) + 1); ++i)
+    for (int face = 0; face < 6; ++face)
     {
+        barrier(CLK_LOCAL_MEM_FENCE);
+
         if (xdim < VDIM && zdim < VDIM)
         {
-            trianglesComplete[xdim][zdim][i] = 0;
+            /* TODO: Learn to swap faces over to dodge overlap,
+             * rather than having them fixed like this.
+             * After the basic thing seems OK.
+             */
+            switch (face)
+            {
+            case 1: case 2: case 5:
+                /* Face is flipped. */
+                emitIfNoOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_FIRST_FLIPPED);
+                emitIfNoOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_SECOND_FLIPPED);
+                break;
+
+            default:
+                emitIfNoOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_FIRST);
+                emitIfNoOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_SECOND);
+                break;
+            }
         }
     }
 
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    /* Now, print out the overlap texture.
+     * The overlap information needs to go at the first vertex
+     * of the base geometry (i.e. the first vertex of the first
+     * triangle as we perceive it here), not at the small cube
+     * vertex.
+     */ 
     for (int face = 0; face < 6; ++face)
     {
-        barrier(CLK_LOCAL_MEM_FENCE);
+        uint overlap = 0;
 
-        int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
-
-        if ((foundEdge & (1<<face)) == 0)
-        {
-            /* This is a gap (that's normal).  Write a displacement that the
-             * geometry shader will edit out.
-             */
-            write_imagef(jigsawDisp, edgeCoord, (float4)(NAN, NAN, NAN, NAN));
-        }
-
-        /* ... not an else! */
         if (xdim < VDIM && zdim < VDIM)
         {
-            /* Inspect the local quad. */
+            enum AFK_TriangleId firstId, secondId;
+            bool haveFirstTriangle = false;
+            bool haveSecondTriangle = false;
 
-            /* TODO If this is all okay, crush first and second triangles into
-             * a single data point for the quad?
-             */
-            int flaggedFirstTriangle = ((1<<6) - 1);
-            int flaggedSecondTriangle = ((1<<6) - 1);
-
-            bool flipTriangles = (face == 1 || face == 2 || face == 5);
-            int firstX = (flipTriangles ? 1 : 0);
-            int secondX = (flipTriangles ? 0 : 1);
-
-            for (int x = firstX;
-                x == firstX || x == secondX;
-                x += (secondX - firstX))
+            switch (face)
             {
-                for (int z = 0; z <= 1; ++z)
-                {
-                    int esb = edgeStepsBack[xdim+x][zdim+z][face];
-                    if (esb >= 0)
-                    {
-                        int4 coord = makeVapourCoord(face, xdim+x, zdim+z, esb) - (int4)(1, 1, 1, 0);
-                        if (x == firstX || z == 0)
-                            flaggedFirstTriangle &= ((pointsDrawn[coord.x][coord.y][coord.z>>2] >> (8*(coord.z & 3))) & ((1<<6) - 1));
-                        if (x == secondX || z == 1)
-                            flaggedSecondTriangle &= ((pointsDrawn[coord.x][coord.y][coord.z>>2] >> (8*(coord.z & 3))) & ((1<<6) - 1));
-                    }
-                }
+            case 1: case 2: case 5:
+                firstId = AFK_TRI_FIRST_FLIPPED;
+                secondId = AFK_TRI_SECOND_FLIPPED;
+                break;
+
+            default:
+                firstId = AFK_TRI_FIRST;
+                secondId = AFK_TRI_SECOND;
+                break;
             }
 
-            /* TODO: By addressing `trianglesComplete' using the result
-             * of this function, I'm not doing correct conflict resolution
-             * in the `VDIM-<blah>' cases, am I?
-             */
-            int esb = edgeStepsBack[xdim][zdim][face];
-            if (esb >= 0)
+            int4 firstTriCoord[3];
+            int4 secondTriCoord[3];
+            haveFirstTriangle = makeTriangleVapourCoord(edgeStepsBack, xdim, zdim, face, firstId, firstTriCoord);
+            haveSecondTriangle = makeTriangleVapourCoord(edgeStepsBack, xdim, zdim, face, secondId, secondTriCoord);
+
+            int4 firstCubeCoord, secondCubeCoord;
+            if (haveFirstTriangle &&
+                triangleInSmallCube(firstTriCoord, &firstCubeCoord))
             {
-                int4 triCoord = makeVapourCoord(face, xdim, zdim, edgeStepsBack[xdim][zdim][face]) - (int4)(1, 1, 1, 0);
-                int quadFlag = ((flaggedFirstTriangle & flaggedSecondTriangle) << (8 * (triCoord.z & 3)));
-                atom_or(&trianglesComplete[triCoord.x][triCoord.y][triCoord.z>>2], quadFlag);        
+                if (testTriangleEmitted(emittedTriangles, firstCubeCoord, face, firstId)) overlap |= 1;
+            }
+
+            if (haveSecondTriangle &&
+                triangleInSmallCube(secondTriCoord, &secondCubeCoord))
+            {
+                if (testTriangleEmitted(emittedTriangles, secondCubeCoord, face, secondId)) overlap |= 2;
             }
         }
-    }
-
-
-    /* Finally, now that I've got an array that contains
-     * candidate information for which faces could claim
-     * what, go through the possible quads and check them
-     * for sanity (criss-crossing etc).
-     */
-    int facesDrawn = 0;
-
-    for (int face = 0; face < 6; ++face)
-    {
-        barrier(CLK_LOCAL_MEM_FENCE);
 
         int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
-
-        int4 vapourCoord = makeVapourCoord(face, xdim, zdim, edgeStepsBack[xdim][zdim][face]);
-        int4 triCoord = vapourCoord - (int4)(1, 1, 1, 0);
-        bool haveCompleteQuad = false;
-
-        if (xdim < VDIM && zdim < VDIM &&
-            edgeStepsBack[xdim][zdim][face] >= 0)
-        {
-            haveCompleteQuad = clearPointDrawn(pointsDrawn, vapourCoord, face);
-        }
-
-        barrier(CLK_LOCAL_MEM_FENCE);
-
-        /* If I have a complete quad and no other face has previously
-         * drawn it...
-         */
-        if (haveCompleteQuad)
-        {
-            /* Check for jaggedness. */
-            bool flipTriangles = (face == 1 || face == 2 || face == 5);
-            int firstX = (flipTriangles ? 1 : 0);
-            int secondX = (flipTriangles ? 0 : 1);
-
-            if (abs_diff(edgeStepsBack[xdim+firstX][zdim][face], edgeStepsBack[xdim+secondX][zdim][face]) <= 1 &&
-                abs_diff(edgeStepsBack[xdim+firstX][zdim][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1 &&
-                abs_diff(edgeStepsBack[xdim+secondX][zdim+1][face], edgeStepsBack[xdim+secondX][zdim][face]) <= 1 &&
-                abs_diff(edgeStepsBack[xdim+secondX][zdim+1][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1 &&
-                abs_diff(edgeStepsBack[xdim+secondX][zdim][face], edgeStepsBack[xdim+firstX][zdim+1][face]) <= 1)
-            {
-                /* I can probably draw this triangle.
-                 * Re-set the trianglesComplete flag for this face, so
-                 * that the next face doesn't try to overdraw it.
-                 */
-                int quadFlag = (1<<face) << (8 * (triCoord.z & 3));
-                int lowerFaces = (atom_or(&trianglesComplete[triCoord.x][triCoord.y][triCoord.z>>2], quadFlag) >> (8 * (triCoord.z & 3))) & ((1<<face) - 1);
-                bool lowerFaceOverlaps = false;
-
-                float4 myEdgeVertices[2][2];
-                for (int x = 0; x <= 1; ++x)
-                {
-                    for (int z = 0; z <= 1; ++z)
-                    {
-                        if (x == 0 && z == 0) continue;
-                        myEdgeVertices[x][z] = makeEdgeVertex(
-                            face, xdim+x, zdim+z, edgeStepsBack[xdim+x][zdim+z][face], units[unitOffset].location);
-                    }
-                }
-
-                for (int lowerFace = 0; !lowerFaceOverlaps && lowerFace < face; ++lowerFace)
-                {
-                    if ((lowerFaces & (1<<lowerFace)) == 0) continue;
-
-                    /* For each lower face that covers this quad, check whether
-                     * there are overlaps.  That is, whether any points other
-                     * than the `home point' are the same between that face
-                     * and this one.
-                     * If so, I need to drop this triangle, because it would
-                     * criss-cross with the previous one.
-                     */
-                    int lowerXdim, lowerZdim, lowerStepsBack;
-                    reverseVapourCoord(lowerFace, triCoord + (int4)(1, 1, 1, 0), &lowerXdim, &lowerZdim, &lowerStepsBack);
-
-                    for (int x = 0; x <= 1; ++x)
-                    {
-                        for (int z = 0; z <= 1; ++z)
-                        {
-                            if (x == 0 && z == 0) continue;
-
-                            int4 lowerTriCoord = makeVapourCoord(lowerFace, lowerXdim + x, lowerZdim + z,
-                                edgeStepsBack[lowerXdim+x][lowerZdim+z][lowerFace]) - (int4)(1, 1, 1, 0);
-
-                            lowerFaceOverlaps |= (
-                                lowerTriCoord.x == triCoord.x &&
-                                lowerTriCoord.y == triCoord.y &&
-                                lowerTriCoord.z == triCoord.z);
-                        }
-                    }
-                }
-
-                if (!lowerFaceOverlaps)
-                {
-                    write_imageui(jigsawOverlap, edgeCoord, (uint4)(3, 0, 0, 0));
-                    facesDrawn |= (1<<face);
-                }
-            }
-        }
-    }
-
-    /* Fill out any required zeroes in the overlap texture. */
-    for (int face = 0; face < 6; ++face)
-    {
-        int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
-
-        if ((facesDrawn & (1<<face)) == 0)
-        {
-            write_imageui(jigsawOverlap, edgeCoord, (uint4)(0, 0, 0, 0));
-        }
+        write_imageui(jigsawOverlap, edgeCoord, (uint4)(overlap, 0, 0, 0));
     }
 #endif /* TEST_CUBE */
 }
