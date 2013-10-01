@@ -583,6 +583,25 @@ void setTriangleEmitted(DECL_EMITTED_TRIANGLES(emittedTriangles), int4 cubeCoord
     atom_or(&emittedTriangles[coord.x][coord.y][coord.z], (id << (4 * face)));
 }
 
+/* Tests whether two triangles are coplanar. */
+bool trianglesAreCoplanar(int4 tri1[3], int4 tri2[3])
+{
+    float3 fTri1[3];
+    float3 fTri2[3];
+
+    for (int i = 0; i < 3; ++i)
+    {
+        fTri1[i] = (float3)((float)tri1[i].x, (float)tri1[i].y, (float)tri1[i].z);
+        fTri2[i] = (float3)((float)tri2[i].x, (float)tri2[i].y, (float)tri2[i].z);
+    }
+
+    float3 fNorm1 = cross(fTri1[2] - fTri1[0], fTri1[1] - fTri1[0]);
+
+    /* TODO Need error margin ? */
+    return (dot(fNorm1, fTri2[2] - fTri2[0]) == 0.0f &&
+        dot(fNorm1, fTri2[1] - fTri2[0]) == 0.0f);
+}
+
 /* Tests whether two triangles overlap or not, assuming they're in
  * the same small cube, *and that the triangles are real triangles*
  * (no identical vertices within a triangle).
@@ -604,13 +623,19 @@ bool trianglesOverlap(int4 tri1[3], int4 tri2[3])
 
     switch (identicalVertices)
     {
-    case 0: case 2:
+    case 0:
         /* They definitely don't overlap. */
         return false;
 
     case 1:
-        /* TODO: The subtle case.  For now returning true to test what happens */
-        return true;
+        /* TODO: Kinda experimental. */
+        return trianglesAreCoplanar(tri1, tri2);
+
+    case 2:
+        /* TODO: Likewise.  In this case, the test isn't right ...
+         * but it should be over-enthusiastic, not under.
+         */
+        return trianglesAreCoplanar(tri1, tri2);
 
     default:
         /* They definitely overlap. */
@@ -703,7 +728,7 @@ void emitIfNoOverlap(
 }
 
 
-#define TEST_CUBE 1
+#define TEST_CUBE 0
 
 /* This parameter list should be sufficient that I will always be able to
  * address all vapour jigsaws in the same place.  I hope!
