@@ -714,27 +714,26 @@ bool tryOverlappingFace(
     return true;
 }
 
-/* TODO standardise one or the other */
-#define NO_FACE_REVERSAL 1
-
 /* Checks whether a triangle at this location, with the given orientation,
- * would overlap.  Emits the triangle (writes it into `emittedTriangles',
- * that's all) if false.
+ * would overlap.  If it wouldn't, fills out `o_cubeCoord' with the cube for
+ * this triangle, and returns true; if it would, or the triangle isn't valid,
+ * returns false.
  */
-void emitIfNoOverlap(
+bool noOverlap(
     DECL_EDGE_STEPS_BACK(edgeStepsBack),
     DECL_EMITTED_TRIANGLES(emittedTriangles),
     int xdim,
     int zdim,
     int face,
-    enum AFK_TriangleId id)
+    enum AFK_TriangleId id,
+    int4 *o_cubeCoord)
 {
     /* Work out where this triangle is. */
     int4 triCoord[3];
-    if (!makeTriangleVapourCoord(edgeStepsBack, xdim, zdim, face, id, triCoord)) return;
+    if (!makeTriangleVapourCoord(edgeStepsBack, xdim, zdim, face, id, triCoord)) return false;
 
     int4 cubeCoord;
-    if (!triangleInSmallCube(triCoord, face, &cubeCoord)) return;
+    if (!triangleInSmallCube(triCoord, face, &cubeCoord)) return false;
 
     for (int lowerFace = 0; lowerFace < face; ++lowerFace)
     {
@@ -745,35 +744,17 @@ void emitIfNoOverlap(
         /* TODO: This will need changing if I gain the ability to flip
          * faces dynamically.
          */
-#if NO_FACE_REVERSAL
-            if (!tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST) ||
-                !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND))
-            {
-                return;
-            }
-#else
-        switch (lowerFace)
+        if (!tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST) ||
+            !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND) ||
+            !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST_FLIPPED) ||
+            !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND_FLIPPED))
         {
-        case 1: case 2: case 5:
-            if (!tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST_FLIPPED) ||
-                !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND_FLIPPED))
-            {
-                return;
-            }
-            break;
-
-        default:
-            if (!tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST) ||
-                !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND))
-            {
-                return;
-            }
-            break;
+            return false;
         }
-#endif
     }
 
-    setTriangleEmitted(emittedTriangles, cubeCoord, face, id);
+    *o_cubeCoord = cubeCoord;
+    return true;
 }
 
 
@@ -942,52 +923,36 @@ __kernel void makeShape3DEdge(
     DECL_EMITTED_TRIANGLES(emittedTriangles);
     initEmittedTriangles(emittedTriangles, xdim, zdim);
 
+    /* Here, track which faces I flipped.  Bit field.  */
+    int flipped = 0;
+
     for (int face = 0; face < 6; ++face)
     {
         barrier(CLK_LOCAL_MEM_FENCE);
 
         if (xdim < VDIM && zdim < VDIM)
         {
+            int4 cubeCoord;
+
             /* TODO: Learn to swap faces over to dodge overlap,
              * rather than having them fixed like this.
              * After the basic thing seems OK.
              */
-#if NO_FACE_REVERSAL
-                emitIfNoOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_FIRST);
-#else
-            switch (face)
+            if (noOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_FIRST, &cubeCoord))
             {
-            case 1: case 2: case 5:
-                /* Face is flipped. */
-                emitIfNoOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_FIRST_FLIPPED);
-                break;
-
-            default:
-                emitIfNoOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_FIRST);
-                break;
+                setTriangleEmitted(emittedTriangles, cubeCoord, face, AFK_TRI_FIRST);
             }
-#endif
         }
 
         barrier(CLK_LOCAL_MEM_FENCE);
 
         if (xdim < VDIM && zdim < VDIM)
         {
-#if NO_FACE_REVERSAL
-                emitIfNoOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_SECOND);
-#else
-            switch (face)
+            int4 cubeCoord;
+            if (noOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_SECOND, &cubeCoord))
             {
-            case 1: case 2: case 5:
-                /* Face is flipped. */
-                emitIfNoOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_SECOND_FLIPPED);
-                break;
-
-            default:
-                emitIfNoOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_SECOND);
-                break;
+                setTriangleEmitted(emittedTriangles, cubeCoord, face, AFK_TRI_SECOND);
             }
-#endif
         }
     }
 
@@ -1009,24 +974,16 @@ __kernel void makeShape3DEdge(
             bool haveFirstTriangle = false;
             bool haveSecondTriangle = false;
 
-#if NO_FACE_REVERSAL
-                firstId = AFK_TRI_FIRST;
-                secondId = AFK_TRI_SECOND;
-#else
-            switch (face)
+            if ((flipped & (1<<face)) != 0)
             {
-            case 1: case 2: case 5:
                 firstId = AFK_TRI_FIRST_FLIPPED;
                 secondId = AFK_TRI_SECOND_FLIPPED;
-                overlap = 4;
-                break;
-
-            default:
+            }
+            else
+            {
                 firstId = AFK_TRI_FIRST;
                 secondId = AFK_TRI_SECOND;
-                break;
             }
-#endif
 
             int4 firstTriCoord[3];
             int4 secondTriCoord[3];
