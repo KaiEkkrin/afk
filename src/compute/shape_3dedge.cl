@@ -583,6 +583,11 @@ void setTriangleEmitted(DECL_EMITTED_TRIANGLES(emittedTriangles), int4 cubeCoord
     atom_or(&emittedTriangles[coord.x][coord.y][coord.z], (id << (4 * face)));
 }
 
+bool verticesAreEqual(int4 v1, int4 v2)
+{
+    return (v1.x == v2.x && v1.y == v2.y && v1.z == v2.z);
+}
+
 /* Tests whether two triangles are coplanar. */
 bool trianglesAreCoplanar(int4 tri1[3], int4 tri2[3])
 {
@@ -608,16 +613,20 @@ bool trianglesAreCoplanar(int4 tri1[3], int4 tri2[3])
  */
 bool trianglesOverlap(int4 tri1[3], int4 tri2[3])
 {
-    /* Count the number of identical vertices. */
+    /* Count the number of identical vertices and
+     * keep track of which ones they are.
+     */
     int identicalVertices = 0;
+    int4 identical[3];
 
     for (int i1 = 0; i1 < 3; ++i1)
     {
         for (int i2 = 0; i2 <= 3; ++i2)
         {
-            if (tri1[i1].x == tri2[i2].x &&
-                tri1[i1].y == tri2[i2].y &&
-                tri1[i1].z == tri2[i2].z) ++identicalVertices;
+            if (verticesAreEqual(tri1[i1], tri2[i2]))
+            {
+                identical[identicalVertices++] = tri1[i1];
+            }
         }
     }
 
@@ -628,14 +637,38 @@ bool trianglesOverlap(int4 tri1[3], int4 tri2[3])
         return false;
 
     case 1:
-        /* TODO: Kinda experimental. */
         return trianglesAreCoplanar(tri1, tri2);
 
     case 2:
-        /* TODO: Likewise.  In this case, the test isn't right ...
-         * but it should be over-enthusiastic, not under.
-         */
-        return trianglesAreCoplanar(tri1, tri2);
+        if (trianglesAreCoplanar(tri1, tri2))
+        {
+            /* Dig up the different vertex pair. */
+            int4 diff1, diff2;
+            for (int i = 0; i < 3; ++i)
+            {
+                if (!verticesAreEqual(tri1[i], identical[0]) &&
+                    !verticesAreEqual(tri1[i], identical[1]))
+                {
+                    diff1 = tri1[i];
+                }
+
+                if (!verticesAreEqual(tri2[i], identical[0]) &&
+                    !verticesAreEqual(tri2[i], identical[1]))
+                {
+                    diff2 = tri2[i];
+                }
+            }
+
+            /* The triangles overlap only if the different vertices
+             * differ only by a total of 1 in all directions.
+             */
+            int totalDiff =
+                abs(diff2.x - diff1.x) +
+                abs(diff2.y - diff1.y) +
+                abs(diff2.z - diff1.z);
+            return (totalDiff == 1);
+        }
+        else return false;
 
     default:
         /* They definitely overlap. */
