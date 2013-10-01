@@ -661,23 +661,6 @@ void emitIfNoOverlap(
     int face,
     enum AFK_TriangleId id)
 {
-    /* TODO Right now, makeTriangleVapourCoord() appears to be returning false.
-     * Have a go at using the vapour coord of the first point directly: it'll
-     * be wrong but it'll confirm my suspicions.
-     * ... still nothing.  Maybe it isn't this after all ...
-     */
-    int esb = edgeStepsBack[xdim][zdim][face];
-    if (esb >= 0)
-    {
-    int4 testCoord = makeVapourCoord(face, xdim, zdim, esb);
-    setTriangleEmitted(
-        emittedTriangles,
-        (int4)(max(min(testCoord.x, VDIM), 1), max(min(testCoord.y, VDIM), 1), max(min(testCoord.z, VDIM), 1), 0),
-        face, id);
-    }
-
-    /* TODO Debugging. */
-#if 0
     /* Work out where this triangle is. */
     int4 triCoord[3];
     if (!makeTriangleVapourCoord(edgeStepsBack, xdim, zdim, face, id, triCoord)) return;
@@ -691,17 +674,30 @@ void emitIfNoOverlap(
         int lowerXdim, lowerZdim, lowerStepsBack;
         reverseVapourCoord(lowerFace, cubeCoord, &lowerXdim, &lowerZdim, &lowerStepsBack);
 
-        if (!tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST) ||
-            !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND) ||
-            !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST_FLIPPED) ||
-            !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND_FLIPPED))
+        /* TODO: This will need changing if I gain the ability to flip
+         * faces dynamically.
+         */
+        switch (lowerFace)
         {
-            return;
+        case 1: case 2: case 5:
+            if (!tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST) ||
+                !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND))
+            {
+                return;
+            }
+            break;
+
+        default:
+            if (!tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST_FLIPPED) ||
+                !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND_FLIPPED))
+            {
+                return;
+            }
+            break;
         }
     }
 
     setTriangleEmitted(emittedTriangles, cubeCoord, face, id);
-#endif
 }
 
 
@@ -742,7 +738,7 @@ __kernel void makeShape3DEdge(
 
         float4 testNormal = rotateNormal((float4)(0.0f, 1.0f, 0.0f, 0.0f), face);
 
-        /* TODO Testing the overlap here to make sure all is
+        /* Testing the overlap here to make sure all is
          * in order ...
          */
         uint4 testOverlap = (uint4)(3, 0, 0, 0);
@@ -761,7 +757,7 @@ __kernel void makeShape3DEdge(
     /* Iterate through the possible steps back until I find an edge.
      * There is one flag each in this bit field for faces 0-5 incl.
      * TODO I should be able to remove this and use just
-     * `edgeStepsBack'.
+     * `edgeStepsBack'?
      */
     unsigned int foundEdge = 0;
 
@@ -918,8 +914,6 @@ __kernel void makeShape3DEdge(
                 break;
             }
 
-            /* TODO Debugging to match emitIfNoOverlap(). */
-#if 0
             int4 firstTriCoord[3];
             int4 secondTriCoord[3];
             haveFirstTriangle = makeTriangleVapourCoord(edgeStepsBack, xdim, zdim, face, firstId, firstTriCoord);
@@ -937,20 +931,6 @@ __kernel void makeShape3DEdge(
             {
                 if (testTriangleEmitted(emittedTriangles, secondCubeCoord, face, secondId)) overlap |= 2;
             }
-#else
-            int esb = edgeStepsBack[xdim][zdim][face];
-            if (esb >= 0)
-            {
-            int4 testCoord = makeVapourCoord(face, xdim, zdim, esb);
-            int4 testCubeCoord = (int4)(
-                max(min(testCoord.x, VDIM), 1),
-                max(min(testCoord.y, VDIM), 1),
-                max(min(testCoord.z, VDIM), 1),
-                0);
-            if (testTriangleEmitted(emittedTriangles, testCubeCoord, face, firstId)) overlap |= 1;
-            if (testTriangleEmitted(emittedTriangles, testCubeCoord, face, secondId)) overlap |= 2;
-            }
-#endif
         }
 
         int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
