@@ -613,6 +613,8 @@ bool trianglesAreCoplanar(int4 tri1[3], int4 tri2[3])
 #endif
 }
 
+#define USE_TRICKY_IDENTICAL_CHECK 0
+
 /* Tests whether two triangles overlap or not, assuming they're in
  * the same small cube, *and that the triangles are real triangles*
  * (no identical vertices within a triangle).
@@ -623,7 +625,9 @@ bool trianglesOverlap(int4 tri1[3], int4 tri2[3])
      * keep track of which ones they are.
      */
     int identicalVertices = 0;
+#if USE_TRICKY_IDENTICAL_CHECK
     int4 identical[3];
+#endif
 
     for (int i1 = 0; i1 < 3; ++i1)
     {
@@ -631,7 +635,10 @@ bool trianglesOverlap(int4 tri1[3], int4 tri2[3])
         {
             if (verticesAreEqual(tri1[i1], tri2[i2]))
             {
-                identical[identicalVertices++] = tri1[i1];
+#if USE_TRICKY_IDENTICAL_CHECK
+                identical[identicalVertices] = tri1[i1];
+#endif
+		++identicalVertices;
             }
         }
     }
@@ -653,7 +660,7 @@ bool trianglesOverlap(int4 tri1[3], int4 tri2[3])
              * more aggressive with this stuff, now that I can do
              * dynamic flipping of triangle pairs.
              */
-#if 0
+#if USE_TRICKY_IDENTICAL_CHECK
             /* Dig up the different vertex pair. */
             int4 diff1, diff2;
             for (int i = 0; i < 3; ++i)
