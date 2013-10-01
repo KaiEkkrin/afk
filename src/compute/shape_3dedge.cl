@@ -642,6 +642,8 @@ bool trianglesOverlap(int4 tri1[3], int4 tri2[3])
     case 2:
         if (trianglesAreCoplanar(tri1, tri2))
         {
+            /* TODO The below seems to break on the test cube ...? */
+#if 0
             /* Dig up the different vertex pair. */
             int4 diff1, diff2;
             for (int i = 0; i < 3; ++i)
@@ -667,6 +669,9 @@ bool trianglesOverlap(int4 tri1[3], int4 tri2[3])
                 abs(diff2.y - diff1.y) +
                 abs(diff2.z - diff1.z);
             return (totalDiff == 1);
+#else
+            return true;
+#endif
         }
         else return false;
 
@@ -709,6 +714,9 @@ bool tryOverlappingFace(
     return true;
 }
 
+/* TODO standardise one or the other */
+#define NO_FACE_REVERSAL 1
+
 /* Checks whether a triangle at this location, with the given orientation,
  * would overlap.  Emits the triangle (writes it into `emittedTriangles',
  * that's all) if false.
@@ -737,6 +745,13 @@ void emitIfNoOverlap(
         /* TODO: This will need changing if I gain the ability to flip
          * faces dynamically.
          */
+#if NO_FACE_REVERSAL
+            if (!tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST) ||
+                !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND))
+            {
+                return;
+            }
+#else
         switch (lowerFace)
         {
         case 1: case 2: case 5:
@@ -755,6 +770,7 @@ void emitIfNoOverlap(
             }
             break;
         }
+#endif
     }
 
     setTriangleEmitted(emittedTriangles, cubeCoord, face, id);
@@ -915,8 +931,8 @@ __kernel void makeShape3DEdge(
      *     x Count the number of common vertices.
      *       - If zero, emit the triangle.  (a fourth function.  Populates a local array
      * of emitted triangles.  Does not yet call write_imageui().)
-     *       - If one, check whether the two triangles are coplanar.  (A fifth function.
-     * TODO: Difficult.)  Only emit the triangle if they are not.
+     *       - If one, check whether the two triangles are coplanar.  (A fifth function.)
+     * Only emit the triangle if they are not.
      *       - If two, emit the triangle.
      *       - If three, don't emit the triangle.
      * - After all that is done, iterate through the faces and their triangles again.
@@ -936,6 +952,9 @@ __kernel void makeShape3DEdge(
              * rather than having them fixed like this.
              * After the basic thing seems OK.
              */
+#if NO_FACE_REVERSAL
+                emitIfNoOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_FIRST);
+#else
             switch (face)
             {
             case 1: case 2: case 5:
@@ -947,12 +966,16 @@ __kernel void makeShape3DEdge(
                 emitIfNoOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_FIRST);
                 break;
             }
+#endif
         }
 
         barrier(CLK_LOCAL_MEM_FENCE);
 
         if (xdim < VDIM && zdim < VDIM)
         {
+#if NO_FACE_REVERSAL
+                emitIfNoOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_SECOND);
+#else
             switch (face)
             {
             case 1: case 2: case 5:
@@ -964,6 +987,7 @@ __kernel void makeShape3DEdge(
                 emitIfNoOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_SECOND);
                 break;
             }
+#endif
         }
     }
 
@@ -985,6 +1009,10 @@ __kernel void makeShape3DEdge(
             bool haveFirstTriangle = false;
             bool haveSecondTriangle = false;
 
+#if NO_FACE_REVERSAL
+                firstId = AFK_TRI_FIRST;
+                secondId = AFK_TRI_SECOND;
+#else
             switch (face)
             {
             case 1: case 2: case 5:
@@ -998,6 +1026,7 @@ __kernel void makeShape3DEdge(
                 secondId = AFK_TRI_SECOND;
                 break;
             }
+#endif
 
             int4 firstTriCoord[3];
             int4 secondTriCoord[3];
