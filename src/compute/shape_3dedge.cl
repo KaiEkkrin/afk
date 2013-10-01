@@ -604,8 +604,13 @@ bool trianglesAreCoplanar(int4 tri1[3], int4 tri2[3])
     float3 fNorm1 = cross(fTri1[2] - fTri1[0], fTri1[1] - fTri1[0]);
 
     /* TODO Need error margin ? */
+#if 0
     return (dot(fNorm1, fTri2[2] - fTri2[0]) == 0.0f &&
         dot(fNorm1, fTri2[1] - fTri2[0]) == 0.0f);
+#else
+    return (fabs(dot(fNorm1, fTri2[2] - fTri2[0])) < 0.001f &&
+        fabs(dot(fNorm1, fTri2[1] - fTri2[0])) < 0.001f);
+#endif
 }
 
 /* Tests whether two triangles overlap or not, assuming they're in
@@ -643,7 +648,11 @@ bool trianglesOverlap(int4 tri1[3], int4 tri2[3])
     case 2:
         if (trianglesAreCoplanar(tri1, tri2))
         {
-            /* TODO The below seems to break on the test cube ...? */
+            /* TODO The below code is incorrect, and produces occasional
+             * criss-crosses and bowties.  I think I should be a little
+             * more aggressive with this stuff, now that I can do
+             * dynamic flipping of triangle pairs.
+             */
 #if 0
             /* Dig up the different vertex pair. */
             int4 diff1, diff2;
