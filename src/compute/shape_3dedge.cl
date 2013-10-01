@@ -703,7 +703,7 @@ void emitIfNoOverlap(
 }
 
 
-#define TEST_CUBE 0
+#define TEST_CUBE 1
 
 /* This parameter list should be sufficient that I will always be able to
  * address all vapour jigsaws in the same place.  I hope!
@@ -743,8 +743,17 @@ __kernel void makeShape3DEdge(
         /* Testing the overlap here to make sure all is
          * in order ...
          */
-        uint4 testOverlap = (uint4)(3, 0, 0, 0);
-        if (xdim == (EDIM-1) || zdim == (EDIM-1)) testOverlap = (uint4)(0, 0, 0, 0); /* Always ignored */
+        uint4 testOverlap;
+        if (face == 1 || face == 2 || face == 5)
+        {
+            testOverlap = (uint4)(7, 0, 0, 0);
+            if (xdim == (EDIM-1) || zdim == (EDIM-1)) testOverlap = (uint4)(4, 0, 0, 0); /* Always ignored */
+        }
+        else
+        {
+            testOverlap = (uint4)(3, 0, 0, 0);
+            if (xdim == (EDIM-1) || zdim == (EDIM-1)) testOverlap = (uint4)(0, 0, 0, 0); /* Always ignored */
+        }
 
         write_imagef(jigsawDisp, edgeCoord, edgeVertex);
         write_imagef(jigsawColour, edgeCoord, testColour);
