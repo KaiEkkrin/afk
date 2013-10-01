@@ -484,6 +484,7 @@ bool makeTriangleVapourCoord(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int 
         faceCoord[0] = (int2)(xdim+1, zdim+1);
         faceCoord[1] = (int2)(xdim, zdim);
         faceCoord[2] = (int2)(xdim, zdim+1);
+        break;
 
     case AFK_TRI_FIRST:
         faceCoord[0] = (int2)(xdim, zdim);
@@ -932,26 +933,51 @@ __kernel void makeShape3DEdge(
 
         if (xdim < VDIM && zdim < VDIM)
         {
-            int4 cubeCoord;
-
-            /* TODO: Learn to swap faces over to dodge overlap,
-             * rather than having them fixed like this.
-             * After the basic thing seems OK.
+            /* Work out both flipped and non-flipped variants.  Choose the one that
+             * can emit the most triangles.
              */
-            if (noOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_FIRST, &cubeCoord))
+            int4 firstCubeCoord, secondCubeCoord, firstFlippedCubeCoord, secondFlippedCubeCoord;
+
+            /* This is a bit field: 1, 2, 4, 8 for the 4 triangles in the above order. */
+            int possibleEmits = 0;
+
+            int nonFlippedEmits = 0;
+            int flippedEmits = 0;
+
+            if (noOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_FIRST, &firstCubeCoord))
             {
-                setTriangleEmitted(emittedTriangles, cubeCoord, face, AFK_TRI_FIRST);
+                possibleEmits |= 1;
+                ++nonFlippedEmits;
             }
-        }
 
-        barrier(CLK_LOCAL_MEM_FENCE);
-
-        if (xdim < VDIM && zdim < VDIM)
-        {
-            int4 cubeCoord;
-            if (noOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_SECOND, &cubeCoord))
+            if (noOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_SECOND, &secondCubeCoord))
             {
-                setTriangleEmitted(emittedTriangles, cubeCoord, face, AFK_TRI_SECOND);
+                possibleEmits |= 2;
+                ++nonFlippedEmits;
+            }
+
+            if (noOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_FIRST_FLIPPED, &firstFlippedCubeCoord))
+            {
+                possibleEmits |= 4;
+                ++flippedEmits;
+            }
+
+            if (noOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_SECOND_FLIPPED, &secondFlippedCubeCoord))
+            {
+                possibleEmits |= 8;
+                ++flippedEmits;
+            }
+
+            if (nonFlippedEmits > flippedEmits)
+            {
+                if ((possibleEmits & 1) != 0) setTriangleEmitted(emittedTriangles, firstCubeCoord, face, AFK_TRI_FIRST);
+                if ((possibleEmits & 2) != 0) setTriangleEmitted(emittedTriangles, secondCubeCoord, face, AFK_TRI_SECOND);
+            }
+            else
+            {
+                if ((possibleEmits & 4) != 0) setTriangleEmitted(emittedTriangles, firstFlippedCubeCoord, face, AFK_TRI_FIRST_FLIPPED);
+                if ((possibleEmits & 8) != 0) setTriangleEmitted(emittedTriangles, secondFlippedCubeCoord, face, AFK_TRI_SECOND_FLIPPED);
+                flipped |= (1<<face);
             }
         }
     }
@@ -978,6 +1004,7 @@ __kernel void makeShape3DEdge(
             {
                 firstId = AFK_TRI_FIRST_FLIPPED;
                 secondId = AFK_TRI_SECOND_FLIPPED;
+                overlap = 4;
             }
             else
             {
