@@ -516,7 +516,7 @@ bool makeTriangleVapourCoord(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int 
  * precisely.
  * `o_cubeCoord' comes out in vapour co-ordinates.
  */
-bool triangleInSmallCube(int4 vapourCoord[3], int4 *o_cubeCoord)
+bool triangleInSmallCube(int4 vapourCoord[3], int face, int4 *o_cubeCoord)
 {
     /* The cube is at the min of the vapour coords. */
     int4 cubeCoord = (int4)(
@@ -525,16 +525,26 @@ bool triangleInSmallCube(int4 vapourCoord[3], int4 *o_cubeCoord)
         min(min(vapourCoord[0].z, vapourCoord[1].z), vapourCoord[2].z),
         0);
 
+    int4 cubeMax = (int4)(
+        max(max(vapourCoord[0].x, vapourCoord[1].x), vapourCoord[2].x),
+        max(max(vapourCoord[0].y, vapourCoord[1].y), vapourCoord[2].y),
+        max(max(vapourCoord[0].z, vapourCoord[1].z), vapourCoord[2].z),
+        0);
+
     /* Check for stretched triangles. */
-    for (int i = 0; i < 3; ++i)
+    if ((cubeMax.x - cubeCoord.x) > 1 ||
+        (cubeMax.y - cubeCoord.y) > 1 ||
+        (cubeMax.z - cubeCoord.z) > 1)
     {
-        if ((vapourCoord[i].x - cubeCoord.x) > 1 ||
-            (vapourCoord[i].y - cubeCoord.y) > 1 ||
-            (vapourCoord[i].z - cubeCoord.z) > 1)
-        {
-            return false;
-        }
+        return false;
     }
+
+    /* If the triangle is flat against one side, resize the
+     * cube accordingly.
+     */
+    if (cubeMax.x == cubeCoord.x && face == AFK_SHF_RIGHT) --cubeCoord.x;
+    if (cubeMax.y == cubeCoord.y && face == AFK_SHF_TOP) --cubeCoord.y;
+    if (cubeMax.z == cubeCoord.z && face == AFK_SHF_BACK) --cubeCoord.z;
 
     *o_cubeCoord = cubeCoord;
     return true;
@@ -553,7 +563,7 @@ void initEmittedTriangles(DECL_EMITTED_TRIANGLES(emittedTriangles), int xdim, in
     {
         if (xdim < VDIM && zdim < VDIM)
         {
-            emittedTriangles[xdim][y][zdim] = 0;
+            emittedTriangles[xdim][zdim][y] = 0;
         }
     }
 }
@@ -630,7 +640,7 @@ bool tryOverlappingFace(
     if (makeTriangleVapourCoord(edgeStepsBack, lowerXdim, lowerZdim, lowerFace, lowerId, lowerTriCoord))
     {
         int4 lowerCubeCoord;
-        if (triangleInSmallCube(lowerTriCoord, &lowerCubeCoord))
+        if (triangleInSmallCube(lowerTriCoord, lowerFace, &lowerCubeCoord))
         {
             if (lowerCubeCoord.x == cubeCoord.x &&
                 lowerCubeCoord.y == cubeCoord.y &&
@@ -663,7 +673,7 @@ void emitIfNoOverlap(
     if (!makeTriangleVapourCoord(edgeStepsBack, xdim, zdim, face, id, triCoord)) return;
 
     int4 cubeCoord;
-    if (!triangleInSmallCube(triCoord, &cubeCoord)) return;
+    if (!triangleInSmallCube(triCoord, face, &cubeCoord)) return;
 
     for (int lowerFace = 0; lowerFace < face; ++lowerFace)
     {
@@ -904,13 +914,13 @@ __kernel void makeShape3DEdge(
 
             int4 firstCubeCoord, secondCubeCoord;
             if (haveFirstTriangle &&
-                triangleInSmallCube(firstTriCoord, &firstCubeCoord))
+                triangleInSmallCube(firstTriCoord, face, &firstCubeCoord))
             {
                 if (testTriangleEmitted(emittedTriangles, firstCubeCoord, face, firstId)) overlap |= 1;
             }
 
             if (haveSecondTriangle &&
-                triangleInSmallCube(secondTriCoord, &secondCubeCoord))
+                triangleInSmallCube(secondTriCoord, face, &secondCubeCoord))
             {
                 if (testTriangleEmitted(emittedTriangles, secondCubeCoord, face, secondId)) overlap |= 2;
             }
