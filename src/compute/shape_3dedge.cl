@@ -502,7 +502,7 @@ bool makeTriangleVapourCoord(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int 
     for (int i = 0; i < 3; ++i)
     {
         int esb = edgeStepsBack[faceCoord[i].x][faceCoord[i].y][face];
-        if (esb == NO_EDGE) return false;
+        if (esb < 0) return false;
         o_triCoord[i] = makeVapourCoord(face, faceCoord[i].x, faceCoord[i].y, esb);
     }
 
@@ -573,15 +573,8 @@ bool testTriangleEmitted(DECL_EMITTED_TRIANGLES(emittedTriangles), int4 cubeCoor
     int4 coord = cubeCoord - (int4)(1, 1, 1, 0);
 
     int emittedBits = (emittedTriangles[coord.x][coord.y][coord.z] >> (4 * face)) & 0xf;
-    if ((emittedBits & 0x4) != 0)
-    {
-        /* This triangle is flipped. */
-        return ((id & 0x4) != 0 && (emittedBits & 0x3) == (id & 0x3));
-    }
-    else
-    {
-        return ((id & 0x4) == 0 && (emittedBits & 0x3) == (id & 0x3));
-    }
+    return ((emittedBits & 0x4) == (id & 0x4) &&
+        ((emittedBits & 0x3) & id) != 0);
 }
 
 void setTriangleEmitted(DECL_EMITTED_TRIANGLES(emittedTriangles), int4 cubeCoord, int face, enum AFK_TriangleId id)
@@ -668,6 +661,23 @@ void emitIfNoOverlap(
     int face,
     enum AFK_TriangleId id)
 {
+    /* TODO Right now, makeTriangleVapourCoord() appears to be returning false.
+     * Have a go at using the vapour coord of the first point directly: it'll
+     * be wrong but it'll confirm my suspicions.
+     * ... still nothing.  Maybe it isn't this after all ...
+     */
+    int esb = edgeStepsBack[xdim][zdim][face];
+    if (esb >= 0)
+    {
+    int4 testCoord = makeVapourCoord(face, xdim, zdim, esb);
+    setTriangleEmitted(
+        emittedTriangles,
+        (int4)(max(min(testCoord.x, VDIM), 1), max(min(testCoord.y, VDIM), 1), max(min(testCoord.z, VDIM), 1), 0),
+        face, id);
+    }
+
+    /* TODO Debugging. */
+#if 0
     /* Work out where this triangle is. */
     int4 triCoord[3];
     if (!makeTriangleVapourCoord(edgeStepsBack, xdim, zdim, face, id, triCoord)) return;
@@ -691,6 +701,7 @@ void emitIfNoOverlap(
     }
 
     setTriangleEmitted(emittedTriangles, cubeCoord, face, id);
+#endif
 }
 
 
@@ -770,7 +781,7 @@ __kernel void makeShape3DEdge(
             int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack);
             float4 thisVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord);
 
-#define FAKE_TEST_VAPOUR 0
+#define FAKE_TEST_VAPOUR 1
 
 #if FAKE_TEST_VAPOUR
             /* Always claiming right away should result in a cube. */
@@ -907,6 +918,8 @@ __kernel void makeShape3DEdge(
                 break;
             }
 
+            /* TODO Debugging to match emitIfNoOverlap(). */
+#if 0
             int4 firstTriCoord[3];
             int4 secondTriCoord[3];
             haveFirstTriangle = makeTriangleVapourCoord(edgeStepsBack, xdim, zdim, face, firstId, firstTriCoord);
@@ -924,6 +937,20 @@ __kernel void makeShape3DEdge(
             {
                 if (testTriangleEmitted(emittedTriangles, secondCubeCoord, face, secondId)) overlap |= 2;
             }
+#else
+            int esb = edgeStepsBack[xdim][zdim][face];
+            if (esb >= 0)
+            {
+            int4 testCoord = makeVapourCoord(face, xdim, zdim, esb);
+            int4 testCubeCoord = (int4)(
+                max(min(testCoord.x, VDIM), 1),
+                max(min(testCoord.y, VDIM), 1),
+                max(min(testCoord.z, VDIM), 1),
+                0);
+            if (testTriangleEmitted(emittedTriangles, testCubeCoord, face, firstId)) overlap |= 1;
+            if (testTriangleEmitted(emittedTriangles, testCubeCoord, face, secondId)) overlap |= 2;
+            }
+#endif
         }
 
         int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
