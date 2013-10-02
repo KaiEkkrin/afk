@@ -24,8 +24,8 @@
  - proper protagonist/camera relationship (use quaternions to track orientation?  proper inverse matrix to get camera angle?) OK
  - use OpenCL to bake terrain.  mostly OK
  - optimised landscape rendering derived from the above. OK
- - shapes split into LoD cubes with random shapes.  (use OpenCL?)
- - actual entity LoD and stitched rendering.
+ - shapes split into LoD cubes with random shapes.  (use OpenCL?) OK
+ - actual entity LoD and stitched rendering. getting there
  - collision-based vertex lighting model.  ("collide" light source, travelling from origin, to target, with entities and terrain en route).
  - creation of entities by player.  See guns.txt.
  - consider destruction of entities upon collision.
