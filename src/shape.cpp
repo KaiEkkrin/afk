@@ -156,9 +156,12 @@ bool afk_generateShapeCells(
     }
     else
     {
+        /* TODO Artificial min cell pitch here to check for
+         * cross-LoD overlaps.
+         */
         bool display = (
-            cell.c.coord.v[3] == 1 || visibleCell.testDetailPitch(
-                world->averageDetailPitch.get() / 2.0f, *camera, viewerLocation));
+            cell.c.coord.v[3] == 1024 || visibleCell.testDetailPitch(
+                world->getEntityDetailPitch(), *camera, viewerLocation));
 
         /* Always build the vapour descriptor, because other cells
          * will need it.

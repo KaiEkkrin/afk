@@ -12,9 +12,6 @@ AFK_LandscapeSizes::AFK_LandscapeSizes(const AFK_Config *config):
     tDim(config->terrain_pointSubdivisionFactor + 3), /* one extra vertex either side, to smooth colours and normals; */
                                       /* another extra vertex on +x and +z, to smooth the join-triangle normals */
     tDimStart(-1),                    /* begin one index before the origin to do the bottom and left smoothing */
-    vCount(SQUARE(config->terrain_pointSubdivisionFactor + 1)),
-    iCount(SQUARE(config->terrain_pointSubdivisionFactor) * 2), /* two triangles per vertex */
-    tCount(SQUARE(config->terrain_pointSubdivisionFactor + 3)),
     vSize(SQUARE(config->terrain_pointSubdivisionFactor + 1) * sizeof(Vec4<float>)),
     iSize(SQUARE(config->terrain_pointSubdivisionFactor) * 2 * 3 * sizeof(unsigned short)),
     tSize(SQUARE(config->terrain_pointSubdivisionFactor + 3) * 2 * sizeof(Vec4<float>)), /* normal + y disp., colour */

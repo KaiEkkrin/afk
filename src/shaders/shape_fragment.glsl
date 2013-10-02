@@ -2,10 +2,17 @@
 //
 // Shape vertex colour and ambient and diffuse lighting.
 
-#version 330
+#version 400
 
 // This is the jigsaw colour texture.
 uniform sampler2D JigsawColourTex;
+
+// The sky colour, which I fade out to at long distance.
+uniform vec3 SkyColour;
+
+// The far clip plane.  (I don't think I need to worry about the near
+// one for fade-to-sky.)
+uniform float FarClipDistance;
 
 in GeometryData
 {
@@ -33,6 +40,12 @@ void main()
     vec3 AmbientColour = gLight.Colour * gLight.Ambient;
     vec3 DiffuseColour = gLight.Colour * gLight.Diffuse * max(dot(normal, -gLight.Direction), 0.0);
     float DiffuseFactor = dot(normal, -gLight.Direction);
-    FragColor = vec4(colour * (AmbientColour + DiffuseColour), 1.0);
+    vec3 CombinedColour = colour * (AmbientColour + DiffuseColour * DiffuseFactor);
+
+    float depth = (gl_FragCoord.z / gl_FragCoord.w) / FarClipDistance;
+    gl_FragColor = mix(
+        vec4(CombinedColour, 1.0),
+        vec4(SkyColour, 1.0),
+        depth);
 }
 

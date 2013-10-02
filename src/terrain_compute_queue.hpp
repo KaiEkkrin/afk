@@ -99,7 +99,7 @@ public:
 
     /* Computes the terrain.
      */
-    void computeStart(AFK_Computer *computer, AFK_Jigsaw *jigsaw, const AFK_LandscapeSizes& lSizes);
+    void computeStart(AFK_Computer *computer, AFK_Jigsaw *jigsaw, const AFK_LandscapeSizes& lSizes, const Vec3<float>& baseColour);
     void computeFinish(void);
 
     bool empty(void);

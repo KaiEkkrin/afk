@@ -273,6 +273,7 @@ void AFK_Core::configure(int *argcp, char **argv)
     config = new AFK_Config(argcp, argv);
 
     rng = new AFK_Boost_Taus88_RNG();
+    rng->seed(config->masterSeed);
 
     /* Startup state of the protagonist. */
     velocity            = afk_vec3<float>(0.0f, 0.0f, 0.0f);
@@ -286,11 +287,16 @@ void AFK_Core::configure(int *argcp, char **argv)
 
     /* Set up the sun.  (TODO: Make configurable?  Randomly
      * generated?  W/e :) )
+     * TODO: Should I make separate ambient and diffuse colours,
+     * and make the ambient colour dependent on the sky colour?
      */
     sun.colour = afk_vec3<float>(1.0f, 1.0f, 1.0f);
-    sun.direction = afk_vec3<float>(0.0f, -1.0f, 1.0f).normalise();
+    sun.direction = afk_vec3<float>(-0.5f, -1.0f, 1.0f).normalise();
     sun.ambient = 0.2f;
     sun.diffuse = 1.0f;
+
+    skyColour = afk_vec3<float>(
+        rng->frand(), rng->frand(), rng->frand());
 }
 
 void AFK_Core::initGraphics(void)
@@ -337,7 +343,8 @@ void AFK_Core::loop(void)
         clGlMaxAllocSize / 4,
         clGlMaxAllocSize / 4,
         clGlMaxAllocSize / 4,
-        ctxt);
+        ctxt,
+        rng);
     computer->unlock();
     protagonist = new AFK_DisplayedProtagonist();
 

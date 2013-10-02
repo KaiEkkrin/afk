@@ -21,6 +21,13 @@
  * co-ordinates read from the texture.  I've done this even though
  * many of them are predictable to avoid really torturous logic in
  * the shaders.
+ *
+ * In order to avoid overlap of triangles from different faces, the
+ * overlap edge texture will contain the face identifier each group of
+ * vertices is homed to, so that the geometry shader can drop it from
+ * other faces.  Because I want to group vertices in 4s, I'm going to
+ * counter-intuitively use a line_adjacency primitive, which the geometry
+ * shader can transform into a triangle_strip for proper rendering.
  */
 
 class AFK_3DEdgeShapeBase
@@ -32,9 +39,6 @@ protected:
     GLuint vertexArray;
     GLuint *bufs;
 
-    /* Initialisation utility. */
-    void pushBaseFace(unsigned int sOffset, unsigned int tOffset, bool flip, const AFK_ShapeSizes& sSizes);
-
 public:
     AFK_3DEdgeShapeBase(const AFK_ShapeSizes& sSizes);
     virtual ~AFK_3DEdgeShapeBase();
@@ -44,6 +48,10 @@ public:
      */
     void initGL(void);
 
+    /* Assuming all the textures are set up, issues the draw call. */
+    void draw(unsigned int instanceCount) const;
+
+    /* Tears down the VAO. */
     void teardownGL(void) const;
 };
 

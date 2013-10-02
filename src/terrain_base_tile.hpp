@@ -58,6 +58,10 @@ public:
      */
     void initGL(void);
 
+    /* Assuming all the textures are set up, issues the draw call. */
+    void draw(unsigned int instanceCount) const;
+
+    /* Tears down the VAO. */
     void teardownGL(void) const;
 };
 

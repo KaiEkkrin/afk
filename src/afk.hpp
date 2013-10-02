@@ -20,6 +20,12 @@
 
 /* Global compile-time settings */
 
+/* This appears to be the correct amount to `wiggle' texture samples
+ * by, on both AMD and Nvidia, so that nearest-neighbour sampling
+ * actually picks up the correct neighbour.
+ */
+#define AFK_SAMPLE_WIGGLE 0.5f
+
 
 #endif /* _AFK_AFK_H_ */
 

@@ -31,6 +31,7 @@
 #include "jigsaw_collection.hpp"
 #include "landscape_display_queue.hpp"
 #include "landscape_tile.hpp"
+#include "rng/rng.hpp"
 #include "shader.hpp"
 #include "shape.hpp"
 #include "terrain_base_tile.hpp"
@@ -103,11 +104,16 @@ protected:
     AFK_ShaderProgram *landscape_shaderProgram;
     AFK_ShaderLight *landscape_shaderLight;
     GLuint landscape_clipTransformLocation;
+    GLuint landscape_skyColourLocation;
+    GLuint landscape_farClipDistanceLocation;
+    Vec3<float> landscape_baseColour;
 
     /* Entity shader details. */
     AFK_ShaderProgram *entity_shaderProgram;
     AFK_ShaderLight *entity_shaderLight;
     GLuint entity_projectionTransformLocation;
+    GLuint entity_skyColourLocation;
+    GLuint entity_farClipDistanceLocation;
 
     /* The cache of world cells we're tracking.
      */
@@ -248,7 +254,8 @@ public:
         unsigned int worldCacheSize, /* in bytes */
         unsigned int tileCacheSize, /* also in bytes */
         unsigned int shapeCacheSize, /* likewise */
-        cl_context ctxt);
+        cl_context ctxt,
+        AFK_RNG *setupRng);
     virtual ~AFK_World();
 
     /* Helper for the below -- requests a particular cell
@@ -272,6 +279,9 @@ public:
      * (1 / detailPitch ** 2) ...
      */
     void alterDetail(float adjustment);
+
+    float getLandscapeDetailPitch(void) const;
+    float getEntityDetailPitch(void) const;
 
     /* This function drives the cell generating worker to
      * update the world cache and enqueue visible

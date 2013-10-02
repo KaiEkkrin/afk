@@ -7,10 +7,25 @@
 #include "core.hpp"
 #include "debug.hpp"
 #include "object.hpp"
+#include "rng/boost_taus88.hpp"
 #include "shape_cell.hpp"
 
 
 /* AFK_ShapeCell implementation. */
+
+Vec4<float> AFK_ShapeCell::getBaseColour(void) const
+{
+    /* I think it's okay to recompute this, it's pretty quick. */
+    AFK_Boost_Taus88_RNG rng;
+
+    AFK_RNG_Value shapeSeed(
+        afk_core.config->masterSeed.v.ll[0],
+        afk_core.config->masterSeed.v.ll[1],
+        cell.key * 0x0013001300130013ll);
+    rng.seed(shapeSeed);
+    return afk_vec4<float>(
+        rng.frand(), rng.frand(), rng.frand(), 0.0f);
+}
 
 void AFK_ShapeCell::bind(const AFK_KeyedCell& _cell)
 {
@@ -62,6 +77,7 @@ void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
     vapourComputeQueue->extend(list, o_cubeOffset, o_cubeCount);
     vapourComputeQueue->addUnit(
         cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
+        getBaseColour(),
         vapourJigsawPiece,
         adjacency,
         o_cubeOffset,
@@ -88,6 +104,7 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
 
     vapourComputeQueue->addUnit(
         cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
+        getBaseColour(),
         vapourJigsawPiece,
         adjacency,
         cubeOffset,

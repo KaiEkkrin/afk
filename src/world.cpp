@@ -232,7 +232,7 @@ bool AFK_World::generateClaimedWorldCell(
          * be at +/- 0.5).
          */
         bool display = (cell.coord.v[3] == 2 ||
-            worldCell.testDetailPitch(averageDetailPitch.get(), *camera, viewerLocation));
+            worldCell.testDetailPitch(getLandscapeDetailPitch(), *camera, viewerLocation));
 
         /* Find the tile where any landscape at this cell would be
          * homed
@@ -510,7 +510,8 @@ AFK_World::AFK_World(
     unsigned int worldCacheSize,
     unsigned int tileCacheSize,
     unsigned int shapeCacheSize,
-    cl_context ctxt):
+    cl_context ctxt,
+    AFK_RNG *setupRng):
         startingDetailPitch         (config->startingDetailPitch),
         maxDetailPitch              (config->maxDetailPitch),
         detailPitch                 (config->startingDetailPitch), /* This is a starting point */
@@ -596,7 +597,7 @@ AFK_World::AFK_World(
      */
     Vec3<int> edgePieceSize = afk_vec3<int>(sSizes.eDim * 3, sSizes.eDim * 2, 1);
 
-    enum AFK_JigsawFormat edgeTexFormat[3];
+    enum AFK_JigsawFormat edgeTexFormat[4];
     edgeTexFormat[0] = AFK_JIGSAW_4FLOAT32;        /* Displacement */
     edgeTexFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;   /* Colour */
 
@@ -608,6 +609,8 @@ AFK_World::AFK_World(
     else
         edgeTexFormat[2] = AFK_JIGSAW_4FLOAT8_SNORM;
 
+    edgeTexFormat[3] = AFK_JIGSAW_UINT8;            /* Overlap */
+
     edgeJigsaws = new AFK_JigsawCollection(
         ctxt,
         edgePieceSize,
@@ -615,7 +618,7 @@ AFK_World::AFK_World(
         1, /* TODO I'll no doubt be expanding on this */
         AFK_JIGSAW_2D,
         edgeTexFormat,
-        3,
+        4,
         computer->getFirstDeviceProps(),
         config->clGlSharing ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED,
         config->concurrency,
@@ -631,6 +634,8 @@ AFK_World::AFK_World(
 
     landscape_shaderLight = new AFK_ShaderLight(landscape_shaderProgram->program);
     landscape_clipTransformLocation = glGetUniformLocation(landscape_shaderProgram->program, "ClipTransform");
+    landscape_skyColourLocation = glGetUniformLocation(landscape_shaderProgram->program, "SkyColour");
+    landscape_farClipDistanceLocation = glGetUniformLocation(landscape_shaderProgram->program, "FarClipDistance");
 
     entity_shaderProgram = new AFK_ShaderProgram();
     *entity_shaderProgram << "shape_fragment" << "shape_geometry" << "shape_vertex";
@@ -638,6 +643,8 @@ AFK_World::AFK_World(
 
     entity_shaderLight = new AFK_ShaderLight(entity_shaderProgram->program);
     entity_projectionTransformLocation = glGetUniformLocation(entity_shaderProgram->program, "ProjectionTransform");
+    entity_skyColourLocation = glGetUniformLocation(entity_shaderProgram->program, "SkyColour");
+    entity_farClipDistanceLocation = glGetUniformLocation(entity_shaderProgram->program, "FarClipDistance");
 
     glGenVertexArrays(1, &landscapeTileArray);
     glBindVertexArray(landscapeTileArray);
@@ -655,6 +662,10 @@ AFK_World::AFK_World(
 
     glBindVertexArray(0);
     edgeShapeBase->teardownGL();
+
+    /* Make the base colour for the landscape here */
+    landscape_baseColour = afk_vec3<float>(
+        setupRng->frand(), setupRng->frand(), setupRng->frand());
 
     /* Initialise the statistics. */
     cellsInvisible.store(0);
@@ -751,6 +762,17 @@ void AFK_World::alterDetail(float adjustment)
     averageDetailPitch.push(detailPitch);
 }
 
+float AFK_World::getLandscapeDetailPitch(void) const
+{
+    return averageDetailPitch.get();
+}
+
+float AFK_World::getEntityDetailPitch(void) const
+{
+    return averageDetailPitch.get() *
+        (float)sSizes.pointSubdivisionFactor / (float)lSizes.pointSubdivisionFactor;
+}
+
 boost::unique_future<bool> AFK_World::updateWorld(void)
 {
     /* Maintenance. */
@@ -820,7 +842,7 @@ void AFK_World::doComputeTasks(void)
      */
     for (unsigned int puzzle = 0; puzzle < terrainComputeQueues.size(); ++puzzle)
     {
-        terrainComputeQueues[puzzle]->computeStart(afk_core.computer, landscapeJigsaws->getPuzzle(puzzle), lSizes);
+        terrainComputeQueues[puzzle]->computeStart(afk_core.computer, landscapeJigsaws->getPuzzle(puzzle), lSizes, landscape_baseColour);
     }
 
     std::vector<boost::shared_ptr<AFK_3DVapourComputeQueue> > vapourComputeQueues;
@@ -865,6 +887,8 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     glUseProgram(landscape_shaderProgram->program);
     landscape_shaderLight->setupLight(globalLight);
     glUniformMatrix4fv(landscape_clipTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
+    glUniform3fv(landscape_skyColourLocation, 1, &afk_core.skyColour.v[0]);
+    glUniform1f(landscape_farClipDistanceLocation, afk_core.config->zFar);
     AFK_GLCHK("landscape uniforms")
 
     glBindVertexArray(landscapeTileArray);
@@ -880,7 +904,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     /* Those queues are in puzzle order. */
     for (unsigned int puzzle = 0; puzzle < landscapeDrawQueues.size(); ++puzzle)
     {
-        landscapeDrawQueues[puzzle]->draw(landscape_shaderProgram, landscapeJigsaws->getPuzzle(puzzle), lSizes);
+        landscapeDrawQueues[puzzle]->draw(landscape_shaderProgram, landscapeJigsaws->getPuzzle(puzzle), landscapeTerrainBase, lSizes);
     }
 
     glBindVertexArray(0);
@@ -889,6 +913,8 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     glUseProgram(entity_shaderProgram->program);
     entity_shaderLight->setupLight(globalLight);
     glUniformMatrix4fv(entity_projectionTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
+    glUniform3fv(entity_skyColourLocation, 1, &afk_core.skyColour.v[0]);
+    glUniform1f(entity_farClipDistanceLocation, afk_core.config->zFar);
     AFK_GLCHK("shape uniforms")
 
     glBindVertexArray(edgeShapeBaseArray);
@@ -899,7 +925,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
 
     for (unsigned int puzzle = 0; puzzle < entityDrawQueues.size(); ++puzzle)
     {
-        entityDrawQueues[puzzle]->draw(entity_shaderProgram, edgeJigsaws->getPuzzle(puzzle), sSizes);
+        entityDrawQueues[puzzle]->draw(entity_shaderProgram, edgeJigsaws->getPuzzle(puzzle), edgeShapeBase, sSizes);
     }
 
     glBindVertexArray(0);

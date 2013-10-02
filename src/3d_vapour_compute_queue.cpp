@@ -15,11 +15,13 @@ AFK_3DVapourComputeUnit::AFK_3DVapourComputeUnit():
 
 AFK_3DVapourComputeUnit::AFK_3DVapourComputeUnit(
     const Vec4<float>& _location,
+    const Vec4<float>& _baseColour,
     const AFK_JigsawPiece& _vapourJigsawPiece,
     int _adjacencies,
     int _cubeOffset,
     int _cubeCount):
         location(_location),
+        baseColour(_baseColour),
         adjacencies(_adjacencies),
         cubeOffset(_cubeOffset),
         cubeCount(_cubeCount)
@@ -40,6 +42,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_3DVapourComputeUnit& unit)
 {
     os << "(SCU: ";
     os << "location=" << std::dec << unit.location;
+    os << ", baseColour=" << std::dec << unit.baseColour;
     os << ", adjacencies=" << std::hex << unit.adjacencies;
     os << ", cubeOffset=" << std::dec << unit.cubeOffset;
     os << ", cubeCount=" << std::dec << unit.cubeCount;
@@ -77,6 +80,7 @@ void AFK_3DVapourComputeQueue::extend(
 
 AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::addUnit(
     const Vec4<float>& location,
+    const Vec4<float>& baseColour,
     const AFK_JigsawPiece& vapourJigsawPiece,
     int adjacencies,
     unsigned int cubeOffset,
@@ -91,6 +95,7 @@ AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::addUnit(
 
     AFK_3DVapourComputeUnit newUnit(
         location,
+        baseColour,
         vapourJigsawPiece,
         adjacencies,
         cubeOffset,
@@ -168,7 +173,7 @@ void AFK_3DVapourComputeQueue::computeStart(
     for (std::vector<cl_event>::iterator evIt = preVapourWaitList.begin();
         evIt != preVapourWaitList.end(); ++evIt)
     {
-        AFK_CLCHK(clReleaseEvent(*evIt))
+        if (*evIt) AFK_CLCHK(clReleaseEvent(*evIt))
     }
 
     for (unsigned int i = 0; i < 3; ++i)
@@ -179,7 +184,7 @@ void AFK_3DVapourComputeQueue::computeStart(
     postVapourWaitList.clear();
     postVapourWaitList.push_back(vapourEvent);
     vapourJigsaws->releaseAllFromCl(q, vapourJigsawsMem, jpCount, postVapourWaitList);
-    AFK_CLCHK(clReleaseEvent(vapourEvent))
+    if (vapourEvent) AFK_CLCHK(clReleaseEvent(vapourEvent))
 
     computer->unlock();
 }

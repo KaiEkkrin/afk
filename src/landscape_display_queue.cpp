@@ -53,7 +53,7 @@ void AFK_LandscapeDisplayQueue::add(const AFK_LandscapeDisplayUnit& _unit, const
 
 #define COPY_TO_GL_CULLING 1
 
-void AFK_LandscapeDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw* jigsaw, const AFK_LandscapeSizes& lSizes)
+void AFK_LandscapeDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw* jigsaw, const AFK_TerrainBaseTile *baseTile, const AFK_LandscapeSizes& lSizes)
 {
     /* First, check there's anything to draw at all ... */
 #if COPY_TO_GL_CULLING
@@ -135,8 +135,8 @@ void AFK_LandscapeDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsa
 #if AFK_GL_DEBUG
     shaderProgram->Validate();
 #endif
-    glDrawElementsInstanced(GL_TRIANGLES, lSizes.iCount * 3, GL_UNSIGNED_SHORT, 0, instanceCount);
-    AFK_GLCHK("landscape drawElementsInstanced")
+
+    baseTile->draw(instanceCount);
 }
 
 bool AFK_LandscapeDisplayQueue::empty(void)

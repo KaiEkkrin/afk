@@ -242,7 +242,7 @@ int3 getAdjacentFace(int3 coord, int face)
     return coord;
 }
 
-void transformAdjacentFaceDensity(float4 *vc, int xdim, int ydim, int zdim, int3 adjCoord, int adjacency)
+void transformAdjacentFaceDensity(float4 *vc, int xdim, int ydim, int zdim, int3 adjCoord, float4 baseColour, int adjacency)
 {
     int closestFace = -1;
     int distanceFromClosestFace = 1<<30;
@@ -281,12 +281,22 @@ void transformAdjacentFaceDensity(float4 *vc, int xdim, int ydim, int zdim, int3
          * are not.
          */
         float4 vcnew = *vc;
+
+#define DENSITY_FALSE_COLOUR 0
+
+#if DENSITY_FALSE_COLOUR
         vcnew.xyz = (float3)(0.0f, 1.0f, 0.0f);
 
         float4 faceDensity = (float4)(
             1.0f, 0.0f, 1.0f,
-            //(*vc).xyz,
             -THRESHOLD * FEATURE_COUNT_PER_CUBE);
+#else
+        vcnew = (float4)((7.0f * baseColour.xyz + vcnew.xyz) / 8.0f, vcnew.w);
+
+        float4 faceDensity = (float4)(
+            vcnew.xyz,
+            -THRESHOLD * FEATURE_COUNT_PER_CUBE);
+#endif
         float dff = (float)distanceFromClosestFace;
         float dfc = (float)(VDIM / 2);
 
@@ -311,7 +321,7 @@ bool inAdjacentTexel(int xdim, int ydim, int zdim, int face)
     }
 }
 
-void transformFaceDensity(float4 *vc, int xdim, int ydim, int zdim, int adjacency)
+void transformFaceDensity(float4 *vc, int xdim, int ydim, int zdim, float4 baseColour, int adjacency)
 {
     /* TODO: Is this the right place for this operation, after all? */
     float density = (*vc).w - (float)THRESHOLD;
@@ -347,12 +357,13 @@ void transformFaceDensity(float4 *vc, int xdim, int ydim, int zdim, int adjacenc
         }
     }
 
-    transformAdjacentFaceDensity(vc, xdim, ydim, zdim, adjBase, adjacency);
+    transformAdjacentFaceDensity(vc, xdim, ydim, zdim, adjBase, baseColour, adjacency);
 }
 
 struct AFK_3DVapourComputeUnit
 {
     float4 location;
+    float4 baseColour;
     int4 vapourPiece;
     int adjacency;
     int cubeOffset;
@@ -417,16 +428,7 @@ __kernel void makeShape3DVapour(
     /* TODO: Should I do this every time, or only on the
      * last?  I've yet to be sure.
      */
-    transformFaceDensity(&vc, xdim, ydim, zdim, units[unitOffset].adjacency);
-
-    /* TODO: Colour testing. */
-#if 0
-    vc = (float4)(
-        (float)xdim / (float)TDIM,
-        (float)ydim / (float)TDIM,
-        (float)zdim / (float)TDIM,
-        vc.w);
-#endif
+    transformFaceDensity(&vc, xdim, ydim, zdim, units[unitOffset].baseColour, units[unitOffset].adjacency);
 
     /* TODO: For now, I'm going to transfer all this into an all-float
      * image.  In future, I probably want to try to cram it into 8

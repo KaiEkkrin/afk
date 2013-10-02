@@ -1,6 +1,11 @@
 /* AFK (c) Alex Holloway 2013 */
 
+#include "afk.hpp"
+
+#include "display.hpp"
 #include "terrain_base_tile.hpp"
+
+#define RESTART_INDEX 65535
 
 AFK_TerrainBaseTileVertex::AFK_TerrainBaseTileVertex(
     const Vec3<float>& _location,
@@ -24,8 +29,8 @@ AFK_TerrainBaseTile::AFK_TerrainBaseTile(const AFK_LandscapeSizes& lSizes):
              * the padding all the way round.  Therefore, to access the
              * correct texels, I need to skip the padding, like so:
              */
-            float xTex = ((float)x - (float)lSizes.tDimStart + 0.25f) / (float)lSizes.tDim;
-            float zTex = ((float)z - (float)lSizes.tDimStart + 0.25f) / (float)lSizes.tDim;
+            float xTex = ((float)x - (float)lSizes.tDimStart + AFK_SAMPLE_WIGGLE) / (float)lSizes.tDim;
+            float zTex = ((float)z - (float)lSizes.tDimStart + AFK_SAMPLE_WIGGLE) / (float)lSizes.tDim;
 
             vertices.push_back(AFK_TerrainBaseTileVertex(
                 afk_vec3<float>(xCoord, 0.0f, zCoord),
@@ -45,10 +50,8 @@ AFK_TerrainBaseTile::AFK_TerrainBaseTile(const AFK_LandscapeSizes& lSizes):
             indices.push_back(i_r1c1);
             indices.push_back(i_r1c2);
             indices.push_back(i_r2c1);
-
-            indices.push_back(i_r1c2);
             indices.push_back(i_r2c2);
-            indices.push_back(i_r2c1);
+            indices.push_back(RESTART_INDEX);
         }
     }
 }
@@ -83,6 +86,15 @@ void AFK_TerrainBaseTile::initGL()
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, AFK_TER_BASE_VERTEX_SIZE, 0);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, AFK_TER_BASE_VERTEX_SIZE, (GLvoid *)sizeof(Vec3<float>));
+
+    glEnable(GL_PRIMITIVE_RESTART);
+    glPrimitiveRestartIndex(RESTART_INDEX);
+}
+
+void AFK_TerrainBaseTile::draw(unsigned int instanceCount) const
+{
+    glDrawElementsInstanced(GL_TRIANGLE_STRIP, indices.size(), GL_UNSIGNED_SHORT, 0, instanceCount);
+    AFK_GLCHK("terrain draw")
 }
 
 void AFK_TerrainBaseTile::teardownGL(void) const

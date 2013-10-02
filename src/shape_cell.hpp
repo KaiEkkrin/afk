@@ -56,6 +56,8 @@ protected:
     AFK_JigsawPiece edgeJigsawPiece;
     AFK_Frame edgeJigsawPieceTimestamp;
 
+    Vec4<float> getBaseColour(void) const;
+
 public:
     /* Binds a shape cell to the shape. */
     void bind(const AFK_KeyedCell& _cell);

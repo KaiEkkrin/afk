@@ -15,8 +15,8 @@ typedef GLXFBConfig* (*glXChooseFBConfigProc)(Display*, int, const int*, int*);
 
 /* Attributes used to initialise the GLX context. */
 int glAttr[] = {
-    GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
-    GLX_CONTEXT_MINOR_VERSION_ARB, 3,
+    GLX_CONTEXT_MAJOR_VERSION_ARB, 4,
+    GLX_CONTEXT_MINOR_VERSION_ARB, 0,
     GLX_CONTEXT_FLAGS_ARB,          GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
     GLX_CONTEXT_PROFILE_MASK_ARB,   GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
     0
