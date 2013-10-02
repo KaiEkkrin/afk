@@ -634,6 +634,8 @@ AFK_World::AFK_World(
 
     landscape_shaderLight = new AFK_ShaderLight(landscape_shaderProgram->program);
     landscape_clipTransformLocation = glGetUniformLocation(landscape_shaderProgram->program, "ClipTransform");
+    landscape_skyColourLocation = glGetUniformLocation(landscape_shaderProgram->program, "SkyColour");
+    landscape_farClipDistanceLocation = glGetUniformLocation(landscape_shaderProgram->program, "FarClipDistance");
 
     entity_shaderProgram = new AFK_ShaderProgram();
     *entity_shaderProgram << "shape_fragment" << "shape_geometry" << "shape_vertex";
@@ -883,6 +885,8 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     glUseProgram(landscape_shaderProgram->program);
     landscape_shaderLight->setupLight(globalLight);
     glUniformMatrix4fv(landscape_clipTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
+    glUniform3fv(landscape_skyColourLocation, 1, &afk_core.skyColour.v[0]);
+    glUniform1f(landscape_farClipDistanceLocation, afk_core.config->zFar);
     AFK_GLCHK("landscape uniforms")
 
     glBindVertexArray(landscapeTileArray);

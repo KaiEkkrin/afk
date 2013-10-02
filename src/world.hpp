@@ -104,6 +104,8 @@ protected:
     AFK_ShaderProgram *landscape_shaderProgram;
     AFK_ShaderLight *landscape_shaderLight;
     GLuint landscape_clipTransformLocation;
+    GLuint landscape_skyColourLocation;
+    GLuint landscape_farClipDistanceLocation;
     Vec3<float> landscape_baseColour;
 
     /* Entity shader details. */
