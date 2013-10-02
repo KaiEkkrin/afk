@@ -112,6 +112,8 @@ protected:
     AFK_ShaderProgram *entity_shaderProgram;
     AFK_ShaderLight *entity_shaderLight;
     GLuint entity_projectionTransformLocation;
+    GLuint entity_skyColourLocation;
+    GLuint entity_farClipDistanceLocation;
 
     /* The cache of world cells we're tracking.
      */
