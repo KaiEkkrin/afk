@@ -1,6 +1,6 @@
 /* AFK (c) Alex Holloway 2013 */
 
-#include <stdlib.h>
+#include <cstdlib>
 
 #include "rng.hpp"
 
@@ -16,6 +16,11 @@ static unsigned int squash_to_int(unsigned long long in)
 
     return out ^ LROTATE_UNSIGNED(mid, 19);
 }
+
+/* TODO: I think I should rework the below to use boost::hash_combine and
+ * funky multipliers, like the hash_value function in cell.
+ * It's better.
+ */
 
 AFK_RNG_Value::AFK_RNG_Value(long long v0, long long v1, long long v2, long long v3)
 {

@@ -217,6 +217,7 @@ __kernel void makeLandscapeTerrain(
     __global const struct AFK_TerrainFeature *features,
     __global const struct AFK_TerrainTile *tiles,
     __global const struct AFK_TerrainComputeUnit *units,
+    const float4 baseColour,
     __write_only image2d_t jigsawYDisp,
     __write_only image2d_t jigsawColour)
 {
@@ -258,6 +259,7 @@ __kernel void makeLandscapeTerrain(
      * on how many terrain tiles you had
      */
     vc = normalize(vc);
+    vc = (3.0f * baseColour.xyz + vc) / 4.0f;
 
     /* Fill out the texels from my computed values. */
     int2 jigsawCoord = units[unitOffset].piece * TDIM + (int2)(xdim, zdim);

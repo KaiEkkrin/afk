@@ -66,13 +66,7 @@ public:
     AFK_Computer        *computer;
     AFK_Window          *window;
 
-    /* The random number generator.
-     * TODO: The re-seeding process is serial, and I
-     * don't want to be making these on the fly.
-     * Therefore, if I shift to a threaded model (likely),
-     * I need to be making one of these per worker thread
-     * (in thread-local storage).
-     */
+    /* This RNG is used only for setting things up. */
     AFK_RNG             *rng;
 
     /* This is the frame currently being rendered. */
@@ -93,6 +87,9 @@ public:
 
     /* Global lighting. */
     AFK_Light           sun;
+
+    /* Base colour. */
+    Vec3<float>         skyColour;
 
     /* To track various special objects. */
     AFK_DisplayedProtagonist        *protagonist;

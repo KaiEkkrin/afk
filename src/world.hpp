@@ -31,6 +31,7 @@
 #include "jigsaw_collection.hpp"
 #include "landscape_display_queue.hpp"
 #include "landscape_tile.hpp"
+#include "rng/rng.hpp"
 #include "shader.hpp"
 #include "shape.hpp"
 #include "terrain_base_tile.hpp"
@@ -103,6 +104,7 @@ protected:
     AFK_ShaderProgram *landscape_shaderProgram;
     AFK_ShaderLight *landscape_shaderLight;
     GLuint landscape_clipTransformLocation;
+    Vec3<float> landscape_baseColour;
 
     /* Entity shader details. */
     AFK_ShaderProgram *entity_shaderProgram;
@@ -248,7 +250,8 @@ public:
         unsigned int worldCacheSize, /* in bytes */
         unsigned int tileCacheSize, /* also in bytes */
         unsigned int shapeCacheSize, /* likewise */
-        cl_context ctxt);
+        cl_context ctxt,
+        AFK_RNG *setupRng);
     virtual ~AFK_World();
 
     /* Helper for the below -- requests a particular cell

@@ -28,6 +28,8 @@ public:
     /* Displacement and scale compared to the base cube. */
     Vec4<float> location;
 
+    Vec4<float> baseColour;
+
     Vec4<int> vapourPiece; /* a vec4 because OpenCL wants one to access a 3D texture */
 
     int adjacencies; /* Bitmask: for faces 0-5 inclusive,
@@ -47,6 +49,7 @@ public:
     AFK_3DVapourComputeUnit();
     AFK_3DVapourComputeUnit(
         const Vec4<float>& _location,
+        const Vec4<float>& _baseColour,
         const AFK_JigsawPiece& _vapourJigsawPiece,
         int _adjacencies,
         int _cubeOffset,
@@ -99,6 +102,7 @@ public:
      */
     AFK_3DVapourComputeUnit addUnit(
         const Vec4<float>& location,
+        const Vec4<float>& baseColour,
         const AFK_JigsawPiece& vapourJigsawPiece,
         int adjacencies,
         unsigned int cubeOffset,

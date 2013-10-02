@@ -510,7 +510,8 @@ AFK_World::AFK_World(
     unsigned int worldCacheSize,
     unsigned int tileCacheSize,
     unsigned int shapeCacheSize,
-    cl_context ctxt):
+    cl_context ctxt,
+    AFK_RNG *setupRng):
         startingDetailPitch         (config->startingDetailPitch),
         maxDetailPitch              (config->maxDetailPitch),
         detailPitch                 (config->startingDetailPitch), /* This is a starting point */
@@ -657,6 +658,10 @@ AFK_World::AFK_World(
 
     glBindVertexArray(0);
     edgeShapeBase->teardownGL();
+
+    /* Make the base colour for the landscape here */
+    landscape_baseColour = afk_vec3<float>(
+        setupRng->frand(), setupRng->frand(), setupRng->frand());
 
     /* Initialise the statistics. */
     cellsInvisible.store(0);
@@ -833,7 +838,7 @@ void AFK_World::doComputeTasks(void)
      */
     for (unsigned int puzzle = 0; puzzle < terrainComputeQueues.size(); ++puzzle)
     {
-        terrainComputeQueues[puzzle]->computeStart(afk_core.computer, landscapeJigsaws->getPuzzle(puzzle), lSizes);
+        terrainComputeQueues[puzzle]->computeStart(afk_core.computer, landscapeJigsaws->getPuzzle(puzzle), lSizes, landscape_baseColour);
     }
 
     std::vector<boost::shared_ptr<AFK_3DVapourComputeQueue> > vapourComputeQueues;

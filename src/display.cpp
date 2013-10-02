@@ -149,6 +149,7 @@ void afk_display(void)
         lastWindowHeight = windowHeight;
     }
 
+    glClearColor(afk_core.skyColour.v[0], afk_core.skyColour.v[1], afk_core.skyColour.v[2], 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glEnable(GL_DEPTH_TEST);

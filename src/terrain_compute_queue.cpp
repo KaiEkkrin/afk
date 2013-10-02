@@ -95,7 +95,8 @@ std::string AFK_TerrainComputeQueue::debugTerrain(const AFK_TerrainComputeUnit& 
 void AFK_TerrainComputeQueue::computeStart(
     AFK_Computer *computer,
     AFK_Jigsaw *jigsaw,
-    const AFK_LandscapeSizes& lSizes)
+    const AFK_LandscapeSizes& lSizes,
+    const Vec3<float>& baseColour)
 {
     boost::unique_lock<boost::mutex> lock(mut);
     cl_int error;
@@ -142,14 +143,17 @@ void AFK_TerrainComputeQueue::computeStart(
     AFK_HANDLE_CL_ERROR(error);
 
     /* Set up the rest of the terrain parameters */
+    Vec4<float> baseColour4 = afk_vec4<float>(baseColour, 0.0f);
+
     preTerrainWaitList.clear();
     cl_mem *jigsawMem = jigsaw->acquireForCl(ctxt, q, preTerrainWaitList);
 
     AFK_CLCHK(clSetKernelArg(terrainKernel, 0, sizeof(cl_mem), &terrainBufs[0]))
     AFK_CLCHK(clSetKernelArg(terrainKernel, 1, sizeof(cl_mem), &terrainBufs[1]))
     AFK_CLCHK(clSetKernelArg(terrainKernel, 2, sizeof(cl_mem), &terrainBufs[2]))
-    AFK_CLCHK(clSetKernelArg(terrainKernel, 3, sizeof(cl_mem), &jigsawMem[0]))
-    AFK_CLCHK(clSetKernelArg(terrainKernel, 4, sizeof(cl_mem), &jigsawMem[1]))
+    AFK_CLCHK(clSetKernelArg(terrainKernel, 3, sizeof(cl_float4), &baseColour4.v[0]))
+    AFK_CLCHK(clSetKernelArg(terrainKernel, 4, sizeof(cl_mem), &jigsawMem[0]))
+    AFK_CLCHK(clSetKernelArg(terrainKernel, 5, sizeof(cl_mem), &jigsawMem[1]))
 
     size_t terrainDim[3];
     terrainDim[0] = terrainDim[1] = lSizes.tDim;
