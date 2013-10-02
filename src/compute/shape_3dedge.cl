@@ -774,6 +774,24 @@ bool noOverlap(
     return true;
 }
 
+#define FAKE_COLOURS 0
+
+#if FAKE_COLOURS
+/* This debug function supplies a useful false colour. */
+float4 getFakeColour(int face)
+{
+    switch (face)
+    {
+    case 0:     return (float4)(1.0f, 0.0f, 0.0f, 0.0f);
+    case 1:     return (float4)(0.0f, 1.0f, 0.0f, 0.0f);
+    case 2:     return (float4)(0.0f, 0.0f, 1.0f, 0.0f);
+    case 3:     return (float4)(0.0f, 1.0f, 1.0f, 0.0f);
+    case 4:     return (float4)(1.0f, 0.0f, 1.0f, 0.0f);
+    default:    return (float4)(1.0f, 1.0f, 0.0f, 0.0f);
+    }
+}
+#endif
+
 
 #define TEST_CUBE 0
 
@@ -872,7 +890,11 @@ __kernel void makeShape3DEdge(
                 float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
 
                 write_imagef(jigsawDisp, edgeCoord, edgeVertex);
+#if FAKE_COLOURS
+                write_imagef(jigsawColour, edgeCoord, getFakeColour(face));
+#else
                 write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
+#endif
                 write_imagef(jigsawNormal, edgeCoord, rotateNormal((float4)(0.0f, 1.0f, 0.0f, 0.0f), face));
 
                 foundEdge |= (1<<face);
@@ -889,7 +911,11 @@ __kernel void makeShape3DEdge(
                     float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
 
                     write_imagef(jigsawDisp, edgeCoord, edgeVertex);
+#if FAKE_COLOURS
+                    write_imagef(jigsawColour, edgeCoord, getFakeColour(face));
+#else
                     write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
+#endif
 
                     float4 normal = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
                     for (int xN = -1; xN <= 1; xN += 2)

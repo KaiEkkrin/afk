@@ -43,9 +43,6 @@ out GeometryData
 {
     vec3 normal;
     vec2 jigsawCoord;
-
-    // TODO REMOVE DEBUG
-    vec4 shaderDebugColour;
 } outData;
 
 
@@ -54,8 +51,7 @@ void emitShapeVertex(
     mat4 WorldTransform,
     vec2 jigsawPieceCoord,
     vec2 texCoordDisp,
-    int i,
-    vec4 debugColour)
+    int i)
 {
     vec2 jigsawCoord = jigsawPieceCoord + JigsawPiecePitch * (inData[i].texCoord + texCoordDisp);
     vec4 dispPosition = textureLod(JigsawDispTex, jigsawCoord, 0);
@@ -65,7 +61,6 @@ void emitShapeVertex(
     vec4 normal = textureLod(JigsawNormalTex, jigsawCoord, 0);
     outData.normal = (WorldTransform * normal).xyz;
     outData.jigsawCoord = jigsawCoord;
-    outData.shaderDebugColour = debugColour;
     EmitVertex();
 }
 
@@ -77,22 +72,21 @@ void emitShapeSingleTriangle(
     int i,
     int j,
     int k,
-    int face,
-    vec4 debugColour)
+    int face)
 {
     switch (face)
     {
     case 1: case 2: case 5:
         /* Flip this triangle over. */
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, i, debugColour);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, k, debugColour);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, j, debugColour);
+        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, i);
+        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, k);
+        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, j);
         break;
 
     default:
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, i, debugColour);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, j, debugColour);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, k, debugColour);
+        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, i);
+        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, j);
+        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, k);
         break;
     }
 }
@@ -106,41 +100,29 @@ void emitShapeTrianglePair(
     int j,
     int k,
     int l,
-    int face,
-    vec4 debugColour)
+    int face)
 {
     switch (face)
     {
     case 1: case 2: case 5:
         /* Flip this triangle over. */
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, i, debugColour);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, k, debugColour);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, j, debugColour);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, l, debugColour);
+        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, i);
+        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, k);
+        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, j);
+        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, l);
         break;
 
     default:
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, i, debugColour);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, j, debugColour);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, k, debugColour);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, l, debugColour);
+        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, i);
+        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, j);
+        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, k);
+        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, l);
         break;
     }
 }
 
 void main()
 {
-    /* Debug colour that highlights different faces. */
-    vec4 debugColour = vec4(1.0, 0.0, 0.0, 0.0);
-    switch (gl_InvocationID)
-    {
-    case 1: debugColour = vec4(0.0, 1.0, 0.0, 0.0); break;
-    case 2: debugColour = vec4(0.0, 0.0, 1.0, 0.0); break;
-    case 3: debugColour = vec4(1.0, 1.0, 0.0, 0.0); break;
-    case 4: debugColour = vec4(1.0, 0.0, 1.0, 0.0); break;
-    case 5: debugColour = vec4(0.0, 1.0, 1.0, 0.0); break;
-    }
-
     /* Reconstruct this instance's jigsaw piece coord.
      */
     vec2 jigsawPieceCoord = texelFetch(DisplayTBO, inData[0].instanceId * 5 + 4).xy;
@@ -195,27 +177,27 @@ void main()
         switch (overlap)
         {
         case 1:
-            emitShapeSingleTriangle(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 0, 1, 2, gl_InvocationID, debugColour);
+            emitShapeSingleTriangle(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 0, 1, 2, gl_InvocationID);
             break;
             
         case 2:
-            emitShapeSingleTriangle(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 1, 3, 2, gl_InvocationID, debugColour);
+            emitShapeSingleTriangle(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 1, 3, 2, gl_InvocationID);
             break;
 
         case 3:
-            emitShapeTrianglePair(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 0, 1, 2, 3, gl_InvocationID, debugColour);
+            emitShapeTrianglePair(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 0, 1, 2, 3, gl_InvocationID);
             break;
 
         case 5:
-            emitShapeSingleTriangle(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 2, 0, 3, gl_InvocationID, debugColour);
+            emitShapeSingleTriangle(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 2, 0, 3, gl_InvocationID);
             break;
 
         case 6:
-            emitShapeSingleTriangle(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 3, 0, 1, gl_InvocationID, debugColour);
+            emitShapeSingleTriangle(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 3, 0, 1, gl_InvocationID);
             break;
 
         case 7:
-            emitShapeTrianglePair(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 2, 0, 3, 1, gl_InvocationID, debugColour);
+            emitShapeTrianglePair(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 2, 0, 3, 1, gl_InvocationID);
             break;
         }
 

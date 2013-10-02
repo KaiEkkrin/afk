@@ -11,9 +11,6 @@ in GeometryData
 {
     vec3 normal;
     vec2 jigsawCoord;
-
-    // TODO REMOVE DEBUG
-    vec4 shaderDebugColour;
 } inData;
 
 out vec4 FragColor;
@@ -30,8 +27,7 @@ uniform Light gLight;
 
 void main()
 {
-    //vec3 colour = textureLod(JigsawColourTex, inData.jigsawCoord, 0).xyz;
-    vec3 colour = normalize(inData.shaderDebugColour).xyz;
+    vec3 colour = textureLod(JigsawColourTex, inData.jigsawCoord, 0).xyz;
     vec3 normal = normalize(inData.normal);
 
     vec3 AmbientColour = gLight.Colour * gLight.Ambient;

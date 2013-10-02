@@ -281,12 +281,20 @@ void transformAdjacentFaceDensity(float4 *vc, int xdim, int ydim, int zdim, int3
          * are not.
          */
         float4 vcnew = *vc;
+
+#define DENSITY_FALSE_COLOUR 0
+
+#if DENSITY_FALSE_COLOUR
         vcnew.xyz = (float3)(0.0f, 1.0f, 0.0f);
 
         float4 faceDensity = (float4)(
             1.0f, 0.0f, 1.0f,
-            //(*vc).xyz,
             -THRESHOLD * FEATURE_COUNT_PER_CUBE);
+#else
+        float4 faceDensity = (float4)(
+            vcnew.xyz,
+            -THRESHOLD * FEATURE_COUNT_PER_CUBE);
+#endif
         float dff = (float)distanceFromClosestFace;
         float dfc = (float)(VDIM / 2);
 
@@ -418,15 +426,6 @@ __kernel void makeShape3DVapour(
      * last?  I've yet to be sure.
      */
     transformFaceDensity(&vc, xdim, ydim, zdim, units[unitOffset].adjacency);
-
-    /* TODO: Colour testing. */
-#if 0
-    vc = (float4)(
-        (float)xdim / (float)TDIM,
-        (float)ydim / (float)TDIM,
-        (float)zdim / (float)TDIM,
-        vc.w);
-#endif
 
     /* TODO: For now, I'm going to transfer all this into an all-float
      * image.  In future, I probably want to try to cram it into 8
