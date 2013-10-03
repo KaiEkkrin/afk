@@ -82,10 +82,6 @@ struct AFK_3DVapourFeature
     unsigned char f[8];
 };
 
-/* ---Like landscape_terrain--- */
-__constant float maxFeatureSize = 1.0f / ((float)POINT_SUBDIVISION_FACTOR);
-__constant float minFeatureSize = (1.0f / ((float)POINT_SUBDIVISION_FACTOR)) / ((float)SUBDIVISION_FACTOR);
-
 void compute3DVapourFeature(
     float3 vl,
     float4 *vc, /* (red, green, blue, density) */
@@ -98,7 +94,7 @@ void compute3DVapourFeature(
      * in order to be sure I can drop adjacent cubes?  Or shall I
      * just include adjacent cubes and ignore half-cubes?
      */
-    float radius = (float)features[i].f[AFK_3DVF_RADIUS] * (maxFeatureSize - minFeatureSize) / 256.0f + minFeatureSize;
+    float radius = (float)features[i].f[AFK_3DVF_RADIUS] * (FEATURE_MAX_SIZE - FEATURE_MIN_SIZE) / 256.0f + FEATURE_MIN_SIZE;
 
     float3 location = (float3)(
         (float)features[i].f[AFK_3DVF_X],
@@ -428,7 +424,7 @@ __kernel void makeShape3DVapour(
     /* TODO: Should I do this every time, or only on the
      * last?  I've yet to be sure.
      */
-    transformFaceDensity(&vc, xdim, ydim, zdim, units[unitOffset].baseColour, units[unitOffset].adjacency);
+    //transformFaceDensity(&vc, xdim, ydim, zdim, units[unitOffset].baseColour, units[unitOffset].adjacency);
 
     /* TODO: For now, I'm going to transfer all this into an all-float
      * image.  In future, I probably want to try to cram it into 8

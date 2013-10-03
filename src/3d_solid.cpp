@@ -57,30 +57,62 @@ void AFK_3DVapourCube::make(
             feature.f[j] = (unsigned char)((rng.frand() * (coordMax - coordMin) + coordMin) * 256.0f);
         }
 #else
+#if 0
         for (j = 0; j < 3; ++j)
         {
             /* Let's try confining everything to the centre of the bone
-             * to make sure I don't get side overlaps
-             * (bet I do)
+             * to make sure I don't get side overlaps.
+             * With the feature sizes necessary to avoid chiffon, I pretty
+             * much end up slipping off the edge of the skeleton as soon
+             * as I deviate from here...
              */
             float coord = ((float)bones[b].coord.v[j] + 0.5f) / (float)sSizes.skeletonFlagGridDim;
             feature.f[j] = (unsigned char)(coord * 256.0f);
         }
+#else
+        /* Okay, now let's try joining this up with the adjacency info,
+         * and allowing features to slide along the skeleton between
+         * joints.
+         */
+        Vec3<float> coordMin = afk_vec3<float>(
+            ((float)bones[b].coord.v[0]) + 0.5f,
+            ((float)bones[b].coord.v[1]) + 0.5f,
+            ((float)bones[b].coord.v[2]) + 0.5f) / (float)sSizes.skeletonFlagGridDim;
+        Vec3<float> coordMax = coordMin;
+
+        float slide = 0.5f / (float)sSizes.skeletonFlagGridDim;
+
+        /* TODO This is wrong (I need full adjacency to get it right),
+         * but I want to try it anyway to see if it produces results
+         * somewhere near what I want.
+         */
+        for (int face = 0; face < 6; ++face)
+        {
+            if (skeleton.within(bones[b].adjacentCube(face)))
+            {
+                switch (face)
+                {
+                case 0: coordMin.v[1] -= slide; break;
+                case 1: coordMin.v[0] -= slide; break;
+                case 2: coordMin.v[2] -= slide; break;
+                case 3: coordMax.v[2] += slide; break;
+                case 4: coordMax.v[0] += slide; break;
+                case 5: coordMax.v[1] += slide; break;
+                }
+            }
+        }
+
+        for (j = 0; j < 3; ++j)
+        {
+            feature.f[j] = (unsigned char)((rng.frand() * (coordMax.v[j] - coordMin.v[j]) + coordMin.v[j]) * 256.0f);
+        }
+#endif
 #endif
 
         /* The rest can be arbitrary. */
         for (; j < 8; ++j)
         {
-            if (j == 6)
-            {
-                /* TODO: Let's try making that radius quite small */
-                feature.f[j] = (unsigned char)(
-                    256.0f * 0.25f / (float)sSizes.skeletonFlagGridDim);
-            }
-            else
-            {
-                feature.f[j] = (unsigned char)(rng.frand() * 256.0f);
-            }
+            feature.f[j] = (unsigned char)(rng.frand() * 256.0f);
         }
 
         features.push_back(feature);
