@@ -2,10 +2,12 @@
 
 #include "afk.hpp"
 
+#include <cassert>
 #include <cstring>
 #include <sstream>
 
 #include "3d_solid.hpp"
+#include "debug.hpp"
 
 std::ostream& operator<<(std::ostream& os, const AFK_3DVapourFeature& feature)
 {
@@ -17,10 +19,161 @@ std::ostream& operator<<(std::ostream& os, const AFK_3DVapourFeature& feature)
 
 /* AFK_3DVapourCube implementation. */
 
+static void getAxisMinMax(
+    float mid,
+    float slide,
+    int adj, /* -1, 0, or 1 */
+    float& o_min,
+    float& o_max)
+{
+    assert(adj >= -1 && adj <= 1);
+    
+    switch (adj)
+    {
+    case -1:
+        o_min = mid - slide;
+        o_max = mid;
+        break;
+
+    case 0:
+        o_min = mid;
+        o_max = mid;
+        break;
+
+    case 1:
+        o_min = mid;
+        o_max = mid + slide;
+        break;
+    }
+}
+
+void AFK_3DVapourCube::addRandomFeatureAtAdjacencyBit(
+    std::vector<AFK_3DVapourFeature>& features,
+    int thisAdj,
+    const Vec3<float>& coordMid,
+    float slide,
+    AFK_RNG& rng)
+{
+    /* Work out what this adjacency's deviation from the middle in
+     * each of the 3 directions is.
+     */
+    Vec3<int> dev = afk_vec3<int>(0, 0, 0);
+    bool foundDev = false;
+    for (int x = -1; !foundDev && x <= 1; ++x)
+    {
+        for (int y = -1; !foundDev && y <= 1; ++y)
+        {
+            for (int z = -1; !foundDev && z <= 1; ++z)
+            {
+                if ((thisAdj & (1 << (9 * (x+1) + 3 * (y+1) + (z+1)))) != 0)
+                {
+                    dev = afk_vec3<int>(x, y, z);
+                    foundDev = true;
+                }
+            }
+        }
+    }
+
+    assert(foundDev);
+
+    Vec3<float> coordMin, coordMax;
+    for (int i = 0; i < 3; ++i)
+    {
+        getAxisMinMax(coordMid.v[i], slide, dev.v[i], coordMin.v[i], coordMax.v[i]);
+    }
+
+#define DEBUG_AXIS_MINMAX 0
+
+#if DEBUG_AXIS_MINMAX
+    std::ostringstream dbgs;
+    dbgs << "Feature with axis min " << coordMin << ", axis max " << coordMax;
+    int diffs = 0;
+    for (int i = 0; i < 3; ++i)
+    {
+        assert(coordMax.v[i] >= coordMin.v[i]);
+        if (coordMin.v[i] != coordMax.v[i]) ++diffs;
+    }
+    dbgs << " (" << diffs << " differences)";
+    AFK_DEBUG_PRINTL(dbgs.str())
+#endif
+
+    /* Finally!  I've got the possible locations.  Fill out the feature. */
+    AFK_3DVapourFeature feature;
+    int j;
+    for (j = 0; j < 3; ++j)
+    {
+        feature.f[j] = (unsigned char)((rng.frand() * (coordMax.v[j] - coordMin.v[j]) + coordMin.v[j]) * 256.0f);
+    }
+
+    /* Non-location values can be arbitrary. */
+    for (; j < 8; ++j)
+    {
+        feature.f[j] = (unsigned char)(rng.frand() * 256.0f);
+    }
+
+    features.push_back(feature);
+}
+
+void AFK_3DVapourCube::addRandomFeature(
+    std::vector<AFK_3DVapourFeature>& features,
+    int thisAdj,
+    const Vec3<float>& coordMid,
+    float slide,
+    AFK_RNG& rng)
+{
+    /* Count up the number of ones in `thisAdj' */
+    int thisAdjOnes = 0;
+    for (unsigned int i = 0; i < (sizeof(int) * 8); ++i)
+        if ((thisAdj & (1<<i)) != 0) ++thisAdjOnes;
+
+    if (thisAdjOnes == 0) return;
+
+    /* Decide which adjacency to go for.
+     * Note that sometimes I won't go for an adjacency but
+     * instead drop out, allowing me to add a feature at a
+     * lower adjacency instead.
+     */
+    unsigned int decider = (rng.uirand() & 0x7fffffff); /* no negatives, please */
+    if ((decider & 3) == 0) return;
+    decider = decider >> 2;
+    int decIndex = decider % thisAdjOnes;
+
+    /* I'll draw a feature at a bit if it's unmasked and
+     * the decider index points to it.
+     */
+    int decBit = 0;
+    for (unsigned int i = 0; i < (sizeof(int) * 8); ++i)
+    {
+        if ((thisAdj & (1<<i)) != 0)
+        {
+            if (decIndex-- == 0)
+            {
+                decBit = (1<<i);
+                break;
+            }
+        }
+    }
+
+    addRandomFeatureAtAdjacencyBit(
+        features,
+        decBit,
+        coordMid,
+        slide,
+        rng);
+}
+
 Vec4<float> AFK_3DVapourCube::getCubeCoord(void) const
 {
     return coord;
 }
+
+#define TRYFADJ_SIZE 4
+const int tryFAdj[TRYFADJ_SIZE] = {
+    0505000505,
+    0252505252,
+    0020252020,
+    0000020000
+};
 
 void AFK_3DVapourCube::make(
     std::vector<AFK_3DVapourFeature>& features,
@@ -36,78 +189,63 @@ void AFK_3DVapourCube::make(
      * To do this, enumerate the skeleton's bones...
      */
     std::vector<AFK_SkeletonCube> bones;
-    AFK_Skeleton::Bones bonesEnum(skeleton);
-    while (bonesEnum.hasNext()) bones.push_back(bonesEnum.next());
+    std::vector<int> bonesFullAdjacency;
+    int boneCount = skeleton.getBoneCount();
 
-    for (unsigned int i = 0; i < sSizes.featureCountPerCube; ++i)
+    bones.reserve(boneCount);
+    bonesFullAdjacency.reserve(boneCount);
+
+    AFK_Skeleton::Bones bonesEnum(skeleton);
+    while (bonesEnum.hasNext())
+    {
+        AFK_SkeletonCube nextBone = bonesEnum.next();
+        bones.push_back(nextBone);
+        bonesFullAdjacency.push_back(skeleton.getFullAdjacency(nextBone));
+    }
+
+    while (features.size() < sSizes.featureCountPerCube)
     {
         AFK_3DVapourFeature feature;
 
         unsigned int j;
-        unsigned int b = rng.uirand() % bones.size();
+        unsigned int selector = rng.uirand();
+        unsigned int b = selector % bones.size();
+        selector = selector / bones.size();
 
-        /* x, y and z must be near the bone. */
-        /* TODO Experimentally twiddling this. */
-#if 0
-        for (j = 0; j < 3; ++j)
-        {
-            float coordMin = std::max(((((float)bones[b].coord.v[j]) - 0.5f) / (float)sSizes.skeletonFlagGridDim), 0.0f);
-            float coordMax = std::min(((((float)bones[b].coord.v[j]) + 1.5f) / (float)sSizes.skeletonFlagGridDim), 1.0f);
-
-            feature.f[j] = (unsigned char)((rng.frand() * (coordMax - coordMin) + coordMin) * 256.0f);
-        }
-#else
-#if 0
-        for (j = 0; j < 3; ++j)
-        {
-            /* Let's try confining everything to the centre of the bone
-             * to make sure I don't get side overlaps.
-             * With the feature sizes necessary to avoid chiffon, I pretty
-             * much end up slipping off the edge of the skeleton as soon
-             * as I deviate from here...
-             */
-            float coord = ((float)bones[b].coord.v[j] + 0.5f) / (float)sSizes.skeletonFlagGridDim;
-            feature.f[j] = (unsigned char)(coord * 256.0f);
-        }
-#else
-        /* Okay, now let's try joining this up with the adjacency info,
-         * and allowing features to slide along the skeleton between
-         * joints.
-         */
-        Vec3<float> coordMin = afk_vec3<float>(
+        /* This defines the centre of the bone that I picked. */
+        Vec3<float> coordMid = afk_vec3<float>(
             ((float)bones[b].coord.v[0]) + 0.5f,
             ((float)bones[b].coord.v[1]) + 0.5f,
             ((float)bones[b].coord.v[2]) + 0.5f) / (float)sSizes.skeletonFlagGridDim;
-        Vec3<float> coordMax = coordMin;
 
+        /* This defines the maximum displacement in any direction,
+         * assuming suitable adjacency.
+         */
         float slide = 0.5f / (float)sSizes.skeletonFlagGridDim;
 
-        /* TODO This is wrong (I need full adjacency to get it right),
-         * but I want to try it anyway to see if it produces results
-         * somewhere near what I want.
+        /* Go through each of the possible adjacencies to put a
+         * feature near.  I'll prefer the earlier ones, because
+         * they give me a wider range of movement, as it were.
          */
-        for (int face = 0; face < 6; ++face)
+        /* TODO I think there are errors either in my adjacency
+         * information, or the way I'm testing it.  Using a value
+         * of `t' less than 2 here (correctly I should be using 0)
+         * causes me to see many cutouts, indicating features that
+         * overlapped over the side of the skeleton ... */
+        for (int t = 2; t < TRYFADJ_SIZE; ++t)
         {
-            if (skeleton.within(bones[b].adjacentCube(face)))
+            int thisAdj = (bonesFullAdjacency[b] & tryFAdj[t]);
+            if (thisAdj != 0)
             {
-                switch (face)
-                {
-                case 0: coordMin.v[1] -= slide; break;
-                case 1: coordMin.v[0] -= slide; break;
-                case 2: coordMin.v[2] -= slide; break;
-                case 3: coordMax.v[2] += slide; break;
-                case 4: coordMax.v[0] += slide; break;
-                case 5: coordMax.v[1] += slide; break;
-                }
+                addRandomFeature(
+                    features,
+                    thisAdj,
+                    coordMid,
+                    slide,
+                    rng);
+                break;
             }
         }
-
-        for (j = 0; j < 3; ++j)
-        {
-            feature.f[j] = (unsigned char)((rng.frand() * (coordMax.v[j] - coordMin.v[j]) + coordMin.v[j]) * 256.0f);
-        }
-#endif
-#endif
 
         /* The rest can be arbitrary. */
         for (; j < 8; ++j)

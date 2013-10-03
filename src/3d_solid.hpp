@@ -47,6 +47,21 @@ class AFK_3DVapourCube
 protected:
     Vec4<float> coord;
 
+    /* Worker functions for `make'. */
+    void addRandomFeatureAtAdjacencyBit(
+        std::vector<AFK_3DVapourFeature>& features,
+        int adjBit,
+        const Vec3<float>& coordMid,
+        float slide,
+        AFK_RNG& rng);
+
+    void addRandomFeature(
+        std::vector<AFK_3DVapourFeature>& features,
+        int thisAdj,
+        const Vec3<float>& coordMid,
+        float slide,
+        AFK_RNG& rng);
+
 public:
     Vec4<float> getCubeCoord(void) const;
 
