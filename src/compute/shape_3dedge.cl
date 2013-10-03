@@ -929,7 +929,7 @@ __kernel void makeShape3DEdge(
                         }
                     }
     
-                    write_imagef(jigsawNormal, edgeCoord, rotateNormal(normalize(normal), face));
+                    write_imagef(jigsawNormal, edgeCoord, (float4)(normalize(normal.xyz), 0.0f));
                     foundEdge |= (1<<face);
                     edgeStepsBack[xdim][zdim][face] = stepsBack;
                 }
