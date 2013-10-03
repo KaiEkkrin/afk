@@ -13,7 +13,8 @@ AFK_ShapeSizes::AFK_ShapeSizes(
     eDim(config->shape_pointSubdivisionFactor + 1), /* one extra vertex along the top and right sides to join with the adjacent tile */
     tDim(config->shape_pointSubdivisionFactor + 3),
     iDim(config->shape_pointSubdivisionFactor),
-    featureCountPerCube(CUBE(config->shape_pointSubdivisionFactor / 2) / 2),
+    /* featureCountPerCube(CUBE(config->shape_pointSubdivisionFactor / 2) / 2), */
+    featureCountPerCube(1),
     skeletonMaxSize(config->shape_skeletonMaxSize * 2),
     skeletonFlagGridDim(config->shape_skeletonFlagGridDim),
     skeletonBushiness(1.0f / 4.0f),

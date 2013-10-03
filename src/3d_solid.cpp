@@ -47,6 +47,8 @@ void AFK_3DVapourCube::make(
         unsigned int b = rng.uirand() % bones.size();
 
         /* x, y and z must be near the bone. */
+        /* TODO Experimentally twiddling this. */
+#if 0
         for (j = 0; j < 3; ++j)
         {
             float coordMin = std::max(((((float)bones[b].coord.v[j]) - 0.5f) / (float)sSizes.skeletonFlagGridDim), 0.0f);
@@ -54,11 +56,31 @@ void AFK_3DVapourCube::make(
 
             feature.f[j] = (unsigned char)((rng.frand() * (coordMax - coordMin) + coordMin) * 256.0f);
         }
+#else
+        for (j = 0; j < 3; ++j)
+        {
+            /* Let's try confining everything to the centre of the bone
+             * to make sure I don't get side overlaps
+             * (bet I do)
+             */
+            float coord = ((float)bones[b].coord.v[j] + 0.5f) / (float)sSizes.skeletonFlagGridDim;
+            feature.f[j] = (unsigned char)(coord * 256.0f);
+        }
+#endif
 
         /* The rest can be arbitrary. */
         for (; j < 8; ++j)
         {
-            feature.f[j] = (unsigned char)(rng.frand() * 256.0f);
+            if (j == 6)
+            {
+                /* TODO: Let's try making that radius quite small */
+                feature.f[j] = (unsigned char)(
+                    256.0f * 0.25f / (float)sSizes.skeletonFlagGridDim);
+            }
+            else
+            {
+                feature.f[j] = (unsigned char)(rng.frand() * 256.0f);
+            }
         }
 
         features.push_back(feature);
