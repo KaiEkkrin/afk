@@ -189,18 +189,18 @@ void AFK_3DVapourCube::make(
      * To do this, enumerate the skeleton's bones...
      */
     std::vector<AFK_SkeletonCube> bones;
-    std::vector<int> bonesFullAdjacency;
+    std::vector<int> bonesCoAdjacency;
     int boneCount = skeleton.getBoneCount();
 
     bones.reserve(boneCount);
-    bonesFullAdjacency.reserve(boneCount);
+    bonesCoAdjacency.reserve(boneCount);
 
     AFK_Skeleton::Bones bonesEnum(skeleton);
     while (bonesEnum.hasNext())
     {
         AFK_SkeletonCube nextBone = bonesEnum.next();
         bones.push_back(nextBone);
-        bonesFullAdjacency.push_back(skeleton.getFullAdjacency(nextBone));
+        bonesCoAdjacency.push_back(skeleton.getCoAdjacency(nextBone));
     }
 
     while (features.size() < sSizes.featureCountPerCube)
@@ -227,14 +227,14 @@ void AFK_3DVapourCube::make(
          * feature near.  I'll prefer the earlier ones, because
          * they give me a wider range of movement, as it were.
          */
-        /* TODO I think there are errors either in my adjacency
-         * information, or the way I'm testing it.  Using a value
-         * of `t' less than 2 here (correctly I should be using 0)
-         * causes me to see many cutouts, indicating features that
-         * overlapped over the side of the skeleton ... */
-        for (int t = 2; t < TRYFADJ_SIZE; ++t)
+        /* TODO: I _think_ the co-adjacency thingy fixes the
+         * issues with using fullAdjacency for this.  I'm not
+         * totally sure, though.  I think I need to fill in some
+         * more of the gaps in the edge shapes to verify.
+         */
+        for (int t = 0; t < TRYFADJ_SIZE; ++t)
         {
-            int thisAdj = (bonesFullAdjacency[b] & tryFAdj[t]);
+            int thisAdj = (bonesCoAdjacency[b] & tryFAdj[t]);
             if (thisAdj != 0)
             {
                 addRandomFeature(

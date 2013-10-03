@@ -35,6 +35,11 @@ public:
     /* Gives the adjacency for the given face (bottom, left, front, back, right, top). */
     AFK_SkeletonCube adjacentCube(int face) const;
 
+    /* Gives the adjacency for the given offset,
+     * where the offset components must be in the range -1 to 1 inclusive.
+     */
+    AFK_SkeletonCube adjacentCube(const Vec3<long long>& offset) const;
+
     /* Gives the upper cube for this cube. */
     AFK_SkeletonCube upperCube(const Vec3<long long>& upperOffset, unsigned int subdivisionFactor) const;
 
@@ -137,6 +142,12 @@ public:
      * z is the units, y is the 3s, x is the 9s.
      */
     int getFullAdjacency(const AFK_SkeletonCube& cube) const;
+
+    /* Like the above, but only flags a corner as adjacent if the
+     * edges are, and only flags the edges if the faces are.
+     * This is an adjacency without gaps, as it were.
+     */
+    int getCoAdjacency(const AFK_SkeletonCube& cube) const;
 
     /* This is a device for enumerating the cells that are
      * set within the skeleton.  They come out in skeleton
