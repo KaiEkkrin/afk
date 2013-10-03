@@ -422,9 +422,19 @@ __kernel void makeShape3DVapour(
     transformLocationToLocation(&vl, &vc, cubes[i-1].coord, units[unitOffset].location);
 
     /* TODO: Should I do this every time, or only on the
-     * last?  I've yet to be sure.
+     * last, or not at all?  I've yet to be sure, but I'm
+     * tending towards "not at all" right now :P
+     * This program has an increasing amount of dead code in
+     * it that I ought to prune!
      */
-    //transformFaceDensity(&vc, xdim, ydim, zdim, units[unitOffset].baseColour, units[unitOffset].adjacency);
+#if 0
+    transformFaceDensity(&vc, xdim, ydim, zdim, units[unitOffset].baseColour, units[unitOffset].adjacency);
+#else
+    /* Apply the base colour in the same manner as `landscape_terrain' does */
+    vc = (float4)(
+        (3.0f * units[unitOffset].baseColour.xyz + normalize(vc.xyz)) / 4.0f,
+        vc.w);
+#endif
 
     /* TODO: For now, I'm going to transfer all this into an all-float
      * image.  In future, I probably want to try to cram it into 8
