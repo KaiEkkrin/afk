@@ -379,40 +379,6 @@ float4 rotateNormal(float4 rawNormal, int face)
 
 /* Follows stuff for resolving the faces and culling triangle overlaps. */
 
-/* In this array, we write which points are occupied by which faces. */
-#define DECL_POINTS_DRAWN(pointsDrawn) __local int pointsDrawn[EDIM][EDIM][(EDIM>>2)+1]
-
-void initPointsDrawn(DECL_POINTS_DRAWN(pointsDrawn), int xdim, int zdim)
-{
-    for (int i = 0; i < ((EDIM>>2) + 1); ++i)
-    {
-        pointsDrawn[xdim][zdim][i] = 0;
-    }
-}
-
-/* Call when we're about to draw a point at the given coord and face.
- * Returns true if it hasn't been drawn yet, else false.
- */
-bool setPointDrawn(DECL_POINTS_DRAWN(pointsDrawn), int4 vapourPointCoord, int face)
-{
-    /* `pointsDrawn' is offset from vapourPointCoord to avoid
-     * the tDim gap.
-     */
-    int4 coord = vapourPointCoord - (int4)(1, 1, 1, 0);
-    int zFlag = ((1<<face) << (8 * (coord.z & 3)));
-    return ((atom_or(&pointsDrawn[coord.x][coord.y][coord.z>>2], zFlag) & zFlag) == 0);
-}
-
-/* Yanks a drawn point out of the set.  Returns true if it had been drawn,
- * else false.
- */
-bool clearPointDrawn(DECL_POINTS_DRAWN(pointsDrawn), int4 vapourPointCoord, int face)
-{
-    int4 coord = vapourPointCoord - (int4)(1, 1, 1, 0);
-    int zFlag = ((1<<face) << (8 * (coord.z & 3)));
-    return ((atom_and(&pointsDrawn[coord.x][coord.y][coord.z>>2], ~zFlag) & zFlag) != 0);
-}
-
 /* In this array, we write how far back each edge point is from the face.
  * TODO: Try packing it tighter.
  */
@@ -852,16 +818,8 @@ __kernel void makeShape3DEdge(
     }
 
 #else
-    DECL_POINTS_DRAWN(pointsDrawn);
-    initPointsDrawn(pointsDrawn, xdim, zdim);
-
     /* Iterate through the possible steps back until I find an edge.
-     * There is one flag each in this bit field for faces 0-5 incl.
-     * TODO I should be able to remove this and use just
-     * `edgeStepsBack'?
      */
-    unsigned int foundEdge = 0;
-
     DECL_EDGE_STEPS_BACK(edgeStepsBack);
     initEdgeStepsBack(edgeStepsBack, xdim, zdim);
 
@@ -882,10 +840,8 @@ __kernel void makeShape3DEdge(
 
 #if FAKE_TEST_VAPOUR
             /* Always claiming right away should result in a cube. */
-            if ((foundEdge & (1<<face)) == 0)
+            if (edgeStepsBack[xdim][zdim][face] == NO_EDGE)
             {
-                setPointDrawn(pointsDrawn, thisVapourPointCoord, face);
-
                 int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
                 float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
 
@@ -897,42 +853,37 @@ __kernel void makeShape3DEdge(
 #endif
                 write_imagef(jigsawNormal, edgeCoord, rotateNormal((float4)(0.0f, 1.0f, 0.0f, 0.0f), face));
 
-                foundEdge |= (1<<face);
                 edgeStepsBack[xdim][zdim][face] = stepsBack;
             }
 #else
-
-            if (lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f)
+            if (edgeStepsBack[xdim][zdim][face] == NO_EDGE &&
+                lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f)
             {
-                if (setPointDrawn(pointsDrawn, thisVapourPointCoord, face))
-                {
-                    /* This is an edge, write its coord. */
-                    int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
-                    float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
+                 /* This is an edge, write its coord. */
+                 int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
+                 float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
 
-                    write_imagef(jigsawDisp, edgeCoord, edgeVertex);
+                 write_imagef(jigsawDisp, edgeCoord, edgeVertex);
 #if FAKE_COLOURS
-                    write_imagef(jigsawColour, edgeCoord, getFakeColour(face));
+                 write_imagef(jigsawColour, edgeCoord, getFakeColour(face));
 #else
-                    write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
+                 write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
 #endif
 
-                    float4 normal = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
-                    for (int xN = -1; xN <= 1; xN += 2)
+                float4 normal = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+                for (int xN = -1; xN <= 1; xN += 2)
+                {
+                    for (int yN = -1; yN <= 1; yN += 2)
                     {
-                        for (int yN = -1; yN <= 1; yN += 2)
+                        for (int zN = -1; zN <= 1; zN += 2)
                         {
-                            for (int zN = -1; zN <= 1; zN += 2)
-                            {
-                                normal += make4PointNormal(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord, (int4)(xN, yN, zN, 0));
-                            }
+                            normal += make4PointNormal(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord, (int4)(xN, yN, zN, 0));
                         }
                     }
-    
-                    write_imagef(jigsawNormal, edgeCoord, (float4)(normalize(normal.xyz), 0.0f));
-                    foundEdge |= (1<<face);
-                    edgeStepsBack[xdim][zdim][face] = stepsBack;
                 }
+
+                write_imagef(jigsawNormal, edgeCoord, (float4)(normalize(normal.xyz), 0.0f));
+                edgeStepsBack[xdim][zdim][face] = stepsBack;
             }
 #endif /* FAKE_TEST_VAPOUR */
         }
