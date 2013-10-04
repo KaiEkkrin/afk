@@ -105,12 +105,37 @@ void AFK_3DVapourCube::addRandomFeatureAtAdjacencyBit(
         feature.f[j] = (unsigned char)((rng.frand() * (coordMax.v[j] - coordMin.v[j]) + coordMin.v[j]) * 256.0f);
     }
 
-    /* Non-location values can be arbitrary. */
-    for (; j < 8; ++j)
+    /* Non-location values can be arbitrary... */
+    for (; j < 7; ++j)
     {
         feature.f[j] = (unsigned char)(rng.frand() * 256.0f);
     }
 
+    /* ...except for the weight.
+     * I want the weight to be:
+     * - either between 0.5f and 1.0f (high chance)
+     * - or between -1.0f and -0.5f (low chance).
+     * After encoding, that means I want the weight to be
+     * either between 0 and 127 (low chance) or 128 and 255
+     * (high chance): the OpenCL will do the rest of the
+     * transformation.
+     */
+    float weight = rng.frand() * 5.0f;
+    if (weight >= 1.0f)
+    {
+        /* Get it between 0 and 1 ... */
+        weight -= std::floor(weight);
+
+        /* then expand it to 128-256 */
+        weight = (weight * 128.0f) + 128.0f;
+    }
+    else
+    {
+        /* expand it to 0-128 */
+        weight = weight * 128.0f;
+    }
+
+    feature.f[j] = (unsigned char)weight;
     features.push_back(feature);
 }
 
@@ -205,9 +230,6 @@ void AFK_3DVapourCube::make(
 
     while (features.size() < sSizes.featureCountPerCube)
     {
-        AFK_3DVapourFeature feature;
-
-        unsigned int j;
         unsigned int selector = rng.uirand();
         unsigned int b = selector % bones.size();
         selector = selector / bones.size();
@@ -246,14 +268,6 @@ void AFK_3DVapourCube::make(
                 break;
             }
         }
-
-        /* The rest can be arbitrary. */
-        for (; j < 8; ++j)
-        {
-            feature.f[j] = (unsigned char)(rng.frand() * 256.0f);
-        }
-
-        features.push_back(feature);
     }
 }
 

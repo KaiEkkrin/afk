@@ -111,7 +111,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     shape_pointSubdivisionFactor        = 6;
     shape_skeletonMaxSize               = 24;
     shape_skeletonFlagGridDim           = 8;
-    shape_edgeThreshold                 = 0.0001f;
+    shape_edgeThreshold                 = 0.01f;
 
     maxEntitiesPerCell          = 4;
     entitySparseness            = 1024;

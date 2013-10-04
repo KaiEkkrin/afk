@@ -106,7 +106,11 @@ void compute3DVapourFeature(
         (float)features[i].f[AFK_3DVF_G],
         (float)features[i].f[AFK_3DVF_B]) / 256.0f;
 
-    float weight = ((float)features[i].f[AFK_3DVF_WEIGHT] - 128.0f) / 128.0f;
+    /* This is the second half of the weight transformation
+     * described in 3d_solid
+     */
+    float weight = ((float)features[i].f[AFK_3DVF_WEIGHT]) / 256.0f; /* now 0-1 */
+    if (weight < 0.5f) weight -= 1.0f;
 
     /* If this point is within the feature radius... */
     float dist = distance(location, vl);
@@ -433,7 +437,7 @@ __kernel void makeShape3DVapour(
     /* Apply the base colour in the same manner as `landscape_terrain' does */
     vc = (float4)(
         (3.0f * units[unitOffset].baseColour.xyz + normalize(vc.xyz)) / 4.0f,
-        vc.w);
+        vc.w - THRESHOLD);
 #endif
 
     /* TODO: For now, I'm going to transfer all this into an all-float
