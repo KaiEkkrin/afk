@@ -579,7 +579,7 @@ bool trianglesAreCoplanar(int4 tri1[3], int4 tri2[3])
 #endif
 }
 
-#define USE_TRICKY_IDENTICAL_CHECK 0
+#define USE_TRICKY_IDENTICAL_CHECK 1
 
 /* Tests whether two triangles overlap or not, assuming they're in
  * the same small cube, *and that the triangles are real triangles*
@@ -644,14 +644,16 @@ bool trianglesOverlap(int4 tri1[3], int4 tri2[3])
                 }
             }
 
-            /* The triangles overlap only if the different vertices
-             * differ only by a total of 1 in all directions.
+            /* The triangles overlap only if the two different vertices
+             * don't form the diagonal of the square.
              */
-            int totalDiff =
-                abs(diff2.x - diff1.x) +
-                abs(diff2.y - diff1.y) +
-                abs(diff2.z - diff1.z);
-            return (totalDiff == 1);
+            float3 fId0 = (float3)((float)identical[0].x, (float)identical[0].y, (float)identical[0].z);
+            float3 fId1 = (float3)((float)identical[1].x, (float)identical[1].y, (float)identical[1].z);
+            float3 fDiff1 = (float3)((float)diff1.x, (float)diff1.y, (float)diff1.z);
+            float3 fDiff2 = (float3)((float)diff2.x, (float)diff2.y, (float)diff2.z);
+
+            return (distance(fId0, fId1) <= distance(fId0, fDiff1) ||
+                distance(fId0, fId1) <= distance(fId0, fDiff2));
 #else
             return true;
 #endif
@@ -724,9 +726,6 @@ bool noOverlap(
         int lowerXdim, lowerZdim, lowerStepsBack;
         reverseVapourCoord(lowerFace, cubeCoord, &lowerXdim, &lowerZdim, &lowerStepsBack);
 
-        /* TODO: This will need changing if I gain the ability to flip
-         * faces dynamically.
-         */
         if (!tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST) ||
             !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND) ||
             !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST_FLIPPED) ||
