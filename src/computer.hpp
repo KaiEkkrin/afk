@@ -14,17 +14,27 @@
 #include "exception.hpp"
 
 /* This defines a list of programs that I know about. */
+
 struct AFK_ClProgram
 {
     cl_program program;
-    std::string filename;
+    std::string programName; /* friendly name referred to below */
+
+    /* TODO saw no better way of cleanly initialising this in old C++,
+     * when converting to C++11 change this to a proper initializer list
+     * with another object
+     * For now, capping at 5 source files that can combine into one
+     * binary
+     */
+#define AFK_CL_MAX_SOURCE_FILES 5
+    std::string filenames[AFK_CL_MAX_SOURCE_FILES];
 };
 
 /* This defines a list of all the kernels I know about */
 struct AFK_ClKernel
 {
     cl_kernel kernel;
-    std::string programFilename;
+    std::string programName;
     std::string kernelName;
 };
 
@@ -133,7 +143,7 @@ protected:
     void inspectDevices(cl_platform_id platform, cl_device_type deviceType);
 #endif
     bool findClGlDevices(cl_platform_id platform);
-    void loadProgramFromFile(const AFK_Config *config, struct AFK_ClProgram *p);
+    void loadProgramFromFiles(const AFK_Config *config, struct AFK_ClProgram *p);
 public:
     AFK_Computer();
     virtual ~AFK_Computer();

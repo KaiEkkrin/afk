@@ -19,24 +19,24 @@
 /* The set of known programs, just like the shaders doodah. */
 
 struct AFK_ClProgram programs[] = {
-    {   0,  "landscape_surface.cl"      },
-    {   0,  "landscape_terrain.cl"      },
-    {   0,  "landscape_yreduce.cl"      },
-    {   0,  "shape_3dedge.cl"           },
-    {   0,  "shape_3dvapour.cl"         },
-    {   0,  "test.cl"                   },
-    {   0,  "vs_test.cl"                },
-    {   0,  ""                          }
+    {   0,  "landscape_surface",    { "landscape_surface.cl",   "", "", "", "", }, },
+    {   0,  "landscape_terrain",    { "landscape_terrain.cl",   "", "", "", "", }, },
+    {   0,  "landscape_yreduce",    { "landscape_yreduce.cl",   "", "", "", "", }, },
+    {   0,  "shape_3dedge",         { "fake3d.cl", "shape_3dedge.cl",   "", "", "", }, },
+    {   0,  "shape_3dvapour",       { "fake3d.cl", "shape_3dvapour.cl", "", "", "", }, },
+    {   0,  "test",                 { "test.cl",    "", "", "", "", }, },
+    {   0,  "vs_test",              { "vs_test.cl", "", "", "", "", }, },
+    {   0,  "",                     { "", "", "", "", "", }, }
 };
 
 struct AFK_ClKernel kernels[] = { 
-    {   0,  "landscape_surface.cl",     "makeLandscapeSurface"          },
-    {   0,  "landscape_terrain.cl",     "makeLandscapeTerrain"          },
-    {   0,  "landscape_yreduce.cl",     "makeLandscapeYReduce"          },
-    {   0,  "shape_3dedge.cl",          "makeShape3DEdge"               },
-    {   0,  "shape_3dvapour.cl",        "makeShape3DVapour"             },
-    {   0,  "test.cl",                  "vector_add_gpu"                },
-    {   0,  "vs_test.cl",               "mangle_vs"                     },
+    {   0,  "landscape_surface",        "makeLandscapeSurface"          },
+    {   0,  "landscape_terrain",        "makeLandscapeTerrain"          },
+    {   0,  "landscape_yreduce",        "makeLandscapeYReduce"          },
+    {   0,  "shape_3dedge",             "makeShape3DEdge"               },
+    {   0,  "shape_3dvapour",           "makeShape3DVapour"             },
+    {   0,  "test",                     "vector_add_gpu"                },
+    {   0,  "vs_test",                  "mangle_vs"                     },
     {   0,  "",                         ""                              }
 };
 
@@ -296,27 +296,40 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
     else return false;
 }
 
-void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClProgram *p)
+void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, struct AFK_ClProgram *p)
 {
-    char *source;
-    size_t sourceLength;
+    char **sources;
+    size_t *sourceLengths;
     std::ostringstream errStream;
     cl_int error;
 
-    std::cout << "AFK: Loading CL program: " << p->filename << std::endl;
+    int sourceCount;
+    for (sourceCount = 0; sourceCount < AFK_CL_MAX_SOURCE_FILES && p->filenames[sourceCount].length() > 0; ++sourceCount);
 
-    if (!afk_readFileContents(p->filename, &source, &sourceLength, errStream))
-        throw AFK_Exception("AFK_Computer: " + errStream.str());
+    assert(sourceCount > 0);
+    sources = new char *[sourceCount];
+    sourceLengths = new size_t[sourceCount];
 
-    p->program = clCreateProgramWithSource(ctxt, 1, (const char **)&source, &sourceLength, &error);
+    for (int s = 0; s < sourceCount; ++s)
+    {
+        std::cout << "AFK: Loading file for CL program " << p->programName << ": " << p->filenames[s] << std::endl;
+
+        if (!afk_readFileContents(p->filenames[s], &sources[s], &sourceLengths[s], errStream))
+            throw AFK_Exception("AFK_Computer: " + errStream.str());
+    }
+
+    p->program = clCreateProgramWithSource(ctxt, sourceCount, (const char **)sources, sourceLengths, &error);
     AFK_HANDLE_CL_ERROR(error);
+
+    delete[] sources;
+    delete[] sourceLengths;
 
     /* Compiler arguments here... */
     std::ostringstream args;
     AFK_LandscapeSizes lSizes(config);
     AFK_ShapeSizes sSizes(config);
 
-    if (boost::starts_with(p->filename, "landscape_"))
+    if (boost::starts_with(p->programName, "landscape_"))
     {
         args << "-D SUBDIVISION_FACTOR="        << lSizes.subdivisionFactor      << " ";
         args << "-D POINT_SUBDIVISION_FACTOR="  << lSizes.pointSubdivisionFactor << " ";
@@ -325,7 +338,7 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
         args << "-D FEATURE_COUNT_PER_TILE="    << lSizes.featureCountPerTile    << " ";
         args << "-D REDUCE_ORDER="              << lSizes.getReduceOrder()       << " ";
     }
-    else if (boost::starts_with(p->filename, "shape_"))
+    else if (boost::starts_with(p->programName, "shape_"))
     {
         args << "-D SUBDIVISION_FACTOR="        << sSizes.subdivisionFactor      << " ";
         args << "-D POINT_SUBDIVISION_FACTOR="  << sSizes.pointSubdivisionFactor << " ";
@@ -403,7 +416,7 @@ AFK_Computer::~AFK_Computer()
         for (unsigned int i = 0; kernels[i].kernelName.size() != 0; ++i)
             if (kernels[i].kernel) clReleaseKernel(kernels[i].kernel);
 
-        for (unsigned int i = 0; programs[i].filename.size() != 0; ++i)
+        for (unsigned int i = 0; programs[i].programName.size() != 0; ++i)
             if (programs[i].program) clReleaseProgram(programs[i].program);
 
         if (q) clReleaseCommandQueue(q);
@@ -424,16 +437,16 @@ void AFK_Computer::loadPrograms(const AFK_Config *config)
         throw AFK_Exception("AFK_Computer: Unable to switch to programs dir: " + errStream.str());
 
     /* Load all the programs I know about. */
-    for (unsigned int i = 0; programs[i].filename.size() != 0; ++i)
-        loadProgramFromFile(config, &programs[i]);
+    for (unsigned int i = 0; programs[i].programName.size() != 0; ++i)
+        loadProgramFromFiles(config, &programs[i]);
 
     /* ...and all the kernels... */
     for (unsigned int i = 0; kernels[i].kernelName.size() != 0; ++i)
     {
         bool identified = false;
-        for (unsigned int j = 0; programs[j].filename.size() != 0; ++j)
+        for (unsigned int j = 0; programs[j].programName.size() != 0; ++j)
         {
-            if (kernels[i].programFilename == programs[j].filename)
+            if (kernels[i].programName == programs[j].programName)
             {
                 kernels[i].kernel = clCreateKernel(programs[j].program, kernels[i].kernelName.c_str(), &error);
                 AFK_HANDLE_CL_ERROR(error);
