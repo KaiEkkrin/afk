@@ -362,6 +362,33 @@ int AFK_Skeleton::getFullAdjacency(const AFK_SkeletonCube& cube) const
     return adj;
 }
 
+int AFK_Skeleton::getCoAdjacency(const AFK_SkeletonCube& cube) const
+{
+    int adj = 0;
+    for (long long x = -1; x <= 1; ++x)
+    {
+        for (long long y = -1; y <= 1; ++y)
+        {
+            for (long long z = -1; z <= 1; ++z)
+            {
+                AFK_SkeletonCube adjCube(cube.coord + afk_vec3<long long>(x, y, z));
+                if (testFlag(adjCube) == AFK_SKF_SET &&
+                    (x == 0 || testFlag(AFK_SkeletonCube(cube.coord + afk_vec3<long long>(0, y, z))) == AFK_SKF_SET) &&
+                    (y == 0 || testFlag(AFK_SkeletonCube(cube.coord + afk_vec3<long long>(x, 0, z))) == AFK_SKF_SET) &&
+                    (z == 0 || testFlag(AFK_SkeletonCube(cube.coord + afk_vec3<long long>(x, y, 0))) == AFK_SKF_SET) &&
+                    ((x == 0 && y == 0) || testFlag(AFK_SkeletonCube(cube.coord + afk_vec3<long long>(0, 0, z))) == AFK_SKF_SET) &&
+                    ((x == 0 && z == 0) || testFlag(AFK_SkeletonCube(cube.coord + afk_vec3<long long>(0, y, 0))) == AFK_SKF_SET) &&
+                    ((y == 0 && z == 0) || testFlag(AFK_SkeletonCube(cube.coord + afk_vec3<long long>(x, 0, 0))) == AFK_SKF_SET))
+                {
+                    adj |= (1<<((x+1)*9 + (y+1)*3 + (z+1)));
+                }
+            }
+        }
+    }
+
+    return adj;
+}
+
 AFK_Skeleton::Bones::Bones(const AFK_Skeleton& _skeleton):
     skeleton(_skeleton)
 {

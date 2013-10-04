@@ -1,12 +1,12 @@
- o Sort the entity out so that interesting geometry is present throughout the skeleton.  (A few things to try here, including the AES RNG: not very much in the way of interesting input is going to seed Taus88)
- o Change the colour schemes so that entities have a base colour and a relatively small range of modifiers.  (Do the same for the landscape itself.)
- o For the sake of making things look nicer, implement a random base sky colour and an alpha blend for distant geometry.
+ o Sort the entity out so that interesting geometry is present throughout the skeleton.  (A few things to try here, including the AES RNG: not very much in the way of interesting input is going to seed Taus88) OK, but needs tweaking
+ o Change the colour schemes so that entities have a base colour and a relatively small range of modifiers.  (Do the same for the landscape itself.) OK
+ o For the sake of making things look nicer, implement a random base sky colour and an alpha blend for distant geometry. OK
  o At least take a look at using an HSV colour space to choose these things.  The normalize of an RGB colour vector doesn't always produce nice results ...
  o Change the vapour jigsaw so that the sweep doesn't go around to some proportion of the jigsaw, but instead sweeps absolutely everything.  Having an ephemeral jigsaw type would be very useful for some stuff later, and should avoid some out-of-jigsaw-space errors.
  o To improve appearance of shape geometry, try clustering vapour cells into 2x2x2 blocks, with consequent enlargement of the skeletons.
- o Conversely, try rendering faraway shapes as a single blob per vapour cell.  (How can I make OpenGL turn a GL_POINTS into a set of fixed dots?)
+ o Conversely, try rendering faraway shapes as a single blob per vapour cell.  (How can I make OpenGL turn a GL_POINTS into a set of fixed dots?) <-- See http://stackoverflow.com/questions/17274820/drawing-round-points-using-modern-opengl?rq=1
  o Try giving each edge cube two layers to further fill in gaps in the geometry.
- o I want a way of delimiting areas in the vapour that are "full" so that the renderer doesn't try to dive in and waste time and memory creating details that won't be shown.  Perhaps make a new CL program that takes the vapour, and reduces out whether or not each of the faces is "solid".  Then, I can reason based on that in a similar manner to yreduce.
+ o I want a way of delimiting areas in the vapour that are "full" so that the renderer doesn't try to dive in and waste time and memory creating details that won't be shown.  Perhaps make a new CL program that takes the vapour, and reduces out whether or not each of the faces is "solid".  Then, I can reason based on that in a similar manner to yreduce.  (From the same code I also want to mark faces as "empty", although in this case, I need to reduce through the entire vapour.)
  o For exports from CL: try making a jigsaw type that will write the memory back to CPU space rather than transferring to GL space after computation.  I could convert yreduce to using this rather than a buffer, too.  (It won't need to be ephemeral: the outputs will be very small.)
  o And at this point, I should have some fun making lots more vapour feature types, and adding those axes of symmetry.
 

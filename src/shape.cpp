@@ -160,7 +160,7 @@ bool afk_generateShapeCells(
          * cross-LoD overlaps.
          */
         bool display = (
-            cell.c.coord.v[3] == 1024 || visibleCell.testDetailPitch(
+            cell.c.coord.v[3] == 1 || visibleCell.testDetailPitch(
                 world->getEntityDetailPitch(), *camera, viewerLocation));
 
         /* Always build the vapour descriptor, because other cells

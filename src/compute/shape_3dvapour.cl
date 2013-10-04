@@ -82,10 +82,6 @@ struct AFK_3DVapourFeature
     unsigned char f[8];
 };
 
-/* ---Like landscape_terrain--- */
-__constant float maxFeatureSize = 1.0f / ((float)POINT_SUBDIVISION_FACTOR);
-__constant float minFeatureSize = (1.0f / ((float)POINT_SUBDIVISION_FACTOR)) / ((float)SUBDIVISION_FACTOR);
-
 void compute3DVapourFeature(
     float3 vl,
     float4 *vc, /* (red, green, blue, density) */
@@ -98,7 +94,7 @@ void compute3DVapourFeature(
      * in order to be sure I can drop adjacent cubes?  Or shall I
      * just include adjacent cubes and ignore half-cubes?
      */
-    float radius = (float)features[i].f[AFK_3DVF_RADIUS] * (maxFeatureSize - minFeatureSize) / 256.0f + minFeatureSize;
+    float radius = (float)features[i].f[AFK_3DVF_RADIUS] * (FEATURE_MAX_SIZE - FEATURE_MIN_SIZE) / 256.0f + FEATURE_MIN_SIZE;
 
     float3 location = (float3)(
         (float)features[i].f[AFK_3DVF_X],
@@ -110,7 +106,11 @@ void compute3DVapourFeature(
         (float)features[i].f[AFK_3DVF_G],
         (float)features[i].f[AFK_3DVF_B]) / 256.0f;
 
-    float weight = ((float)features[i].f[AFK_3DVF_WEIGHT] - 128.0f) / 128.0f;
+    /* This is the second half of the weight transformation
+     * described in 3d_solid
+     */
+    float weight = ((float)features[i].f[AFK_3DVF_WEIGHT]) / 256.0f; /* now 0-1 */
+    if (weight < 0.5f) weight -= 1.0f;
 
     /* If this point is within the feature radius... */
     float dist = distance(location, vl);
@@ -426,9 +426,19 @@ __kernel void makeShape3DVapour(
     transformLocationToLocation(&vl, &vc, cubes[i-1].coord, units[unitOffset].location);
 
     /* TODO: Should I do this every time, or only on the
-     * last?  I've yet to be sure.
+     * last, or not at all?  I've yet to be sure, but I'm
+     * tending towards "not at all" right now :P
+     * This program has an increasing amount of dead code in
+     * it that I ought to prune!
      */
+#if 0
     transformFaceDensity(&vc, xdim, ydim, zdim, units[unitOffset].baseColour, units[unitOffset].adjacency);
+#else
+    /* Apply the base colour in the same manner as `landscape_terrain' does */
+    vc = (float4)(
+        (3.0f * units[unitOffset].baseColour.xyz + normalize(vc.xyz)) / 4.0f,
+        vc.w - THRESHOLD);
+#endif
 
     /* TODO: For now, I'm going to transfer all this into an all-float
      * image.  In future, I probably want to try to cram it into 8

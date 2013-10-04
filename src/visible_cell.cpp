@@ -95,7 +95,7 @@ bool AFK_VisibleCell::testDetailPitch(
      * (in fact I'd probably get away with just the x and
      * z axes)
      */
-    float distanceToViewer = (midpoint - viewerLocation).magnitude();
+    float distanceToViewer = (midpoint - (viewerLocation - camera.separation)).magnitude();
     float scale = (vertices[1][0][0] - vertices[0][0][0]).magnitude();
     return camera.getDetailPitchAsSeen(scale, distanceToViewer) < detailPitch;
 }

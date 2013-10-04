@@ -333,6 +333,8 @@ void AFK_Computer::loadProgramFromFile(const AFK_Config *config, struct AFK_ClPr
         args << "-D EDIM="                      << sSizes.eDim                   << " ";
         args << "-D TDIM="                      << sSizes.tDim                   << " ";
         args << "-D FEATURE_COUNT_PER_CUBE="    << sSizes.featureCountPerCube    << " ";
+        args << "-D FEATURE_MAX_SIZE="          << sSizes.featureMaxSize         << " ";
+        args << "-D FEATURE_MIN_SIZE="          << sSizes.featureMinSize         << " ";
         args << "-D THRESHOLD="                 << sSizes.edgeThreshold          << " ";
         if (useFake3DImages(config))
         {
