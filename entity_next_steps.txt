@@ -6,6 +6,11 @@
  o To improve appearance of shape geometry, try clustering vapour cells into 2x2x2 blocks, with consequent enlargement of the skeletons.
  o Conversely, try rendering faraway shapes as a single blob per vapour cell.  (How can I make OpenGL turn a GL_POINTS into a set of fixed dots?) <-- See http://stackoverflow.com/questions/17274820/drawing-round-points-using-modern-opengl?rq=1
  o Try giving each edge cube two layers to further fill in gaps in the geometry.
+   - Or, better: improve overlap to contain several data points for each face:
+     x Write edgeStepsBack to a texture for the geometry shader to read as well and reconstruct the point co-ordinates from that -- saves storing `location' to a texture in the vapour.
+     x Read the colour straight from the vapour into the renderer, and have a new OpenCL program that takes the colour vapour and bakes a normal vapour (I don't think that's really any more computation than building the normal edge info as currently).
+     x In the geometry shader, go through the overlap and generate one triangle for each of the several potential triangles that a multi-hit overlap can refer to.  (I shouldn't hit the GS primitive cap too easily, right...?)
+     x Should save plenty of space.  Of course, I'd need to port fake3D to glsl...
  o I want a way of delimiting areas in the vapour that are "full" so that the renderer doesn't try to dive in and waste time and memory creating details that won't be shown.  Perhaps make a new CL program that takes the vapour, and reduces out whether or not each of the faces is "solid".  Then, I can reason based on that in a similar manner to yreduce.  (From the same code I also want to mark faces as "empty", although in this case, I need to reduce through the entire vapour.)
  o For exports from CL: try making a jigsaw type that will write the memory back to CPU space rather than transferring to GL space after computation.  I could convert yreduce to using this rather than a buffer, too.  (It won't need to be ephemeral: the outputs will be very small.)
  o And at this point, I should have some fun making lots more vapour feature types, and adding those axes of symmetry.
