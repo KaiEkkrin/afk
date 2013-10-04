@@ -1,6 +1,6 @@
- o Sort the entity out so that interesting geometry is present throughout the skeleton.  (A few things to try here, including the AES RNG: not very much in the way of interesting input is going to seed Taus88)
- o Change the colour schemes so that entities have a base colour and a relatively small range of modifiers.  (Do the same for the landscape itself.)
- o For the sake of making things look nicer, implement a random base sky colour and an alpha blend for distant geometry.
+ o Sort the entity out so that interesting geometry is present throughout the skeleton.  (A few things to try here, including the AES RNG: not very much in the way of interesting input is going to seed Taus88) OK, but needs tweaking
+ o Change the colour schemes so that entities have a base colour and a relatively small range of modifiers.  (Do the same for the landscape itself.) OK
+ o For the sake of making things look nicer, implement a random base sky colour and an alpha blend for distant geometry. OK
  o At least take a look at using an HSV colour space to choose these things.  The normalize of an RGB colour vector doesn't always produce nice results ...
  o Change the vapour jigsaw so that the sweep doesn't go around to some proportion of the jigsaw, but instead sweeps absolutely everything.  Having an ephemeral jigsaw type would be very useful for some stuff later, and should avoid some out-of-jigsaw-space errors.
  o To improve appearance of shape geometry, try clustering vapour cells into 2x2x2 blocks, with consequent enlargement of the skeletons.
