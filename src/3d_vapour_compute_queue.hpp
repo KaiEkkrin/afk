@@ -76,7 +76,8 @@ protected:
 
     boost::mutex mut;
 
-    cl_kernel vapourKernel;
+    cl_kernel vapourFeatureKernel;
+    cl_kernel vapourNormalKernel;
 
     std::vector<cl_event> preVapourWaitList;
     std::vector<cl_event> postVapourWaitList;

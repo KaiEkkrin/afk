@@ -55,7 +55,8 @@ std::ostream& operator<<(std::ostream& os, const AFK_3DVapourComputeUnit& unit)
 /* AFK_3DVapourComputeQueue implementation */
 
 AFK_3DVapourComputeQueue::AFK_3DVapourComputeQueue():
-    vapourKernel(0)
+    vapourFeatureKernel(0),
+    vapourNormalKernel(0)
 {
 }
 
@@ -117,9 +118,13 @@ void AFK_3DVapourComputeQueue::computeStart(
     if (unitCount == 0) return;
 
     /* Make sure the compute stuff is initialised... */
-    if (!vapourKernel)
-        if (!computer->findKernel("makeShape3DVapour", vapourKernel))
-            throw AFK_Exception("Cannot find 3D vapour kernel");
+    if (!vapourFeatureKernel)
+        if (!computer->findKernel("makeShape3DVapourFeature", vapourFeatureKernel))
+            throw AFK_Exception("Cannot find 3D vapour feature kernel");
+
+    if (!vapourNormalKernel)
+        if (!computer->findKernel("makeShape3DVapourNormal", vapourNormalKernel))
+            throw AFK_Exception("Cannot find 3D vapour normal kernel");
 
     cl_context ctxt;
     cl_command_queue q;
@@ -151,12 +156,12 @@ void AFK_3DVapourComputeQueue::computeStart(
     cl_mem *vapourJigsawsMem[4];
     int jpCount = vapourJigsaws->acquireAllForCl(ctxt, q, vapourJigsawsMem, 4, preVapourWaitList);
 
-    AFK_CLCHK(clSetKernelArg(vapourKernel, 0, sizeof(cl_mem), &vapourBufs[0]))
-    AFK_CLCHK(clSetKernelArg(vapourKernel, 1, sizeof(cl_mem), &vapourBufs[1]))
-    AFK_CLCHK(clSetKernelArg(vapourKernel, 2, sizeof(cl_mem), &vapourBufs[2]))
+    AFK_CLCHK(clSetKernelArg(vapourFeatureKernel, 0, sizeof(cl_mem), &vapourBufs[0]))
+    AFK_CLCHK(clSetKernelArg(vapourFeatureKernel, 1, sizeof(cl_mem), &vapourBufs[1]))
+    AFK_CLCHK(clSetKernelArg(vapourFeatureKernel, 2, sizeof(cl_mem), &vapourBufs[2]))
 
     for (int jpI = 0; jpI < 4; ++jpI)
-        AFK_CLCHK(clSetKernelArg(vapourKernel, jpI + 3, sizeof(cl_mem), vapourJigsawsMem[jpI]))
+        AFK_CLCHK(clSetKernelArg(vapourFeatureKernel, jpI + 3, sizeof(cl_mem), vapourJigsawsMem[jpI]))
 
     size_t vapourDim[3];
     vapourDim[0] = sSizes.tDim * unitCount;
@@ -164,7 +169,7 @@ void AFK_3DVapourComputeQueue::computeStart(
 
     cl_event vapourEvent;
 
-    AFK_CLCHK(clEnqueueNDRangeKernel(q, vapourKernel, 3, NULL, &vapourDim[0], NULL,
+    AFK_CLCHK(clEnqueueNDRangeKernel(q, vapourFeatureKernel, 3, NULL, &vapourDim[0], NULL,
         preVapourWaitList.size(),
         &preVapourWaitList[0],
         &vapourEvent))
