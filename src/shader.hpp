@@ -17,7 +17,11 @@ struct shaderSpec
 {
     GLuint shaderType;
     GLuint obj;
-    std::string filename;
+    std::string shaderName; /* friendly name to ask for */
+
+    /* TODO as in computer.hpp :/ */
+#define AFK_GLSL_MAX_SOURCE_FILES 5
+    std::string filenames[AFK_GLSL_MAX_SOURCE_FILES];
 };
 
 

@@ -2,6 +2,7 @@
 
 #include "afk.hpp"
 
+#include <cassert>
 #include <iostream>
 #include <sstream>
 
@@ -10,49 +11,63 @@
 #include "shader.hpp"
 
 struct shaderSpec shaders[] = {
-    {   GL_FRAGMENT_SHADER, 0,  "landscape_fragment.glsl"       },
-    {   GL_GEOMETRY_SHADER, 0,  "landscape_geometry.glsl"       },
-    {   GL_VERTEX_SHADER,   0,  "landscape_vertex.glsl"         },
-    {   GL_FRAGMENT_SHADER, 0,  "shape_fragment.glsl"           },
-    {   GL_GEOMETRY_SHADER, 0,  "shape_geometry.glsl"           },
-    {   GL_VERTEX_SHADER,   0,  "shape_vertex.glsl"             },
-    {   GL_FRAGMENT_SHADER, 0,  "vcol_phong_fragment.glsl"      },
-    {   GL_VERTEX_SHADER,   0,  "vcol_phong_vertex.glsl"        },
-    {   0,                  0,  ""                              }
+    {   GL_FRAGMENT_SHADER, 0,  "landscape_fragment",   {   "landscape_fragment.glsl",  "", "", "", "", }, },
+    {   GL_GEOMETRY_SHADER, 0,  "landscape_geometry",   {   "landscape_geometry.glsl",  "", "", "", "", }, },
+    {   GL_VERTEX_SHADER,   0,  "landscape_vertex",     {   "landscape_vertex.glsl",    "", "", "", "", }, },
+    {   GL_FRAGMENT_SHADER, 0,  "shape_fragment",       {   "shape_fragment.glsl",      "", "", "", "", }, },
+    {   GL_GEOMETRY_SHADER, 0,  "shape_geometry",       {   "shape_geometry.glsl",      "", "", "", "", }, },
+    {   GL_VERTEX_SHADER,   0,  "shape_vertex",         {   "shape_vertex.glsl",        "", "", "", "", }, },
+    {   GL_FRAGMENT_SHADER, 0,  "vcol_phong_fragment",  {   "vcol_phong_fragment.glsl", "", "", "", "", }, },
+    {   GL_VERTEX_SHADER,   0,  "vcol_phong_vertex",    {   "vcol_phong_vertex.glsl",   "", "", "", "", }, },
+    {   0,                  0,  "",                     {   "", "", "", "", "", }, }
 };
 
 
-/* Loads a shader from the given file. */
-static void loadShaderFromFile(struct shaderSpec *s)
+/* Loads a shader from the given files. */
+static void loadShaderFromFiles(struct shaderSpec *s)
 {
-    GLchar *data[1] = { 0 };
-    GLint lengths[1] = { 0 };
-    size_t sLength = 0;
+    GLchar **sources;
+    size_t *sourceLengths;
+
     int success = 0;
     std::ostringstream errStream;
 
-    std::cout << "AFK: Loading shader: " << s->filename << std::endl;
-    if (!afk_readFileContents(s->filename, data, &sLength, errStream))
-        throw AFK_Exception("AFK_Shader: " + errStream.str());
+    int sourceCount;
+    for (sourceCount = 0; sourceCount < AFK_GLSL_MAX_SOURCE_FILES && s->filenames[sourceCount].length() > 0; ++sourceCount);
 
-    lengths[0] = (GLint)sLength;
+    assert(sourceCount > 0);
+    sources = new GLchar *[sourceCount];
+    sourceLengths = new size_t[sourceCount];
+
+    for (int i = 0; i < sourceCount; ++i)
+    {
+        std::cout << "AFK: Loading file for shader " << s->shaderName << ": " << s->filenames[i] << std::endl;
+
+        if (!afk_readFileContents(s->filenames[i], &sources[i], &sourceLengths[i], errStream))
+            throw AFK_Exception("AFK_Shader: " + errStream.str());
+    }
 
     /* Compile the shader */
+    GLint *sourceLengthsInt = new GLint[sourceCount];
+    for (int i = 0; i < sourceCount; ++i)
+        sourceLengthsInt[i] = (GLint)sourceLengths[i];
 
     s->obj = glCreateShader(s->shaderType);
     if (!s->obj) throw AFK_Exception("Failed to create shader");
 
-    glShaderSource(s->obj, 1, (const GLchar **)data, lengths);
+    glShaderSource(s->obj, sourceCount, (const GLchar **)sources, sourceLengthsInt);
     glCompileShader(s->obj);
     glGetShaderiv(s->obj, GL_COMPILE_STATUS, &success);
     if (!success)
     {
         GLchar infoLog[1024];
         glGetShaderInfoLog(s->obj, 1024, NULL, infoLog);
-        throw AFK_Exception("Error compiling shader " + s->filename + ": " + infoLog);
+        throw AFK_Exception("Error compiling shader " + s->shaderName + ": " + infoLog);
     }
 
-    free(data[0]);
+    delete[] sources;
+    delete[] sourceLengths;
+    delete[] sourceLengthsInt;
 }
 
 void afk_loadShaders(const std::string& shadersDir)
@@ -66,8 +81,8 @@ void afk_loadShaders(const std::string& shadersDir)
     if (!afk_pushDir(shadersDir, errStream))
         throw AFK_Exception("AFK_Shader: Unable to switch to shaders dir: " + errStream.str());
 
-    for (shIdx = 0; !shaders[shIdx].filename.empty(); ++shIdx)
-        loadShaderFromFile(&shaders[shIdx]);
+    for (shIdx = 0; !shaders[shIdx].shaderName.empty(); ++shIdx)
+        loadShaderFromFiles(&shaders[shIdx]);
 
     if (!afk_popDir(errStream))
         throw AFK_Exception("AFK_Shader: Unable to leave shaders dir: " + errStream.str());
@@ -95,9 +110,9 @@ AFK_ShaderProgram& AFK_ShaderProgram::operator<<(const std::string& shaderName)
 {
     int foundIt = 0;
 
-    for (int i = 0; !foundIt && !shaders[i].filename.empty(); ++i)
+    for (int i = 0; !foundIt && !shaders[i].shaderName.empty(); ++i)
     {
-        if (shaders[i].filename.compare(0, shaderName.length(), shaderName) == 0)
+        if (shaders[i].shaderName.compare(0, shaderName.length(), shaderName) == 0)
         {
             glAttachShader(program, shaders[i].obj);
             foundIt = 1;
