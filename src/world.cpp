@@ -577,17 +577,30 @@ AFK_World::AFK_World(
     unsigned int shapeCacheEntries = shapeCacheSize / (32 * SQUARE(sSizes.eDim) * 6 + 16 * CUBE(sSizes.tDim));
 
     Vec3<int> vapourPieceSize = afk_vec3<int>(sSizes.tDim, sSizes.tDim, sSizes.tDim);
-    enum AFK_JigsawFormat vapourTexFormat = AFK_JIGSAW_4FLOAT32;
+
+    /* TODO: Try to cram these.   They're loose for now for ease
+     * of testing (avoid thinking artifacts of too-low number
+     * precision are logic bugs)
+     */
+    enum AFK_JigsawFormat vapourTexFormat[2];
+    vapourTexFormat[0] = AFK_JIGSAW_4FLOAT32;       /* Feature: colour and density */
+
+    /* Normal, with TODO as above. */
+    if (config->clGlSharing)
+        vapourTexFormat[1] = AFK_JIGSAW_4FLOAT32;
+    else
+        vapourTexFormat[1] = AFK_JIGSAW_4FLOAT8_SNORM;
+
     vapourJigsaws = new AFK_JigsawCollection(
         ctxt,
         vapourPieceSize,
         (int)shapeCacheEntries,
         1,
         AFK_JIGSAW_3D,
-        &vapourTexFormat,
-        1,
+        vapourTexFormat,
+        2,
         computer->getFirstDeviceProps(),
-        AFK_JIGSAW_BU_CL_ONLY,
+        config->clGlSharing ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED,
         config->concurrency,
         computer->useFake3DImages(config));
 
@@ -597,6 +610,9 @@ AFK_World::AFK_World(
      */
     Vec3<int> edgePieceSize = afk_vec3<int>(sSizes.eDim * 3, sSizes.eDim * 2, 1);
 
+    /* TODO: When I've got glsl reading out of the vapour correctly,
+     * prune these!
+     */
     enum AFK_JigsawFormat edgeTexFormat[4];
     edgeTexFormat[0] = AFK_JIGSAW_4FLOAT32;        /* Displacement */
     edgeTexFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;   /* Colour */

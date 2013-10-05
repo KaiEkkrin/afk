@@ -161,18 +161,18 @@ void AFK_3DVapourComputeQueue::computeStart(
     AFK_CLCHK(clSetKernelArg(vapourFeatureKernel, 2, sizeof(cl_mem), &vapourBufs[2]))
 
     for (int jpI = 0; jpI < 4; ++jpI)
-        AFK_CLCHK(clSetKernelArg(vapourFeatureKernel, jpI + 3, sizeof(cl_mem), vapourJigsawsMem[jpI]))
+        AFK_CLCHK(clSetKernelArg(vapourFeatureKernel, jpI + 3, sizeof(cl_mem), &vapourJigsawsMem[jpI][0]))
 
     size_t vapourDim[3];
     vapourDim[0] = sSizes.tDim * unitCount;
     vapourDim[1] = vapourDim[2] = sSizes.tDim;
 
-    cl_event vapourEvent;
+    cl_event vapourFeatureEvent;
 
     AFK_CLCHK(clEnqueueNDRangeKernel(q, vapourFeatureKernel, 3, NULL, &vapourDim[0], NULL,
         preVapourWaitList.size(),
         &preVapourWaitList[0],
-        &vapourEvent))
+        &vapourFeatureEvent))
 
     /* Release the things */
     for (std::vector<cl_event>::iterator evIt = preVapourWaitList.begin();
@@ -181,15 +181,29 @@ void AFK_3DVapourComputeQueue::computeStart(
         if (*evIt) AFK_CLCHK(clReleaseEvent(*evIt))
     }
 
+    /* Next, compute the vapour normals. */
+    AFK_CLCHK(clSetKernelArg(vapourNormalKernel, 0, sizeof(cl_mem), &vapourBufs[2]))
+    for (int jpI = 0; jpI < 4; ++jpI)
+    {
+        AFK_CLCHK(clSetKernelArg(vapourNormalKernel, jpI + 1, sizeof(cl_mem), &vapourJigsawsMem[jpI][0])) /* feature */
+        AFK_CLCHK(clSetKernelArg(vapourNormalKernel, jpI + 5, sizeof(cl_mem), &vapourJigsawsMem[jpI][1])) /* normal */
+    }
+
+    cl_event vapourNormalEvent;
+
+    AFK_CLCHK(clEnqueueNDRangeKernel(q, vapourNormalKernel, 3, NULL, &vapourDim[0], NULL,
+        1, &vapourFeatureEvent, &vapourNormalEvent))
+
     for (unsigned int i = 0; i < 3; ++i)
     {
         AFK_CLCHK(clReleaseMemObject(vapourBufs[i]))
     }
 
     postVapourWaitList.clear();
-    postVapourWaitList.push_back(vapourEvent);
+    postVapourWaitList.push_back(vapourNormalEvent);
     vapourJigsaws->releaseAllFromCl(q, vapourJigsawsMem, jpCount, postVapourWaitList);
-    if (vapourEvent) AFK_CLCHK(clReleaseEvent(vapourEvent))
+    if (vapourFeatureEvent) AFK_CLCHK(clReleaseEvent(vapourFeatureEvent))
+    if (vapourNormalEvent) AFK_CLCHK(clReleaseEvent(vapourNormalEvent))
 
     computer->unlock();
 }

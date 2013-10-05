@@ -79,13 +79,6 @@ void AFK_VapourCell::makeDescriptor(
             upperCell.cell.c.coord.v[0], upperCell.cell.c.coord.v[1], upperCell.cell.c.coord.v[2]);
         Vec3<long long> upperOffset = (thisCellShapeSpace - upperCellShapeSpace) * (sSizes.skeletonFlagGridDim/2) / cell.c.coord.v[3];
 
-        /* TODO REMOVE DEBUG */
-        AFK_DEBUG_PRINTL(cell << ": Embellishing skeleton with upper cell " << upperCell.cell << ", upper offset " << upperOffset)
-
-        /* TODO: I'm seeing co-ordinates of -1 in the upper offset.
-         * That's almost certainly wrong.  I need to understand what
-         * makes them and fix them.
-         */
         if (skeleton.make(
             upperCell.skeleton,
             upperOffset,
