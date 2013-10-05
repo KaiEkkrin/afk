@@ -580,7 +580,9 @@ AFK_World::AFK_World(
 
     /* TODO: Try to cram these.   They're loose for now for ease
      * of testing (avoid thinking artifacts of too-low number
-     * precision are logic bugs)
+     * precision are logic bugs).
+     * For example, colour needs only be 8 bits per channel;
+     * density should be 32.
      */
     enum AFK_JigsawFormat vapourTexFormat[2];
     vapourTexFormat[0] = AFK_JIGSAW_4FLOAT32;       /* Feature: colour and density */
@@ -625,7 +627,7 @@ AFK_World::AFK_World(
     else
         edgeTexFormat[2] = AFK_JIGSAW_4FLOAT8_SNORM;
 
-    edgeTexFormat[3] = AFK_JIGSAW_UINT8;            /* Overlap */
+    edgeTexFormat[3] = AFK_JIGSAW_2UINT32;            /* Overlap */
 
     edgeJigsaws = new AFK_JigsawCollection(
         ctxt,

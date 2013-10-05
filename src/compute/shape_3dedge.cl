@@ -721,10 +721,24 @@ float4 getFakeColour(int face)
 #endif
 
 
-#define TEST_CUBE 0
-
 /* This parameter list should be sufficient that I will always be able to
  * address all vapour jigsaws in the same place.  I hope!
+ *
+ * TODO: To change this kernel so that it outputs data that allows the
+ * shader to read the rest from the vapour -- and so that it can allow
+ * the shader to instance more triangles on a case by case basis to fill
+ * gaps, rather than needing several times the base geometry:
+ * - Colour and normal are read from the vapour.
+ * - jigsawDisp becomes a base displacement, pointing to the front of
+ * the face.  (this needs to remain a 4-component float32.)
+ * - jigsawOverlap is now two channels.  Each of these channels is a uint32
+ * packed with a sequence of 4 bit lumps, from the little end up to the big
+ * end, or zeroes if nothing is applicable:
+ *   o (red channel) overlap info as currently present, but packed as above
+ *   o (green channel) edge steps back.
+ * This limits EDIM to 16, but that's okay.
+ * This also kills the test cube off, and if I want that back (which I
+ * probably do), I'll need to implement one in the vapour.
  */
 __kernel void makeShape3DEdge(
     __read_only AFK_IMAGE3D vapour0,
@@ -741,45 +755,6 @@ __kernel void makeShape3DEdge(
     const int xdim = get_local_id(1); /* 0..EDIM-1 */
     const int zdim = get_local_id(2); /* 0..EDIM-1 */
 
-#if TEST_CUBE
-    /* Important feature: Here, I produce a set of test faces
-     * to use to verify that the shaders and other portions of
-     * the shape render pipeline are correct.
-     */
-    for (int face = 0; face < 6; ++face)
-    {
-        int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
-        float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, 0 /* stepsBack */, units[unitOffset].location);
-
-        float4 testColour = (float4)(
-            ((float)xdim / (float)EDIM),
-            ((float)zdim / (float)EDIM),
-            0.0f, 0.0f);
-
-        float4 testNormal = rotateNormal((float4)(0.0f, 1.0f, 0.0f, 0.0f), face);
-
-        /* Testing the overlap here to make sure all is
-         * in order ...
-         */
-        uint4 testOverlap;
-        if (face == 1 || face == 2 || face == 5)
-        {
-            testOverlap = (uint4)(7, 0, 0, 0);
-            if (xdim == (EDIM-1) || zdim == (EDIM-1)) testOverlap = (uint4)(4, 0, 0, 0); /* Always ignored */
-        }
-        else
-        {
-            testOverlap = (uint4)(3, 0, 0, 0);
-            if (xdim == (EDIM-1) || zdim == (EDIM-1)) testOverlap = (uint4)(0, 0, 0, 0); /* Always ignored */
-        }
-
-        write_imagef(jigsawDisp, edgeCoord, edgeVertex);
-        write_imagef(jigsawColour, edgeCoord, testColour);
-        write_imagef(jigsawNormal, edgeCoord, testNormal);
-        write_imageui(jigsawOverlap, edgeCoord, testOverlap);
-    }
-
-#else
     /* Iterate through the possible steps back until I find an edge.
      */
     DECL_EDGE_STEPS_BACK(edgeStepsBack);
@@ -987,8 +962,7 @@ __kernel void makeShape3DEdge(
         }
 
         int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
-        write_imageui(jigsawOverlap, edgeCoord, (uint4)(overlap, 0, 0, 0));
+        write_imageui(jigsawOverlap, edgeCoord, (uint4)(overlap, edgeStepsBack[xdim][zdim][face], 0, 0));
     }
-#endif /* TEST_CUBE */
 }
 
