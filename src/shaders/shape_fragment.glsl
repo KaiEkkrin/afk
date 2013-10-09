@@ -1,6 +1,6 @@
 // AFK (c) Alex Holloway 2013
 //
-// Shape vertex colour and ambient and diffuse lighting.
+// Shape vertex colour and lighting.
 
 #version 400
 
@@ -19,8 +19,6 @@ in GeometryData
     vec3 normal;
     vec2 jigsawCoord;
 } inData;
-
-out vec4 FragColor;
 
 struct Light
 {

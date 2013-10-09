@@ -1,8 +1,6 @@
 // AFK (c) Alex Holloway 2013
 //
-// Vertex colour and ambient and diffuse lighting for the landscape.
-// It accepts a GeometryData as output by the landscape geometry
-// shader.
+// Landscape colour and lighting.
 
 #version 330
 
