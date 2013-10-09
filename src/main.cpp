@@ -18,7 +18,6 @@
 #include "rng/test.hpp"
 #include "test_jigsaw_fake3d.hpp"
 
-#include "compute_test_long.hpp"
 #include "core.hpp"
 #include "exception.hpp"
 

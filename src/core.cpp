@@ -6,7 +6,6 @@
 
 #include <boost/thread/future.hpp>
 
-#include "compute_test_long.hpp"
 #include "core.hpp"
 #include "debug.hpp"
 #include "def.hpp"
@@ -314,10 +313,6 @@ void AFK_Core::loop(void)
     /* World setup. */
     computer = new AFK_Computer();
     computer->loadPrograms(config);
-
-#if CL_TEST
-    afk_testComputeLong(computer, config->concurrency);
-#endif
 
 #if JIGSAW_TEST
     afk_testJigsaw(computer, config);

@@ -47,7 +47,7 @@ void AFK_DisplayedProtagonist::initGL(void)
 {
     /* Link up the shader program I want. */
     shaderProgram = new AFK_ShaderProgram();
-    *shaderProgram << "vcol_phong_fragment" << "vcol_phong_vertex";
+    *shaderProgram << "protagonist_fragment" << "protagonist_vertex";
     shaderProgram->Link();
 
     worldTransformLocation = glGetUniformLocation(shaderProgram->program, "WorldTransform");
@@ -59,7 +59,7 @@ void AFK_DisplayedProtagonist::initGL(void)
      * facing in the travel direction, because I can't
      * generate cool ones yet.
      */
-    struct AFK_VcolPhongVertex rawVertices[] = {
+    struct AFK_ProtagonistVertex rawVertices[] = {
         /* location ...                             colour ...                  normal */
 
         /* bow */
@@ -117,9 +117,9 @@ void AFK_DisplayedProtagonist::display(const Mat4<float>& projection)
 
     glBindBuffer(GL_ARRAY_BUFFER, bufs[0]);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), 0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(sizeof(Vec3<float>)));
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(2 * sizeof(Vec3<float>)));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_ProtagonistVertex), 0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_ProtagonistVertex), (const GLvoid*)(sizeof(Vec3<float>)));
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_ProtagonistVertex), (const GLvoid*)(2 * sizeof(Vec3<float>)));
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bufs[1]);
 
@@ -158,12 +158,11 @@ void afk_display(void)
 
     afk_core.world->display(projection, afk_core.sun);
 
-    /* TODO Ignoring the protagonist for now.  I think it's served
-     * its purpose: I need to come up with a way of making objects,
-     * and then make a new protagonist that tracks through the
-     * cells.
-     * I do need to fix the camera transform accuracy bug first
-     * though ...
+    /* TODO: This placeholder protagonist is cheating, because
+     * I created it manually.
+     * I want to eventually replace it with a random shape
+     * (jimmied to be a suitable size and shape to fly around
+     * in the company of.)
      */
     afk_core.protagonist->display(projection);
 

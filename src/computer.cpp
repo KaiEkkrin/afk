@@ -24,8 +24,6 @@ struct AFK_ClProgram programs[] = {
     {   0,  "landscape_yreduce.cl"      },
     {   0,  "shape_3dedge.cl"           },
     {   0,  "shape_3dvapour.cl"         },
-    {   0,  "test.cl"                   },
-    {   0,  "vs_test.cl"                },
     {   0,  ""                          }
 };
 
@@ -35,8 +33,6 @@ struct AFK_ClKernel kernels[] = {
     {   0,  "landscape_yreduce.cl",     "makeLandscapeYReduce"          },
     {   0,  "shape_3dedge.cl",          "makeShape3DEdge"               },
     {   0,  "shape_3dvapour.cl",        "makeShape3DVapour"             },
-    {   0,  "test.cl",                  "vector_add_gpu"                },
-    {   0,  "vs_test.cl",               "mangle_vs"                     },
     {   0,  "",                         ""                              }
 };
 

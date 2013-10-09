@@ -23,18 +23,17 @@
     }
 
 
-/* Describes the layout of a vertex for the vcol_phong
+/* Describes the layout of a vertex for the protagonist
  * shader sequence.
- * TODO Remove me?!
  */
-struct AFK_VcolPhongVertex
+struct AFK_ProtagonistVertex
 {
     Vec3<float> location;
     Vec3<float> colour;
     Vec3<float> normal;
 };
 
-struct AFK_VcolPhongIndex
+struct AFK_ProtagonistIndex
 {
     unsigned int i[3];
 };
