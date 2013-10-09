@@ -7,13 +7,9 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/random/random_device.hpp>
 
-#include <openssl/engine.h>
-
-#include "aes.hpp"
 #include "boost_mt19937.hpp"
 #include "boost_taus88.hpp"
 #include "c.hpp"
-#include "hmac.hpp"
 #include "test.hpp"
 #include "../afk.hpp"
 #include "../cell.hpp"
@@ -149,12 +145,6 @@ void test_rngs(void)
     boost::random::random_device rdev;
     srand(rdev());
 
-    /* If I'm going to be using OpenSSL, the default
-     * engine needs initialising.
-     */
-    ENGINE_load_builtin_engines();
-    ENGINE_register_all_complete();
-
 #define TEST_CELLS_SIZE 1004
     AFK_Cell testCells[TEST_CELLS_SIZE];
     testCells[0] = afk_cell(afk_vec4<long long>(0, 0, 0, 1));
@@ -170,20 +160,10 @@ void test_rngs(void)
     AFK_C_RNG                   c_rng;
     AFK_Boost_Taus88_RNG        boost_taus88_rng;
     AFK_Boost_MT19937_RNG       boost_mt19937_rng;
-    AFK_AES_RNG                 aes_rng;
-    AFK_HMAC_RNG                hmac_md5_rng(AFK_HMAC_Algo_MD5);
-    AFK_HMAC_RNG                hmac_ripemd160_rng(AFK_HMAC_Algo_RIPEMD160);
-    AFK_HMAC_RNG                hmac_sha1_rng(AFK_HMAC_Algo_SHA1);
-    AFK_HMAC_RNG                hmac_sha256_rng(AFK_HMAC_Algo_SHA256);
 
 #define RANDS_PER_CELL 100000
     evaluate_rng(c_rng, "C", testCells, TEST_CELLS_SIZE, RANDS_PER_CELL);
     evaluate_rng(boost_taus88_rng, "boost_taus88", testCells, TEST_CELLS_SIZE, RANDS_PER_CELL);
     evaluate_rng(boost_mt19937_rng, "boost_mt19937", testCells, TEST_CELLS_SIZE, RANDS_PER_CELL);
-    evaluate_rng(aes_rng, "aes", testCells, TEST_CELLS_SIZE, RANDS_PER_CELL);
-    evaluate_rng(hmac_md5_rng, "hmac_md5", testCells, TEST_CELLS_SIZE, RANDS_PER_CELL);
-    evaluate_rng(hmac_ripemd160_rng, "hmac_ripemd160", testCells, TEST_CELLS_SIZE, RANDS_PER_CELL);
-    evaluate_rng(hmac_sha1_rng, "hmac_sha1", testCells, TEST_CELLS_SIZE, RANDS_PER_CELL);
-    evaluate_rng(hmac_sha256_rng, "hmac_sha256", testCells, TEST_CELLS_SIZE, RANDS_PER_CELL);
 }
 

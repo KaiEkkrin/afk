@@ -57,10 +57,6 @@ int main(int argc, char **argv)
     test_jigsawFake3D();
 #endif
 
-#if TEST_RNGS
-    test_rngs();
-#endif
-
 #if TEST_SUBSTRATE
     test_substrate();
 #endif
@@ -71,6 +67,13 @@ int main(int argc, char **argv)
         afk_core.configure(&argc, argv);
 
         std::cout << "AFK Using master seed: " << afk_core.config->masterSeed << std::endl;
+
+		/* The RNG test needs to go here after that master seed has
+		 * been initialised, because it'll refer to it.
+		 */
+#if TEST_RNGS
+    	test_rngs();
+#endif
 
         std::cout << "AFK initalising graphics" << std::endl;
         afk_core.initGraphics();

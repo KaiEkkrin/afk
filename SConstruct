@@ -10,12 +10,6 @@ AddOption(
     help='Enable profiling',
     default=False)
 
-AddOption(
-    '--llvm',
-    action='store_true',
-    help='Use LLVM',
-    default=False)
-
 extra_ccflags = []
 extra_ldflags = []
 extra_libs = []
@@ -40,16 +34,10 @@ else:
         extra_ldflags = []
         variant_dir = 'build/release'
 
-if GetOption('llvm'):
-    variant_dir += '_llvm'
-    compiler = 'clang++'
-else:
-    compiler = 'g++'
-
 # TODO Restrict this to Linux.
 # On Windows, instead apply -DAFK_WGL.  On Mac, -DAFK_CGL or somesuch.
 extra_ccflags.append('-DAFK_GLX')
 extra_libs.append('-lX11')
 
-SConscript('src/SConscript', variant_dir=variant_dir, exports='compiler extra_ccflags extra_ldflags extra_libs')
+SConscript('src/SConscript', variant_dir=variant_dir, exports='extra_ccflags extra_ldflags extra_libs')
 
