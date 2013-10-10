@@ -460,26 +460,19 @@ AFK_World::AFK_World(
     unsigned int tileCacheEntries = tileCacheSize / lSizes.tSize;
     Vec3<int> tilePieceSize = afk_vec3<int>((int)lSizes.tDim, (int)lSizes.tDim, 1);
 
-    enum AFK_JigsawFormat tileTexFormat[3];
-    tileTexFormat[0] = AFK_JIGSAW_FLOAT32;          /* Y displacement */
-    tileTexFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;    /* Colour */
-
-    /* Normal: The packed 8-bit signed format doesn't seem to play nicely with
-     * cl_gl buffer sharing; I don't know why...
-     */
-    if (config->clGlSharing)
-        tileTexFormat[2] = AFK_JIGSAW_4FLOAT32;
-    else
-        tileTexFormat[2] = AFK_JIGSAW_4FLOAT8_SNORM;
-
     landscapeJigsaws = new AFK_JigsawCollection(
         ctxt,
         tilePieceSize,
         (int)tileCacheEntries,
         2, /* I want at least two, so I can put big tiles only into the first one */
         AFK_JIGSAW_2D,
-        tileTexFormat,
-        3,
+        {
+            AFK_JIGSAW_FLOAT32,         /* Y displacement */
+            AFK_JIGSAW_4FLOAT8_UNORM,   /* Colour */
+            config->clGlSharing ? AFK_JIGSAW_4FLOAT32 : AFK_JIGSAW_4FLOAT8_SNORM
+                                        /* Normal; packed 8-bit signed doesn't seem to
+                                         * play nice with cl_gl buffer sharing */
+        },
         computer->getFirstDeviceProps(),
         config->clGlSharing ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED,
         config->concurrency,
@@ -506,15 +499,13 @@ AFK_World::AFK_World(
     unsigned int shapeCacheEntries = shapeCacheSize / (32 * SQUARE(sSizes.eDim) * 6 + 16 * CUBE(sSizes.tDim));
 
     Vec3<int> vapourPieceSize = afk_vec3<int>(sSizes.tDim, sSizes.tDim, sSizes.tDim);
-    enum AFK_JigsawFormat vapourTexFormat = AFK_JIGSAW_4FLOAT32;
     vapourJigsaws = new AFK_JigsawCollection(
         ctxt,
         vapourPieceSize,
         (int)shapeCacheEntries,
         1,
         AFK_JIGSAW_3D,
-        &vapourTexFormat,
-        1,
+        { AFK_JIGSAW_4FLOAT32 },
         computer->getFirstDeviceProps(),
         AFK_JIGSAW_BU_CL_ONLY,
         config->concurrency,
@@ -526,28 +517,19 @@ AFK_World::AFK_World(
      */
     Vec3<int> edgePieceSize = afk_vec3<int>(sSizes.eDim * 3, sSizes.eDim * 2, 1);
 
-    enum AFK_JigsawFormat edgeTexFormat[4];
-    edgeTexFormat[0] = AFK_JIGSAW_4FLOAT32;        /* Displacement */
-    edgeTexFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;   /* Colour */
-
-    /* Normal: The packed 8-bit signed format doesn't seem to play nicely with
-     * cl_gl buffer sharing; I don't know why...
-     */
-    if (config->clGlSharing)
-        edgeTexFormat[2] = AFK_JIGSAW_4FLOAT32;
-    else
-        edgeTexFormat[2] = AFK_JIGSAW_4FLOAT8_SNORM;
-
-    edgeTexFormat[3] = AFK_JIGSAW_UINT32;           /* Overlap */
-
     edgeJigsaws = new AFK_JigsawCollection(
         ctxt,
         edgePieceSize,
         (int)shapeCacheEntries,
         1,
         AFK_JIGSAW_2D,
-        edgeTexFormat,
-        4,
+        {
+            AFK_JIGSAW_4FLOAT32,        /* Displacement */
+            AFK_JIGSAW_4FLOAT8_UNORM,   /* Colour */
+            config->clGlSharing ? AFK_JIGSAW_4FLOAT32 : AFK_JIGSAW_4FLOAT8_SNORM,
+                                        /* Normal */
+            AFK_JIGSAW_UINT32           /* Overlap */
+        },
         computer->getFirstDeviceProps(),
         config->clGlSharing ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED,
         config->concurrency,

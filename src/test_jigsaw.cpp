@@ -38,7 +38,6 @@ void afk_testJigsaw(
 
     const int testIterations = 1000;
     int startingPieceCount = 400;
-    enum AFK_JigsawFormat testFormat = AFK_JIGSAW_4FLOAT32;
 
     AFK_JigsawCollection testCollection(
         ctxt,
@@ -46,8 +45,7 @@ void afk_testJigsaw(
         startingPieceCount,
         4,
         AFK_JIGSAW_2D,
-        &testFormat,
-        1,
+        { AFK_JIGSAW_4FLOAT32 },
         computer->getFirstDeviceProps(),
         AFK_JIGSAW_BU_CL_ONLY,
         config->concurrency,
