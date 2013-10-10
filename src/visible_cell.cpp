@@ -83,21 +83,25 @@ bool AFK_VisibleCell::testDetailPitch(
     const AFK_Camera& camera,
     const Vec3<float>& viewerLocation) const
 {
-    /* Sample the centre of the cell.  This is wrong: it
-     * will cause artifacts if you manage to get to exactly
-     * the middle of a cell (I can probably test this with
-     * the start position (8192, 8192, 8192)
-     * TODO To fix it properly, I need to pick three points
-     * displaced along the 3 axes by the dot pitch from the
-     * centre of the cell, project them through the camera,
-     * and compare those distances to the detail pitch,
-     * no?
-     * (in fact I'd probably get away with just the x and
-     * z axes)
+    /* The cell detail pitch shall be the average of the
+     * detail pitches as seen of the 8 vertices.
      */
-    float distanceToViewer = (midpoint - (viewerLocation - camera.separation)).magnitude();
     float scale = (vertices[1][0][0] - vertices[0][0][0]).magnitude();
-    return camera.getDetailPitchAsSeen(scale, distanceToViewer) < detailPitch;
+    float accDP = 0.0f;
+
+    for (int x = 0; x <= 1; ++x)
+    {
+        for (int y = 0; y <= 1; ++y)
+        {
+            for (int z = 0; z <= 1; ++z)
+            {
+                float distanceToViewer = (vertices[x][y][z] - (viewerLocation - camera.separation)).magnitude();
+                accDP += camera.getDetailPitchAsSeen(scale, distanceToViewer);
+            }
+        }
+    }
+
+    return (accDP / 8.0f) < detailPitch;
 }
 
 static void testPointVisible(
