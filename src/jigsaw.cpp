@@ -25,11 +25,12 @@ AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat e)
 {
     switch (e)
     {
-    case AFK_JIGSAW_UINT8:
         /* TODO: Bytes give me humongous corruption on copy here, and I
          * don't understand why.  Int32 is obviously bad from a space used
          * point of view but appear to actually work...
          */
+
+    case AFK_JIGSAW_UINT32:
         glInternalFormat                    = GL_R32UI;
         glFormat                            = GL_RED_INTEGER;
         glDataType                          = GL_UNSIGNED_INT;

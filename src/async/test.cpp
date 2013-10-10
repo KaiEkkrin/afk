@@ -112,10 +112,6 @@ void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<
         primeFilterGang << i;
         boost::unique_future<bool> finished = primeFilterGang.start(); 
 
-        /* TODO Do something more clever with this.  I need to
-         * think hard about the manner in which the caller is
-         * woken up when the result has been computed.
-         */
         finished.wait();
         std::cout << std::endl << std::endl;
         std::cout << "Finished with " << finished.get() << std::endl;

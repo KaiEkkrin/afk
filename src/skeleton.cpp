@@ -421,9 +421,6 @@ AFK_SkeletonCube AFK_Skeleton::Bones::next(void)
     if (!hasNext()) throw AFK_Exception("Skeleton ran out of bones");
     thisBone = nextBone;
 
-    /* TODO remove sanity check -- want to ensure consistency here */
-    assert(skeleton.within(thisBone));
-
     return thisBone;
 }
 

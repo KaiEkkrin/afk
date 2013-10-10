@@ -98,7 +98,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
 
     concurrency                 = boost::thread::hardware_concurrency() + 1;
     clProgramsDir               = NULL;
-    clGlSharing                 = false; /* TODO hope to default true if I get it reliably working */
+    clGlSharing                 = false; /* TODO Find hardware this actually improves performance on and default-true for that */
     forceFake3DImages           = false;
 
     startingDetailPitch         = 512.0f;
@@ -277,10 +277,6 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
      */
     if (keyboardMapping.empty())
     {
-        /* TODO Swap wsad to mouse controls by default, so I can put
-         * the others somewhere more sensible!
-         */
-
         /* TODO These are observed X keycodes.  I'll need different
          * ones for Windows at any rate ...
          */

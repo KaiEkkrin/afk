@@ -65,25 +65,14 @@ unsigned int AFK_WorldCell::getStartingEntitiesWanted(
     unsigned int entityCount = 0;
     if (entities.size() == 0)
     {
-        /* TODO Debug of specific entity */
-        if (cell.coord.v[0] == 0 && cell.coord.v[1] == 0 && cell.coord.v[2] == 0 && cell.coord.v[3] == 16)
-        {
-            entityCount = 1;
-        }
-        else
-        {
-#if 1
-            Vec4<float> realCoord = getRealCoord();
-            float sparseMult = log(realCoord.v[3]);
-#else
-            float sparseMult = 1.0f;
-#endif
+        /* I want more entities in larger cells */
+        Vec4<float> realCoord = getRealCoord();
+        float sparseMult = log(realCoord.v[3]);
 
-            for (unsigned int entitySlot = 0; entitySlot < maxEntitiesPerCell; ++entitySlot)
-            {
-                if (rng.frand() < (sparseMult / ((float)entitySparseness)))
-                    ++entityCount;
-            }
+        for (unsigned int entitySlot = 0; entitySlot < maxEntitiesPerCell; ++entitySlot)
+        {
+            if (rng.frand() < (sparseMult / ((float)entitySparseness)))
+                ++entityCount;
         }
     }
 
@@ -127,10 +116,7 @@ void AFK_WorldCell::addStartingEntity(
     }
 
     Vec3<float> entityRotation;
-    /* TODO REMOVE DEBUG -- removing orientation to try to figure out
-     * cell edge gaps bug
-     */
-    switch (/* rng.uirand() % 5 */ 0)
+    switch (rng.uirand() % 5)
     {
     case 0:
         entityRotation = afk_vec3<float>(0.0f, 0.0f, 0.0f);

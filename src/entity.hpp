@@ -64,7 +64,7 @@ public:
     void position(
         const Vec3<float>& scale,
         const Vec3<float>& displacement,
-        const Vec3<float>& rotation /* pitch, yaw, roll */ /* TODO change to use a quaternion? */
+        const Vec3<float>& rotation /* pitch, yaw, roll */
         );
 
     /* AFK_Claimable implementation. */

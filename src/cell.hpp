@@ -55,23 +55,15 @@ class AFK_Cell
 public:
     /* These co-ordinates are in smallest-cell steps, starting
      * from (0,0,0) at the origin.  The 4th number is the
-     * cell size: 2 for smallest, then increasing in factors
+     * cell size.  In the world case, 2 is smallest, then increasing in factors
      * of subdivisionFactor.
      * The reason for 2 being smallest is I need 1/2-cell steps
      * in order to fill in terrain that isn't interrupted at
      * every cell edge.
-     * TODO: These aren't homogeneous co-ordinates right now
-     * (nor is the float `realCoord' equivalent) and for sanity,
-     * I should probably make them homogeneous :P
+     * However, there's nothing enforcing that smallest size in
+     * the `cell' module and shape cells can be 1.
      */
     Vec4<long long> coord;
-
-    /* TODO Somewhere, I'm going to need a way of making the
-     * smallest AFK_Cell that can contain a particular object
-     * at the current LoD, so that I can assign moving objects
-     * to cells, decide what extra cells to draw or not etc etc.
-     * That'll probably end up in AFK_World though ;)
-     */
 
     /* Obligatory thingies. */
     bool operator==(const AFK_Cell& _cell) const;

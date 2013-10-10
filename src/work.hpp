@@ -28,9 +28,6 @@ union AFK_WorldWorkParam;
 /* A dependent work item is one that will float around at the
  * back of some other work items until they're done, and then
  * get enqueued by means of check().
- * TODO: This mechanism is very generic!  Perhaps move it into
- * async/work_queue, so that I don't have to treat it
- * separately in world and shape?
  */
 template<typename ParameterType, typename ReturnType>
 class AFK_WorkDependency

@@ -96,8 +96,8 @@ public:
                 /* TODO: It's hugely important that the following fetch_sub()
                  * doesn't get reordered with the fetch_add() inside the
                  * function call, or with the load() above.
-                 * I'm hoping that the following fences
-                 * stops that from happening ???
+                 * These fences have no basis in rational thought, but I put them
+                 * in and haven't seen a thread fall out early for a while ... :-/
                  */
                 boost::atomic_thread_fence(boost::memory_order_seq_cst);
                 count.fetch_sub(1);

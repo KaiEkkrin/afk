@@ -42,6 +42,9 @@ public:
      * will be a lot of overlap.  Do I want to instead include a
      * few words' worth of bitmask to tell the kernel which cubes
      * to include and which to ignore?
+     * Perhaps when I do the full/empty vapour feedback I could also
+     * feed back stats on how many of the features were within range,
+     * to find out how much optimisation is possible here.
      */
     int cubeOffset;
     int cubeCount;

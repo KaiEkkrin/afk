@@ -44,7 +44,7 @@
  */
 enum AFK_JigsawFormat
 {
-    AFK_JIGSAW_UINT8,
+    AFK_JIGSAW_UINT32,
     AFK_JIGSAW_FLOAT32,
     AFK_JIGSAW_555A1,
     AFK_JIGSAW_101010A2,
@@ -305,9 +305,6 @@ public:
      * space and the JigsawCollection needs to use a different one.
      * This function should be thread safe so long as you don't
      * lie about your thread ID
-     * TODO: The JigsawCollection ought to cache this function's
-     * returning false each frame, so that it doesn't send threads
-     * back to the wrong jigsaw after it ran out of space.
      */
     bool grab(unsigned int threadId, Vec3<int>& o_uvw, AFK_Frame *o_timestamp);
 

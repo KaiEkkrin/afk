@@ -115,9 +115,6 @@ public:
      * skeleton.  This can end up as 0 (e.g. if there are
      * big gaps in the upper one), at which point you
      * can cancel enqueueing all the subsequent geometry!
-     * TODO Do I instead want to feed this the entire
-     * vapour cell cache?  I'm not sure I do, it would
-     * be very messy ...
      */
     int make(
         const AFK_Skeleton& upper,

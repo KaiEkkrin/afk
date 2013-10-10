@@ -7,8 +7,6 @@
 // TODO: Stop the nasty stitching when two different LoDs
 // cross at a y boundary by splitting the triangle into two
 // here, each stopping at said y boundary.
-// TODO *2: Throw away the current base geometry entirely,
-// and use the tessellator!
 
 #version 330
 

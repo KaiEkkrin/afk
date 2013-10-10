@@ -262,8 +262,6 @@ public:
     /* Tells the async task to do a run.  Returns the future
      * result.
      * The caller should wait on that future, no doubt.
-     * TODO: For multiple async tasks going at once, I'm going to
-     * want to select() between multiple futures somehow ??
      */
     boost::unique_future<ReturnType> start(void)
     {

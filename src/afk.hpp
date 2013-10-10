@@ -23,6 +23,8 @@
 /* This appears to be the correct amount to `wiggle' texture samples
  * by, on both AMD and Nvidia, so that nearest-neighbour sampling
  * actually picks up the correct neighbour.
+ * TODO: I think I should move this wiggle into the shaders, to be
+ * applied to nearest-neighbour samplers only.
  */
 #define AFK_SAMPLE_WIGGLE 0.5f
 

@@ -155,9 +155,6 @@ bool afk_generateShapeCells(
     }
     else
     {
-        /* TODO Artificial min cell pitch here to check for
-         * cross-LoD overlaps.
-         */
         bool display = (
             cell.c.coord.v[3] == 1 || visibleCell.testDetailPitch(
                 world->getEntityDetailPitch(), *camera, viewerLocation));

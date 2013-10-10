@@ -2,7 +2,8 @@
 
 #include "afk.hpp"
 
-#include <math.h>
+#include <cassert>
+#include <cmath>
 
 #include "camera.hpp"
 #include "core.hpp"
@@ -172,12 +173,7 @@ void afk_display(void)
     glFlush();
 
     GLenum glErr = glGetError();
-    if (glErr != GL_NO_ERROR)
-    {
-        /* TODO Non-fatal errors? (How should I handle out-of-memory?) */
-        std::ostringstream ss;
-        ss << "AFK: Got GL error: " << gluErrorString(glErr);
-        throw AFK_Exception(ss.str());
-    }
+    /* TODO Non-fatal errors? (How should I handle out-of-memory?) */
+    assert(glErr == GL_NO_ERROR);
 }
 

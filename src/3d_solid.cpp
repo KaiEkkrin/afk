@@ -249,11 +249,6 @@ void AFK_3DVapourCube::make(
          * feature near.  I'll prefer the earlier ones, because
          * they give me a wider range of movement, as it were.
          */
-        /* TODO: I _think_ the co-adjacency thingy fixes the
-         * issues with using fullAdjacency for this.  I'm not
-         * totally sure, though.  I think I need to fill in some
-         * more of the gaps in the edge shapes to verify.
-         */
         for (int t = 0; t < TRYFADJ_SIZE; ++t)
         {
             int thisAdj = (bonesCoAdjacency[b] & tryFAdj[t]);

@@ -39,9 +39,6 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
 {
     if (!haveTerrainDescriptor)
     {
-        /* TODO RNG in thread local storage so I don't have to re-make
-         * ones on the stack?  (inefficient?)
-         */
         AFK_Boost_Taus88_RNG rng;
 
         /* I'm going to make 5 terrain tiles. */

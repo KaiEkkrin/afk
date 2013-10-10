@@ -36,10 +36,6 @@ void AFK_VapourCell::makeDescriptor(
     {
         AFK_Boost_Taus88_RNG rng;
 
-        /* TODO: Half-cells will go here when I add them (which I
-         * think I might want to).  For now I just make this cell
-         * by itself.
-         */
         rng.seed(cell.rngSeed());
         skeleton.make(rng, sSizes);
 
@@ -67,10 +63,6 @@ void AFK_VapourCell::makeDescriptor(
     {
         AFK_Boost_Taus88_RNG rng;
 
-        /* TODO: Half-cells will go here when I add them (which I
-         * think I might want to).  For now I just make this cell
-         * by itself.
-         */
         rng.seed(cell.rngSeed());
 
         Vec3<long long> thisCellShapeSpace = afk_vec3<long long>(
@@ -79,10 +71,6 @@ void AFK_VapourCell::makeDescriptor(
             upperCell.cell.c.coord.v[0], upperCell.cell.c.coord.v[1], upperCell.cell.c.coord.v[2]);
         Vec3<long long> upperOffset = (thisCellShapeSpace - upperCellShapeSpace) * (sSizes.skeletonFlagGridDim/2) / cell.c.coord.v[3];
 
-        /* TODO: I'm seeing co-ordinates of -1 in the upper offset.
-         * That's almost certainly wrong.  I need to understand what
-         * makes them and fix them.
-         */
         if (skeleton.make(
             upperCell.skeleton,
             upperOffset,
@@ -144,8 +132,6 @@ AFK_KeyedCell AFK_VapourCell::ShapeCells::next(void)
     AFK_SkeletonCube nextSkeletonCube = bones.next();
     AFK_KeyedCell nextCell = nextSkeletonCube.toShapeCell(vapourCell.cell, sSizes);
 
-    /* TODO remove sanity check -- trying to ensure consistency here */
-    assert(vapourCell.withinSkeleton(nextCell, sSizes));
     return nextCell;
 }
 

@@ -148,11 +148,9 @@ public:
      */
     void checkpoint(boost::posix_time::ptime& now, bool definitely);
 
-    /* TODO REMOVE WHEN LOSE DEPENDENCY ON GLUT
-     * Because GLUT requires that all OpenGL commands be called
-     * from the primary thread, deletes requested on other
-     * threads should push their gl buffers to here to be
-     * cleaned up in the main loop.
+    /* TODO NASTY -- Share GL context between all threads and remove
+     * Deletes of GL objects from other threads go into here so that
+     * the main thread (with the GL context) can clean up.
      */
     void glBuffersForDeletion(GLuint *bufs, size_t bufsSize);
 

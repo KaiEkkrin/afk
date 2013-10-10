@@ -340,32 +340,18 @@ bool AFK_World::generateClaimedWorldCell(
         AFK_Boost_Taus88_RNG staticRng;
         staticRng.seed(cell.rngSeed());
 
-        if (/* !landscapeTile.hasArtwork() || */
-            worldCell.getRealCoord().v[1] >= landscapeTile.getYBoundUpper())
-            //cell.coord.v[0] == 0 && cell.coord.v[1] == 0 && cell.coord.v[2] == 0 && cell.coord.v[3] == 16) /* TODO Debug of specific entity */
+        if (worldCell.getRealCoord().v[1] >= landscapeTile.getYBoundUpper())
         {
-            //if (cell.coord.v[3] == 1024)
-            //if (cell.coord.v[0] == 0 && cell.coord.v[1] == 0 && cell.coord.v[2] == 0)
-            //if (abs(cell.coord.v[0]) <= (1 * cell.coord.v[3]) &&
-            //    abs(cell.coord.v[1]) <= (1 * cell.coord.v[3]) &&
-            //    abs(cell.coord.v[2]) <= (1 * cell.coord.v[3]))
-            //if (cell.coord.v[3] < 64)
-            {
-                unsigned int startingEntityCount = worldCell.getStartingEntitiesWanted(
-                    staticRng, maxEntitiesPerCell, entitySparseness);
+            unsigned int startingEntityCount = worldCell.getStartingEntitiesWanted(
+                staticRng, maxEntitiesPerCell, entitySparseness);
 
-                for (unsigned int e = 0; e < startingEntityCount; ++e)
-                {
-                    unsigned int shapeKey = worldCell.getStartingEntityShapeKey(staticRng);
-                    generateStartingEntity(shapeKey, worldCell, threadId, staticRng);
-                }
+            for (unsigned int e = 0; e < startingEntityCount; ++e)
+            {
+                unsigned int shapeKey = worldCell.getStartingEntityShapeKey(staticRng);
+                generateStartingEntity(shapeKey, worldCell, threadId, staticRng);
             }
         }
 
-        /* TODO: Temporarily disabling entities, so that I can check
-          * that the refactored 3D-supporting jigsaw is still OK with
-         * the terrain.
-         */
         AFK_ENTITY_LIST::iterator eIt = worldCell.entitiesBegin();
         while (eIt != worldCell.entitiesEnd())
         {
@@ -374,64 +360,7 @@ bool AFK_World::generateClaimedWorldCell(
             bool updatedEIt = false;
             if (e->claimYieldLoop(threadId, AFK_CLT_EXCLUSIVE, afk_core.computingFrame) == AFK_CL_CLAIMED)
             {
-                /* TODO: Movement wants to move into OpenCL.
-                 * I don't want to perpetuate the below.
-                 */
-#if 0
-                AFK_Cell newCell;
-                if (e->animate(afk_core.getStartOfFrameTime(), cell, minCellSize, newCell))
-                {
-                    /* This entity has moved to a different cell.
-                     * Dig it up and feed it into its entity list.
-                     */
-                    
-                    /* Yes, I'm going to be creating this cell if
-                     * it doesn't exist.  And not claiming it.  So
-                     * there's a chance the entity gets cleaned up
-                     * by the evictor.  I can handle with that.
-                     * TODO: Permanent entities -- should prevent
-                     * the evictor from getting rid of cells that
-                     * contain them, and should also cause their
-                     * cells to always get enumerated regardless of
-                     * angle and distance.
-                     */
-                    nextEIt = worldCell.eraseEntity(eIt);
-                    updatedEIt = true;
-
-                    /* TODO: There is a very tiny possibility of the
-                     * following scenario here:
-                     * - cell gets created in the cache
-                     * - cell gets grabbed by the eviction thread and
-                     * destroyed
-                     * - moveEntity() gets called on a dead cell and
-                     * crashes
-                     * To avoid this I need to ensure that cells are
-                     * naturally created in an un-evictable state.  I'm
-                     * not quite sure how to ensure that.
-                     */
-                    (*worldCache)[newCell].moveEntity(e);
-                    entitiesMoved.fetch_add(1);
-                }
-
-                /* TODO: Collisions probably go here.  I'll no doubt
-                 * want to do that in OpenCL for performance, and
-                 * all sorts.
-                 */
-
-                /* Entities are always displayed.  They don't
-                 * exist at multiple LoDs.
-                 * TODO: Maybe some day I'll want to make very
-                 * large entities out of component parts so
-                 * that I can zoom in on their LoD just like
-                 * I can with the landscape ?
-                 */
-
-                /* TODO: Figure out the list of lights that apply.
-                 * And some day, the list of shadows that apply,
-                 * too.  Rah!
-                 */
-#endif
-                /* Now, make sure everything I need in that shape
+                /* Make sure everything I need in that shape
                  * has been computed ...
                  */
                 AFK_WorldWorkQueue::WorkItem shapeCellItem;
@@ -609,13 +538,13 @@ AFK_World::AFK_World(
     else
         edgeTexFormat[2] = AFK_JIGSAW_4FLOAT8_SNORM;
 
-    edgeTexFormat[3] = AFK_JIGSAW_UINT8;            /* Overlap */
+    edgeTexFormat[3] = AFK_JIGSAW_UINT32;           /* Overlap */
 
     edgeJigsaws = new AFK_JigsawCollection(
         ctxt,
         edgePieceSize,
         (int)shapeCacheEntries,
-        1, /* TODO I'll no doubt be expanding on this */
+        1,
         AFK_JIGSAW_2D,
         edgeTexFormat,
         4,
@@ -782,8 +711,6 @@ boost::unique_future<bool> AFK_World::updateWorld(void)
 
     /* First, transform the protagonist location and its facing
      * into integer cell-space.
-     * TODO: This is *really* going to want arbitrary
-     * precision arithmetic, eventually.
      */
     Mat4<float> protagonistTransformation = afk_core.protagonist->object.getTransformation();
     Vec4<float> hgProtagonistLocation = protagonistTransformation *

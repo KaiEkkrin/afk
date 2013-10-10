@@ -70,13 +70,6 @@ public:
      * the relevant jigsaw pieces with new ones.
      * Use the matching VapourCell to build the 3D list required
      * here.
-     * TODO: Cross-reference, over-compute, stitching, and all
-     * that junk.  Have a think.  I really do believe I want to
-     * avoid cross referencing at the cell level, and I *like*
-     * the half-cube paradigm (as demonstrated by its successful
-     * terrain equivalent, the half-tile).
-     * I could consider adding an `adjacency' compute step, or
-     * something.
      */
     void enqueueVapourComputeUnitWithNewVapour(
         unsigned int threadId,
