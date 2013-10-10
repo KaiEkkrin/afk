@@ -11,7 +11,6 @@
 #include <vector>
 
 #include <boost/atomic.hpp>
-#include <boost/function.hpp>
 #include <boost/lockfree/queue.hpp>
 #include <boost/thread/shared_mutex.hpp>
 #include <boost/type_traits/has_trivial_assign.hpp>

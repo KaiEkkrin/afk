@@ -1,12 +1,5 @@
 /* AFK (c) Alex Holloway 2013 */
 
-/* TODO Convert this stuff to C++11.  It's genuinely better and I'm already
- * noticing places where I would benefit from using it instead:
- * - use unique_ptr instead of auto_ptr
- * - use unordered_map instead of map
- * - use { ... } initialisation assignments instead of cumbersome messes
- */
-
 #include "afk.hpp"
 
 #include <iostream>

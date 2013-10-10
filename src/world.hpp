@@ -9,7 +9,6 @@
 #include <vector>
 
 #include <boost/atomic.hpp>
-#include <boost/function.hpp>
 #include <boost/thread/thread.hpp>
 
 #include "3d_edge_compute_queue.hpp"

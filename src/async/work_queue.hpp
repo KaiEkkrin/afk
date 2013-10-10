@@ -50,7 +50,7 @@ class AFK_WorkQueue
 {
 public:
     /* An old style raw function pointer, because it seems
-     * boost::function<> isn't safe for use in a lockfree queue
+     * std::function<> isn't safe for use in a lockfree queue ??
      */
     typedef ReturnType (*WorkFunc)(
         unsigned int,

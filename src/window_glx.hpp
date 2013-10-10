@@ -54,12 +54,12 @@ public:
     virtual void releaseGLContext(unsigned int threadId);
     virtual void shareGLCLContext(AFK_Computer *computer);
     virtual void loopOnEvents(
-        boost::function<void (void)> idleFunc,
-        boost::function<void (unsigned int)> keyboardUpFunc,
-        boost::function<void (unsigned int)> keyboardDownFunc,
-        boost::function<void (unsigned int)> mouseUpFunc,
-        boost::function<void (unsigned int)> mouseDownFunc,
-        boost::function<void (int, int)> motionFunc);
+        std::function<void (void)> idleFunc,
+        std::function<void (unsigned int)> keyboardUpFunc,
+        std::function<void (unsigned int)> keyboardDownFunc,
+        std::function<void (unsigned int)> mouseUpFunc,
+        std::function<void (unsigned int)> mouseDownFunc,
+        std::function<void (int, int)> motionFunc);
     virtual void capturePointer(void);
     virtual void letGoOfPointer(void);
     virtual void switchToFullScreen(void);

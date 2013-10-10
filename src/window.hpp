@@ -3,7 +3,7 @@
 #ifndef _AFK_WINDOW_H_
 #define _AFK_WINDOW_H_
 
-#include <boost/function.hpp>
+#include <functional>
 
 #include "computer.hpp"
 
@@ -36,12 +36,12 @@ public:
      * Exits when the window gets closed.
      */
     virtual void loopOnEvents(
-        boost::function<void (void)> idleFunc,
-        boost::function<void (unsigned int)> keyboardUpFunc,
-        boost::function<void (unsigned int)> keyboardDownFunc,
-        boost::function<void (unsigned int)> mouseUpFunc,
-        boost::function<void (unsigned int)> mouseDownFunc,
-        boost::function<void (int, int)> motionFunc) = 0;
+        std::function<void (void)> idleFunc,
+        std::function<void (unsigned int)> keyboardUpFunc,
+        std::function<void (unsigned int)> keyboardDownFunc,
+        std::function<void (unsigned int)> mouseUpFunc,
+        std::function<void (unsigned int)> mouseDownFunc,
+        std::function<void (int, int)> motionFunc) = 0;
 
     /* Captures and releases the pointer. */
     virtual void capturePointer(void) = 0;

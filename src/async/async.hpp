@@ -9,7 +9,6 @@
 
 #include <boost/atomic.hpp>
 #include <boost/chrono.hpp>
-#include <boost/function.hpp>
 #include <boost/ref.hpp>
 #include <boost/thread/condition.hpp>
 #include <boost/thread/future.hpp>

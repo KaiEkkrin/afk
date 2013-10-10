@@ -1,10 +1,10 @@
 /* AFK (c) Alex Holloway 2013 */
 
 #include <cmath>
+#include <functional>
 #include <iostream>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/function.hpp>
 #include <boost/random/random_device.hpp>
 #include <boost/random/taus88.hpp>
 #include <boost/thread/future.hpp>
@@ -114,8 +114,8 @@ void test_cache(void)
     //std::cout << std::endl;
 
     /* Now let's try it again with the polymer cache */
-    boost::function<size_t (const int&)> hashFunc = expensivelyHashInt();
-    AFK_PolymerCache<int, IntStartingAtZero, boost::function<size_t (const int&)> > polymerCache(16, 4, hashFunc);
+    std::function<size_t (const int&)> hashFunc = expensivelyHashInt();
+    AFK_PolymerCache<int, IntStartingAtZero, std::function<size_t (const int&)> > polymerCache(16, 4, hashFunc);
 
     for (unsigned int i = 0; i < CACHE_TEST_THREAD_COUNT; ++i)
     {

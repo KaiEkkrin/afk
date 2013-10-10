@@ -225,12 +225,12 @@ void AFK_WindowGlx::shareGLCLContext(AFK_Computer *computer)
 }
 
 void AFK_WindowGlx::loopOnEvents(
-    boost::function<void (void)> idleFunc,
-    boost::function<void (unsigned int)> keyboardUpFunc,
-    boost::function<void (unsigned int)> keyboardDownFunc,
-    boost::function<void (unsigned int)> mouseUpFunc,
-    boost::function<void (unsigned int)> mouseDownFunc,
-    boost::function<void (int, int)> motionFunc)
+    std::function<void (void)> idleFunc,
+    std::function<void (unsigned int)> keyboardUpFunc,
+    std::function<void (unsigned int)> keyboardDownFunc,
+    std::function<void (unsigned int)> mouseUpFunc,
+    std::function<void (unsigned int)> mouseDownFunc,
+    std::function<void (int, int)> motionFunc)
 {
     while (!windowClosed)
     {
