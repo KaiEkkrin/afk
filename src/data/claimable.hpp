@@ -9,12 +9,10 @@
 
 #include "frame.hpp"
 
-/* A "Claimable" data item is one that can be claim()'d and
- * release()'d like a poor man's lock, optionally stamping it
- * with the frame time at which this occurred.
- * Thus, Claimables can be safely used in evicting caches,
- * because the evictor can check they haven't been used for
- * a few frames before taking them out.
+/* A "Claimable" is a lockable thing with useful features. 
+ * It can optionally
+ * stamp the object with the frame time of use, and exclude
+ * re-use until the next frame.
  */
 
 /* Define this to try using a mutex instead.
@@ -24,6 +22,19 @@
  * However, I should leave the option in in case on some
  * platform mutexes turn out to be really expensive...
  * (Linux uses futexes remember)
+ *
+ * ...
+ *
+ * TODO: It now turns out that I haven't maintained the
+ * non-lock version, and if you don't define this it won't
+ * work.
+ * I should consider doing that; the lock requires me to
+ * allocate every value in the polymer on the heap, whilst
+ * a lockless version of this class could be trivially
+ * assignable and destructable, potentially removing that
+ * issue (and a possible concurrency bug associated with it:
+ * occasionally I catch AFK trying to use a boost mutex
+ * structure that appears uninitialised).
  */
 #define CLAIMABLE_MUTEX 1
 
