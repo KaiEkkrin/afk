@@ -18,13 +18,13 @@ void AFK_VisibleCell::calculateMidpoint(void)
 void AFK_VisibleCell::bindToCell(const AFK_Cell& cell, float worldScale)
 {
     /* Work out the vertices by computing cell adjacency. */
-    for (long long x = 0; x <= 1; ++x)
+    for (int64_t x = 0; x <= 1; ++x)
     {
-        for (long long y = 0; y <= 1; ++y)
+        for (int64_t y = 0; y <= 1; ++y)
         {
-            for (long long z = 0; z <= 1; ++z)
+            for (int64_t z = 0; z <= 1; ++z)
             {
-                AFK_Cell adjCell = afk_cell(afk_vec4<long long>(
+                AFK_Cell adjCell = afk_cell(afk_vec4<int64_t>(
                     cell.coord.v[0] + x * cell.coord.v[3],
                     cell.coord.v[1] + y * cell.coord.v[3],
                     cell.coord.v[2] + z * cell.coord.v[3],
@@ -43,13 +43,13 @@ void AFK_VisibleCell::bindToCell(const AFK_Cell& cell, float worldScale)
 void AFK_VisibleCell::bindToCell(const AFK_KeyedCell& cell, float worldScale, const Mat4<float>& worldTransform)
 {
     /* Work out the vertices by computing cell adjacency. */
-    for (long long x = 0; x <= 1; ++x)
+    for (int64_t x = 0; x <= 1; ++x)
     {
-        for (long long y = 0; y <= 1; ++y)
+        for (int64_t y = 0; y <= 1; ++y)
         {
-            for (long long z = 0; z <= 1; ++z)
+            for (int64_t z = 0; z <= 1; ++z)
             {
-                AFK_Cell adjCell = afk_cell(afk_vec4<long long>(
+                AFK_Cell adjCell = afk_cell(afk_vec4<int64_t>(
                     cell.c.coord.v[0] + x * cell.c.coord.v[3],
                     cell.c.coord.v[1] + y * cell.c.coord.v[3],
                     cell.c.coord.v[2] + z * cell.c.coord.v[3],

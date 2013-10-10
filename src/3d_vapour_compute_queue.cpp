@@ -164,16 +164,15 @@ void AFK_3DVapourComputeQueue::computeStart(
 
     cl_event vapourEvent;
 
-    AFK_CLCHK(clEnqueueNDRangeKernel(q, vapourKernel, 3, NULL, &vapourDim[0], NULL,
+    AFK_CLCHK(clEnqueueNDRangeKernel(q, vapourKernel, 3, nullptr, &vapourDim[0], nullptr,
         preVapourWaitList.size(),
         &preVapourWaitList[0],
         &vapourEvent))
 
     /* Release the things */
-    for (std::vector<cl_event>::iterator evIt = preVapourWaitList.begin();
-        evIt != preVapourWaitList.end(); ++evIt)
+    for (auto evIt : preVapourWaitList)
     {
-        if (*evIt) AFK_CLCHK(clReleaseEvent(*evIt))
+        if (evIt) AFK_CLCHK(clReleaseEvent(evIt))
     }
 
     for (unsigned int i = 0; i < 3; ++i)

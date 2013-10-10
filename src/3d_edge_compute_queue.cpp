@@ -64,8 +64,6 @@ AFK_3DEdgeComputeUnit AFK_3DEdgeComputeQueue::append(
     return newUnit;
 }
 
-#define CULL_COMMON_POINTS 1
-
 void AFK_3DEdgeComputeQueue::computeStart(
     AFK_Computer *computer,
     AFK_JigsawCollection *vapourJigsaws,
@@ -114,28 +112,21 @@ void AFK_3DEdgeComputeQueue::computeStart(
     edgeGlobalDim[0] = unitCount;
     edgeGlobalDim[1] = edgeGlobalDim[2] = sSizes.eDim;
 
-#if CULL_COMMON_POINTS
     size_t edgeLocalDim[3];
     edgeLocalDim[0] = 1;
     edgeLocalDim[1] = edgeLocalDim[2] = sSizes.eDim;
-#endif
 
     cl_event edgeEvent;
 
     AFK_CLCHK(clEnqueueNDRangeKernel(q, edgeKernel, 3, 0, &edgeGlobalDim[0],
-#if CULL_COMMON_POINTS
         &edgeLocalDim[0],
-#else
-        NULL,
-#endif
         preEdgeWaitList.size(),
         &preEdgeWaitList[0],
         &edgeEvent))
 
-    for (std::vector<cl_event>::iterator evIt = preEdgeWaitList.begin();
-        evIt != preEdgeWaitList.end(); ++evIt)
+    for (auto ev : preEdgeWaitList)
     {
-        AFK_CLCHK(clReleaseEvent(*evIt))
+        AFK_CLCHK(clReleaseEvent(ev))
     }
 
     AFK_CLCHK(clReleaseMemObject(unitsBuf))

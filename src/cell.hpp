@@ -39,7 +39,7 @@
 
 /* Identifies a cell in the world in an abstract manner,
  * suitable for using as a hash key.
- * TODO: Use of `long long' here means that, in theory at
+ * TODO: Use of `int64_t' here means that, in theory at
  * least, the terrain will eventually loop.  I'm hoping that
  * it won't for a suitably long while and I won't need
  * infinite precision arithmetic (with all its associated
@@ -63,7 +63,7 @@ public:
      * However, there's nothing enforcing that smallest size in
      * the `cell' module and shape cells can be 1.
      */
-    Vec4<long long> coord;
+    Vec4<int64_t> coord;
 
     /* Obligatory thingies. */
     bool operator==(const AFK_Cell& _cell) const;
@@ -84,8 +84,8 @@ public:
     unsigned int subdivide(
         AFK_Cell *subCells,
         const size_t subCellsSize,
-        long long stride,
-        long long points) const;
+        int64_t stride,
+        int64_t points) const;
 
     /* Fills out the supplied array of uninitialised
      * AFK_Cells with the next level of subdivision of
@@ -135,10 +135,10 @@ public:
 
 /* Useful ways of making cells. */
 AFK_Cell afk_cell(const AFK_Cell& other);
-AFK_Cell afk_cell(const Vec4<long long>& _coord);
+AFK_Cell afk_cell(const Vec4<int64_t>& _coord);
 
 /* Returns the cell (of the requested scale) that contains this point. */
-AFK_Cell afk_cellContaining(const Vec3<float>& _coord, long long scale, float worldScale);
+AFK_Cell afk_cellContaining(const Vec3<float>& _coord, int64_t scale, float worldScale);
 
 /* For insertion into an unordered_map. */
 size_t hash_value(const AFK_Cell& cell);

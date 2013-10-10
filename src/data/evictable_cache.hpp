@@ -103,7 +103,7 @@ public:
             kickoffSize(_targetSize + _targetSize / 4),
             complainSize(_targetSize + _targetSize / 2),
             threadId(_threadId),
-            th(NULL), rp(NULL), stop(false),
+            th(nullptr), rp(nullptr), stop(false),
             entriesEvicted(0), runsSkipped(0), runsOverlapped(0)
     {
     }
@@ -129,8 +129,8 @@ public:
             {
                 entriesEvicted += result.get();
                 th->join();
-                delete th; th = NULL;
-                delete rp; rp = NULL;
+                delete th; th = nullptr;
+                delete rp; rp = nullptr;
             }
         }
 

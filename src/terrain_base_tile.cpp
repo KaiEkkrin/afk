@@ -15,7 +15,7 @@ AFK_TerrainBaseTileVertex::AFK_TerrainBaseTileVertex(
 }
 
 AFK_TerrainBaseTile::AFK_TerrainBaseTile(const AFK_LandscapeSizes& lSizes):
-    bufs(NULL)
+    bufs(nullptr)
 {
     for (unsigned int x = 0; x < lSizes.vDim; ++x)
     {
@@ -67,7 +67,7 @@ AFK_TerrainBaseTile::~AFK_TerrainBaseTile()
 
 void AFK_TerrainBaseTile::initGL()
 {
-    bool needBufferPush = (bufs == NULL);
+    bool needBufferPush = (bufs == nullptr);
     if (needBufferPush)
     {
         bufs = new GLuint[2];

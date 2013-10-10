@@ -102,13 +102,13 @@ void AFK_3DVapourCube::addRandomFeatureAtAdjacencyBit(
     int j;
     for (j = 0; j < 3; ++j)
     {
-        feature.f[j] = (unsigned char)((rng.frand() * (coordMax.v[j] - coordMin.v[j]) + coordMin.v[j]) * 256.0f);
+        feature.f[j] = (uint8_t)((rng.frand() * (coordMax.v[j] - coordMin.v[j]) + coordMin.v[j]) * 256.0f);
     }
 
     /* Non-location values can be arbitrary... */
     for (; j < 7; ++j)
     {
-        feature.f[j] = (unsigned char)(rng.frand() * 256.0f);
+        feature.f[j] = (uint8_t)(rng.frand() * 256.0f);
     }
 
     /* ...except for the weight.
@@ -135,7 +135,7 @@ void AFK_3DVapourCube::addRandomFeatureAtAdjacencyBit(
         weight = weight * 128.0f;
     }
 
-    feature.f[j] = (unsigned char)weight;
+    feature.f[j] = (uint8_t)weight;
     features.push_back(feature);
 }
 

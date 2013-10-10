@@ -78,7 +78,7 @@ bool afk_generateEntity(
             shapeCellItem.func = afk_generateShapeCells;
             shapeCellItem.param = param;
             shapeCellItem.param.shape.cell = nextCell;
-            shapeCellItem.param.shape.dependency = NULL;
+            shapeCellItem.param.shape.dependency = nullptr;
             queue.push(shapeCellItem);
         }
     }
@@ -232,7 +232,7 @@ bool afk_generateShapeCells(
                         subcellItem.param.shape.viewerLocation      = viewerLocation;
                         subcellItem.param.shape.camera              = camera;
                         subcellItem.param.shape.flags               = (allVisible ? AFK_SCG_FLAG_ENTIRELY_VISIBLE : 0);
-                        subcellItem.param.shape.dependency          = NULL;
+                        subcellItem.param.shape.dependency          = nullptr;
                         queue.push(subcellItem);
                     }
             

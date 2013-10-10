@@ -16,7 +16,7 @@
 
 AFK_Tile::AFK_Tile()
 {
-    coord = afk_vec3<long long>(0, 0, 0);
+    coord = afk_vec3<int64_t>(0, 0, 0);
 }
 
 bool AFK_Tile::operator==(const AFK_Tile& _tile) const
@@ -37,8 +37,8 @@ AFK_RNG_Value AFK_Tile::rngSeed() const
 
 AFK_Tile AFK_Tile::parent(unsigned int subdivisionFactor) const
 {
-    long long parentTileScale = coord.v[2] * subdivisionFactor;
-    return afk_tile(afk_vec3<long long>(
+    int64_t parentTileScale = coord.v[2] * subdivisionFactor;
+    return afk_tile(afk_vec3<int64_t>(
         AFK_ROUND_TO_CELL_SCALE(coord.v[0], parentTileScale),
         AFK_ROUND_TO_CELL_SCALE(coord.v[1], parentTileScale),
         parentTileScale));
@@ -64,11 +64,11 @@ void AFK_Tile::enumerateHalfTiles(AFK_Tile *halfTiles, size_t halfTilesSize) con
     if (coord.v[2] < 2) throw AFK_Exception("Tried to enumerate half tiles with overly small scale");
 
     unsigned int halfTilesIdx = 0;
-    for (long long xd = -1; xd <= 1; xd += 2)
+    for (int64_t xd = -1; xd <= 1; xd += 2)
     {
-        for (long long zd = -1; zd <= 1; zd += 2)
+        for (int64_t zd = -1; zd <= 1; zd += 2)
         {
-            halfTiles[halfTilesIdx].coord = afk_vec3<long long>(
+            halfTiles[halfTilesIdx].coord = afk_vec3<int64_t>(
                 coord.v[0] + coord.v[2] * xd / 2,
                 coord.v[1] + coord.v[2] * zd / 2,
                 coord.v[2]);
@@ -104,7 +104,7 @@ AFK_Tile afk_tile(const AFK_Tile& other)
     return tile;
 }
 
-AFK_Tile afk_tile(const Vec3<long long>& _coord)
+AFK_Tile afk_tile(const Vec3<int64_t>& _coord)
 {
     AFK_Tile tile;
     tile.coord = _coord;
@@ -113,12 +113,12 @@ AFK_Tile afk_tile(const Vec3<long long>& _coord)
 
 AFK_Tile afk_tile(const AFK_Cell& cell)
 {
-    return afk_tile(afk_vec3<long long>(cell.coord.v[0], cell.coord.v[2], cell.coord.v[3]));
+    return afk_tile(afk_vec3<int64_t>(cell.coord.v[0], cell.coord.v[2], cell.coord.v[3]));
 }
 
-AFK_Cell afk_cell(const AFK_Tile& tile, long long yCoord)
+AFK_Cell afk_cell(const AFK_Tile& tile, int64_t yCoord)
 {
-    return afk_cell(afk_vec4<long long>(tile.coord.v[0], yCoord, tile.coord.v[1], tile.coord.v[2]));
+    return afk_cell(afk_vec4<int64_t>(tile.coord.v[0], yCoord, tile.coord.v[1], tile.coord.v[2]));
 }
 
 size_t hash_value(const AFK_Tile &tile)

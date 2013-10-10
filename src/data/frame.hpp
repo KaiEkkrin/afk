@@ -13,7 +13,7 @@
 class AFK_Frame
 {
 protected:
-    unsigned long long id;
+    uint64_t id;
 
     /* This means "it never happened" when tracking things by
      * which frame they happened on.
@@ -59,7 +59,7 @@ public:
         }
     }
 
-    unsigned long long operator-(const AFK_Frame& f) const
+    uint64_t operator-(const AFK_Frame& f) const
     {
         if (never)
             return 0xffffffffffffffffull; /* as long ago as possible */
@@ -67,7 +67,7 @@ public:
             return id - f.id; /* hopefully more useful wrapping behaviour */
     }
 
-    const long long get() const { return id; }
+    const int64_t get() const { return id; }
     const bool getNever() const { return never; }
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_Frame& frame);

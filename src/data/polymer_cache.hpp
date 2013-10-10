@@ -69,11 +69,9 @@ public:
 
     virtual void printEverything(std::ostream& os) const
     {
-        for (typename AFK_PolymerChain<Key, Value>::iterator polyIt = polymer.begin();
-            polyIt != polymer.end(); ++polyIt)
+        for (auto monoIt = polymer.begin(); monoIt != polymer.end(); ++monoIt)
         {
-            boost::atomic<AFK_Monomer<Key, Value>*>& monoAt = *polyIt;
-            AFK_Monomer<Key, Value>* monomer = monoAt.load();
+            AFK_Monomer<Key, Value>* monomer = monoIt->load();
             os << monomer->key << " -> " << monomer->value << std::endl;
         }
     }

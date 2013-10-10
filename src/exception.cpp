@@ -18,17 +18,17 @@ void AFK_Exception::getBacktrace(void)
 }
 
 AFK_Exception::AFK_Exception(const std::string& _message):
-    backtraceBuf(NULL)
+    backtraceBuf(nullptr)
 {
     message = std::string(_message);
     getBacktrace();
 }
 
 AFK_Exception::AFK_Exception(const std::string& _message, const GLubyte *_glMessage):
-    backtraceBuf(NULL)
+    backtraceBuf(nullptr)
 {
     /* It looks like C++ chokes trying to print that ubyte :-( */
-    char *msgChars = NULL;
+    char *msgChars = nullptr;
     size_t msgCharsLength = _message.length() + 4;
     size_t glMessageLength;
     for (glMessageLength = 0; _glMessage[glMessageLength] != 0; ++glMessageLength);

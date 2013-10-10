@@ -36,7 +36,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainComputeUnit& unit)
 /* AFK_TerrainComputeQueue implementation */
 
 AFK_TerrainComputeQueue::AFK_TerrainComputeQueue():
-    terrainKernel(0), surfaceKernel(0), yReduce(NULL)
+    terrainKernel(0), surfaceKernel(0), yReduce(nullptr)
 {
 }
 
@@ -161,15 +161,14 @@ void AFK_TerrainComputeQueue::computeStart(
 
     cl_event terrainEvent;
 
-    AFK_CLCHK(clEnqueueNDRangeKernel(q, terrainKernel, 3, NULL, &terrainDim[0], NULL,
+    AFK_CLCHK(clEnqueueNDRangeKernel(q, terrainKernel, 3, nullptr, &terrainDim[0], nullptr,
         preTerrainWaitList.size(),
         &preTerrainWaitList[0],
         &terrainEvent))
 
-    for (std::vector<cl_event>::iterator evIt = preTerrainWaitList.begin();
-        evIt != preTerrainWaitList.end(); ++evIt)
+    for (auto ev : preTerrainWaitList)
     {
-        AFK_CLCHK(clReleaseEvent(*evIt))
+        AFK_CLCHK(clReleaseEvent(ev))
     }
 
     /* For the next two I'm going to need this ...

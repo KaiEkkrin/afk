@@ -58,7 +58,7 @@ public:
     /* Values stored in order as defined by the
      * AFK_TerrainFeatureOffset enum.
      */
-    unsigned char f[8];
+    uint8_t f[8];
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_TerrainFeature& feature);
 };

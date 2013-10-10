@@ -65,11 +65,11 @@ void AFK_VapourCell::makeDescriptor(
 
         rng.seed(cell.rngSeed());
 
-        Vec3<long long> thisCellShapeSpace = afk_vec3<long long>(
+        Vec3<int64_t> thisCellShapeSpace = afk_vec3<int64_t>(
             cell.c.coord.v[0], cell.c.coord.v[1], cell.c.coord.v[2]);
-        Vec3<long long> upperCellShapeSpace = afk_vec3<long long>(
+        Vec3<int64_t> upperCellShapeSpace = afk_vec3<int64_t>(
             upperCell.cell.c.coord.v[0], upperCell.cell.c.coord.v[1], upperCell.cell.c.coord.v[2]);
-        Vec3<long long> upperOffset = (thisCellShapeSpace - upperCellShapeSpace) * (sSizes.skeletonFlagGridDim/2) / cell.c.coord.v[3];
+        Vec3<int64_t> upperOffset = (thisCellShapeSpace - upperCellShapeSpace) * (sSizes.skeletonFlagGridDim/2) / cell.c.coord.v[3];
 
         if (skeleton.make(
             upperCell.skeleton,

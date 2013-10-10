@@ -210,7 +210,7 @@ protected:
 
 public:
     AFK_AsyncGang(size_t queueSize, unsigned int concurrency):
-        controls(concurrency), promise(NULL)
+        controls(concurrency), promise(nullptr)
     {
         /* Make sure the flags for this level of concurrency will fit
          * into a size_t
@@ -221,7 +221,7 @@ public:
     }
 
     AFK_AsyncGang(size_t queueSize):
-        controls(boost::thread::hardware_concurrency()), promise(NULL)
+        controls(boost::thread::hardware_concurrency()), promise(nullptr)
     {
         initWorkers(boost::thread::hardware_concurrency() + 1);
     }
@@ -229,11 +229,8 @@ public:
     virtual ~AFK_AsyncGang()
     {
         controls.control_quit();
-        for (std::vector<boost::thread*>::iterator wIt = workers.begin(); wIt != workers.end(); ++wIt)
-            (*wIt)->join();
-
-        for (std::vector<boost::thread*>::iterator wIt = workers.begin(); wIt != workers.end(); ++wIt)
-            delete *wIt;
+        for (auto w : workers) w->join();
+        for (auto w : workers) delete w;
 
         if (promise) delete promise;
     }

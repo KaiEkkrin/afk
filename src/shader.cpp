@@ -48,7 +48,7 @@ static void loadShaderFromFile(struct shaderSpec *s)
     if (!success)
     {
         GLchar infoLog[1024];
-        glGetShaderInfoLog(s->obj, 1024, NULL, infoLog);
+        glGetShaderInfoLog(s->obj, 1024, nullptr, infoLog);
         throw AFK_Exception("Error compiling shader " + s->filename + ": " + infoLog);
     }
 
@@ -116,7 +116,7 @@ void AFK_ShaderProgram::Link(void)
     glLinkProgram(program);
     glGetProgramiv(program, GL_LINK_STATUS, &success);
     if (success == 0) {
-        glGetProgramInfoLog(program, sizeof(errorLog), NULL, errorLog);
+        glGetProgramInfoLog(program, sizeof(errorLog), nullptr, errorLog);
         throw AFK_Exception(std::string("AFK_Shader: Error linking program: ") + errorLog);
     }
 
@@ -132,7 +132,7 @@ void AFK_ShaderProgram::Validate(void)
     glValidateProgram(program);
     glGetProgramiv(program, GL_VALIDATE_STATUS, &success);
     if (!success) {
-        glGetProgramInfoLog(program, sizeof(errorLog), NULL, errorLog);
+        glGetProgramInfoLog(program, sizeof(errorLog), nullptr, errorLog);
         throw AFK_Exception(std::string("AFK_Shader: Invalid shader program: ") + errorLog);
     }
 }

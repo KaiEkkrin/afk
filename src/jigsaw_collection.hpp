@@ -83,7 +83,7 @@ protected:
     AFK_Jigsaw *makeNewJigsaw(cl_context ctxt) const;
 
     /* For stats. */
-    boost::atomic<unsigned long long> spills;
+    boost::atomic<uint64_t> spills;
 
 public:
     AFK_JigsawCollection(

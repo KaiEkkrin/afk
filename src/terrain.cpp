@@ -51,7 +51,7 @@ void AFK_TerrainTile::make(
 
         for (unsigned int j = 0; j < 7; ++j)
         {
-            feature.f[j] = (unsigned char)(rng.frand() * 256.0f);
+            feature.f[j] = (uint8_t)(rng.frand() * 256.0f);
         }
 
         /* For now, I'm going to include one spike per tile,

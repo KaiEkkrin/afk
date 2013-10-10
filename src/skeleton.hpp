@@ -22,10 +22,10 @@ enum AFK_SkeletonFlag
 class AFK_SkeletonCube
 {
 public:
-    Vec3<long long> coord;
+    Vec3<int64_t> coord;
 
     AFK_SkeletonCube();
-    AFK_SkeletonCube(const Vec3<long long>& _coord);
+    AFK_SkeletonCube(const Vec3<int64_t>& _coord);
 
     /* Makes a SkeletonCube out of a particular part of a
      * vapour cell.
@@ -38,10 +38,10 @@ public:
     /* Gives the adjacency for the given offset,
      * where the offset components must be in the range -1 to 1 inclusive.
      */
-    AFK_SkeletonCube adjacentCube(const Vec3<long long>& offset) const;
+    AFK_SkeletonCube adjacentCube(const Vec3<int64_t>& offset) const;
 
     /* Gives the upper cube for this cube. */
-    AFK_SkeletonCube upperCube(const Vec3<long long>& upperOffset, unsigned int subdivisionFactor) const;
+    AFK_SkeletonCube upperCube(const Vec3<int64_t>& upperOffset, unsigned int subdivisionFactor) const;
 
     /* Makes a KeyedCell describing the shape cell within a
      * vapour cell that would correspond to this skeleton cube.
@@ -64,7 +64,7 @@ public:
 class AFK_Skeleton
 {
 protected:
-    unsigned long long **grid;
+    uint64_t **grid;
     int gridDim;
     int boneCount;
 
@@ -91,7 +91,7 @@ protected:
      */
     int embellish(
         const AFK_Skeleton& upper,
-        const Vec3<long long>& upperOffset,
+        const Vec3<int64_t>& upperOffset,
         AFK_RNG& rng,
         int subdivisionFactor,
         float bushiness);
@@ -118,7 +118,7 @@ public:
      */
     int make(
         const AFK_Skeleton& upper,
-        const Vec3<long long>& upperOffset, /* I'll use the sub-cube of the upper grid from
+        const Vec3<int64_t>& upperOffset, /* I'll use the sub-cube of the upper grid from
                                              * upperOffset to (upperOffset + gridDim / sSizes.subdivisionFactor) in
                                              * each direction */
         AFK_RNG& rng,

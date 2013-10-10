@@ -16,11 +16,11 @@ class AFK_RNG_Value
 public:
     union
     {
-        unsigned char b[/* 16 */ 20]; /* allowing room for 160 bit hash functions, dropping top bits */
-        int i[4];
-        unsigned int ui[4];
-        long long ll[2];
-        unsigned long long ull[2];
+        uint8_t b[/* 16 */ 20]; /* allowing room for 160 bit hash functions, dropping top bits */
+        int32_t i[4];
+        uint32_t ui[4];
+        int64_t ll[2];
+        uint64_t ull[2];
     } v;
 
     AFK_RNG_Value()
@@ -34,18 +34,18 @@ public:
         v.ull[1] = value.v.ull[1];
     }
 
-    /* Creates an AFK_RNG_Value out of four long longs,
+    /* Creates an AFK_RNG_Value out of four int64_ts,
      * making sure to distribute bits of all four into
      * all four words (necessary for the RNGs that are
      * composed out of 4 32-bit RNGs)
      */
-    AFK_RNG_Value(long long v0, long long v1, long long v2, long long v3);
+    AFK_RNG_Value(int64_t v0, int64_t v1, int64_t v2, int64_t v3);
 
-    /* Similar, but with just three long longs */
-    AFK_RNG_Value(long long v0, long long v1, long long v2);
+    /* Similar, but with just three int64_ts */
+    AFK_RNG_Value(int64_t v0, int64_t v1, int64_t v2);
 
     /* And again, but with just one */
-    AFK_RNG_Value(long long v0);
+    AFK_RNG_Value(int64_t v0);
 
     /* Parsing constructor. */
     AFK_RNG_Value(const std::string& s1, const std::string& s2);
@@ -97,7 +97,7 @@ public:
     virtual AFK_RNG_Value rand(void) = 0;
 
     /* Returns a random unsigned int */
-    unsigned int uirand(void)
+    uint32_t uirand(void)
     {
         if (vForFField == 4)
         {

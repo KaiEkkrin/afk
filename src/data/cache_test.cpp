@@ -20,7 +20,7 @@ struct expensivelyHashInt
     {
         boost::random::taus88 rng;
         rng.seed(v);
-        return rng() + (((unsigned long long)rng()) << 32);
+        return rng() + (((uint64_t)rng()) << 32);
     }
 };
 

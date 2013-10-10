@@ -16,7 +16,7 @@ class AFK_Tile
 public:
     AFK_Tile();
 
-    Vec3<long long> coord;
+    Vec3<int64_t> coord;
 
     bool operator==(const AFK_Tile& _tile) const;
     bool operator!=(const AFK_Tile& _tile) const;
@@ -40,10 +40,10 @@ public:
 };
 
 AFK_Tile afk_tile(const AFK_Tile& other);
-AFK_Tile afk_tile(const Vec3<long long>& _coord);
+AFK_Tile afk_tile(const Vec3<int64_t>& _coord);
 AFK_Tile afk_tile(const AFK_Cell& cell);
 
-AFK_Cell afk_cell(const AFK_Tile& tile, long long yCoord);
+AFK_Cell afk_cell(const AFK_Tile& tile, int64_t yCoord);
 
 /* For insertion into an unordered_map. */
 size_t hash_value(const AFK_Tile& tile);

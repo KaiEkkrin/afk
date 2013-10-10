@@ -17,7 +17,7 @@ class AFK_KeyedCell
 {
 public:
     AFK_Cell c;
-    long long key;
+    int64_t key;
 
     bool operator==(const AFK_KeyedCell& _cell) const;
     bool operator!=(const AFK_KeyedCell& _cell) const;
@@ -31,8 +31,8 @@ public:
 };
 
 AFK_KeyedCell afk_keyedCell(const AFK_KeyedCell& other);
-AFK_KeyedCell afk_keyedCell(const AFK_Cell& _baseCell, long long _key);
-AFK_KeyedCell afk_keyedCell(const Vec4<long long>& _coord, long long _key);
+AFK_KeyedCell afk_keyedCell(const AFK_Cell& _baseCell, int64_t _key);
+AFK_KeyedCell afk_keyedCell(const Vec4<int64_t>& _coord, int64_t _key);
 
 size_t hash_value(const AFK_KeyedCell& cell);
 

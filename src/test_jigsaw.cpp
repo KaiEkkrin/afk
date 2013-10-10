@@ -78,7 +78,7 @@ void afk_testJigsaw(
                 testCollection.grab(rand() % config->concurrency, 0, &jigsawPiece, &pieceFrame, 1);
                 //std::cout << "Grabbed piece " << jigsawPiece << " with frame " << pieceFrame << std::endl;
 
-                boost::unordered_map<AFK_JigsawPiece, AFK_Frame>::iterator existing = piecesMap.find(jigsawPiece);
+                auto existing = piecesMap.find(jigsawPiece);
                 if (existing != piecesMap.end()) assert(existing->second != pieceFrame);
                 piecesMap[jigsawPiece] = pieceFrame;
             }

@@ -17,10 +17,9 @@ AFK_WorldCell::AFK_WorldCell():
 
 AFK_WorldCell::~AFK_WorldCell()
 {
-    for (AFK_ENTITY_LIST::iterator eIt = entities.begin();
-        eIt != entities.end(); ++eIt)
+    for (auto e : entities)
     {
-        delete *eIt;
+        delete e;
     }
 
     /* I also own the contents of the move list.  All entries

@@ -36,7 +36,7 @@ enum AFK_3DVapourFeatureOffset
 class AFK_3DVapourFeature
 {
 public:
-    unsigned char f[8];
+    uint8_t f[8];
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_3DVapourFeature& feature);
 };

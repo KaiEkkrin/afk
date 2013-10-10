@@ -249,7 +249,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
                     0,
                     format[tex].glFormat,
                     format[tex].glDataType,
-                    NULL);
+                    nullptr);
                 break;
 
             case AFK_JIGSAW_3D:
@@ -263,7 +263,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
 					0,
                     format[tex].glFormat,
                     format[tex].glDataType,
-                    NULL);
+                    nullptr);
                 break;
 
             default:
@@ -305,12 +305,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
 
 AFK_JigsawCollection::~AFK_JigsawCollection()
 {
-    for (std::vector<AFK_Jigsaw*>::iterator pIt = puzzles.begin();
-        pIt != puzzles.end(); ++pIt)
-    {
-        delete *pIt;
-    }
-
+    for (auto p : puzzles) delete p;
     if (spare) delete spare;
 }
 
@@ -359,7 +354,7 @@ void AFK_JigsawCollection::grab(
     if (spare)
     {
         puzzles.push_back(spare);
-        spare = NULL;
+        spare = nullptr;
     }
 
     if ((int)puzzles.size() == puzzle)

@@ -8,7 +8,7 @@
 #define RESTART_INDEX 65535
 
 AFK_3DEdgeShapeBase::AFK_3DEdgeShapeBase(const AFK_ShapeSizes& sSizes):
-    bufs(NULL)
+    bufs(nullptr)
 {
     /* The base shape is now a single face once more.  It's instanced
      * into six in shape_geometry.glsl.
@@ -52,7 +52,7 @@ AFK_3DEdgeShapeBase::~AFK_3DEdgeShapeBase()
 
 void AFK_3DEdgeShapeBase::initGL()
 {
-    bool needBufferPush = (bufs == NULL);
+    bool needBufferPush = (bufs == nullptr);
     if (needBufferPush)
     {
         bufs = new GLuint[2];

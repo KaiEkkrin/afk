@@ -352,11 +352,11 @@ bool AFK_World::generateClaimedWorldCell(
             }
         }
 
-        AFK_ENTITY_LIST::iterator eIt = worldCell.entitiesBegin();
+        auto eIt = worldCell.entitiesBegin();
         while (eIt != worldCell.entitiesEnd())
         {
             AFK_Entity *e = *eIt;
-            AFK_ENTITY_LIST::iterator nextEIt = eIt;
+            auto nextEIt = eIt;
             bool updatedEIt = false;
             if (e->claimYieldLoop(threadId, AFK_CLT_EXCLUSIVE, afk_core.computingFrame) == AFK_CL_CLAIMED)
             {
@@ -365,14 +365,14 @@ bool AFK_World::generateClaimedWorldCell(
                  */
                 AFK_WorldWorkQueue::WorkItem shapeCellItem;
                 shapeCellItem.func                          = afk_generateEntity;
-                shapeCellItem.param.shape.cell              = afk_keyedCell(afk_vec4<long long>(
+                shapeCellItem.param.shape.cell              = afk_keyedCell(afk_vec4<int64_t>(
                                                                 0, 0, 0, SHAPE_CELL_MAX_DISTANCE), e->getShapeKey());
                 shapeCellItem.param.shape.entity            = e;
                 shapeCellItem.param.shape.world             = this;               
                 shapeCellItem.param.shape.viewerLocation    = viewerLocation;
                 shapeCellItem.param.shape.camera            = camera;
                 shapeCellItem.param.shape.flags             = 0;
-                shapeCellItem.param.shape.dependency        = NULL;
+                shapeCellItem.param.shape.dependency        = nullptr;
                 queue.push(shapeCellItem);
 
                 entitiesQueued.fetch_add(1);
@@ -415,7 +415,7 @@ bool AFK_World::generateClaimedWorldCell(
                 subcellItem.param.world.viewerLocation = viewerLocation;
                 subcellItem.param.world.camera       = camera;
                 subcellItem.param.world.flags        = (allVisible ? AFK_WCG_FLAG_ENTIRELY_VISIBLE : 0);
-                subcellItem.param.world.dependency   = NULL;
+                subcellItem.param.world.dependency   = nullptr;
                 queue.push(subcellItem);
             }
 
@@ -641,11 +641,11 @@ AFK_World::~AFK_World()
 
 void AFK_World::enqueueSubcells(
     const AFK_Cell& cell,
-    const Vec3<long long>& modifier,
+    const Vec3<int64_t>& modifier,
     const Vec3<float>& viewerLocation,
     const AFK_Camera& camera)
 {
-    AFK_Cell modifiedCell = afk_cell(afk_vec4<long long>(
+    AFK_Cell modifiedCell = afk_cell(afk_vec4<int64_t>(
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[0],
         cell.coord.v[1] + cell.coord.v[3] * modifier.v[1],
         cell.coord.v[2] + cell.coord.v[3] * modifier.v[2],
@@ -658,7 +658,7 @@ void AFK_World::enqueueSubcells(
     cellItem.param.world.viewerLocation  = viewerLocation;
     cellItem.param.world.camera          = &camera;
     cellItem.param.world.flags           = 0;
-    cellItem.param.world.dependency      = NULL;
+    cellItem.param.world.dependency      = nullptr;
     (*genGang) << cellItem;
 }
 
@@ -719,10 +719,10 @@ boost::unique_future<bool> AFK_World::updateWorld(void)
         hgProtagonistLocation.v[0] / hgProtagonistLocation.v[3],
         hgProtagonistLocation.v[1] / hgProtagonistLocation.v[3],
         hgProtagonistLocation.v[2] / hgProtagonistLocation.v[3]);
-    Vec4<long long> csProtagonistLocation = afk_vec4<long long>(
-        (long long)(protagonistLocation.v[0] / minCellSize),
-        (long long)(protagonistLocation.v[1] / minCellSize),
-        (long long)(protagonistLocation.v[2] / minCellSize),
+    Vec4<int64_t> csProtagonistLocation = afk_vec4<int64_t>(
+        (int64_t)(protagonistLocation.v[0] / minCellSize),
+        (int64_t)(protagonistLocation.v[1] / minCellSize),
+        (int64_t)(protagonistLocation.v[2] / minCellSize),
         1);
 
     AFK_Cell protagonistCell = afk_cell(csProtagonistLocation);
@@ -747,10 +747,10 @@ boost::unique_future<bool> AFK_World::updateWorld(void)
 
     /* Draw that cell and the other cells around it.
      */
-    for (long long i = -1; i <= 1; ++i)
-        for (long long j = -1; j <= 1; ++j)
-            for (long long k = -1; k <= 1; ++k)
-                enqueueSubcells(cell, afk_vec3<long long>(i, j, k), protagonistLocation, *(afk_core.camera));
+    for (int64_t i = -1; i <= 1; ++i)
+        for (int64_t j = -1; j <= 1; ++j)
+            for (int64_t k = -1; k <= 1; ++k)
+                enqueueSubcells(cell, afk_vec3<int64_t>(i, j, k), protagonistLocation, *(afk_core.camera));
 
     return genGang->start();
 }
@@ -860,7 +860,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
 
 /* Worker for the below. */
 #if PRINT_CHECKPOINTS
-static float toRatePerSecond(unsigned long long quantity, boost::posix_time::time_duration& interval)
+static float toRatePerSecond(uint64_t quantity, boost::posix_time::time_duration& interval)
 {
     return (float)quantity * 1000.0f / (float)interval.total_milliseconds();
 }

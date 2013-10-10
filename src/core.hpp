@@ -102,7 +102,7 @@ public:
     Vec3<float>         axisDisplacement;
 
     /* Bits set/cleared based on AFK_Controls */
-    unsigned long long  controlsEnabled;
+    uint64_t            controlsEnabled;
 
     /* This buffer holds the last frame's worth of occasional
      * prints, so that I can dump them if we quit.

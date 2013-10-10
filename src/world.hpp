@@ -79,26 +79,26 @@ protected:
 
     /* Gather statistics.  (Useful.)
      */
-    boost::atomic<unsigned long long> cellsInvisible;
-    boost::atomic<unsigned long long> tilesQueued;
-    boost::atomic<unsigned long long> tilesResumed;
-    boost::atomic<unsigned long long> tilesComputed;
-    boost::atomic<unsigned long long> tilesRecomputedAfterSweep;
-    boost::atomic<unsigned long long> entitiesQueued;
-    boost::atomic<unsigned long long> entitiesMoved;
+    boost::atomic<uint64_t> cellsInvisible;
+    boost::atomic<uint64_t> tilesQueued;
+    boost::atomic<uint64_t> tilesResumed;
+    boost::atomic<uint64_t> tilesComputed;
+    boost::atomic<uint64_t> tilesRecomputedAfterSweep;
+    boost::atomic<uint64_t> entitiesQueued;
+    boost::atomic<uint64_t> entitiesMoved;
 
     /* These ones are updated by the shape worker. */
-    boost::atomic<unsigned long long> shapeCellsInvisible;
-    boost::atomic<unsigned long long> shapeCellsResumed;
-    boost::atomic<unsigned long long> shapeVapoursComputed;
-    boost::atomic<unsigned long long> shapeEdgesComputed;
+    boost::atomic<uint64_t> shapeCellsInvisible;
+    boost::atomic<uint64_t> shapeCellsResumed;
+    boost::atomic<uint64_t> shapeVapoursComputed;
+    boost::atomic<uint64_t> shapeEdgesComputed;
 
     /* ... and this by that little vapour descriptor worker */
-    boost::atomic<unsigned long long> separateVapoursComputed;
+    boost::atomic<uint64_t> separateVapoursComputed;
 
     /* Concurrency stats */
-    boost::atomic<unsigned long long> dependenciesFollowed;
-    boost::atomic<unsigned long long> threadEscapes;
+    boost::atomic<uint64_t> dependenciesFollowed;
+    boost::atomic<uint64_t> threadEscapes;
 
     /* Landscape shader details. */
     AFK_ShaderProgram *landscape_shaderProgram;
@@ -264,7 +264,7 @@ public:
      */
     void enqueueSubcells(
         const AFK_Cell& cell,
-        const Vec3<long long>& modifier,
+        const Vec3<int64_t>& modifier,
         const Vec3<float>& viewerLocation,
         const AFK_Camera& camera);
 

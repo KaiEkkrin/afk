@@ -19,10 +19,10 @@ void afk_displayedBufferGlBuffersForDeletion(GLuint *bufs, size_t bufsSize)
 
 
 AFK_DisplayedObject::AFK_DisplayedObject():
-    shaderProgram(NULL),
+    shaderProgram(nullptr),
     worldTransformLocation(0),
     clipTransformLocation(0),
-    shaderLight(NULL)
+    shaderLight(nullptr)
 {
     bufs[0] = 0;
     bufs[1] = 0;

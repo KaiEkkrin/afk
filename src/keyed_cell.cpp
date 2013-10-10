@@ -44,7 +44,7 @@ AFK_KeyedCell afk_keyedCell(const AFK_KeyedCell& other)
     return cell;
 }
 
-AFK_KeyedCell afk_keyedCell(const AFK_Cell& _baseCell, long long _key)
+AFK_KeyedCell afk_keyedCell(const AFK_Cell& _baseCell, int64_t _key)
 {
     AFK_KeyedCell cell;
     cell.c = _baseCell;
@@ -52,7 +52,7 @@ AFK_KeyedCell afk_keyedCell(const AFK_Cell& _baseCell, long long _key)
     return cell;
 }
 
-AFK_KeyedCell afk_keyedCell(const Vec4<long long>& _coord, long long _key)
+AFK_KeyedCell afk_keyedCell(const Vec4<int64_t>& _coord, int64_t _key)
 {
     AFK_KeyedCell cell;
     cell.c = afk_cell(_coord);

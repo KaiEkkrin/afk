@@ -102,10 +102,9 @@ static void evaluate_rng(AFK_RNG& rng, const std::string& name, const AFK_Cell* 
 
         unsigned int lastHitCount = 0;
         unsigned int lastHitCountTimes = 0;
-        for (std::list<unsigned int>::iterator shcIt = sortedHitCounts.begin();
-            shcIt != sortedHitCounts.end(); ++shcIt)
+        for (auto shc : sortedHitCounts)
         {
-            if (*shcIt == lastHitCount)
+            if (shc == lastHitCount)
             {
                 /* This is the last hit count again for a
                  * different value.  Add it to the number of
@@ -127,7 +126,7 @@ static void evaluate_rng(AFK_RNG& rng, const std::string& name, const AFK_Cell* 
                  * value and reset the number of times I
                  * saw it.
                  */
-                lastHitCount = *shcIt;
+                lastHitCount = shc;
                 lastHitCountTimes = 1;
             }
         }
@@ -147,14 +146,14 @@ void test_rngs(void)
 
 #define TEST_CELLS_SIZE 1004
     AFK_Cell testCells[TEST_CELLS_SIZE];
-    testCells[0] = afk_cell(afk_vec4<long long>(0, 0, 0, 1));
+    testCells[0] = afk_cell(afk_vec4<int64_t>(0, 0, 0, 1));
     for (unsigned int i = 1; i < TEST_CELLS_SIZE; ++i)
     {
         unsigned int randomScale = rand();
         if (randomScale & 0x40000000)
             randomScale = 1 << (randomScale & 0x1f);
 
-        testCells[i] = afk_cell(afk_vec4<long long>(rand(), rand(), rand(), randomScale));
+        testCells[i] = afk_cell(afk_vec4<int64_t>(rand(), rand(), rand(), randomScale));
     }
 
     AFK_C_RNG                   c_rng;

@@ -72,7 +72,7 @@ public:
     float   rotateButtonSensitivity;
     float   thrustButtonSensitivity;
     float   mouseAxisSensitivity;
-    unsigned long long  axisInversionMap; /* bitfield of axes that are inverted */
+    uint64_t    axisInversionMap; /* bitfield of axes that are inverted */
 
     /* Engine calibration */
     unsigned int targetFrameTimeMicros;

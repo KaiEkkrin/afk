@@ -34,10 +34,9 @@ AFK_StageTimer::AFK_StageTimer(const std::string& _timerName, const std::vector<
 
 AFK_StageTimer::~AFK_StageTimer()
 {
-    for (std::vector<AFK_MovingAverage<unsigned int>*>::iterator tIMIt = timesInMicros.begin();
-        tIMIt != timesInMicros.end(); ++tIMIt)
+    for (auto t : timesInMicros)
     {
-        delete *tIMIt;
+        delete t;
     }
 }
 
@@ -52,10 +51,9 @@ void AFK_StageTimer::restart(void)
          * of each round that the various stages appear to take.
          */
         unsigned int totalTime = 0;
-        for (std::vector<AFK_MovingAverage<unsigned int>*>::iterator timesIt = timesInMicros.begin();
-            timesIt != timesInMicros.end(); ++timesIt)
+        for (auto t : timesInMicros)
         {
-            totalTime += (*timesIt)->get();
+            totalTime += t->get();
         }
 
         std::cout << "  " << timerName << " stage timer: " << std::endl;

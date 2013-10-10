@@ -13,18 +13,18 @@
 
 AFK_SkeletonCube::AFK_SkeletonCube()
 {
-    coord = afk_vec3<long long>(0LL, 0LL, 0LL);
+    coord = afk_vec3<int64_t>(0LL, 0LL, 0LL);
 }
 
-AFK_SkeletonCube::AFK_SkeletonCube(const Vec3<long long>& _coord):
+AFK_SkeletonCube::AFK_SkeletonCube(const Vec3<int64_t>& _coord):
     coord(_coord)
 {
 }
 
 AFK_SkeletonCube::AFK_SkeletonCube(const AFK_KeyedCell& vapourCell, const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes)
 {
-    long long shapeCellScale = vapourCell.c.coord.v[3] / sSizes.skeletonFlagGridDim;
-    coord = afk_vec3<long long>(
+    int64_t shapeCellScale = vapourCell.c.coord.v[3] / sSizes.skeletonFlagGridDim;
+    coord = afk_vec3<int64_t>(
         (shapeCell.c.coord.v[0] - vapourCell.c.coord.v[0]) / shapeCellScale,
         (shapeCell.c.coord.v[1] - vapourCell.c.coord.v[1]) / shapeCellScale,
         (shapeCell.c.coord.v[2] - vapourCell.c.coord.v[2]) / shapeCellScale);
@@ -37,27 +37,27 @@ AFK_SkeletonCube AFK_SkeletonCube::adjacentCube(int face) const
     switch (face)
     {
     case 0: /* bottom */
-        adj.coord = afk_vec3<long long>(coord.v[0], coord.v[1] - 1, coord.v[2]);
+        adj.coord = afk_vec3<int64_t>(coord.v[0], coord.v[1] - 1, coord.v[2]);
         break;
 
     case 1: /* left */
-        adj.coord = afk_vec3<long long>(coord.v[0] - 1, coord.v[1], coord.v[2]);
+        adj.coord = afk_vec3<int64_t>(coord.v[0] - 1, coord.v[1], coord.v[2]);
         break;
 
     case 2: /* front */
-        adj.coord = afk_vec3<long long>(coord.v[0], coord.v[1], coord.v[2] - 1);
+        adj.coord = afk_vec3<int64_t>(coord.v[0], coord.v[1], coord.v[2] - 1);
         break;
 
     case 3: /* back */
-        adj.coord = afk_vec3<long long>(coord.v[0], coord.v[1], coord.v[2] + 1);
+        adj.coord = afk_vec3<int64_t>(coord.v[0], coord.v[1], coord.v[2] + 1);
         break;
 
     case 4: /* right */
-        adj.coord = afk_vec3<long long>(coord.v[0] + 1, coord.v[1], coord.v[2]);
+        adj.coord = afk_vec3<int64_t>(coord.v[0] + 1, coord.v[1], coord.v[2]);
         break;
 
     case 5: /* top */
-        adj.coord = afk_vec3<long long>(coord.v[0], coord.v[1] + 1, coord.v[2]);
+        adj.coord = afk_vec3<int64_t>(coord.v[0], coord.v[1] + 1, coord.v[2]);
         break;
 
     default:
@@ -67,9 +67,9 @@ AFK_SkeletonCube AFK_SkeletonCube::adjacentCube(int face) const
     return adj;
 }
 
-AFK_SkeletonCube AFK_SkeletonCube::upperCube(const Vec3<long long>& upperOffset, unsigned int subdivisionFactor) const
+AFK_SkeletonCube AFK_SkeletonCube::upperCube(const Vec3<int64_t>& upperOffset, unsigned int subdivisionFactor) const
 {
-    return AFK_SkeletonCube(afk_vec3<long long>(
+    return AFK_SkeletonCube(afk_vec3<int64_t>(
         coord.v[0] / subdivisionFactor,
         coord.v[1] / subdivisionFactor,
         coord.v[2] / subdivisionFactor) + upperOffset);
@@ -77,8 +77,8 @@ AFK_SkeletonCube AFK_SkeletonCube::upperCube(const Vec3<long long>& upperOffset,
 
 AFK_KeyedCell AFK_SkeletonCube::toShapeCell(const AFK_KeyedCell& vapourCell, const AFK_ShapeSizes& sSizes) const
 {
-    long long shapeCellScale = vapourCell.c.coord.v[3] / sSizes.skeletonFlagGridDim;
-    return afk_keyedCell(afk_vec4<long long>(
+    int64_t shapeCellScale = vapourCell.c.coord.v[3] / sSizes.skeletonFlagGridDim;
+    return afk_keyedCell(afk_vec4<int64_t>(
         coord.v[0] * shapeCellScale + vapourCell.c.coord.v[0],
         coord.v[1] * shapeCellScale + vapourCell.c.coord.v[1],
         coord.v[2] * shapeCellScale + vapourCell.c.coord.v[2],
@@ -121,11 +121,11 @@ void AFK_Skeleton::initGrid(void)
 {
     if (grid) throw AFK_Exception("Tried to re-init grid");
 
-    grid = new unsigned long long*[gridDim];
+    grid = new uint64_t*[gridDim];
     for (int x = 0; x < gridDim; ++x)
     {
-        grid[x] = new unsigned long long[gridDim];
-        memset(grid[x], 0, sizeof(unsigned long long) * gridDim);
+        grid[x] = new uint64_t[gridDim];
+        memset(grid[x], 0, sizeof(uint64_t) * gridDim);
     }
 }
 
@@ -181,7 +181,7 @@ int AFK_Skeleton::grow(
 
 int AFK_Skeleton::embellish(
     const AFK_Skeleton& upper,
-    const Vec3<long long>& upperOffset,
+    const Vec3<int64_t>& upperOffset,
     AFK_RNG& rng,
     int subdivisionFactor,
     float bushiness)
@@ -268,7 +268,7 @@ int AFK_Skeleton::embellish(
 }
 
 AFK_Skeleton::AFK_Skeleton():
-    grid(NULL)
+    grid(nullptr)
 {
 }
 
@@ -292,7 +292,7 @@ int AFK_Skeleton::make(AFK_RNG& rng, const AFK_ShapeSizes& sSizes)
 
     /* Begin in the middle. */
     int skeletonSize = (int)sSizes.skeletonMaxSize;
-    boneCount = grow(AFK_SkeletonCube(afk_vec3<long long>(gridDim / 2, gridDim / 2, gridDim / 2)),
+    boneCount = grow(AFK_SkeletonCube(afk_vec3<int64_t>(gridDim / 2, gridDim / 2, gridDim / 2)),
         skeletonSize,
         rng,
         sSizes);
@@ -301,7 +301,7 @@ int AFK_Skeleton::make(AFK_RNG& rng, const AFK_ShapeSizes& sSizes)
 
 int AFK_Skeleton::make(
     const AFK_Skeleton& upper,
-    const Vec3<long long>& upperOffset,
+    const Vec3<int64_t>& upperOffset,
     AFK_RNG& rng,
     const AFK_ShapeSizes& sSizes)
 {
@@ -346,13 +346,13 @@ int AFK_Skeleton::getAdjacency(const AFK_SkeletonCube& cube) const
 int AFK_Skeleton::getFullAdjacency(const AFK_SkeletonCube& cube) const
 {
     int adj = 0;
-    for (long long x = -1; x <= 1; ++x)
+    for (int64_t x = -1; x <= 1; ++x)
     {
-        for (long long y = -1; y <= 1; ++y)
+        for (int64_t y = -1; y <= 1; ++y)
         {
-            for (long long z = -1; z <= 1; ++z)
+            for (int64_t z = -1; z <= 1; ++z)
             {
-                AFK_SkeletonCube adjCube(cube.coord + afk_vec3<long long>(x, y, z));
+                AFK_SkeletonCube adjCube(cube.coord + afk_vec3<int64_t>(x, y, z));
                 if (testFlag(adjCube) == AFK_SKF_SET)
                     adj |= (1<<((x+1)*9 + (y+1)*3 + (z+1)));
             }
@@ -365,20 +365,20 @@ int AFK_Skeleton::getFullAdjacency(const AFK_SkeletonCube& cube) const
 int AFK_Skeleton::getCoAdjacency(const AFK_SkeletonCube& cube) const
 {
     int adj = 0;
-    for (long long x = -1; x <= 1; ++x)
+    for (int64_t x = -1; x <= 1; ++x)
     {
-        for (long long y = -1; y <= 1; ++y)
+        for (int64_t y = -1; y <= 1; ++y)
         {
-            for (long long z = -1; z <= 1; ++z)
+            for (int64_t z = -1; z <= 1; ++z)
             {
-                AFK_SkeletonCube adjCube(cube.coord + afk_vec3<long long>(x, y, z));
+                AFK_SkeletonCube adjCube(cube.coord + afk_vec3<int64_t>(x, y, z));
                 if (testFlag(adjCube) == AFK_SKF_SET &&
-                    (x == 0 || testFlag(AFK_SkeletonCube(cube.coord + afk_vec3<long long>(0, y, z))) == AFK_SKF_SET) &&
-                    (y == 0 || testFlag(AFK_SkeletonCube(cube.coord + afk_vec3<long long>(x, 0, z))) == AFK_SKF_SET) &&
-                    (z == 0 || testFlag(AFK_SkeletonCube(cube.coord + afk_vec3<long long>(x, y, 0))) == AFK_SKF_SET) &&
-                    ((x == 0 && y == 0) || testFlag(AFK_SkeletonCube(cube.coord + afk_vec3<long long>(0, 0, z))) == AFK_SKF_SET) &&
-                    ((x == 0 && z == 0) || testFlag(AFK_SkeletonCube(cube.coord + afk_vec3<long long>(0, y, 0))) == AFK_SKF_SET) &&
-                    ((y == 0 && z == 0) || testFlag(AFK_SkeletonCube(cube.coord + afk_vec3<long long>(x, 0, 0))) == AFK_SKF_SET))
+                    (x == 0 || testFlag(AFK_SkeletonCube(cube.coord + afk_vec3<int64_t>(0, y, z))) == AFK_SKF_SET) &&
+                    (y == 0 || testFlag(AFK_SkeletonCube(cube.coord + afk_vec3<int64_t>(x, 0, z))) == AFK_SKF_SET) &&
+                    (z == 0 || testFlag(AFK_SkeletonCube(cube.coord + afk_vec3<int64_t>(x, y, 0))) == AFK_SKF_SET) &&
+                    ((x == 0 && y == 0) || testFlag(AFK_SkeletonCube(cube.coord + afk_vec3<int64_t>(0, 0, z))) == AFK_SKF_SET) &&
+                    ((x == 0 && z == 0) || testFlag(AFK_SkeletonCube(cube.coord + afk_vec3<int64_t>(0, y, 0))) == AFK_SKF_SET) &&
+                    ((y == 0 && z == 0) || testFlag(AFK_SkeletonCube(cube.coord + afk_vec3<int64_t>(x, 0, 0))) == AFK_SKF_SET))
                 {
                     adj |= (1<<((x+1)*9 + (y+1)*3 + (z+1)));
                 }
@@ -395,7 +395,7 @@ AFK_Skeleton::Bones::Bones(const AFK_Skeleton& _skeleton):
     /* I start `x' off at -1 here so that it will advance to,
      * and test, the first field when next() is first called.
      */
-    thisBone = AFK_SkeletonCube(afk_vec3<long long>(-1LL, 0LL, 0LL));
+    thisBone = AFK_SkeletonCube(afk_vec3<int64_t>(-1LL, 0LL, 0LL));
 }
 
 bool AFK_Skeleton::Bones::hasNext(void)

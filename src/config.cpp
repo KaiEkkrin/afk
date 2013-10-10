@@ -71,7 +71,7 @@ static char *getDirAtExecPath(const char *leafname, const char *execname)
 
 AFK_Config::AFK_Config(int *argcp, char **argv)
 {
-    shadersDir  = NULL;
+    shadersDir  = nullptr;
     fov         = 90.0f;
     zNear       = 0.5f;
     zFar        = (float)(1 << 20);
@@ -97,7 +97,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     windowHeight                = 0;
 
     concurrency                 = boost::thread::hardware_concurrency() + 1;
-    clProgramsDir               = NULL;
+    clProgramsDir               = nullptr;
     clGlSharing                 = false; /* TODO Find hardware this actually improves performance on and default-true for that */
     forceFake3DImages           = false;
 

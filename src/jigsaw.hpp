@@ -223,7 +223,7 @@ protected:
      * read back from the CL and that needs to go into the GL.
      * There is one vector per texture.
      */
-    std::vector<unsigned char> *changeData;
+    std::vector<uint8_t> *changeData;
 
     /* If bufferUsage is cl gl copied, these are the events I need to
      * wait on before I can push data to the GL.
@@ -284,9 +284,9 @@ protected:
     void doSweep(const Vec2<int>& nextFreeRow, const AFK_Frame& currentFrame);
 
     /* Some internal stats: */
-    boost::atomic<unsigned long long> piecesGrabbed;
-    boost::atomic<unsigned long long> cuboidsStarted;
-    boost::atomic<unsigned long long> piecesSwept;
+    boost::atomic<uint64_t> piecesGrabbed;
+    boost::atomic<uint64_t> cuboidsStarted;
+    boost::atomic<uint64_t> piecesSwept;
 
 public:
     AFK_Jigsaw(

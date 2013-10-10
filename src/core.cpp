@@ -228,13 +228,13 @@ AFK_Core::AFK_Core():
     graphicsDelaysSinceLastCalibration(0),
     calibrationError(0),
     glGarbageBufs(1000),
-    config(NULL),
-    computer(NULL),
-    window(NULL),
-    rng(NULL),
-    camera(NULL),
-    world(NULL),
-    protagonist(NULL)
+    config(nullptr),
+    computer(nullptr),
+    window(nullptr),
+    rng(nullptr),
+    camera(nullptr),
+    world(nullptr),
+    protagonist(nullptr)
 {
 }
 
