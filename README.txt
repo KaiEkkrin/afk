@@ -4,9 +4,11 @@ AFK
 ("Automated Flight Kit" or
  "Away From Keyboard", or whatever else you prefer.)
 
-AFK is an art project.  It's an attempt to generate pretty, diverse 3D using only code and a random number generator, with no artistic intervention on the part of a human being.
+AFK is an art project.  It's an attempt to generate pretty, diverse 3D using only code and a random number generator, with no artistic intervention on the part of a human being.  (It doubles as a learning exercise, of course.)
 
-As of the time of writing it is in a _very raw state_, containing many bugs.  It will, for example, run out of space and crash if you approach a 3D object too closely.  I intend to keep developing it.  Some day it may acquire functionality like that of a game.
+As of the time of writing it is in a _very raw state_, containing many bugs.  It may, for example, run out of space and crash if you approach a 3D object too closely.  I intend to keep on improving it.
+
+I am making AFK available under the terms of the GNU General Public License (v3).  See LICENSE.txt.  I reserve the right to dual-license my original code, as permitted by the GPL; if you'd like to contribute, see CONTRIBUTIONS.txt.
 
 To build AFK you will currently need:
  - a GNU/Linux distribution
@@ -18,7 +20,7 @@ To build AFK you will currently need:
  - Boost (AFK currently links with boost_chrono, boost_random, boost_system and boost_thread.  I used version 1.53)
  - SConstruct, the python build system.
 
-AFK has been tested and is known to work on Nvidia Fermi based graphics cards using the binary "nvidia" driver, and AMD VLIW5 graphics cards using the binary "fglrx" driver.  It is known not to work on Intel integrated graphics at the current time.  Some day I hope to make it run on a broader range of hardware and operating systems.
+I have tested AFK on Nvidia Fermi based GPUs using the binary "nvidia" driver, and an AMD VLIW5 GPU using the binary "fglrx" driver.  It doesn't work on Intel integrated graphics at the current time.  Some day I hope to make it run on a broader range of hardware and operating systems.
 
 Build and run example:
 
@@ -36,4 +38,5 @@ AFK is not currently self documenting.  Default key bindings are:
 
 It supports a collection of command line switches that can be identified by reading src/config.cpp.
 
+ -- Alex Holloway, 2013.
 

@@ -1,0 +1,14 @@
+Contributions to AFK
+====================
+
+You're free to play with AFK as per the terms of the GNU General Public License.  I'd love to see some patches!
+
+Some day I may want to distribute nicely packaged binaries of AFK for a fee, along with source code; for example, if it turns into a videogame (a possibility).  In that case, I may find myself wishing to dual-license the code, or make the GPL code optionally load a differently-licensed binary, or some such.
+
+Since I don't want to have to go around excising some contributors' work in that situation, I hope that anyone who happens to collaborate with me on this project is OK that:
+ - there's a small chance the above will happen;
+ - I'll do my best to have a multilateral discussion at the time;
+ - any proceeds from sale would be split according to how much work has been contributed (by some metric to be decided).
+
+ -- Alex Holloway, 2013.
+
