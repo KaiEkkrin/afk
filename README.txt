@@ -10,7 +10,7 @@ As of the time of writing it is in a _very raw state_, containing many bugs.  It
 
 To build AFK you will currently need:
  - a GNU/Linux distribution
- - GNU G++
+ - GNU G++ (recent enough to support C++11)
  - a modern OpenGL implementation (supporting OpenGL 4.0) and its development libraries
  - a modern OpenCL implementation (supporting OpenCL 1.1) and its development libraries
  - GLX
