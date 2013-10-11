@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
+
+    <title>AFK by KaiEkkrin</title>
+  </head>
+
+  <body>
+
+    <header>
+      <div class="container">
+        <h1>AFK</h1>
+        <h2></h2>
+
+        <section id="downloads">
+          <a href="https://github.com/KaiEkkrin/afk/zipball/master" class="btn">Download as .zip</a>
+          <a href="https://github.com/KaiEkkrin/afk/tarball/master" class="btn">Download as .tar.gz</a>
+          <a href="https://github.com/KaiEkkrin/afk" class="btn btn-github"><span class="icon"></span>View on GitHub</a>
+        </section>
+      </div>
+    </header>
+
+    <div class="container">
+      <section id="main_content">
+        <h3>
+<a name="afks-first-upload" class="anchor" href="#afks-first-upload"><span class="octicon octicon-link"></span></a>AFK's first upload</h3>
+
+<p>Wow, it's in a bit of a strange state right now, isn't it?  All those holes in the objects?  Yeah, that's because I'm deforming single cubes to fit the shapes, and it runs out of triangles in the cube to fit.  I've actually got a local branch right now where I'm working on a fix to enable the geometry shader to generate the additional faces.  It'll be up in a week or two, I hope.</p>
+
+<p>But art is never finished, only abandoned, so I figured I'd go public right now just in case :).</p>
+
+<p>After that, I should really make an effort to get it to build on Windows.  I know that half my mates can't run my <del>useless</del> wonderful project because they don't have a GNU/Linux install.</p>
+
+<p>The current defaults betray the Tetris-like skeletons of the default shapes a bit much, by the way.  Try this:</p>
+
+<pre><code>./build/release/afk --shape-edge-threshold 0.05
+</code></pre>
+
+<p>for something less...  cuboid.</p>
+      </section>
+    </div>
+
+    
+  </body>
+</html>
