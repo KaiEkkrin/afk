@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include <cstdio>
 #include <cstring>
@@ -25,8 +40,6 @@ struct AFK_ClProgram programs[] = {
     {   0,  "shape_3dedge",         { "fake3d.cl", "shape_3dedge.cl",   "", "", "", }, },
     {   0,  "shape_3dvapour_feature",   { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_feature.cl", "", "", }, },
     {   0,  "shape_3dvapour_normal",    { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_normal.cl", "", "", }, },
-    {   0,  "test",                 { "test.cl",    "", "", "", "", }, },
-    {   0,  "vs_test",              { "vs_test.cl", "", "", "", "", }, },
     {   0,  "",                     { "", "", "", "", "", }, }
 };
 
@@ -37,8 +50,6 @@ struct AFK_ClKernel kernels[] = {
     {   0,  "shape_3dedge",             "makeShape3DEdge"               },
     {   0,  "shape_3dvapour_feature",   "makeShape3DVapourFeature"      },
     {   0,  "shape_3dvapour_normal",    "makeShape3DVapourNormal"       },
-    {   0,  "test",                     "vector_add_gpu"                },
-    {   0,  "vs_test",                  "mangle_vs"                     },
     {   0,  "",                         ""                              }
 };
 
@@ -165,10 +176,8 @@ bool AFK_ClDeviceProperties::supportsExtension(const std::string& ext) const
 {
     boost::char_separator<char> spcSep(" ");
     boost::tokenizer<boost::char_separator<char> > extTok(extensions, spcSep);
-    for (boost::tokenizer<boost::char_separator<char> >::iterator extIt = extTok.begin();
-        extIt != extTok.end(); ++extIt)
+    for (auto testExt : extTok)
     {
-        std::string testExt = *extIt;
         if (testExt == ext) return true;
     }
 

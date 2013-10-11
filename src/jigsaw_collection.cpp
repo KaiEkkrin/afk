@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include "exception.hpp"
 #include "jigsaw_collection.hpp"
@@ -169,14 +184,13 @@ AFK_JigsawCollection::AFK_JigsawCollection(
     int _pieceCount,
     int minJigsawCount,
     enum AFK_JigsawDimensions _dimensions,
-    enum AFK_JigsawFormat *texFormat,
-    unsigned int _texCount,
+    const std::vector<AFK_JigsawFormat>& texFormat,
     const AFK_ClDeviceProperties& _clDeviceProps,
     enum AFK_JigsawBufferUsage _bufferUsage,
     unsigned int _concurrency,
     bool useFake3D):
         dimensions(_dimensions),
-        texCount(_texCount),
+        texCount(texFormat.size()),
         pieceSize(_pieceSize),
         pieceCount(_pieceCount),
         bufferUsage(_bufferUsage),
@@ -249,7 +263,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
                     0,
                     format[tex].glFormat,
                     format[tex].glDataType,
-                    NULL);
+                    nullptr);
                 break;
 
             case AFK_JIGSAW_3D:
@@ -263,7 +277,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
 					0,
                     format[tex].glFormat,
                     format[tex].glDataType,
-                    NULL);
+                    nullptr);
                 break;
 
             default:
@@ -305,12 +319,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
 
 AFK_JigsawCollection::~AFK_JigsawCollection()
 {
-    for (std::vector<AFK_Jigsaw*>::iterator pIt = puzzles.begin();
-        pIt != puzzles.end(); ++pIt)
-    {
-        delete *pIt;
-    }
-
+    for (auto p : puzzles) delete p;
     if (spare) delete spare;
 }
 
@@ -359,7 +368,7 @@ void AFK_JigsawCollection::grab(
     if (spare)
     {
         puzzles.push_back(spare);
-        spare = NULL;
+        spare = nullptr;
     }
 
     if ((int)puzzles.size() == puzzle)

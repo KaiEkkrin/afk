@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include <iostream>
 
@@ -112,10 +127,6 @@ void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<
         primeFilterGang << i;
         boost::unique_future<bool> finished = primeFilterGang.start(); 
 
-        /* TODO Do something more clever with this.  I need to
-         * think hard about the manner in which the caller is
-         * woken up when the result has been computed.
-         */
         finished.wait();
         std::cout << std::endl << std::endl;
         std::cout << "Finished with " << finished.get() << std::endl;

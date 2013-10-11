@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #ifndef _AFK_JIGSAW_COLLECTION_H_
 #define _AFK_JIGSAW_COLLECTION_H_
@@ -83,7 +98,7 @@ protected:
     AFK_Jigsaw *makeNewJigsaw(cl_context ctxt) const;
 
     /* For stats. */
-    boost::atomic<unsigned long long> spills;
+    boost::atomic<uint64_t> spills;
 
 public:
     AFK_JigsawCollection(
@@ -92,8 +107,7 @@ public:
         int _pieceCount,
         int minJigsawCount,
         enum AFK_JigsawDimensions _dimensions,
-        enum AFK_JigsawFormat *texFormat,
-        unsigned int _texCount,
+        const std::vector<AFK_JigsawFormat>& texFormat,
         const AFK_ClDeviceProperties& _clDeviceProps,
         enum AFK_JigsawBufferUsage _bufferUsage,
         unsigned int concurrency,

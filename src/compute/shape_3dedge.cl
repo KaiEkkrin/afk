@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 /* This program computes a 3D shape by edge detecting a
  * 3D `vapour field' (from 3dvapour) at a particular density,
@@ -343,7 +358,6 @@ float4 rotateNormal(float4 rawNormal, int face)
 /* Follows stuff for resolving the faces and culling triangle overlaps. */
 
 /* In this array, we write how far back each edge point is from the face.
- * TODO: Try packing it tighter.
  */
 #define DECL_EDGE_STEPS_BACK(edgeStepsBack) __local int edgeStepsBack[EDIM][EDIM][6]
 
@@ -532,17 +546,11 @@ bool trianglesAreCoplanar(int4 tri1[3], int4 tri2[3])
 
     float3 fNorm1 = cross(fTri1[2] - fTri1[0], fTri1[1] - fTri1[0]);
 
-    /* TODO Need error margin ? */
-#if 0
-    return (dot(fNorm1, fTri2[2] - fTri2[0]) == 0.0f &&
-        dot(fNorm1, fTri2[1] - fTri2[0]) == 0.0f);
-#else
+    /* I put a small error margin in here just in case. */
     return (fabs(dot(fNorm1, fTri2[2] - fTri2[0])) < 0.001f &&
         fabs(dot(fNorm1, fTri2[1] - fTri2[0])) < 0.001f);
-#endif
 }
 
-#define USE_TRICKY_IDENTICAL_CHECK 1
 
 /* Tests whether two triangles overlap or not, assuming they're in
  * the same small cube, *and that the triangles are real triangles*
@@ -554,9 +562,7 @@ bool trianglesOverlap(int4 tri1[3], int4 tri2[3])
      * keep track of which ones they are.
      */
     int identicalVertices = 0;
-#if USE_TRICKY_IDENTICAL_CHECK
     int4 identical[3];
-#endif
 
     for (int i1 = 0; i1 < 3; ++i1)
     {
@@ -564,10 +570,8 @@ bool trianglesOverlap(int4 tri1[3], int4 tri2[3])
         {
             if (verticesAreEqual(tri1[i1], tri2[i2]))
             {
-#if USE_TRICKY_IDENTICAL_CHECK
                 identical[identicalVertices] = tri1[i1];
-#endif
-		++identicalVertices;
+                ++identicalVertices;
             }
         }
     }
@@ -584,12 +588,6 @@ bool trianglesOverlap(int4 tri1[3], int4 tri2[3])
     case 2:
         if (trianglesAreCoplanar(tri1, tri2))
         {
-            /* TODO The below code is incorrect, and produces occasional
-             * criss-crosses and bowties.  I think I should be a little
-             * more aggressive with this stuff, now that I can do
-             * dynamic flipping of triangle pairs.
-             */
-#if USE_TRICKY_IDENTICAL_CHECK
             /* Dig up the different vertex pair. */
             int4 diff1, diff2;
             for (int i = 0; i < 3; ++i)
@@ -617,9 +615,6 @@ bool trianglesOverlap(int4 tri1[3], int4 tri2[3])
 
             return (distance(fId0, fId1) <= distance(fId0, fDiff1) ||
                 distance(fId0, fId1) <= distance(fId0, fDiff2));
-#else
-            return true;
-#endif
         }
         else return false;
 
@@ -828,9 +823,8 @@ __kernel void makeShape3DEdge(
 
 
     /* In each quad, work out which faces have a complete triangle pair
-     * that could be used for drawing.
-     * TODO: This is all wrong, again.
-     * Here is what I think I need to do (and fucking hell I hope I'm right this time):
+     * that could be used for drawing.  (These are the notes I made before I wrote
+     * the code, so they may seem a little out of sync now :) )
      * - For each face, for each triangle, as below, identify the small cube
      * that it resides in.  (Make a function that does this, and returns true
      * if the triangle sits correctly in a small cube, or false if it doesn't.)

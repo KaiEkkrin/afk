@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include "afk.hpp"
 
@@ -41,8 +56,8 @@ AFK_RNG_Value AFK_Cell::rngSeed(size_t combinant) const
 unsigned int AFK_Cell::subdivide(
     AFK_Cell *subCells,
     const size_t subCellsSize,
-    long long stride,
-    long long points) const
+    int64_t stride,
+    int64_t points) const
 {
     /* Check whether we're at smallest subdivision */
     if (coord.v[3] == 1) return 0;
@@ -57,13 +72,13 @@ unsigned int AFK_Cell::subdivide(
 
     AFK_Cell *subCellPos = subCells;
     unsigned int subCellCount = 0;
-    for (long long i = coord.v[0]; i < coord.v[0] + stride * points; i += stride)
+    for (int64_t i = coord.v[0]; i < coord.v[0] + stride * points; i += stride)
     {
-        for (long long j = coord.v[1]; j < coord.v[1] + stride * points; j += stride)
+        for (int64_t j = coord.v[1]; j < coord.v[1] + stride * points; j += stride)
         {
-            for (long long k = coord.v[2]; k < coord.v[2] + stride * points; k += stride)
+            for (int64_t k = coord.v[2]; k < coord.v[2] + stride * points; k += stride)
             {
-                *(subCellPos++) = afk_cell(afk_vec4<long long>(i, j, k, stride));
+                *(subCellPos++) = afk_cell(afk_vec4<int64_t>(i, j, k, stride));
                 ++subCellCount;
             }
         }
@@ -78,31 +93,31 @@ unsigned int AFK_Cell::subdivide(AFK_Cell *subCells, const size_t subCellsSize, 
         subCells,
         subCellsSize,
         coord.v[3] / subdivisionFactor,
-        (long long)subdivisionFactor);
+        (int64_t)subdivisionFactor);
 }
 
 void AFK_Cell::faceAdjacency(AFK_Cell *adjacency, const size_t adjacencySize) const
 {
     if (adjacencySize != 6) throw AFK_Exception("Bad face adjacency");
 
-    adjacency[0] = afk_cell(afk_vec4<long long>(
+    adjacency[0] = afk_cell(afk_vec4<int64_t>(
         coord.v[0], coord.v[1] - coord.v[3], coord.v[2], coord.v[3]));
-    adjacency[1] = afk_cell(afk_vec4<long long>(
+    adjacency[1] = afk_cell(afk_vec4<int64_t>(
         coord.v[0] - coord.v[3], coord.v[1], coord.v[2], coord.v[3]));
-    adjacency[2] = afk_cell(afk_vec4<long long>(
+    adjacency[2] = afk_cell(afk_vec4<int64_t>(
         coord.v[0], coord.v[1], coord.v[2] - coord.v[3], coord.v[3]));
-    adjacency[3] = afk_cell(afk_vec4<long long>(
+    adjacency[3] = afk_cell(afk_vec4<int64_t>(
         coord.v[0], coord.v[1], coord.v[2] + coord.v[3], coord.v[3]));
-    adjacency[4] = afk_cell(afk_vec4<long long>(
+    adjacency[4] = afk_cell(afk_vec4<int64_t>(
         coord.v[0] + coord.v[3], coord.v[1], coord.v[2], coord.v[3]));
-    adjacency[5] = afk_cell(afk_vec4<long long>(
+    adjacency[5] = afk_cell(afk_vec4<int64_t>(
         coord.v[0], coord.v[1] + coord.v[3], coord.v[2], coord.v[3]));
 }
 
 AFK_Cell AFK_Cell::parent(unsigned int subdivisionFactor) const
 {
-    long long parentCellScale = coord.v[3] * subdivisionFactor;
-    return afk_cell(afk_vec4<long long>(
+    int64_t parentCellScale = coord.v[3] * subdivisionFactor;
+    return afk_cell(afk_vec4<int64_t>(
         AFK_ROUND_TO_CELL_SCALE(coord.v[0], parentCellScale),
         AFK_ROUND_TO_CELL_SCALE(coord.v[1], parentCellScale),
         AFK_ROUND_TO_CELL_SCALE(coord.v[2], parentCellScale),
@@ -140,29 +155,29 @@ AFK_Cell afk_cell(const AFK_Cell& other)
     return cell;
 }
 
-AFK_Cell afk_cell(const Vec4<long long>& _coord)
+AFK_Cell afk_cell(const Vec4<int64_t>& _coord)
 {
     AFK_Cell cell;
     cell.coord = _coord;
     return cell;
 }
 
-AFK_Cell afk_cellContaining(const Vec3<float>& _coord, long long scale, float worldScale)
+AFK_Cell afk_cellContaining(const Vec3<float>& _coord, int64_t scale, float worldScale)
 {
     /* Turn these floats into something at minimum cell scale.
-     * Note that float conversion to long long rounds towards
+     * Note that float conversion to int64_t rounds towards
      * zero, which I don't want here, hence the std::floor()
      * first.
      */
-    Vec3<long long> cellScaleCoord = afk_vec3<long long>(
-        (long long)std::floor(_coord.v[0] / worldScale),
-        (long long)std::floor(_coord.v[1] / worldScale),
-        (long long)std::floor(_coord.v[2] / worldScale));
+    Vec3<int64_t> cellScaleCoord = afk_vec3<int64_t>(
+        (int64_t)std::floor(_coord.v[0] / worldScale),
+        (int64_t)std::floor(_coord.v[1] / worldScale),
+        (int64_t)std::floor(_coord.v[2] / worldScale));
 
     /* ...and now, round them down to the next cell boundary
      * of the requested size
      */
-    return afk_cell(afk_vec4<long long>(
+    return afk_cell(afk_vec4<int64_t>(
         AFK_ROUND_TO_CELL_SCALE(cellScaleCoord.v[0], scale),
         AFK_ROUND_TO_CELL_SCALE(cellScaleCoord.v[1], scale),
         AFK_ROUND_TO_CELL_SCALE(cellScaleCoord.v[2], scale),

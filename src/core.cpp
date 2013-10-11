@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include "afk.hpp"
 
@@ -6,7 +21,6 @@
 
 #include <boost/thread/future.hpp>
 
-#include "compute_test_long.hpp"
 #include "core.hpp"
 #include "debug.hpp"
 #include "def.hpp"
@@ -87,18 +101,7 @@ void afk_idle(void)
          * crash
          */
         normalisedError = 0.5f * std::max(std::min(normalisedError, 1.0f), -1.0f);
-
         float detailFactor = -(1.0f / (normalisedError / 2.0f - 1.0f)); /* between 0.5 and 2? */
-
-        /* TODO If I put a detail nudge in here, the render quality
-         * when moving quickly is greatly improved right now, but we
-         * hitch horribly at low speeds.
-         * I don't really understand what's going on, although detail
-         * nudges are bad :P
-         */
-        //if (detailFactor > 1.0f) detailFactor -= 0.02f;
-
-        //std::cout << "calibration error " << std::dec << afk_core.calibrationError << ": applying detail factor " << detailFactor << std::endl;
         afk_core.world->alterDetail(detailFactor);
 
         afk_core.lastCalibration = startOfFrameTime;
@@ -240,13 +243,13 @@ AFK_Core::AFK_Core():
     graphicsDelaysSinceLastCalibration(0),
     calibrationError(0),
     glGarbageBufs(1000),
-    config(NULL),
-    computer(NULL),
-    window(NULL),
-    rng(NULL),
-    camera(NULL),
-    world(NULL),
-    protagonist(NULL)
+    config(nullptr),
+    computer(nullptr),
+    window(nullptr),
+    rng(nullptr),
+    camera(nullptr),
+    world(nullptr),
+    protagonist(nullptr)
 {
 }
 
@@ -314,10 +317,6 @@ void AFK_Core::loop(void)
     /* World setup. */
     computer = new AFK_Computer();
     computer->loadPrograms(config);
-
-#if CL_TEST
-    afk_testComputeLong(computer, config->concurrency);
-#endif
 
 #if JIGSAW_TEST
     afk_testJigsaw(computer, config);

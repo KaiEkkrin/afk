@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include "afk.hpp"
 
@@ -36,10 +51,6 @@ void AFK_VapourCell::makeDescriptor(
     {
         AFK_Boost_Taus88_RNG rng;
 
-        /* TODO: Half-cells will go here when I add them (which I
-         * think I might want to).  For now I just make this cell
-         * by itself.
-         */
         rng.seed(cell.rngSeed());
         skeleton.make(rng, sSizes);
 
@@ -67,17 +78,13 @@ void AFK_VapourCell::makeDescriptor(
     {
         AFK_Boost_Taus88_RNG rng;
 
-        /* TODO: Half-cells will go here when I add them (which I
-         * think I might want to).  For now I just make this cell
-         * by itself.
-         */
         rng.seed(cell.rngSeed());
 
-        Vec3<long long> thisCellShapeSpace = afk_vec3<long long>(
+        Vec3<int64_t> thisCellShapeSpace = afk_vec3<int64_t>(
             cell.c.coord.v[0], cell.c.coord.v[1], cell.c.coord.v[2]);
-        Vec3<long long> upperCellShapeSpace = afk_vec3<long long>(
+        Vec3<int64_t> upperCellShapeSpace = afk_vec3<int64_t>(
             upperCell.cell.c.coord.v[0], upperCell.cell.c.coord.v[1], upperCell.cell.c.coord.v[2]);
-        Vec3<long long> upperOffset = (thisCellShapeSpace - upperCellShapeSpace) * (sSizes.skeletonFlagGridDim/2) / cell.c.coord.v[3];
+        Vec3<int64_t> upperOffset = (thisCellShapeSpace - upperCellShapeSpace) * (sSizes.skeletonFlagGridDim/2) / cell.c.coord.v[3];
 
         if (skeleton.make(
             upperCell.skeleton,
@@ -140,8 +147,6 @@ AFK_KeyedCell AFK_VapourCell::ShapeCells::next(void)
     AFK_SkeletonCube nextSkeletonCube = bones.next();
     AFK_KeyedCell nextCell = nextSkeletonCube.toShapeCell(vapourCell.cell, sSizes);
 
-    /* TODO remove sanity check -- trying to ensure consistency here */
-    assert(vapourCell.withinSkeleton(nextCell, sSizes));
     return nextCell;
 }
 

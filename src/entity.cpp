@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include "afk.hpp"
 
@@ -34,53 +49,6 @@ void AFK_Entity::position(
     if (rotation.v[1] != 0.0f) obj.adjustAttitude(AXIS_YAW, rotation.v[1]);
     if (rotation.v[2] != 0.0f) obj.adjustAttitude(AXIS_ROLL, rotation.v[2]);
 }
-
-/* TODO This stuff needs to go into OpenCL.  Leaving the old
- * code lying about for now as a crib sheet.
- */
-#if 0
-bool AFK_Entity::animate(
-    const boost::posix_time::ptime& now,
-    const AFK_Cell& cell,
-    float minCellSize,
-    AFK_Cell& o_newCell)
-{
-    bool moved = false;
-
-    if (!lastMoved.is_not_a_date_time())
-    {
-        boost::posix_time::time_duration sinceLastMoved = now - lastMoved;
-        unsigned int slmMicros = sinceLastMoved.total_microseconds();
-        float fSlmMillis = (float)slmMicros / 1000.0f;
-
-        obj.drive(velocity * fSlmMillis, angularVelocity * fSlmMillis);
-    
-        /* Now that I've driven the object, check its real world
-         * position to see if it's still within cell bounds.
-         * TODO: For complex entities that are split across cells,
-         * I'm going to want to do this for all the entity cells;
-         * but I don't have that concept right now.
-         */
-        Vec4<float> newLocationH = obj.getTransformation() *
-            afk_vec4<float>(0.0f, 0.0f, 0.0f, 1.0f);
-        Vec3<float> newLocation = afk_vec3<float>(
-            newLocationH.v[0] / newLocationH.v[3],
-            newLocationH.v[1] / newLocationH.v[3],
-            newLocationH.v[2] / newLocationH.v[3]);
-    
-        o_newCell = afk_cellContaining(newLocation, cell.coord.v[3], minCellSize);
-        moved = (o_newCell != cell);
-    }
-
-    lastMoved = now;
-    return moved;
-}
-
-void AFK_Entity::enqueueForDrawing(unsigned int threadId)
-{
-    shape->updatePush(threadId, obj.getTransformation());
-}
-#endif
 
 bool AFK_Entity::canBeEvicted(void) const
 {

@@ -1,10 +1,24 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #ifndef _AFK_DATA_POLYMER_CACHE_H_
 #define _AFK_DATA_POLYMER_CACHE_H_
 
 #include <boost/atomic.hpp>
-#include <boost/function.hpp>
 #include <boost/ref.hpp>
 #include <boost/thread/future.hpp>
 #include <boost/thread/thread.hpp>
@@ -69,11 +83,9 @@ public:
 
     virtual void printEverything(std::ostream& os) const
     {
-        for (typename AFK_PolymerChain<Key, Value>::iterator polyIt = polymer.begin();
-            polyIt != polymer.end(); ++polyIt)
+        for (auto monoIt = polymer.begin(); monoIt != polymer.end(); ++monoIt)
         {
-            boost::atomic<AFK_Monomer<Key, Value>*>& monoAt = *polyIt;
-            AFK_Monomer<Key, Value>* monomer = monoAt.load();
+            AFK_Monomer<Key, Value>* monomer = monoIt->load();
             os << monomer->key << " -> " << monomer->value << std::endl;
         }
     }

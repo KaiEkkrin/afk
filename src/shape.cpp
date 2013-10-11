@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include "afk.hpp"
 
@@ -14,7 +29,6 @@
 #include "def.hpp"
 #include "entity_display_queue.hpp"
 #include "jigsaw.hpp"
-#include "rng/aes.hpp"
 #include "shape.hpp"
 
 
@@ -79,7 +93,7 @@ bool afk_generateEntity(
             shapeCellItem.func = afk_generateShapeCells;
             shapeCellItem.param = param;
             shapeCellItem.param.shape.cell = nextCell;
-            shapeCellItem.param.shape.dependency = NULL;
+            shapeCellItem.param.shape.dependency = nullptr;
             queue.push(shapeCellItem);
         }
     }
@@ -156,9 +170,6 @@ bool afk_generateShapeCells(
     }
     else
     {
-        /* TODO Artificial min cell pitch here to check for
-         * cross-LoD overlaps.
-         */
         bool display = (
             cell.c.coord.v[3] == 1 || visibleCell.testDetailPitch(
                 world->getEntityDetailPitch(), *camera, viewerLocation));
@@ -236,7 +247,7 @@ bool afk_generateShapeCells(
                         subcellItem.param.shape.viewerLocation      = viewerLocation;
                         subcellItem.param.shape.camera              = camera;
                         subcellItem.param.shape.flags               = (allVisible ? AFK_SCG_FLAG_ENTIRELY_VISIBLE : 0);
-                        subcellItem.param.shape.dependency          = NULL;
+                        subcellItem.param.shape.dependency          = nullptr;
                         queue.push(subcellItem);
                     }
             

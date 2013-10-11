@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #ifdef AFK_GLX
 
@@ -36,14 +51,14 @@ int afk_xErrorHandler(Display *dpy, XErrorEvent *error)
 /* AFK_WindowGlx implementation */
 
 AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight, bool vsync):
-    dpy(NULL), visInfo(NULL), pointerCaptured(false), windowClosed(false),
+    dpy(nullptr), visInfo(nullptr), pointerCaptured(false), windowClosed(false),
     pointerEventMask(ButtonPressMask | ButtonReleaseMask | PointerMotionMask | ButtonMotionMask),
     keyEventMask(KeyPressMask | KeyReleaseMask),
-    realGlxCtx(0), glxFbConfig(NULL)
+    realGlxCtx(0), glxFbConfig(nullptr)
 {
     XInitThreads();
     XSetErrorHandler(afk_xErrorHandler);
-    dpy = XOpenDisplay(NULL);
+    dpy = XOpenDisplay(nullptr);
     if (!dpy) throw AFK_Exception("Unable to open X display");
 
     int screen = DefaultScreen(dpy);
@@ -118,10 +133,10 @@ AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight
         throw AFK_Exception("Your GLX doesn't have glXChooseFBConfig");
     }
 
-    glxFbConfig = (*fbcProc)(dpy, screen, NULL, &numFbConfigElements);
+    glxFbConfig = (*fbcProc)(dpy, screen, nullptr, &numFbConfigElements);
     if (!glxFbConfig) throw AFK_Exception("Unable to get GLX framebuffer config");
 
-    realGlxCtx = (*ccProc)(dpy, glxFbConfig[0], NULL, true, glAttr);
+    realGlxCtx = (*ccProc)(dpy, glxFbConfig[0], nullptr, true, glAttr);
 
     if (!glXMakeCurrent(dpy, w, realGlxCtx))
         throw AFK_Exception("Unable to make real GLX context current");
@@ -136,10 +151,9 @@ AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight
     bool haveSwapControl = false;
     std::string extstr = std::string(glXQueryExtensionsString(dpy, screen));
     boost::tokenizer<> extTok(extstr);
-    for (boost::tokenizer<>::iterator extIt = extTok.begin();
-        extIt != extTok.end(); ++extIt)
+    for (auto ext : extTok)
     {
-        if (*extIt == "GLX_EXT_swap_control")
+        if (ext == "GLX_EXT_swap_control")
         {
             haveSwapControl = true;
             break;
@@ -162,13 +176,12 @@ AFK_WindowGlx::~AFK_WindowGlx()
     if (dpy)
     {
         shadowCtxMut.lock();
-        for (std::map<unsigned int, GLXContext>::iterator sgcIt = shadowGlxContexts.begin();
-            sgcIt != shadowGlxContexts.end(); ++sgcIt)
+        for (auto sgc : shadowGlxContexts)
         {
-            if (sgcIt->second != 0)
+            if (sgc.second != 0)
             {
-                glXDestroyContext(dpy, sgcIt->second);
-                sgcIt->second = 0;
+                glXDestroyContext(dpy, sgc.second);
+                sgc.second = 0;
             }
         }
         shadowCtxMut.unlock();
@@ -211,7 +224,7 @@ void AFK_WindowGlx::releaseGLContext(unsigned int threadId)
 {
     shadowCtxMut.lock();
 
-    std::map<unsigned int, GLXContext>::iterator ctxtEntry = shadowGlxContexts.find(threadId);
+    auto ctxtEntry = shadowGlxContexts.find(threadId);
     if (ctxtEntry != shadowGlxContexts.end())
     {
         glXDestroyContext(dpy, ctxtEntry->second);
@@ -227,12 +240,12 @@ void AFK_WindowGlx::shareGLCLContext(AFK_Computer *computer)
 }
 
 void AFK_WindowGlx::loopOnEvents(
-    boost::function<void (void)> idleFunc,
-    boost::function<void (unsigned int)> keyboardUpFunc,
-    boost::function<void (unsigned int)> keyboardDownFunc,
-    boost::function<void (unsigned int)> mouseUpFunc,
-    boost::function<void (unsigned int)> mouseDownFunc,
-    boost::function<void (int, int)> motionFunc)
+    std::function<void (void)> idleFunc,
+    std::function<void (unsigned int)> keyboardUpFunc,
+    std::function<void (unsigned int)> keyboardDownFunc,
+    std::function<void (unsigned int)> mouseUpFunc,
+    std::function<void (unsigned int)> mouseDownFunc,
+    std::function<void (int, int)> motionFunc)
 {
     while (!windowClosed)
     {

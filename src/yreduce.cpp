@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include "core.hpp"
 #include "exception.hpp"
@@ -6,7 +21,7 @@
 #include "yreduce.hpp"
 
 AFK_YReduce::AFK_YReduce(const AFK_Computer *computer):
-    buf(0), bufSize(0), readback(NULL), readbackSize(0), readbackEvent(0)
+    buf(0), bufSize(0), readback(nullptr), readbackSize(0), readbackEvent(0)
 {
     if (!computer->findKernel("makeLandscapeYReduce", yReduceKernel))
         throw AFK_Exception("Cannot find Y-reduce kernel");
@@ -16,7 +31,7 @@ AFK_YReduce::~AFK_YReduce()
 {
     if (buf) clReleaseMemObject(buf);
     if (readbackEvent) clReleaseEvent(readbackEvent);
-    if (readback != NULL) delete[] readback;
+    if (readback != nullptr) delete[] readback;
 }
 
 void AFK_YReduce::compute(
@@ -45,7 +60,7 @@ void AFK_YReduce::compute(
         buf = clCreateBuffer(
             ctxt, CL_MEM_WRITE_ONLY,
             requiredSize,
-            NULL,
+            nullptr,
             &error);
         AFK_HANDLE_CL_ERROR(error);
         bufSize = requiredSize;

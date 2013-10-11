@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #ifndef _AFK_SHAPE_CELL_H_
 #define _AFK_SHAPE_CELL_H_
@@ -70,13 +85,6 @@ public:
      * the relevant jigsaw pieces with new ones.
      * Use the matching VapourCell to build the 3D list required
      * here.
-     * TODO: Cross-reference, over-compute, stitching, and all
-     * that junk.  Have a think.  I really do believe I want to
-     * avoid cross referencing at the cell level, and I *like*
-     * the half-cube paradigm (as demonstrated by its successful
-     * terrain equivalent, the half-tile).
-     * I could consider adding an `adjacency' compute step, or
-     * something.
      */
     void enqueueVapourComputeUnitWithNewVapour(
         unsigned int threadId,

@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include <cstdlib>
 
@@ -7,7 +22,7 @@
 
 /* RNG_Value stuff. */
 
-static unsigned int squash_to_int(unsigned long long in)
+static unsigned int squash_to_int(uint64_t in)
 {
     unsigned int out, mid;
 
@@ -22,13 +37,13 @@ static unsigned int squash_to_int(unsigned long long in)
  * It's better.
  */
 
-AFK_RNG_Value::AFK_RNG_Value(long long v0, long long v1, long long v2, long long v3)
+AFK_RNG_Value::AFK_RNG_Value(int64_t v0, int64_t v1, int64_t v2, int64_t v3)
 {
     v.ui[0] = v.ui[1] = v.ui[2] = v.ui[3] =
         squash_to_int(v0) ^
-        squash_to_int(LROTATE_UNSIGNED((unsigned long long)v1, 17)) ^
-        squash_to_int(LROTATE_UNSIGNED((unsigned long long)v2, 31)) ^
-        squash_to_int(LROTATE_UNSIGNED((unsigned long long)v3, 47));
+        squash_to_int(LROTATE_UNSIGNED((uint64_t)v1, 17)) ^
+        squash_to_int(LROTATE_UNSIGNED((uint64_t)v2, 31)) ^
+        squash_to_int(LROTATE_UNSIGNED((uint64_t)v3, 47));
 
     v.ui[0] = LROTATE_UNSIGNED(v.ui[0], 7);
     v.ui[1] = LROTATE_UNSIGNED(v.ui[1], 13);
@@ -36,19 +51,19 @@ AFK_RNG_Value::AFK_RNG_Value(long long v0, long long v1, long long v2, long long
     v.ui[3] = LROTATE_UNSIGNED(v.ui[3], 29);
 }
 
-AFK_RNG_Value::AFK_RNG_Value(long long v0, long long v1, long long v2)
+AFK_RNG_Value::AFK_RNG_Value(int64_t v0, int64_t v1, int64_t v2)
 {
     v.ui[0] = v.ui[1] = v.ui[2] = v.ui[3] =
         squash_to_int(v0) ^
-        squash_to_int(LROTATE_UNSIGNED((unsigned long long)v1, 19)) ^
-        squash_to_int(LROTATE_UNSIGNED((unsigned long long)v2, 41));
+        squash_to_int(LROTATE_UNSIGNED((uint64_t)v1, 19)) ^
+        squash_to_int(LROTATE_UNSIGNED((uint64_t)v2, 41));
 
     v.ui[0] = LROTATE_UNSIGNED(v.ui[0], 7);
     v.ui[1] = LROTATE_UNSIGNED(v.ui[1], 13);
     v.ui[2] = LROTATE_UNSIGNED(v.ui[2], 23);
 }
 
-AFK_RNG_Value::AFK_RNG_Value(long long v0)
+AFK_RNG_Value::AFK_RNG_Value(int64_t v0)
 {
     v.ui[0] = squash_to_int(v0);
     v.ui[1] = LROTATE_UNSIGNED(squash_to_int(v0), 7);

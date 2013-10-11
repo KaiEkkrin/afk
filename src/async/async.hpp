@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #ifndef _AFK_ASYNC_ASYNC_H_
 #define _AFK_ASYNC_ASYNC_H_
@@ -9,7 +24,6 @@
 
 #include <boost/atomic.hpp>
 #include <boost/chrono.hpp>
-#include <boost/function.hpp>
 #include <boost/ref.hpp>
 #include <boost/thread/condition.hpp>
 #include <boost/thread/future.hpp>
@@ -210,7 +224,7 @@ protected:
 
 public:
     AFK_AsyncGang(size_t queueSize, unsigned int concurrency):
-        controls(concurrency), promise(NULL)
+        controls(concurrency), promise(nullptr)
     {
         /* Make sure the flags for this level of concurrency will fit
          * into a size_t
@@ -221,7 +235,7 @@ public:
     }
 
     AFK_AsyncGang(size_t queueSize):
-        controls(boost::thread::hardware_concurrency()), promise(NULL)
+        controls(boost::thread::hardware_concurrency()), promise(nullptr)
     {
         initWorkers(boost::thread::hardware_concurrency() + 1);
     }
@@ -229,11 +243,8 @@ public:
     virtual ~AFK_AsyncGang()
     {
         controls.control_quit();
-        for (std::vector<boost::thread*>::iterator wIt = workers.begin(); wIt != workers.end(); ++wIt)
-            (*wIt)->join();
-
-        for (std::vector<boost::thread*>::iterator wIt = workers.begin(); wIt != workers.end(); ++wIt)
-            delete *wIt;
+        for (auto w : workers) w->join();
+        for (auto w : workers) delete w;
 
         if (promise) delete promise;
     }
@@ -262,8 +273,6 @@ public:
     /* Tells the async task to do a run.  Returns the future
      * result.
      * The caller should wait on that future, no doubt.
-     * TODO: For multiple async tasks going at once, I'm going to
-     * want to select() between multiple futures somehow ??
      */
     boost::unique_future<ReturnType> start(void)
     {

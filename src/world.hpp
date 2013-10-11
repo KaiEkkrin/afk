@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #ifndef _AFK_WORLD_H_
 #define _AFK_WORLD_H_
@@ -9,7 +24,6 @@
 #include <vector>
 
 #include <boost/atomic.hpp>
-#include <boost/function.hpp>
 #include <boost/thread/thread.hpp>
 
 #include "3d_edge_compute_queue.hpp"
@@ -79,26 +93,26 @@ protected:
 
     /* Gather statistics.  (Useful.)
      */
-    boost::atomic<unsigned long long> cellsInvisible;
-    boost::atomic<unsigned long long> tilesQueued;
-    boost::atomic<unsigned long long> tilesResumed;
-    boost::atomic<unsigned long long> tilesComputed;
-    boost::atomic<unsigned long long> tilesRecomputedAfterSweep;
-    boost::atomic<unsigned long long> entitiesQueued;
-    boost::atomic<unsigned long long> entitiesMoved;
+    boost::atomic<uint64_t> cellsInvisible;
+    boost::atomic<uint64_t> tilesQueued;
+    boost::atomic<uint64_t> tilesResumed;
+    boost::atomic<uint64_t> tilesComputed;
+    boost::atomic<uint64_t> tilesRecomputedAfterSweep;
+    boost::atomic<uint64_t> entitiesQueued;
+    boost::atomic<uint64_t> entitiesMoved;
 
     /* These ones are updated by the shape worker. */
-    boost::atomic<unsigned long long> shapeCellsInvisible;
-    boost::atomic<unsigned long long> shapeCellsResumed;
-    boost::atomic<unsigned long long> shapeVapoursComputed;
-    boost::atomic<unsigned long long> shapeEdgesComputed;
+    boost::atomic<uint64_t> shapeCellsInvisible;
+    boost::atomic<uint64_t> shapeCellsResumed;
+    boost::atomic<uint64_t> shapeVapoursComputed;
+    boost::atomic<uint64_t> shapeEdgesComputed;
 
     /* ... and this by that little vapour descriptor worker */
-    boost::atomic<unsigned long long> separateVapoursComputed;
+    boost::atomic<uint64_t> separateVapoursComputed;
 
     /* Concurrency stats */
-    boost::atomic<unsigned long long> dependenciesFollowed;
-    boost::atomic<unsigned long long> threadEscapes;
+    boost::atomic<uint64_t> dependenciesFollowed;
+    boost::atomic<uint64_t> threadEscapes;
 
     /* Landscape shader details. */
     AFK_ShaderProgram *landscape_shaderProgram;
@@ -264,7 +278,7 @@ public:
      */
     void enqueueSubcells(
         const AFK_Cell& cell,
-        const Vec3<long long>& modifier,
+        const Vec3<int64_t>& modifier,
         const Vec3<float>& viewerLocation,
         const AFK_Camera& camera);
 

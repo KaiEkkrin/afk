@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #ifndef _AFK_WINDOW_GLX_H_
 #define _AFK_WINDOW_GLX_H_
@@ -54,12 +69,12 @@ public:
     virtual void releaseGLContext(unsigned int threadId);
     virtual void shareGLCLContext(AFK_Computer *computer);
     virtual void loopOnEvents(
-        boost::function<void (void)> idleFunc,
-        boost::function<void (unsigned int)> keyboardUpFunc,
-        boost::function<void (unsigned int)> keyboardDownFunc,
-        boost::function<void (unsigned int)> mouseUpFunc,
-        boost::function<void (unsigned int)> mouseDownFunc,
-        boost::function<void (int, int)> motionFunc);
+        std::function<void (void)> idleFunc,
+        std::function<void (unsigned int)> keyboardUpFunc,
+        std::function<void (unsigned int)> keyboardDownFunc,
+        std::function<void (unsigned int)> mouseUpFunc,
+        std::function<void (unsigned int)> mouseDownFunc,
+        std::function<void (int, int)> motionFunc);
     virtual void capturePointer(void);
     virtual void letGoOfPointer(void);
     virtual void switchToFullScreen(void);

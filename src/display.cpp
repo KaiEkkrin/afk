@@ -1,8 +1,24 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include "afk.hpp"
 
-#include <math.h>
+#include <cassert>
+#include <cmath>
 
 #include "camera.hpp"
 #include "core.hpp"
@@ -18,10 +34,10 @@ void afk_displayedBufferGlBuffersForDeletion(GLuint *bufs, size_t bufsSize)
 
 
 AFK_DisplayedObject::AFK_DisplayedObject():
-    shaderProgram(NULL),
+    shaderProgram(nullptr),
     worldTransformLocation(0),
     clipTransformLocation(0),
-    shaderLight(NULL)
+    shaderLight(nullptr)
 {
     bufs[0] = 0;
     bufs[1] = 0;
@@ -47,7 +63,7 @@ void AFK_DisplayedProtagonist::initGL(void)
 {
     /* Link up the shader program I want. */
     shaderProgram = new AFK_ShaderProgram();
-    *shaderProgram << "vcol_phong_fragment" << "vcol_phong_vertex";
+    *shaderProgram << "protagonist_fragment" << "protagonist_vertex";
     shaderProgram->Link();
 
     worldTransformLocation = glGetUniformLocation(shaderProgram->program, "WorldTransform");
@@ -59,7 +75,7 @@ void AFK_DisplayedProtagonist::initGL(void)
      * facing in the travel direction, because I can't
      * generate cool ones yet.
      */
-    struct AFK_VcolPhongVertex rawVertices[] = {
+    struct AFK_ProtagonistVertex rawVertices[] = {
         /* location ...                             colour ...                  normal */
 
         /* bow */
@@ -117,9 +133,9 @@ void AFK_DisplayedProtagonist::display(const Mat4<float>& projection)
 
     glBindBuffer(GL_ARRAY_BUFFER, bufs[0]);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), 0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(sizeof(Vec3<float>)));
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_VcolPhongVertex), (const GLvoid*)(2 * sizeof(Vec3<float>)));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_ProtagonistVertex), 0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_ProtagonistVertex), (const GLvoid*)(sizeof(Vec3<float>)));
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(struct AFK_ProtagonistVertex), (const GLvoid*)(2 * sizeof(Vec3<float>)));
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bufs[1]);
 
@@ -158,12 +174,11 @@ void afk_display(void)
 
     afk_core.world->display(projection, afk_core.sun);
 
-    /* TODO Ignoring the protagonist for now.  I think it's served
-     * its purpose: I need to come up with a way of making objects,
-     * and then make a new protagonist that tracks through the
-     * cells.
-     * I do need to fix the camera transform accuracy bug first
-     * though ...
+    /* TODO: This placeholder protagonist is cheating, because
+     * I created it manually.
+     * I want to eventually replace it with a random shape
+     * (jimmied to be a suitable size and shape to fly around
+     * in the company of.)
      */
     afk_core.protagonist->display(projection);
 
@@ -173,12 +188,7 @@ void afk_display(void)
     glFlush();
 
     GLenum glErr = glGetError();
-    if (glErr != GL_NO_ERROR)
-    {
-        /* TODO Non-fatal errors? (How should I handle out-of-memory?) */
-        std::ostringstream ss;
-        ss << "AFK: Got GL error: " << gluErrorString(glErr);
-        throw AFK_Exception(ss.str());
-    }
+    /* TODO Non-fatal errors? (How should I handle out-of-memory?) */
+    assert(glErr == GL_NO_ERROR);
 }
 

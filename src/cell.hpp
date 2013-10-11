@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #ifndef _AFK_CELL_H_
 #define _AFK_CELL_H_
@@ -39,7 +54,7 @@
 
 /* Identifies a cell in the world in an abstract manner,
  * suitable for using as a hash key.
- * TODO: Use of `long long' here means that, in theory at
+ * TODO: Use of `int64_t' here means that, in theory at
  * least, the terrain will eventually loop.  I'm hoping that
  * it won't for a suitably long while and I won't need
  * infinite precision arithmetic (with all its associated
@@ -55,23 +70,15 @@ class AFK_Cell
 public:
     /* These co-ordinates are in smallest-cell steps, starting
      * from (0,0,0) at the origin.  The 4th number is the
-     * cell size: 2 for smallest, then increasing in factors
+     * cell size.  In the world case, 2 is smallest, then increasing in factors
      * of subdivisionFactor.
      * The reason for 2 being smallest is I need 1/2-cell steps
      * in order to fill in terrain that isn't interrupted at
      * every cell edge.
-     * TODO: These aren't homogeneous co-ordinates right now
-     * (nor is the float `realCoord' equivalent) and for sanity,
-     * I should probably make them homogeneous :P
+     * However, there's nothing enforcing that smallest size in
+     * the `cell' module and shape cells can be 1.
      */
-    Vec4<long long> coord;
-
-    /* TODO Somewhere, I'm going to need a way of making the
-     * smallest AFK_Cell that can contain a particular object
-     * at the current LoD, so that I can assign moving objects
-     * to cells, decide what extra cells to draw or not etc etc.
-     * That'll probably end up in AFK_World though ;)
-     */
+    Vec4<int64_t> coord;
 
     /* Obligatory thingies. */
     bool operator==(const AFK_Cell& _cell) const;
@@ -92,8 +99,8 @@ public:
     unsigned int subdivide(
         AFK_Cell *subCells,
         const size_t subCellsSize,
-        long long stride,
-        long long points) const;
+        int64_t stride,
+        int64_t points) const;
 
     /* Fills out the supplied array of uninitialised
      * AFK_Cells with the next level of subdivision of
@@ -143,10 +150,10 @@ public:
 
 /* Useful ways of making cells. */
 AFK_Cell afk_cell(const AFK_Cell& other);
-AFK_Cell afk_cell(const Vec4<long long>& _coord);
+AFK_Cell afk_cell(const Vec4<int64_t>& _coord);
 
 /* Returns the cell (of the requested scale) that contains this point. */
-AFK_Cell afk_cellContaining(const Vec3<float>& _coord, long long scale, float worldScale);
+AFK_Cell afk_cellContaining(const Vec3<float>& _coord, int64_t scale, float worldScale);
 
 /* For insertion into an unordered_map. */
 size_t hash_value(const AFK_Cell& cell);

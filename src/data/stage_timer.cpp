@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include <sstream>
 
@@ -34,10 +49,9 @@ AFK_StageTimer::AFK_StageTimer(const std::string& _timerName, const std::vector<
 
 AFK_StageTimer::~AFK_StageTimer()
 {
-    for (std::vector<AFK_MovingAverage<unsigned int>*>::iterator tIMIt = timesInMicros.begin();
-        tIMIt != timesInMicros.end(); ++tIMIt)
+    for (auto t : timesInMicros)
     {
-        delete *tIMIt;
+        delete t;
     }
 }
 
@@ -52,10 +66,9 @@ void AFK_StageTimer::restart(void)
          * of each round that the various stages appear to take.
          */
         unsigned int totalTime = 0;
-        for (std::vector<AFK_MovingAverage<unsigned int>*>::iterator timesIt = timesInMicros.begin();
-            timesIt != timesInMicros.end(); ++timesIt)
+        for (auto t : timesInMicros)
         {
-            totalTime += (*timesIt)->get();
+            totalTime += t->get();
         }
 
         std::cout << "  " << timerName << " stage timer: " << std::endl;

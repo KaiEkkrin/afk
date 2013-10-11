@@ -1,10 +1,25 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include <cmath>
+#include <functional>
 #include <iostream>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/function.hpp>
 #include <boost/random/random_device.hpp>
 #include <boost/random/taus88.hpp>
 #include <boost/thread/future.hpp>
@@ -20,7 +35,7 @@ struct expensivelyHashInt
     {
         boost::random::taus88 rng;
         rng.seed(v);
-        return rng() + (((unsigned long long)rng()) << 32);
+        return rng() + (((uint64_t)rng()) << 32);
     }
 };
 
@@ -114,8 +129,8 @@ void test_cache(void)
     //std::cout << std::endl;
 
     /* Now let's try it again with the polymer cache */
-    boost::function<size_t (const int&)> hashFunc = expensivelyHashInt();
-    AFK_PolymerCache<int, IntStartingAtZero, boost::function<size_t (const int&)> > polymerCache(16, 4, hashFunc);
+    std::function<size_t (const int&)> hashFunc = expensivelyHashInt();
+    AFK_PolymerCache<int, IntStartingAtZero, std::function<size_t (const int&)> > polymerCache(16, 4, hashFunc);
 
     for (unsigned int i = 0; i < CACHE_TEST_THREAD_COUNT; ++i)
     {

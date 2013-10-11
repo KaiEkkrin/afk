@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include "afk.hpp"
 
@@ -71,7 +86,7 @@ static char *getDirAtExecPath(const char *leafname, const char *execname)
 
 AFK_Config::AFK_Config(int *argcp, char **argv)
 {
-    shadersDir  = NULL;
+    shadersDir  = nullptr;
     fov         = 90.0f;
     zNear       = 0.5f;
     zFar        = (float)(1 << 20);
@@ -97,8 +112,8 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     windowHeight                = 0;
 
     concurrency                 = boost::thread::hardware_concurrency() + 1;
-    clProgramsDir               = NULL;
-    clGlSharing                 = false; /* TODO hope to default true if I get it reliably working */
+    clProgramsDir               = nullptr;
+    clGlSharing                 = false; /* TODO Find hardware this actually improves performance on and default-true for that */
     forceFake3DImages           = false;
 
     startingDetailPitch         = 512.0f;
@@ -277,10 +292,6 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
      */
     if (keyboardMapping.empty())
     {
-        /* TODO Swap wsad to mouse controls by default, so I can put
-         * the others somewhere more sensible!
-         */
-
         /* TODO These are observed X keycodes.  I'll need different
          * ones for Windows at any rate ...
          */

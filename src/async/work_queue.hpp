@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #ifndef _AFK_ASYNC_WORK_QUEUE_H_
 #define _AFK_ASYNC_WORK_QUEUE_H_
@@ -50,7 +65,7 @@ class AFK_WorkQueue
 {
 public:
     /* An old style raw function pointer, because it seems
-     * boost::function<> isn't safe for use in a lockfree queue
+     * std::function<> isn't safe for use in a lockfree queue ??
      */
     typedef ReturnType (*WorkFunc)(
         unsigned int,
@@ -96,8 +111,8 @@ public:
                 /* TODO: It's hugely important that the following fetch_sub()
                  * doesn't get reordered with the fetch_add() inside the
                  * function call, or with the load() above.
-                 * I'm hoping that the following fences
-                 * stops that from happening ???
+                 * These fences have no basis in rational thought, but I put them
+                 * in and haven't seen a thread fall out early for a while ... :-/
                  */
                 boost::atomic_thread_fence(boost::memory_order_seq_cst);
                 count.fetch_sub(1);

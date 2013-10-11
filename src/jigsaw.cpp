@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include "afk.hpp"
 
@@ -31,7 +46,7 @@ AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat e)
         glDataType                          = GL_UNSIGNED_INT;
         clFormat.image_channel_order        = CL_R;
         clFormat.image_channel_data_type    = CL_UNSIGNED_INT32;
-        texelSize                           = sizeof(unsigned int);
+        texelSize                           = sizeof(uint32_t);
         break;
 
     case AFK_JIGSAW_2UINT32:
@@ -66,7 +81,7 @@ AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat e)
         glDataType                          = GL_UNSIGNED_SHORT_5_5_5_1;
         clFormat.image_channel_order        = CL_RGB;
         clFormat.image_channel_data_type    = CL_UNORM_SHORT_555;
-        texelSize                           = sizeof(unsigned short);
+        texelSize                           = sizeof(uint16_t);
         break;
 
     case AFK_JIGSAW_101010A2:
@@ -75,7 +90,7 @@ AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat e)
         glDataType                          = GL_UNSIGNED_INT_10_10_10_2;
         clFormat.image_channel_order        = CL_RGB;
         clFormat.image_channel_data_type    = CL_UNORM_INT_101010;
-        texelSize                           = sizeof(unsigned int);
+        texelSize                           = sizeof(uint32_t);
         break;
 
     case AFK_JIGSAW_4FLOAT8_UNORM:
@@ -84,7 +99,7 @@ AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat e)
         glDataType                          = GL_UNSIGNED_BYTE;
         clFormat.image_channel_order        = CL_RGBA;
         clFormat.image_channel_data_type    = CL_UNORM_INT8;
-        texelSize                           = sizeof(unsigned char) * 4;
+        texelSize                           = sizeof(uint8_t) * 4;
         break;
 
     /* TODO cl_gl sharing seems to barf with this one ... */
@@ -94,7 +109,7 @@ AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat e)
         glDataType                          = GL_BYTE;
         clFormat.image_channel_order        = CL_RGBA;
         clFormat.image_channel_data_type    = CL_SNORM_INT8;
-        texelSize                           = sizeof(unsigned char) * 4;
+        texelSize                           = sizeof(uint8_t) * 4;
         break;
 
     case AFK_JIGSAW_4FLOAT32:
@@ -444,7 +459,7 @@ AFK_Jigsaw::AFK_Jigsaw(
     unsigned int _texCount,
     enum AFK_JigsawBufferUsage _bufferUsage,
     unsigned int _concurrency):
-        glTex(NULL),
+        glTex(nullptr),
         format(_format),
         texTarget(_texTarget),
         texCount(_texCount),
@@ -478,7 +493,7 @@ AFK_Jigsaw::AFK_Jigsaw(
                     CL_MEM_READ_WRITE,
                     &format[tex].clFormat,
                     &imageDesc,
-                    NULL,
+                    nullptr,
                     &error);
             }
             else
@@ -495,7 +510,7 @@ AFK_Jigsaw::AFK_Jigsaw(
                         imageDesc.image_width,
                         imageDesc.image_height,
                         imageDesc.image_row_pitch,
-                        NULL,
+                        nullptr,
                         &error);
                     break;
     
@@ -509,7 +524,7 @@ AFK_Jigsaw::AFK_Jigsaw(
                         imageDesc.image_depth,
                         imageDesc.image_row_pitch,
                         imageDesc.image_slice_pitch,
-                        NULL,
+                        nullptr,
                         &error);
                     break;
     
@@ -611,8 +626,8 @@ AFK_Jigsaw::AFK_Jigsaw(
 
     for (int row = 0; row < jigsawSize.v[0]; ++row)
     {
-		rowTimestamp[row] = new AFK_Frame[jigsawSize.v[2]];
-		rowUsage[row] = new int[jigsawSize.v[2]];
+        rowTimestamp[row] = new AFK_Frame[jigsawSize.v[2]];
+        rowUsage[row] = new int[jigsawSize.v[2]];
 
         for (int slice = 0; slice < jigsawSize.v[2]; ++slice)
         {
@@ -630,7 +645,7 @@ AFK_Jigsaw::AFK_Jigsaw(
         throw AFK_Exception("Cannot make starting cuboid");
     }
 
-    changeData = new std::vector<unsigned char>[texCount];
+    changeData = new std::vector<uint8_t>[texCount];
     changeEvents = new std::vector<cl_event>[texCount];
 
     piecesGrabbed.store(0);
@@ -652,11 +667,11 @@ AFK_Jigsaw::~AFK_Jigsaw()
 
     if (glTex) glDeleteTextures(texCount, glTex);
 
-	for (int row = 0; row < jigsawSize.v[0]; ++row)
-	{
-		delete[] rowUsage[row];
-		delete[] rowTimestamp[row];
-	}
+    for (int row = 0; row < jigsawSize.v[0]; ++row)
+    {
+        delete[] rowUsage[row];
+        delete[] rowTimestamp[row];
+    }
 
     delete[] rowUsage;
     delete[] rowTimestamp;
@@ -748,7 +763,7 @@ Vec3<float> AFK_Jigsaw::getTexCoordSTR(const AFK_JigsawPiece& piece) const
     return afk_vec3<float>(
         (float)piece.u / (float)jigsawSize.v[0],
         (float)piece.v / (float)jigsawSize.v[1],
-		(float)piece.w / (float)jigsawSize.v[2]);
+        (float)piece.w / (float)jigsawSize.v[2]);
 }
 
 Vec2<float> AFK_Jigsaw::getPiecePitchST(void) const
@@ -784,10 +799,9 @@ cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q, std::vecto
         {
             cl_event acquireEvent;
             AFK_CLCHK(clEnqueueAcquireGLObjects(q, 1, &clTex[tex], changeEvents[tex].size(), &changeEvents[tex][0], &acquireEvent))
-            for (std::vector<cl_event>::iterator cEvIt = changeEvents[tex].begin();
-                cEvIt != changeEvents[tex].end(); ++cEvIt)
+            for (auto ev : changeEvents[tex])
             {
-                AFK_CLCHK(clReleaseEvent(*cEvIt))
+                AFK_CLCHK(clReleaseEvent(ev))
             }
             changeEvents[tex].clear();
             o_events.push_back(acquireEvent);
@@ -803,11 +817,10 @@ cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q, std::vecto
             /* If there are leftover events the caller needs to wait
              * for them ...
              */
-            for (std::vector<cl_event>::iterator cEvIt = changeEvents[tex].begin();
-                cEvIt != changeEvents[tex].end(); ++cEvIt)
+            for (auto ev : changeEvents[tex])
             {
-                AFK_CLCHK(clRetainEvent(*cEvIt))
-                o_events.push_back(*cEvIt);
+                AFK_CLCHK(clRetainEvent(ev))
+                o_events.push_back(ev);
             }
         }
         break;
@@ -851,10 +864,9 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q, const std::vector<cl_event>& 
             if (changeEvents[tex].size() > 0)
             {
                 AFK_CLCHK(clWaitForEvents(changeEvents[tex].size(), &changeEvents[tex][0]))
-                for (std::vector<cl_event>::iterator cEvIt = changeEvents[tex].begin();
-                    cEvIt != changeEvents[tex].end(); ++cEvIt)
+                for (auto ev : changeEvents[tex])
                 {
-                    AFK_CLCHK(clReleaseEvent(*cEvIt))
+                    AFK_CLCHK(clReleaseEvent(ev))
                 }
             }
 
@@ -904,20 +916,18 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q, const std::vector<cl_event>& 
              * being finished, of course.
              */
             allWaitList.reserve(eventWaitList.size() + changeEvents[tex].size());
-            for (std::vector<cl_event>::const_iterator evIt = eventWaitList.begin();
-                evIt != eventWaitList.end(); ++evIt)
+            for (auto ev : eventWaitList)
             {
-                AFK_CLCHK(clRetainEvent(*evIt))
-                allWaitList.push_back(*evIt);
+                AFK_CLCHK(clRetainEvent(ev))
+                allWaitList.push_back(ev);
             }
             std::copy(changeEvents[tex].begin(), changeEvents[tex].end(), allWaitList.end());
 
             changeEvents[tex].resize(1);
             AFK_CLCHK(clEnqueueReleaseGLObjects(q, 1, &clTex[tex], allWaitList.size(), &allWaitList[0], &changeEvents[tex][0]))
-            for (std::vector<cl_event>::iterator awIt = allWaitList.begin();
-                awIt != allWaitList.end(); ++awIt)
+            for (auto aw : allWaitList)
             {
-                AFK_CLCHK(clReleaseEvent(*awIt))
+                AFK_CLCHK(clReleaseEvent(aw))
             }
             allWaitList.clear();
         }
@@ -930,11 +940,10 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q, const std::vector<cl_event>& 
          */
         for (unsigned int tex = 0; tex < texCount; ++tex)
         {
-            for (std::vector<cl_event>::const_iterator evIt = eventWaitList.begin();
-                evIt != eventWaitList.end(); ++evIt)
+            for (auto ev : eventWaitList)
             {
-                AFK_CLCHK(clRetainEvent(*evIt))
-                changeEvents[tex].push_back(*evIt);
+                AFK_CLCHK(clRetainEvent(ev))
+                changeEvents[tex].push_back(ev);
             }
         }
         break;
@@ -1019,10 +1028,9 @@ void AFK_Jigsaw::flipCuboids(const AFK_Frame& currentFrame)
         if (changeEvents[tex].size() > 0)
         {
             AFK_CLCHK(clWaitForEvents(changeEvents[tex].size(), &changeEvents[tex][0]))
-            for (std::vector<cl_event>::iterator cEvIt = changeEvents[tex].begin();
-                cEvIt != changeEvents[tex].end(); ++cEvIt)
+            for (auto ev : changeEvents[tex])
             {
-                AFK_CLCHK(clReleaseEvent(*cEvIt))
+                AFK_CLCHK(clReleaseEvent(ev))
             }
             changeEvents[tex].clear();
         }

@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include "afk.hpp"
 
@@ -340,110 +355,39 @@ bool AFK_World::generateClaimedWorldCell(
         AFK_Boost_Taus88_RNG staticRng;
         staticRng.seed(cell.rngSeed());
 
-        if (/* !landscapeTile.hasArtwork() || */
-            worldCell.getRealCoord().v[1] >= landscapeTile.getYBoundUpper())
-            //cell.coord.v[0] == 0 && cell.coord.v[1] == 0 && cell.coord.v[2] == 0 && cell.coord.v[3] == 16) /* TODO Debug of specific entity */
+        if (worldCell.getRealCoord().v[1] >= landscapeTile.getYBoundUpper())
         {
-            //if (cell.coord.v[3] == 1024)
-            //if (cell.coord.v[0] == 0 && cell.coord.v[1] == 0 && cell.coord.v[2] == 0)
-            //if (abs(cell.coord.v[0]) <= (1 * cell.coord.v[3]) &&
-            //    abs(cell.coord.v[1]) <= (1 * cell.coord.v[3]) &&
-            //    abs(cell.coord.v[2]) <= (1 * cell.coord.v[3]))
-            //if (cell.coord.v[3] < 64)
-            {
-                unsigned int startingEntityCount = worldCell.getStartingEntitiesWanted(
-                    staticRng, maxEntitiesPerCell, entitySparseness);
+            unsigned int startingEntityCount = worldCell.getStartingEntitiesWanted(
+                staticRng, maxEntitiesPerCell, entitySparseness);
 
-                for (unsigned int e = 0; e < startingEntityCount; ++e)
-                {
-                    unsigned int shapeKey = worldCell.getStartingEntityShapeKey(staticRng);
-                    generateStartingEntity(shapeKey, worldCell, threadId, staticRng);
-                }
+            for (unsigned int e = 0; e < startingEntityCount; ++e)
+            {
+                unsigned int shapeKey = worldCell.getStartingEntityShapeKey(staticRng);
+                generateStartingEntity(shapeKey, worldCell, threadId, staticRng);
             }
         }
 
-        /* TODO: Temporarily disabling entities, so that I can check
-          * that the refactored 3D-supporting jigsaw is still OK with
-         * the terrain.
-         */
-        AFK_ENTITY_LIST::iterator eIt = worldCell.entitiesBegin();
+        auto eIt = worldCell.entitiesBegin();
         while (eIt != worldCell.entitiesEnd())
         {
             AFK_Entity *e = *eIt;
-            AFK_ENTITY_LIST::iterator nextEIt = eIt;
+            auto nextEIt = eIt;
             bool updatedEIt = false;
             if (e->claimYieldLoop(threadId, AFK_CLT_EXCLUSIVE, afk_core.computingFrame) == AFK_CL_CLAIMED)
             {
-                /* TODO: Movement wants to move into OpenCL.
-                 * I don't want to perpetuate the below.
-                 */
-#if 0
-                AFK_Cell newCell;
-                if (e->animate(afk_core.getStartOfFrameTime(), cell, minCellSize, newCell))
-                {
-                    /* This entity has moved to a different cell.
-                     * Dig it up and feed it into its entity list.
-                     */
-                    
-                    /* Yes, I'm going to be creating this cell if
-                     * it doesn't exist.  And not claiming it.  So
-                     * there's a chance the entity gets cleaned up
-                     * by the evictor.  I can handle with that.
-                     * TODO: Permanent entities -- should prevent
-                     * the evictor from getting rid of cells that
-                     * contain them, and should also cause their
-                     * cells to always get enumerated regardless of
-                     * angle and distance.
-                     */
-                    nextEIt = worldCell.eraseEntity(eIt);
-                    updatedEIt = true;
-
-                    /* TODO: There is a very tiny possibility of the
-                     * following scenario here:
-                     * - cell gets created in the cache
-                     * - cell gets grabbed by the eviction thread and
-                     * destroyed
-                     * - moveEntity() gets called on a dead cell and
-                     * crashes
-                     * To avoid this I need to ensure that cells are
-                     * naturally created in an un-evictable state.  I'm
-                     * not quite sure how to ensure that.
-                     */
-                    (*worldCache)[newCell].moveEntity(e);
-                    entitiesMoved.fetch_add(1);
-                }
-
-                /* TODO: Collisions probably go here.  I'll no doubt
-                 * want to do that in OpenCL for performance, and
-                 * all sorts.
-                 */
-
-                /* Entities are always displayed.  They don't
-                 * exist at multiple LoDs.
-                 * TODO: Maybe some day I'll want to make very
-                 * large entities out of component parts so
-                 * that I can zoom in on their LoD just like
-                 * I can with the landscape ?
-                 */
-
-                /* TODO: Figure out the list of lights that apply.
-                 * And some day, the list of shadows that apply,
-                 * too.  Rah!
-                 */
-#endif
-                /* Now, make sure everything I need in that shape
+                /* Make sure everything I need in that shape
                  * has been computed ...
                  */
                 AFK_WorldWorkQueue::WorkItem shapeCellItem;
                 shapeCellItem.func                          = afk_generateEntity;
-                shapeCellItem.param.shape.cell              = afk_keyedCell(afk_vec4<long long>(
+                shapeCellItem.param.shape.cell              = afk_keyedCell(afk_vec4<int64_t>(
                                                                 0, 0, 0, SHAPE_CELL_MAX_DISTANCE), e->getShapeKey());
                 shapeCellItem.param.shape.entity            = e;
                 shapeCellItem.param.shape.world             = this;               
                 shapeCellItem.param.shape.viewerLocation    = viewerLocation;
                 shapeCellItem.param.shape.camera            = camera;
                 shapeCellItem.param.shape.flags             = 0;
-                shapeCellItem.param.shape.dependency        = NULL;
+                shapeCellItem.param.shape.dependency        = nullptr;
                 queue.push(shapeCellItem);
 
                 entitiesQueued.fetch_add(1);
@@ -486,7 +430,7 @@ bool AFK_World::generateClaimedWorldCell(
                 subcellItem.param.world.viewerLocation = viewerLocation;
                 subcellItem.param.world.camera       = camera;
                 subcellItem.param.world.flags        = (allVisible ? AFK_WCG_FLAG_ENTIRELY_VISIBLE : 0);
-                subcellItem.param.world.dependency   = NULL;
+                subcellItem.param.world.dependency   = nullptr;
                 queue.push(subcellItem);
             }
 
@@ -531,26 +475,19 @@ AFK_World::AFK_World(
     unsigned int tileCacheEntries = tileCacheSize / lSizes.tSize;
     Vec3<int> tilePieceSize = afk_vec3<int>((int)lSizes.tDim, (int)lSizes.tDim, 1);
 
-    enum AFK_JigsawFormat tileTexFormat[3];
-    tileTexFormat[0] = AFK_JIGSAW_FLOAT32;          /* Y displacement */
-    tileTexFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;    /* Colour */
-
-    /* Normal: The packed 8-bit signed format doesn't seem to play nicely with
-     * cl_gl buffer sharing; I don't know why...
-     */
-    if (config->clGlSharing)
-        tileTexFormat[2] = AFK_JIGSAW_4FLOAT32;
-    else
-        tileTexFormat[2] = AFK_JIGSAW_4FLOAT8_SNORM;
-
     landscapeJigsaws = new AFK_JigsawCollection(
         ctxt,
         tilePieceSize,
         (int)tileCacheEntries,
         2, /* I want at least two, so I can put big tiles only into the first one */
         AFK_JIGSAW_2D,
-        tileTexFormat,
-        3,
+        {
+            AFK_JIGSAW_FLOAT32,         /* Y displacement */
+            AFK_JIGSAW_4FLOAT8_UNORM,   /* Colour */
+            config->clGlSharing ? AFK_JIGSAW_4FLOAT32 : AFK_JIGSAW_4FLOAT8_SNORM
+                                        /* Normal; packed 8-bit signed doesn't seem to
+                                         * play nice with cl_gl buffer sharing */
+        },
         computer->getFirstDeviceProps(),
         config->clGlSharing ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED,
         config->concurrency,
@@ -578,29 +515,20 @@ AFK_World::AFK_World(
 
     Vec3<int> vapourPieceSize = afk_vec3<int>(sSizes.tDim, sSizes.tDim, sSizes.tDim);
 
-    /* TODO: Try to cram these.   They're loose for now for ease
-     * of testing (avoid thinking artifacts of too-low number
-     * precision are logic bugs).
-     * For example, colour needs only be 8 bits per channel;
-     * density should be 32.
-     */
-    enum AFK_JigsawFormat vapourTexFormat[2];
-    vapourTexFormat[0] = AFK_JIGSAW_4FLOAT32;       /* Feature: colour and density */
-
-    /* Normal, with TODO as above. */
-    if (config->clGlSharing)
-        vapourTexFormat[1] = AFK_JIGSAW_4FLOAT32;
-    else
-        vapourTexFormat[1] = AFK_JIGSAW_4FLOAT8_SNORM;
-
     vapourJigsaws = new AFK_JigsawCollection(
         ctxt,
         vapourPieceSize,
         (int)shapeCacheEntries,
         1,
         AFK_JIGSAW_3D,
-        vapourTexFormat,
-        2,
+        {
+            AFK_JIGSAW_4FLOAT32,                    /* Feature: colour and density.
+                                                     * TODO: Try to cram these: colour only needs 8
+                                                     * bits per channel.
+                                                     */
+            config->clGlSharing ? AFK_JIGSAW_4FLOAT32 : AFK_JIGSAW_4FLOAT8_SNORM
+                                                    /* Normal, with TODO as above. */
+        },
         computer->getFirstDeviceProps(),
         config->clGlSharing ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED,
         config->concurrency,
@@ -612,31 +540,21 @@ AFK_World::AFK_World(
      */
     Vec3<int> edgePieceSize = afk_vec3<int>(sSizes.eDim * 3, sSizes.eDim * 2, 1);
 
-    /* TODO: When I've got glsl reading out of the vapour correctly,
-     * prune these!
-     */
-    enum AFK_JigsawFormat edgeTexFormat[4];
-    edgeTexFormat[0] = AFK_JIGSAW_4FLOAT32;        /* Displacement */
-    edgeTexFormat[1] = AFK_JIGSAW_4FLOAT8_UNORM;   /* Colour */
-
-    /* Normal: The packed 8-bit signed format doesn't seem to play nicely with
-     * cl_gl buffer sharing; I don't know why...
-     */
-    if (config->clGlSharing)
-        edgeTexFormat[2] = AFK_JIGSAW_4FLOAT32;
-    else
-        edgeTexFormat[2] = AFK_JIGSAW_4FLOAT8_SNORM;
-
-    edgeTexFormat[3] = AFK_JIGSAW_2UINT32;            /* Overlap */
-
     edgeJigsaws = new AFK_JigsawCollection(
         ctxt,
         edgePieceSize,
         (int)shapeCacheEntries,
-        1, /* TODO I'll no doubt be expanding on this */
+        1,
         AFK_JIGSAW_2D,
-        edgeTexFormat,
-        4,
+        {                               /* TODO: When I've got glsl reading out of the vapour
+                                         * correctly, prune this list!
+                                         */
+            AFK_JIGSAW_4FLOAT32,        /* Displacement */
+            AFK_JIGSAW_4FLOAT8_UNORM,   /* Colour */
+            config->clGlSharing ? AFK_JIGSAW_4FLOAT32 : AFK_JIGSAW_4FLOAT8_SNORM,
+                                        /* Normal */
+            AFK_JIGSAW_2UINT32          /* Overlap */
+        },
         computer->getFirstDeviceProps(),
         config->clGlSharing ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED,
         config->concurrency,
@@ -730,11 +648,11 @@ AFK_World::~AFK_World()
 
 void AFK_World::enqueueSubcells(
     const AFK_Cell& cell,
-    const Vec3<long long>& modifier,
+    const Vec3<int64_t>& modifier,
     const Vec3<float>& viewerLocation,
     const AFK_Camera& camera)
 {
-    AFK_Cell modifiedCell = afk_cell(afk_vec4<long long>(
+    AFK_Cell modifiedCell = afk_cell(afk_vec4<int64_t>(
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[0],
         cell.coord.v[1] + cell.coord.v[3] * modifier.v[1],
         cell.coord.v[2] + cell.coord.v[3] * modifier.v[2],
@@ -747,7 +665,7 @@ void AFK_World::enqueueSubcells(
     cellItem.param.world.viewerLocation  = viewerLocation;
     cellItem.param.world.camera          = &camera;
     cellItem.param.world.flags           = 0;
-    cellItem.param.world.dependency      = NULL;
+    cellItem.param.world.dependency      = nullptr;
     (*genGang) << cellItem;
 }
 
@@ -800,8 +718,6 @@ boost::unique_future<bool> AFK_World::updateWorld(void)
 
     /* First, transform the protagonist location and its facing
      * into integer cell-space.
-     * TODO: This is *really* going to want arbitrary
-     * precision arithmetic, eventually.
      */
     Mat4<float> protagonistTransformation = afk_core.protagonist->object.getTransformation();
     Vec4<float> hgProtagonistLocation = protagonistTransformation *
@@ -810,10 +726,10 @@ boost::unique_future<bool> AFK_World::updateWorld(void)
         hgProtagonistLocation.v[0] / hgProtagonistLocation.v[3],
         hgProtagonistLocation.v[1] / hgProtagonistLocation.v[3],
         hgProtagonistLocation.v[2] / hgProtagonistLocation.v[3]);
-    Vec4<long long> csProtagonistLocation = afk_vec4<long long>(
-        (long long)(protagonistLocation.v[0] / minCellSize),
-        (long long)(protagonistLocation.v[1] / minCellSize),
-        (long long)(protagonistLocation.v[2] / minCellSize),
+    Vec4<int64_t> csProtagonistLocation = afk_vec4<int64_t>(
+        (int64_t)(protagonistLocation.v[0] / minCellSize),
+        (int64_t)(protagonistLocation.v[1] / minCellSize),
+        (int64_t)(protagonistLocation.v[2] / minCellSize),
         1);
 
     AFK_Cell protagonistCell = afk_cell(csProtagonistLocation);
@@ -838,10 +754,10 @@ boost::unique_future<bool> AFK_World::updateWorld(void)
 
     /* Draw that cell and the other cells around it.
      */
-    for (long long i = -1; i <= 1; ++i)
-        for (long long j = -1; j <= 1; ++j)
-            for (long long k = -1; k <= 1; ++k)
-                enqueueSubcells(cell, afk_vec3<long long>(i, j, k), protagonistLocation, *(afk_core.camera));
+    for (int64_t i = -1; i <= 1; ++i)
+        for (int64_t j = -1; j <= 1; ++j)
+            for (int64_t k = -1; k <= 1; ++k)
+                enqueueSubcells(cell, afk_vec3<int64_t>(i, j, k), protagonistLocation, *(afk_core.camera));
 
     return genGang->start();
 }
@@ -951,7 +867,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
 
 /* Worker for the below. */
 #if PRINT_CHECKPOINTS
-static float toRatePerSecond(unsigned long long quantity, boost::posix_time::time_duration& interval)
+static float toRatePerSecond(uint64_t quantity, boost::posix_time::time_duration& interval)
 {
     return (float)quantity * 1000.0f / (float)interval.total_milliseconds();
 }

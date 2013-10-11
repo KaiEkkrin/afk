@@ -1,10 +1,18 @@
-/* AFK (c) Alex Holloway 2013 */
-
-/* TODO Convert this stuff to C++11.  It's genuinely better and I'm already
- * noticing places where I would benefit from using it instead:
- * - use unique_ptr instead of auto_ptr
- * - use unordered_map instead of map
- * - use { ... } initialisation assignments instead of cumbersome messes
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
 #include "afk.hpp"
@@ -18,7 +26,6 @@
 #include "rng/test.hpp"
 #include "test_jigsaw_fake3d.hpp"
 
-#include "compute_test_long.hpp"
 #include "core.hpp"
 #include "exception.hpp"
 
@@ -57,10 +64,6 @@ int main(int argc, char **argv)
     test_jigsawFake3D();
 #endif
 
-#if TEST_RNGS
-    test_rngs();
-#endif
-
 #if TEST_SUBSTRATE
     test_substrate();
 #endif
@@ -71,6 +74,13 @@ int main(int argc, char **argv)
         afk_core.configure(&argc, argv);
 
         std::cout << "AFK Using master seed: " << afk_core.config->masterSeed << std::endl;
+
+		/* The RNG test needs to go here after that master seed has
+		 * been initialised, because it'll refer to it.
+		 */
+#if TEST_RNGS
+    	test_rngs();
+#endif
 
         std::cout << "AFK initalising graphics" << std::endl;
         afk_core.initGraphics();

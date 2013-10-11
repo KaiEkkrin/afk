@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include "afk.hpp"
 
@@ -102,13 +117,13 @@ void AFK_3DVapourCube::addRandomFeatureAtAdjacencyBit(
     int j;
     for (j = 0; j < 3; ++j)
     {
-        feature.f[j] = (unsigned char)((rng.frand() * (coordMax.v[j] - coordMin.v[j]) + coordMin.v[j]) * 256.0f);
+        feature.f[j] = (uint8_t)((rng.frand() * (coordMax.v[j] - coordMin.v[j]) + coordMin.v[j]) * 256.0f);
     }
 
     /* Non-location values can be arbitrary... */
     for (; j < 7; ++j)
     {
-        feature.f[j] = (unsigned char)(rng.frand() * 256.0f);
+        feature.f[j] = (uint8_t)(rng.frand() * 256.0f);
     }
 
     /* ...except for the weight.
@@ -135,7 +150,7 @@ void AFK_3DVapourCube::addRandomFeatureAtAdjacencyBit(
         weight = weight * 128.0f;
     }
 
-    feature.f[j] = (unsigned char)weight;
+    feature.f[j] = (uint8_t)weight;
     features.push_back(feature);
 }
 
@@ -248,11 +263,6 @@ void AFK_3DVapourCube::make(
         /* Go through each of the possible adjacencies to put a
          * feature near.  I'll prefer the earlier ones, because
          * they give me a wider range of movement, as it were.
-         */
-        /* TODO: I _think_ the co-adjacency thingy fixes the
-         * issues with using fullAdjacency for this.  I'm not
-         * totally sure, though.  I think I need to fill in some
-         * more of the gaps in the edge shapes to verify.
          */
         for (int t = 0; t < TRYFADJ_SIZE; ++t)
         {

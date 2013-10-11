@@ -5,8 +5,6 @@
 in vec3 VcolF;
 in vec3 NormalF;
 
-out vec4 FragColor;
-
 struct Light
 {
     vec3 Colour;
@@ -22,6 +20,6 @@ void main()
     vec3 AmbientColour = gLight.Colour * gLight.Ambient;
     vec3 DiffuseColour = gLight.Colour * gLight.Diffuse * max(dot(normalize(NormalF), -gLight.Direction), 0.0);
     float DiffuseFactor = dot(normalize(NormalF), -gLight.Direction);
-    FragColor = vec4(VcolF * (AmbientColour + DiffuseColour), 1.0);
+    gl_FragColor = vec4(VcolF * (AmbientColour + DiffuseColour * DiffuseFactor), 1.0);
 }
 

@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #ifndef _AFK_WORK_H_
 #define _AFK_WORK_H_
@@ -28,9 +43,6 @@ union AFK_WorldWorkParam;
 /* A dependent work item is one that will float around at the
  * back of some other work items until they're done, and then
  * get enqueued by means of check().
- * TODO: This mechanism is very generic!  Perhaps move it into
- * async/work_queue, so that I don't have to treat it
- * separately in world and shape?
  */
 template<typename ParameterType, typename ReturnType>
 class AFK_WorkDependency

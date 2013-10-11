@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include "afk.hpp"
 
@@ -17,10 +32,9 @@ AFK_WorldCell::AFK_WorldCell():
 
 AFK_WorldCell::~AFK_WorldCell()
 {
-    for (AFK_ENTITY_LIST::iterator eIt = entities.begin();
-        eIt != entities.end(); ++eIt)
+    for (auto e : entities)
     {
-        delete *eIt;
+        delete e;
     }
 
     /* I also own the contents of the move list.  All entries
@@ -65,25 +79,14 @@ unsigned int AFK_WorldCell::getStartingEntitiesWanted(
     unsigned int entityCount = 0;
     if (entities.size() == 0)
     {
-        /* TODO Debug of specific entity */
-        if (cell.coord.v[0] == 0 && cell.coord.v[1] == 0 && cell.coord.v[2] == 0 && cell.coord.v[3] == 16)
-        {
-            entityCount = 1;
-        }
-        else
-        {
-#if 1
-            Vec4<float> realCoord = getRealCoord();
-            float sparseMult = log(realCoord.v[3]);
-#else
-            float sparseMult = 1.0f;
-#endif
+        /* I want more entities in larger cells */
+        Vec4<float> realCoord = getRealCoord();
+        float sparseMult = log(realCoord.v[3]);
 
-            for (unsigned int entitySlot = 0; entitySlot < maxEntitiesPerCell; ++entitySlot)
-            {
-                if (rng.frand() < (sparseMult / ((float)entitySparseness)))
-                    ++entityCount;
-            }
+        for (unsigned int entitySlot = 0; entitySlot < maxEntitiesPerCell; ++entitySlot)
+        {
+            if (rng.frand() < (sparseMult / ((float)entitySparseness)))
+                ++entityCount;
         }
     }
 
@@ -127,10 +130,7 @@ void AFK_WorldCell::addStartingEntity(
     }
 
     Vec3<float> entityRotation;
-    /* TODO REMOVE DEBUG -- removing orientation to try to figure out
-     * cell edge gaps bug
-     */
-    switch (/* rng.uirand() % 5 */ 0)
+    switch (rng.uirand() % 5)
     {
     case 0:
         entityRotation = afk_vec3<float>(0.0f, 0.0f, 0.0f);

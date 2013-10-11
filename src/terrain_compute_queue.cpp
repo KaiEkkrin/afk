@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include "afk.hpp"
 
@@ -36,7 +51,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainComputeUnit& unit)
 /* AFK_TerrainComputeQueue implementation */
 
 AFK_TerrainComputeQueue::AFK_TerrainComputeQueue():
-    terrainKernel(0), surfaceKernel(0), yReduce(NULL)
+    terrainKernel(0), surfaceKernel(0), yReduce(nullptr)
 {
 }
 
@@ -161,15 +176,14 @@ void AFK_TerrainComputeQueue::computeStart(
 
     cl_event terrainEvent;
 
-    AFK_CLCHK(clEnqueueNDRangeKernel(q, terrainKernel, 3, NULL, &terrainDim[0], NULL,
+    AFK_CLCHK(clEnqueueNDRangeKernel(q, terrainKernel, 3, nullptr, &terrainDim[0], nullptr,
         preTerrainWaitList.size(),
         &preTerrainWaitList[0],
         &terrainEvent))
 
-    for (std::vector<cl_event>::iterator evIt = preTerrainWaitList.begin();
-        evIt != preTerrainWaitList.end(); ++evIt)
+    for (auto ev : preTerrainWaitList)
     {
-        AFK_CLCHK(clReleaseEvent(*evIt))
+        AFK_CLCHK(clReleaseEvent(ev))
     }
 
     /* For the next two I'm going to need this ...

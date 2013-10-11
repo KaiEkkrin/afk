@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include "afk.hpp"
 
@@ -169,16 +184,15 @@ void AFK_3DVapourComputeQueue::computeStart(
 
     cl_event vapourFeatureEvent;
 
-    AFK_CLCHK(clEnqueueNDRangeKernel(q, vapourFeatureKernel, 3, NULL, &vapourDim[0], NULL,
+    AFK_CLCHK(clEnqueueNDRangeKernel(q, vapourFeatureKernel, 3, nullptr, &vapourDim[0], nullptr,
         preVapourWaitList.size(),
         &preVapourWaitList[0],
         &vapourFeatureEvent))
 
     /* Release the things */
-    for (std::vector<cl_event>::iterator evIt = preVapourWaitList.begin();
-        evIt != preVapourWaitList.end(); ++evIt)
+    for (auto evIt : preVapourWaitList)
     {
-        if (*evIt) AFK_CLCHK(clReleaseEvent(*evIt))
+        if (evIt) AFK_CLCHK(clReleaseEvent(evIt))
     }
 
     /* Next, compute the vapour normals. */

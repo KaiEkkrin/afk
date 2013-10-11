@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #ifndef _AFK_CORE_H_
 #define _AFK_CORE_H_
@@ -102,7 +117,7 @@ public:
     Vec3<float>         axisDisplacement;
 
     /* Bits set/cleared based on AFK_Controls */
-    unsigned long long  controlsEnabled;
+    uint64_t            controlsEnabled;
 
     /* This buffer holds the last frame's worth of occasional
      * prints, so that I can dump them if we quit.
@@ -148,11 +163,9 @@ public:
      */
     void checkpoint(boost::posix_time::ptime& now, bool definitely);
 
-    /* TODO REMOVE WHEN LOSE DEPENDENCY ON GLUT
-     * Because GLUT requires that all OpenGL commands be called
-     * from the primary thread, deletes requested on other
-     * threads should push their gl buffers to here to be
-     * cleaned up in the main loop.
+    /* TODO NASTY -- Share GL context between all threads and remove
+     * Deletes of GL objects from other threads go into here so that
+     * the main thread (with the GL context) can clean up.
      */
     void glBuffersForDeletion(GLuint *bufs, size_t bufsSize);
 

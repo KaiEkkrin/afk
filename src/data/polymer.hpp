@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #ifndef _AFK_DATA_POLYMER_H_
 #define _AFK_DATA_POLYMER_H_
@@ -91,11 +106,11 @@ protected:
     }
     
 public:
-    AFK_PolymerChain(const unsigned int _hashBits): nextChain (NULL), hashBits (_hashBits), index (0)
+    AFK_PolymerChain(const unsigned int _hashBits): nextChain (nullptr), hashBits (_hashBits), index (0)
     {
         chain = new boost::atomic<AFK_Monomer<KeyType, ValueType>*>[CHAIN_SIZE];
         for (unsigned int i = 0; i < CHAIN_SIZE; ++i)
-            chain[i].store(NULL);
+            chain[i].store(nullptr);
     }
 
     virtual ~AFK_PolymerChain()
@@ -104,7 +119,7 @@ public:
         if (next)
         {
             delete next;
-            nextChain.store(NULL);
+            nextChain.store(nullptr);
         }
 
         for (unsigned int i = 0; i < CHAIN_SIZE; ++i)
@@ -117,7 +132,7 @@ public:
     /* Appends a new chain. */
     void extend(AFK_PolymerChain<KeyType, ValueType> *chain, unsigned int _index)
     {
-        AFK_PolymerChain<KeyType, ValueType> *expected = NULL;
+        AFK_PolymerChain<KeyType, ValueType> *expected = nullptr;
         bool gotIt = nextChain.compare_exchange_strong(expected, chain);
         if (gotIt)
         {
@@ -143,7 +158,7 @@ public:
      */
     bool insert(unsigned int hops, size_t baseHash, AFK_Monomer<KeyType, ValueType> *monomer)
     {
-        AFK_Monomer<KeyType, ValueType> *expected = NULL;
+        AFK_Monomer<KeyType, ValueType> *expected = nullptr;
         size_t offset = chainOffset(hops, baseHash);
         return chain[offset].compare_exchange_strong(expected, monomer);
     }
@@ -154,10 +169,10 @@ public:
     bool erase(unsigned int hops, size_t baseHash, AFK_Monomer<KeyType, ValueType> *monomer)
     {
         size_t offset = chainOffset(hops, baseHash);
-        return chain[offset].compare_exchange_strong(monomer, NULL);
+        return chain[offset].compare_exchange_strong(monomer, nullptr);
     }
 
-    /* Returns the next chain, or NULL if we're at the end. */
+    /* Returns the next chain, or nullptr if we're at the end. */
     AFK_PolymerChain<KeyType, ValueType> *next(void) const
     {
         return nextChain.load();
@@ -204,7 +219,7 @@ public:
                     index = 0;
                     currentChain = currentChain->next();
                 }
-            } while (currentChain && currentChain->chain[index].load() == NULL);
+            } while (currentChain && currentChain->chain[index].load() == nullptr);
         }
 
         bool equal(AFK_PolymerChain<KeyType, ValueType>::iterator const& other) const
@@ -221,7 +236,7 @@ public:
 
         void forwardToFirst()
         {
-            if (currentChain && currentChain->chain[index].load() == NULL) increment();
+            if (currentChain && currentChain->chain[index].load() == nullptr) increment();
         }
 
     public:
@@ -242,7 +257,7 @@ public:
             if (next)
                 return next->atSlot(slot - CHAIN_SIZE);
             else
-                return NULL;
+                return nullptr;
         }
         else
         {
@@ -262,7 +277,7 @@ public:
         }
         else
         {
-            return chain[slot].compare_exchange_strong(monomer, NULL);
+            return chain[slot].compare_exchange_strong(monomer, nullptr);
         }
     }
 
@@ -278,7 +293,7 @@ public:
         }
         else
         {
-            AFK_Monomer<KeyType, ValueType> *expected = NULL;
+            AFK_Monomer<KeyType, ValueType> *expected = nullptr;
             return chain[slot].compare_exchange_strong(expected, monomer);
         }
     }
@@ -326,7 +341,7 @@ protected:
     /* Retrieves an existing monomer. */
     AFK_Monomer<KeyType, ValueType> *retrieveMonomer(const KeyType& key, size_t hash) const
     {
-        AFK_Monomer<KeyType, ValueType> *monomer = NULL;
+        AFK_Monomer<KeyType, ValueType> *monomer = nullptr;
 
         /* Try a small number of hops first, then expand out.
          */
@@ -366,7 +381,7 @@ protected:
             for (unsigned int hops = 0; hops < targetContention && !inserted; ++hops)
             {
                 for (AFK_PolymerChain<KeyType, ValueType> *chain = startChain;
-                    chain != NULL && !inserted; chain = chain->next())
+                    chain != nullptr && !inserted; chain = chain->next())
                 {
                     inserted = chain->insert(hops, hash, monomer);
 
@@ -456,14 +471,14 @@ public:
     ValueType& operator[](const KeyType& key)
     {
         size_t hash = wring(hasher(key));
-        AFK_Monomer<KeyType, ValueType> *monomer = NULL;
+        AFK_Monomer<KeyType, ValueType> *monomer = nullptr;
 
         /* I'm going to assume it's probably there already, and first
          * just do a basic search.
          */
         monomer = retrieveMonomer(key, hash);
 
-        if (monomer == NULL)
+        if (monomer == nullptr)
         {
             /* Make a new one. */
             monomer = new AFK_Monomer<KeyType, ValueType>(key);
@@ -508,7 +523,7 @@ public:
 
     typename AFK_PolymerChain<KeyType, ValueType>::iterator end() const
     {
-        return typename AFK_PolymerChain<KeyType, ValueType>::iterator(NULL);
+        return typename AFK_PolymerChain<KeyType, ValueType>::iterator(nullptr);
     }
 
     /* For accessing the chain slots directly.  Use carefully (it's really
@@ -520,7 +535,7 @@ public:
         return chains->getCount() * CHAIN_SIZE;
     }
 
-    /* If there's nothing in the slot, returns NULL. */
+    /* If there's nothing in the slot, returns nullptr. */
     AFK_Monomer<KeyType, ValueType> *atSlot(size_t slot) const
     {
         return chains->atSlot(slot);

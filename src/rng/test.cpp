@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include <functional>
 #include <iostream>
@@ -7,13 +22,9 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/random/random_device.hpp>
 
-#include <openssl/engine.h>
-
-#include "aes.hpp"
 #include "boost_mt19937.hpp"
 #include "boost_taus88.hpp"
 #include "c.hpp"
-#include "hmac.hpp"
 #include "test.hpp"
 #include "../afk.hpp"
 #include "../cell.hpp"
@@ -106,10 +117,9 @@ static void evaluate_rng(AFK_RNG& rng, const std::string& name, const AFK_Cell* 
 
         unsigned int lastHitCount = 0;
         unsigned int lastHitCountTimes = 0;
-        for (std::list<unsigned int>::iterator shcIt = sortedHitCounts.begin();
-            shcIt != sortedHitCounts.end(); ++shcIt)
+        for (auto shc : sortedHitCounts)
         {
-            if (*shcIt == lastHitCount)
+            if (shc == lastHitCount)
             {
                 /* This is the last hit count again for a
                  * different value.  Add it to the number of
@@ -131,7 +141,7 @@ static void evaluate_rng(AFK_RNG& rng, const std::string& name, const AFK_Cell* 
                  * value and reset the number of times I
                  * saw it.
                  */
-                lastHitCount = *shcIt;
+                lastHitCount = shc;
                 lastHitCountTimes = 1;
             }
         }
@@ -149,41 +159,25 @@ void test_rngs(void)
     boost::random::random_device rdev;
     srand(rdev());
 
-    /* If I'm going to be using OpenSSL, the default
-     * engine needs initialising.
-     */
-    ENGINE_load_builtin_engines();
-    ENGINE_register_all_complete();
-
 #define TEST_CELLS_SIZE 1004
     AFK_Cell testCells[TEST_CELLS_SIZE];
-    testCells[0] = afk_cell(afk_vec4<long long>(0, 0, 0, 1));
+    testCells[0] = afk_cell(afk_vec4<int64_t>(0, 0, 0, 1));
     for (unsigned int i = 1; i < TEST_CELLS_SIZE; ++i)
     {
         unsigned int randomScale = rand();
         if (randomScale & 0x40000000)
             randomScale = 1 << (randomScale & 0x1f);
 
-        testCells[i] = afk_cell(afk_vec4<long long>(rand(), rand(), rand(), randomScale));
+        testCells[i] = afk_cell(afk_vec4<int64_t>(rand(), rand(), rand(), randomScale));
     }
 
     AFK_C_RNG                   c_rng;
     AFK_Boost_Taus88_RNG        boost_taus88_rng;
     AFK_Boost_MT19937_RNG       boost_mt19937_rng;
-    AFK_AES_RNG                 aes_rng;
-    AFK_HMAC_RNG                hmac_md5_rng(AFK_HMAC_Algo_MD5);
-    AFK_HMAC_RNG                hmac_ripemd160_rng(AFK_HMAC_Algo_RIPEMD160);
-    AFK_HMAC_RNG                hmac_sha1_rng(AFK_HMAC_Algo_SHA1);
-    AFK_HMAC_RNG                hmac_sha256_rng(AFK_HMAC_Algo_SHA256);
 
 #define RANDS_PER_CELL 100000
     evaluate_rng(c_rng, "C", testCells, TEST_CELLS_SIZE, RANDS_PER_CELL);
     evaluate_rng(boost_taus88_rng, "boost_taus88", testCells, TEST_CELLS_SIZE, RANDS_PER_CELL);
     evaluate_rng(boost_mt19937_rng, "boost_mt19937", testCells, TEST_CELLS_SIZE, RANDS_PER_CELL);
-    evaluate_rng(aes_rng, "aes", testCells, TEST_CELLS_SIZE, RANDS_PER_CELL);
-    evaluate_rng(hmac_md5_rng, "hmac_md5", testCells, TEST_CELLS_SIZE, RANDS_PER_CELL);
-    evaluate_rng(hmac_ripemd160_rng, "hmac_ripemd160", testCells, TEST_CELLS_SIZE, RANDS_PER_CELL);
-    evaluate_rng(hmac_sha1_rng, "hmac_sha1", testCells, TEST_CELLS_SIZE, RANDS_PER_CELL);
-    evaluate_rng(hmac_sha256_rng, "hmac_sha256", testCells, TEST_CELLS_SIZE, RANDS_PER_CELL);
 }
 

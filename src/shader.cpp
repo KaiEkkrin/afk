@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #include "afk.hpp"
 
@@ -14,11 +29,11 @@ struct shaderSpec shaders[] = {
     {   GL_FRAGMENT_SHADER, 0,  "landscape_fragment",   {   "landscape_fragment.glsl",  "", "", "", "", }, },
     {   GL_GEOMETRY_SHADER, 0,  "landscape_geometry",   {   "landscape_geometry.glsl",  "", "", "", "", }, },
     {   GL_VERTEX_SHADER,   0,  "landscape_vertex",     {   "landscape_vertex.glsl",    "", "", "", "", }, },
+    {   GL_FRAGMENT_SHADER, 0,  "protagonist_fragment", {   "protagonist_fragment.glsl","", "", "", "", }, },
+    {   GL_VERTEX_SHADER,   0,  "protagonist_vertex",   {   "protagonist_vertex.glsl",  "", "", "", "", }, },
     {   GL_FRAGMENT_SHADER, 0,  "shape_fragment",       {   "shape_fragment.glsl",      "", "", "", "", }, },
     {   GL_GEOMETRY_SHADER, 0,  "shape_geometry",       {   "shape_geometry.glsl",      "", "", "", "", }, },
     {   GL_VERTEX_SHADER,   0,  "shape_vertex",         {   "shape_vertex.glsl",        "", "", "", "", }, },
-    {   GL_FRAGMENT_SHADER, 0,  "vcol_phong_fragment",  {   "vcol_phong_fragment.glsl", "", "", "", "", }, },
-    {   GL_VERTEX_SHADER,   0,  "vcol_phong_vertex",    {   "vcol_phong_vertex.glsl",   "", "", "", "", }, },
     {   0,                  0,  "",                     {   "", "", "", "", "", }, }
 };
 
@@ -61,7 +76,7 @@ static void loadShaderFromFiles(struct shaderSpec *s)
     if (!success)
     {
         GLchar infoLog[1024];
-        glGetShaderInfoLog(s->obj, 1024, NULL, infoLog);
+        glGetShaderInfoLog(s->obj, 1024, nullptr, infoLog);
         throw AFK_Exception("Error compiling shader " + s->shaderName + ": " + infoLog);
     }
 
@@ -131,7 +146,7 @@ void AFK_ShaderProgram::Link(void)
     glLinkProgram(program);
     glGetProgramiv(program, GL_LINK_STATUS, &success);
     if (success == 0) {
-        glGetProgramInfoLog(program, sizeof(errorLog), NULL, errorLog);
+        glGetProgramInfoLog(program, sizeof(errorLog), nullptr, errorLog);
         throw AFK_Exception(std::string("AFK_Shader: Error linking program: ") + errorLog);
     }
 
@@ -147,7 +162,7 @@ void AFK_ShaderProgram::Validate(void)
     glValidateProgram(program);
     glGetProgramiv(program, GL_VALIDATE_STATUS, &success);
     if (!success) {
-        glGetProgramInfoLog(program, sizeof(errorLog), NULL, errorLog);
+        glGetProgramInfoLog(program, sizeof(errorLog), nullptr, errorLog);
         throw AFK_Exception(std::string("AFK_Shader: Invalid shader program: ") + errorLog);
     }
 }

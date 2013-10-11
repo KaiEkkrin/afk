@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #ifndef _AFK_FRAME_H_
 #define _AFK_FRAME_H_
@@ -13,7 +28,7 @@
 class AFK_Frame
 {
 protected:
-    unsigned long long id;
+    uint64_t id;
 
     /* This means "it never happened" when tracking things by
      * which frame they happened on.
@@ -59,7 +74,7 @@ public:
         }
     }
 
-    unsigned long long operator-(const AFK_Frame& f) const
+    uint64_t operator-(const AFK_Frame& f) const
     {
         if (never)
             return 0xffffffffffffffffull; /* as long ago as possible */
@@ -67,7 +82,7 @@ public:
             return id - f.id; /* hopefully more useful wrapping behaviour */
     }
 
-    const long long get() const { return id; }
+    const int64_t get() const { return id; }
     const bool getNever() const { return never; }
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_Frame& frame);

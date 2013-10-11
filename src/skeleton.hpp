@@ -1,4 +1,19 @@
-/* AFK (c) Alex Holloway 2013 */
+/* AFK
+ * Copyright (C) 2013, Alex Holloway.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see [http://www.gnu.org/licenses/].
+ */
 
 #ifndef _AFK_SKELETON_H_
 #define _AFK_SKELETON_H_
@@ -22,10 +37,10 @@ enum AFK_SkeletonFlag
 class AFK_SkeletonCube
 {
 public:
-    Vec3<long long> coord;
+    Vec3<int64_t> coord;
 
     AFK_SkeletonCube();
-    AFK_SkeletonCube(const Vec3<long long>& _coord);
+    AFK_SkeletonCube(const Vec3<int64_t>& _coord);
 
     /* Makes a SkeletonCube out of a particular part of a
      * vapour cell.
@@ -38,10 +53,10 @@ public:
     /* Gives the adjacency for the given offset,
      * where the offset components must be in the range -1 to 1 inclusive.
      */
-    AFK_SkeletonCube adjacentCube(const Vec3<long long>& offset) const;
+    AFK_SkeletonCube adjacentCube(const Vec3<int64_t>& offset) const;
 
     /* Gives the upper cube for this cube. */
-    AFK_SkeletonCube upperCube(const Vec3<long long>& upperOffset, unsigned int subdivisionFactor) const;
+    AFK_SkeletonCube upperCube(const Vec3<int64_t>& upperOffset, unsigned int subdivisionFactor) const;
 
     /* Makes a KeyedCell describing the shape cell within a
      * vapour cell that would correspond to this skeleton cube.
@@ -64,7 +79,7 @@ public:
 class AFK_Skeleton
 {
 protected:
-    unsigned long long **grid;
+    uint64_t **grid;
     int gridDim;
     int boneCount;
 
@@ -91,7 +106,7 @@ protected:
      */
     int embellish(
         const AFK_Skeleton& upper,
-        const Vec3<long long>& upperOffset,
+        const Vec3<int64_t>& upperOffset,
         AFK_RNG& rng,
         int subdivisionFactor,
         float bushiness);
@@ -115,13 +130,10 @@ public:
      * skeleton.  This can end up as 0 (e.g. if there are
      * big gaps in the upper one), at which point you
      * can cancel enqueueing all the subsequent geometry!
-     * TODO Do I instead want to feed this the entire
-     * vapour cell cache?  I'm not sure I do, it would
-     * be very messy ...
      */
     int make(
         const AFK_Skeleton& upper,
-        const Vec3<long long>& upperOffset, /* I'll use the sub-cube of the upper grid from
+        const Vec3<int64_t>& upperOffset, /* I'll use the sub-cube of the upper grid from
                                              * upperOffset to (upperOffset + gridDim / sSizes.subdivisionFactor) in
                                              * each direction */
         AFK_RNG& rng,
