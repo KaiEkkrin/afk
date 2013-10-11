@@ -21,6 +21,7 @@
 #include "afk.hpp"
 
 #include <string>
+#include <vector>
 
 #include <boost/thread/mutex.hpp>
 
@@ -34,15 +35,7 @@ struct AFK_ClProgram
 {
     cl_program program;
     std::string programName; /* friendly name referred to below */
-
-    /* TODO saw no better way of cleanly initialising this in old C++,
-     * when converting to C++11 change this to a proper initializer list
-     * with another object
-     * For now, capping at 5 source files that can combine into one
-     * binary
-     */
-#define AFK_CL_MAX_SOURCE_FILES 5
-    std::string filenames[AFK_CL_MAX_SOURCE_FILES];
+    std::vector<std::string> filenames;
 };
 
 /* This defines a list of all the kernels I know about */
@@ -158,7 +151,7 @@ protected:
     void inspectDevices(cl_platform_id platform, cl_device_type deviceType);
 #endif
     bool findClGlDevices(cl_platform_id platform);
-    void loadProgramFromFiles(const AFK_Config *config, struct AFK_ClProgram *p);
+    void loadProgramFromFiles(const AFK_Config *config, std::vector<struct AFK_ClProgram>::iterator& p);
 public:
     AFK_Computer();
     virtual ~AFK_Computer();

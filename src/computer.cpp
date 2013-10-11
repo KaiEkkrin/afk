@@ -33,24 +33,22 @@
 
 /* The set of known programs, just like the shaders doodah. */
 
-struct AFK_ClProgram programs[] = {
-    {   0,  "landscape_surface",    { "landscape_surface.cl",   "", "", "", "", }, },
-    {   0,  "landscape_terrain",    { "landscape_terrain.cl",   "", "", "", "", }, },
-    {   0,  "landscape_yreduce",    { "landscape_yreduce.cl",   "", "", "", "", }, },
-    {   0,  "shape_3dedge",         { "fake3d.cl", "shape_3dedge.cl",   "", "", "", }, },
-    {   0,  "shape_3dvapour_feature",   { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_feature.cl", "", "", }, },
-    {   0,  "shape_3dvapour_normal",    { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_normal.cl", "", "", }, },
-    {   0,  "",                     { "", "", "", "", "", }, }
+std::vector<struct AFK_ClProgram> programs = {
+    {   0,  "landscape_surface",    { "landscape_surface.cl" }, },
+    {   0,  "landscape_terrain",    { "landscape_terrain.cl" }, },
+    {   0,  "landscape_yreduce",    { "landscape_yreduce.cl" }, },
+    {   0,  "shape_3dedge",         { "fake3d.cl", "shape_3dedge.cl" }, },
+    {   0,  "shape_3dvapour_feature",   { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_feature.cl" }, },
+    {   0,  "shape_3dvapour_normal",    { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_normal.cl" }, }
 };
 
-struct AFK_ClKernel kernels[] = { 
+std::vector<struct AFK_ClKernel> kernels = { 
     {   0,  "landscape_surface",        "makeLandscapeSurface"          },
     {   0,  "landscape_terrain",        "makeLandscapeTerrain"          },
     {   0,  "landscape_yreduce",        "makeLandscapeYReduce"          },
     {   0,  "shape_3dedge",             "makeShape3DEdge"               },
     {   0,  "shape_3dvapour_feature",   "makeShape3DVapourFeature"      },
-    {   0,  "shape_3dvapour_normal",    "makeShape3DVapourNormal"       },
-    {   0,  "",                         ""                              }
+    {   0,  "shape_3dvapour_normal",    "makeShape3DVapourNormal"       }
 };
 
 
@@ -307,15 +305,14 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
     else return false;
 }
 
-void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, struct AFK_ClProgram *p)
+void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<struct AFK_ClProgram>::iterator& p)
 {
     char **sources;
     size_t *sourceLengths;
     std::ostringstream errStream;
     cl_int error;
 
-    int sourceCount;
-    for (sourceCount = 0; sourceCount < AFK_CL_MAX_SOURCE_FILES && p->filenames[sourceCount].length() > 0; ++sourceCount);
+    int sourceCount = p->filenames.size();
 
     assert(sourceCount > 0);
     sources = new char *[sourceCount];
@@ -424,11 +421,11 @@ AFK_Computer::~AFK_Computer()
 {
     if (devices)
     {
-        for (unsigned int i = 0; kernels[i].kernelName.size() != 0; ++i)
-            if (kernels[i].kernel) clReleaseKernel(kernels[i].kernel);
+        for (auto k : kernels)
+            if (k.kernel) clReleaseKernel(k.kernel);
 
-        for (unsigned int i = 0; programs[i].programName.size() != 0; ++i)
-            if (programs[i].program) clReleaseProgram(programs[i].program);
+        for (auto p : programs)
+            if (p.program) clReleaseProgram(p.program);
 
         if (q) clReleaseCommandQueue(q);
         if (ctxt) clReleaseContext(ctxt);
@@ -448,24 +445,24 @@ void AFK_Computer::loadPrograms(const AFK_Config *config)
         throw AFK_Exception("AFK_Computer: Unable to switch to programs dir: " + errStream.str());
 
     /* Load all the programs I know about. */
-    for (unsigned int i = 0; programs[i].programName.size() != 0; ++i)
-        loadProgramFromFiles(config, &programs[i]);
+    for (auto pIt = programs.begin(); pIt != programs.end(); ++pIt)
+        loadProgramFromFiles(config, pIt);
 
     /* ...and all the kernels... */
-    for (unsigned int i = 0; kernels[i].kernelName.size() != 0; ++i)
+    for (auto kIt = kernels.begin(); kIt != kernels.end(); ++kIt)
     {
         bool identified = false;
-        for (unsigned int j = 0; programs[j].programName.size() != 0; ++j)
+        for (auto p : programs)
         {
-            if (kernels[i].programName == programs[j].programName)
+            if (kIt->programName == p.programName)
             {
-                kernels[i].kernel = clCreateKernel(programs[j].program, kernels[i].kernelName.c_str(), &error);
+                kIt->kernel = clCreateKernel(p.program, kIt->kernelName.c_str(), &error);
                 AFK_HANDLE_CL_ERROR(error);
                 identified = true;
             }
         }
 
-        if (!identified) throw AFK_Exception("AFK_Computer: Unidentified compute kernel: " + kernels[i].kernelName);
+        if (!identified) throw AFK_Exception("AFK_Computer: Unidentified compute kernel: " + kIt->kernelName);
     }
 
     /* Swap back out again. */
@@ -481,11 +478,11 @@ const AFK_ClDeviceProperties& AFK_Computer::getFirstDeviceProps(void) const
 bool AFK_Computer::findKernel(const std::string& kernelName, cl_kernel& o_kernel) const
 {
     bool found = false;
-    for (unsigned int i = 0; !found && kernels[i].kernelName.size() != 0; ++i)
+    for (auto k : kernels)
     {
-        if (kernels[i].kernelName == kernelName)
+        if (k.kernelName == kernelName)
         {
-            o_kernel = kernels[i].kernel;
+            o_kernel = k.kernel;
             found = true;
         }
     }

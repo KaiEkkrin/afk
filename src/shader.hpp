@@ -21,22 +21,21 @@
 #include "afk.hpp"
 
 #include <string>
+#include <vector>
 
 /* This is a list of all the shaders that I know about.
  * To ask for particular shaders to be compiled into a
  * program, make a new AFK_ShaderProgram(), push the
  * desired shaders in by string name (using the << operator),
  * and then call Link() to get back a GLuint referring to
- * the program itself. */
-struct shaderSpec
+ * the program itself.
+ */
+struct AFK_ShaderSpec
 {
     GLuint shaderType;
     GLuint obj;
     std::string shaderName; /* friendly name to ask for */
-
-    /* TODO as in computer.hpp :/ */
-#define AFK_GLSL_MAX_SOURCE_FILES 5
-    std::string filenames[AFK_GLSL_MAX_SOURCE_FILES];
+    std::vector<std::string> filenames;
 };
 
 

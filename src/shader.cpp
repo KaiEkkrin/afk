@@ -25,21 +25,20 @@
 #include "file/readfile.hpp"
 #include "shader.hpp"
 
-struct shaderSpec shaders[] = {
-    {   GL_FRAGMENT_SHADER, 0,  "landscape_fragment",   {   "landscape_fragment.glsl",  "", "", "", "", }, },
-    {   GL_GEOMETRY_SHADER, 0,  "landscape_geometry",   {   "landscape_geometry.glsl",  "", "", "", "", }, },
-    {   GL_VERTEX_SHADER,   0,  "landscape_vertex",     {   "landscape_vertex.glsl",    "", "", "", "", }, },
-    {   GL_FRAGMENT_SHADER, 0,  "protagonist_fragment", {   "protagonist_fragment.glsl","", "", "", "", }, },
-    {   GL_VERTEX_SHADER,   0,  "protagonist_vertex",   {   "protagonist_vertex.glsl",  "", "", "", "", }, },
-    {   GL_FRAGMENT_SHADER, 0,  "shape_fragment",       {   "shape_fragment.glsl",      "", "", "", "", }, },
-    {   GL_GEOMETRY_SHADER, 0,  "shape_geometry",       {   "shape_geometry.glsl",      "", "", "", "", }, },
-    {   GL_VERTEX_SHADER,   0,  "shape_vertex",         {   "shape_vertex.glsl",        "", "", "", "", }, },
-    {   0,                  0,  "",                     {   "", "", "", "", "", }, }
+std::vector<struct AFK_ShaderSpec> shaders = {
+    {   GL_FRAGMENT_SHADER, 0,  "landscape_fragment",   {   "landscape_fragment.glsl",  }, },
+    {   GL_GEOMETRY_SHADER, 0,  "landscape_geometry",   {   "landscape_geometry.glsl",  }, },
+    {   GL_VERTEX_SHADER,   0,  "landscape_vertex",     {   "landscape_vertex.glsl",    }, },
+    {   GL_FRAGMENT_SHADER, 0,  "protagonist_fragment", {   "protagonist_fragment.glsl",}, },
+    {   GL_VERTEX_SHADER,   0,  "protagonist_vertex",   {   "protagonist_vertex.glsl",  }, },
+    {   GL_FRAGMENT_SHADER, 0,  "shape_fragment",       {   "shape_fragment.glsl",      }, },
+    {   GL_GEOMETRY_SHADER, 0,  "shape_geometry",       {   "shape_geometry.glsl",      }, },
+    {   GL_VERTEX_SHADER,   0,  "shape_vertex",         {   "shape_vertex.glsl",        }, },
 };
 
 
 /* Loads a shader from the given files. */
-static void loadShaderFromFiles(struct shaderSpec *s)
+static void loadShaderFromFiles(std::vector<struct AFK_ShaderSpec>::iterator& s)
 {
     GLchar **sources;
     size_t *sourceLengths;
@@ -47,8 +46,7 @@ static void loadShaderFromFiles(struct shaderSpec *s)
     int success = 0;
     std::ostringstream errStream;
 
-    int sourceCount;
-    for (sourceCount = 0; sourceCount < AFK_GLSL_MAX_SOURCE_FILES && s->filenames[sourceCount].length() > 0; ++sourceCount);
+    int sourceCount = s->filenames.size();
 
     assert(sourceCount > 0);
     sources = new GLchar *[sourceCount];
@@ -87,7 +85,6 @@ static void loadShaderFromFiles(struct shaderSpec *s)
 
 void afk_loadShaders(const std::string& shadersDir)
 {
-    int shIdx;
     std::ostringstream errStream;
 
     /* We chdir() into the shaders directory to load this stuff, so save
@@ -96,8 +93,8 @@ void afk_loadShaders(const std::string& shadersDir)
     if (!afk_pushDir(shadersDir, errStream))
         throw AFK_Exception("AFK_Shader: Unable to switch to shaders dir: " + errStream.str());
 
-    for (shIdx = 0; !shaders[shIdx].shaderName.empty(); ++shIdx)
-        loadShaderFromFiles(&shaders[shIdx]);
+    for (auto shaderIt = shaders.begin(); shaderIt != shaders.end(); ++shaderIt)
+        loadShaderFromFiles(shaderIt);
 
     if (!afk_popDir(errStream))
         throw AFK_Exception("AFK_Shader: Unable to leave shaders dir: " + errStream.str());
@@ -123,14 +120,15 @@ AFK_ShaderProgram::~AFK_ShaderProgram()
 
 AFK_ShaderProgram& AFK_ShaderProgram::operator<<(const std::string& shaderName)
 {
-    int foundIt = 0;
+    bool foundIt = false;
 
-    for (int i = 0; !foundIt && !shaders[i].shaderName.empty(); ++i)
+    for (auto s : shaders)
     {
-        if (shaders[i].shaderName.compare(0, shaderName.length(), shaderName) == 0)
+        if (s.shaderName.compare(0, s.shaderName.length(), shaderName) == 0)
         {
-            glAttachShader(program, shaders[i].obj);
-            foundIt = 1;
+            glAttachShader(program, s.obj);
+            foundIt = true;
+            break;
         }
     }
 
