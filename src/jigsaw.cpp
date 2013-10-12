@@ -568,10 +568,6 @@ void AFK_Jigsaw::getClChangeData(cl_command_queue q, const std::vector<cl_event>
 
 void AFK_Jigsaw::getClChangeDataFake3D(cl_command_queue q, const std::vector<cl_event>& eventWaitList, unsigned int tex)
 {
-    /* TODO commenting out to verify the rest is still OK
-     * nothing in the GL tries to use this after all.
-     */
-#if 0
     size_t pieceSliceSizeInBytes = format[tex].texelSize * pieceSize.v[0] * pieceSize.v[1];
 
     unsigned int changeEvent = 0;
@@ -618,7 +614,6 @@ void AFK_Jigsaw::getClChangeDataFake3D(cl_command_queue q, const std::vector<cl_
             }
         }
     }
-#endif
 }
 
 void AFK_Jigsaw::putClChangeData(unsigned int tex)
@@ -672,7 +667,6 @@ void AFK_Jigsaw::putClChangeData(unsigned int tex)
 
 void AFK_Jigsaw::putClChangeDataFake3D(unsigned int tex)
 {
-#if 0
     assert(texTarget == GL_TEXTURE_3D);
 
     size_t pieceSliceSizeInBytes = format[tex].texelSize * pieceSize.v[0] * pieceSize.v[1];
@@ -709,7 +703,6 @@ void AFK_Jigsaw::putClChangeDataFake3D(unsigned int tex)
             }
         }
     }
-#endif
 }
 
 AFK_Jigsaw::AFK_Jigsaw(

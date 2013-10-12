@@ -515,6 +515,12 @@ AFK_World::AFK_World(
 
     Vec3<int> vapourPieceSize = afk_vec3<int>(sSizes.tDim, sSizes.tDim, sSizes.tDim);
 
+    /* I can't use cl_gl sharing along with fake 3D,
+     * because of the need to convert it to proper 3D
+     * for the GL.
+     */
+    bool useClGlSharingForVapour = (config->clGlSharing && !computer->useFake3DImages(config));
+
     vapourJigsaws = new AFK_JigsawCollection(
         ctxt,
         vapourPieceSize,
@@ -530,7 +536,7 @@ AFK_World::AFK_World(
                                                     /* Normal, with TODO as above. */
         },
         computer->getFirstDeviceProps(),
-        /* config->clGlSharing ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED */ AFK_JIGSAW_BU_CL_ONLY /* <-- TODO put that back */,
+        useClGlSharingForVapour ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED,
         config->concurrency,
         computer->useFake3DImages(config));
 
