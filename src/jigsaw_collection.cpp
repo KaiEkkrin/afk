@@ -23,84 +23,6 @@
 #include <iostream>
 
 
-/* AFK_JigsawFake3DDescriptor implementation */
-
-AFK_JigsawFake3DDescriptor::AFK_JigsawFake3DDescriptor():
-    useFake3D(false)
-{
-}
-
-AFK_JigsawFake3DDescriptor::AFK_JigsawFake3DDescriptor(
-    bool _useFake3D, const Vec3<int>& _fakeSize):
-        fakeSize(_fakeSize), useFake3D(_useFake3D)
-{
-    float fMult = ceil(sqrt((float)fakeSize.v[2]));
-    mult = (int)fMult;
-}
-
-AFK_JigsawFake3DDescriptor::AFK_JigsawFake3DDescriptor(
-    const AFK_JigsawFake3DDescriptor& _fake3D):
-        fakeSize(_fake3D.fakeSize),
-        mult(_fake3D.mult),
-        useFake3D(_fake3D.useFake3D)
-{
-}
-
-AFK_JigsawFake3DDescriptor AFK_JigsawFake3DDescriptor::operator=(
-    const AFK_JigsawFake3DDescriptor& _fake3D)
-{
-    fakeSize    = _fake3D.fakeSize;
-    mult        = _fake3D.mult;
-    useFake3D   = _fake3D.useFake3D;
-    return *this;
-}
-
-bool AFK_JigsawFake3DDescriptor::getUseFake3D(void) const
-{
-    return useFake3D;
-}
-
-Vec3<int> AFK_JigsawFake3DDescriptor::get2DSize(void) const
-{
-    if (!useFake3D) throw AFK_Exception("Not using fake 3D");
-    return afk_vec3<int>(
-        fakeSize.v[0] * mult,
-        fakeSize.v[1] * mult,
-        1);
-}
-
-Vec3<int> AFK_JigsawFake3DDescriptor::getFakeSize(void) const
-{
-    if (!useFake3D) throw AFK_Exception("Not using fake 3D");
-    return fakeSize;
-}
-
-int AFK_JigsawFake3DDescriptor::getMult(void) const
-{
-    if (!useFake3D) throw AFK_Exception("Not using fake 3D");
-    return mult;
-}
-
-Vec3<int> AFK_JigsawFake3DDescriptor::fake3DTo2D(const Vec3<int>& _fake) const
-{
-    if (!useFake3D) throw AFK_Exception("Not using fake 3D");
-    return afk_vec3<int>(
-        _fake.v[0] + fakeSize.v[0] * (_fake.v[2] % mult),
-        _fake.v[1] + fakeSize.v[1] * (_fake.v[2] / mult),
-        0);
-}
-
-Vec3<int> AFK_JigsawFake3DDescriptor::fake3DFrom2D(const Vec3<int>& _real) const
-{
-    if (!useFake3D) throw AFK_Exception("Not using fake 3D");
-    int sFactor = (_real.v[0] / fakeSize.v[0]);
-    int tFactor = (_real.v[1] / fakeSize.v[1]);
-    return afk_vec3<int>(
-        _real.v[0] % fakeSize.v[0],
-        _real.v[1] % fakeSize.v[1],
-        sFactor + mult * tFactor);
-}
-
 
 /* AFK_JigsawCollection implementation */
 
@@ -173,6 +95,7 @@ AFK_Jigsaw *AFK_JigsawCollection::makeNewJigsaw(cl_context ctxt) const
         jigsawSize,
         &format[0],
         dimensions == AFK_JIGSAW_2D ? GL_TEXTURE_2D : GL_TEXTURE_3D,
+        fake3D,
         texCount,
         bufferUsage,
         concurrency);
@@ -199,10 +122,13 @@ AFK_JigsawCollection::AFK_JigsawCollection(
     if (useFake3D)
     {
         fake3D = AFK_JigsawFake3DDescriptor(true, pieceSize);
-        Vec3<int> realPieceSize = fake3D.get2DSize();
-        std::cout << "AFK_JigsawCollection: Converting 3D piece " << pieceSize << " to 2D piece " << realPieceSize << std::endl;
-        pieceSize = realPieceSize;
-        dimensions = AFK_JIGSAW_2D;
+        std::cout << "AFK_JigsawCollection: Using fake 3D piece size " << fake3D.get2DSize() << " for CL" << std::endl;
+
+        /* I won't try to execute the below jigsaw size calculation for the
+         * 2D piece separately.  Typical size limits are much lower for 3D
+         * textures, so it's very unlikely I'll run into a size limit on the
+         * 2D one when I didn't get one for 3D.
+         */
     }
 
     std::cout << "AFK_JigsawCollection: Requested " << getDimensionalityStr() << " jigsaw with " << std::dec << pieceCount << " pieces of size " << pieceSize << ": " << std::endl;

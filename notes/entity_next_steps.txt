@@ -7,7 +7,7 @@
  o Conversely, try rendering faraway shapes as a single blob per vapour cell.  (How can I make OpenGL turn a GL_POINTS into a set of fixed dots?) <-- See http://stackoverflow.com/questions/17274820/drawing-round-points-using-modern-opengl?rq=1
  o Try giving each edge cube two layers to further fill in gaps in the geometry.
    - Or, better: improve overlap to contain several data points for each face:
-     x Write edgeStepsBack to a texture for the geometry shader to read as well and reconstruct the point co-ordinates from that -- saves storing `location' to a texture in the vapour.
+     x Write edgeStepsBack to a texture for the geometry shader to read as well and reconstruct the point co-ordinates from that -- saves storing `location' to a texture in the vapour. OK
      x Read the colour straight from the vapour into the renderer, and have a new OpenCL program that takes the colour vapour and bakes a normal vapour (I don't think that's really any more computation than building the normal edge info as currently).
      x In the geometry shader, go through the overlap and generate one triangle for each of the several potential triangles that a multi-hit overlap can refer to.  (I shouldn't hit the GS primitive cap too easily, right...?)
      x Should save plenty of space.  Of course, I'd need to port fake3D to glsl...

@@ -28,7 +28,7 @@ static void tryConvert(
     const Vec3<int>& _fakeCoord,
     const AFK_JigsawFake3DDescriptor& testFake)
 {
-    Vec3<int> realCoord = testFake.fake3DTo2D(_fakeCoord);
+    Vec2<int> realCoord = testFake.fake3DTo2D(_fakeCoord);
     Vec3<int> convertedCoord = testFake.fake3DFrom2D(realCoord);
     if (convertedCoord != _fakeCoord) std::cout << "FAILED: ";
 

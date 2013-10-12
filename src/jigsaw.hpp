@@ -89,6 +89,41 @@ public:
     AFK_JigsawFormatDescriptor(const AFK_JigsawFormatDescriptor& _fd);
 };
 
+/* This class describes a fake 3D image that emulates 3D with a
+ * 2D image.
+ * A fake 3D texture will be 2D for CL operations, and 3D for
+ * GL operations.  The Jigsaw will hold its 3D dimensions, and
+ * query an object of this class to obtain the CL dimensions.
+ */
+class AFK_JigsawFake3DDescriptor
+{
+    /* This is the emulated 3D piece size */
+    Vec3<int> fakeSize;
+
+    /* This is the multiplier used to achieve that fakery */
+    int mult;
+
+    /* This flags whether to use fake 3D in the first place */
+    bool useFake3D;
+public:
+
+    /* This one initialises it to false. */
+    AFK_JigsawFake3DDescriptor();
+
+    AFK_JigsawFake3DDescriptor(bool _useFake3D, const Vec3<int>& _fakeSize);
+    AFK_JigsawFake3DDescriptor(const AFK_JigsawFake3DDescriptor& _fake3D);
+    AFK_JigsawFake3DDescriptor operator=(const AFK_JigsawFake3DDescriptor& _fake3D);
+
+    bool getUseFake3D(void) const;
+    Vec3<int> get2DSize(void) const;
+    Vec3<int> getFakeSize(void) const;
+    int getMult(void) const;
+
+    /* Convert to and from the real 2D / emulated 3D. */
+    Vec2<int> fake3DTo2D(const Vec3<int>& _fake) const;
+    Vec3<int> fake3DFrom2D(const Vec2<int>& _real) const;
+};
+
 /* This token represents which "piece" of the jigsaw an object might
  * be associated with.
  */
@@ -173,7 +208,9 @@ protected:
     GLuint *glTex;
     cl_mem *clTex;
     const AFK_JigsawFormatDescriptor *format;
-    GLuint texTarget;
+    const GLuint texTarget;
+    const AFK_JigsawFake3DDescriptor fake3D;
+    const cl_mem_object_type clImageType;
     const unsigned int texCount;
 
     const Vec3<int> pieceSize;
@@ -298,6 +335,16 @@ protected:
      */
     void doSweep(const Vec2<int>& nextFreeRow, const AFK_Frame& currentFrame);
 
+    /* These functions help to pull changed data from the CL
+     * textures and push them to the GL.
+     * Each one assumes that you called the previous one for
+     * that texture.
+     */
+    void getClChangeData(cl_command_queue q, const std::vector<cl_event>& eventWaitList, unsigned int tex);
+    void getClChangeDataFake3D(cl_command_queue q, const std::vector<cl_event>& eventWaitList, unsigned int tex);
+    void putClChangeData(unsigned int tex);
+    void putClChangeDataFake3D(unsigned int tex);
+
     /* Some internal stats: */
     boost::atomic<uint64_t> piecesGrabbed;
     boost::atomic<uint64_t> cuboidsStarted;
@@ -310,6 +357,7 @@ public:
         const Vec3<int>& _jigsawSize,
         const AFK_JigsawFormatDescriptor *_format,
         GLuint _texTarget,
+        const AFK_JigsawFake3DDescriptor& _fake3D,
         unsigned int _texCount,
         enum AFK_JigsawBufferUsage _bufferUsage,
         unsigned int _concurrency);

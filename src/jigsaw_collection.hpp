@@ -28,41 +28,6 @@ enum AFK_JigsawDimensions
     AFK_JIGSAW_3D
 };
 
-/* This class describes a fake 3D image that emulates 3D with a
- * 2D image.
- * A fake 3D texture will otherwise be GL_TEXTURE_2D in the
- * Jigsaw and most Jigsaw operations will work as for 2D
- * textures.
- */
-class AFK_JigsawFake3DDescriptor
-{
-    /* This is the emulated 3D piece size */
-    Vec3<int> fakeSize;
-
-    /* This is the multiplier used to achieve that fakery */
-    int mult;
-
-    /* This flags whether to use fake 3D in the first place */
-    bool useFake3D;
-public:
-
-    /* This one initialises it to false. */
-    AFK_JigsawFake3DDescriptor();
-
-    AFK_JigsawFake3DDescriptor(bool _useFake3D, const Vec3<int>& _fakeSize);
-    AFK_JigsawFake3DDescriptor(const AFK_JigsawFake3DDescriptor& _fake3D);
-    AFK_JigsawFake3DDescriptor operator=(const AFK_JigsawFake3DDescriptor& _fake3D);
-
-    bool getUseFake3D(void) const;
-    Vec3<int> get2DSize(void) const;
-    Vec3<int> getFakeSize(void) const;
-    int getMult(void) const;
-
-    /* Convert to and from the real 2D / emulated 3D. */
-    Vec3<int> fake3DTo2D(const Vec3<int>& _fake) const;
-    Vec3<int> fake3DFrom2D(const Vec3<int>& _real) const;
-};
-
 /* This encapsulates a collection of jigsawed textures, which are used
  * to give out pieces of the same size and usage.
  * You may get a piece in any of the puzzles.
