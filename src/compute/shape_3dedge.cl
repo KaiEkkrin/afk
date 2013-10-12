@@ -166,6 +166,8 @@ float4 readVapourPoint(
     __read_only AFK_IMAGE3D vapour1,
     __read_only AFK_IMAGE3D vapour2,
     __read_only AFK_IMAGE3D vapour3,
+    const int2 fake3D_size,
+    const int fake3D_mult,
     __global const struct AFK_3DEdgeComputeUnit *units,
     int unitOffset,
     int4 pieceCoord)
@@ -174,16 +176,16 @@ float4 readVapourPoint(
     switch (myVapourPiece.w) /* This identifies the jigsaw */
     {
     case 0:
-        return read_imagef(vapour0, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
+        return read_imagef(vapour0, vapourSampler, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult));
 
     case 1:
-        return read_imagef(vapour1, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
+        return read_imagef(vapour1, vapourSampler, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult));
 
     case 2:
-        return read_imagef(vapour2, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
+        return read_imagef(vapour2, vapourSampler, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult));
 
     case 3:
-        return read_imagef(vapour3, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
+        return read_imagef(vapour3, vapourSampler, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult));
 
     default:
         /* This really oughtn't to happen, of course... */
@@ -282,6 +284,8 @@ float4 make4PointNormal(
     __read_only AFK_IMAGE3D vapour1,
     __read_only AFK_IMAGE3D vapour2,
     __read_only AFK_IMAGE3D vapour3,
+    const int2 fake3D_size,
+    const int fake3D_mult,
     __global const struct AFK_3DEdgeComputeUnit *units,
     int unitOffset,
     int4 thisVapourPointCoord,
@@ -322,10 +326,10 @@ float4 make4PointNormal(
     int4 yVapourPointCoord = thisVapourPointCoord - (int4)(0, displacement.y, 0, 0);
     int4 zVapourPointCoord = thisVapourPointCoord - (int4)(0, 0, displacement.z, 0);
 
-    float4 thisVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord);
-    float4 xVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, xVapourPointCoord);
-    float4 yVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, yVapourPointCoord);
-    float4 zVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, zVapourPointCoord);
+    float4 thisVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, fake3D_size, fake3D_mult, units, unitOffset, thisVapourPointCoord);
+    float4 xVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, fake3D_size, fake3D_mult, units, unitOffset, xVapourPointCoord);
+    float4 yVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, fake3D_size, fake3D_mult, units, unitOffset, yVapourPointCoord);
+    float4 zVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, fake3D_size, fake3D_mult, units, unitOffset, zVapourPointCoord);
 
     float3 combinedVectors = (float3)(
         (xVapourPoint.w - thisVapourPoint.w) * displacement.x,
@@ -741,6 +745,8 @@ __kernel void makeShape3DEdge(
     __read_only AFK_IMAGE3D vapour2,
     __read_only AFK_IMAGE3D vapour3,
     __global const struct AFK_3DEdgeComputeUnit *units,
+    const int2 fake3D_size,
+    const int fake3D_mult,
     __write_only image2d_t jigsawDisp,
     __write_only image2d_t jigsawColour,
     __write_only image2d_t jigsawNormal,
@@ -763,10 +769,10 @@ __kernel void makeShape3DEdge(
 
             /* Read the next points to compare with */
             int4 lastVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack - 1);
-            float4 lastVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, lastVapourPointCoord);
+            float4 lastVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, fake3D_size, fake3D_mult, units, unitOffset, lastVapourPointCoord);
 
             int4 thisVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack);
-            float4 thisVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord);
+            float4 thisVapourPoint = readVapourPoint(vapour0, vapour1, vapour2, vapour3, fake3D_size, fake3D_mult, units, unitOffset, thisVapourPointCoord);
 
 #define FAKE_TEST_VAPOUR 0
 
@@ -809,7 +815,7 @@ __kernel void makeShape3DEdge(
                     {
                         for (int zN = -1; zN <= 1; zN += 2)
                         {
-                            normal += make4PointNormal(vapour0, vapour1, vapour2, vapour3, units, unitOffset, thisVapourPointCoord, (int4)(xN, yN, zN, 0));
+                            normal += make4PointNormal(vapour0, vapour1, vapour2, vapour3, fake3D_size, fake3D_mult, units, unitOffset, thisVapourPointCoord, (int4)(xN, yN, zN, 0));
                         }
                     }
                 }

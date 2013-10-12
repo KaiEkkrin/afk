@@ -133,6 +133,8 @@ __kernel void makeShape3DVapourFeature(
     __global const struct AFK_3DVapourFeature *features,
     __global const struct AFK_3DVapourCube *cubes,
     __global const struct AFK_3DVapourComputeUnit *units,
+    const int2 fake3D_size,
+    const int fake3D_mult,
     __write_only AFK_IMAGE3D vapour0,
     __write_only AFK_IMAGE3D vapour1,
     __write_only AFK_IMAGE3D vapour2,
@@ -198,19 +200,19 @@ __kernel void makeShape3DVapourFeature(
     switch (units[unitOffset].vapourPiece.w)
     {
     case 0:
-        write_imagef(vapour0, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, vapourPieceCoord), vc);
+        write_imagef(vapour0, afk_make3DJigsawCoord(units[unitOffset].vapourPiece * TDIM, vapourPieceCoord, fake3D_size, fake3D_mult), vc);
         break;
 
     case 1:
-        write_imagef(vapour1, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, vapourPieceCoord), vc);
+        write_imagef(vapour1, afk_make3DJigsawCoord(units[unitOffset].vapourPiece * TDIM, vapourPieceCoord, fake3D_size, fake3D_mult), vc);
         break;
 
     case 2:
-        write_imagef(vapour2, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, vapourPieceCoord), vc);
+        write_imagef(vapour2, afk_make3DJigsawCoord(units[unitOffset].vapourPiece * TDIM, vapourPieceCoord, fake3D_size, fake3D_mult), vc);
         break;
 
     default:
-        write_imagef(vapour3, afk_make3DJigsawCoord(units[unitOffset].vapourPiece, vapourPieceCoord), vc);
+        write_imagef(vapour3, afk_make3DJigsawCoord(units[unitOffset].vapourPiece * TDIM, vapourPieceCoord, fake3D_size, fake3D_mult), vc);
         break;
     }
 }

@@ -530,7 +530,7 @@ AFK_World::AFK_World(
                                                     /* Normal, with TODO as above. */
         },
         computer->getFirstDeviceProps(),
-        config->clGlSharing ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED,
+        /* config->clGlSharing ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED */ AFK_JIGSAW_BU_CL_ONLY /* <-- TODO put that back */,
         config->concurrency,
         computer->useFake3DImages(config));
 

@@ -119,18 +119,6 @@ AFK_JigsawCollection::AFK_JigsawCollection(
         bufferUsage(_bufferUsage),
         concurrency(_concurrency)
 {
-    if (useFake3D)
-    {
-        fake3D = AFK_JigsawFake3DDescriptor(true, pieceSize);
-        std::cout << "AFK_JigsawCollection: Using fake 3D piece size " << fake3D.get2DSize() << " for CL" << std::endl;
-
-        /* I won't try to execute the below jigsaw size calculation for the
-         * 2D piece separately.  Typical size limits are much lower for 3D
-         * textures, so it's very unlikely I'll run into a size limit on the
-         * 2D one when I didn't get one for 3D.
-         */
-    }
-
     std::cout << "AFK_JigsawCollection: Requested " << getDimensionalityStr() << " jigsaw with " << std::dec << pieceCount << " pieces of size " << pieceSize << ": " << std::endl;
 
     /* Figure out the texture formats. */
@@ -232,6 +220,21 @@ AFK_JigsawCollection::AFK_JigsawCollection(
     pieceCount = jigsawCount * jigsawSize.v[0] * jigsawSize.v[1] * jigsawSize.v[2];
 
     std::cout << "AFK_JigsawCollection: Making " << jigsawCount << " jigsaws with " << jigsawSize << " pieces each (actually " << pieceCount << " pieces)" << std::endl;
+
+    if (useFake3D)
+    {
+        fake3D = AFK_JigsawFake3DDescriptor(true, afk_vec3<int>(
+            pieceSize.v[0] * jigsawSize.v[0],
+            pieceSize.v[1] * jigsawSize.v[1],
+            pieceSize.v[2] * jigsawSize.v[2]));
+        std::cout << "AFK_JigsawCollection: Using fake 3D size " << fake3D.get2DSize() << " for CL" << std::endl;
+
+        /* I won't try to execute the below jigsaw size calculation for the
+         * 2D piece separately.  Typical size limits are much lower for 3D
+         * textures, so it's very unlikely I'll run into a size limit on the
+         * 2D one when I didn't get one for 3D.
+         */
+    }
 
     for (int j = 0; j < jigsawCount; ++j)
     {

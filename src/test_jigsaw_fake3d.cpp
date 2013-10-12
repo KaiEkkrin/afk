@@ -33,7 +33,7 @@ static void tryConvert(
     if (convertedCoord != _fakeCoord) std::cout << "FAILED: ";
 
     Vec3<int> realSize = testFake.get2DSize();
-    if (realCoord.v[0] >= realSize.v[0] || realCoord.v[1] >= realSize.v[1] || realCoord.v[2] >= realSize.v[2])
+    if (realCoord.v[0] >= realSize.v[0] || realCoord.v[1] >= realSize.v[1] || realSize.v[2] != 1)
         std::cout << "FAILED: ";
 
     std::cout << _fakeCoord << " -> " << realCoord << " -> " << convertedCoord << std::endl;

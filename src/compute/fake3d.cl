@@ -23,24 +23,16 @@
 
 #define AFK_IMAGE3D image2d_t
 
-int2 afk_from3DTo2DCoord(int4 coord)
+int2 afk_from3DTo2DCoord(int4 coord, int2 fake3D_size, int fake3D_mult)
 {
-    /* The 3D wibble applies within the tile.
-     * The tiles themselves will be supplied in a 2D grid.
-     * (Because we're using a 2D jigsaw.)
-     */
     return (int2)(
-        coord.x + VAPOUR_FAKE3D_FAKESIZE_X * (coord.z % VAPOUR_FAKE3D_MULT),
-        coord.y + VAPOUR_FAKE3D_FAKESIZE_Y * (coord.z / VAPOUR_FAKE3D_MULT));
+        coord.x + fake3D_size.x * (coord.z % fake3D_mult),
+        coord.y + fake3D_size.y * (coord.z / fake3D_mult));
 }
 
-int2 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
+int2 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord, int2 fake3D_size, int fake3D_mult)
 {
-    int2 pieceCoord2D = (int2)(
-        pieceCoord.x * VAPOUR_FAKE3D_FAKESIZE_X * VAPOUR_FAKE3D_MULT,
-        pieceCoord.y * VAPOUR_FAKE3D_FAKESIZE_Y * VAPOUR_FAKE3D_MULT);
-    int2 pointCoord2D = afk_from3DTo2DCoord(pointCoord);
-    return pieceCoord2D + pointCoord2D;
+    return afk_from3DTo2DCoord(pieceCoord + pointCoord, fake3D_size, fake3D_mult);
 }
 
 #else
@@ -48,7 +40,7 @@ int2 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
 
 #define AFK_IMAGE3D image3d_t
 
-int4 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord)
+int4 afk_make3DJigsawCoord(int4 pieceCoord, int4 pointCoord, int2 ignored0, int ignored1)
 {
     return pieceCoord * TDIM + pointCoord;
 }

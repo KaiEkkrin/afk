@@ -395,6 +395,13 @@ public:
     /* Returns the (s, t, r) dimensions of one piece within the jigsaw. */
     Vec3<float> getPiecePitchSTR(void) const;
 
+    /* Get fake 3D info for the jigsaw in a format suitable for
+     * sending to the CL.  (-1s will be returned if fake 3D is
+     * not in use.)
+     */
+    Vec2<int> getFake3D_size(void) const;
+    int getFake3D_mult(void) const;
+
     /* Acquires the buffers for the CL.
      * Fills out `o_events' with events you need to wait for
      * before the buffer is ready (none or more)

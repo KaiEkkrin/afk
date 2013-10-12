@@ -26,7 +26,6 @@
 #include "computer.hpp"
 #include "exception.hpp"
 #include "file/readfile.hpp"
-#include "jigsaw_collection.hpp"
 #include "landscape_sizes.hpp"
 #include "shape_sizes.hpp"
 
@@ -358,19 +357,9 @@ void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<st
         args << "-D FEATURE_MIN_SIZE="          << sSizes.featureMinSize         << " ";
         args << "-D THRESHOLD="                 << sSizes.edgeThreshold          << " ";
         if (useFake3DImages(config))
-        {
             args << "-D AFK_FAKE3D=1 ";
-            AFK_JigsawFake3DDescriptor fake3D(true, afk_vec3<int>(sSizes.tDim, sSizes.tDim, sSizes.tDim));
-            Vec3<int> fakeSize = fake3D.getFakeSize();
-            int mult = fake3D.getMult();
-            args << "-D VAPOUR_FAKE3D_FAKESIZE_X="  << fakeSize.v[0]                << " ";
-            args << "-D VAPOUR_FAKE3D_FAKESIZE_Y="  << fakeSize.v[1]                << " ";
-            args << "-D VAPOUR_FAKE3D_MULT="        << mult                         << " ";
-        }
         else
-        {
-            args << "-D AFK_FAKE3D=0";
-        }
+            args << "-D AFK_FAKE3D=0 ";
     }
 
     args << "-cl-mad-enable -cl-strict-aliasing -Werror";

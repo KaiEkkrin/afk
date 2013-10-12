@@ -175,8 +175,13 @@ void AFK_3DVapourComputeQueue::computeStart(
     AFK_CLCHK(clSetKernelArg(vapourFeatureKernel, 1, sizeof(cl_mem), &vapourBufs[1]))
     AFK_CLCHK(clSetKernelArg(vapourFeatureKernel, 2, sizeof(cl_mem), &vapourBufs[2]))
 
+    Vec2<int> fake3D_size = vapourJigsaws->getPuzzle(0)->getFake3D_size();
+    int fake3D_mult = vapourJigsaws->getPuzzle(0)->getFake3D_mult();
+    AFK_CLCHK(clSetKernelArg(vapourFeatureKernel, 3, sizeof(cl_int2), &fake3D_size.v[0]))
+    AFK_CLCHK(clSetKernelArg(vapourFeatureKernel, 4, sizeof(cl_int), &fake3D_mult))
+
     for (int jpI = 0; jpI < 4; ++jpI)
-        AFK_CLCHK(clSetKernelArg(vapourFeatureKernel, jpI + 3, sizeof(cl_mem), &vapourJigsawsMem[jpI][0]))
+        AFK_CLCHK(clSetKernelArg(vapourFeatureKernel, jpI + 5, sizeof(cl_mem), &vapourJigsawsMem[jpI][0]))
 
     size_t vapourDim[3];
     vapourDim[0] = sSizes.tDim * unitCount;
@@ -197,10 +202,12 @@ void AFK_3DVapourComputeQueue::computeStart(
 
     /* Next, compute the vapour normals. */
     AFK_CLCHK(clSetKernelArg(vapourNormalKernel, 0, sizeof(cl_mem), &vapourBufs[2]))
+    AFK_CLCHK(clSetKernelArg(vapourNormalKernel, 1, sizeof(cl_int2), &fake3D_size.v[0]))
+    AFK_CLCHK(clSetKernelArg(vapourNormalKernel, 2, sizeof(cl_int), &fake3D_mult))
     for (int jpI = 0; jpI < 4; ++jpI)
     {
-        AFK_CLCHK(clSetKernelArg(vapourNormalKernel, jpI + 1, sizeof(cl_mem), &vapourJigsawsMem[jpI][0])) /* feature */
-        AFK_CLCHK(clSetKernelArg(vapourNormalKernel, jpI + 5, sizeof(cl_mem), &vapourJigsawsMem[jpI][1])) /* normal */
+        AFK_CLCHK(clSetKernelArg(vapourNormalKernel, jpI + 3, sizeof(cl_mem), &vapourJigsawsMem[jpI][0])) /* feature */
+        AFK_CLCHK(clSetKernelArg(vapourNormalKernel, jpI + 7, sizeof(cl_mem), &vapourJigsawsMem[jpI][1])) /* normal */
     }
 
     cl_event vapourNormalEvent;

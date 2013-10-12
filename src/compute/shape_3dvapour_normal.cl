@@ -29,6 +29,8 @@ float4 readVapourPoint(
     __read_only AFK_IMAGE3D vapourFeature1,
     __read_only AFK_IMAGE3D vapourFeature2,
     __read_only AFK_IMAGE3D vapourFeature3,
+    const int2 fake3D_size,
+    const int fake3D_mult,
     __global const struct AFK_3DVapourComputeUnit *units,
     int unitOffset,
     int4 pieceCoord)
@@ -37,16 +39,16 @@ float4 readVapourPoint(
     switch (myVapourPiece.w) /* This identifies the jigsaw */
     {
     case 0:
-        return read_imagef(vapourFeature0, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
+        return read_imagef(vapourFeature0, vapourSampler, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult));
 
     case 1:
-        return read_imagef(vapourFeature1, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
+        return read_imagef(vapourFeature1, vapourSampler, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult));
 
     case 2:
-        return read_imagef(vapourFeature2, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
+        return read_imagef(vapourFeature2, vapourSampler, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult));
 
     case 3:
-        return read_imagef(vapourFeature3, vapourSampler, afk_make3DJigsawCoord(myVapourPiece, pieceCoord));
+        return read_imagef(vapourFeature3, vapourSampler, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult));
 
     default:
         /* This really oughtn't to happen, of course... */
@@ -59,6 +61,8 @@ void writeVapourPoint(
     __write_only AFK_IMAGE3D vapourNormal1,
     __write_only AFK_IMAGE3D vapourNormal2,
     __write_only AFK_IMAGE3D vapourNormal3,
+    const int2 fake3D_size,
+    const int fake3D_mult,
     __global const struct AFK_3DVapourComputeUnit *units,
     int unitOffset,
     int4 pieceCoord,
@@ -68,19 +72,19 @@ void writeVapourPoint(
     switch (myVapourPiece.w)
     {
     case 0:
-        write_imagef(vapourNormal0, afk_make3DJigsawCoord(myVapourPiece, pieceCoord), normal);
+        write_imagef(vapourNormal0, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult), normal);
         break;
 
     case 1:
-        write_imagef(vapourNormal1, afk_make3DJigsawCoord(myVapourPiece, pieceCoord), normal);
+        write_imagef(vapourNormal1, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult), normal);
         break;
 
     case 2:
-        write_imagef(vapourNormal2, afk_make3DJigsawCoord(myVapourPiece, pieceCoord), normal);
+        write_imagef(vapourNormal2, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult), normal);
         break;
 
     default:
-        write_imagef(vapourNormal3, afk_make3DJigsawCoord(myVapourPiece, pieceCoord), normal);
+        write_imagef(vapourNormal3, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult), normal);
         break;
     }
 }
@@ -105,6 +109,8 @@ float3 make4PointNormal(
     __read_only AFK_IMAGE3D vapourFeature1,
     __read_only AFK_IMAGE3D vapourFeature2,
     __read_only AFK_IMAGE3D vapourFeature3,
+    const int2 fake3D_size,
+    const int fake3D_mult,
     __global const struct AFK_3DVapourComputeUnit *units,
     int unitOffset,
     int4 thisVapourPointCoord,
@@ -145,10 +151,10 @@ float3 make4PointNormal(
     int4 yVapourPointCoord = thisVapourPointCoord - (int4)(0, displacement.y, 0, 0);
     int4 zVapourPointCoord = thisVapourPointCoord - (int4)(0, 0, displacement.z, 0);
 
-    float4 thisVapourPoint = readVapourPoint(vapourFeature0, vapourFeature1, vapourFeature2, vapourFeature3, units, unitOffset, thisVapourPointCoord);
-    float4 xVapourPoint = readVapourPoint(vapourFeature0, vapourFeature1, vapourFeature2, vapourFeature3, units, unitOffset, xVapourPointCoord);
-    float4 yVapourPoint = readVapourPoint(vapourFeature0, vapourFeature1, vapourFeature2, vapourFeature3, units, unitOffset, yVapourPointCoord);
-    float4 zVapourPoint = readVapourPoint(vapourFeature0, vapourFeature1, vapourFeature2, vapourFeature3, units, unitOffset, zVapourPointCoord);
+    float4 thisVapourPoint = readVapourPoint(vapourFeature0, vapourFeature1, vapourFeature2, vapourFeature3, fake3D_size, fake3D_mult, units, unitOffset, thisVapourPointCoord);
+    float4 xVapourPoint = readVapourPoint(vapourFeature0, vapourFeature1, vapourFeature2, vapourFeature3, fake3D_size, fake3D_mult, units, unitOffset, xVapourPointCoord);
+    float4 yVapourPoint = readVapourPoint(vapourFeature0, vapourFeature1, vapourFeature2, vapourFeature3, fake3D_size, fake3D_mult, units, unitOffset, yVapourPointCoord);
+    float4 zVapourPoint = readVapourPoint(vapourFeature0, vapourFeature1, vapourFeature2, vapourFeature3, fake3D_size, fake3D_mult, units, unitOffset, zVapourPointCoord);
 
     float3 combinedVectors = (float3)(
         (xVapourPoint.w - thisVapourPoint.w) * displacement.x,
@@ -160,6 +166,8 @@ float3 make4PointNormal(
 
 __kernel void makeShape3DVapourNormal(
     __global const struct AFK_3DVapourComputeUnit *units,
+    const int2 fake3D_size,
+    const int fake3D_mult,
     __read_only AFK_IMAGE3D vapourFeature0,
     __read_only AFK_IMAGE3D vapourFeature1,
     __read_only AFK_IMAGE3D vapourFeature2,
@@ -189,6 +197,7 @@ __kernel void makeShape3DVapourNormal(
                 {
                     thisNormal += make4PointNormal(
                         vapourFeature0, vapourFeature1, vapourFeature2, vapourFeature3,
+                        fake3D_size, fake3D_mult,
                         units, unitOffset, thisVapourPointCoord, (int4)(xN, yN, zN, 0));
                 }
             }
@@ -196,6 +205,7 @@ __kernel void makeShape3DVapourNormal(
     }
 
     writeVapourPoint(vapourNormal0, vapourNormal1, vapourNormal2, vapourNormal3,
+        fake3D_size, fake3D_mult,
         units, unitOffset, thisVapourPointCoord,
         (float4)(normalize(thisNormal), 0.0f));
 }
