@@ -34,8 +34,8 @@ layout (max_vertices = 4) out;
 // We sample (x, y, z, w).
 uniform sampler2D JigsawDispTex;
 
-// ...and the normal
-uniform sampler2D JigsawNormalTex;
+// ...and the normal -- let's try using the vapour normal ...
+uniform sampler3D JigsawNormalTex;
 
 // ...and the overlap information.
 uniform usampler2D JigsawOverlapTex;
@@ -46,9 +46,13 @@ uniform usampler2D JigsawOverlapTex;
 // - fifth: (x, y) are the (s, t) jigsaw co-ordinates.
 uniform samplerBuffer DisplayTBO; 
 
-// This is the size of an individual jigsaw piece
+// This is the size of an individual vapour jigsaw piece
+// in (s, t, r) co-ordinates.
+uniform vec3 VapourJigsawPiecePitch;
+
+// This is the size of an individual edge jigsaw piece
 // in (s, t) co-ordinates.
-uniform vec2 JigsawPiecePitch;
+uniform vec2 EdgeJigsawPiecePitch;
 
 uniform mat4 ProjectionTransform;
 
@@ -68,25 +72,77 @@ out GeometryData
 void emitShapeVertex(
     mat4 ClipTransform,
     mat4 WorldTransform,
-    vec2 jigsawPieceCoord,
+    vec3 vapourJigsawPieceCoord,
+    vec2 edgeJigsawPieceCoord,
     vec2 texCoordDisp,
     int i)
 {
-    vec2 jigsawCoord = jigsawPieceCoord + JigsawPiecePitch * (inData[i].texCoord + texCoordDisp);
-    vec4 dispPosition = textureLod(JigsawDispTex, jigsawCoord, 0);
+    vec2 edgeJigsawCoord = edgeJigsawPieceCoord + EdgeJigsawPiecePitch * (inData[i].texCoord + texCoordDisp);
+    float edgeStepsBack = textureLod(JigsawOverlapTex, edgeJigsawCoord, 0).y;
 
+    vec3 vapourTexCoord;
+    switch (gl_InvocationID)
+    {
+    case 0:
+        vapourTexCoord = vec3(
+            inData[i].texCoord.x + 1.0 / POINT_SUBDIVISION_FACTOR,
+            (edgeStepsBack + 1.0) / POINT_SUBDIVISION_FACTOR,
+            inData[i].texCoord.y + 1.0 / POINT_SUBDIVISION_FACTOR);
+        break;
+
+    case 1:
+        vapourTexCoord = vec3(
+            (edgeStepsBack + 1.0) / POINT_SUBDIVISION_FACTOR,
+            inData[i].texCoord.x + 1.0 / POINT_SUBDIVISION_FACTOR,
+            inData[i].texCoord.y + 1.0 / POINT_SUBDIVISION_FACTOR);
+        break;
+
+    case 2:
+        vapourTexCoord = vec3(
+            inData[i].texCoord.x + 1.0 / POINT_SUBDIVISION_FACTOR,
+            inData[i].texCoord.y + 1.0 / POINT_SUBDIVISION_FACTOR,
+            (edgeStepsBack + 1.0) / POINT_SUBDIVISION_FACTOR);
+        break;
+
+    case 3:
+        vapourTexCoord = vec3(
+            inData[i].texCoord.x + 1.0 / POINT_SUBDIVISION_FACTOR,
+            inData[i].texCoord.y + 1.0 / POINT_SUBDIVISION_FACTOR,
+            ((VDIM - edgeStepsBack) + 1.0) / POINT_SUBDIVISION_FACTOR);
+        break;
+
+    case 4:
+        vapourTexCoord = vec3(
+            ((VDIM - edgeStepsBack) + 1.0) / POINT_SUBDIVISION_FACTOR,
+            inData[i].texCoord.x + 1.0 / POINT_SUBDIVISION_FACTOR,
+            inData[i].texCoord.y + 1.0 / POINT_SUBDIVISION_FACTOR);
+        break;
+
+    default:
+        vapourTexCoord = vec3(
+            inData[i].texCoord.x + 1.0 / POINT_SUBDIVISION_FACTOR,
+            ((VDIM - edgeStepsBack) + 1.0) / POINT_SUBDIVISION_FACTOR,
+            inData[i].texCoord.y + 1.0 / POINT_SUBDIVISION_FACTOR);
+        break;
+    }
+
+    vec3 vapourJigsawCoord = vapourJigsawPieceCoord + VapourJigsawPiecePitch * vapourTexCoord;
+
+    vec4 dispPosition = textureLod(JigsawDispTex, edgeJigsawCoord, 0);
     gl_Position = ClipTransform * dispPosition;
 
-    vec4 normal = textureLod(JigsawNormalTex, jigsawCoord, 0);
+    //vec4 normal = textureLod(JigsawNormalTex, edgeJigsawCoord, 0);
+    vec4 normal = textureLod(JigsawNormalTex, vapourJigsawCoord, 0);
     outData.normal = (WorldTransform * normal).xyz;
-    outData.jigsawCoord = jigsawCoord;
+    outData.jigsawCoord = edgeJigsawCoord; /* TODO that'll want changing! */
     EmitVertex();
 }
 
 void emitShapeSingleTriangle(
     mat4 ClipTransform,
     mat4 WorldTransform,
-    vec2 jigsawPieceCoord,
+    vec3 vapourJigsawPieceCoord,
+    vec2 edgeJigsawPieceCoord,
     vec2 texCoordDisp,
     int i,
     int j,
@@ -97,15 +153,15 @@ void emitShapeSingleTriangle(
     {
     case 1: case 2: case 5:
         /* Flip this triangle over. */
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, i);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, k);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, j);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, i);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, k);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, j);
         break;
 
     default:
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, i);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, j);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, k);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, i);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, j);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, k);
         break;
     }
 }
@@ -113,7 +169,8 @@ void emitShapeSingleTriangle(
 void emitShapeTrianglePair(
     mat4 ClipTransform,
     mat4 WorldTransform,
-    vec2 jigsawPieceCoord,
+    vec3 vapourJigsawPieceCoord,
+    vec2 edgeJigsawPieceCoord,
     vec2 texCoordDisp,
     int i,
     int j,
@@ -125,26 +182,27 @@ void emitShapeTrianglePair(
     {
     case 1: case 2: case 5:
         /* Flip this triangle over. */
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, i);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, k);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, j);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, l);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, i);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, k);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, j);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, l);
         break;
 
     default:
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, i);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, j);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, k);
-        emitShapeVertex(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, l);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, i);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, j);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, k);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, l);
         break;
     }
 }
 
 void main()
 {
-    /* Reconstruct this instance's jigsaw piece coord.
+    /* Reconstruct this instance's jigsaw piece coords.
      */
-    vec2 jigsawPieceCoord = texelFetch(DisplayTBO, inData[0].instanceId * 5 + 4).xy;
+    vec3 vapourJigsawPieceCoord = texelFetch(DisplayTBO, inData[0].instanceId * 6 + 4).xyz;
+    vec2 edgeJigsawPieceCoord = texelFetch(DisplayTBO, inData[0].instanceId * 6 + 5).xy;
 
     /* Displace the texture coord according to the
      * way the faces are lined up in the edge jigsaws.
@@ -160,25 +218,25 @@ void main()
     case 5: texCoordDisp = vec2(2.0, 1.0); break;
     }
 
+    uint overlap = textureLod(JigsawOverlapTex,
+        edgeJigsawPieceCoord + EdgeJigsawPiecePitch * (inData[0].texCoord + texCoordDisp),
+        0).x;
+
     /* Check whether this triangle pair is overlapped to another
      * face.
      * I know that the adjacency for the edges is wrong right now:
      * I need to expand their dimensions from eDim to tDim so that
      * they can include correct normal and colour overlap info.)
      */
-    uint overlap = textureLod(JigsawOverlapTex,
-        jigsawPieceCoord + JigsawPiecePitch * (inData[0].texCoord + texCoordDisp),
-        0).x;
-
     if (overlap != 0)
     {
         /* Reconstruct the world transform matrix that I
          * now want ...
          */
-        vec4 WTRow1 = texelFetch(DisplayTBO, inData[0].instanceId * 5);
-        vec4 WTRow2 = texelFetch(DisplayTBO, inData[0].instanceId * 5 + 1);
-        vec4 WTRow3 = texelFetch(DisplayTBO, inData[0].instanceId * 5 + 2);
-        vec4 WTRow4 = texelFetch(DisplayTBO, inData[0].instanceId * 5 + 3);
+        vec4 WTRow1 = texelFetch(DisplayTBO, inData[0].instanceId * 6);
+        vec4 WTRow2 = texelFetch(DisplayTBO, inData[0].instanceId * 6 + 1);
+        vec4 WTRow3 = texelFetch(DisplayTBO, inData[0].instanceId * 6 + 2);
+        vec4 WTRow4 = texelFetch(DisplayTBO, inData[0].instanceId * 6 + 3);
 
         mat4 WorldTransform = mat4(
             vec4(WTRow1.x, WTRow2.x, WTRow3.x, WTRow4.x),
@@ -196,27 +254,27 @@ void main()
         switch (overlap)
         {
         case 1:
-            emitShapeSingleTriangle(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 0, 1, 2, gl_InvocationID);
+            emitShapeSingleTriangle(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, 0, 1, 2, gl_InvocationID);
             break;
             
         case 2:
-            emitShapeSingleTriangle(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 1, 3, 2, gl_InvocationID);
+            emitShapeSingleTriangle(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, 1, 3, 2, gl_InvocationID);
             break;
 
         case 3:
-            emitShapeTrianglePair(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 0, 1, 2, 3, gl_InvocationID);
+            emitShapeTrianglePair(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, 0, 1, 2, 3, gl_InvocationID);
             break;
 
         case 5:
-            emitShapeSingleTriangle(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 2, 0, 3, gl_InvocationID);
+            emitShapeSingleTriangle(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, 2, 0, 3, gl_InvocationID);
             break;
 
         case 6:
-            emitShapeSingleTriangle(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 3, 0, 1, gl_InvocationID);
+            emitShapeSingleTriangle(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, 3, 0, 1, gl_InvocationID);
             break;
 
         case 7:
-            emitShapeTrianglePair(ClipTransform, WorldTransform, jigsawPieceCoord, texCoordDisp, 2, 0, 3, 1, gl_InvocationID);
+            emitShapeTrianglePair(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, 2, 0, 3, 1, gl_InvocationID);
             break;
         }
 

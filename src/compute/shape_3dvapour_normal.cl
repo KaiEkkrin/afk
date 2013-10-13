@@ -94,7 +94,7 @@ void writeVapourPoint(
  */
 bool coordWithinCube(int c)
 {
-    return (c > 0 && c < (TDIM-1));
+    return (c >= 0 && c < TDIM);
 }
 
 /* This function tries to calculate a normal around a vapour

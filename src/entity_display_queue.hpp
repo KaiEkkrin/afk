@@ -46,13 +46,17 @@ protected:
      */
     Mat4<float>         transform;
 
-    /* This maps it onto the shrink-form jigsaw. */
-    Vec2<float>         jigsawPieceST;
+    /* This maps it onto the vapour jigsaw. */
+    Vec3<float>         vapourJigsawPieceSTR;
+
+    /* This maps it onto the edge jigsaw. */
+    Vec2<float>         edgeJigsawPieceST;
 
 public:
     AFK_EntityDisplayUnit(
         const Mat4<float>& _transform,
-        const Vec2<float>& _jigsawPieceST);
+        const Vec3<float>& _vapourJigsawPieceSTR,
+        const Vec2<float>& _edgeJigsawPieceST);
 
     //friend std::ostream& operator<<(std::ostream& os, const AFK_EntityDisplayUnit& unit);
 } __attribute__((aligned(16)));
@@ -81,7 +85,8 @@ protected:
     GLuint buf;
     boost::mutex mut;
 
-    GLuint jigsawPiecePitchLocation;
+    GLuint vapourJigsawPiecePitchLocation;
+    GLuint edgeJigsawPiecePitchLocation;
     GLuint jigsawDispTexSamplerLocation;
     GLuint jigsawColourTexSamplerLocation;
     GLuint jigsawNormalTexSamplerLocation;
@@ -98,7 +103,12 @@ public:
      * function draws the parts of the entities represented by this
      * queue.
      */
-    void draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw *jigsaw, const AFK_3DEdgeShapeBase *baseShape, const AFK_ShapeSizes& sSizes);
+    void draw(
+        AFK_ShaderProgram *shaderProgram,
+        AFK_Jigsaw *vapourJigsaw,
+        AFK_Jigsaw *edgeJigsaw,
+        const AFK_3DEdgeShapeBase *baseShape,
+        const AFK_ShapeSizes& sSizes);
 
     bool empty(void);
 

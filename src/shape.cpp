@@ -379,6 +379,7 @@ bool AFK_Shape::generateClaimedShapeCell(
     {
         shapeCell.enqueueEdgeDisplayUnit(
             worldTransform,
+            vapourJigsaws,
             edgeJigsaws,
             world->entityDisplayFair);
         success = true;

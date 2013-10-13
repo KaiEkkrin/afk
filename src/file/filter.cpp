@@ -45,9 +45,15 @@ std::string AFK_FileFilter::FilterReplace::replace(const std::string& source) co
     return boost::regex_replace(source, r, f);
 }
 
-void AFK_FileFilter::augment(const std::string& _regex, const std::string& _fmt)
+AFK_FileFilter::AFK_FileFilter(std::initializer_list<std::string> init)
 {
-    rep.push_back(AFK_FileFilter::FilterReplace(_regex, _fmt));
+    for (auto initIt = init.begin(); initIt != init.end(); ++initIt)
+    {
+        std::string r = *initIt;
+        ++initIt;
+        std::string f = *initIt;
+        rep.push_back(FilterReplace(r, f));
+    }
 }
 
 void AFK_FileFilter::filter(int count, char **sources, size_t *sourceLengths) const
@@ -84,5 +90,22 @@ void AFK_FileFilter::filter(int count, char **sources, size_t *sourceLengths) co
         strcpy(sources[i], repstr.c_str());
         sourceLengths[i] = repstr.size();
     }
+}
+
+std::ostream& operator<<(std::ostream& os, const AFK_FileFilter::FilterReplace& r)
+{
+    os << r.r << " -> " << r.f;
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const AFK_FileFilter& f)
+{
+    os << "FileFilter(";
+    for (auto r : f.rep)
+    {
+        os << r << ", ";
+    }
+    os << ")";
+    return os;
 }
 

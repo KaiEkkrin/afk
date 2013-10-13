@@ -21,14 +21,18 @@
 
 AFK_EntityDisplayUnit::AFK_EntityDisplayUnit(
     const Mat4<float>& _transform,
-    const Vec2<float>& _jigsawPieceST):
-        transform(_transform), jigsawPieceST(_jigsawPieceST)
+    const Vec3<float>& _vapourJigsawPieceSTR,
+    const Vec2<float>& _edgeJigsawPieceST):
+        transform(_transform),
+        vapourJigsawPieceSTR(_vapourJigsawPieceSTR),
+        edgeJigsawPieceST(_edgeJigsawPieceST)
 {
 }
 
 AFK_EntityDisplayQueue::AFK_EntityDisplayQueue():
     buf(0),
-    jigsawPiecePitchLocation(0),
+    vapourJigsawPiecePitchLocation(0),
+    edgeJigsawPiecePitchLocation(0),
     jigsawDispTexSamplerLocation(0),
     jigsawColourTexSamplerLocation(0),
     jigsawNormalTexSamplerLocation(0),
@@ -50,14 +54,20 @@ void AFK_EntityDisplayQueue::add(const AFK_EntityDisplayUnit& _unit)
     queue.push_back(_unit);
 }
 
-void AFK_EntityDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw *jigsaw, const AFK_3DEdgeShapeBase *baseShape, const AFK_ShapeSizes& sSizes)
+void AFK_EntityDisplayQueue::draw(
+    AFK_ShaderProgram *shaderProgram,
+    AFK_Jigsaw *vapourJigsaw,
+    AFK_Jigsaw *edgeJigsaw,
+    const AFK_3DEdgeShapeBase *baseShape,
+    const AFK_ShapeSizes& sSizes)
 {
     unsigned int instanceCount = queue.size();
     if (instanceCount == 0) return;
 
     if (!displayTBOSamplerLocation)
     {
-        jigsawPiecePitchLocation = glGetUniformLocation(shaderProgram->program, "JigsawPiecePitch");
+        vapourJigsawPiecePitchLocation = glGetUniformLocation(shaderProgram->program, "VapourJigsawPiecePitch");
+        edgeJigsawPiecePitchLocation = glGetUniformLocation(shaderProgram->program, "EdgeJigsawPiecePitch");
         jigsawDispTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawDispTex");
         jigsawColourTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawColourTex");
         jigsawNormalTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawNormalTex");
@@ -66,38 +76,52 @@ void AFK_EntityDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw *
     }
 
     /* Jigsaw initialisation. */
-    Vec2<float> jigsawPiecePitchST = jigsaw->getPiecePitchST();
+    Vec3<float> vapourJigsawPiecePitchSTR = vapourJigsaw->getPiecePitchSTR();
+    Vec2<float> edgeJigsawPiecePitchST = edgeJigsaw->getPiecePitchST();
+
+    glUniform3fv(vapourJigsawPiecePitchLocation, 1, &vapourJigsawPiecePitchSTR.v[0]);
 
     /* Subtlety: that's a piece pitch for the big 3x2 pieces that
      * correspond to each cube.  However, 0-1 texture co-ordinates in
      * the base shape are for each *face*, so I need to divide the
      * pitch down:
      */
-    jigsawPiecePitchST = afk_vec2<float>(
-        jigsawPiecePitchST.v[0] / 3.0f,
-        jigsawPiecePitchST.v[1] / 2.0f);
-    glUniform2fv(jigsawPiecePitchLocation, 1, &jigsawPiecePitchST.v[0]);
+    edgeJigsawPiecePitchST = afk_vec2<float>(
+        edgeJigsawPiecePitchST.v[0] / 3.0f,
+        edgeJigsawPiecePitchST.v[1] / 2.0f);
+    glUniform2fv(edgeJigsawPiecePitchLocation, 1, &edgeJigsawPiecePitchST.v[0]);
 
     glActiveTexture(GL_TEXTURE0);
-    jigsaw->bindTexture(0);
+    edgeJigsaw->bindTexture(0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glUniform1i(jigsawDispTexSamplerLocation, 0);
 
     glActiveTexture(GL_TEXTURE1);
-    jigsaw->bindTexture(1);
+    edgeJigsaw->bindTexture(1);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glUniform1i(jigsawColourTexSamplerLocation, 1);
 
+    /* TODO: Experimentally using the vapour normal texture.
+     * If this works okay, I can port other stuff too.
+     */
+#if 0
     glActiveTexture(GL_TEXTURE2);
-    jigsaw->bindTexture(2);
+    edgeJigsaw->bindTexture(2);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glUniform1i(jigsawNormalTexSamplerLocation, 2);
+#else
+    glActiveTexture(GL_TEXTURE2);
+    vapourJigsaw->bindTexture(1);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glUniform1i(jigsawNormalTexSamplerLocation, 2);
+#endif
 
     glActiveTexture(GL_TEXTURE3);
-    jigsaw->bindTexture(3);
+    edgeJigsaw->bindTexture(3);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glUniform1i(jigsawOverlapTexSamplerLocation, 3);

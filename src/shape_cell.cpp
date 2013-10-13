@@ -150,6 +150,7 @@ void AFK_ShapeCell::enqueueEdgeComputeUnit(
 
 void AFK_ShapeCell::enqueueEdgeDisplayUnit(
     const Mat4<float>& worldTransform,
+    AFK_JigsawCollection *vapourJigsaws,
     AFK_JigsawCollection *edgeJigsaws,
     AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const
 {
@@ -157,9 +158,16 @@ void AFK_ShapeCell::enqueueEdgeDisplayUnit(
     AFK_DEBUG_PRINTL("Displaying edges at cell " << worldTransform * cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE))
 #endif
 
+    /* TODO Deal with multiple vapour jigsaws in this queue.
+     * I think I'll want to decide I'm fed up with handling
+     * vapour0 vapour1 vapour2 vapour3 everywhere, etc,
+     * and go back to an interleaved queue (but I should have
+     * a better scheme than the current one!)
+     */
     entityDisplayFair.getUpdateQueue(edgeJigsawPiece.puzzle)->add(
         AFK_EntityDisplayUnit(
             worldTransform,
+            vapourJigsaws->getPuzzle(vapourJigsawPiece)->getTexCoordSTR(vapourJigsawPiece),
             edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTexCoordST(edgeJigsawPiece)));
 }
 

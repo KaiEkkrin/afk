@@ -23,6 +23,8 @@
 #include <string>
 #include <vector>
 
+#include "config.hpp"
+
 /* This is a list of all the shaders that I know about.
  * To ask for particular shaders to be compiled into a
  * program, make a new AFK_ShaderProgram(), push the
@@ -42,7 +44,7 @@ struct AFK_ShaderSpec
 /* Loads all the known shaders from disk and compiles them
  * individually.
  */
-void afk_loadShaders(const std::string& shadersDir);
+void afk_loadShaders(const AFK_Config *config);
 
 class AFK_ShaderProgram
 {

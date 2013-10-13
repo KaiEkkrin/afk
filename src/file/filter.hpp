@@ -20,6 +20,7 @@
 
 #include <vector>
 
+/* TODO: Can I use the regex in the C++11 standard library instead? */
 #include <boost/regex.hpp>
 
 /* This is a trivial utility that runs through a list of a list of strings
@@ -46,13 +47,17 @@ protected:
         FilterReplace& operator=(const FilterReplace& _r);
 
         std::string replace(const std::string& source) const;
+
+        friend std::ostream& operator<<(std::ostream& os, const AFK_FileFilter::FilterReplace& r);
     };
 
     std::vector<FilterReplace> rep;
 
 public:
-    /* Adds a regular expression and format string to the filter. */
-    void augment(const std::string& _regex, const std::string& _fmt);
+    /* Initializes the filter with a sequence of (regexp, format string).
+     * -- which means you must provide an even number of strings!
+     */
+    AFK_FileFilter(std::initializer_list<std::string> init);
 
     /* Applies this filter to the given list of sources.
      * This function re-allocates the supplied source array to
@@ -60,7 +65,13 @@ public:
      * allocated with `malloc'.
      */
     void filter(int count, char **sources, size_t *sourceLengths) const;
+
+    friend std::ostream& operator<<(std::ostream& os, const AFK_FileFilter::FilterReplace& r);
+    friend std::ostream& operator<<(std::ostream& os, const AFK_FileFilter& f);
 };
+
+std::ostream& operator<<(std::ostream& os, const AFK_FileFilter::FilterReplace& r);
+std::ostream& operator<<(std::ostream& os, const AFK_FileFilter& f);
 
 #endif /* _AFK_FILE_FILTER_H_ */
 

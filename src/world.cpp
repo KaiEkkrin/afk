@@ -865,7 +865,17 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
 
     for (unsigned int puzzle = 0; puzzle < entityDrawQueues.size(); ++puzzle)
     {
-        entityDrawQueues[puzzle]->draw(entity_shaderProgram, edgeJigsaws->getPuzzle(puzzle), edgeShapeBase, sSizes);
+        /* TODO: I want to get all the vapour jigsaws in here.
+         * However, for now, experimentally just using jigsaw 0,
+         * to make sure that _most_ of the normals are coming
+         * out OK.
+         */
+        entityDrawQueues[puzzle]->draw(
+            entity_shaderProgram,
+            vapourJigsaws->getPuzzle(0),
+            edgeJigsaws->getPuzzle(puzzle),
+            edgeShapeBase,
+            sSizes);
     }
 
     glBindVertexArray(0);

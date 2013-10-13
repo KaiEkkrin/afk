@@ -310,7 +310,7 @@ void AFK_Core::initGraphics(void)
 void AFK_Core::loop(void)
 {
     /* Shader setup. */
-    afk_loadShaders(config->shadersDir);
+    afk_loadShaders(config);
 
     computingFrame.increment();
 

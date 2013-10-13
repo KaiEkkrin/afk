@@ -21,9 +21,14 @@
 #include <iostream>
 #include <sstream>
 
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/lexical_cast.hpp>
+
 #include "exception.hpp"
+#include "file/filter.hpp"
 #include "file/readfile.hpp"
 #include "shader.hpp"
+#include "shape_sizes.hpp"
 
 std::vector<struct AFK_ShaderSpec> shaders = {
     {   GL_FRAGMENT_SHADER, 0,  "landscape_fragment",   {   "landscape_fragment.glsl",  }, },
@@ -37,8 +42,12 @@ std::vector<struct AFK_ShaderSpec> shaders = {
 };
 
 
-/* Loads a shader from the given files. */
-static void loadShaderFromFiles(std::vector<struct AFK_ShaderSpec>::iterator& s)
+/* Loads a shader from the given files.
+ * `filters' is a list of pairs (shader name prefix, FileFilter).
+ */
+static void loadShaderFromFiles(
+    std::vector<struct AFK_ShaderSpec>::iterator& s,
+    const std::vector<std::pair<std::string, AFK_FileFilter *> >& filters)
 {
     GLchar **sources;
     size_t *sourceLengths;
@@ -60,6 +69,16 @@ static void loadShaderFromFiles(std::vector<struct AFK_ShaderSpec>::iterator& s)
             throw AFK_Exception("AFK_Shader: " + errStream.str());
     }
 
+    for (auto f : filters)
+    {
+        if (boost::starts_with(s->shaderName, f.first))
+        {
+            const AFK_FileFilter& filter = *(f.second);
+            std::cout << "AFK: Shader " << s->shaderName << ": Applying filter: " << filter << std::endl;
+            filter.filter(sourceCount, sources, sourceLengths);
+        }
+    }
+
     /* Compile the shader */
     GLint *sourceLengthsInt = new GLint[sourceCount];
     for (int i = 0; i < sourceCount; ++i)
@@ -78,23 +97,38 @@ static void loadShaderFromFiles(std::vector<struct AFK_ShaderSpec>::iterator& s)
         throw AFK_Exception("Error compiling shader " + s->shaderName + ": " + infoLog);
     }
 
+    /* TODO I'm currently not cleaning up properly, add a cleanup
+     * function to the readfile module.
+     */
+
     delete[] sources;
     delete[] sourceLengths;
     delete[] sourceLengthsInt;
 }
 
-void afk_loadShaders(const std::string& shadersDir)
+void afk_loadShaders(const AFK_Config *config)
 {
     std::ostringstream errStream;
 
     /* We chdir() into the shaders directory to load this stuff, so save
      * out the previous directory to go back to afterwards. */
     
-    if (!afk_pushDir(shadersDir, errStream))
+    if (!afk_pushDir(config->shadersDir, errStream))
         throw AFK_Exception("AFK_Shader: Unable to switch to shaders dir: " + errStream.str());
 
+    /* For the shape shaders, I want to apply a filter: */
+    AFK_ShapeSizes sSizes(config);
+    AFK_FileFilter shapeFilter = {
+        "\\bPOINT_SUBDIVISION_FACTOR\\b",   boost::lexical_cast<std::string>(sSizes.pointSubdivisionFactor),
+        "\\bVDIM\\b",                       boost::lexical_cast<std::string>(sSizes.vDim),
+    };
+
+    std::vector<std::pair<std::string, AFK_FileFilter *> > filters = {
+        {   "shape_",       &shapeFilter    },
+    };
+
     for (auto shaderIt = shaders.begin(); shaderIt != shaders.end(); ++shaderIt)
-        loadShaderFromFiles(shaderIt);
+        loadShaderFromFiles(shaderIt, filters);
 
     if (!afk_popDir(errStream))
         throw AFK_Exception("AFK_Shader: Unable to leave shaders dir: " + errStream.str());
