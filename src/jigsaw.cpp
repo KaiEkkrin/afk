@@ -665,46 +665,6 @@ void AFK_Jigsaw::putClChangeData(unsigned int tex)
     }
 }
 
-void AFK_Jigsaw::putClChangeDataFake3D(unsigned int tex)
-{
-    assert(texTarget == GL_TEXTURE_3D);
-
-    size_t pieceSliceSizeInBytes = format[tex].texelSize * pieceSize.v[0] * pieceSize.v[1];
-    size_t changeDataOffset = 0;
-    for (unsigned int cI = 0; cI < cuboids[drawCs].size(); ++cI)
-    {
-        size_t cuboidSliceSizeInBytes = pieceSliceSizeInBytes *
-            cuboids[drawCs][cI].rows *
-            cuboids[drawCs][cI].columns.load();
-
-        if (cuboidSliceSizeInBytes == 0) continue;
-
-        /* I need to individually transfer each cuboid slice: */
-        for (int slice = 0; slice < cuboids[drawCs][cI].slices; ++slice)
-        {
-            /* ... and within that, I also need a separate transfer
-             * for each piece slice
-             */
-            for (int pieceSlice = 0; pieceSlice < pieceSize.v[2]; ++pieceSlice)
-            {
-                glTexSubImage3D(
-                    texTarget, 0,
-                    cuboids[drawCs][cI].r * pieceSize.v[0],
-                    cuboids[drawCs][cI].c * pieceSize.v[1],
-                    (cuboids[drawCs][cI].s + slice) * pieceSize.v[2] + pieceSlice,
-                    cuboids[drawCs][cI].rows * pieceSize.v[0],
-                    cuboids[drawCs][cI].columns.load() * pieceSize.v[1],
-                    1,
-                    format[tex].glFormat,
-                    format[tex].glDataType,
-                    &changeData[tex][changeDataOffset]);
-
-                changeDataOffset += cuboidSliceSizeInBytes;
-            }
-        }
-    }
-}
-
 AFK_Jigsaw::AFK_Jigsaw(
     cl_context ctxt,
     const Vec3<int>& _pieceSize,
@@ -1227,10 +1187,7 @@ void AFK_Jigsaw::bindTexture(unsigned int tex)
         changeEvents[tex].clear();
 
         /* Push all the changed pieces into the GL texture. */
-        if (fake3D.getUseFake3D())
-            putClChangeDataFake3D(tex);
-        else
-            putClChangeData(tex);
+        putClChangeData(tex);
     }
 }
 

@@ -343,7 +343,6 @@ protected:
     void getClChangeData(cl_command_queue q, const std::vector<cl_event>& eventWaitList, unsigned int tex);
     void getClChangeDataFake3D(cl_command_queue q, const std::vector<cl_event>& eventWaitList, unsigned int tex);
     void putClChangeData(unsigned int tex);
-    void putClChangeDataFake3D(unsigned int tex);
 
     /* Some internal stats: */
     boost::atomic<uint64_t> piecesGrabbed;
