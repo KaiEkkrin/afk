@@ -29,7 +29,7 @@
 
 #include "computer.hpp"
 #include "def.hpp"
-#include "jigsaw_collection.hpp"
+#include "jigsaw.hpp"
 #include "shape_sizes.hpp"
 
 /* This module marshals 3D object compute data through the
@@ -90,7 +90,7 @@ public:
      */
     void computeStart(
         AFK_Computer *computer,
-        AFK_JigsawCollection *vapourJigsaws,
+        AFK_Jigsaw *vapourJigsaw,
         AFK_Jigsaw *edgeJigsaw,
         const AFK_ShapeSizes& sSizes);
     void computeFinish(void);

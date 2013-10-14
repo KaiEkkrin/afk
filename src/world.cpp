@@ -461,6 +461,7 @@ AFK_World::AFK_World(
         detailPitch                 (config->startingDetailPitch), /* This is a starting point */
         averageDetailPitch          (config->framesPerCalibration, config->startingDetailPitch),
         shape                       (config, shapeCacheSize),
+        entityFair2DIndex           (AFK_MAX_VAPOUR),
         maxDistance                 (_maxDistance),
         subdivisionFactor           (config->subdivisionFactor),
         minCellSize                 (config->minCellSize),
@@ -491,7 +492,8 @@ AFK_World::AFK_World(
         computer->getFirstDeviceProps(),
         config->clGlSharing ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED,
         config->concurrency,
-        false);
+        false,
+        0);
 
     tileCacheEntries = landscapeJigsaws->getPieceCount();
     unsigned int tileCacheBitness = afk_suggestCacheBitness(tileCacheEntries);
@@ -538,7 +540,8 @@ AFK_World::AFK_World(
         computer->getFirstDeviceProps(),
         useClGlSharingForVapour ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED,
         config->concurrency,
-        computer->useFake3DImages(config));
+        computer->useFake3DImages(config),
+        AFK_MAX_VAPOUR);
 
     /* Each edge piece will have 3 faces horizontally by 2 vertically to
      * cram the 6 faces together in a better manner than stringing them
@@ -564,7 +567,8 @@ AFK_World::AFK_World(
         computer->getFirstDeviceProps(),
         config->clGlSharing ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED,
         config->concurrency,
-        false);
+        false,
+        0);
 
     genGang = new AFK_AsyncGang<union AFK_WorldWorkParam, bool>(
         100, config->concurrency);
@@ -794,12 +798,14 @@ void AFK_World::doComputeTasks(void)
     std::vector<boost::shared_ptr<AFK_3DEdgeComputeQueue> > edgeComputeQueues;
     edgeComputeFair.getDrawQueues(edgeComputeQueues);
 
-    for (unsigned int puzzle = 0; puzzle < edgeComputeQueues.size(); ++puzzle)
+    for (unsigned int i = 0; i < edgeComputeQueues.size(); ++i)
     {
-        edgeComputeQueues[puzzle]->computeStart(
+        unsigned int vapourPuzzle, edgePuzzle;
+        entityFair2DIndex.get2D(i, vapourPuzzle, edgePuzzle);
+        edgeComputeQueues[i]->computeStart(
             afk_core.computer,
-            vapourJigsaws,
-            edgeJigsaws->getPuzzle(puzzle),
+            vapourJigsaws->getPuzzle(vapourPuzzle),
+            edgeJigsaws->getPuzzle(edgePuzzle),
             sSizes);
     }
 
@@ -815,9 +821,9 @@ void AFK_World::doComputeTasks(void)
     if (vapourComputeQueues.size() == 1)
         vapourComputeQueues[0]->computeFinish();
 
-    for (unsigned int puzzle = 0; puzzle < edgeComputeQueues.size(); ++puzzle)
+    for (unsigned int i = 0; i < edgeComputeQueues.size(); ++i)
     {
-        edgeComputeQueues[puzzle]->computeFinish();
+        edgeComputeQueues[i]->computeFinish();
     }
 }
 
@@ -863,17 +869,14 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     std::vector<boost::shared_ptr<AFK_EntityDisplayQueue> > entityDrawQueues;
     entityDisplayFair.getDrawQueues(entityDrawQueues);
 
-    for (unsigned int puzzle = 0; puzzle < entityDrawQueues.size(); ++puzzle)
+    for (unsigned int i = 0; i < entityDrawQueues.size(); ++i)
     {
-        /* TODO: I want to get all the vapour jigsaws in here.
-         * However, for now, experimentally just using jigsaw 0,
-         * to make sure that _most_ of the normals are coming
-         * out OK.
-         */
-        entityDrawQueues[puzzle]->draw(
+        unsigned int vapourPuzzle, edgePuzzle;
+        entityFair2DIndex.get2D(i, vapourPuzzle, edgePuzzle);
+        entityDrawQueues[i]->draw(
             entity_shaderProgram,
-            vapourJigsaws->getPuzzle(0),
-            edgeJigsaws->getPuzzle(puzzle),
+            vapourJigsaws->getPuzzle(vapourPuzzle),
+            edgeJigsaws->getPuzzle(edgePuzzle),
             edgeShapeBase,
             sSizes);
     }

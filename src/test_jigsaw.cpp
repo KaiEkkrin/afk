@@ -64,7 +64,8 @@ void afk_testJigsaw(
         computer->getFirstDeviceProps(),
         AFK_JIGSAW_BU_CL_ONLY,
         config->concurrency,
-        false);
+        false,
+        0);
 
     int pieceCount = testCollection.getPieceCount();
     assert(pieceCount >= startingPieceCount);

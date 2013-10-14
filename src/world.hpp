@@ -187,6 +187,12 @@ protected:
     AFK_Fair<AFK_3DVapourComputeQueue> vapourComputeFair;
     AFK_Fair<AFK_3DEdgeComputeQueue> edgeComputeFair;
 
+    /* Edge computation and entity display are across
+     * (vapour x edge).
+     */
+    AFK_Fair2DIndex entityFair2DIndex;
+#define AFK_MAX_VAPOUR 4
+
     /* The basic shape geometry. */
     GLuint edgeShapeBaseArray;
     AFK_3DEdgeShapeBase *edgeShapeBase;

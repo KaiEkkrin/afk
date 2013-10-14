@@ -402,6 +402,13 @@ public:
     Vec2<int> getFake3D_size(void) const;
     int getFake3D_mult(void) const;
 
+    /* TODO: For the next two functions -- I'm now going around re-
+     * acquiring jigsaws for read after having first acquired them
+     * for write, and all sorts.  In which case I don't need to re-blit
+     * all the same data.  Consider optimising so that data is only
+     * copied over to the GL after a write acquire is released?
+     */
+
     /* Acquires the buffers for the CL.
      * Fills out `o_events' with events you need to wait for
      * before the buffer is ready (none or more)

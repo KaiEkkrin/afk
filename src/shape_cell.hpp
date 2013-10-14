@@ -115,7 +115,8 @@ public:
         const AFK_SHAPE_CELL_CACHE *cache,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_JigsawCollection *edgeJigsaws,
-        AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair);   
+        AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
+        const AFK_Fair2DIndex& entityFair2DIndex);
 
     /* Enqueues an edge display unit for this cell's edge.
      * TODO: A pure vapour render too would be fab!
@@ -124,7 +125,8 @@ public:
         const Mat4<float>& worldTransform,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_JigsawCollection *edgeJigsaws,
-        AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const;
+        AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair,
+        const AFK_Fair2DIndex& entityFair2DIndex) const;
 
     /* For handling claiming and eviction. */
     virtual bool canBeEvicted(void) const;

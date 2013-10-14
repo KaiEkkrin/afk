@@ -18,6 +18,7 @@
 #include "exception.hpp"
 #include "jigsaw_collection.hpp"
 
+#include <cassert>
 #include <climits>
 #include <cstring>
 #include <iostream>
@@ -105,20 +106,24 @@ AFK_JigsawCollection::AFK_JigsawCollection(
     cl_context ctxt,
     const Vec3<int>& _pieceSize,
     int _pieceCount,
-    int minJigsawCount,
+    unsigned int minPuzzleCount,
     enum AFK_JigsawDimensions _dimensions,
     const std::vector<AFK_JigsawFormat>& texFormat,
     const AFK_ClDeviceProperties& _clDeviceProps,
     enum AFK_JigsawBufferUsage _bufferUsage,
     unsigned int _concurrency,
-    bool useFake3D):
+    bool useFake3D,
+    unsigned int _maxPuzzles):
         dimensions(_dimensions),
         texCount(texFormat.size()),
         pieceSize(_pieceSize),
         pieceCount(_pieceCount),
         bufferUsage(_bufferUsage),
-        concurrency(_concurrency)
+        concurrency(_concurrency),
+        maxPuzzles(_maxPuzzles)
 {
+    assert(maxPuzzles == 0 || maxPuzzles >= minPuzzleCount);
+
     std::cout << "AFK_JigsawCollection: Requested " << getDimensionalityStr() << " jigsaw with " << std::dec << pieceCount << " pieces of size " << pieceSize << ": " << std::endl;
 
     /* Figure out the texture formats. */
@@ -161,7 +166,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
         /* Try to make pretend textures of the current jigsaw size */
         for (unsigned int tex = 0; tex < texCount && dimensionsOK; ++tex)
         {
-            dimensionsOK &= ((minJigsawCount * testJigsawSize.v[0] * testJigsawSize.v[1] * testJigsawSize.v[2] * pieceSize.v[0] * pieceSize.v[1] * pieceSize.v[2] * format[tex].texelSize) < (_clDeviceProps.maxMemAllocSize / 2));
+            dimensionsOK &= ((minPuzzleCount * testJigsawSize.v[0] * testJigsawSize.v[1] * testJigsawSize.v[2] * pieceSize.v[0] * pieceSize.v[1] * pieceSize.v[2] * format[tex].texelSize) < (_clDeviceProps.maxMemAllocSize / 2));
             if (!dimensionsOK) break;
 
             glBindTexture(proxyTexTarget, glProxyTex[tex]);
@@ -215,8 +220,8 @@ AFK_JigsawCollection::AFK_JigsawCollection(
     glGetError(); /* Throw away any error that might have popped up */
 
     /* Update the dimensions and actual piece count to reflect what I found */
-    int jigsawCount = pieceCount / (jigsawSize.v[0] * jigsawSize.v[1] * jigsawSize.v[2]) + 1;
-    if (jigsawCount < minJigsawCount) jigsawCount = minJigsawCount;
+    unsigned int jigsawCount = pieceCount / (jigsawSize.v[0] * jigsawSize.v[1] * jigsawSize.v[2]) + 1;
+    if (jigsawCount < minPuzzleCount) jigsawCount = minPuzzleCount;
     pieceCount = jigsawCount * jigsawSize.v[0] * jigsawSize.v[1] * jigsawSize.v[2];
 
     std::cout << "AFK_JigsawCollection: Making " << jigsawCount << " jigsaws with " << jigsawSize << " pieces each (actually " << pieceCount << " pieces)" << std::endl;
@@ -236,7 +241,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
          */
     }
 
-    for (int j = 0; j < jigsawCount; ++j)
+    for (unsigned int j = 0; j < jigsawCount; ++j)
     {
         puzzles.push_back(makeNewJigsaw(ctxt));
     }
@@ -369,7 +374,7 @@ void AFK_JigsawCollection::flipCuboids(cl_context ctxt, const AFK_Frame& current
     for (int puzzle = 0; puzzle < (int)puzzles.size(); ++puzzle)
         puzzles[puzzle]->flipCuboids(currentFrame);
 
-    if (!spare)
+    if (!spare && (maxPuzzles == 0 || puzzles.size() < maxPuzzles))
     {
         /* Make a new one to push along. */
         spare = makeNewJigsaw(ctxt);

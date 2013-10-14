@@ -88,11 +88,21 @@ public:
     }
 };
 
-/* Effective for small numbers (because it inflates the queue count rather),
- * these functions combine two queue indexes into one for use in fairs.
+/* This utility lets you turn a notional 2-dimensional index
+ * for the Fair into a compatible 1-dimensional index, and
+ * back again.
  */
-int afk_combineTwoPuzzleFairQueue(int puzzle1, int puzzle2);
-void afk_splitTwoPuzzleFairQueue(int queue, int& o_puzzle1, int& o_puzzle2);
+class AFK_Fair2DIndex
+{
+protected:
+    const unsigned int dim1Max;
+
+public:
+    AFK_Fair2DIndex(unsigned int _dim1Max);
+
+    unsigned int get1D(unsigned int q, unsigned int r) const;
+    void get2D(unsigned int i, unsigned int& o_q, unsigned int& o_r) const;
+};
 
 #endif /* _AFK_DATA_FAIR_H_ */
 

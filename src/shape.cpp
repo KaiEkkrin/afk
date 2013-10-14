@@ -369,7 +369,7 @@ bool AFK_Shape::generateClaimedShapeCell(
             if (shapeCell.hasVapour(vapourJigsaws))
             {
                 shapeCell.enqueueEdgeComputeUnit(
-                    threadId, shapeCellCache, vapourJigsaws, edgeJigsaws, world->edgeComputeFair);
+                    threadId, shapeCellCache, vapourJigsaws, edgeJigsaws, world->edgeComputeFair, world->entityFair2DIndex);
                 world->shapeEdgesComputed.fetch_add(1);
             }
         }
@@ -381,7 +381,8 @@ bool AFK_Shape::generateClaimedShapeCell(
             worldTransform,
             vapourJigsaws,
             edgeJigsaws,
-            world->entityDisplayFair);
+            world->entityDisplayFair,
+            world->entityFair2DIndex);
         success = true;
     }
 

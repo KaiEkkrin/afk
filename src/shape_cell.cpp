@@ -131,12 +131,14 @@ void AFK_ShapeCell::enqueueEdgeComputeUnit(
     const AFK_SHAPE_CELL_CACHE *cache,
     AFK_JigsawCollection *vapourJigsaws,
     AFK_JigsawCollection *edgeJigsaws,
-    AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair)
+    AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
+    const AFK_Fair2DIndex& entityFair2DIndex)
 {
     edgeJigsaws->grab(threadId, 0, &edgeJigsawPiece, &edgeJigsawPieceTimestamp, 1);
 
     boost::shared_ptr<AFK_3DEdgeComputeQueue> edgeComputeQueue =
-        edgeComputeFair.getUpdateQueue(edgeJigsawPiece.puzzle);
+        edgeComputeFair.getUpdateQueue(
+            entityFair2DIndex.get1D(vapourJigsawPiece.puzzle, edgeJigsawPiece.puzzle));
 
 #if SHAPE_COMPUTE_DEBUG
      AFK_DEBUG_PRINTL("Computing edges at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE))
@@ -152,7 +154,8 @@ void AFK_ShapeCell::enqueueEdgeDisplayUnit(
     const Mat4<float>& worldTransform,
     AFK_JigsawCollection *vapourJigsaws,
     AFK_JigsawCollection *edgeJigsaws,
-    AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair) const
+    AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair,
+    const AFK_Fair2DIndex& entityFair2DIndex) const
 {
 #if SHAPE_DISPLAY_DEBUG
     AFK_DEBUG_PRINTL("Displaying edges at cell " << worldTransform * cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE))
@@ -164,7 +167,8 @@ void AFK_ShapeCell::enqueueEdgeDisplayUnit(
      * and go back to an interleaved queue (but I should have
      * a better scheme than the current one!)
      */
-    entityDisplayFair.getUpdateQueue(edgeJigsawPiece.puzzle)->add(
+    unsigned int index = entityFair2DIndex.get1D(vapourJigsawPiece.puzzle, edgeJigsawPiece.puzzle);
+    entityDisplayFair.getUpdateQueue(index)->add(
         AFK_EntityDisplayUnit(
             worldTransform,
             vapourJigsaws->getPuzzle(vapourJigsawPiece)->getTexCoordSTR(vapourJigsawPiece),

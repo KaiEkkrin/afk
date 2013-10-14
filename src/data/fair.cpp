@@ -15,29 +15,24 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
-int afk_combineTwoPuzzleFairQueue(int puzzle1, int puzzle2)
+#include <cassert>
+
+#include "fair.hpp"
+
+AFK_Fair2DIndex::AFK_Fair2DIndex(unsigned int _dim1Max):
+    dim1Max(_dim1Max)
 {
-    int queue = 1;
-    for (int pc1 = 0; pc1 < puzzle1; ++pc1) queue = queue * 2;
-    for (int pc2 = 0; pc2 < puzzle2; ++pc2) queue = queue * 3;
-    return queue;
 }
 
-void afk_splitTwoPuzzleFairQueue(int queue, int& o_puzzle1, int& o_puzzle2)
+unsigned int AFK_Fair2DIndex::get1D(unsigned int q, unsigned int r) const
 {
-    o_puzzle1 = 0;
-    o_puzzle2 = 0;
+    assert(q < dim1Max);
+    return q + dim1Max * r;
+}
 
-    while (queue > 0 && (queue % 2) == 0)
-    {
-        queue = queue / 2;
-        ++o_puzzle1;
-    }
-
-    while (queue > 0 && (queue % 3) == 0)
-    {
-        queue = queue / 3;
-        ++o_puzzle2;
-    }
+void AFK_Fair2DIndex::get2D(unsigned int i, unsigned int& o_q, unsigned int& o_r) const
+{
+    o_q = i % dim1Max;
+    o_r = i / dim1Max;
 }
 

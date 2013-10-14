@@ -45,6 +45,7 @@ protected:
     int pieceCount;
     const enum AFK_JigsawBufferUsage bufferUsage;
     const unsigned int concurrency;
+    const unsigned int maxPuzzles;
 
     std::vector<AFK_Jigsaw*> puzzles;
     AFK_Jigsaw *spare;
@@ -70,13 +71,14 @@ public:
         cl_context ctxt,
         const Vec3<int>& _pieceSize,
         int _pieceCount,
-        int minJigsawCount,
+        unsigned int minPuzzleCount,
         enum AFK_JigsawDimensions _dimensions,
         const std::vector<AFK_JigsawFormat>& texFormat,
         const AFK_ClDeviceProperties& _clDeviceProps,
         enum AFK_JigsawBufferUsage _bufferUsage,
         unsigned int concurrency,
-        bool useFake3D);
+        bool useFake3D,
+        unsigned int _maxPuzzles /* 0 for no maximum */);
     virtual ~AFK_JigsawCollection();
 
     int getPieceCount(void) const;
