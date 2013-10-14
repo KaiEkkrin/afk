@@ -33,8 +33,8 @@ AFK_3DEdgeShapeBase::AFK_3DEdgeShapeBase(const AFK_ShapeSizes& sSizes):
         for (unsigned int z = 0; z < sSizes.eDim; ++z)
         {
             vertices.push_back(afk_vec2<float>(
-                ((float)x + AFK_SAMPLE_WIGGLE) / (float)sSizes.eDim,
-                ((float)z + AFK_SAMPLE_WIGGLE) / (float)sSizes.eDim));
+                (float)x / (float)sSizes.eDim,
+                (float)z / (float)sSizes.eDim));
         }
     }
 

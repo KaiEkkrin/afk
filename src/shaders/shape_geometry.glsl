@@ -69,12 +69,22 @@ out GeometryData
 } outData;
 
 
-// This function re-scales an edge piece co-ordinate (0-1 within
-// the piece) to be a vapour piece co-ordinate (0-1) within a piece
-// that has +1 overlap all the way round, as defined by TDIM).
-float rescaleEToT(float e)
+/* Makes an edge jigsaw co-ordinate for linear sampling. */
+vec2 makeEdgeJigsawCoordLinear(
+    vec2 pieceCoord,
+    vec2 texCoord)
 {
-    return (e * EDIM + 1.0) / TDIM;
+    return pieceCoord + EdgeJigsawPiecePitch * texCoord;
+}
+
+/* Makes an edge jigsaw co-ordinate for nearest-neighbour sampling
+ * (adding the correct wiggle)
+ */
+vec2 makeEdgeJigsawCoordNearest(
+    vec2 pieceCoord,
+    vec2 texCoord)
+{
+    return pieceCoord + EdgeJigsawPiecePitch * (texCoord + 0.5f / EDIM);
 }
 
 void emitShapeVertex(
@@ -85,61 +95,83 @@ void emitShapeVertex(
     vec2 texCoordDisp,
     int i)
 {
-    vec2 edgeJigsawCoord = edgeJigsawPieceCoord + EdgeJigsawPiecePitch * (inData[i].texCoord + texCoordDisp);
-    float edgeStepsBack = textureLod(JigsawOverlapTex, edgeJigsawCoord, 0).y;
+    vec2 edgeJigsawCoord = makeEdgeJigsawCoordLinear(edgeJigsawPieceCoord, inData[i].texCoord + texCoordDisp);
+    /* This version with the `sample wiggle' necessary to correctly
+     * do nearest-neighbour sampling.
+     */
+    vec2 edgeJigsawCoordNN = makeEdgeJigsawCoordNearest(edgeJigsawPieceCoord, inData[i].texCoord + texCoordDisp);
+    float edgeStepsBack = textureLod(JigsawOverlapTex, edgeJigsawCoordNN, 0).y;
 
-    vec3 vapourTexCoord;
+    /* Construct the cube co-ordinate for this vertex.  It will be
+     * in the range 0..1.
+     */
+    vec3 cubeCoord;
     switch (gl_InvocationID)
     {
     case 0:
-        vapourTexCoord = vec3(
-            rescaleEToT(inData[i].texCoord.x),
-            (edgeStepsBack + 1.0) / TDIM,
-            rescaleEToT(inData[i].texCoord.y));
+        cubeCoord = vec3(
+            inData[i].texCoord.x,
+            edgeStepsBack / EDIM,
+            inData[i].texCoord.y);
         break;
 
     case 1:
-        vapourTexCoord = vec3(
-            (edgeStepsBack + 1.0) / TDIM,
-            rescaleEToT(inData[i].texCoord.x),
-            rescaleEToT(inData[i].texCoord.y));
+        cubeCoord = vec3(
+            edgeStepsBack / EDIM,
+            inData[i].texCoord.x,
+            inData[i].texCoord.y);
         break;
 
     case 2:
-        vapourTexCoord = vec3(
-            rescaleEToT(inData[i].texCoord.x),
-            rescaleEToT(inData[i].texCoord.y),
-            (edgeStepsBack + 1.0) / TDIM);
+        cubeCoord = vec3(
+            inData[i].texCoord.x,
+            inData[i].texCoord.y,
+            edgeStepsBack / EDIM);
         break;
 
     case 3:
-        vapourTexCoord = vec3(
-            rescaleEToT(inData[i].texCoord.x),
-            rescaleEToT(inData[i].texCoord.y),
-            ((VDIM - edgeStepsBack) + 1.0) / TDIM);
+        cubeCoord = vec3(
+            inData[i].texCoord.x,
+            inData[i].texCoord.y,
+            (VDIM - edgeStepsBack) / EDIM);
         break;
 
     case 4:
-        vapourTexCoord = vec3(
-            ((VDIM - edgeStepsBack) + 1.0) / TDIM,
-            rescaleEToT(inData[i].texCoord.x),
-            rescaleEToT(inData[i].texCoord.y));
+        cubeCoord = vec3(
+            (VDIM - edgeStepsBack) / EDIM,
+            inData[i].texCoord.x,
+            inData[i].texCoord.y);
         break;
 
     default:
-        vapourTexCoord = vec3(
-            rescaleEToT(inData[i].texCoord.x),
-            ((VDIM - edgeStepsBack) + 1.0) / TDIM,
-            rescaleEToT(inData[i].texCoord.y));
+        cubeCoord = vec3(
+            inData[i].texCoord.x,
+            (VDIM - edgeStepsBack) / EDIM,
+            inData[i].texCoord.y);
         break;
     }
 
-    vec3 vapourJigsawCoord = vapourJigsawPieceCoord + VapourJigsawPiecePitch * vapourTexCoord;
+    /* TODO Right now, I'm writing the same displacement position
+     * for every vertex in the same piece in the disp tex -- that's
+     * thoroughly suboptimal.  I should change the displacement
+     * texture to have just a single texel per piece: but in order
+     * to do that I need to support differing piece sizes in the
+     * jigsaw (not there yet).
+     */
+    vec4 dispPositionBase = textureLod(JigsawDispTex, edgeJigsawCoordNN, 0);
 
-    vec4 dispPosition = textureLod(JigsawDispTex, edgeJigsawCoord, 0);
-    gl_Position = ClipTransform * dispPosition;
+    /* Subtle: note magic use of `w' part of homogeneous
+     * dispPositionBase co-ordinates to allow me to add a 0-1 value for
+     * displacement within the cube */
+    gl_Position = ClipTransform * (dispPositionBase +
+        vec4(cubeCoord * EDIM / VDIM, 0.0));
 
-    //vec4 normal = textureLod(JigsawNormalTex, edgeJigsawCoord, 0);
+    /* It maps to the range 1..(TDIM-1) on the vapour,
+     * due to the overlaps in the vapour image:
+     */
+    vec3 vapourJigsawCoord = vapourJigsawPieceCoord + VapourJigsawPiecePitch *
+        ((cubeCoord * EDIM + 1.0) / TDIM);
+
     vec4 normal = textureLod(JigsawNormalTex, vapourJigsawCoord, 0);
     outData.normal = (WorldTransform * normal).xyz;
     outData.jigsawCoord = edgeJigsawCoord; /* TODO that'll want changing! */
@@ -227,7 +259,7 @@ void main()
     }
 
     uint overlap = textureLod(JigsawOverlapTex,
-        edgeJigsawPieceCoord + EdgeJigsawPiecePitch * (inData[0].texCoord + texCoordDisp),
+        makeEdgeJigsawCoordNearest(edgeJigsawPieceCoord, inData[0].texCoord + texCoordDisp),
         0).x;
 
     /* Check whether this triangle pair is overlapped to another

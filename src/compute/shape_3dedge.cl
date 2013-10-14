@@ -248,9 +248,19 @@ float3 makeEdgeVertexBase(int face, int xdim, int zdim, int stepsBack)
  */
 float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 location)
 {
+    /* TODO: Writing the home vertex (0, 0, 0 point) here, and transforming
+     * in the geometry shader.  Change this to only have a single texel
+     * per piece in the jigsaw to save space ...
+     */
+#if 0
     return (float4)(
         makeEdgeVertexBase(face, xdim, zdim, stepsBack) + location.xyz / location.w,
         1.0f / location.w);
+#else
+    return (float4)(
+        location.xyz / location.w,
+        1.0f / location.w);
+#endif
 }
 
 /* This function tries to calculate a normal around a vapour
