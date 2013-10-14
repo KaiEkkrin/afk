@@ -88,7 +88,7 @@ protected:
     GLuint vapourJigsawPiecePitchLocation;
     GLuint edgeJigsawPiecePitchLocation;
     GLuint jigsawDispTexSamplerLocation;
-    GLuint jigsawColourTexSamplerLocation;
+    GLuint jigsawDensityTexSamplerLocation;
     GLuint jigsawNormalTexSamplerLocation;
     GLuint jigsawOverlapTexSamplerLocation;
     GLuint displayTBOSamplerLocation;

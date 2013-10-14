@@ -19,8 +19,11 @@
 
 #version 400
 
-// This is the jigsaw colour texture.
-uniform sampler2D JigsawColourTex;
+// This is the density texture.  I'll use the first 3 components
+// only, which represent the colour.
+// TODO: change the vapour to have separate colour (3-uint8) and
+// density (1-float) textures?
+uniform sampler3D JigsawDensityTex;
 
 // The sky colour, which I fade out to at long distance.
 uniform vec3 SkyColour;
@@ -32,7 +35,7 @@ uniform float FarClipDistance;
 in GeometryData
 {
     vec3 normal;
-    vec2 jigsawCoord;
+    vec3 jigsawCoord;
 } inData;
 
 struct Light
@@ -47,7 +50,7 @@ uniform Light gLight;
 
 void main()
 {
-    vec3 colour = textureLod(JigsawColourTex, inData.jigsawCoord, 0).xyz;
+    vec3 colour = textureLod(JigsawDensityTex, inData.jigsawCoord, 0).xyz;
     vec3 normal = normalize(inData.normal);
 
     vec3 AmbientColour = gLight.Colour * gLight.Ambient;

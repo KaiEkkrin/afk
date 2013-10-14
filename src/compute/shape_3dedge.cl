@@ -263,88 +263,6 @@ float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 locati
 #endif
 }
 
-/* This function tries to calculate a normal around a vapour
- * point and points displaced from it by the given vector.
- * It's going to be going around re-reading things that have
- * already been read but GPUs have caches, right, and this
- * kernel isn't on the critical path anyway...
- */
-float4 make4PointNormal(
-    __read_only AFK_IMAGE3D vapour,
-    const int2 fake3D_size,
-    const int fake3D_mult,
-    __global const struct AFK_3DEdgeComputeUnit *units,
-    int unitOffset,
-    int4 thisVapourPointCoord,
-    int4 displacement) /* (x, y, z) should each be 1 or -1 */
-{
-    /* Ah, the normal.  Consider two orthogonal axes (x, y):
-     * If the difference (left - this) is zero, the normal at `this' is
-     * perpendicular to x.
-     * As that difference tends to infinity, the normal tends towards parallel
-     * to x.
-     * The reverse occurs w.r.t. the y axis.
-     * If (left - this) == (last - this), the angle between the normal
-     * and both x and y axes is 45 degrees.
-     * What function describes this effect?
-     * Note: tan(x) is the ratio between the 2 shorter sides of the
-     * triangle, where x is the angle at the apex.
-     * However, I don't really need the angle do I?  Don't I need to normalize
-     * the (x, y) vector,
-     * (last - this, left - this) ?
-     *
-     * What's the 3D equivalent, for (this, left, front, last) ?
-     * (sqrt((front - this)**2 + (last - this)**2),
-     *  sqrt((left - this)**2 + (last - this)**2),
-     *  sqrt((left - this)**2 + (front - this)**2)) perhaps ?
-     * Worth a try.  (Hmm; those square roots are also distances.  Perhaps I
-     * could try to short circuit a plot of this by finding the 3D point,
-     * (left, front, last) and taking distance((left, front, last) - (this, this, this)) ?
-     * Then normalize and sum the vectors for each of,
-     * - (this, left, front, last)
-     * - (this, front, right, last)
-     * - (this, right, back, last)
-     * - (this, back, left, last)
-     * Where the `left' and `front' square roots should be subtracted...  I think
-     * and rotate it into world space...  (do that after the basic thing looks plausible...)
-     */
-
-    int4 xVapourPointCoord = thisVapourPointCoord + (int4)(displacement.x, 0, 0, 0);
-    int4 yVapourPointCoord = thisVapourPointCoord - (int4)(0, displacement.y, 0, 0);
-    int4 zVapourPointCoord = thisVapourPointCoord - (int4)(0, 0, displacement.z, 0);
-
-    float4 thisVapourPoint = readVapourPoint(vapour, fake3D_size, fake3D_mult, units, unitOffset, thisVapourPointCoord);
-    float4 xVapourPoint = readVapourPoint(vapour, fake3D_size, fake3D_mult, units, unitOffset, xVapourPointCoord);
-    float4 yVapourPoint = readVapourPoint(vapour, fake3D_size, fake3D_mult, units, unitOffset, yVapourPointCoord);
-    float4 zVapourPoint = readVapourPoint(vapour, fake3D_size, fake3D_mult, units, unitOffset, zVapourPointCoord);
-
-    float3 combinedVectors = (float3)(
-        (xVapourPoint.w - thisVapourPoint.w) * displacement.x,
-        (yVapourPoint.w - thisVapourPoint.w) * displacement.y,
-        (zVapourPoint.w - thisVapourPoint.w) * displacement.z);
-
-    return (float4)(normalize(combinedVectors), 0.0f);
-}
-
-/* A raw normal will be correct only for the top face --
- * this fixes it for the others.
- */
-float4 rotateNormal(float4 rawNormal, int face)
-{
-    float4 rotNormal = rawNormal;
-
-    switch (face)
-    {
-    case AFK_SHF_BOTTOM : rotNormal = (float4)(rawNormal.x, -rawNormal.y, rawNormal.z, rawNormal.w); break;
-    case AFK_SHF_LEFT   : rotNormal = (float4)(-rawNormal.y, rawNormal.x, rawNormal.z, rawNormal.w); break;
-    case AFK_SHF_FRONT  : rotNormal = (float4)(rawNormal.x, rawNormal.z, -rawNormal.y, rawNormal.w); break;
-    case AFK_SHF_BACK   : rotNormal = (float4)(rawNormal.x, -rawNormal.z, rawNormal.y, rawNormal.w); break;
-    case AFK_SHF_RIGHT  : rotNormal = (float4)(rawNormal.y, -rawNormal.x, rawNormal.z, rawNormal.w); break;
-    }
-
-    return rotNormal;
-}
-
 
 /* Follows stuff for resolving the faces and culling triangle overlaps. */
 
@@ -688,24 +606,6 @@ bool noOverlap(
     return true;
 }
 
-#define FAKE_COLOURS 0
-
-#if FAKE_COLOURS
-/* This debug function supplies a useful false colour. */
-float4 getFakeColour(int face)
-{
-    switch (face)
-    {
-    case 0:     return (float4)(1.0f, 0.0f, 0.0f, 0.0f);
-    case 1:     return (float4)(0.0f, 1.0f, 0.0f, 0.0f);
-    case 2:     return (float4)(0.0f, 0.0f, 1.0f, 0.0f);
-    case 3:     return (float4)(0.0f, 1.0f, 1.0f, 0.0f);
-    case 4:     return (float4)(1.0f, 0.0f, 1.0f, 0.0f);
-    default:    return (float4)(1.0f, 1.0f, 0.0f, 0.0f);
-    }
-}
-#endif
-
 
 /* This parameter list should be sufficient that I will always be able to
  * address all vapour jigsaws in the same place.  I hope!
@@ -732,8 +632,6 @@ __kernel void makeShape3DEdge(
     const int2 fake3D_size,
     const int fake3D_mult,
     __write_only image2d_t jigsawDisp,
-    __write_only image2d_t jigsawColour,
-    __write_only image2d_t jigsawNormal,
     __write_only image2d_t jigsawOverlap)
 {
     const int unitOffset = get_global_id(0);
@@ -768,43 +666,17 @@ __kernel void makeShape3DEdge(
                 float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
 
                 write_imagef(jigsawDisp, edgeCoord, edgeVertex);
-#if FAKE_COLOURS
-                write_imagef(jigsawColour, edgeCoord, getFakeColour(face));
-#else
-                write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
-#endif
-                write_imagef(jigsawNormal, edgeCoord, rotateNormal((float4)(0.0f, 1.0f, 0.0f, 0.0f), face));
-
                 edgeStepsBack[xdim][zdim][face] = stepsBack;
             }
 #else
             if (edgeStepsBack[xdim][zdim][face] == NO_EDGE &&
                 lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f)
             {
-                 /* This is an edge, write its coord. */
-                 int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
-                 float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
+                /* This is an edge, write its coord. */
+                int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
+                float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
 
-                 write_imagef(jigsawDisp, edgeCoord, edgeVertex);
-#if FAKE_COLOURS
-                 write_imagef(jigsawColour, edgeCoord, getFakeColour(face));
-#else
-                 write_imagef(jigsawColour, edgeCoord, thisVapourPoint);
-#endif
-
-                float4 normal = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
-                for (int xN = -1; xN <= 1; xN += 2)
-                {
-                    for (int yN = -1; yN <= 1; yN += 2)
-                    {
-                        for (int zN = -1; zN <= 1; zN += 2)
-                        {
-                            normal += make4PointNormal(vapour, fake3D_size, fake3D_mult, units, unitOffset, thisVapourPointCoord, (int4)(xN, yN, zN, 0));
-                        }
-                    }
-                }
-
-                write_imagef(jigsawNormal, edgeCoord, (float4)(normalize(normal.xyz), 0.0f));
+                write_imagef(jigsawDisp, edgeCoord, edgeVertex);
                 edgeStepsBack[xdim][zdim][face] = stepsBack;
             }
 #endif /* FAKE_TEST_VAPOUR */

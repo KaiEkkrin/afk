@@ -65,7 +65,7 @@ in VertexData
 out GeometryData
 {
     vec3 normal;
-    vec2 jigsawCoord;
+    vec3 jigsawCoord;
 } outData;
 
 
@@ -174,7 +174,7 @@ void emitShapeVertex(
 
     vec4 normal = textureLod(JigsawNormalTex, vapourJigsawCoord, 0);
     outData.normal = (WorldTransform * normal).xyz;
-    outData.jigsawCoord = edgeJigsawCoord; /* TODO that'll want changing! */
+    outData.jigsawCoord = vapourJigsawCoord;
     EmitVertex();
 }
 

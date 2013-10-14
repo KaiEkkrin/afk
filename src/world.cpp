@@ -555,13 +555,8 @@ AFK_World::AFK_World(
         (int)shapeCacheEntries,
         1,
         AFK_JIGSAW_2D,
-        {                               /* TODO: When I've got glsl reading out of the vapour
-                                         * correctly, prune this list!
-                                         */
+        {
             AFK_JIGSAW_4FLOAT32,        /* Displacement */
-            AFK_JIGSAW_4FLOAT8_UNORM,   /* Colour */
-            config->clGlSharing ? AFK_JIGSAW_4FLOAT32 : AFK_JIGSAW_4FLOAT8_SNORM,
-                                        /* Normal */
             AFK_JIGSAW_2UINT32          /* Overlap */
         },
         computer->getFirstDeviceProps(),

@@ -123,8 +123,6 @@ void AFK_3DEdgeComputeQueue::computeStart(
 
     AFK_CLCHK(clSetKernelArg(edgeKernel, 4, sizeof(cl_mem), &edgeJigsawMem[0]))
     AFK_CLCHK(clSetKernelArg(edgeKernel, 5, sizeof(cl_mem), &edgeJigsawMem[1]))
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 6, sizeof(cl_mem), &edgeJigsawMem[2]))
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 7, sizeof(cl_mem), &edgeJigsawMem[3]))
 
     size_t edgeGlobalDim[3];
     edgeGlobalDim[0] = unitCount;

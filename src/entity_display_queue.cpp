@@ -34,7 +34,7 @@ AFK_EntityDisplayQueue::AFK_EntityDisplayQueue():
     vapourJigsawPiecePitchLocation(0),
     edgeJigsawPiecePitchLocation(0),
     jigsawDispTexSamplerLocation(0),
-    jigsawColourTexSamplerLocation(0),
+    jigsawDensityTexSamplerLocation(0),
     jigsawNormalTexSamplerLocation(0),
     jigsawOverlapTexSamplerLocation(0),
     displayTBOSamplerLocation(0)
@@ -69,7 +69,7 @@ void AFK_EntityDisplayQueue::draw(
         vapourJigsawPiecePitchLocation = glGetUniformLocation(shaderProgram->program, "VapourJigsawPiecePitch");
         edgeJigsawPiecePitchLocation = glGetUniformLocation(shaderProgram->program, "EdgeJigsawPiecePitch");
         jigsawDispTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawDispTex");
-        jigsawColourTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawColourTex");
+        jigsawDensityTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawDensityTex");
         jigsawNormalTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawNormalTex");
         jigsawOverlapTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawOverlapTex");
         displayTBOSamplerLocation = glGetUniformLocation(shaderProgram->program, "DisplayTBO");
@@ -98,30 +98,19 @@ void AFK_EntityDisplayQueue::draw(
     glUniform1i(jigsawDispTexSamplerLocation, 0);
 
     glActiveTexture(GL_TEXTURE1);
-    edgeJigsaw->bindTexture(1);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glUniform1i(jigsawColourTexSamplerLocation, 1);
+    vapourJigsaw->bindTexture(0);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glUniform1i(jigsawDensityTexSamplerLocation, 1);
 
-    /* TODO: Experimentally using the vapour normal texture.
-     * If this works okay, I can port other stuff too.
-     */
-#if 0
-    glActiveTexture(GL_TEXTURE2);
-    edgeJigsaw->bindTexture(2);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glUniform1i(jigsawNormalTexSamplerLocation, 2);
-#else
     glActiveTexture(GL_TEXTURE2);
     vapourJigsaw->bindTexture(1);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glUniform1i(jigsawNormalTexSamplerLocation, 2);
-#endif
 
     glActiveTexture(GL_TEXTURE3);
-    edgeJigsaw->bindTexture(3);
+    edgeJigsaw->bindTexture(1);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glUniform1i(jigsawOverlapTexSamplerLocation, 3);
