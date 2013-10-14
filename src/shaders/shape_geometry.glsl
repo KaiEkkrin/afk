@@ -69,6 +69,14 @@ out GeometryData
 } outData;
 
 
+// This function re-scales an edge piece co-ordinate (0-1 within
+// the piece) to be a vapour piece co-ordinate (0-1) within a piece
+// that has +1 overlap all the way round, as defined by TDIM).
+float rescaleEToT(float e)
+{
+    return (e * EDIM + 1.0) / TDIM;
+}
+
 void emitShapeVertex(
     mat4 ClipTransform,
     mat4 WorldTransform,
@@ -85,44 +93,44 @@ void emitShapeVertex(
     {
     case 0:
         vapourTexCoord = vec3(
-            inData[i].texCoord.x + 1.0 / POINT_SUBDIVISION_FACTOR,
-            (edgeStepsBack + 1.0) / POINT_SUBDIVISION_FACTOR,
-            inData[i].texCoord.y + 1.0 / POINT_SUBDIVISION_FACTOR);
+            rescaleEToT(inData[i].texCoord.x),
+            (edgeStepsBack + 1.0) / TDIM,
+            rescaleEToT(inData[i].texCoord.y));
         break;
 
     case 1:
         vapourTexCoord = vec3(
-            (edgeStepsBack + 1.0) / POINT_SUBDIVISION_FACTOR,
-            inData[i].texCoord.x + 1.0 / POINT_SUBDIVISION_FACTOR,
-            inData[i].texCoord.y + 1.0 / POINT_SUBDIVISION_FACTOR);
+            (edgeStepsBack + 1.0) / TDIM,
+            rescaleEToT(inData[i].texCoord.x),
+            rescaleEToT(inData[i].texCoord.y));
         break;
 
     case 2:
         vapourTexCoord = vec3(
-            inData[i].texCoord.x + 1.0 / POINT_SUBDIVISION_FACTOR,
-            inData[i].texCoord.y + 1.0 / POINT_SUBDIVISION_FACTOR,
-            (edgeStepsBack + 1.0) / POINT_SUBDIVISION_FACTOR);
+            rescaleEToT(inData[i].texCoord.x),
+            rescaleEToT(inData[i].texCoord.y),
+            (edgeStepsBack + 1.0) / TDIM);
         break;
 
     case 3:
         vapourTexCoord = vec3(
-            inData[i].texCoord.x + 1.0 / POINT_SUBDIVISION_FACTOR,
-            inData[i].texCoord.y + 1.0 / POINT_SUBDIVISION_FACTOR,
-            ((VDIM - edgeStepsBack) + 1.0) / POINT_SUBDIVISION_FACTOR);
+            rescaleEToT(inData[i].texCoord.x),
+            rescaleEToT(inData[i].texCoord.y),
+            ((VDIM - edgeStepsBack) + 1.0) / TDIM);
         break;
 
     case 4:
         vapourTexCoord = vec3(
-            ((VDIM - edgeStepsBack) + 1.0) / POINT_SUBDIVISION_FACTOR,
-            inData[i].texCoord.x + 1.0 / POINT_SUBDIVISION_FACTOR,
-            inData[i].texCoord.y + 1.0 / POINT_SUBDIVISION_FACTOR);
+            ((VDIM - edgeStepsBack) + 1.0) / TDIM,
+            rescaleEToT(inData[i].texCoord.x),
+            rescaleEToT(inData[i].texCoord.y));
         break;
 
     default:
         vapourTexCoord = vec3(
-            inData[i].texCoord.x + 1.0 / POINT_SUBDIVISION_FACTOR,
-            ((VDIM - edgeStepsBack) + 1.0) / POINT_SUBDIVISION_FACTOR,
-            inData[i].texCoord.y + 1.0 / POINT_SUBDIVISION_FACTOR);
+            rescaleEToT(inData[i].texCoord.x),
+            ((VDIM - edgeStepsBack) + 1.0) / TDIM,
+            rescaleEToT(inData[i].texCoord.y));
         break;
     }
 

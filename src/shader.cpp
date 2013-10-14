@@ -119,8 +119,9 @@ void afk_loadShaders(const AFK_Config *config)
     /* For the shape shaders, I want to apply a filter: */
     AFK_ShapeSizes sSizes(config);
     AFK_FileFilter shapeFilter = {
-        "\\bPOINT_SUBDIVISION_FACTOR\\b",   boost::lexical_cast<std::string>(sSizes.pointSubdivisionFactor),
         "\\bVDIM\\b",                       boost::lexical_cast<std::string>(sSizes.vDim),
+        "\\bEDIM\\b",                       boost::lexical_cast<std::string>(sSizes.eDim),
+        "\\bTDIM\\b",                       boost::lexical_cast<std::string>(sSizes.tDim),
     };
 
     std::vector<std::pair<std::string, AFK_FileFilter *> > filters = {
