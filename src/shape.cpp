@@ -316,7 +316,53 @@ bool AFK_Shape::generateClaimedShapeCell(
 
     bool success = false;
 
-    /* Try to get this shape cell set up and enqueued. */
+    /* Check whether we have rendered vapour here.  If we don't,
+     * we need to make that first.
+     */
+    if (!shapeCell.hasVapour(vapourJigsaws))
+    {
+        /* I need to generate stuff for this cell -- which means I need
+         * to upgrade my claim.
+         */
+        if (shapeCellClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+            shapeCellClaimStatus = shapeCell.upgrade(threadId, shapeCellClaimStatus);
+
+        if (shapeCellClaimStatus == AFK_CL_CLAIMED)
+        {
+            /* Have we already enqueued a different part of this vapour
+             * cell for compute?
+             */
+            unsigned int cubeOffset, cubeCount;
+            if (vapourCell.alreadyEnqueued(cubeOffset, cubeCount))
+            {
+                int adjacency = vapourCell.skeletonFullAdjacency(shapeCell.getCell(), world->sSizes);
+                shapeCell.enqueueVapourComputeUnitFromExistingVapour(
+                    threadId, adjacency, cubeOffset, cubeCount, world->sSizes, vapourJigsaws, world->vapourComputeFair);
+                world->shapeVapoursComputed.fetch_add(1);
+            }
+            else
+            {
+                /* I need to upgrade my vapour cell claim first */
+                if (vapourCellClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
+                    vapourCellClaimStatus = vapourCell.upgrade(threadId, vapourCellClaimStatus);
+
+                if (vapourCellClaimStatus == AFK_CL_CLAIMED)
+                {
+                    AFK_3DList list;
+                    vapourCell.build3DList(threadId, list, world->sSizes, vapourCellCache);
+
+                    int adjacency = vapourCell.skeletonFullAdjacency(shapeCell.getCell(), world->sSizes);
+                    shapeCell.enqueueVapourComputeUnitWithNewVapour(
+                        threadId, adjacency, list, world->sSizes, vapourJigsaws, world->vapourComputeFair, cubeOffset, cubeCount);
+                    vapourCell.enqueued(cubeOffset, cubeCount);
+                    world->shapeVapoursComputed.fetch_add(1);
+                }
+            }
+        }
+    }
+
+    /* Try to get this shape cell set up and enqueued.
+     */
     if (!shapeCell.hasEdges(edgeJigsaws))
     {
         /* I need to generate stuff for this cell -- which means I need
@@ -330,42 +376,6 @@ bool AFK_Shape::generateClaimedShapeCell(
             /* The vapour descriptor must be there already. */
             assert(vapourCell.hasDescriptor());
 
-            /* Check whether we have rendered vapour here.  If we don't,
-             * we need to make that first.
-             */
-            if (!shapeCell.hasVapour(vapourJigsaws))
-            {
-                /* Have we already enqueued a different part of this vapour
-                 * cell for compute?
-                 */
-                unsigned int cubeOffset, cubeCount;
-                if (vapourCell.alreadyEnqueued(cubeOffset, cubeCount))
-                {
-                    int adjacency = vapourCell.skeletonFullAdjacency(shapeCell.getCell(), world->sSizes);
-                    shapeCell.enqueueVapourComputeUnitFromExistingVapour(
-                        threadId, adjacency, cubeOffset, cubeCount, world->sSizes, vapourJigsaws, world->vapourComputeFair);
-                    world->shapeVapoursComputed.fetch_add(1);
-                }
-                else
-                {
-                    /* I need to upgrade my vapour cell claim first */
-                    if (vapourCellClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
-                        vapourCellClaimStatus = vapourCell.upgrade(threadId, vapourCellClaimStatus);
-
-                    if (vapourCellClaimStatus == AFK_CL_CLAIMED)
-                    {
-                        AFK_3DList list;
-                        vapourCell.build3DList(threadId, list, world->sSizes, vapourCellCache);
-
-                        int adjacency = vapourCell.skeletonFullAdjacency(shapeCell.getCell(), world->sSizes);
-                        shapeCell.enqueueVapourComputeUnitWithNewVapour(
-                            threadId, adjacency, list, world->sSizes, vapourJigsaws, world->vapourComputeFair, cubeOffset, cubeCount);
-                        vapourCell.enqueued(cubeOffset, cubeCount);
-                        world->shapeVapoursComputed.fetch_add(1);
-                    }
-                }
-            }
-
             if (shapeCell.hasVapour(vapourJigsaws))
             {
                 shapeCell.enqueueEdgeComputeUnit(
@@ -375,7 +385,8 @@ bool AFK_Shape::generateClaimedShapeCell(
         }
     }
 
-    if (shapeCell.hasEdges(edgeJigsaws))
+    if (shapeCell.hasVapour(vapourJigsaws) &&
+        shapeCell.hasEdges(edgeJigsaws))
     {
         shapeCell.enqueueEdgeDisplayUnit(
             worldTransform,
