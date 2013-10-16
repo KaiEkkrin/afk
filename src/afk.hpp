@@ -43,6 +43,11 @@
  */
 #define AFK_SAMPLE_WIGGLE 0.5f
 
+/* This is a debug setting that makes AFK print information about
+ * each shape that it's rendering, so that I can track problems in
+ * the shape enumeration...
+ */
+#define AFK_SHAPE_ENUM_DEBUG 1
 
 #endif /* _AFK_AFK_H_ */
 

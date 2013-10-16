@@ -165,6 +165,10 @@ bool afk_generateShapeCells(
         *camera, someVisible, allVisible);
     if (!someVisible)
     {
+#if AFK_SHAPE_ENUM_DEBUG
+        AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " invisible")
+#endif
+
         DEBUG_VISIBLE_CELL("invisible")
         world->shapeCellsInvisible.fetch_add(1);
     }
@@ -226,6 +230,9 @@ bool afk_generateShapeCells(
                     else
                     {
                         DEBUG_VISIBLE_CELL("generated")
+#if AFK_SHAPE_ENUM_DEBUG
+                        AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " generated")
+#endif
                     }
                 }
                 else
@@ -241,14 +248,15 @@ bool afk_generateShapeCells(
                     {
                         AFK_WorldWorkQueue::WorkItem subcellItem;
                         subcellItem.func                            = afk_generateShapeCells;
+                        subcellItem.param                           = param;
                         subcellItem.param.shape.cell                = afk_keyedCell(subcells[i], cell.key);
-                        subcellItem.param.shape.entity              = entity;
-                        subcellItem.param.shape.world               = world;
-                        subcellItem.param.shape.viewerLocation      = viewerLocation;
-                        subcellItem.param.shape.camera              = camera;
                         subcellItem.param.shape.flags               = (allVisible ? AFK_SCG_FLAG_ENTIRELY_VISIBLE : 0);
                         subcellItem.param.shape.dependency          = nullptr;
                         queue.push(subcellItem);
+
+#if AFK_SHAPE_ENUM_DEBUG
+                        AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " recursed")
+#endif
                     }
             
                     delete[] subcells;
@@ -257,6 +265,9 @@ bool afk_generateShapeCells(
             else
             {
                 DEBUG_VISIBLE_CELL("outside skeleton")
+#if AFK_SHAPE_ENUM_DEBUG
+                AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " outside skeleton")
+#endif
             }
         }
         else

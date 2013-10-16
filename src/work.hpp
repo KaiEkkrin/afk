@@ -117,6 +117,12 @@ union AFK_WorldWorkParam
         Vec3<float> viewerLocation;
         const AFK_Camera *camera;
         unsigned int flags;
+
+#if AFK_SHAPE_ENUM_DEBUG
+        AFK_Cell asedWorldCell;
+        unsigned int asedCounter;
+#endif
+
         Dependency *dependency;
     } shape;
 };

@@ -28,7 +28,7 @@
 #include "world.hpp"
 
 
-#define PRINT_CHECKPOINTS 1
+#define PRINT_CHECKPOINTS 0
 #define PRINT_CACHE_STATS 0
 #define PRINT_JIGSAW_STATS 0
 
@@ -368,11 +368,12 @@ bool AFK_World::generateClaimedWorldCell(
         }
 
         auto eIt = worldCell.entitiesBegin();
+#if AFK_SHAPE_ENUM_DEBUG
+        unsigned int eCounter = 0;
+#endif
         while (eIt != worldCell.entitiesEnd())
         {
             AFK_Entity *e = *eIt;
-            auto nextEIt = eIt;
-            bool updatedEIt = false;
             if (e->claimYieldLoop(threadId, AFK_CLT_EXCLUSIVE, afk_core.computingFrame) == AFK_CL_CLAIMED)
             {
                 /* Make sure everything I need in that shape
@@ -387,6 +388,13 @@ bool AFK_World::generateClaimedWorldCell(
                 shapeCellItem.param.shape.viewerLocation    = viewerLocation;
                 shapeCellItem.param.shape.camera            = camera;
                 shapeCellItem.param.shape.flags             = 0;
+
+#if AFK_SHAPE_ENUM_DEBUG
+                shapeCellItem.param.shape.asedWorldCell     = worldCell.getCell();
+                shapeCellItem.param.shape.asedCounter       = eCounter;
+                AFK_DEBUG_PRINTL("ASED: Enqueued entity: worldCell=" << worldCell.getCell() << ", entity counter=" << eCounter)
+#endif
+
                 shapeCellItem.param.shape.dependency        = nullptr;
                 queue.push(shapeCellItem);
 
@@ -395,12 +403,10 @@ bool AFK_World::generateClaimedWorldCell(
                 e->release(threadId, AFK_CL_CLAIMED);
             }
 
-            /* Above, we might have updated nextEIt to point to the
-             * next item to look at (e.g. if we erased an item).
-             * But if we haven't, update the iterator now.
-             */
-            if (updatedEIt) eIt = nextEIt;
-            else ++eIt;
+            ++eIt;
+#if AFK_SHAPE_ENUM_DEBUG
+            ++eCounter;
+#endif
         }
 
         /* Pop any new entities out from the move queue into the
@@ -705,13 +711,23 @@ void AFK_World::alterDetail(float adjustment)
 
 float AFK_World::getLandscapeDetailPitch(void) const
 {
+    /* TODO Let's debug */
+#if 0
     return averageDetailPitch.get();
+#else
+    return 300.0f;
+#endif
 }
 
 float AFK_World::getEntityDetailPitch(void) const
 {
+    /* TODO Let's debug */
+#if 0
     return averageDetailPitch.get() *
         (float)sSizes.pointSubdivisionFactor / (float)lSizes.pointSubdivisionFactor;
+#else
+    return 300.0f;
+#endif
 }
 
 boost::unique_future<bool> AFK_World::updateWorld(void)
