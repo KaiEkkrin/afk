@@ -1045,7 +1045,7 @@ int AFK_Jigsaw::getFake3D_mult(void) const
 
 cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q, std::vector<cl_event>& o_events)
 {
-    boost::shared_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
+    boost::upgrade_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
 
     /* Note that acquireForCl() may be called several times (and so
      * may releaseFromCl() ).  When acquire is called it will
@@ -1093,7 +1093,7 @@ cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q, std::vecto
 
 void AFK_Jigsaw::releaseFromCl(cl_command_queue q, const std::vector<cl_event>& eventWaitList)
 {
-    boost::shared_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
+    boost::upgrade_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
 
     std::vector<cl_event> allWaitList;
 
@@ -1169,7 +1169,7 @@ void AFK_Jigsaw::releaseFromCl(cl_command_queue q, const std::vector<cl_event>& 
 
 void AFK_Jigsaw::bindTexture(unsigned int tex)
 {
-    boost::shared_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
+    boost::upgrade_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
 
     glBindTexture(texTarget, glTex[tex]);
 
