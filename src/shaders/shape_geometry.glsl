@@ -24,12 +24,6 @@ layout (invocations = 6) in; /* one for each face */
 layout (triangle_strip) out;
 layout (max_vertices = 4) out;
 
-// TODO: Here and elsewhere (but it's especially obvious here),
-// how about trying to index only the nearest-sampled textures offset by
-// +0.5 (AFK_SAMPLE_WIGGLE) and not the linear-sampled textures?
-// (Remove the wiggle from the C++ source, and instead apply it here and
-// in the other shaders as required?)
-
 // This is the displacement jigsaw texture.
 // We sample (x, y, z, w).
 uniform sampler2D JigsawDispTex;
