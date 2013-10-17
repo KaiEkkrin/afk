@@ -129,6 +129,11 @@ void AFK_WorldCell::addStartingEntity(
         entityDisplacement.v[j] = realCoord.v[j] + rng.frand() * (maxEntityLocation - minEntityLocation) + minEntityLocation;
     }
 
+    /* TODO: Right now the normal rotation is coming out wrong (despite the
+     * small fix I put into shape_geometry).  I need to investigate.  For now,
+     * disabling rotated entities.
+     */
+#if 0
     Vec3<float> entityRotation;
     switch (rng.uirand() % 5)
     {
@@ -155,6 +160,9 @@ void AFK_WorldCell::addStartingEntity(
             rng.frand() * 2.0f * M_PI);
         break;
     }
+#else
+    Vec3<float> entityRotation = afk_vec3<float>(0.0f, 0.0f, 0.0f);
+#endif
 
     e->position(
         afk_vec3<float>(entitySize, entitySize, entitySize),
