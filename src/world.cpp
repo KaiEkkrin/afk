@@ -711,23 +711,13 @@ void AFK_World::alterDetail(float adjustment)
 
 float AFK_World::getLandscapeDetailPitch(void) const
 {
-    /* TODO Let's debug */
-#if 0
     return averageDetailPitch.get();
-#else
-    return 300.0f;
-#endif
 }
 
 float AFK_World::getEntityDetailPitch(void) const
 {
-    /* TODO Let's debug */
-#if 0
     return averageDetailPitch.get() *
         (float)sSizes.pointSubdivisionFactor / (float)lSizes.pointSubdivisionFactor;
-#else
-    return 300.0f;
-#endif
 }
 
 boost::unique_future<bool> AFK_World::updateWorld(void)
