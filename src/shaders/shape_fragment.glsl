@@ -50,10 +50,7 @@ uniform Light gLight;
 
 void main()
 {
-    // TODO Debugging -- let's see if absent vapours is the cause
-    // of the flicker.
-    //vec3 colour = textureLod(JigsawDensityTex, inData.jigsawCoord, 0).xyz;
-    vec3 colour = normalize(vec3(1.0, 1.0, 1.0));
+    vec3 colour = textureLod(JigsawDensityTex, inData.jigsawCoord, 0).xyz;
     vec3 normal = normalize(inData.normal);
 
     vec3 AmbientColour = gLight.Colour * gLight.Ambient;

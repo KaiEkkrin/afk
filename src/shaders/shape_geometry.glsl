@@ -101,12 +101,7 @@ void emitShapeVertex(
      */
     vec2 edgeJigsawCoordNN = makeEdgeJigsawCoordNearest(edgeJigsawPieceCoord, inData[i].texCoord + texCoordDisp);
 
-    /* TODO: Debugging -- ignoring the texture, using no displacemnt
-     * to see if my flicker problem is due to missing jigsaw pieces
-     * or not.
-     */
-    //float edgeStepsBack = textureLod(JigsawOverlapTex, edgeJigsawCoordNN, 0).y;
-    float edgeStepsBack = 0.0;
+    float edgeStepsBack = textureLod(JigsawOverlapTex, edgeJigsawCoordNN, 0).y;
 
     /* Construct the cube co-ordinate for this vertex.  It will be
      * in the range 0..1.
@@ -164,10 +159,7 @@ void emitShapeVertex(
      * to do that I need to support differing piece sizes in the
      * jigsaw (not there yet).
      */
-    // TODO Debugging -- let's see if absent vapours is the cause
-    // of the flicker.
-    //vec4 dispPositionBase = textureLod(JigsawDispTex, edgeJigsawCoordNN, 0);
-    vec4 dispPositionBase = vec4(0.0, 0.0, 0.0, 1.0);
+    vec4 dispPositionBase = textureLod(JigsawDispTex, edgeJigsawCoordNN, 0);
 
     /* Subtle: note magic use of `w' part of homogeneous
      * dispPositionBase co-ordinates to allow me to add a 0-1 value for
@@ -181,10 +173,7 @@ void emitShapeVertex(
     vec3 vapourJigsawCoord = vapourJigsawPieceCoord + VapourJigsawPiecePitch *
         ((cubeCoord * EDIM + 1.0) / TDIM);
 
-    // TODO Debugging -- let's see if absent vapours is the cause
-    // of the flicker.
-    //vec4 normal = textureLod(JigsawNormalTex, vapourJigsawCoord, 0);
-    vec4 normal = vec4(0.0, 1.0, 0.0, 0.0);
+    vec4 normal = textureLod(JigsawNormalTex, vapourJigsawCoord, 0);
     outData.normal = (WorldTransform * normal).xyz;
     outData.jigsawCoord = vapourJigsawCoord;
     EmitVertex();
@@ -270,16 +259,9 @@ void main()
     case 5: texCoordDisp = vec2(2.0, 1.0); break;
     }
 
-    /* TODO: Debugging -- ignoring the texture and using a default value
-     * instead, to see if my flicker problem is caused by missing
-     * jigsaw pieces or not
-     */
-    /*
     uint overlap = textureLod(JigsawOverlapTex,
         makeEdgeJigsawCoordNearest(edgeJigsawPieceCoord, inData[0].texCoord + texCoordDisp),
         0).x;
-     */
-    uint overlap = 3;
 
     /* Check whether this triangle pair is overlapped to another
      * face.

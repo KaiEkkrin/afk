@@ -62,6 +62,7 @@ public:
 } __attribute__((aligned(16)));
 
 #define ENTITY_DISPLAY_UNIT_SIZE (24 * sizeof(float))
+static_assert(ENTITY_DISPLAY_UNIT_SIZE == sizeof(AFK_EntityDisplayUnit), "EDU size");
 
 //std::ostream& operator<<(std::ostream& os, const AFK_EntityDisplayUnit& unit);
 
