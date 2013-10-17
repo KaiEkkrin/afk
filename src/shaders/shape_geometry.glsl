@@ -169,9 +169,12 @@ void emitShapeVertex(
 
     /* It maps to the range 1..(TDIM-1) on the vapour,
      * due to the overlaps in the vapour image:
+     * (note the use of the +0.5 "wiggle" here too: it does seem
+     * to stop even the linear sampler from running into the gutters,
+     * which surprises me)
      */
     vec3 vapourJigsawCoord = vapourJigsawPieceCoord + VapourJigsawPiecePitch *
-        ((cubeCoord * EDIM + 1.0) / TDIM);
+        ((cubeCoord * EDIM + 1.5) / TDIM);
 
     vec4 normal = textureLod(JigsawNormalTex, vapourJigsawCoord, 0);
     outData.normal = mat3(WorldTransform) * normal.xyz;
