@@ -174,7 +174,7 @@ void emitShapeVertex(
         ((cubeCoord * EDIM + 1.0) / TDIM);
 
     vec4 normal = textureLod(JigsawNormalTex, vapourJigsawCoord, 0);
-    outData.normal = (WorldTransform * normal).xyz;
+    outData.normal = mat3(WorldTransform) * normal.xyz;
     outData.jigsawCoord = vapourJigsawCoord;
     EmitVertex();
 }
