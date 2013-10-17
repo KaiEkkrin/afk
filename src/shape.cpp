@@ -66,11 +66,6 @@ bool afk_generateEntity(
                 world->separateVapoursComputed.fetch_add(1);
             }        
         }
-        else
-        {
-            /* I'd better resume this later. */
-            resume = true;
-        }
     }
 
     if (vapourCell.hasDescriptor())
@@ -96,6 +91,11 @@ bool afk_generateEntity(
             shapeCellItem.param.shape.dependency = nullptr;
             queue.push(shapeCellItem);
         }
+    }
+    else
+    {
+        /* I'd better resume this later. */
+        resume = true;
     }
 
     vapourCell.release(threadId, claimStatus);
@@ -266,7 +266,7 @@ bool afk_generateShapeCells(
             {
                 DEBUG_VISIBLE_CELL("outside skeleton")
 #if AFK_SHAPE_ENUM_DEBUG
-                AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " outside skeleton")
+                AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " outsideskeleton")
 #endif
             }
         }

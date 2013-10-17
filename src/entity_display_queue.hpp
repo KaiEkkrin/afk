@@ -61,7 +61,7 @@ public:
     //friend std::ostream& operator<<(std::ostream& os, const AFK_EntityDisplayUnit& unit);
 } __attribute__((aligned(16)));
 
-#define ENTITY_DISPLAY_UNIT_SIZE (20 * sizeof(float))
+#define ENTITY_DISPLAY_UNIT_SIZE (24 * sizeof(float))
 
 //std::ostream& operator<<(std::ostream& os, const AFK_EntityDisplayUnit& unit);
 
