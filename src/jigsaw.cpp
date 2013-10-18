@@ -726,6 +726,7 @@ AFK_Jigsaw::AFK_Jigsaw(
 
         for (unsigned int tex = 0; tex < texCount; ++tex)
         {
+#ifndef AFK_OPENCL11
             if (afk_core.computer->testVersion(1, 2))
             {
                 clTex[tex] = clCreateImage(
@@ -737,6 +738,7 @@ AFK_Jigsaw::AFK_Jigsaw(
                     &error);
             }
             else
+#endif /* AFK_OPENCL11 */
             {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -814,6 +816,7 @@ AFK_Jigsaw::AFK_Jigsaw(
 
             if (bufferUsage == AFK_JIGSAW_BU_CL_GL_SHARED)
             {
+#ifndef AFK_OPENCL11
                 if (afk_core.computer->testVersion(1, 2))
                 {
                     clTex[tex] = clCreateFromGLTexture(
@@ -825,6 +828,7 @@ AFK_Jigsaw::AFK_Jigsaw(
                         &error);
                 }
                 else
+#endif /* AFK_OPENCL11 */
                 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"

@@ -23,12 +23,14 @@ To build AFK you will currently need:
  - Boost (AFK currently links with boost_chrono, boost_random, boost_system and boost_thread.  I used version 1.53)
  - SConstruct, the python build system.
 
-I have tested AFK on Nvidia Fermi based GPUs using the binary "nvidia" driver, and an AMD VLIW5 GPU using the binary "fglrx" driver.  It doesn't work on Intel integrated graphics at the current time.  Some day I hope to make it run on a broader range of hardware and operating systems.
+I have tested AFK on Nvidia Fermi based GPUs using the binary "nvidia" driver, and an AMD VLIW5 GPU using the binary "fglrx" driver. Some day I hope to make it run on a broader range of hardware and operating systems.
 
 Build and run example:
 
   scons -j 4
   ./build/release/afk
+
+If you have only OpenCL 1.1 headers and/or libraries, and not 1.2 or later (e.g. on an Nvidia system), pass --opencl11 to the scons command.
 
 AFK is not currently self documenting.  Default key bindings are:
  - Middle mouse button to capture the mouse
