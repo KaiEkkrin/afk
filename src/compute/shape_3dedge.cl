@@ -643,6 +643,40 @@ __kernel void makeShape3DEdge(
     DECL_EDGE_STEPS_BACK(edgeStepsBack);
     initEdgeStepsBack(edgeStepsBack, xdim, zdim);
 
+    /* TODO: Plan for the layers system:
+     * - Two new pre-calculated values (evaluate in shape_sizes, inject into this
+     * file as preprocessor macros):
+     *   o LAYERS: Number of layers to each edge.  Must be constructed such that
+     * the `edgeStepsBack' (and `overlap' of course) values concatenate together to
+     * fit into a uint32.  It's basically 32 / LAYER_BITNESS (below), rounded down.
+     * Could even do it as a constant.
+     *   o LAYER_BITNESS: 1<<this value is the next power of 2 above shape_subdivisionFactor,
+     * although LAYER_BITNESS must always be >= 3 (for overlap).
+     *
+     * - In the first pass (edge identification), increment a `layer' value from 0 (incl.)
+     * to LAYERS (excl.) whenever an edge is found.  Use `layer' to pack edgeStepsBack
+     * with up to LAYERS edges for each point.
+     * 
+     * - TODO: Next, we want to have a new "layer colouring" pass that tries to make sure
+     * all layers are contiguous; but before that, let's get the rest straight...
+     *
+     * - In the overlap check pass, iterate over layers inside the iteration over faces.
+     * Supply the layer parameter to functions such as noOverlap() and change it to
+     * read the correct part of edgeStepsBack.  The current logic should be OK.
+     * (Does it matter whether I iterate over layers inside, or outside, the iteration
+     * over layers?  One would prefer particular faces, the other would prefer
+     * particular layers ...)
+     *
+     * - In the overlap write pass, again iterate over layers inside the iteration over
+     * faces.  Accumulate the overlap and write after all layers have been seen.
+     *
+     * - Finally, in the geometry shader, iterate over layers and emit each primitive in
+     * turn.  Whenever I shift the overlap value to put the next layer into the low bits,
+     * I should test for zero -- if I get a zero there are no layers left and I can skip
+     * on (should be a common case and help the GS not have to do literally LAYERS times
+     * as much work now.)
+     */
+
     for (int stepsBack = 0; stepsBack < (EDIM-1); ++stepsBack)
     {
         for (int face = 0; face < 6; ++face)
