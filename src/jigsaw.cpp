@@ -35,114 +35,6 @@
 #define CUBOID_DEBUG 0
 
 
-/* AFK_JigsawFormatDescriptor implementation */
-
-AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat e)
-{
-    switch (e)
-    {
-    case AFK_JIGSAW_UINT32:
-        glInternalFormat                    = GL_R32UI;
-        glFormat                            = GL_RED_INTEGER;
-        glDataType                          = GL_UNSIGNED_INT;
-        clFormat.image_channel_order        = CL_R;
-        clFormat.image_channel_data_type    = CL_UNSIGNED_INT32;
-        texelSize                           = sizeof(uint32_t);
-        break;
-
-    case AFK_JIGSAW_2UINT32:
-        glInternalFormat                    = GL_RG32UI;
-        glFormat                            = GL_RG_INTEGER;
-        glDataType                          = GL_UNSIGNED_INT;
-        clFormat.image_channel_order        = CL_RG;
-        clFormat.image_channel_data_type    = CL_UNSIGNED_INT32;
-        texelSize                           = sizeof(unsigned int) * 2;
-        break;
-
-    case AFK_JIGSAW_FLOAT32:
-        glInternalFormat                    = GL_R32F;
-        glFormat                            = GL_RED;
-        glDataType                          = GL_FLOAT;
-        clFormat.image_channel_order        = CL_R;
-        clFormat.image_channel_data_type    = CL_FLOAT;
-        texelSize                           = sizeof(float);
-        break;
-
-    /* Note that OpenCL doesn't support 3-byte formats.
-     * TODO I'd love to manage to make the packed formats (below) line up
-     * between OpenCL and OpenGL, but right now I can't.  It looks like the
-     * internal representations might be different (ewww)
-     * So for RGB textures, you're stuck with using
-     * 4FLOAT8_UNORM and 4FLOAT8_SNORM for now.
-     */
-
-    case AFK_JIGSAW_555A1:
-        glInternalFormat                    = GL_RGB5;
-        glFormat                            = GL_RGB;
-        glDataType                          = GL_UNSIGNED_SHORT_5_5_5_1;
-        clFormat.image_channel_order        = CL_RGB;
-        clFormat.image_channel_data_type    = CL_UNORM_SHORT_555;
-        texelSize                           = sizeof(uint16_t);
-        break;
-
-    case AFK_JIGSAW_101010A2:
-        glInternalFormat                    = GL_RGB10;
-        glFormat                            = GL_RGB;
-        glDataType                          = GL_UNSIGNED_INT_10_10_10_2;
-        clFormat.image_channel_order        = CL_RGB;
-        clFormat.image_channel_data_type    = CL_UNORM_INT_101010;
-        texelSize                           = sizeof(uint32_t);
-        break;
-
-    case AFK_JIGSAW_4FLOAT8_UNORM:
-        glInternalFormat                    = GL_RGBA8;
-        glFormat                            = GL_RGBA;
-        glDataType                          = GL_UNSIGNED_BYTE;
-        clFormat.image_channel_order        = CL_RGBA;
-        clFormat.image_channel_data_type    = CL_UNORM_INT8;
-        texelSize                           = sizeof(uint8_t) * 4;
-        break;
-
-    /* TODO cl_gl sharing seems to barf with this one ... */
-    case AFK_JIGSAW_4FLOAT8_SNORM:
-        glInternalFormat                    = GL_RGBA8_SNORM;
-        glFormat                            = GL_RGBA;
-        glDataType                          = GL_BYTE;
-        clFormat.image_channel_order        = CL_RGBA;
-        clFormat.image_channel_data_type    = CL_SNORM_INT8;
-        texelSize                           = sizeof(uint8_t) * 4;
-        break;
-
-    case AFK_JIGSAW_4FLOAT32:
-        glInternalFormat                    = GL_RGBA32F;
-        glFormat                            = GL_RGBA;
-        glDataType                          = GL_FLOAT;
-        clFormat.image_channel_order        = CL_RGBA;
-        clFormat.image_channel_data_type    = CL_FLOAT;
-        texelSize                           = sizeof(float) * 4;
-        break;
-
-    default:
-        {
-            std::ostringstream ss;
-            ss << "Unrecognised jigsaw format: " << e;
-            throw AFK_Exception(ss.str());
-        }
-    }
-}
-
-AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(
-    const AFK_JigsawFormatDescriptor& _fd)
-{
-    glInternalFormat                    = _fd.glInternalFormat;
-    glFormat                            = _fd.glFormat;
-    glDataType                          = _fd.glDataType;
-    clFormat.image_channel_order        = _fd.clFormat.image_channel_order;
-    clFormat.image_channel_data_type    = _fd.clFormat.image_channel_data_type;
-    texelSize                           = _fd.texelSize;
-}
-
-
 /* AFK_JigsawPiece implementation */
 
 AFK_JigsawPiece::AFK_JigsawPiece():
@@ -186,122 +78,6 @@ size_t hash_value(const AFK_JigsawPiece& jigsawPiece)
 std::ostream& operator<<(std::ostream& os, const AFK_JigsawPiece& piece)
 {
     return os << "JigsawPiece(u=" << std::dec << piece.u << ", v=" << piece.v << ", w=" << piece.w << ", puzzle=" << piece.puzzle << ")";
-}
-
-
-/* AFK_JigsawFake3DDescriptor implementation */
-
-AFK_JigsawFake3DDescriptor::AFK_JigsawFake3DDescriptor():
-    useFake3D(false)
-{
-}
-
-AFK_JigsawFake3DDescriptor::AFK_JigsawFake3DDescriptor(
-    bool _useFake3D, const Vec3<int>& _fakeSize):
-        fakeSize(_fakeSize), useFake3D(_useFake3D)
-{
-    float fMult = ceil(sqrt((float)fakeSize.v[2]));
-    mult = (int)fMult;
-}
-
-AFK_JigsawFake3DDescriptor::AFK_JigsawFake3DDescriptor(
-    const AFK_JigsawFake3DDescriptor& _fake3D):
-        fakeSize(_fake3D.fakeSize),
-        mult(_fake3D.mult),
-        useFake3D(_fake3D.useFake3D)
-{
-}
-
-AFK_JigsawFake3DDescriptor AFK_JigsawFake3DDescriptor::operator=(
-    const AFK_JigsawFake3DDescriptor& _fake3D)
-{
-    fakeSize    = _fake3D.fakeSize;
-    mult        = _fake3D.mult;
-    useFake3D   = _fake3D.useFake3D;
-    return *this;
-}
-
-bool AFK_JigsawFake3DDescriptor::getUseFake3D(void) const
-{
-    return useFake3D;
-}
-
-Vec3<int> AFK_JigsawFake3DDescriptor::get2DSize(void) const
-{
-    assert(useFake3D);
-    return afk_vec3<int>(
-        fakeSize.v[0] * mult,
-        fakeSize.v[1] * mult,
-        1);
-}
-
-Vec3<int> AFK_JigsawFake3DDescriptor::getFakeSize(void) const
-{
-    assert(useFake3D);
-    return fakeSize;
-}
-
-int AFK_JigsawFake3DDescriptor::getMult(void) const
-{
-    assert(useFake3D);
-    return mult;
-}
-
-Vec2<int> AFK_JigsawFake3DDescriptor::fake3DTo2D(const Vec3<int>& _fake) const
-{
-    assert(useFake3D);
-    return afk_vec2<int>(
-        _fake.v[0] + fakeSize.v[0] * (_fake.v[2] % mult),
-        _fake.v[1] + fakeSize.v[1] * (_fake.v[2] / mult));
-}
-
-Vec3<int> AFK_JigsawFake3DDescriptor::fake3DFrom2D(const Vec2<int>& _real) const
-{
-    assert(useFake3D);
-    int sFactor = (_real.v[0] / fakeSize.v[0]);
-    int tFactor = (_real.v[1] / fakeSize.v[1]);
-    return afk_vec3<int>(
-        _real.v[0] % fakeSize.v[0],
-        _real.v[1] % fakeSize.v[1],
-        sFactor + mult * tFactor);
-}
-
-
-/* AFK_JigsawCuboid implementation */
-
-AFK_JigsawCuboid::AFK_JigsawCuboid(int _r, int _c, int _s, int _rows, int _slices):
-    r(_r), c(_c), s(_s), rows(_rows), slices(_slices)
-{
-    columns.store(0);
-}
-
-AFK_JigsawCuboid::AFK_JigsawCuboid(const AFK_JigsawCuboid& other):
-    r(other.r), c(other.c), s(other.s), rows(other.rows), slices(other.slices)
-{
-    columns.store(other.columns.load());
-}
-
-AFK_JigsawCuboid AFK_JigsawCuboid::operator=(const AFK_JigsawCuboid& other)
-{
-    r = other.r;
-    c = other.c;
-    s = other.s;
-    rows = other.rows;
-    columns.store(other.columns.load());
-    slices = other.slices;
-    return *this;
-}
-
-std::ostream& operator<<(std::ostream& os, const AFK_JigsawCuboid& sr)
-{
-    os << "JigsawCuboid(";
-    os << "r=" << std::dec << sr.r;
-    os << ", c=" << sr.c;
-    os << ", s=" << sr.s;
-    os << ", rows=" << sr.rows;
-    os << ", columns=" << sr.columns.load();
-    os << ", slices=" << sr.slices << ")";
-    return os;
 }
 
 
@@ -529,142 +305,6 @@ void AFK_Jigsaw::doSweep(const Vec2<int>& nextFreeRow, const AFK_Frame& currentF
     }
 }
 
-void AFK_Jigsaw::getClChangeData(cl_command_queue q, const std::vector<cl_event>& eventWaitList, unsigned int tex)
-{
-    size_t pieceSizeInBytes = format[tex].texelSize * pieceSize.v[0] * pieceSize.v[1] * pieceSize.v[2];
-
-    unsigned int changeEvent = 0;
-    size_t changeDataOffset = 0;
-    for (unsigned int cI = 0; cI < cuboids[drawCs].size(); ++cI)
-    {
-        size_t cuboidSizeInBytes = pieceSizeInBytes *
-            cuboids[drawCs][cI].rows *
-            cuboids[drawCs][cI].columns.load() *
-            cuboids[drawCs][cI].slices;
-  
-        if (cuboidSizeInBytes == 0) continue;
-  
-        size_t origin[3];
-        size_t region[3];
-  
-        origin[0] = cuboids[drawCs][cI].r * pieceSize.v[0];
-        origin[1] = cuboids[drawCs][cI].c * pieceSize.v[1];
-        origin[2] = cuboids[drawCs][cI].s * pieceSize.v[2];
-  
-        region[0] = cuboids[drawCs][cI].rows * pieceSize.v[0];
-        region[1] = cuboids[drawCs][cI].columns.load() * pieceSize.v[1];
-        region[2] = cuboids[drawCs][cI].slices * pieceSize.v[2];
-
-        changeData[tex].resize(changeDataOffset + cuboidSizeInBytes);
-        changeEvents[tex].resize(changeEvent + 1);
-  
-        AFK_CLCHK(clEnqueueReadImage(
-            q, clTex[tex], CL_FALSE, origin, region, 0, 0, &changeData[tex][changeDataOffset],
-                eventWaitList.size(), &eventWaitList[0], &changeEvents[tex][changeEvent]))
-        ++changeEvent;
-        changeDataOffset += cuboidSizeInBytes;
-    }
-}
-
-void AFK_Jigsaw::getClChangeDataFake3D(cl_command_queue q, const std::vector<cl_event>& eventWaitList, unsigned int tex)
-{
-    size_t pieceSliceSizeInBytes = format[tex].texelSize * pieceSize.v[0] * pieceSize.v[1];
-
-    unsigned int changeEvent = 0;
-    size_t changeDataOffset = 0;
-    for (unsigned int cI = 0; cI < cuboids[drawCs].size(); ++cI)
-    {
-        size_t cuboidSliceSizeInBytes = pieceSliceSizeInBytes *
-            cuboids[drawCs][cI].rows *
-            cuboids[drawCs][cI].columns.load();
-
-        if (cuboidSliceSizeInBytes == 0) continue;
-
-        /* I need to individually transfer each cuboid slice: */
-        for (int slice = 0; slice < cuboids[drawCs][cI].slices; ++slice)
-        {
-            /* ... and within that, I also need a separate transfer
-             * for each piece slice
-             */
-            for (int pieceSlice = 0; pieceSlice < pieceSize.v[2]; ++pieceSlice)
-            {
-                size_t origin[3];
-                size_t region[3];
-
-                Vec2<int> clOrigin = fake3D.fake3DTo2D(afk_vec3<int>(
-                    cuboids[drawCs][cI].r * pieceSize.v[0],
-                    cuboids[drawCs][cI].c * pieceSize.v[1],
-                    (cuboids[drawCs][cI].s + slice) * pieceSize.v[2] + pieceSlice));
-                origin[0] = clOrigin.v[0];
-                origin[1] = clOrigin.v[1];
-                origin[2] = 0;
-
-                region[0] = cuboids[drawCs][cI].rows * pieceSize.v[0];
-                region[1] = cuboids[drawCs][cI].columns.load() * pieceSize.v[1];
-                region[2] = 1;
-
-                changeData[tex].resize(changeDataOffset + cuboidSliceSizeInBytes);
-                changeEvents[tex].resize(changeEvent + 1);
-
-                AFK_CLCHK(clEnqueueReadImage(
-                    q, clTex[tex], CL_FALSE, origin, region, 0, 0, &changeData[tex][changeDataOffset],
-                        eventWaitList.size(), &eventWaitList[0], &changeEvents[tex][changeEvent]))
-                ++changeEvent;
-                changeDataOffset += cuboidSliceSizeInBytes;
-            }
-        }
-    }
-}
-
-void AFK_Jigsaw::putClChangeData(unsigned int tex)
-{
-    size_t pieceSizeInBytes = format[tex].texelSize * pieceSize.v[0] * pieceSize.v[1] * pieceSize.v[2];
-    size_t changeDataOffset = 0;
-    for (unsigned int cI = 0; cI < cuboids[drawCs].size(); ++cI)
-    {
-        size_t cuboidSizeInBytes = pieceSizeInBytes *
-            cuboids[drawCs][cI].rows *
-            cuboids[drawCs][cI].columns.load() *
-            cuboids[drawCs][cI].slices;
-
-        if (cuboidSizeInBytes == 0) continue;
-
-        switch (texTarget)
-        {
-        case GL_TEXTURE_2D:
-            glTexSubImage2D(
-                texTarget, 0,
-                cuboids[drawCs][cI].r * pieceSize.v[0],
-                cuboids[drawCs][cI].c * pieceSize.v[1],
-                cuboids[drawCs][cI].rows * pieceSize.v[0],
-                cuboids[drawCs][cI].columns.load() * pieceSize.v[1],
-                format[tex].glFormat,
-                format[tex].glDataType,
-                &changeData[tex][changeDataOffset]);
-            break;
-
-        case GL_TEXTURE_3D:
-            glTexSubImage3D(
-                texTarget, 0,
-                cuboids[drawCs][cI].r * pieceSize.v[0],
-                cuboids[drawCs][cI].c * pieceSize.v[1],
-                cuboids[drawCs][cI].s * pieceSize.v[2],
-                cuboids[drawCs][cI].rows * pieceSize.v[0],
-                cuboids[drawCs][cI].columns.load() * pieceSize.v[1],
-                cuboids[drawCs][cI].slices * pieceSize.v[2],
-                format[tex].glFormat,
-                format[tex].glDataType,
-                &changeData[tex][changeDataOffset]);
-            break;
-
-        default:
-            throw AFK_Exception("Unrecognised texTarget");
-        }
-
-        changeDataOffset += cuboidSizeInBytes;
-    }
-}
-
 AFK_Jigsaw::AFK_Jigsaw(
     cl_context ctxt,
     const Vec3<int>& _pieceSize,
@@ -675,193 +315,32 @@ AFK_Jigsaw::AFK_Jigsaw(
     unsigned int _texCount,
     enum AFK_JigsawBufferUsage _bufferUsage,
     unsigned int _concurrency):
-        glTex(nullptr),
-        format(_format),
-        texTarget(_texTarget),
         fake3D(_fake3D),
-        clImageType((texTarget == GL_TEXTURE_3D && !_fake3D.getUseFake3D()) ?
-            CL_MEM_OBJECT_IMAGE3D : CL_MEM_OBJECT_IMAGE2D),
-        texCount(_texCount),
-        pieceSize(_pieceSize),
         jigsawSize(_jigsawSize),
-        bufferUsage(_bufferUsage),
         concurrency(_concurrency),
         updateCs(0),
         drawCs(1),
         columnCounts(8, 0)
 {
-    cl_int error;
-
     /* Check for an unsupported case -- image types clash */
-    if (bufferUsage == AFK_JIGSAW_BU_CL_GL_SHARED &&
+    if (_bufferUsage == AFK_JIGSAW_BU_CL_GL_SHARED &&
         fake3D.getUseFake3D())
     {
         throw AFK_Exception("Can't support fake 3D with cl_gl sharing");
     }
 
-    clTex = new cl_mem[texCount];
-    if (bufferUsage != AFK_JIGSAW_BU_CL_GL_SHARED)
+    /* Make the images. */
+    for (unsigned int tex = 0; tex < _texCount; ++tex)
     {
-        /* Do native CL buffering here. */
-        cl_image_desc imageDesc;
-        memset(&imageDesc, 0, sizeof(cl_image_desc));
-
-        Vec3<int> clImageSize;
-        if (fake3D.getUseFake3D())
-        {
-            clImageSize = fake3D.get2DSize();
-        }
-        else
-        {
-            clImageSize = afk_vec3<int>(
-                _pieceSize.v[0] * _jigsawSize.v[0],
-                _pieceSize.v[1] * _jigsawSize.v[1],
-                _pieceSize.v[2] * _jigsawSize.v[2]);
-        }
-
-        imageDesc.image_type        = clImageType;
-        imageDesc.image_width       = clImageSize.v[0];
-        imageDesc.image_height      = clImageSize.v[1];
-        imageDesc.image_depth       = clImageSize.v[2];
-
-        for (unsigned int tex = 0; tex < texCount; ++tex)
-        {
-#ifndef AFK_OPENCL11
-            if (afk_core.computer->testVersion(1, 2))
-            {
-                clTex[tex] = clCreateImage(
-                    ctxt,
-                    CL_MEM_READ_WRITE,
-                    &format[tex].clFormat,
-                    &imageDesc,
-                    nullptr,
-                    &error);
-            }
-            else
-#endif /* AFK_OPENCL11 */
-            {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-                switch (clImageType)
-                {
-                case CL_MEM_OBJECT_IMAGE2D:
-                    clTex[tex] = clCreateImage2D(
-                        ctxt,
-                        CL_MEM_READ_WRITE,
-                        &format[tex].clFormat,
-                        imageDesc.image_width,
-                        imageDesc.image_height,
-                        imageDesc.image_row_pitch,
-                        nullptr,
-                        &error);
-                    break;
-    
-                case CL_MEM_OBJECT_IMAGE3D:
-                    clTex[tex] = clCreateImage3D(
-                        ctxt,
-                        CL_MEM_READ_WRITE,
-                        &format[tex].clFormat,
-                        imageDesc.image_width,
-                        imageDesc.image_height,
-                        imageDesc.image_depth,
-                        imageDesc.image_row_pitch,
-                        imageDesc.image_slice_pitch,
-                        nullptr,
-                        &error);
-                    break;
-    
-                default:
-                    throw AFK_Exception("Unrecognised texTarget");
-                }
-#pragma GCC diagnostic pop
-            }
-            AFK_HANDLE_CL_ERROR(error);
-        }
-    }
-
-    if (bufferUsage != AFK_JIGSAW_BU_CL_ONLY)
-    {
-        glTex = new GLuint[texCount];
-        glGenTextures(texCount, glTex);
-
-        for (unsigned int tex = 0; tex < texCount; ++tex)
-        {
-            glBindTexture(texTarget, glTex[tex]);
-
-            switch (texTarget)
-            {
-            case GL_TEXTURE_2D:
-                glTexStorage2D(
-                    texTarget,
-                    1,
-                    format[tex].glInternalFormat,
-                    pieceSize.v[0] * jigsawSize.v[0],
-                    pieceSize.v[1] * jigsawSize.v[1]);
-                break;
-
-            case GL_TEXTURE_3D:
-                glTexStorage3D(
-                    texTarget,
-                    1,
-                    format[tex].glInternalFormat,
-                    pieceSize.v[0] * jigsawSize.v[0],
-                    pieceSize.v[1] * jigsawSize.v[1],
-                    pieceSize.v[2] * jigsawSize.v[2]);
-                break;
-
-            default:
-                throw AFK_Exception("Unrecognised texTarget");
-            }
-            AFK_GLCHK("AFK_JigSaw texStorage")
-
-            if (bufferUsage == AFK_JIGSAW_BU_CL_GL_SHARED)
-            {
-#ifndef AFK_OPENCL11
-                if (afk_core.computer->testVersion(1, 2))
-                {
-                    clTex[tex] = clCreateFromGLTexture(
-                        ctxt,
-                        CL_MEM_READ_WRITE,
-                        texTarget,
-                        0,
-                        glTex[tex],
-                        &error);
-                }
-                else
-#endif /* AFK_OPENCL11 */
-                {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-                    switch (texTarget)
-                    {
-                    case GL_TEXTURE_2D:
-                        clTex[tex] = clCreateFromGLTexture2D(
-                            ctxt,
-                            CL_MEM_READ_WRITE,
-                            texTarget,
-                            0,
-                            glTex[tex],
-                            &error);           
-                        break;
-
-                    case GL_TEXTURE_3D:
-                        clTex[tex] = clCreateFromGLTexture3D(
-                            ctxt,
-                            CL_MEM_READ_WRITE,
-                            texTarget,
-                            0,
-                            glTex[tex],
-                            &error);           
-                        break;
-
-                    default:
-                        throw AFK_Exception("Unrecognised texTarget");
-                    }
-#pragma GCC diagnostic pop
-                }
-                AFK_HANDLE_CL_ERROR(error);
-            }
-        }
+        /* TODO Make more of these parameters per-image! */
+        images.push_back(new AFK_JigsawImage(
+            ctxt,
+            _pieceSize,
+            jigsawSize,
+            _format[tex],
+            _texTarget,
+            fake3D,
+            _bufferUsage));
     }
 
     /* Now that I've got the textures, fill out the jigsaw state. */
@@ -889,9 +368,6 @@ AFK_Jigsaw::AFK_Jigsaw(
         throw AFK_Exception("Cannot make starting cuboid");
     }
 
-    changeData = new std::vector<uint8_t>[texCount];
-    changeEvents = new std::vector<cl_event>[texCount];
-
     piecesGrabbed.store(0);
     cuboidsStarted.store(0);
     piecesSwept.store(0);
@@ -899,17 +375,7 @@ AFK_Jigsaw::AFK_Jigsaw(
 
 AFK_Jigsaw::~AFK_Jigsaw()
 {
-    for (unsigned int tex = 0; tex < texCount; ++tex)
-    {
-        clReleaseMemObject(clTex[tex]);
-        for (unsigned int e = 0; e < changeEvents[tex].size(); ++e)
-        {
-            if (changeEvents[tex][e])
-                clReleaseEvent(changeEvents[tex][e]);
-        }
-    }
-
-    if (glTex) glDeleteTextures(texCount, glTex);
+    for (auto image : images) delete image;
 
     for (int row = 0; row < jigsawSize.v[0]; ++row)
     {
@@ -919,11 +385,6 @@ AFK_Jigsaw::~AFK_Jigsaw()
 
     delete[] rowUsage;
     delete[] rowTimestamp;
-
-    delete[] changeEvents;
-    delete[] changeData;
-    delete[] clTex;
-    if (glTex) delete[] glTex;
 }
 
 bool AFK_Jigsaw::grab(unsigned int threadId, Vec3<int>& o_uvw, AFK_Frame *o_timestamp)
@@ -992,7 +453,7 @@ AFK_Frame AFK_Jigsaw::getTimestamp(const AFK_JigsawPiece& piece) const
 
 unsigned int AFK_Jigsaw::getTexCount(void) const
 {
-    return texCount;
+    return images.size();
 }
 
 Vec2<float> AFK_Jigsaw::getTexCoordST(const AFK_JigsawPiece& piece) const
@@ -1047,152 +508,22 @@ int AFK_Jigsaw::getFake3D_mult(void) const
     return fake3D.getUseFake3D() ? fake3D.getMult() : 0;
 }
 
-cl_mem *AFK_Jigsaw::acquireForCl(cl_context ctxt, cl_command_queue q, std::vector<cl_event>& o_events)
+cl_mem AFK_Jigsaw::acquireForCl(unsigned int tex, cl_context ctxt, cl_command_queue q, std::vector<cl_event>& o_events)
 {
     boost::upgrade_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
-
-    /* Note that acquireForCl() may be called several times (and so
-     * may releaseFromCl() ).  When acquire is called it will
-     * retain the events for you; when release is called it will
-     * retain any release wait events in the event list for further
-     * acquires.
-     */
-
-    switch (bufferUsage)
-    {
-    case AFK_JIGSAW_BU_CL_GL_SHARED:
-        for (unsigned int tex = 0; tex < texCount; ++tex)
-        {
-            cl_event acquireEvent;
-            AFK_CLCHK(clEnqueueAcquireGLObjects(q, 1, &clTex[tex], changeEvents[tex].size(), &changeEvents[tex][0], &acquireEvent))
-            for (auto ev : changeEvents[tex])
-            {
-                AFK_CLCHK(clReleaseEvent(ev))
-            }
-            changeEvents[tex].clear();
-            o_events.push_back(acquireEvent);
-        }
-        break;
-
-    default:
-        /* Make sure the change state is reset so that I can start
-         * accumulating new changes
-         */
-        for (unsigned int tex = 0; tex < texCount; ++tex)
-        {
-            /* If there are leftover events the caller needs to wait
-             * for them ...
-             */
-            for (auto ev : changeEvents[tex])
-            {
-                AFK_CLCHK(clRetainEvent(ev))
-                o_events.push_back(ev);
-            }
-        }
-        break;
-    }
-
-    return clTex;
+    return images[tex]->acquireForCl(ctxt, q, o_events);
 }
 
-void AFK_Jigsaw::releaseFromCl(cl_command_queue q, const std::vector<cl_event>& eventWaitList)
+void AFK_Jigsaw::releaseFromCl(unsigned int tex, cl_command_queue q, const std::vector<cl_event>& eventWaitList)
 {
     boost::upgrade_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
-
-    std::vector<cl_event> allWaitList;
-
-    switch (bufferUsage)
-    {
-    case AFK_JIGSAW_BU_CL_GL_COPIED:
-        for (unsigned int tex = 0; tex < texCount; ++tex)
-        {
-            /* Make sure that anything pending with that change data has been
-             * finished up because I'm about to re-use the buffer.
-             */
-            if (changeEvents[tex].size() > 0)
-            {
-                AFK_CLCHK(clWaitForEvents(changeEvents[tex].size(), &changeEvents[tex][0]))
-                for (auto ev : changeEvents[tex])
-                {
-                    AFK_CLCHK(clReleaseEvent(ev))
-                }
-            }
-
-            /* Now, read back all the pieces, appending the data to `changeData'
-             * in order.
-             * So long as `bindTexture' writes them in the same order everything
-             * will be okay!
-             */
-            if (fake3D.getUseFake3D())
-                getClChangeDataFake3D(q, eventWaitList, tex);
-            else
-                getClChangeData(q, eventWaitList, tex);
-        }
-        break;
-
-    case AFK_JIGSAW_BU_CL_GL_SHARED:
-        for (unsigned int tex = 0; tex < texCount; ++tex)
-        {
-            /* A release here is contingent on any old change events
-             * being finished, of course.
-             */
-            allWaitList.reserve(eventWaitList.size() + changeEvents[tex].size());
-            for (auto ev : eventWaitList)
-            {
-                AFK_CLCHK(clRetainEvent(ev))
-                allWaitList.push_back(ev);
-            }
-            std::copy(changeEvents[tex].begin(), changeEvents[tex].end(), allWaitList.end());
-
-            changeEvents[tex].resize(1);
-            AFK_CLCHK(clEnqueueReleaseGLObjects(q, 1, &clTex[tex], allWaitList.size(), &allWaitList[0], &changeEvents[tex][0]))
-            for (auto aw : allWaitList)
-            {
-                AFK_CLCHK(clReleaseEvent(aw))
-            }
-            allWaitList.clear();
-        }
-        break;
-
-    default:
-        /* The supplied events get retained and fed into the
-         * change event list, so that they can be waited for
-         * upon any subsequent acquire.
-         */
-        for (unsigned int tex = 0; tex < texCount; ++tex)
-        {
-            for (auto ev : eventWaitList)
-            {
-                AFK_CLCHK(clRetainEvent(ev))
-                changeEvents[tex].push_back(ev);
-            }
-        }
-        break;
-    }
+    images[tex]->releaseFromCl(cuboids[drawCs], q, eventWaitList);
 }
 
 void AFK_Jigsaw::bindTexture(unsigned int tex)
 {
     boost::upgrade_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
-
-    glBindTexture(texTarget, glTex[tex]);
-
-    if (bufferUsage == AFK_JIGSAW_BU_CL_GL_COPIED)
-    {
-        /* Wait for the change readback to be finished. */
-        if (changeEvents[tex].size() == 0) return;
-
-        AFK_CLCHK(clWaitForEvents(changeEvents[tex].size(), &changeEvents[tex][0]))
-        for (unsigned int e = 0; e < changeEvents[tex].size(); ++e)
-        {
-            AFK_CLCHK(clReleaseEvent(changeEvents[tex][e]))
-        }
-
-        changeEvents[tex].clear();
-
-        /* Push all the changed pieces into the GL texture. */
-        putClChangeData(tex);
-    }
+    images[tex]->bindTexture(cuboids[drawCs]);
 }
 
 #define FLIP_DEBUG 0
@@ -1200,18 +531,7 @@ void AFK_Jigsaw::bindTexture(unsigned int tex)
 void AFK_Jigsaw::flipCuboids(const AFK_Frame& currentFrame)
 {
     /* Make sure any changes are really, properly finished */
-    for (unsigned int tex = 0; tex < texCount; ++tex)
-    {
-        if (changeEvents[tex].size() > 0)
-        {
-            AFK_CLCHK(clWaitForEvents(changeEvents[tex].size(), &changeEvents[tex][0]))
-            for (auto ev : changeEvents[tex])
-            {
-                AFK_CLCHK(clReleaseEvent(ev))
-            }
-            changeEvents[tex].clear();
-        }
-    }
+    for (auto image : images) image->waitForAll();
 
     boost::upgrade_lock<boost::upgrade_mutex> ulock0(cuboidMuts[0]);
     boost::upgrade_to_unique_lock<boost::upgrade_mutex> utoulock0(ulock0);

@@ -334,9 +334,10 @@ AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(int puzzle)
 }
 
 int AFK_JigsawCollection::acquireAllForCl(
+    unsigned int tex,
     cl_context ctxt,
     cl_command_queue q,
-    cl_mem **allMem,
+    cl_mem *allMem,
     int count,
     std::vector<cl_event>& o_events)
 {
@@ -347,7 +348,7 @@ int AFK_JigsawCollection::acquireAllForCl(
     assert(puzzleCount <= count);
 
     for (i = 0; i < puzzleCount; ++i)
-        allMem[i] = puzzles[i]->acquireForCl(ctxt, q, o_events);
+        allMem[i] = puzzles[i]->acquireForCl(tex, ctxt, q, o_events);
     for (int excess = i; excess < count; ++excess)
         allMem[excess] = allMem[0];
 
@@ -355,15 +356,16 @@ int AFK_JigsawCollection::acquireAllForCl(
 }
 
 void AFK_JigsawCollection::releaseAllFromCl(
+    unsigned int tex,
     cl_command_queue q,
-    cl_mem **allMem,
+    cl_mem *allMem,
     int count,
     const std::vector<cl_event>& eventWaitList)
 {
     boost::shared_lock<boost::upgrade_mutex> lock(mut);
     
     for (int i = 0; i < count; ++i)
-        puzzles[i]->releaseFromCl(q, eventWaitList);
+        puzzles[i]->releaseFromCl(tex, q, eventWaitList);
 }
 
 void AFK_JigsawCollection::flipCuboids(cl_context ctxt, const AFK_Frame& currentFrame)

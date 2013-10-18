@@ -168,8 +168,8 @@ void AFK_3DVapourComputeQueue::computeStart(
 
     /* Set up the rest of the vapour parameters */
     preVapourWaitList.clear();
-    cl_mem *vapourJigsawsMem[4];
-    int jpCount = vapourJigsaws->acquireAllForCl(ctxt, q, vapourJigsawsMem, 4, preVapourWaitList);
+    cl_mem vapourJigsawsDensityMem[4];
+    int jpCount = vapourJigsaws->acquireAllForCl(0, ctxt, q, vapourJigsawsDensityMem, 4, preVapourWaitList);
 
     AFK_CLCHK(clSetKernelArg(vapourFeatureKernel, 0, sizeof(cl_mem), &vapourBufs[0]))
     AFK_CLCHK(clSetKernelArg(vapourFeatureKernel, 1, sizeof(cl_mem), &vapourBufs[1]))
@@ -181,7 +181,7 @@ void AFK_3DVapourComputeQueue::computeStart(
     AFK_CLCHK(clSetKernelArg(vapourFeatureKernel, 4, sizeof(cl_int), &fake3D_mult))
 
     for (int jpI = 0; jpI < 4; ++jpI)
-        AFK_CLCHK(clSetKernelArg(vapourFeatureKernel, jpI + 5, sizeof(cl_mem), &vapourJigsawsMem[jpI][0]))
+        AFK_CLCHK(clSetKernelArg(vapourFeatureKernel, jpI + 5, sizeof(cl_mem), &vapourJigsawsDensityMem[jpI]))
 
     size_t vapourDim[3];
     vapourDim[0] = sSizes.tDim * unitCount;
@@ -201,19 +201,24 @@ void AFK_3DVapourComputeQueue::computeStart(
     }
 
     /* Next, compute the vapour normals. */
+    preNormalWaitList.clear();
+    preNormalWaitList.push_back(vapourFeatureEvent);
+    cl_mem vapourJigsawsNormalMem[4];
+    int jpNCount = vapourJigsaws->acquireAllForCl(1, ctxt, q, vapourJigsawsNormalMem, 4, preNormalWaitList);
+
     AFK_CLCHK(clSetKernelArg(vapourNormalKernel, 0, sizeof(cl_mem), &vapourBufs[2]))
     AFK_CLCHK(clSetKernelArg(vapourNormalKernel, 1, sizeof(cl_int2), &fake3D_size.v[0]))
     AFK_CLCHK(clSetKernelArg(vapourNormalKernel, 2, sizeof(cl_int), &fake3D_mult))
     for (int jpI = 0; jpI < 4; ++jpI)
     {
-        AFK_CLCHK(clSetKernelArg(vapourNormalKernel, jpI + 3, sizeof(cl_mem), &vapourJigsawsMem[jpI][0])) /* feature */
-        AFK_CLCHK(clSetKernelArg(vapourNormalKernel, jpI + 7, sizeof(cl_mem), &vapourJigsawsMem[jpI][1])) /* normal */
+        AFK_CLCHK(clSetKernelArg(vapourNormalKernel, jpI + 3, sizeof(cl_mem), &vapourJigsawsDensityMem[jpI]))
+        AFK_CLCHK(clSetKernelArg(vapourNormalKernel, jpI + 7, sizeof(cl_mem), &vapourJigsawsNormalMem[jpI])) /* normal */
     }
 
     cl_event vapourNormalEvent;
 
     AFK_CLCHK(clEnqueueNDRangeKernel(q, vapourNormalKernel, 3, NULL, &vapourDim[0], NULL,
-        1, &vapourFeatureEvent, &vapourNormalEvent))
+        preNormalWaitList.size(), &preNormalWaitList[0], &vapourNormalEvent))
 
     for (unsigned int i = 0; i < 3; ++i)
     {
@@ -222,8 +227,12 @@ void AFK_3DVapourComputeQueue::computeStart(
 
     postVapourWaitList.clear();
     postVapourWaitList.push_back(vapourNormalEvent);
-    vapourJigsaws->releaseAllFromCl(q, vapourJigsawsMem, jpCount, postVapourWaitList);
-    if (vapourFeatureEvent) AFK_CLCHK(clReleaseEvent(vapourFeatureEvent))
+    vapourJigsaws->releaseAllFromCl(0, q, vapourJigsawsDensityMem, jpCount, postVapourWaitList);
+    vapourJigsaws->releaseAllFromCl(1, q, vapourJigsawsNormalMem, jpNCount, postVapourWaitList);
+    for (auto ev : preNormalWaitList)
+    {
+        if (ev) AFK_CLCHK(clReleaseEvent(ev))
+    }
     if (vapourNormalEvent) AFK_CLCHK(clReleaseEvent(vapourNormalEvent))
 
     computer->unlock();

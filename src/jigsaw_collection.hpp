@@ -118,9 +118,10 @@ public:
      * Returns the actual number of puzzles acquired.
      */
     int acquireAllForCl(
+        unsigned int tex,
         cl_context ctxt,
         cl_command_queue q,
-        cl_mem **allMem,
+        cl_mem *allMem,
         int count,
         std::vector<cl_event>& o_events);
 
@@ -128,8 +129,9 @@ public:
      * `count' should be the number returned by acquireAllFromCl.
      */
     void releaseAllFromCl(
+        unsigned int tex,
         cl_command_queue q,
-        cl_mem **allMem,
+        cl_mem *allMem,
         int count,
         const std::vector<cl_event>& eventWaitList);    
 

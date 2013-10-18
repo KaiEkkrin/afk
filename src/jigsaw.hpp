@@ -25,7 +25,6 @@
 #include <sstream>
 #include <vector>
 
-#include <boost/atomic.hpp>
 #include <boost/lockfree/queue.hpp>
 #include <boost/thread/shared_mutex.hpp>
 #include <boost/type_traits/has_trivial_assign.hpp>
@@ -34,7 +33,8 @@
 #include "computer.hpp"
 #include "data/frame.hpp"
 #include "data/moving_average.hpp"
-#include "def.hpp"
+#include "jigsaw_cuboid.hpp"
+#include "jigsaw_image.hpp"
 
 /* This module encapsulates the idea of having a large, "heapified"
  * texture (collection of textures in fact) that I feed to the shaders
@@ -52,77 +52,6 @@
  * the `w' co-ordinate (`slice') to 0 at all times, and having a 3rd
  * jigsaw size dimension of 1.
  */
-
-/* This enumeration describes the jigsaw's texture format.  I'll
- * need to add more here as I support more formats.
- */
-enum AFK_JigsawFormat
-{
-    AFK_JIGSAW_UINT32,
-    AFK_JIGSAW_2UINT32,
-    AFK_JIGSAW_FLOAT32,
-    AFK_JIGSAW_555A1,
-    AFK_JIGSAW_101010A2,
-    AFK_JIGSAW_4FLOAT8_UNORM,
-    AFK_JIGSAW_4FLOAT8_SNORM,
-    AFK_JIGSAW_4FLOAT32
-};
-
-/* This enumeration describes what buffers we manage -- CL, GL, both. */
-enum AFK_JigsawBufferUsage
-{
-    AFK_JIGSAW_BU_CL_ONLY,
-    AFK_JIGSAW_BU_CL_GL_COPIED,
-    AFK_JIGSAW_BU_CL_GL_SHARED
-};
-
-class AFK_JigsawFormatDescriptor
-{
-public:
-    GLint glInternalFormat;
-    GLenum glFormat;
-    GLenum glDataType;
-    cl_image_format clFormat;
-    size_t texelSize;
-
-    AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat);
-    AFK_JigsawFormatDescriptor(const AFK_JigsawFormatDescriptor& _fd);
-};
-
-/* This class describes a fake 3D image that emulates 3D with a
- * 2D image.
- * A fake 3D texture will be 2D for CL operations, and 3D for
- * GL operations.  The Jigsaw will hold its 3D dimensions, and
- * query an object of this class to obtain the CL dimensions.
- */
-class AFK_JigsawFake3DDescriptor
-{
-    /* This is the emulated 3D piece size */
-    Vec3<int> fakeSize;
-
-    /* This is the multiplier used to achieve that fakery */
-    int mult;
-
-    /* This flags whether to use fake 3D in the first place */
-    bool useFake3D;
-public:
-
-    /* This one initialises it to false. */
-    AFK_JigsawFake3DDescriptor();
-
-    AFK_JigsawFake3DDescriptor(bool _useFake3D, const Vec3<int>& _fakeSize);
-    AFK_JigsawFake3DDescriptor(const AFK_JigsawFake3DDescriptor& _fake3D);
-    AFK_JigsawFake3DDescriptor operator=(const AFK_JigsawFake3DDescriptor& _fake3D);
-
-    bool getUseFake3D(void) const;
-    Vec3<int> get2DSize(void) const;
-    Vec3<int> getFakeSize(void) const;
-    int getMult(void) const;
-
-    /* Convert to and from the real 2D / emulated 3D. */
-    Vec2<int> fake3DTo2D(const Vec3<int>& _fake) const;
-    Vec3<int> fake3DFrom2D(const Vec2<int>& _real) const;
-};
 
 /* This token represents which "piece" of the jigsaw an object might
  * be associated with.
@@ -161,31 +90,6 @@ BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_JigsawPiece>::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_JigsawPiece>::value));
 
 
-/* This class encapsulates a cuboid within the jigsaw that
- * contains all the updates from a frame (we write to it) or all
- * the draws (we use it to sort out rectangular reads and writes
- * of the texture itself).
- */
-class AFK_JigsawCuboid
-{
-public:
-    /* These co-ordinates are in piece units.
-     * During usage, a cuboid can't grow in rows or slices, but it
-     * can grow in columns.
-     */
-    int r, c, s, rows, slices;
-    boost::atomic<int> columns;
-
-    AFK_JigsawCuboid(int _r, int _c, int _s, int _rows, int _slices);
-
-    AFK_JigsawCuboid(const AFK_JigsawCuboid& other);
-    AFK_JigsawCuboid operator=(const AFK_JigsawCuboid& other);
-
-    friend std::ostream& operator<<(std::ostream& os, const AFK_JigsawCuboid& sr);
-};
-
-std::ostream& operator<<(std::ostream& os, const AFK_JigsawCuboid& sr);
-
 /* This is an internal thing for indicating whether we grabbed a
  * cuboid.
  */
@@ -205,17 +109,9 @@ enum AFK_JigsawPieceGrabStatus
 class AFK_Jigsaw
 {
 protected:
-    GLuint *glTex;
-    cl_mem *clTex;
-    const AFK_JigsawFormatDescriptor *format;
-    const GLuint texTarget;
+    std::vector<AFK_JigsawImage*> images;
     const AFK_JigsawFake3DDescriptor fake3D;
-    const cl_mem_object_type clImageType;
-    const unsigned int texCount;
-
-    const Vec3<int> pieceSize;
     const Vec3<int> jigsawSize; /* number of pieces in each dimension */
-    const enum AFK_JigsawBufferUsage bufferUsage;
 
     /* Each row of the jigsaw has a timestamp.  When the sweep
      * comes around and updates it, that indicates that any old
@@ -271,18 +167,6 @@ protected:
      */
     AFK_MovingAverage<int> columnCounts;
 
-    /* If bufferUsage is cl gl copied, this is the cuboid data I've
-     * read back from the CL and that needs to go into the GL.
-     * There is one vector per texture.
-     */
-    std::vector<uint8_t> *changeData;
-
-    /* If bufferUsage is cl gl copied, these are the events I need to
-     * wait on before I can push data to the GL.
-     * Again, there is one vector per texture.
-     */
-    std::vector<cl_event> *changeEvents;
-
     /* This utility function attempts to assign a piece out of the
      * current cuboid.
      * It returns:
@@ -334,15 +218,6 @@ protected:
      * grabber to not be caught up on.
      */
     void doSweep(const Vec2<int>& nextFreeRow, const AFK_Frame& currentFrame);
-
-    /* These functions help to pull changed data from the CL
-     * textures and push them to the GL.
-     * Each one assumes that you called the previous one for
-     * that texture.
-     */
-    void getClChangeData(cl_command_queue q, const std::vector<cl_event>& eventWaitList, unsigned int tex);
-    void getClChangeDataFake3D(cl_command_queue q, const std::vector<cl_event>& eventWaitList, unsigned int tex);
-    void putClChangeData(unsigned int tex);
 
     /* Some internal stats: */
     boost::atomic<uint64_t> piecesGrabbed;
@@ -408,18 +283,17 @@ public:
      * copied over to the GL after a write acquire is released?
      */
 
-    /* Acquires the buffers for the CL.
+    /* Acquires an image for the CL.
      * Fills out `o_events' with events you need to wait for
-     * before the buffer is ready (none or more)
+     * before the images are ready (none or more)
      */
-    cl_mem *acquireForCl(cl_context ctxt, cl_command_queue q, std::vector<cl_event>& o_events);
+    cl_mem acquireForCl(unsigned int tex, cl_context ctxt, cl_command_queue q, std::vector<cl_event>& o_events);
 
-    /* Releases the buffer from the CL. */
-    void releaseFromCl(cl_command_queue q, const std::vector<cl_event>& eventWaitList);
+    /* Releases an image from the CL. */
+    void releaseFromCl(unsigned int tex, cl_command_queue q, const std::vector<cl_event>& eventWaitList);
 
-    /* Binds a buffer to the GL as a texture.
-     * Call once for each texture, having set glActiveTexture()
-     * appropriately each time.
+    /* Binds an image to the GL as a texture.
+     * Expects you to have set glActiveTexture() appropriately first!
      */
     void bindTexture(unsigned int tex);
 
