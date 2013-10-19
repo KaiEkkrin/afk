@@ -88,10 +88,10 @@ bool AFK_JigsawCollection::grabPieceFromPuzzle(
     return false;
 }
 
-AFK_Jigsaw *AFK_JigsawCollection::makeNewJigsaw(cl_context ctxt) const
+AFK_Jigsaw *AFK_JigsawCollection::makeNewJigsaw(AFK_Computer *computer) const
 {
     return new AFK_Jigsaw(
-        ctxt,
+        computer,
         pieceSize,
         jigsawSize,
         &format[0],
@@ -103,7 +103,7 @@ AFK_Jigsaw *AFK_JigsawCollection::makeNewJigsaw(cl_context ctxt) const
 }
 
 AFK_JigsawCollection::AFK_JigsawCollection(
-    cl_context ctxt,
+    AFK_Computer *_computer,
     const Vec3<int>& _pieceSize,
     int _pieceCount,
     unsigned int minPuzzleCount,
@@ -243,10 +243,10 @@ AFK_JigsawCollection::AFK_JigsawCollection(
 
     for (unsigned int j = 0; j < jigsawCount; ++j)
     {
-        puzzles.push_back(makeNewJigsaw(ctxt));
+        puzzles.push_back(makeNewJigsaw(_computer));
     }
 
-    spare = makeNewJigsaw(ctxt);
+    spare = makeNewJigsaw(_computer);
 
     spills.store(0);
 }
@@ -335,8 +335,6 @@ AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(int puzzle)
 
 int AFK_JigsawCollection::acquireAllForCl(
     unsigned int tex,
-    cl_context ctxt,
-    cl_command_queue q,
     cl_mem *allMem,
     int count,
     std::vector<cl_event>& o_events)
@@ -348,7 +346,7 @@ int AFK_JigsawCollection::acquireAllForCl(
     assert(puzzleCount <= count);
 
     for (i = 0; i < puzzleCount; ++i)
-        allMem[i] = puzzles[i]->acquireForCl(tex, ctxt, q, o_events);
+        allMem[i] = puzzles[i]->acquireForCl(tex, o_events);
     for (int excess = i; excess < count; ++excess)
         allMem[excess] = allMem[0];
 
@@ -357,7 +355,6 @@ int AFK_JigsawCollection::acquireAllForCl(
 
 void AFK_JigsawCollection::releaseAllFromCl(
     unsigned int tex,
-    cl_command_queue q,
     cl_mem *allMem,
     int count,
     const std::vector<cl_event>& eventWaitList)
@@ -365,10 +362,10 @@ void AFK_JigsawCollection::releaseAllFromCl(
     boost::shared_lock<boost::upgrade_mutex> lock(mut);
     
     for (int i = 0; i < count; ++i)
-        puzzles[i]->releaseFromCl(tex, q, eventWaitList);
+        puzzles[i]->releaseFromCl(tex, eventWaitList);
 }
 
-void AFK_JigsawCollection::flipCuboids(cl_context ctxt, const AFK_Frame& currentFrame)
+void AFK_JigsawCollection::flipCuboids(AFK_Computer *computer, const AFK_Frame& currentFrame)
 {
     boost::upgrade_lock<boost::upgrade_mutex> ulock(mut);
     boost::upgrade_to_unique_lock<boost::upgrade_mutex> utoulock(ulock);
@@ -379,7 +376,7 @@ void AFK_JigsawCollection::flipCuboids(cl_context ctxt, const AFK_Frame& current
     if (!spare && (maxPuzzles == 0 || puzzles.size() < maxPuzzles))
     {
         /* Make a new one to push along. */
-        spare = makeNewJigsaw(ctxt);
+        spare = makeNewJigsaw(computer);
     }
 }
 

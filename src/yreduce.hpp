@@ -34,6 +34,7 @@ class AFK_LandscapeTile;
 class AFK_YReduce
 {
 protected:
+    AFK_Computer *computer;
     cl_kernel yReduceKernel;
 
     /* The result buffers */
@@ -46,13 +47,10 @@ protected:
     cl_event readbackEvent;
 
 public:
-    AFK_YReduce(const AFK_Computer *computer);
-
+    AFK_YReduce(AFK_Computer *_computer);
     virtual ~AFK_YReduce();
 
     void compute(
-        cl_context ctxt,
-        cl_command_queue q,
         unsigned int unitCount,
         cl_mem *units,
         cl_mem *jigsawYDisp,

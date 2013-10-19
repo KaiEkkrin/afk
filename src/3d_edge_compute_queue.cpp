@@ -102,7 +102,7 @@ void AFK_3DEdgeComputeQueue::computeStart(
     computer->lock(ctxt, q);
 
     /* Copy the unit list to a CL buffer. */
-    cl_mem unitsBuf = clCreateBuffer(
+    cl_mem unitsBuf = computer->oclShim.CreateBuffer()(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         units.size() * sizeof(AFK_3DEdgeComputeUnit),
         &units[0], &error);
@@ -110,20 +110,20 @@ void AFK_3DEdgeComputeQueue::computeStart(
 
     /* Set up the rest of the parameters */
     preEdgeWaitList.clear();
-    cl_mem vapourJigsawDensityMem = vapourJigsaw->acquireForCl(0, ctxt, q, preEdgeWaitList);
-    cl_mem edgeJigsawDispMem = edgeJigsaw->acquireForCl(0, ctxt, q, preEdgeWaitList);
-    cl_mem edgeJigsawOverlapMem = edgeJigsaw->acquireForCl(1, ctxt, q, preEdgeWaitList);
+    cl_mem vapourJigsawDensityMem = vapourJigsaw->acquireForCl(0, preEdgeWaitList);
+    cl_mem edgeJigsawDispMem = edgeJigsaw->acquireForCl(0, preEdgeWaitList);
+    cl_mem edgeJigsawOverlapMem = edgeJigsaw->acquireForCl(1, preEdgeWaitList);
 
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 0, sizeof(cl_mem), &vapourJigsawDensityMem))
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 1, sizeof(cl_mem), &unitsBuf))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 0, sizeof(cl_mem), &vapourJigsawDensityMem))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 1, sizeof(cl_mem), &unitsBuf))
 
     Vec2<int> fake3D_size = vapourJigsaw->getFake3D_size();
     int fake3D_mult = vapourJigsaw->getFake3D_mult();
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 2, sizeof(cl_int2), &fake3D_size.v[0]))
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 3, sizeof(cl_int), &fake3D_mult))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 2, sizeof(cl_int2), &fake3D_size.v[0]))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 3, sizeof(cl_int), &fake3D_mult))
 
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 4, sizeof(cl_mem), &edgeJigsawDispMem))
-    AFK_CLCHK(clSetKernelArg(edgeKernel, 5, sizeof(cl_mem), &edgeJigsawOverlapMem))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 4, sizeof(cl_mem), &edgeJigsawDispMem))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 5, sizeof(cl_mem), &edgeJigsawOverlapMem))
 
     size_t edgeGlobalDim[3];
     edgeGlobalDim[0] = unitCount;
@@ -135,7 +135,7 @@ void AFK_3DEdgeComputeQueue::computeStart(
 
     cl_event edgeEvent;
 
-    AFK_CLCHK(clEnqueueNDRangeKernel(q, edgeKernel, 3, 0, &edgeGlobalDim[0],
+    AFK_CLCHK(computer->oclShim.EnqueueNDRangeKernel()(q, edgeKernel, 3, 0, &edgeGlobalDim[0],
         &edgeLocalDim[0],
         preEdgeWaitList.size(),
         &preEdgeWaitList[0],
@@ -143,17 +143,17 @@ void AFK_3DEdgeComputeQueue::computeStart(
 
     for (auto ev : preEdgeWaitList)
     {
-        AFK_CLCHK(clReleaseEvent(ev))
+        AFK_CLCHK(computer->oclShim.ReleaseEvent()(ev))
     }
 
-    AFK_CLCHK(clReleaseMemObject(unitsBuf))
+    AFK_CLCHK(computer->oclShim.ReleaseMemObject()(unitsBuf))
 
     postEdgeWaitList.clear();
     postEdgeWaitList.push_back(edgeEvent);
-    vapourJigsaw->releaseFromCl(0, q, postEdgeWaitList);
-    edgeJigsaw->releaseFromCl(0, q, postEdgeWaitList);
-    edgeJigsaw->releaseFromCl(1, q, postEdgeWaitList);
-    AFK_CLCHK(clReleaseEvent(edgeEvent))
+    vapourJigsaw->releaseFromCl(0, postEdgeWaitList);
+    edgeJigsaw->releaseFromCl(0, postEdgeWaitList);
+    edgeJigsaw->releaseFromCl(1, postEdgeWaitList);
+    AFK_CLCHK(computer->oclShim.ReleaseEvent()(edgeEvent))
 
     computer->unlock();
 }

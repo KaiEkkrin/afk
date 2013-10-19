@@ -455,7 +455,7 @@ bool AFK_World::generateClaimedWorldCell(
 
 AFK_World::AFK_World(
     const AFK_Config *config,
-    const AFK_Computer *computer,
+    AFK_Computer *computer,
     float _maxDistance,
     unsigned int worldCacheSize,
     unsigned int tileCacheSize,
@@ -483,7 +483,7 @@ AFK_World::AFK_World(
     Vec3<int> tilePieceSize = afk_vec3<int>((int)lSizes.tDim, (int)lSizes.tDim, 1);
 
     landscapeJigsaws = new AFK_JigsawCollection(
-        ctxt,
+        computer,
         tilePieceSize,
         (int)tileCacheEntries,
         2, /* I want at least two, so I can put big tiles only into the first one */
@@ -530,7 +530,7 @@ AFK_World::AFK_World(
     bool useClGlSharingForVapour = (config->clGlSharing && !computer->useFake3DImages(config));
 
     vapourJigsaws = new AFK_JigsawCollection(
-        ctxt,
+        computer,
         vapourPieceSize,
         (int)shapeCacheEntries,
         1,
@@ -556,7 +556,7 @@ AFK_World::AFK_World(
     Vec3<int> edgePieceSize = afk_vec3<int>(sSizes.eDim * 3, sSizes.eDim * 2, 1);
 
     edgeJigsaws = new AFK_JigsawCollection(
-        ctxt,
+        computer,
         edgePieceSize,
         (int)shapeCacheEntries,
         1,
@@ -680,7 +680,7 @@ void AFK_World::enqueueSubcells(
     (*genGang) << cellItem;
 }
 
-void AFK_World::flipRenderQueues(cl_context ctxt, const AFK_Frame& newFrame)
+void AFK_World::flipRenderQueues(const AFK_Frame& newFrame)
 {
     /* Verify that the concurrency control business has done
      * its job correctly.
@@ -690,13 +690,13 @@ void AFK_World::flipRenderQueues(cl_context ctxt, const AFK_Frame& newFrame)
 
     landscapeComputeFair.flipQueues();
     landscapeDisplayFair.flipQueues();
-    landscapeJigsaws->flipCuboids(ctxt, newFrame);
+    landscapeJigsaws->flipCuboids(afk_core.computer, newFrame);
 
     vapourComputeFair.flipQueues();
     edgeComputeFair.flipQueues();
     entityDisplayFair.flipQueues();
-    vapourJigsaws->flipCuboids(ctxt, newFrame);
-    edgeJigsaws->flipCuboids(ctxt, newFrame);
+    vapourJigsaws->flipCuboids(afk_core.computer, newFrame);
+    edgeJigsaws->flipCuboids(afk_core.computer, newFrame);
 }
 
 void AFK_World::alterDetail(float adjustment)

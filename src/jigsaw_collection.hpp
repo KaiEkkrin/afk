@@ -61,14 +61,14 @@ protected:
         AFK_JigsawPiece *o_piece,
         AFK_Frame *o_timestamp);
 
-    AFK_Jigsaw *makeNewJigsaw(cl_context ctxt) const;
+    AFK_Jigsaw *makeNewJigsaw(AFK_Computer *computer) const;
 
     /* For stats. */
     boost::atomic<uint64_t> spills;
 
 public:
     AFK_JigsawCollection(
-        cl_context ctxt,
+        AFK_Computer *_computer,
         const Vec3<int>& _pieceSize,
         int _pieceCount,
         unsigned int minPuzzleCount,
@@ -119,8 +119,6 @@ public:
      */
     int acquireAllForCl(
         unsigned int tex,
-        cl_context ctxt,
-        cl_command_queue q,
         cl_mem *allMem,
         int count,
         std::vector<cl_event>& o_events);
@@ -130,13 +128,12 @@ public:
      */
     void releaseAllFromCl(
         unsigned int tex,
-        cl_command_queue q,
         cl_mem *allMem,
         int count,
         const std::vector<cl_event>& eventWaitList);    
 
     /* Flips the cuboids in all the jigsaws. */
-    void flipCuboids(cl_context ctxt, const AFK_Frame& currentFrame);
+    void flipCuboids(AFK_Computer *computer, const AFK_Frame& currentFrame);
 
     void printStats(std::ostream& os, const std::string& prefix);
 };

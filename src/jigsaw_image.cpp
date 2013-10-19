@@ -248,7 +248,7 @@ void AFK_JigsawImage::getClChangeData(
         changeData.resize(changeDataOffset + cuboidSizeInBytes);
         changeEvents.resize(changeEvent + 1);
   
-        AFK_CLCHK(clEnqueueReadImage(
+        AFK_CLCHK(computer->oclShim.EnqueueReadImage()(
             q, clTex, CL_FALSE, origin, region, 0, 0, &changeData[changeDataOffset],
                 eventWaitList.size(), &eventWaitList[0], &changeEvents[changeEvent]))
         ++changeEvent;
@@ -299,7 +299,7 @@ void AFK_JigsawImage::getClChangeDataFake3D(
                 changeData.resize(changeDataOffset + cuboidSliceSizeInBytes);
                 changeEvents.resize(changeEvent + 1);
 
-                AFK_CLCHK(clEnqueueReadImage(
+                AFK_CLCHK(computer->oclShim.EnqueueReadImage()(
                     q, clTex, CL_FALSE, origin, region, 0, 0, &changeData[changeDataOffset],
                         eventWaitList.size(), &eventWaitList[0], &changeEvents[changeEvent]))
                 ++changeEvent;
@@ -359,13 +359,14 @@ void AFK_JigsawImage::putClChangeData(const std::vector<AFK_JigsawCuboid>& drawC
 }
 
 AFK_JigsawImage::AFK_JigsawImage(
-    cl_context ctxt,
+    AFK_Computer *_computer,
     const Vec3<int>& _pieceSize,
     const Vec3<int>& _jigsawSize,
     const AFK_JigsawFormatDescriptor& _format,
     GLuint _texTarget,
     const AFK_JigsawFake3DDescriptor& _fake3D,
     enum AFK_JigsawBufferUsage _bufferUsage):
+        computer(_computer),
         glTex(0),
         clTex(0),
         format(_format),
@@ -377,6 +378,10 @@ AFK_JigsawImage::AFK_JigsawImage(
         bufferUsage(_bufferUsage)
 {
     cl_int error;
+
+    cl_context ctxt;
+    cl_command_queue q;
+    computer->lock(ctxt, q);
 
     if (bufferUsage != AFK_JIGSAW_BU_CL_GL_SHARED)
     {
@@ -402,10 +407,9 @@ AFK_JigsawImage::AFK_JigsawImage(
         imageDesc.image_height      = clImageSize.v[1];
         imageDesc.image_depth       = clImageSize.v[2];
 
-#ifndef AFK_OPENCL11
         if (afk_core.computer->testVersion(1, 2))
         {
-            clTex = clCreateImage(
+            clTex = computer->oclShim.CreateImage()(
                 ctxt,
                 CL_MEM_READ_WRITE,
                 &format.clFormat,
@@ -414,14 +418,11 @@ AFK_JigsawImage::AFK_JigsawImage(
                 &error);
         }
         else
-#endif /* AFK_OPENCL11 */
         {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
             switch (clImageType)
             {
             case CL_MEM_OBJECT_IMAGE2D:
-                clTex = clCreateImage2D(
+                clTex = computer->oclShim.CreateImage2D()(
                     ctxt,
                     CL_MEM_READ_WRITE,
                     &format.clFormat,
@@ -433,7 +434,7 @@ AFK_JigsawImage::AFK_JigsawImage(
                 break;
 
             case CL_MEM_OBJECT_IMAGE3D:
-                clTex = clCreateImage3D(
+                clTex = computer->oclShim.CreateImage3D()(
                     ctxt,
                     CL_MEM_READ_WRITE,
                     &format.clFormat,
@@ -449,7 +450,6 @@ AFK_JigsawImage::AFK_JigsawImage(
             default:
                 throw AFK_Exception("Unrecognised texTarget");
             }
-#pragma GCC diagnostic pop
         }
     }
 
@@ -486,10 +486,9 @@ AFK_JigsawImage::AFK_JigsawImage(
 
         if (bufferUsage == AFK_JIGSAW_BU_CL_GL_SHARED)
         {
-#ifndef AFK_OPENCL11
             if (afk_core.computer->testVersion(1, 2))
             {
-                clTex = clCreateFromGLTexture(
+                clTex = computer->oclShim.CreateFromGLTexture()(
                     ctxt,
                     CL_MEM_READ_WRITE,
                     texTarget,
@@ -498,14 +497,11 @@ AFK_JigsawImage::AFK_JigsawImage(
                     &error);
             }
             else
-#endif /* AFK_OPENCL11 */
             {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
                 switch (texTarget)
                 {
                 case GL_TEXTURE_2D:
-                    clTex = clCreateFromGLTexture2D(
+                    clTex = computer->oclShim.CreateFromGLTexture2D()(
                         ctxt,
                         CL_MEM_READ_WRITE,
                         texTarget,
@@ -515,7 +511,7 @@ AFK_JigsawImage::AFK_JigsawImage(
                     break;
 
                 case GL_TEXTURE_3D:
-                    clTex = clCreateFromGLTexture3D(
+                    clTex = computer->oclShim.CreateFromGLTexture3D()(
                         ctxt,
                         CL_MEM_READ_WRITE,
                         texTarget,
@@ -527,31 +523,36 @@ AFK_JigsawImage::AFK_JigsawImage(
                 default:
                     throw AFK_Exception("Unrecognised texTarget");
                 }
-#pragma GCC diagnostic pop
             }
             AFK_HANDLE_CL_ERROR(error);
         }
     }
+
+    computer->unlock();
 }
 
 AFK_JigsawImage::~AFK_JigsawImage()
 {
-    if (clTex) clReleaseMemObject(clTex);
+    if (clTex) computer->oclShim.ReleaseMemObject()(clTex);
     for (auto ev : changeEvents)
-        if (ev) clReleaseEvent(ev);
+        if (ev) computer->oclShim.ReleaseEvent()(ev);
     if (glTex) glDeleteTextures(1, &glTex);
 }
 
-cl_mem AFK_JigsawImage::acquireForCl(cl_context ctxt, cl_command_queue q, std::vector<cl_event>& o_events)
+cl_mem AFK_JigsawImage::acquireForCl(std::vector<cl_event>& o_events)
 {
+    cl_context ctxt;
+    cl_command_queue q;
+    computer->lock(ctxt, q);
+
     switch (bufferUsage)
     {
     case AFK_JIGSAW_BU_CL_GL_SHARED:
         cl_event acquireEvent;
-        AFK_CLCHK(clEnqueueAcquireGLObjects(q, 1, &clTex, changeEvents.size(), &changeEvents[0], &acquireEvent))
+        AFK_CLCHK(computer->oclShim.EnqueueAcquireGLObjects()(q, 1, &clTex, changeEvents.size(), &changeEvents[0], &acquireEvent))
         for (auto ev : changeEvents)
         {
-            AFK_CLCHK(clReleaseEvent(ev))
+            AFK_CLCHK(computer->oclShim.ReleaseEvent()(ev))
         }
         changeEvents.clear();
         o_events.push_back(acquireEvent);
@@ -565,18 +566,23 @@ cl_mem AFK_JigsawImage::acquireForCl(cl_context ctxt, cl_command_queue q, std::v
          */
         for (auto ev : changeEvents)
         {
-            AFK_CLCHK(clRetainEvent(ev))
+            AFK_CLCHK(computer->oclShim.RetainEvent()(ev))
             o_events.push_back(ev);
         }
         break;
     }
 
+    computer->unlock();
     return clTex;
 }
 
-void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCuboids, cl_command_queue q, const std::vector<cl_event>& eventWaitList)
+void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCuboids, const std::vector<cl_event>& eventWaitList)
 {
     std::vector<cl_event> allWaitList;
+
+    cl_context ctxt;
+    cl_command_queue q;
+    computer->lock(ctxt, q);
 
     switch (bufferUsage)
     {
@@ -586,10 +592,10 @@ void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCub
          */
         if (changeEvents.size() > 0)
         {
-            AFK_CLCHK(clWaitForEvents(changeEvents.size(), &changeEvents[0]))
+            AFK_CLCHK(computer->oclShim.WaitForEvents()(changeEvents.size(), &changeEvents[0]))
             for (auto ev : changeEvents)
             {
-                AFK_CLCHK(clReleaseEvent(ev))
+                AFK_CLCHK(computer->oclShim.ReleaseEvent()(ev))
             }
         }
 
@@ -611,16 +617,16 @@ void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCub
         allWaitList.reserve(eventWaitList.size() + changeEvents.size());
         for (auto ev : eventWaitList)
         {
-            AFK_CLCHK(clRetainEvent(ev))
+            AFK_CLCHK(computer->oclShim.RetainEvent()(ev))
             allWaitList.push_back(ev);
         }
         std::copy(changeEvents.begin(), changeEvents.end(), allWaitList.end());
 
         changeEvents.resize(1);
-        AFK_CLCHK(clEnqueueReleaseGLObjects(q, 1, &clTex, allWaitList.size(), &allWaitList[0], &changeEvents[0]))
+        AFK_CLCHK(computer->oclShim.EnqueueReleaseGLObjects()(q, 1, &clTex, allWaitList.size(), &allWaitList[0], &changeEvents[0]))
         for (auto aw : allWaitList)
         {
-            AFK_CLCHK(clReleaseEvent(aw))
+            AFK_CLCHK(computer->oclShim.ReleaseEvent()(aw))
         }
         allWaitList.clear();
         break;
@@ -632,11 +638,13 @@ void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCub
          */
         for (auto ev : eventWaitList)
         {
-            AFK_CLCHK(clRetainEvent(ev))
+            AFK_CLCHK(computer->oclShim.RetainEvent()(ev))
             changeEvents.push_back(ev);
         }
         break;
     }
+
+    computer->unlock();
 }
 
 void AFK_JigsawImage::bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboids)
@@ -648,10 +656,10 @@ void AFK_JigsawImage::bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboi
         /* Wait for the change readback to be finished. */
         if (changeEvents.size() == 0) return;
 
-        AFK_CLCHK(clWaitForEvents(changeEvents.size(), &changeEvents[0]))
+        AFK_CLCHK(computer->oclShim.WaitForEvents()(changeEvents.size(), &changeEvents[0]))
         for (unsigned int e = 0; e < changeEvents.size(); ++e)
         {
-            AFK_CLCHK(clReleaseEvent(changeEvents[e]))
+            AFK_CLCHK(computer->oclShim.ReleaseEvent()(changeEvents[e]))
         }
 
         changeEvents.clear();
@@ -665,10 +673,10 @@ void AFK_JigsawImage::waitForAll(void)
 {
     if (changeEvents.size() > 0)
     {
-        AFK_CLCHK(clWaitForEvents(changeEvents.size(), &changeEvents[0]))
+        AFK_CLCHK(computer->oclShim.WaitForEvents()(changeEvents.size(), &changeEvents[0]))
         for (auto ev : changeEvents)
         {
-            AFK_CLCHK(clReleaseEvent(ev))
+            AFK_CLCHK(computer->oclShim.ReleaseEvent()(ev))
         }
         changeEvents.clear();
     }

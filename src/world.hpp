@@ -269,7 +269,7 @@ public:
 
     AFK_World(
         const AFK_Config *config,
-        const AFK_Computer *computer,
+        AFK_Computer *computer,
         float _maxDistance,
         unsigned int worldCacheSize, /* in bytes */
         unsigned int tileCacheSize, /* also in bytes */
@@ -289,7 +289,7 @@ public:
         const AFK_Camera& camera);
 
     /* Call when we're about to start a new frame. */
-    void flipRenderQueues(cl_context ctxt, const AFK_Frame& newFrame);
+    void flipRenderQueues(const AFK_Frame& newFrame);
 
     /* For changing the level of detail.  Values >1 decrease
      * it.  Values <1 increase it.

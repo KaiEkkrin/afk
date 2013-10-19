@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "def.hpp"
+#include "computer.hpp"
 #include "jigsaw_cuboid.hpp"
 
 /* This module defines the container for a single image within a jigsaw.
@@ -106,6 +107,8 @@ public:
 class AFK_JigsawImage
 {
 protected:
+    AFK_Computer *computer;
+
     /* The backing memory in GL and CL. */
     GLuint glTex;
     cl_mem clTex;
@@ -150,7 +153,7 @@ protected:
 
 public:
     AFK_JigsawImage(
-        cl_context ctxt,
+        AFK_Computer *_computer,
         const Vec3<int>& _pieceSize,
         const Vec3<int>& _jigsawSize,
         const AFK_JigsawFormatDescriptor& _format,
@@ -167,10 +170,10 @@ public:
      */
 
     /* Acquires this image for the CL. */
-    cl_mem acquireForCl(cl_context ctxt, cl_command_queue q, std::vector<cl_event>& o_events);
+    cl_mem acquireForCl(std::vector<cl_event>& o_events);
 
     /* Releases this image from the CL. */
-    void releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCuboids, cl_command_queue q, const std::vector<cl_event>& eventWaitList);
+    void releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCuboids, const std::vector<cl_event>& eventWaitList);
 
     /* Binds this image to the GL as a texture. */
     void bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboids);

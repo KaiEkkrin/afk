@@ -17,8 +17,6 @@
 
 #include <cstdio>
 #include <cstring>
-#include <iostream>
-#include <sstream>
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/tokenizer.hpp>
@@ -68,43 +66,14 @@ void afk_handleClError(cl_int error, const char *_file, const int _line)
 
 /* Incidental functions */
 
-static void printBuildLog(std::ostream& s, cl_program program, cl_device_id device)
-{
-    char *buildLog;
-    size_t buildLogSize;
-
-    AFK_CLCHK(clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &buildLogSize))
-    buildLog = new char[buildLogSize+1];
-    AFK_CLCHK(clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, NULL))
-    buildLog[buildLogSize] = '\0'; /* paranoia */
-    s << buildLog << std::endl;
-    delete[] buildLog;
-}
-
-/* For fetching fixed-size device properties. */
-template<typename PropType>
-void getClDeviceInfoFixed(
-    cl_device_id device,
-    cl_device_info paramName,
-    PropType *field,
-    PropType failValue)
-{
-    cl_int error = clGetDeviceInfo(device, paramName, sizeof(PropType), field, 0);
-    if (error != CL_SUCCESS)
-    {
-        std::cout << "getClDeviceInfoFixed: Couldn't get property for param " << std::dec << paramName << ": " << error << std::endl;
-        *field = failValue;
-    }
-}
-
 
 /* AFK_ClPlatformProperties implementation */
 
-AFK_ClPlatformProperties::AFK_ClPlatformProperties(cl_platform_id platform)
+AFK_ClPlatformProperties::AFK_ClPlatformProperties(AFK_Computer *computer, cl_platform_id platform)
 {
-    AFK_CLCHK(clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 0, NULL, &versionStrSize))
+    AFK_CLCHK(computer->oclShim.GetPlatformInfo()(platform, CL_PLATFORM_VERSION, 0, NULL, &versionStrSize))
     versionStr = new char[versionStrSize];
-    AFK_CLCHK(clGetPlatformInfo(platform, CL_PLATFORM_VERSION, versionStrSize, versionStr, &versionStrSize))
+    AFK_CLCHK(computer->oclShim.GetPlatformInfo()(platform, CL_PLATFORM_VERSION, versionStrSize, versionStr, &versionStrSize))
 
     if (sscanf(versionStr, "OpenCL %d.%d", &majorVersion, &minorVersion) != 2)
     {
@@ -116,27 +85,27 @@ AFK_ClPlatformProperties::AFK_ClPlatformProperties(cl_platform_id platform)
 
 /* AFK_ClDeviceProperties implementation. */
 
-AFK_ClDeviceProperties::AFK_ClDeviceProperties(cl_device_id device):
+AFK_ClDeviceProperties::AFK_ClDeviceProperties(AFK_Computer *computer, cl_device_id device):
     maxWorkItemSizes(NULL)
 {
-    getClDeviceInfoFixed<cl_ulong>(device, CL_DEVICE_GLOBAL_MEM_SIZE, &globalMemSize, 0);
-    getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE2D_MAX_WIDTH, &image2DMaxWidth, 0);
-    getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE2D_MAX_HEIGHT, &image2DMaxHeight, 0);
-    getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE3D_MAX_WIDTH, &image3DMaxWidth, 0);
-    getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE3D_MAX_HEIGHT, &image3DMaxHeight, 0);
-    getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE3D_MAX_DEPTH, &image3DMaxDepth, 0);
-    getClDeviceInfoFixed<cl_ulong>(device, CL_DEVICE_LOCAL_MEM_SIZE, &localMemSize, 0);
-    getClDeviceInfoFixed<cl_uint>(device, CL_DEVICE_MAX_CONSTANT_ARGS, &maxConstantArgs, 0);
-    getClDeviceInfoFixed<cl_uint>(device, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, &maxConstantBufferSize, 0);
-    getClDeviceInfoFixed<cl_ulong>(device, CL_DEVICE_MAX_MEM_ALLOC_SIZE, &maxMemAllocSize, 0);
-    getClDeviceInfoFixed<size_t>(device, CL_DEVICE_MAX_PARAMETER_SIZE, &maxParameterSize, 0);
-    getClDeviceInfoFixed<size_t>(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, &maxWorkGroupSize, 0);
-    getClDeviceInfoFixed<cl_uint>(device, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, &maxWorkItemDimensions, 0);
+    computer->getClDeviceInfoFixed<cl_ulong>(device, CL_DEVICE_GLOBAL_MEM_SIZE, &globalMemSize, 0);
+    computer->getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE2D_MAX_WIDTH, &image2DMaxWidth, 0);
+    computer->getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE2D_MAX_HEIGHT, &image2DMaxHeight, 0);
+    computer->getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE3D_MAX_WIDTH, &image3DMaxWidth, 0);
+    computer->getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE3D_MAX_HEIGHT, &image3DMaxHeight, 0);
+    computer->getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE3D_MAX_DEPTH, &image3DMaxDepth, 0);
+    computer->getClDeviceInfoFixed<cl_ulong>(device, CL_DEVICE_LOCAL_MEM_SIZE, &localMemSize, 0);
+    computer->getClDeviceInfoFixed<cl_uint>(device, CL_DEVICE_MAX_CONSTANT_ARGS, &maxConstantArgs, 0);
+    computer->getClDeviceInfoFixed<cl_uint>(device, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, &maxConstantBufferSize, 0);
+    computer->getClDeviceInfoFixed<cl_ulong>(device, CL_DEVICE_MAX_MEM_ALLOC_SIZE, &maxMemAllocSize, 0);
+    computer->getClDeviceInfoFixed<size_t>(device, CL_DEVICE_MAX_PARAMETER_SIZE, &maxParameterSize, 0);
+    computer->getClDeviceInfoFixed<size_t>(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, &maxWorkGroupSize, 0);
+    computer->getClDeviceInfoFixed<cl_uint>(device, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, &maxWorkItemDimensions, 0);
 
     if (maxWorkItemDimensions > 0)
     {
         maxWorkItemSizes = new size_t[maxWorkItemDimensions];
-        cl_int error = clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, maxWorkItemDimensions * sizeof(size_t), maxWorkItemSizes, NULL);
+        cl_int error = computer->oclShim.GetDeviceInfo()(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, maxWorkItemDimensions * sizeof(size_t), maxWorkItemSizes, NULL);
         if (error != CL_SUCCESS)
         {
             std::cout << "Couldn't get max work item sizes: " << error << std::endl;
@@ -146,11 +115,11 @@ AFK_ClDeviceProperties::AFK_ClDeviceProperties(cl_device_id device):
 
     size_t extArrSize;
     cl_int error;
-    error = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, 0, NULL, &extArrSize);
+    error = computer->oclShim.GetDeviceInfo()(device, CL_DEVICE_EXTENSIONS, 0, NULL, &extArrSize);
     if (error == CL_SUCCESS)
     {
         char *extArr = new char[extArrSize];
-        error = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, extArrSize, extArr, NULL);
+        error = computer->oclShim.GetDeviceInfo()(device, CL_DEVICE_EXTENSIONS, extArrSize, extArr, NULL);
         if (error == CL_SUCCESS)
         {
             extensions = std::string(extArr);
@@ -245,12 +214,12 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
     char *platformName;
     size_t platformNameSize;
 
-    AFK_CLCHK(clGetPlatformInfo(
+    AFK_CLCHK(oclShim.GetPlatformInfo()(
         platform,
         CL_PLATFORM_NAME,
         0, NULL, &platformNameSize))
     platformName = new char[platformNameSize];
-    AFK_CLCHK(clGetPlatformInfo(
+    AFK_CLCHK(oclShim.GetPlatformInfo()(
         platform,
         CL_PLATFORM_NAME,
         platformNameSize, platformName, &platformNameSize))
@@ -265,7 +234,7 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
     Display *dpy = glXGetCurrentDisplay();
     GLXContext glxCtx = glXGetCurrentContext();
 
-    const cl_context_properties clGlProperties[] = {
+    cl_context_properties clGlProperties[] = {
         CL_GL_CONTEXT_KHR,      firstOf<GLXContext, cl_context_properties>(glxCtx),
         CL_GLX_DISPLAY_KHR,     firstOf<Display *, cl_context_properties>(dpy),
         CL_CONTEXT_PLATFORM,    (cl_context_properties)platform,
@@ -275,29 +244,29 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
 #error "cl_gl for other platforms unimplemented"
 #endif
 
-    AFK_CLCHK(clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &devicesSize))
+    AFK_CLCHK(oclShim.GetDeviceIDs()(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &devicesSize))
     if (devicesSize > 0)
     {
         devices = new cl_device_id[devicesSize];
-        AFK_CLCHK(clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, devicesSize, devices, &devicesSize))
+        AFK_CLCHK(oclShim.GetDeviceIDs()(platform, CL_DEVICE_TYPE_GPU, devicesSize, devices, &devicesSize))
 
         std::cout << "Found " << devicesSize << " GPU devices. " << std::endl;
 
         char *deviceName;
         size_t deviceNameSize;
 
-        AFK_CLCHK(clGetDeviceInfo(devices[0], CL_DEVICE_NAME, 0, NULL, &deviceNameSize))
+        AFK_CLCHK(oclShim.GetDeviceInfo()(devices[0], CL_DEVICE_NAME, 0, NULL, &deviceNameSize))
         deviceName = new char[deviceNameSize];
-        AFK_CLCHK(clGetDeviceInfo(devices[0], CL_DEVICE_NAME, deviceNameSize, deviceName, &deviceNameSize))
+        AFK_CLCHK(oclShim.GetDeviceInfo()(devices[0], CL_DEVICE_NAME, deviceNameSize, deviceName, &deviceNameSize))
         std::cout << "First device is a " << deviceName << std::endl;
 
         delete[] deviceName;
 
-        firstDeviceProps = new AFK_ClDeviceProperties(devices[0]);
+        firstDeviceProps = new AFK_ClDeviceProperties(this, devices[0]);
         std::cout << "Device properties: " << std::endl << *firstDeviceProps;
 
         cl_int error;
-        ctxt = clCreateContext(clGlProperties, devicesSize, devices, NULL, NULL, &error);
+        ctxt = oclShim.CreateContext()(clGlProperties, devicesSize, devices, NULL, NULL, &error);
         AFK_HANDLE_CL_ERROR(error);
         return true;
     }
@@ -325,7 +294,7 @@ void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<st
             throw AFK_Exception("AFK_Computer: " + errStream.str());
     }
 
-    p->program = clCreateProgramWithSource(ctxt, sourceCount, (const char **)sources, sourceLengths, &error);
+    p->program = oclShim.CreateProgramWithSource()(ctxt, sourceCount, (const char **)sources, sourceLengths, &error);
     AFK_HANDLE_CL_ERROR(error);
 
     delete[] sources;
@@ -367,27 +336,39 @@ void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<st
     std::string argsStr = args.str();
     if (argsStr.size() > 0)
         std::cout << "AFK: Passing compiler arguments: " << argsStr << std::endl;
-    error = clBuildProgram(p->program, devicesSize, devices, argsStr.size() > 0 ? argsStr.c_str() : NULL, NULL, NULL);
+    error = oclShim.BuildProgram()(p->program, devicesSize, devices, argsStr.size() > 0 ? argsStr.c_str() : NULL, NULL, NULL);
     for (size_t dI = 0; dI < devicesSize; ++dI)
         printBuildLog(std::cout, p->program, devices[dI]);
 
     AFK_HANDLE_CL_ERROR(error);
 }
 
+void AFK_Computer::printBuildLog(std::ostream& s, cl_program program, cl_device_id device)
+{
+    char *buildLog;
+    size_t buildLogSize;
+
+    AFK_CLCHK(oclShim.GetProgramBuildInfo()(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &buildLogSize))
+    buildLog = new char[buildLogSize+1];
+    AFK_CLCHK(oclShim.GetProgramBuildInfo()(program, device, CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, NULL))
+    buildLog[buildLogSize] = '\0'; /* paranoia */
+    s << buildLog << std::endl;
+    delete[] buildLog;
+}
+
 AFK_Computer::AFK_Computer(const AFK_Config *config):
-    oclShim(config),
     platform(0),
     platformProps(NULL),
     devices(NULL),
     devicesSize(0),
     firstDeviceProps(NULL),
     ctxt(0),
-    q(0)
+    q(0),
+    oclShim(config)
 {
     cl_platform_id *platforms;
     unsigned int platformCount;
 
-    /* TODO: Using OclShim just for this one for now to check it works. */
     AFK_CLCHK(oclShim.GetPlatformIDs()(0, NULL, &platformCount))
     platforms = (cl_platform_id *)malloc(sizeof(cl_platform_id) * platformCount);
     if (!platforms) throw AFK_Exception("Unable to allocate memory to inspect OpenCL platforms");
@@ -400,7 +381,7 @@ AFK_Computer::AFK_Computer(const AFK_Config *config):
         if (findClGlDevices(platforms[pI]))
         {
             platform = platforms[pI];
-            platformProps = new AFK_ClPlatformProperties(platform);
+            platformProps = new AFK_ClPlatformProperties(this, platform);
             std::cout << "AFK: Using OpenCL platform version " << platformProps->majorVersion << "." << platformProps->minorVersion << std::endl;
             break;
         }
@@ -410,7 +391,7 @@ AFK_Computer::AFK_Computer(const AFK_Config *config):
 
     /* TODO Multiple queues for multiple devices? */
     cl_int error;
-    q = clCreateCommandQueue(ctxt, devices[0], CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &error);
+    q = oclShim.CreateCommandQueue()(ctxt, devices[0], CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &error);
     AFK_HANDLE_CL_ERROR(error);
 }
 
@@ -419,13 +400,13 @@ AFK_Computer::~AFK_Computer()
     if (devices)
     {
         for (auto k : kernels)
-            if (k.kernel) clReleaseKernel(k.kernel);
+            if (k.kernel) oclShim.ReleaseKernel()(k.kernel);
 
         for (auto p : programs)
-            if (p.program) clReleaseProgram(p.program);
+            if (p.program) oclShim.ReleaseProgram()(p.program);
 
-        if (q) clReleaseCommandQueue(q);
-        if (ctxt) clReleaseContext(ctxt);
+        if (q) oclShim.ReleaseCommandQueue()(q);
+        if (ctxt) oclShim.ReleaseContext()(ctxt);
         if (firstDeviceProps) delete firstDeviceProps;
 
         delete[] devices;
@@ -453,7 +434,7 @@ void AFK_Computer::loadPrograms(const AFK_Config *config)
         {
             if (kIt->programName == p.programName)
             {
-                kIt->kernel = clCreateKernel(p.program, kIt->kernelName.c_str(), &error);
+                kIt->kernel = oclShim.CreateKernel()(p.program, kIt->kernelName.c_str(), &error);
                 AFK_HANDLE_CL_ERROR(error);
                 identified = true;
             }
@@ -509,17 +490,12 @@ void AFK_Computer::lock(cl_context& o_ctxt, cl_command_queue& o_q)
     /* TODO Multiple devices and queues: can I identify
      * the least busy device here, and pass out its
      * queue?
-     * TODO *2: I'm actually temporarily ignoring the mutex
-     * here.  I'm only using one thread for CL right now,
-     * after all.
      */
-    //mut.lock();
     o_ctxt = ctxt;
     o_q = q;
 }
 
 void AFK_Computer::unlock(void)
 {
-    //mut.unlock();
 }
 

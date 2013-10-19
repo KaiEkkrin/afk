@@ -306,7 +306,7 @@ void AFK_Jigsaw::doSweep(const Vec2<int>& nextFreeRow, const AFK_Frame& currentF
 }
 
 AFK_Jigsaw::AFK_Jigsaw(
-    cl_context ctxt,
+    AFK_Computer *_computer,
     const Vec3<int>& _pieceSize,
     const Vec3<int>& _jigsawSize,
     const AFK_JigsawFormatDescriptor *_format,
@@ -334,7 +334,7 @@ AFK_Jigsaw::AFK_Jigsaw(
     {
         /* TODO Make more of these parameters per-image! */
         images.push_back(new AFK_JigsawImage(
-            ctxt,
+            _computer,
             _pieceSize,
             jigsawSize,
             _format[tex],
@@ -508,16 +508,16 @@ int AFK_Jigsaw::getFake3D_mult(void) const
     return fake3D.getUseFake3D() ? fake3D.getMult() : 0;
 }
 
-cl_mem AFK_Jigsaw::acquireForCl(unsigned int tex, cl_context ctxt, cl_command_queue q, std::vector<cl_event>& o_events)
+cl_mem AFK_Jigsaw::acquireForCl(unsigned int tex, std::vector<cl_event>& o_events)
 {
     boost::upgrade_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
-    return images[tex]->acquireForCl(ctxt, q, o_events);
+    return images[tex]->acquireForCl(o_events);
 }
 
-void AFK_Jigsaw::releaseFromCl(unsigned int tex, cl_command_queue q, const std::vector<cl_event>& eventWaitList)
+void AFK_Jigsaw::releaseFromCl(unsigned int tex, const std::vector<cl_event>& eventWaitList)
 {
     boost::upgrade_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
-    images[tex]->releaseFromCl(cuboids[drawCs], q, eventWaitList);
+    images[tex]->releaseFromCl(cuboids[drawCs], eventWaitList);
 }
 
 void AFK_Jigsaw::bindTexture(unsigned int tex)

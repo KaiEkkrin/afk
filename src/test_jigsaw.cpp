@@ -47,15 +47,11 @@ void afk_testJigsaw(
      * texture -- verify that the values come out OK and don't
      * trample each other either.
      */
-    cl_context ctxt;
-    cl_command_queue q;
-    computer->lock(ctxt, q);
-
     const int testIterations = 1000;
     int startingPieceCount = 400;
 
     AFK_JigsawCollection testCollection(
-        ctxt,
+        computer,
         afk_vec3<int>(9, 9, 1),
         startingPieceCount,
         4,
@@ -72,7 +68,7 @@ void afk_testJigsaw(
 
     AFK_Frame frame;
     frame.increment();
-    testCollection.flipCuboids(ctxt, frame);
+    testCollection.flipCuboids(computer, frame);
 
     for (int i = 0; i < testIterations; ++i)
     {
@@ -111,11 +107,9 @@ void afk_testJigsaw(
         }
 
         frame.increment();
-        testCollection.flipCuboids(ctxt, frame);
+        testCollection.flipCuboids(computer, frame);
     }
 
     std::cout << "Jigsaw test completed" << std::endl;
-        
-    computer->unlock();
 }
 

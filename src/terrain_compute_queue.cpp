@@ -139,19 +139,19 @@ void AFK_TerrainComputeQueue::computeStart(
     /* Copy the terrain inputs to CL buffers. */
     cl_mem terrainBufs[3];
 
-    terrainBufs[0] = clCreateBuffer(
+    terrainBufs[0] = computer->oclShim.CreateBuffer()(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         f.size() * sizeof(AFK_TerrainFeature),
         &f[0], &error);
     AFK_HANDLE_CL_ERROR(error);
 
-    terrainBufs[1] = clCreateBuffer(
+    terrainBufs[1] = computer->oclShim.CreateBuffer()(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         t.size() * sizeof(AFK_TerrainTile),
         &t[0], &error);
     AFK_HANDLE_CL_ERROR(error);
 
-    terrainBufs[2] = clCreateBuffer(
+    terrainBufs[2] = computer->oclShim.CreateBuffer()(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         units.size() * sizeof(AFK_TerrainComputeUnit),
         &units[0], &error);
@@ -161,15 +161,15 @@ void AFK_TerrainComputeQueue::computeStart(
     Vec4<float> baseColour4 = afk_vec4<float>(baseColour, 0.0f);
 
     preTerrainWaitList.clear();
-    cl_mem jigsawYDispMem = jigsaw->acquireForCl(0, ctxt, q, preTerrainWaitList);
-    cl_mem jigsawColourMem = jigsaw->acquireForCl(1, ctxt, q, preTerrainWaitList);
+    cl_mem jigsawYDispMem = jigsaw->acquireForCl(0, preTerrainWaitList);
+    cl_mem jigsawColourMem = jigsaw->acquireForCl(1, preTerrainWaitList);
 
-    AFK_CLCHK(clSetKernelArg(terrainKernel, 0, sizeof(cl_mem), &terrainBufs[0]))
-    AFK_CLCHK(clSetKernelArg(terrainKernel, 1, sizeof(cl_mem), &terrainBufs[1]))
-    AFK_CLCHK(clSetKernelArg(terrainKernel, 2, sizeof(cl_mem), &terrainBufs[2]))
-    AFK_CLCHK(clSetKernelArg(terrainKernel, 3, sizeof(cl_float4), &baseColour4.v[0]))
-    AFK_CLCHK(clSetKernelArg(terrainKernel, 4, sizeof(cl_mem), &jigsawYDispMem))
-    AFK_CLCHK(clSetKernelArg(terrainKernel, 5, sizeof(cl_mem), &jigsawColourMem))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(terrainKernel, 0, sizeof(cl_mem), &terrainBufs[0]))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(terrainKernel, 1, sizeof(cl_mem), &terrainBufs[1]))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(terrainKernel, 2, sizeof(cl_mem), &terrainBufs[2]))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(terrainKernel, 3, sizeof(cl_float4), &baseColour4.v[0]))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(terrainKernel, 4, sizeof(cl_mem), &jigsawYDispMem))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(terrainKernel, 5, sizeof(cl_mem), &jigsawColourMem))
 
     size_t terrainDim[3];
     terrainDim[0] = terrainDim[1] = lSizes.tDim;
@@ -177,19 +177,19 @@ void AFK_TerrainComputeQueue::computeStart(
 
     cl_event terrainEvent;
 
-    AFK_CLCHK(clEnqueueNDRangeKernel(q, terrainKernel, 3, nullptr, &terrainDim[0], nullptr,
+    AFK_CLCHK(computer->oclShim.EnqueueNDRangeKernel()(q, terrainKernel, 3, nullptr, &terrainDim[0], nullptr,
         preTerrainWaitList.size(),
         &preTerrainWaitList[0],
         &terrainEvent))
 
     for (auto ev : preTerrainWaitList)
     {
-        AFK_CLCHK(clReleaseEvent(ev))
+        AFK_CLCHK(computer->oclShim.ReleaseEvent()(ev))
     }
 
     /* For the next two I'm going to need this ...
      */
-    cl_sampler jigsawYDispSampler = clCreateSampler(
+    cl_sampler jigsawYDispSampler = computer->oclShim.CreateSampler()(
         ctxt,
         CL_FALSE,
         CL_ADDRESS_CLAMP_TO_EDGE,
@@ -199,14 +199,14 @@ void AFK_TerrainComputeQueue::computeStart(
 
     preSurfaceWaitList.clear();
     preSurfaceWaitList.push_back(terrainEvent);
-    cl_mem jigsawNormalMem = jigsaw->acquireForCl(2, ctxt, q, preSurfaceWaitList);
+    cl_mem jigsawNormalMem = jigsaw->acquireForCl(2, preSurfaceWaitList);
 
     /* Now, I need to run the kernel to bake the surface normals.
      */
-    AFK_CLCHK(clSetKernelArg(surfaceKernel, 0, sizeof(cl_mem), &terrainBufs[2]))
-    AFK_CLCHK(clSetKernelArg(surfaceKernel, 1, sizeof(cl_mem), &jigsawYDispMem))
-    AFK_CLCHK(clSetKernelArg(surfaceKernel, 2, sizeof(cl_sampler), &jigsawYDispSampler))
-    AFK_CLCHK(clSetKernelArg(surfaceKernel, 3, sizeof(cl_mem), &jigsawNormalMem))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(surfaceKernel, 0, sizeof(cl_mem), &terrainBufs[2]))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(surfaceKernel, 1, sizeof(cl_mem), &jigsawYDispMem))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(surfaceKernel, 2, sizeof(cl_sampler), &jigsawYDispSampler))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(surfaceKernel, 3, sizeof(cl_mem), &jigsawNormalMem))
 
     size_t surfaceGlobalDim[3];
     surfaceGlobalDim[0] = surfaceGlobalDim[1] = lSizes.tDim - 1;
@@ -218,13 +218,11 @@ void AFK_TerrainComputeQueue::computeStart(
 
     cl_event surfaceEvent, yReduceEvent;
 
-    AFK_CLCHK(clEnqueueNDRangeKernel(q, surfaceKernel, 3, 0, &surfaceGlobalDim[0], &surfaceLocalDim[0],
+    AFK_CLCHK(computer->oclShim.EnqueueNDRangeKernel()(q, surfaceKernel, 3, 0, &surfaceGlobalDim[0], &surfaceLocalDim[0],
         preSurfaceWaitList.size(), &preSurfaceWaitList[0], &surfaceEvent))
 
     /* Finally, do the y reduce. */
     yReduce->compute(
-        ctxt,
-        q,
         unitCount,
         &terrainBufs[2],
         &jigsawYDispMem,
@@ -239,23 +237,23 @@ void AFK_TerrainComputeQueue::computeStart(
     postTerrainWaitList.push_back(yReduceEvent);
 
     /* Release the things */
-    AFK_CLCHK(clReleaseSampler(jigsawYDispSampler))
+    AFK_CLCHK(computer->oclShim.ReleaseSampler()(jigsawYDispSampler))
 
     for (auto ev : preSurfaceWaitList)
     {
-        if (ev) AFK_CLCHK(clReleaseEvent(ev))
+        if (ev) AFK_CLCHK(computer->oclShim.ReleaseEvent()(ev))
     }
 
     for (unsigned int i = 0; i < 3; ++i)
     {
-        AFK_CLCHK(clReleaseMemObject(terrainBufs[i]))
+        AFK_CLCHK(computer->oclShim.ReleaseMemObject()(terrainBufs[i]))
     }
 
-    jigsaw->releaseFromCl(0, q, postTerrainWaitList);
-    jigsaw->releaseFromCl(1, q, postTerrainWaitList);
-    jigsaw->releaseFromCl(2, q, postTerrainWaitList);
-    AFK_CLCHK(clReleaseEvent(surfaceEvent))
-    AFK_CLCHK(clReleaseEvent(yReduceEvent))
+    jigsaw->releaseFromCl(0, postTerrainWaitList);
+    jigsaw->releaseFromCl(1, postTerrainWaitList);
+    jigsaw->releaseFromCl(2, postTerrainWaitList);
+    AFK_CLCHK(computer->oclShim.ReleaseEvent()(surfaceEvent))
+    AFK_CLCHK(computer->oclShim.ReleaseEvent()(yReduceEvent))
 
     computer->unlock();
 }

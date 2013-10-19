@@ -20,8 +20,8 @@
 #include "landscape_tile.hpp"
 #include "yreduce.hpp"
 
-AFK_YReduce::AFK_YReduce(const AFK_Computer *computer):
-    buf(0), bufSize(0), readback(nullptr), readbackSize(0), readbackEvent(0)
+AFK_YReduce::AFK_YReduce(AFK_Computer *_computer):
+    computer(_computer), buf(0), bufSize(0), readback(nullptr), readbackSize(0), readbackEvent(0)
 {
     if (!computer->findKernel("makeLandscapeYReduce", yReduceKernel))
         throw AFK_Exception("Cannot find Y-reduce kernel");
@@ -29,14 +29,12 @@ AFK_YReduce::AFK_YReduce(const AFK_Computer *computer):
 
 AFK_YReduce::~AFK_YReduce()
 {
-    if (buf) clReleaseMemObject(buf);
-    if (readbackEvent) clReleaseEvent(readbackEvent);
+    if (buf) computer->oclShim.ReleaseMemObject()(buf);
+    if (readbackEvent) computer->oclShim.ReleaseEvent()(readbackEvent);
     if (readback != nullptr) delete[] readback;
 }
 
 void AFK_YReduce::compute(
-    cl_context ctxt,
-    cl_command_queue q,
     unsigned int unitCount,
     cl_mem *units,
     cl_mem *jigsawYDisp,
@@ -48,6 +46,10 @@ void AFK_YReduce::compute(
 {
     cl_int error;
 
+    cl_context ctxt;
+    cl_command_queue q;
+    computer->lock(ctxt, q);
+
     /* The buffer needs to be big enough for 2 floats per
      * unit.
      */
@@ -55,9 +57,9 @@ void AFK_YReduce::compute(
     if (bufSize < requiredSize)
     {
         if (buf)
-            AFK_CLCHK(clReleaseMemObject(buf))
+            AFK_CLCHK(computer->oclShim.ReleaseMemObject()(buf))
 
-        buf = clCreateBuffer(
+        buf = computer->oclShim.CreateBuffer()(
             ctxt, CL_MEM_WRITE_ONLY,
             requiredSize,
             nullptr,
@@ -66,10 +68,10 @@ void AFK_YReduce::compute(
         bufSize = requiredSize;
     }
 
-    AFK_CLCHK(clSetKernelArg(yReduceKernel, 0, sizeof(cl_mem), units))
-    AFK_CLCHK(clSetKernelArg(yReduceKernel, 1, sizeof(cl_mem), jigsawYDisp))
-    AFK_CLCHK(clSetKernelArg(yReduceKernel, 2, sizeof(cl_sampler), yDispSampler))
-    AFK_CLCHK(clSetKernelArg(yReduceKernel, 3, sizeof(cl_mem), &buf))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(yReduceKernel, 0, sizeof(cl_mem), units))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(yReduceKernel, 1, sizeof(cl_mem), jigsawYDisp))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(yReduceKernel, 2, sizeof(cl_sampler), yDispSampler))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(yReduceKernel, 3, sizeof(cl_mem), &buf))
 
     size_t yReduceGlobalDim[2];
     yReduceGlobalDim[0] = (1 << lSizes.getReduceOrder());
@@ -79,7 +81,7 @@ void AFK_YReduce::compute(
     yReduceLocalDim[0] = (1 << lSizes.getReduceOrder());
     yReduceLocalDim[1] = 1;
 
-    AFK_CLCHK(clEnqueueNDRangeKernel(q, yReduceKernel, 2, 0, &yReduceGlobalDim[0], &yReduceLocalDim[0],
+    AFK_CLCHK(computer->oclShim.EnqueueNDRangeKernel()(q, yReduceKernel, 2, 0, &yReduceGlobalDim[0], &yReduceLocalDim[0],
         eventsInWaitList, eventWaitList, o_event))
 
     size_t requiredReadbackSize = requiredSize / sizeof(float);
@@ -96,9 +98,11 @@ void AFK_YReduce::compute(
      * confused in the presence of buffers; try making the readback
      * an image instead and see if it's happier.
      */
-    AFK_CLCHK(clEnqueueReadBuffer(q, buf,
+    AFK_CLCHK(computer->oclShim.EnqueueReadBuffer()(q, buf,
         afk_core.computer->isAMD() ? CL_TRUE : CL_FALSE,
         0, requiredSize, readback, 1, o_event, &readbackEvent))
+
+    computer->unlock();
 }
 
 void AFK_YReduce::readBack(
@@ -107,8 +111,8 @@ void AFK_YReduce::readBack(
 {
     if (!readbackEvent) return;
 
-    AFK_CLCHK(clWaitForEvents(1, &readbackEvent))
-    AFK_CLCHK(clReleaseEvent(readbackEvent))
+    AFK_CLCHK(computer->oclShim.WaitForEvents()(1, &readbackEvent))
+    AFK_CLCHK(computer->oclShim.ReleaseEvent()(readbackEvent))
     readbackEvent = 0;
 
 #if 0

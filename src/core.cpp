@@ -39,7 +39,6 @@
 #define FRAME_REFRESH_TIME 15500
 
 
-#define CL_TEST 0
 #define JIGSAW_TEST 0
 
 
@@ -193,7 +192,7 @@ void afk_idle(void)
             afk_core.computer->lock(ctxt, q);
             afk_core.renderingFrame = afk_core.computingFrame;
             afk_core.computingFrame.increment();
-            afk_core.world->flipRenderQueues(ctxt, afk_core.computingFrame);
+            afk_core.world->flipRenderQueues(afk_core.computingFrame);
             afk_core.computer->unlock();
             afk_core.computingUpdateDelayed = false;
 

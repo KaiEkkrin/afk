@@ -226,7 +226,7 @@ protected:
 
 public:
     AFK_Jigsaw(
-        cl_context ctxt,
+        AFK_Computer *_computer,
         const Vec3<int>& _pieceSize,
         const Vec3<int>& _jigsawSize,
         const AFK_JigsawFormatDescriptor *_format,
@@ -287,10 +287,10 @@ public:
      * Fills out `o_events' with events you need to wait for
      * before the images are ready (none or more)
      */
-    cl_mem acquireForCl(unsigned int tex, cl_context ctxt, cl_command_queue q, std::vector<cl_event>& o_events);
+    cl_mem acquireForCl(unsigned int tex, std::vector<cl_event>& o_events);
 
     /* Releases an image from the CL. */
-    void releaseFromCl(unsigned int tex, cl_command_queue q, const std::vector<cl_event>& eventWaitList);
+    void releaseFromCl(unsigned int tex, const std::vector<cl_event>& eventWaitList);
 
     /* Binds an image to the GL as a texture.
      * Expects you to have set glActiveTexture() appropriately first!

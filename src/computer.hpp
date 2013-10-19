@@ -20,15 +20,16 @@
 
 #include "afk.hpp"
 
+#include <iostream>
 #include <string>
 #include <vector>
-
-#include <boost/thread/mutex.hpp>
 
 #include "config.hpp"
 #include "def.hpp"
 #include "exception.hpp"
 #include "ocl_shim.hpp"
+
+class AFK_Computer;
 
 /* This defines a list of programs that I know about. */
 
@@ -68,7 +69,7 @@ public:
     unsigned int majorVersion;
     unsigned int minorVersion;
 
-    AFK_ClPlatformProperties(cl_platform_id platform);
+    AFK_ClPlatformProperties(AFK_Computer *computer, cl_platform_id platform);
     ~AFK_ClPlatformProperties();
 };
 
@@ -93,7 +94,7 @@ public:
 
     std::string extensions;
     
-    AFK_ClDeviceProperties(cl_device_id device);
+    AFK_ClDeviceProperties(AFK_Computer *computer, cl_device_id device);
     virtual ~AFK_ClDeviceProperties();
 
     bool        supportsExtension(const std::string& ext) const;
@@ -124,14 +125,17 @@ std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p);
  * For now I'm going to serialise all OpenCL to a single
  * queue by the lock() and unlock() functions below --
  * maybe I can toy with multiple contexts (should be fine
- * x-thread) later? (TODO?)
+ * x-thread) later?
+ *
+ * TODO: Right now I'm going to remove the concurrency control, it's
+ * meaningless because only the main thread is calling into the
+ * OpenCL anyway (which is OK, it's not CPU bound).  I'll no
+ * doubt end up with separate contexts if I use several threads.
  */
 
 class AFK_Computer
 {
 protected:
-    AFK_OclShim oclShim;
-
     cl_platform_id platform;
     AFK_ClPlatformProperties *platformProps;
     bool platformIsAMD;
@@ -146,15 +150,17 @@ protected:
     cl_context ctxt;
     cl_command_queue q;
 
-    boost::mutex mut;
-
     /* Helper functions */
-#if 0
-    void inspectDevices(cl_platform_id platform, cl_device_type deviceType);
-#endif
     bool findClGlDevices(cl_platform_id platform);
     void loadProgramFromFiles(const AFK_Config *config, std::vector<struct AFK_ClProgram>::iterator& p);
+    void printBuildLog(std::ostream& os, cl_program program, cl_device_id device);
 public:
+    /* TODO: Make this protected, and make a cleaner wrapper around the
+     * OpenCL functions for the rest of AFK to use.
+     * (Abstract away from all those event lists, etc.)
+     */
+    AFK_OclShim oclShim;
+
     AFK_Computer(const AFK_Config *config);
     virtual ~AFK_Computer();
 
@@ -185,9 +191,30 @@ public:
      */
     bool useFake3DImages(const AFK_Config *config) const;
 
+    /* For fetching fixed-size device properties. */
+    template<typename PropType>
+    void getClDeviceInfoFixed(
+        cl_device_id device,
+        cl_device_info paramName,
+        PropType *field,
+        PropType failValue)
+    {
+        cl_int error = oclShim.GetDeviceInfo()(device, paramName, sizeof(PropType), field, 0);
+        if (error != CL_SUCCESS)
+        {
+            std::cout << "getClDeviceInfoFixed: Couldn't get property for param " << std::dec << paramName << ": " << error << std::endl;
+            *field = failValue;
+        }
+    }
+
     /* Locks the CL and gives you back the context and
      * queue.  Be quick, enqueue your thing and release
      * it!
+     * TODO: Really just a convenient way of accessing the
+     * context and queue right now: see comment at top of
+     * class description.  Also, current usage implies
+     * re-entrancy of any actual lock that might be here.
+     * I really ought to overhaul this interface.
      */
     void lock(cl_context& o_ctxt, cl_command_queue& o_q);
 

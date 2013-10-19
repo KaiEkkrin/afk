@@ -11,12 +11,6 @@ AddOption(
     default=False)
 
 AddOption(
-    '--opencl11',
-    action='store_true',
-    help='Use only OpenCL 1.1 calls',
-    default=False)
-
-AddOption(
     '--pg',
     action='store_true',
     help='Enable profiling',
@@ -40,9 +34,6 @@ if GetOption('pg'):
     extra_ccflags += ['-pg']
     extra_ldflags += ['-pg']
     variant_dir += '_pg'
-
-if GetOption('opencl11'):
-    extra_ccflags += ['-DAFK_OPENCL11']
 
 # TODO Restrict this to Linux.
 # On Windows, instead apply -DAFK_WGL.  On Mac, -DAFK_CGL or somesuch.
