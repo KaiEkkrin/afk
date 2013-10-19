@@ -30,7 +30,14 @@ AFK_OclShim::AFK_OclShim(const AFK_Config *config):
     {
         std::stringstream ss;
         ss << config->clLibDir << "/libOpenCL.so";
+        handle = dlopen(ss.str().c_str());
     }
+    else
+    {
+        handle = dlopen("libOpenCL.so";
+    }
+
+    
 }
 
 AFK_OclShim::~AFK_OclShim()
