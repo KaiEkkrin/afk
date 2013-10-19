@@ -30,7 +30,7 @@ Build and run example:
   scons -j 4
   ./build/release/afk
 
-If you have only OpenCL 1.1 headers and/or libraries, and not 1.2 or later (e.g. on an Nvidia system), pass --opencl11 to the scons command.
+AFK loads libOpenCL.so at runtime, as a DSO.  If your libOpenCL.so is in a strange place, you can try to get AFK to find it by passing `--cl-lib-dir /path/to/directory/with/libOpenCL.so/'.  But you shouldn't need to do that.  Hopefully.
 
 AFK is not currently self documenting.  Default key bindings are:
  - Middle mouse button to capture the mouse
