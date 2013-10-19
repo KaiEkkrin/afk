@@ -28,6 +28,7 @@
 #include "config.hpp"
 #include "def.hpp"
 #include "exception.hpp"
+#include "ocl_shim.hpp"
 
 /* This defines a list of programs that I know about. */
 
@@ -129,8 +130,9 @@ std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p);
 class AFK_Computer
 {
 protected:
-    cl_platform_id platform;
+    AFK_OclShim oclShim;
 
+    cl_platform_id platform;
     AFK_ClPlatformProperties *platformProps;
     bool platformIsAMD;
 

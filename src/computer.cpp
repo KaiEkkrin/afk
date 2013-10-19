@@ -375,15 +375,23 @@ void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<st
 }
 
 AFK_Computer::AFK_Computer(const AFK_Config *config):
-    platform(0), platformProps(NULL), devices(NULL), devicesSize(0), firstDeviceProps(NULL), ctxt(0), q(0)
+    oclShim(config),
+    platform(0),
+    platformProps(NULL),
+    devices(NULL),
+    devicesSize(0),
+    firstDeviceProps(NULL),
+    ctxt(0),
+    q(0)
 {
     cl_platform_id *platforms;
     unsigned int platformCount;
 
-    AFK_CLCHK(clGetPlatformIDs(0, NULL, &platformCount))
+    /* TODO: Using OclShim just for this one for now to check it works. */
+    AFK_CLCHK(oclShim.GetPlatformIDs()(0, NULL, &platformCount))
     platforms = (cl_platform_id *)malloc(sizeof(cl_platform_id) * platformCount);
     if (!platforms) throw AFK_Exception("Unable to allocate memory to inspect OpenCL platforms");
-    AFK_CLCHK(clGetPlatformIDs(platformCount, platforms, &platformCount))
+    AFK_CLCHK(oclShim.GetPlatformIDs()(platformCount, platforms, &platformCount))
 
     std::cout << "AFK: Found " << platformCount << " OpenCL platforms" << std::endl;
 

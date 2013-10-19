@@ -17,11 +17,20 @@
 
 #include "afk.hpp"
 
+#include <cassert>
 #include <sstream>
 
-#include <dlfcn.h>
-
 #include "ocl_shim.hpp"
+
+void afk_handleDlError(const char *_file, const int _line)
+{
+    char *error = dlerror();
+    if (error != NULL)
+    {
+        std::cerr << "AFK_OclShim: Error " << error << " occurred at " << _file << ":" << _line << std::endl;
+        assert(error == NULL);
+    }
+}
 
 AFK_OclShim::AFK_OclShim(const AFK_Config *config):
     handle(nullptr)
@@ -30,14 +39,14 @@ AFK_OclShim::AFK_OclShim(const AFK_Config *config):
     {
         std::stringstream ss;
         ss << config->clLibDir << "/libOpenCL.so";
-        handle = dlopen(ss.str().c_str());
+        handle = dlopen(ss.str().c_str(), RTLD_LAZY);
     }
     else
     {
-        handle = dlopen("libOpenCL.so";
+        handle = dlopen("libOpenCL.so", RTLD_LAZY);
     }
 
-    
+    if (!handle) AFK_HANDLE_DL_ERROR;
 }
 
 AFK_OclShim::~AFK_OclShim()
