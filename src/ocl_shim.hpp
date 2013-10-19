@@ -55,7 +55,7 @@ void afk_handleDlError(const char *_file, const int _line);
             if (!oclFunc_##name) \
             { \
                 oclFunc_##name = (OCLFUNC_##name)dlsym(*handlePtr, "cl"#name); \
-                if (!oclFunc_##name) AFK_HANDLE_DL_ERROR; \
+                AFK_HANDLE_DL_ERROR; \
             } \
             return oclFunc_##name; \
         } \

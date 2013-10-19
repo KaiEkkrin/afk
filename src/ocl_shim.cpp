@@ -46,7 +46,7 @@ AFK_OclShim::AFK_OclShim(const AFK_Config *config):
         handle = dlopen("libOpenCL.so", RTLD_LAZY);
     }
 
-    if (!handle) AFK_HANDLE_DL_ERROR;
+    AFK_HANDLE_DL_ERROR;
 }
 
 AFK_OclShim::~AFK_OclShim()
