@@ -99,9 +99,11 @@ public:
     unsigned int windowHeight;
 
     /* Computing setup */
+    char        *clLibDir; /* Place to find libOpenCL -- leave null to search
+                            * standard library path */
     unsigned int concurrency;
     char        *clProgramsDir;
-    bool         clGlSharing;
+    bool        clGlSharing;
     bool        forceFake3DImages;
 
     /* World setup */

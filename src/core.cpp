@@ -315,7 +315,7 @@ void AFK_Core::loop(void)
     computingFrame.increment();
 
     /* World setup. */
-    computer = new AFK_Computer();
+    computer = new AFK_Computer(config);
     computer->loadPrograms(config);
 
 #if JIGSAW_TEST

@@ -153,7 +153,7 @@ protected:
     bool findClGlDevices(cl_platform_id platform);
     void loadProgramFromFiles(const AFK_Config *config, std::vector<struct AFK_ClProgram>::iterator& p);
 public:
-    AFK_Computer();
+    AFK_Computer(const AFK_Config *config);
     virtual ~AFK_Computer();
 
     /* Loads all CL programs from disk.  Call before doing

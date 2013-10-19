@@ -374,7 +374,7 @@ void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<st
     AFK_HANDLE_CL_ERROR(error);
 }
 
-AFK_Computer::AFK_Computer():
+AFK_Computer::AFK_Computer(const AFK_Config *config):
     platform(0), platformProps(NULL), devices(NULL), devicesSize(0), firstDeviceProps(NULL), ctxt(0), q(0)
 {
     cl_platform_id *platforms;

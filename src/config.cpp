@@ -111,6 +111,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     windowWidth                 = 0;
     windowHeight                = 0;
 
+    clLibDir                    = nullptr;
     concurrency                 = boost::thread::hardware_concurrency() + 1;
     clProgramsDir               = nullptr;
     clGlSharing                 = false; /* TODO Find hardware this actually improves performance on and default-true for that */
@@ -186,6 +187,11 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         {
             REQUIRE_ARGUMENT("--window-height")
             windowHeight = strtoul(argv[argi], NULL, 0);
+        }
+        else if (strcmp(argv[argi], "--cl-lib-dir") == 0)
+        {
+            REQUIRE_ARGUMENT("--cl-lib-dir")
+            clProgramsDir = strdup(argv[argi]);
         }
         else if (strcmp(argv[argi], "--concurrency") == 0)
         {
