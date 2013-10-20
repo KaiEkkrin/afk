@@ -22,12 +22,6 @@
 
 #include "jigsaw.hpp"
 
-enum AFK_JigsawDimensions
-{
-    AFK_JIGSAW_2D,
-    AFK_JIGSAW_3D
-};
-
 /* This encapsulates a collection of jigsawed textures, which are used
  * to give out pieces of the same size and usage.
  * You may get a piece in any of the puzzles.
@@ -35,15 +29,11 @@ enum AFK_JigsawDimensions
 class AFK_JigsawCollection
 {
 protected:
-    enum AFK_JigsawDimensions dimensions;
-    std::vector<AFK_JigsawFormatDescriptor> format;
+    std::vector<AFK_JigsawImageDescriptor> desc;
     AFK_JigsawFake3DDescriptor fake3D;
-    const unsigned int texCount;
 
-    Vec3<int> pieceSize;
     Vec3<int> jigsawSize;
     int pieceCount;
-    const enum AFK_JigsawBufferUsage bufferUsage;
     const unsigned int concurrency;
     const unsigned int maxPuzzles;
 
@@ -53,8 +43,6 @@ protected:
     boost::upgrade_mutex mut;
 
     /* Internal helpers. */
-    GLuint getGlTextureTarget(void) const;
-    std::string getDimensionalityStr(void) const;
     bool grabPieceFromPuzzle(
         unsigned int threadId,
         int puzzle,
@@ -69,13 +57,10 @@ protected:
 public:
     AFK_JigsawCollection(
         AFK_Computer *_computer,
-        const Vec3<int>& _pieceSize,
+        std::initializer_list<AFK_JigsawImageDescriptor> _desc,
         int _pieceCount,
         unsigned int minPuzzleCount,
-        enum AFK_JigsawDimensions _dimensions,
-        const std::vector<AFK_JigsawFormat>& texFormat,
         const AFK_ClDeviceProperties& _clDeviceProps,
-        enum AFK_JigsawBufferUsage _bufferUsage,
         unsigned int concurrency,
         bool useFake3D,
         unsigned int _maxPuzzles /* 0 for no maximum */);

@@ -28,91 +28,101 @@
 #include "jigsaw_image.hpp"
 
 
+/* Various stringifies */
+
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawBufferUsage bufferUsage)
+{
+    switch (bufferUsage)
+    {
+    case AFK_JigsawBufferUsage::CL_ONLY:       os << "cl only";        break;
+    case AFK_JigsawBufferUsage::CL_GL_COPIED:  os << "cl_gl copied";   break;
+    case AFK_JigsawBufferUsage::CL_GL_SHARED:  os << "cl_gl shared";   break;
+    default:
+        throw AFK_Exception("Unrecognised buffer usage");
+    }
+
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawDimensions dim)
+{
+    switch (dim)
+    {
+    case AFK_JigsawDimensions::TWO:    os << "2D";     break;
+    case AFK_JigsawDimensions::THREE:  os << "3D";     break;
+    default:
+        throw AFK_Exception("Unrecognised jigsaw dimensions");
+    }
+
+    return os;
+}
+
+
 /* AFK_JigsawFormatDescriptor implementation */
 
-AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat e)
+AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(AFK_JigsawFormat e)
 {
     switch (e)
     {
-    case AFK_JIGSAW_UINT32:
+    case AFK_JigsawFormat::UINT32:
         glInternalFormat                    = GL_R32UI;
         glFormat                            = GL_RED_INTEGER;
         glDataType                          = GL_UNSIGNED_INT;
         clFormat.image_channel_order        = CL_R;
         clFormat.image_channel_data_type    = CL_UNSIGNED_INT32;
         texelSize                           = sizeof(uint32_t);
+        str                                 = "UINT32";
         break;
 
-    case AFK_JIGSAW_2UINT32:
+    case AFK_JigsawFormat::UINT32_2:
         glInternalFormat                    = GL_RG32UI;
         glFormat                            = GL_RG_INTEGER;
         glDataType                          = GL_UNSIGNED_INT;
         clFormat.image_channel_order        = CL_RG;
         clFormat.image_channel_data_type    = CL_UNSIGNED_INT32;
         texelSize                           = sizeof(unsigned int) * 2;
+        str                                 = "UINT32_2";
         break;
 
-    case AFK_JIGSAW_FLOAT32:
+    case AFK_JigsawFormat::FLOAT32:
         glInternalFormat                    = GL_R32F;
         glFormat                            = GL_RED;
         glDataType                          = GL_FLOAT;
         clFormat.image_channel_order        = CL_R;
         clFormat.image_channel_data_type    = CL_FLOAT;
         texelSize                           = sizeof(float);
+        str                                 = "FLOAT32";
         break;
 
-    /* Note that OpenCL doesn't support 3-byte formats.
-     * TODO I'd love to manage to make the packed formats (below) line up
-     * between OpenCL and OpenGL, but right now I can't.  It looks like the
-     * internal representations might be different (ewww)
-     * So for RGB textures, you're stuck with using
-     * 4FLOAT8_UNORM and 4FLOAT8_SNORM for now.
-     */
-
-    case AFK_JIGSAW_555A1:
-        glInternalFormat                    = GL_RGB5;
-        glFormat                            = GL_RGB;
-        glDataType                          = GL_UNSIGNED_SHORT_5_5_5_1;
-        clFormat.image_channel_order        = CL_RGB;
-        clFormat.image_channel_data_type    = CL_UNORM_SHORT_555;
-        texelSize                           = sizeof(uint16_t);
-        break;
-
-    case AFK_JIGSAW_101010A2:
-        glInternalFormat                    = GL_RGB10;
-        glFormat                            = GL_RGB;
-        glDataType                          = GL_UNSIGNED_INT_10_10_10_2;
-        clFormat.image_channel_order        = CL_RGB;
-        clFormat.image_channel_data_type    = CL_UNORM_INT_101010;
-        texelSize                           = sizeof(uint32_t);
-        break;
-
-    case AFK_JIGSAW_4FLOAT8_UNORM:
+    case AFK_JigsawFormat::FLOAT8_UNORM_4:
         glInternalFormat                    = GL_RGBA8;
         glFormat                            = GL_RGBA;
         glDataType                          = GL_UNSIGNED_BYTE;
         clFormat.image_channel_order        = CL_RGBA;
         clFormat.image_channel_data_type    = CL_UNORM_INT8;
         texelSize                           = sizeof(uint8_t) * 4;
+        str                                 = "FLOAT8_UNORM_4";
         break;
 
     /* TODO cl_gl sharing seems to barf with this one ... */
-    case AFK_JIGSAW_4FLOAT8_SNORM:
+    case AFK_JigsawFormat::FLOAT8_SNORM_4:
         glInternalFormat                    = GL_RGBA8_SNORM;
         glFormat                            = GL_RGBA;
         glDataType                          = GL_BYTE;
         clFormat.image_channel_order        = CL_RGBA;
         clFormat.image_channel_data_type    = CL_SNORM_INT8;
         texelSize                           = sizeof(uint8_t) * 4;
+        str                                 = "FLOAT8_SNORM_4";
         break;
 
-    case AFK_JIGSAW_4FLOAT32:
+    case AFK_JigsawFormat::FLOAT32_4:
         glInternalFormat                    = GL_RGBA32F;
         glFormat                            = GL_RGBA;
         glDataType                          = GL_FLOAT;
         clFormat.image_channel_order        = CL_RGBA;
         clFormat.image_channel_data_type    = CL_FLOAT;
         texelSize                           = sizeof(float) * 4;
+        str                                 = "FLOAT32_4";
         break;
 
     default:
@@ -133,6 +143,25 @@ AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(
     clFormat.image_channel_order        = _fd.clFormat.image_channel_order;
     clFormat.image_channel_data_type    = _fd.clFormat.image_channel_data_type;
     texelSize                           = _fd.texelSize;
+    str                                 = _fd.str;
+}
+
+AFK_JigsawFormatDescriptor AFK_JigsawFormatDescriptor::operator=(
+    const AFK_JigsawFormatDescriptor& _fd)
+{
+    glInternalFormat                    = _fd.glInternalFormat;
+    glFormat                            = _fd.glFormat;
+    glDataType                          = _fd.glDataType;
+    clFormat.image_channel_order        = _fd.clFormat.image_channel_order;
+    clFormat.image_channel_data_type    = _fd.clFormat.image_channel_data_type;
+    texelSize                           = _fd.texelSize;
+    str                                 = _fd.str;
+    return *this;
+}
+
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawFormatDescriptor& _format)
+{
+    return os << _format.str;
 }
 
 
@@ -213,6 +242,187 @@ Vec3<int> AFK_JigsawFake3DDescriptor::fake3DFrom2D(const Vec2<int>& _real) const
         sFactor + mult * tFactor);
 }
 
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawFake3DDescriptor& _fake3D)
+{
+    if (_fake3D.getUseFake3D())
+    {
+        os << "fake 3D with 2D size " << _fake3D.get2DSize();
+    }
+    else
+    {
+        os << "real 3D";
+    }
+
+    return os;
+}
+
+
+/* AFK_JigsawImageDescriptor implementation */
+
+AFK_JigsawImageDescriptor::AFK_JigsawImageDescriptor(
+    const Vec3<int>& _pieceSize,
+    AFK_JigsawFormat _format,
+    AFK_JigsawDimensions _dimensions,
+    AFK_JigsawBufferUsage _bufferUsage):
+        pieceSize(_pieceSize),
+        format(_format),
+        dimensions(_dimensions),
+        bufferUsage(_bufferUsage)
+{
+}
+
+AFK_JigsawImageDescriptor::AFK_JigsawImageDescriptor(
+    const AFK_JigsawImageDescriptor& _desc):
+        pieceSize(_desc.pieceSize),
+        format(_desc.format),
+        dimensions(_desc.dimensions),
+        bufferUsage(_desc.bufferUsage),
+        fake3D(_desc.fake3D)
+{
+}
+
+AFK_JigsawImageDescriptor AFK_JigsawImageDescriptor::operator=(
+    const AFK_JigsawImageDescriptor& _desc)
+{
+    pieceSize       = _desc.pieceSize;
+    format          = _desc.format;
+    dimensions      = _desc.dimensions;
+    bufferUsage     = _desc.bufferUsage;
+    fake3D          = _desc.fake3D;
+    return *this;
+}
+
+Vec3<int> AFK_JigsawImageDescriptor::getJigsawSize(
+    int pieceCount,
+    unsigned int concurrency,
+    const AFK_ClDeviceProperties& _clDeviceProps) const
+{
+    /* Figure out a jigsaw size.  I want the rows to always be a
+     * round multiple of `concurrency' to avoid breaking rectangles
+     * apart.
+     * For this I need to try all the formats: I stop testing
+     * when any one of the formats fails, because all the
+     * jigsaw textures need to be identical aside from their
+     * texels
+     */
+    Vec3<int> jigsawSizeIncrement = (
+        dimensions == AFK_JigsawDimensions::TWO ? afk_vec3<int>(concurrency, concurrency, 0) :
+        afk_vec3<int>(concurrency, concurrency, concurrency));
+    Vec3<int> jigsawSize = (
+        dimensions == AFK_JigsawDimensions::TWO ? afk_vec3<int>(concurrency, concurrency, 1) :
+        afk_vec3<int>(concurrency, concurrency, concurrency));
+
+    GLuint proxyTexTarget = getGlProxyTarget();
+    GLuint glProxyTex;
+    glGenTextures(1, &glProxyTex);
+    GLint texWidth;
+    bool dimensionsOK = true;
+    for (Vec3<int> testJigsawSize = jigsawSize;
+        dimensionsOK && jigsawSize.v[0] * jigsawSize.v[1] < pieceCount;
+        testJigsawSize += jigsawSizeIncrement)
+    {
+        dimensionsOK = (
+            dimensions == AFK_JigsawDimensions::TWO ?
+                (testJigsawSize.v[0] <= (int)_clDeviceProps.image2DMaxWidth &&
+                 testJigsawSize.v[1] <= (int)_clDeviceProps.image2DMaxHeight) :
+                (testJigsawSize.v[0] <= (int)_clDeviceProps.image3DMaxWidth &&
+                 testJigsawSize.v[1] <= (int)_clDeviceProps.image3DMaxHeight &&
+                 testJigsawSize.v[2] <= (int)_clDeviceProps.image3DMaxDepth));
+
+        /* Try to make a pretend texture of the current jigsaw size */
+        dimensionsOK &= ((testJigsawSize.v[0] * testJigsawSize.v[1] * testJigsawSize.v[2] * getPieceSizeInBytes()) < (_clDeviceProps.maxMemAllocSize / 2));
+        if (!dimensionsOK) break;
+
+        glBindTexture(proxyTexTarget, glProxyTex);
+        switch (dimensions)
+        {
+        case AFK_JigsawDimensions::TWO:
+            glTexImage2D(
+                proxyTexTarget,
+                0,
+                format.glInternalFormat,
+                pieceSize.v[0] * testJigsawSize.v[0],
+                pieceSize.v[1] * testJigsawSize.v[1],
+                0,
+                format.glFormat,
+                format.glDataType,
+                nullptr);
+            break;
+
+        case AFK_JigsawDimensions::THREE:
+            glTexImage3D(
+                proxyTexTarget,
+                0,
+                format.glInternalFormat,
+                pieceSize.v[0] * testJigsawSize.v[0],
+                pieceSize.v[1] * testJigsawSize.v[1],
+                pieceSize.v[2] * testJigsawSize.v[2],
+				0,
+                format.glFormat,
+                format.glDataType,
+                nullptr);
+            break;
+
+        default:
+            throw AFK_Exception("Unrecognised proxyTexTarget");
+        }
+
+        /* See if it worked */
+        glGetTexLevelParameteriv(
+            proxyTexTarget,
+            0,
+            GL_TEXTURE_WIDTH,
+            &texWidth);
+
+        dimensionsOK &= (texWidth != 0);
+
+        if (dimensionsOK) jigsawSize = testJigsawSize;
+
+        /* Drop errors */
+        glGetError();
+    }
+
+    glDeleteTextures(1, &glProxyTex);
+    return jigsawSize;
+}
+
+void AFK_JigsawImageDescriptor::setUseFake3D(const Vec3<int>& _jigsawSize)
+{
+    assert(!fake3D.getUseFake3D()); /* no overwrites */
+    assert(bufferUsage != AFK_JigsawBufferUsage::CL_GL_SHARED);
+    fake3D = AFK_JigsawFake3DDescriptor(true, afk_vec3<int>(
+        pieceSize.v[0] * _jigsawSize.v[0],
+        pieceSize.v[1] * _jigsawSize.v[1],
+        pieceSize.v[2] * _jigsawSize.v[2]));
+}
+
+cl_mem_object_type AFK_JigsawImageDescriptor::getClObjectType(void) const
+{
+    return (dimensions == AFK_JigsawDimensions::THREE && fake3D.getUseFake3D() ?
+        CL_MEM_OBJECT_IMAGE3D : CL_MEM_OBJECT_IMAGE2D);
+}
+
+GLuint AFK_JigsawImageDescriptor::getGlTarget(void) const
+{
+    return (dimensions == AFK_JigsawDimensions::TWO ? GL_TEXTURE_2D : GL_TEXTURE_3D);
+}
+
+GLuint AFK_JigsawImageDescriptor::getGlProxyTarget(void) const
+{
+    return (dimensions == AFK_JigsawDimensions::TWO ? GL_PROXY_TEXTURE_2D : GL_PROXY_TEXTURE_3D);
+}
+
+size_t AFK_JigsawImageDescriptor::getPieceSizeInBytes(void) const
+{
+    return format.texelSize * pieceSize.v[0] * pieceSize.v[1] * pieceSize.v[2];
+}
+
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawImageDescriptor& _desc)
+{
+    os << "Image(" << _desc.pieceSize << ", " << _desc.format << ", " << _desc.dimensions << ", " << _desc.bufferUsage << ")";
+    return os;
+}
+
 
 /* AFK_JigsawImage implementation */
 
@@ -221,7 +431,7 @@ void AFK_JigsawImage::getClChangeData(
     cl_command_queue q,
     const std::vector<cl_event>& eventWaitList)
 {
-    size_t pieceSizeInBytes = format.texelSize * pieceSize.v[0] * pieceSize.v[1] * pieceSize.v[2];
+    size_t pieceSizeInBytes = desc.getPieceSizeInBytes();
 
     unsigned int changeEvent = 0;
     size_t changeDataOffset = 0;
@@ -237,13 +447,13 @@ void AFK_JigsawImage::getClChangeData(
         size_t origin[3];
         size_t region[3];
   
-        origin[0] = drawCuboids[cI].r * pieceSize.v[0];
-        origin[1] = drawCuboids[cI].c * pieceSize.v[1];
-        origin[2] = drawCuboids[cI].s * pieceSize.v[2];
+        origin[0] = drawCuboids[cI].r * desc.pieceSize.v[0];
+        origin[1] = drawCuboids[cI].c * desc.pieceSize.v[1];
+        origin[2] = drawCuboids[cI].s * desc.pieceSize.v[2];
   
-        region[0] = drawCuboids[cI].rows * pieceSize.v[0];
-        region[1] = drawCuboids[cI].columns.load() * pieceSize.v[1];
-        region[2] = drawCuboids[cI].slices * pieceSize.v[2];
+        region[0] = drawCuboids[cI].rows * desc.pieceSize.v[0];
+        region[1] = drawCuboids[cI].columns.load() * desc.pieceSize.v[1];
+        region[2] = drawCuboids[cI].slices * desc.pieceSize.v[2];
 
         changeData.resize(changeDataOffset + cuboidSizeInBytes);
         changeEvents.resize(changeEvent + 1);
@@ -261,7 +471,8 @@ void AFK_JigsawImage::getClChangeDataFake3D(
     cl_command_queue q,
     const std::vector<cl_event>& eventWaitList)
 {
-    size_t pieceSliceSizeInBytes = format.texelSize * pieceSize.v[0] * pieceSize.v[1];
+    size_t pieceSliceSizeInBytes = desc.getPieceSizeInBytes();
+    assert(pieceSliceSizeInBytes > 0);
 
     unsigned int changeEvent = 0;
     size_t changeDataOffset = 0;
@@ -279,21 +490,21 @@ void AFK_JigsawImage::getClChangeDataFake3D(
             /* ... and within that, I also need a separate transfer
              * for each piece slice
              */
-            for (int pieceSlice = 0; pieceSlice < pieceSize.v[2]; ++pieceSlice)
+            for (int pieceSlice = 0; pieceSlice < desc.pieceSize.v[2]; ++pieceSlice)
             {
                 size_t origin[3];
                 size_t region[3];
 
-                Vec2<int> clOrigin = fake3D.fake3DTo2D(afk_vec3<int>(
-                    drawCuboids[cI].r * pieceSize.v[0],
-                    drawCuboids[cI].c * pieceSize.v[1],
-                    (drawCuboids[cI].s + slice) * pieceSize.v[2] + pieceSlice));
+                Vec2<int> clOrigin = desc.fake3D.fake3DTo2D(afk_vec3<int>(
+                    drawCuboids[cI].r * desc.pieceSize.v[0],
+                    drawCuboids[cI].c * desc.pieceSize.v[1],
+                    (drawCuboids[cI].s + slice) * desc.pieceSize.v[2] + pieceSlice));
                 origin[0] = clOrigin.v[0];
                 origin[1] = clOrigin.v[1];
                 origin[2] = 0;
 
-                region[0] = drawCuboids[cI].rows * pieceSize.v[0];
-                region[1] = drawCuboids[cI].columns.load() * pieceSize.v[1];
+                region[0] = drawCuboids[cI].rows * desc.pieceSize.v[0];
+                region[1] = drawCuboids[cI].columns.load() * desc.pieceSize.v[1];
                 region[2] = 1;
 
                 changeData.resize(changeDataOffset + cuboidSliceSizeInBytes);
@@ -311,7 +522,7 @@ void AFK_JigsawImage::getClChangeDataFake3D(
 
 void AFK_JigsawImage::putClChangeData(const std::vector<AFK_JigsawCuboid>& drawCuboids)
 {
-    size_t pieceSizeInBytes = format.texelSize * pieceSize.v[0] * pieceSize.v[1] * pieceSize.v[2];
+    size_t pieceSizeInBytes = desc.getPieceSizeInBytes();
     size_t changeDataOffset = 0;
     for (unsigned int cI = 0; cI < drawCuboids.size(); ++cI)
     {
@@ -322,31 +533,31 @@ void AFK_JigsawImage::putClChangeData(const std::vector<AFK_JigsawCuboid>& drawC
 
         if (cuboidSizeInBytes == 0) continue;
 
-        switch (texTarget)
+        switch (desc.dimensions)
         {
-        case GL_TEXTURE_2D:
+        case AFK_JigsawDimensions::TWO:
             glTexSubImage2D(
-                texTarget, 0,
-                drawCuboids[cI].r * pieceSize.v[0],
-                drawCuboids[cI].c * pieceSize.v[1],
-                drawCuboids[cI].rows * pieceSize.v[0],
-                drawCuboids[cI].columns.load() * pieceSize.v[1],
-                format.glFormat,
-                format.glDataType,
+                desc.getGlTarget(), 0,
+                drawCuboids[cI].r * desc.pieceSize.v[0],
+                drawCuboids[cI].c * desc.pieceSize.v[1],
+                drawCuboids[cI].rows * desc.pieceSize.v[0],
+                drawCuboids[cI].columns.load() * desc.pieceSize.v[1],
+                desc.format.glFormat,
+                desc.format.glDataType,
                 &changeData[changeDataOffset]);
             break;
 
-        case GL_TEXTURE_3D:
+        case AFK_JigsawDimensions::THREE:
             glTexSubImage3D(
-                texTarget, 0,
-                drawCuboids[cI].r * pieceSize.v[0],
-                drawCuboids[cI].c * pieceSize.v[1],
-                drawCuboids[cI].s * pieceSize.v[2],
-                drawCuboids[cI].rows * pieceSize.v[0],
-                drawCuboids[cI].columns.load() * pieceSize.v[1],
-                drawCuboids[cI].slices * pieceSize.v[2],
-                format.glFormat,
-                format.glDataType,
+                desc.getGlTarget(), 0,
+                drawCuboids[cI].r * desc.pieceSize.v[0],
+                drawCuboids[cI].c * desc.pieceSize.v[1],
+                drawCuboids[cI].s * desc.pieceSize.v[2],
+                drawCuboids[cI].rows * desc.pieceSize.v[0],
+                drawCuboids[cI].columns.load() * desc.pieceSize.v[1],
+                drawCuboids[cI].slices * desc.pieceSize.v[2],
+                desc.format.glFormat,
+                desc.format.glDataType,
                 &changeData[changeDataOffset]);
             break;
 
@@ -360,22 +571,12 @@ void AFK_JigsawImage::putClChangeData(const std::vector<AFK_JigsawCuboid>& drawC
 
 AFK_JigsawImage::AFK_JigsawImage(
     AFK_Computer *_computer,
-    const Vec3<int>& _pieceSize,
     const Vec3<int>& _jigsawSize,
-    const AFK_JigsawFormatDescriptor& _format,
-    GLuint _texTarget,
-    const AFK_JigsawFake3DDescriptor& _fake3D,
-    enum AFK_JigsawBufferUsage _bufferUsage):
+    const AFK_JigsawImageDescriptor& _desc):
         computer(_computer),
         glTex(0),
         clTex(0),
-        format(_format),
-        texTarget(_texTarget),
-        fake3D(_fake3D),
-        clImageType((texTarget == GL_TEXTURE_3D && !_fake3D.getUseFake3D()) ?
-            CL_MEM_OBJECT_IMAGE3D : CL_MEM_OBJECT_IMAGE2D),
-        pieceSize(_pieceSize),
-        bufferUsage(_bufferUsage)
+        desc(_desc)
 {
     cl_int error;
 
@@ -383,23 +584,25 @@ AFK_JigsawImage::AFK_JigsawImage(
     cl_command_queue q;
     computer->lock(ctxt, q);
 
-    if (bufferUsage != AFK_JIGSAW_BU_CL_GL_SHARED)
+    if (desc.bufferUsage != AFK_JigsawBufferUsage::CL_GL_SHARED)
     {
         /* Do native CL buffering here. */
         cl_image_desc imageDesc;
         memset(&imageDesc, 0, sizeof(cl_image_desc));
 
+        cl_mem_object_type clImageType = desc.getClObjectType();
+
         Vec3<int> clImageSize;
-        if (fake3D.getUseFake3D())
+        if (desc.fake3D.getUseFake3D())
         {
-            clImageSize = fake3D.get2DSize();
+            clImageSize = desc.fake3D.get2DSize();
         }
         else
         {
             clImageSize = afk_vec3<int>(
-                _pieceSize.v[0] * _jigsawSize.v[0],
-                _pieceSize.v[1] * _jigsawSize.v[1],
-                _pieceSize.v[2] * _jigsawSize.v[2]);
+                desc.pieceSize.v[0] * _jigsawSize.v[0],
+                desc.pieceSize.v[1] * _jigsawSize.v[1],
+                desc.pieceSize.v[2] * _jigsawSize.v[2]);
         }
 
         imageDesc.image_type        = clImageType;
@@ -412,7 +615,7 @@ AFK_JigsawImage::AFK_JigsawImage(
             clTex = computer->oclShim.CreateImage()(
                 ctxt,
                 CL_MEM_READ_WRITE,
-                &format.clFormat,
+                &desc.format.clFormat,
                 &imageDesc,
                 nullptr,
                 &error);
@@ -425,7 +628,7 @@ AFK_JigsawImage::AFK_JigsawImage(
                 clTex = computer->oclShim.CreateImage2D()(
                     ctxt,
                     CL_MEM_READ_WRITE,
-                    &format.clFormat,
+                    &desc.format.clFormat,
                     imageDesc.image_width,
                     imageDesc.image_height,
                     imageDesc.image_row_pitch,
@@ -437,7 +640,7 @@ AFK_JigsawImage::AFK_JigsawImage(
                 clTex = computer->oclShim.CreateImage3D()(
                     ctxt,
                     CL_MEM_READ_WRITE,
-                    &format.clFormat,
+                    &desc.format.clFormat,
                     imageDesc.image_width,
                     imageDesc.image_height,
                     imageDesc.image_depth,
@@ -453,30 +656,31 @@ AFK_JigsawImage::AFK_JigsawImage(
         }
     }
 
-    if (bufferUsage != AFK_JIGSAW_BU_CL_ONLY)
+    if (desc.bufferUsage != AFK_JigsawBufferUsage::CL_ONLY)
     {
+        GLuint texTarget = desc.getGlTarget();
         glGenTextures(1, &glTex);
         glBindTexture(texTarget, glTex);
 
-        switch (texTarget)
+        switch (desc.dimensions)
         {
-        case GL_TEXTURE_2D:
+        case AFK_JigsawDimensions::TWO:
             glTexStorage2D(
                 texTarget,
                 1,
-                format.glInternalFormat,
-                pieceSize.v[0] * _jigsawSize.v[0],
-                pieceSize.v[1] * _jigsawSize.v[1]);
+                desc.format.glInternalFormat,
+                desc.pieceSize.v[0] * _jigsawSize.v[0],
+                desc.pieceSize.v[1] * _jigsawSize.v[1]);
             break;
 
-        case GL_TEXTURE_3D:
+        case AFK_JigsawDimensions::THREE:
             glTexStorage3D(
                 texTarget,
                 1,
-                format.glInternalFormat,
-                pieceSize.v[0] * _jigsawSize.v[0],
-                pieceSize.v[1] * _jigsawSize.v[1],
-                pieceSize.v[2] * _jigsawSize.v[2]);
+                desc.format.glInternalFormat,
+                desc.pieceSize.v[0] * _jigsawSize.v[0],
+                desc.pieceSize.v[1] * _jigsawSize.v[1],
+                desc.pieceSize.v[2] * _jigsawSize.v[2]);
             break;
 
         default:
@@ -484,7 +688,7 @@ AFK_JigsawImage::AFK_JigsawImage(
         }
         AFK_GLCHK("AFK_JigSaw texStorage")
 
-        if (bufferUsage == AFK_JIGSAW_BU_CL_GL_SHARED)
+        if (desc.bufferUsage == AFK_JigsawBufferUsage::CL_GL_SHARED)
         {
             if (afk_core.computer->testVersion(1, 2))
             {
@@ -498,9 +702,9 @@ AFK_JigsawImage::AFK_JigsawImage(
             }
             else
             {
-                switch (texTarget)
+                switch (desc.dimensions)
                 {
-                case GL_TEXTURE_2D:
+                case AFK_JigsawDimensions::TWO:
                     clTex = computer->oclShim.CreateFromGLTexture2D()(
                         ctxt,
                         CL_MEM_READ_WRITE,
@@ -510,7 +714,7 @@ AFK_JigsawImage::AFK_JigsawImage(
                         &error);           
                     break;
 
-                case GL_TEXTURE_3D:
+                case AFK_JigsawDimensions::THREE:
                     clTex = computer->oclShim.CreateFromGLTexture3D()(
                         ctxt,
                         CL_MEM_READ_WRITE,
@@ -539,15 +743,37 @@ AFK_JigsawImage::~AFK_JigsawImage()
     if (glTex) glDeleteTextures(1, &glTex);
 }
 
+Vec2<int> AFK_JigsawImage::getFake3D_size(void) const
+{
+    Vec2<int> size2;
+
+    if (desc.fake3D.getUseFake3D())
+    {
+        Vec3<int> size = desc.fake3D.getFakeSize();
+        size2 = afk_vec2<int>(size.v[0], size.v[1]);
+    }
+    else
+    {
+        size2 = afk_vec2<int>(-1, -1);
+    }
+
+    return size2;
+}
+
+int AFK_JigsawImage::getFake3D_mult(void) const
+{
+    return desc.fake3D.getUseFake3D() ? desc.fake3D.getMult() : 0;
+}
+
 cl_mem AFK_JigsawImage::acquireForCl(std::vector<cl_event>& o_events)
 {
     cl_context ctxt;
     cl_command_queue q;
     computer->lock(ctxt, q);
 
-    switch (bufferUsage)
+    switch (desc.bufferUsage)
     {
-    case AFK_JIGSAW_BU_CL_GL_SHARED:
+    case AFK_JigsawBufferUsage::CL_GL_SHARED:
         cl_event acquireEvent;
         AFK_CLCHK(computer->oclShim.EnqueueAcquireGLObjects()(q, 1, &clTex, changeEvents.size(), &changeEvents[0], &acquireEvent))
         for (auto ev : changeEvents)
@@ -584,9 +810,9 @@ void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCub
     cl_command_queue q;
     computer->lock(ctxt, q);
 
-    switch (bufferUsage)
+    switch (desc.bufferUsage)
     {
-    case AFK_JIGSAW_BU_CL_GL_COPIED:
+    case AFK_JigsawBufferUsage::CL_GL_COPIED:
         /* Make sure that anything pending with that change data has been
          * finished up because I'm about to re-use the buffer.
          */
@@ -604,13 +830,13 @@ void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCub
          * So long as `bindTexture' writes them in the same order everything
          * will be okay!
          */
-        if (fake3D.getUseFake3D())
+        if (desc.fake3D.getUseFake3D())
             getClChangeDataFake3D(drawCuboids, q, eventWaitList);
         else
             getClChangeData(drawCuboids, q, eventWaitList);
         break;
 
-    case AFK_JIGSAW_BU_CL_GL_SHARED:
+    case AFK_JigsawBufferUsage::CL_GL_SHARED:
         /* A release here is contingent on any old change events
          * being finished, of course.
          */
@@ -649,9 +875,9 @@ void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCub
 
 void AFK_JigsawImage::bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboids)
 {
-    glBindTexture(texTarget, glTex);
+    glBindTexture(desc.getGlTarget(), glTex);
 
-    if (bufferUsage == AFK_JIGSAW_BU_CL_GL_COPIED)
+    if (desc.bufferUsage == AFK_JigsawBufferUsage::CL_GL_COPIED)
     {
         /* Wait for the change readback to be finished. */
         if (changeEvents.size() == 0) return;

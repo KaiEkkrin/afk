@@ -20,6 +20,7 @@
 
 #include "afk.hpp"
 
+#include <sstream>
 #include <vector>
 
 #include "def.hpp"
@@ -33,25 +34,33 @@
 /* This enumeration describes the jigsaw's texture format.  I'll
  * need to add more here as I support more formats.
  */
-enum AFK_JigsawFormat
+enum class AFK_JigsawFormat : int
 {
-    AFK_JIGSAW_UINT32,
-    AFK_JIGSAW_2UINT32,
-    AFK_JIGSAW_FLOAT32,
-    AFK_JIGSAW_555A1,
-    AFK_JIGSAW_101010A2,
-    AFK_JIGSAW_4FLOAT8_UNORM,
-    AFK_JIGSAW_4FLOAT8_SNORM,
-    AFK_JIGSAW_4FLOAT32
+    UINT32          = 0,
+    UINT32_2        = 1,
+    FLOAT32         = 2,
+    FLOAT8_UNORM_4  = 3,
+    FLOAT8_SNORM_4  = 4,
+    FLOAT32_4       = 5
 };
 
 /* This enumeration describes what buffers we manage -- CL, GL, both. */
-enum AFK_JigsawBufferUsage
+enum class AFK_JigsawBufferUsage : int
 {
-    AFK_JIGSAW_BU_CL_ONLY,
-    AFK_JIGSAW_BU_CL_GL_COPIED,
-    AFK_JIGSAW_BU_CL_GL_SHARED
+    CL_ONLY         = 0,
+    CL_GL_COPIED    = 1,
+    CL_GL_SHARED    = 2
 };
+
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawBufferUsage bufferUsage);
+
+enum class AFK_JigsawDimensions : int
+{
+    TWO     = 0,
+    THREE   = 1 
+};
+
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawDimensions dim);
 
 class AFK_JigsawFormatDescriptor
 {
@@ -61,9 +70,20 @@ public:
     GLenum glDataType;
     cl_image_format clFormat;
     size_t texelSize;
+    std::string str;
 
-    AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat);
+    AFK_JigsawFormatDescriptor(AFK_JigsawFormat);
+
     AFK_JigsawFormatDescriptor(const AFK_JigsawFormatDescriptor& _fd);
+    AFK_JigsawFormatDescriptor operator=(const AFK_JigsawFormatDescriptor& _fd);
+};
+
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawFormatDescriptor& _format);
+
+enum class AFK_Fake3D : int
+{
+    REAL_3D = 0,
+    FAKE_3D = 1
 };
 
 /* This class describes a fake 3D image that emulates 3D with a
@@ -101,6 +121,49 @@ public:
     Vec3<int> fake3DFrom2D(const Vec2<int>& _real) const;
 };
 
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawFake3DDescriptor& _fake3D);
+
+class AFK_JigsawImageDescriptor
+{
+public:
+    Vec3<int> pieceSize;
+    AFK_JigsawFormatDescriptor format;
+    AFK_JigsawDimensions dimensions;
+    AFK_JigsawBufferUsage bufferUsage;
+    AFK_JigsawFake3DDescriptor fake3D;
+
+    /* TODO: I wanted to use an initializer list here, but I get
+     * compile errors all over the shop :(
+     */
+    AFK_JigsawImageDescriptor(
+        const Vec3<int>& _pieceSize,
+        AFK_JigsawFormat _format,
+        AFK_JigsawDimensions _dimensions,
+        AFK_JigsawBufferUsage _bufferUsage);
+
+    AFK_JigsawImageDescriptor(const AFK_JigsawImageDescriptor& _desc);
+    AFK_JigsawImageDescriptor operator=(const AFK_JigsawImageDescriptor& _desc);
+
+    /* Finds the biggest jigsaw dimensions that the GL will
+     * accept for this image.
+     * For 2D images, the slices value will be 1.
+     */
+    Vec3<int> getJigsawSize(
+        int pieceCount,
+        unsigned int concurrency,
+        const AFK_ClDeviceProperties& _clDeviceProps) const;
+
+    /* Enables fake 3D. */
+    void setUseFake3D(const Vec3<int>& _jigsawSize);
+
+    cl_mem_object_type getClObjectType(void) const;
+    GLuint getGlTarget(void) const;
+    GLuint getGlProxyTarget(void) const;
+    size_t getPieceSizeInBytes(void) const;
+};
+
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawImageDescriptor& _desc);
+
 /* Note that AFK_JigsawImage is _not synchronized_: the synchronization is
  * done in the Jigsaw.
  */
@@ -114,19 +177,7 @@ protected:
     cl_mem clTex;
 
     /* Descriptions of the format of this image. */
-    const AFK_JigsawFormatDescriptor format;
-    const GLuint texTarget;
-    const AFK_JigsawFake3DDescriptor fake3D;
-    const cl_mem_object_type clImageType;
-
-    /* How big the pieces are.
-     * TODO: I want to eventually vary this; but for now, keep
-     * them the same to make sure everything still works ...
-     */
-    const Vec3<int> pieceSize;
-
-    /* How to handle the buffers (copy, share, etc.) */
-    const enum AFK_JigsawBufferUsage bufferUsage;
+    const AFK_JigsawImageDescriptor desc;
 
     /* If bufferUsage is cl gl copied, this is the cuboid data I've
      * read back from the CL and that needs to go into the GL.
@@ -154,13 +205,12 @@ protected:
 public:
     AFK_JigsawImage(
         AFK_Computer *_computer,
-        const Vec3<int>& _pieceSize,
         const Vec3<int>& _jigsawSize,
-        const AFK_JigsawFormatDescriptor& _format,
-        GLuint _texTarget,
-        const AFK_JigsawFake3DDescriptor& _fake3D,
-        enum AFK_JigsawBufferUsage _bufferUsage);
+        const AFK_JigsawImageDescriptor& _desc);
     virtual ~AFK_JigsawImage();
+
+    Vec2<int> getFake3D_size(void) const;
+    int getFake3D_mult(void) const;
 
     /* TODO: For the next two functions -- I'm now going around re-
      * acquiring jigsaws for read after having first acquired them

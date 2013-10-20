@@ -117,8 +117,13 @@ void AFK_3DEdgeComputeQueue::computeStart(
     AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 0, sizeof(cl_mem), &vapourJigsawDensityMem))
     AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 1, sizeof(cl_mem), &unitsBuf))
 
-    Vec2<int> fake3D_size = vapourJigsaw->getFake3D_size();
-    int fake3D_mult = vapourJigsaw->getFake3D_mult();
+    /* Note -- assuming all vapour shares a size for now
+     * (just like in 3d_vapour_compute_queue)
+     * If that changes the assert() in that module should remind
+     * me to make suitable edits.
+     */
+    Vec2<int> fake3D_size = vapourJigsaw->getFake3D_size(0);
+    int fake3D_mult = vapourJigsaw->getFake3D_mult(0);
     AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 2, sizeof(cl_int2), &fake3D_size.v[0]))
     AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 3, sizeof(cl_int), &fake3D_mult))
 

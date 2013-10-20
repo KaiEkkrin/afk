@@ -480,23 +480,39 @@ AFK_World::AFK_World(
     /* Set up the caches and generator gang. */
 
     unsigned int tileCacheEntries = tileCacheSize / lSizes.tSize;
-    Vec3<int> tilePieceSize = afk_vec3<int>((int)lSizes.tDim, (int)lSizes.tDim, 1);
+    Vec3<int> tpSize = afk_vec3<int>((int)lSizes.tDim, (int)lSizes.tDim, 1);
+    AFK_JigsawBufferUsage tBu = config->clGlSharing ?
+        AFK_JigsawBufferUsage::CL_GL_SHARED : AFK_JigsawBufferUsage::CL_GL_COPIED;
+
+    /* Packed 8-bit signed doesn't seem to work with cl_gl sharing */
+    AFK_JigsawFormat normalFormat = config->clGlSharing ?
+        AFK_JigsawFormat::FLOAT32_4 : AFK_JigsawFormat::FLOAT8_SNORM_4;
 
     landscapeJigsaws = new AFK_JigsawCollection(
         computer,
-        tilePieceSize,
+        {
+            AFK_JigsawImageDescriptor( /* Y displacement */
+                tpSize,
+                AFK_JigsawFormat::FLOAT32,
+                AFK_JigsawDimensions::TWO,
+                tBu
+            ),
+            AFK_JigsawImageDescriptor( /* Colour */
+                tpSize,
+                AFK_JigsawFormat::FLOAT8_UNORM_4,
+                AFK_JigsawDimensions::TWO,
+                tBu
+            ),
+            AFK_JigsawImageDescriptor( /* Normal */
+                tpSize,
+                normalFormat,
+                AFK_JigsawDimensions::TWO,
+                tBu
+            ),
+        },
         (int)tileCacheEntries,
         2, /* I want at least two, so I can put big tiles only into the first one */
-        AFK_JIGSAW_2D,
-        {
-            AFK_JIGSAW_FLOAT32,         /* Y displacement */
-            AFK_JIGSAW_4FLOAT8_UNORM,   /* Colour */
-            config->clGlSharing ? AFK_JIGSAW_4FLOAT32 : AFK_JIGSAW_4FLOAT8_SNORM
-                                        /* Normal; packed 8-bit signed doesn't seem to
-                                         * play nice with cl_gl buffer sharing */
-        },
         computer->getFirstDeviceProps(),
-        config->clGlSharing ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED,
         config->concurrency,
         false,
         0);
@@ -521,30 +537,35 @@ AFK_World::AFK_World(
 
     unsigned int shapeCacheEntries = shapeCacheSize / (32 * SQUARE(sSizes.eDim) * 6 + 16 * CUBE(sSizes.tDim));
 
-    Vec3<int> vapourPieceSize = afk_vec3<int>(sSizes.tDim, sSizes.tDim, sSizes.tDim);
+    Vec3<int> vpSize = afk_vec3<int>((int)sSizes.tDim, (int)sSizes.tDim, (int)sSizes.tDim);
 
     /* I can't use cl_gl sharing along with fake 3D,
      * because of the need to convert it to proper 3D
      * for the GL.
      */
-    bool useClGlSharingForVapour = (config->clGlSharing && !computer->useFake3DImages(config));
+    AFK_JigsawBufferUsage vBu = (config->clGlSharing && !computer->useFake3DImages(config) ?
+        AFK_JigsawBufferUsage::CL_GL_SHARED : AFK_JigsawBufferUsage::CL_GL_COPIED);
 
     vapourJigsaws = new AFK_JigsawCollection(
         computer,
-        vapourPieceSize,
+        {
+            AFK_JigsawImageDescriptor( /* Feature: colour and density (TODO: try to split these, colour needs only 8bpc) */
+                /* TODO *2: Density won't need to be copied to the GL */
+                vpSize,
+                AFK_JigsawFormat::FLOAT32_4,
+                AFK_JigsawDimensions::THREE,
+                vBu
+            ),
+            AFK_JigsawImageDescriptor( /* Normal */
+                vpSize,
+                normalFormat,
+                AFK_JigsawDimensions::THREE,
+                vBu
+            )
+        },
         (int)shapeCacheEntries,
         1,
-        AFK_JIGSAW_3D,
-        {
-            AFK_JIGSAW_4FLOAT32,                    /* Feature: colour and density.
-                                                     * TODO: Try to cram these: colour only needs 8
-                                                     * bits per channel.
-                                                     */
-            config->clGlSharing ? AFK_JIGSAW_4FLOAT32 : AFK_JIGSAW_4FLOAT8_SNORM
-                                                    /* Normal, with TODO as above. */
-        },
         computer->getFirstDeviceProps(),
-        useClGlSharingForVapour ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED,
         config->concurrency,
         computer->useFake3DImages(config),
         AFK_MAX_VAPOUR);
@@ -557,16 +578,23 @@ AFK_World::AFK_World(
 
     edgeJigsaws = new AFK_JigsawCollection(
         computer,
-        edgePieceSize,
+        {
+            AFK_JigsawImageDescriptor( /* Displacement. TODO Shrink this to eDim==1 pieces */
+                edgePieceSize,
+                AFK_JigsawFormat::FLOAT32_4,
+                AFK_JigsawDimensions::TWO,
+                tBu
+            ),
+            AFK_JigsawImageDescriptor( /* Overlap */
+                edgePieceSize,
+                AFK_JigsawFormat::UINT32_2,
+                AFK_JigsawDimensions::TWO,
+                tBu
+            )
+        },
         (int)shapeCacheEntries,
         1,
-        AFK_JIGSAW_2D,
-        {
-            AFK_JIGSAW_4FLOAT32,        /* Displacement */
-            AFK_JIGSAW_2UINT32          /* Overlap */
-        },
         computer->getFirstDeviceProps(),
-        config->clGlSharing ? AFK_JIGSAW_BU_CL_GL_SHARED : AFK_JIGSAW_BU_CL_GL_COPIED,
         config->concurrency,
         false,
         0);

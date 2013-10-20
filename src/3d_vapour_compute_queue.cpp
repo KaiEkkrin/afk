@@ -175,8 +175,15 @@ void AFK_3DVapourComputeQueue::computeStart(
     AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourFeatureKernel, 1, sizeof(cl_mem), &vapourBufs[1]))
     AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourFeatureKernel, 2, sizeof(cl_mem), &vapourBufs[2]))
 
-    Vec2<int> fake3D_size = vapourJigsaws->getPuzzle(0)->getFake3D_size();
-    int fake3D_mult = vapourJigsaws->getPuzzle(0)->getFake3D_mult();
+    Vec2<int> fake3D_size = vapourJigsaws->getPuzzle(0)->getFake3D_size(0);
+    int fake3D_mult = vapourJigsaws->getPuzzle(0)->getFake3D_mult(0);
+
+    /* I'd better check I didn't screw up here; if the features and normals
+     * aren't the same size I'll need separate fake 3D parameters ...
+     */
+    assert(fake3D_size == vapourJigsaws->getPuzzle(0)->getFake3D_size(1));
+    assert(fake3D_mult == vapourJigsaws->getPuzzle(0)->getFake3D_mult(1));
+
     AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourFeatureKernel, 3, sizeof(cl_int2), &fake3D_size.v[0]))
     AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourFeatureKernel, 4, sizeof(cl_int), &fake3D_mult))
 

@@ -52,13 +52,16 @@ void afk_testJigsaw(
 
     AFK_JigsawCollection testCollection(
         computer,
-        afk_vec3<int>(9, 9, 1),
+        {
+            AFK_JigsawImageDescriptor(
+                afk_vec3<int>(9, 9, 1),
+                AFK_JigsawFormat::FLOAT32_4,
+                AFK_JigsawDimensions::TWO,
+                AFK_JigsawBufferUsage::CL_ONLY)
+        },
         startingPieceCount,
         4,
-        AFK_JIGSAW_2D,
-        { AFK_JIGSAW_4FLOAT32 },
         computer->getFirstDeviceProps(),
-        AFK_JIGSAW_BU_CL_ONLY,
         config->concurrency,
         false,
         0);

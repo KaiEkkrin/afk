@@ -25,6 +25,7 @@
 #include "window_glx.hpp"
 
 
+typedef GLXContext (*glXCreateContextProc)(Display*, XVisualInfo*, GLXContext, Bool);
 typedef GLXContext (*glXCreateContextAttribsARBProc)(Display*, GLXFBConfig, GLXContext, Bool, const int*);
 typedef GLXFBConfig* (*glXChooseFBConfigProc)(Display*, int, const int*, int*);
 
@@ -118,34 +119,37 @@ AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight
     wmDeleteWindow = XInternAtom(dpy, "WM_DELETE_WINDOW", 0);
     XSetWMProtocols(dpy, w, &wmDeleteWindow, 1);
 
+    /* Make a dummy, universally possible initial GLX context
+     * so that GLEW can start and sort out my stuff.
+     */
+    GLXContext initGlxCtx = glXCreateContext(dpy, visInfo, 0, GL_TRUE);
+    if (!initGlxCtx) throw AFK_Exception("Unable to create initial GLX context");
+    if (!glXMakeCurrent(dpy, w, initGlxCtx)) throw AFK_Exception("Unable to make initial GLX context current");
+
+    /* Now, initialise GLEW with that initial context...
+     */
+    GLenum res = glewInit();
+    if (res != GLEW_OK) throw AFK_Exception("Unable to initialise GLEW");
+    if (!GLEW_VERSION_4_0) throw AFK_Exception("AFK requires OpenGL 4.0 or later");
+
+    /* And now that I've got all the real OpenGL functions set up,
+     * make a proper context and throw that old one away
+     */
     glXCreateContextAttribsARBProc ccProc = (glXCreateContextAttribsARBProc)
         glXGetProcAddressARB((const GLubyte *)"glXCreateContextAttribsARB");
-    
-    if (!ccProc)
-    {
-        throw AFK_Exception("Your GLX doesn't support GLX_ARB_create_context");
-    }
+    if (!ccProc) throw AFK_Exception("Your GLX doesn't support GLX_ARB_create_context");
 
     glXChooseFBConfigProc fbcProc = (glXChooseFBConfigProc)
         glXGetProcAddressARB((const GLubyte *)"glXChooseFBConfig");
-    if (!fbcProc)
-    {
-        throw AFK_Exception("Your GLX doesn't have glXChooseFBConfig");
-    }
+    if (!fbcProc) throw AFK_Exception("Your GLX doesn't have glXChooseFBConfig");
 
     glxFbConfig = (*fbcProc)(dpy, screen, nullptr, &numFbConfigElements);
     if (!glxFbConfig) throw AFK_Exception("Unable to get GLX framebuffer config");
 
     realGlxCtx = (*ccProc)(dpy, glxFbConfig[0], nullptr, true, glAttr);
 
-    if (!glXMakeCurrent(dpy, w, realGlxCtx))
-        throw AFK_Exception("Unable to make real GLX context current");
-
-    /* Now, initialise GLEW, so I never have to do that
-     * awful glXGetProcAddressARB thing ever again
-     */
-    GLenum res = glewInit();
-    if (res != GLEW_OK) throw AFK_Exception("Unable to initialise GLEW");
+    if (!glXMakeCurrent(dpy, w, realGlxCtx)) throw AFK_Exception("Unable to make real GLX context current");
+    glXDestroyContext(dpy, initGlxCtx);
 
     /* Fix the Vsync setting */
     bool haveSwapControl = false;

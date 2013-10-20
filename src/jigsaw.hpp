@@ -110,7 +110,6 @@ class AFK_Jigsaw
 {
 protected:
     std::vector<AFK_JigsawImage*> images;
-    const AFK_JigsawFake3DDescriptor fake3D;
     const Vec3<int> jigsawSize; /* number of pieces in each dimension */
 
     /* Each row of the jigsaw has a timestamp.  When the sweep
@@ -227,13 +226,8 @@ protected:
 public:
     AFK_Jigsaw(
         AFK_Computer *_computer,
-        const Vec3<int>& _pieceSize,
         const Vec3<int>& _jigsawSize,
-        const AFK_JigsawFormatDescriptor *_format,
-        GLuint _texTarget,
-        const AFK_JigsawFake3DDescriptor& _fake3D,
-        unsigned int _texCount,
-        enum AFK_JigsawBufferUsage _bufferUsage,
+        const std::vector<AFK_JigsawImageDescriptor>& _desc,
         unsigned int _concurrency);
     virtual ~AFK_Jigsaw();
 
@@ -273,8 +267,8 @@ public:
      * sending to the CL.  (-1s will be returned if fake 3D is
      * not in use.)
      */
-    Vec2<int> getFake3D_size(void) const;
-    int getFake3D_mult(void) const;
+    Vec2<int> getFake3D_size(unsigned int tex) const;
+    int getFake3D_mult(unsigned int tex) const;
 
     /* TODO: For the next two functions -- I'm now going around re-
      * acquiring jigsaws for read after having first acquired them

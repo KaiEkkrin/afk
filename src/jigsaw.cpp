@@ -307,40 +307,19 @@ void AFK_Jigsaw::doSweep(const Vec2<int>& nextFreeRow, const AFK_Frame& currentF
 
 AFK_Jigsaw::AFK_Jigsaw(
     AFK_Computer *_computer,
-    const Vec3<int>& _pieceSize,
     const Vec3<int>& _jigsawSize,
-    const AFK_JigsawFormatDescriptor *_format,
-    GLuint _texTarget,
-    const AFK_JigsawFake3DDescriptor& _fake3D,
-    unsigned int _texCount,
-    enum AFK_JigsawBufferUsage _bufferUsage,
+    const std::vector<AFK_JigsawImageDescriptor>& _desc,
     unsigned int _concurrency):
-        fake3D(_fake3D),
         jigsawSize(_jigsawSize),
         concurrency(_concurrency),
         updateCs(0),
         drawCs(1),
         columnCounts(8, 0)
 {
-    /* Check for an unsupported case -- image types clash */
-    if (_bufferUsage == AFK_JIGSAW_BU_CL_GL_SHARED &&
-        fake3D.getUseFake3D())
-    {
-        throw AFK_Exception("Can't support fake 3D with cl_gl sharing");
-    }
-
     /* Make the images. */
-    for (unsigned int tex = 0; tex < _texCount; ++tex)
+    for (auto d : _desc)
     {
-        /* TODO Make more of these parameters per-image! */
-        images.push_back(new AFK_JigsawImage(
-            _computer,
-            _pieceSize,
-            jigsawSize,
-            _format[tex],
-            _texTarget,
-            fake3D,
-            _bufferUsage));
+        images.push_back(new AFK_JigsawImage(_computer, jigsawSize, d));
     }
 
     /* Now that I've got the textures, fill out the jigsaw state. */
@@ -486,26 +465,14 @@ Vec3<float> AFK_Jigsaw::getPiecePitchSTR(void) const
         1.0f / (float)jigsawSize.v[2]);
 }
 
-Vec2<int> AFK_Jigsaw::getFake3D_size(void) const
+Vec2<int> AFK_Jigsaw::getFake3D_size(unsigned int tex) const
 {
-    Vec2<int> size2;
-
-    if (fake3D.getUseFake3D())
-    {
-        Vec3<int> size = fake3D.getFakeSize();
-        size2 = afk_vec2<int>(size.v[0], size.v[1]);
-    }
-    else
-    {
-        size2 = afk_vec2<int>(-1, -1);
-    }
-
-    return size2;
+    return images[tex]->getFake3D_size();
 }
 
-int AFK_Jigsaw::getFake3D_mult(void) const
+int AFK_Jigsaw::getFake3D_mult(unsigned int tex) const
 {
-    return fake3D.getUseFake3D() ? fake3D.getMult() : 0;
+    return images[tex]->getFake3D_mult();
 }
 
 cl_mem AFK_Jigsaw::acquireForCl(unsigned int tex, std::vector<cl_event>& o_events)
