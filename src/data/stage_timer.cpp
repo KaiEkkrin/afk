@@ -76,7 +76,7 @@ void AFK_StageTimer::restart(void)
         {
             unsigned int timeInMicros = timesInMicros[i]->get();
             unsigned int timePercent = 100 * timeInMicros / totalTime;
-            std::cout << "    " << stageNames[i] << ": " << timeInMicros << " micros (" << timePercent << "\% total)" << std::endl;
+            std::cout << "    " << stageNames[i] << ": " << timeInMicros << " micros (" << timePercent << "% total)" << std::endl;
         }
 
         roundsSincePrint = 0;
@@ -86,7 +86,7 @@ void AFK_StageTimer::restart(void)
 void AFK_StageTimer::hitStage(unsigned int stage)
 {
     boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
-    timesInMicros[stage]->push((now - lastStage).total_microseconds());
+    timesInMicros[stage]->push((unsigned int)((now - lastStage).total_microseconds()));
     lastStage = now;
 }
 

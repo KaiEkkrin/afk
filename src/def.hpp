@@ -465,7 +465,7 @@ public:
     Vec3<F> rotate(const Vec3<F>& v) const
     {
         Quaternion<F> vq;
-        vq.q[0] = 0.0;
+        vq.q[0] = 0.0f;
         vq.q[1] = v.v[0];
         vq.q[2] = v.v[1];
         vq.q[3] = v.v[2];
@@ -482,25 +482,25 @@ public:
     Mat4<F> rotationMatrix(void) const
     {
         Mat4<F> r;
-        r.m[0][0] = 1.0 - 2.0 * SQUARE(q[2]) - 2.0 * SQUARE(q[3]);
-        r.m[0][1] = 2.0 * q[1] * q[2] - 2.0 * q[3] * q[0];
-        r.m[0][2] = 2.0 * q[1] * q[3] + 2.0 * q[2] * q[0];
-        r.m[0][3] = 0.0;
+        r.m[0][0] = 1.0f - 2.0f * SQUARE(q[2]) - 2.0f * SQUARE(q[3]);
+        r.m[0][1] = 2.0f * q[1] * q[2] - 2.0f * q[3] * q[0];
+        r.m[0][2] = 2.0f * q[1] * q[3] + 2.0f * q[2] * q[0];
+        r.m[0][3] = 0.0f;
 
-        r.m[1][0] = 2.0 * q[1] * q[2] + 2.0 * q[3] * q[0];
-        r.m[1][1] = 1.0 - 2.0 * SQUARE(q[1]) - 2.0 * SQUARE(q[3]);
-        r.m[1][2] = 2.0 * q[2] * q[3] - 2.0 * q[1] * q[0];
-        r.m[1][3] = 0.0;
+        r.m[1][0] = 2.0f * q[1] * q[2] + 2.0f * q[3] * q[0];
+        r.m[1][1] = 1.0f - 2.0f * SQUARE(q[1]) - 2.0f * SQUARE(q[3]);
+        r.m[1][2] = 2.0f * q[2] * q[3] - 2.0f * q[1] * q[0];
+        r.m[1][3] = 0.0f;
 
-        r.m[2][0] = 2.0 * q[1] * q[3] - 2.0 * q[2] * q[0];
-        r.m[2][1] = 2.0 * q[2] * q[3] + 2.0 * q[1] * q[0];
-        r.m[2][2] = 1.0 - 2.0 * SQUARE(q[1]) - 2.0 * SQUARE(q[2]);
-        r.m[2][3] = 0.0;
+        r.m[2][0] = 2.0f * q[1] * q[3] - 2.0f * q[2] * q[0];
+        r.m[2][1] = 2.0f * q[2] * q[3] + 2.0f * q[1] * q[0];
+        r.m[2][2] = 1.0f - 2.0f * SQUARE(q[1]) - 2.0f * SQUARE(q[2]);
+        r.m[2][3] = 0.0f;
 
-        r.m[3][0] = 0.0;
-        r.m[3][1] = 0.0;
-        r.m[3][2] = 0.0;
-        r.m[3][3] = 1.0;
+        r.m[3][0] = 0.0f;
+        r.m[3][1] = 0.0f;
+        r.m[3][2] = 0.0f;
+        r.m[3][3] = 1.0f;
         return r;
     }
 };
@@ -512,9 +512,9 @@ Quaternion<F> afk_quaternion(F theta, Vec3<F> uvec)
     uvec.normalise();
 
     Quaternion<F> r;
-    r.q[0] = std::cos(theta / 2.0);
+    r.q[0] = std::cos(theta / 2.0f);
 
-    F sinHalfTheta = std::sin(theta / 2.0);
+    F sinHalfTheta = std::sin(theta / 2.0f);
     r.q[1] = uvec.v[0] * sinHalfTheta;
     r.q[2] = uvec.v[1] * sinHalfTheta;
     r.q[3] = uvec.v[2] * sinHalfTheta;

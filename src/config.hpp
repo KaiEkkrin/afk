@@ -18,6 +18,8 @@
 #ifndef _AFK_CONFIG_H_
 #define _AFK_CONFIG_H_
 
+#include "afk.hpp"
+
 #include <map>
 
 #include "rng/rng.hpp"

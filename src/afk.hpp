@@ -33,6 +33,12 @@
 #include <GL/glxew.h>
 #endif /* AFK_GLX */
 
+#ifdef AFK_WGL
+#include <GL/wglew.h>
+#endif /* AFK_WGL */
+
+#include <cstdint>
+
 /* Global compile-time settings */
 
 /* This appears to be the correct amount to `wiggle' texture samples

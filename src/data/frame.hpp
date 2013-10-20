@@ -18,6 +18,7 @@
 #ifndef _AFK_FRAME_H_
 #define _AFK_FRAME_H_
 
+#include <cstdint>
 #include <sstream>
 
 #include <boost/static_assert.hpp>

@@ -19,11 +19,11 @@
 
 #include <iostream>
 
-#include "async/test.hpp"
+#include "async/async_test.hpp"
 #include "data/cache_test.hpp"
 #include "hash_test.hpp"
 #include "rng/boost_taus88.hpp"
-#include "rng/test.hpp"
+#include "rng/rng_test.hpp"
 #include "test_jigsaw_fake3d.hpp"
 
 #include "core.hpp"

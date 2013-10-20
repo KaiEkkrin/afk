@@ -195,9 +195,6 @@
     <ClInclude Include="src\async\async.hpp">
       <Filter>Header Files\async</Filter>
     </ClInclude>
-    <ClInclude Include="src\async\test.hpp">
-      <Filter>Header Files\async</Filter>
-    </ClInclude>
     <ClInclude Include="src\async\work_queue.hpp">
       <Filter>Header Files\async</Filter>
     </ClInclude>
@@ -249,13 +246,13 @@
     <ClInclude Include="src\rng\boost_taus88.hpp">
       <Filter>Header Files\rng</Filter>
     </ClInclude>
-    <ClInclude Include="src\rng\c.hpp">
-      <Filter>Header Files\rng</Filter>
-    </ClInclude>
     <ClInclude Include="src\rng\rng.hpp">
       <Filter>Header Files\rng</Filter>
     </ClInclude>
-    <ClInclude Include="src\rng\test.hpp">
+    <ClInclude Include="src\async\async_test.hpp">
+      <Filter>Header Files\async</Filter>
+    </ClInclude>
+    <ClInclude Include="src\rng\rng_test.hpp">
       <Filter>Header Files\rng</Filter>
     </ClInclude>
   </ItemGroup>
@@ -448,9 +445,6 @@
     <ClCompile Include="src\async\async.cpp">
       <Filter>Source Files\async</Filter>
     </ClCompile>
-    <ClCompile Include="src\async\test.cpp">
-      <Filter>Source Files\async</Filter>
-    </ClCompile>
     <ClCompile Include="src\data\cache_test.cpp">
       <Filter>Source Files\data</Filter>
     </ClCompile>
@@ -484,13 +478,13 @@
     <ClCompile Include="src\rng\boost_taus88.cpp">
       <Filter>Source Files\rng</Filter>
     </ClCompile>
-    <ClCompile Include="src\rng\c.cpp">
-      <Filter>Source Files\rng</Filter>
-    </ClCompile>
     <ClCompile Include="src\rng\rng.cpp">
       <Filter>Source Files\rng</Filter>
     </ClCompile>
-    <ClCompile Include="src\rng\test.cpp">
+    <ClCompile Include="src\async\async_test.cpp">
+      <Filter>Source Files\async</Filter>
+    </ClCompile>
+    <ClCompile Include="src\rng\rng_test.cpp">
       <Filter>Source Files\rng</Filter>
     </ClCompile>
   </ItemGroup>
