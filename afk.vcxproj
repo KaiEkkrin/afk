@@ -1,0 +1,243 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{E35414D3-D877-4CEC-B963-F2073E828F99}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>afk</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions);AFK_GL_DEBUG=1;AFK_WGL</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>..\..\boost\boost_1_54_0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions);AFK_WGL</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>..\..\boost\boost_1_54_0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <Text Include="README.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\3d_edge_compute_queue.hpp" />
+    <ClInclude Include="src\3d_edge_shape_base.hpp" />
+    <ClInclude Include="src\3d_solid.hpp" />
+    <ClInclude Include="src\3d_vapour_compute_queue.hpp" />
+    <ClInclude Include="src\afk.hpp" />
+    <ClInclude Include="src\async\async.hpp" />
+    <ClInclude Include="src\async\test.hpp" />
+    <ClInclude Include="src\async\work_queue.hpp" />
+    <ClInclude Include="src\camera.hpp" />
+    <ClInclude Include="src\cell.hpp" />
+    <ClInclude Include="src\computer.hpp" />
+    <ClInclude Include="src\config.hpp" />
+    <ClInclude Include="src\core.hpp" />
+    <ClInclude Include="src\data\cache.hpp" />
+    <ClInclude Include="src\data\cache_test.hpp" />
+    <ClInclude Include="src\data\claimable.hpp" />
+    <ClInclude Include="src\data\evictable_cache.hpp" />
+    <ClInclude Include="src\data\fair.hpp" />
+    <ClInclude Include="src\data\frame.hpp" />
+    <ClInclude Include="src\data\map_cache.hpp" />
+    <ClInclude Include="src\data\moving_average.hpp" />
+    <ClInclude Include="src\data\polymer.hpp" />
+    <ClInclude Include="src\data\polymer_cache.hpp" />
+    <ClInclude Include="src\data\stage_timer.hpp" />
+    <ClInclude Include="src\data\stats.hpp" />
+    <ClInclude Include="src\debug.hpp" />
+    <ClInclude Include="src\def.hpp" />
+    <ClInclude Include="src\display.hpp" />
+    <ClInclude Include="src\entity.hpp" />
+    <ClInclude Include="src\entity_display_queue.hpp" />
+    <ClInclude Include="src\event.hpp" />
+    <ClInclude Include="src\exception.hpp" />
+    <ClInclude Include="src\file\filter.hpp" />
+    <ClInclude Include="src\file\readfile.hpp" />
+    <ClInclude Include="src\hash_test.hpp" />
+    <ClInclude Include="src\jigsaw.hpp" />
+    <ClInclude Include="src\jigsaw_collection.hpp" />
+    <ClInclude Include="src\jigsaw_cuboid.hpp" />
+    <ClInclude Include="src\jigsaw_image.hpp" />
+    <ClInclude Include="src\keyed_cell.hpp" />
+    <ClInclude Include="src\landscape_display_queue.hpp" />
+    <ClInclude Include="src\landscape_sizes.hpp" />
+    <ClInclude Include="src\landscape_tile.hpp" />
+    <ClInclude Include="src\light.hpp" />
+    <ClInclude Include="src\object.hpp" />
+    <ClInclude Include="src\ocl_shim.hpp" />
+    <ClInclude Include="src\rng\boost_mt19937.hpp" />
+    <ClInclude Include="src\rng\boost_taus88.hpp" />
+    <ClInclude Include="src\rng\c.hpp" />
+    <ClInclude Include="src\rng\rng.hpp" />
+    <ClInclude Include="src\rng\test.hpp" />
+    <ClInclude Include="src\shader.hpp" />
+    <ClInclude Include="src\shape.hpp" />
+    <ClInclude Include="src\shape_cell.hpp" />
+    <ClInclude Include="src\shape_sizes.hpp" />
+    <ClInclude Include="src\skeleton.hpp" />
+    <ClInclude Include="src\terrain.hpp" />
+    <ClInclude Include="src\terrain_base_tile.hpp" />
+    <ClInclude Include="src\terrain_compute_queue.hpp" />
+    <ClInclude Include="src\test_jigsaw.hpp" />
+    <ClInclude Include="src\test_jigsaw_fake3d.hpp" />
+    <ClInclude Include="src\tile.hpp" />
+    <ClInclude Include="src\vapour_cell.hpp" />
+    <ClInclude Include="src\visible_cell.hpp" />
+    <ClInclude Include="src\window.hpp" />
+    <ClInclude Include="src\window_glx.hpp" />
+    <ClInclude Include="src\work.hpp" />
+    <ClInclude Include="src\world.hpp" />
+    <ClInclude Include="src\world_cell.hpp" />
+    <ClInclude Include="src\yreduce.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\compute\fake3d.cl" />
+    <None Include="src\compute\landscape_surface.cl" />
+    <None Include="src\compute\landscape_terrain.cl" />
+    <None Include="src\compute\landscape_yreduce.cl" />
+    <None Include="src\compute\shape_3dedge.cl" />
+    <None Include="src\compute\shape_3dvapour.cl" />
+    <None Include="src\compute\shape_3dvapour_feature.cl" />
+    <None Include="src\compute\shape_3dvapour_normal.cl" />
+    <None Include="src\shaders\landscape_fragment.glsl" />
+    <None Include="src\shaders\landscape_geometry.glsl" />
+    <None Include="src\shaders\landscape_vertex.glsl" />
+    <None Include="src\shaders\protagonist_fragment.glsl" />
+    <None Include="src\shaders\protagonist_vertex.glsl" />
+    <None Include="src\shaders\shape_fragment.glsl" />
+    <None Include="src\shaders\shape_geometry.glsl" />
+    <None Include="src\shaders\shape_vertex.glsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\3d_edge_compute_queue.cpp" />
+    <ClCompile Include="src\3d_edge_shape_base.cpp" />
+    <ClCompile Include="src\3d_solid.cpp" />
+    <ClCompile Include="src\3d_vapour_compute_queue.cpp" />
+    <ClCompile Include="src\async\async.cpp" />
+    <ClCompile Include="src\async\test.cpp" />
+    <ClCompile Include="src\camera.cpp" />
+    <ClCompile Include="src\cell.cpp" />
+    <ClCompile Include="src\computer.cpp" />
+    <ClCompile Include="src\config.cpp" />
+    <ClCompile Include="src\core.cpp" />
+    <ClCompile Include="src\data\cache_test.cpp" />
+    <ClCompile Include="src\data\claimable.cpp" />
+    <ClCompile Include="src\data\fair.cpp" />
+    <ClCompile Include="src\data\frame.cpp" />
+    <ClCompile Include="src\data\polymer_cache.cpp" />
+    <ClCompile Include="src\data\stage_timer.cpp" />
+    <ClCompile Include="src\data\stats.cpp" />
+    <ClCompile Include="src\debug.cpp" />
+    <ClCompile Include="src\display.cpp" />
+    <ClCompile Include="src\entity.cpp" />
+    <ClCompile Include="src\entity_display_queue.cpp" />
+    <ClCompile Include="src\event.cpp" />
+    <ClCompile Include="src\exception.cpp" />
+    <ClCompile Include="src\file\filter.cpp" />
+    <ClCompile Include="src\file\readfile.cpp" />
+    <ClCompile Include="src\hash_test.cpp" />
+    <ClCompile Include="src\jigsaw.cpp" />
+    <ClCompile Include="src\jigsaw_collection.cpp" />
+    <ClCompile Include="src\jigsaw_cuboid.cpp" />
+    <ClCompile Include="src\jigsaw_image.cpp" />
+    <ClCompile Include="src\keyed_cell.cpp" />
+    <ClCompile Include="src\landscape_display_queue.cpp" />
+    <ClCompile Include="src\landscape_sizes.cpp" />
+    <ClCompile Include="src\landscape_tile.cpp" />
+    <ClCompile Include="src\light.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\object.cpp" />
+    <ClCompile Include="src\ocl_shim.cpp" />
+    <ClCompile Include="src\rng\boost_mt19937.cpp" />
+    <ClCompile Include="src\rng\boost_taus88.cpp" />
+    <ClCompile Include="src\rng\c.cpp" />
+    <ClCompile Include="src\rng\rng.cpp" />
+    <ClCompile Include="src\rng\test.cpp" />
+    <ClCompile Include="src\shader.cpp" />
+    <ClCompile Include="src\shape.cpp" />
+    <ClCompile Include="src\shape_cell.cpp" />
+    <ClCompile Include="src\shape_sizes.cpp" />
+    <ClCompile Include="src\skeleton.cpp" />
+    <ClCompile Include="src\terrain.cpp" />
+    <ClCompile Include="src\terrain_base_tile.cpp" />
+    <ClCompile Include="src\terrain_compute_queue.cpp" />
+    <ClCompile Include="src\test_jigsaw.cpp" />
+    <ClCompile Include="src\test_jigsaw_fake3d.cpp" />
+    <ClCompile Include="src\tile.cpp" />
+    <ClCompile Include="src\vapour_cell.cpp" />
+    <ClCompile Include="src\visible_cell.cpp" />
+    <ClCompile Include="src\window_glx.cpp" />
+    <ClCompile Include="src\world.cpp" />
+    <ClCompile Include="src\world_cell.cpp" />
+    <ClCompile Include="src\yreduce.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

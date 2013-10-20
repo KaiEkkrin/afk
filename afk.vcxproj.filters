@@ -1,0 +1,497 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Header Files\async">
+      <UniqueIdentifier>{d2fd791c-1ddb-49d0-8c7e-f9ad155b9e6e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\data">
+      <UniqueIdentifier>{d14afdb3-d42d-46bd-af10-4543714c95f2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\file">
+      <UniqueIdentifier>{aee340d2-bbfc-48bb-a9fb-e1cf98fc8c25}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\rng">
+      <UniqueIdentifier>{3301472a-56fb-4c66-b72d-f1ba912597cc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\compute">
+      <UniqueIdentifier>{3904f359-5d8e-4b40-8f53-517d8755ab96}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\shaders">
+      <UniqueIdentifier>{fcb39acf-1bf7-4a1f-a7ea-3b38e3a3e108}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\async">
+      <UniqueIdentifier>{c76669a5-a98a-42ba-9481-29439d503e8e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\data">
+      <UniqueIdentifier>{8fc6f51a-0010-4770-bb87-b8207097e4de}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\file">
+      <UniqueIdentifier>{5289718c-2f92-4226-aa8d-10143078309c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\rng">
+      <UniqueIdentifier>{165a7fa6-4061-4e4b-b4fc-ca2525d8b3bd}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="ReadMe.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\3d_edge_compute_queue.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\3d_edge_shape_base.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\3d_solid.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\3d_vapour_compute_queue.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\afk.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\camera.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\cell.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\computer.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\config.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\debug.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\def.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\display.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\entity.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\entity_display_queue.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\event.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\exception.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\hash_test.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\jigsaw.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\jigsaw_collection.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\jigsaw_cuboid.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\jigsaw_image.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\keyed_cell.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\landscape_display_queue.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\landscape_sizes.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\landscape_tile.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\light.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\object.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ocl_shim.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shader.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shape.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shape_cell.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shape_sizes.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\skeleton.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\terrain.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\terrain_base_tile.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\terrain_compute_queue.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\test_jigsaw.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\test_jigsaw_fake3d.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\tile.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vapour_cell.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\visible_cell.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\window.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\window_glx.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\work.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\world.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\world_cell.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\yreduce.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\async\async.hpp">
+      <Filter>Header Files\async</Filter>
+    </ClInclude>
+    <ClInclude Include="src\async\test.hpp">
+      <Filter>Header Files\async</Filter>
+    </ClInclude>
+    <ClInclude Include="src\async\work_queue.hpp">
+      <Filter>Header Files\async</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\cache.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\cache_test.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\claimable.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\evictable_cache.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\fair.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\frame.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\map_cache.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\moving_average.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\polymer.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\polymer_cache.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\stage_timer.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\stats.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\file\filter.hpp">
+      <Filter>Header Files\file</Filter>
+    </ClInclude>
+    <ClInclude Include="src\file\readfile.hpp">
+      <Filter>Header Files\file</Filter>
+    </ClInclude>
+    <ClInclude Include="src\rng\boost_mt19937.hpp">
+      <Filter>Header Files\rng</Filter>
+    </ClInclude>
+    <ClInclude Include="src\rng\boost_taus88.hpp">
+      <Filter>Header Files\rng</Filter>
+    </ClInclude>
+    <ClInclude Include="src\rng\c.hpp">
+      <Filter>Header Files\rng</Filter>
+    </ClInclude>
+    <ClInclude Include="src\rng\rng.hpp">
+      <Filter>Header Files\rng</Filter>
+    </ClInclude>
+    <ClInclude Include="src\rng\test.hpp">
+      <Filter>Header Files\rng</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\compute\fake3d.cl">
+      <Filter>Resource Files\compute</Filter>
+    </None>
+    <None Include="src\compute\landscape_surface.cl">
+      <Filter>Resource Files\compute</Filter>
+    </None>
+    <None Include="src\compute\landscape_terrain.cl">
+      <Filter>Resource Files\compute</Filter>
+    </None>
+    <None Include="src\compute\landscape_yreduce.cl">
+      <Filter>Resource Files\compute</Filter>
+    </None>
+    <None Include="src\compute\shape_3dedge.cl">
+      <Filter>Resource Files\compute</Filter>
+    </None>
+    <None Include="src\compute\shape_3dvapour.cl">
+      <Filter>Resource Files\compute</Filter>
+    </None>
+    <None Include="src\compute\shape_3dvapour_feature.cl">
+      <Filter>Resource Files\compute</Filter>
+    </None>
+    <None Include="src\compute\shape_3dvapour_normal.cl">
+      <Filter>Resource Files\compute</Filter>
+    </None>
+    <None Include="src\shaders\landscape_fragment.glsl">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\landscape_geometry.glsl">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\landscape_vertex.glsl">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\protagonist_fragment.glsl">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\protagonist_vertex.glsl">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\shape_fragment.glsl">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\shape_geometry.glsl">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\shape_vertex.glsl">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\3d_edge_compute_queue.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\3d_edge_shape_base.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\3d_solid.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\3d_vapour_compute_queue.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\camera.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\cell.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\computer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\config.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\debug.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\display.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\entity.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\entity_display_queue.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\event.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\exception.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hash_test.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\jigsaw.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\jigsaw_collection.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\jigsaw_cuboid.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\jigsaw_image.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\keyed_cell.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\landscape_display_queue.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\landscape_sizes.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\landscape_tile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\light.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\object.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ocl_shim.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\shader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\shape.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\shape_cell.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\shape_sizes.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\skeleton.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\terrain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\terrain_base_tile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\terrain_compute_queue.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\test_jigsaw.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\test_jigsaw_fake3d.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\tile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\vapour_cell.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\visible_cell.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\window_glx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\world.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\world_cell.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\yreduce.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\async\async.cpp">
+      <Filter>Source Files\async</Filter>
+    </ClCompile>
+    <ClCompile Include="src\async\test.cpp">
+      <Filter>Source Files\async</Filter>
+    </ClCompile>
+    <ClCompile Include="src\data\cache_test.cpp">
+      <Filter>Source Files\data</Filter>
+    </ClCompile>
+    <ClCompile Include="src\data\claimable.cpp">
+      <Filter>Source Files\data</Filter>
+    </ClCompile>
+    <ClCompile Include="src\data\fair.cpp">
+      <Filter>Source Files\data</Filter>
+    </ClCompile>
+    <ClCompile Include="src\data\frame.cpp">
+      <Filter>Source Files\data</Filter>
+    </ClCompile>
+    <ClCompile Include="src\data\polymer_cache.cpp">
+      <Filter>Source Files\data</Filter>
+    </ClCompile>
+    <ClCompile Include="src\data\stage_timer.cpp">
+      <Filter>Source Files\data</Filter>
+    </ClCompile>
+    <ClCompile Include="src\data\stats.cpp">
+      <Filter>Source Files\data</Filter>
+    </ClCompile>
+    <ClCompile Include="src\file\filter.cpp">
+      <Filter>Source Files\file</Filter>
+    </ClCompile>
+    <ClCompile Include="src\file\readfile.cpp">
+      <Filter>Source Files\file</Filter>
+    </ClCompile>
+    <ClCompile Include="src\rng\boost_mt19937.cpp">
+      <Filter>Source Files\rng</Filter>
+    </ClCompile>
+    <ClCompile Include="src\rng\boost_taus88.cpp">
+      <Filter>Source Files\rng</Filter>
+    </ClCompile>
+    <ClCompile Include="src\rng\c.cpp">
+      <Filter>Source Files\rng</Filter>
+    </ClCompile>
+    <ClCompile Include="src\rng\rng.cpp">
+      <Filter>Source Files\rng</Filter>
+    </ClCompile>
+    <ClCompile Include="src\rng\test.cpp">
+      <Filter>Source Files\rng</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
