@@ -398,7 +398,7 @@ void AFK_JigsawImageDescriptor::setUseFake3D(const Vec3<int>& _jigsawSize)
 
 cl_mem_object_type AFK_JigsawImageDescriptor::getClObjectType(void) const
 {
-    return (dimensions == AFK_JigsawDimensions::THREE && fake3D.getUseFake3D() ?
+    return (dimensions == AFK_JigsawDimensions::THREE && !fake3D.getUseFake3D() ?
         CL_MEM_OBJECT_IMAGE3D : CL_MEM_OBJECT_IMAGE2D);
 }
 
@@ -419,7 +419,7 @@ size_t AFK_JigsawImageDescriptor::getPieceSizeInBytes(void) const
 
 std::ostream& operator<<(std::ostream& os, const AFK_JigsawImageDescriptor& _desc)
 {
-    os << "Image(" << _desc.pieceSize << ", " << _desc.format << ", " << _desc.dimensions << ", " << _desc.bufferUsage << ")";
+    os << "Image(" << _desc.pieceSize << ", " << _desc.format << ", " << _desc.dimensions << ", " << _desc.bufferUsage << ", " << _desc.fake3D << ")";
     return os;
 }
 
@@ -471,7 +471,7 @@ void AFK_JigsawImage::getClChangeDataFake3D(
     cl_command_queue q,
     const std::vector<cl_event>& eventWaitList)
 {
-    size_t pieceSliceSizeInBytes = desc.getPieceSizeInBytes();
+    size_t pieceSliceSizeInBytes = desc.format.texelSize * desc.pieceSize.v[0] * desc.pieceSize.v[1];
     assert(pieceSliceSizeInBytes > 0);
 
     unsigned int changeEvent = 0;
@@ -728,10 +728,10 @@ AFK_JigsawImage::AFK_JigsawImage(
                     throw AFK_Exception("Unrecognised texTarget");
                 }
             }
-            AFK_HANDLE_CL_ERROR(error);
         }
     }
 
+    AFK_HANDLE_CL_ERROR(error);
     computer->unlock();
 }
 

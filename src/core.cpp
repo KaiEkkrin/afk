@@ -39,7 +39,7 @@
 #define FRAME_REFRESH_TIME 15500
 
 
-#define JIGSAW_TEST 1
+#define JIGSAW_TEST 0
 
 
 #define CALIBRATION_INTERVAL_MICROS (afk_core.config->targetFrameTimeMicros * afk_core.config->framesPerCalibration)
