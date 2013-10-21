@@ -268,9 +268,11 @@ void main()
     case 5: texCoordDisp = vec2(2.0, 1.0); break;
     }
 
+    /* TODO Handle layers other than 0. */
     uint overlap = textureLod(JigsawOverlapTex,
         makeEdgeJigsawCoordNearest(edgeJigsawPieceCoord, inData[0].texCoord + texCoordDisp),
         0).x;
+    overlap = (overlap & ((1<<LAYER_BITNESS)-1));
 
     /* Check whether this triangle pair is overlapped to another
      * face.

@@ -45,6 +45,13 @@ AFK_ShapeSizes::AFK_ShapeSizes(
 
     assert(layerBitness < (8 * sizeof(uint32_t)));
 
-    for (layers = 0; (layers + 1) * layerBitness < (8 * sizeof(uint32_t)); ++layers);
+    /* limiting layers to pointSubdivisionFactor isn't strictly necessary
+     * for the algorithm, but having more layers than that would be,
+     * you know, silly, because it wouldn't be possible to
+     * actually populate them all :P
+     */
+    for (layers = 0;
+        (layers + 1) * layerBitness < (8 * sizeof(uint32_t)) && (layers + 1) < pointSubdivisionFactor;
+        ++layers);
 }
 
