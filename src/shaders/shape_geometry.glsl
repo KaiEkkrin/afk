@@ -81,6 +81,15 @@ vec2 makeEdgeJigsawCoordNearest(
     return pieceCoord + EdgeJigsawPiecePitch * (texCoord + 0.5f / EDIM);
 }
 
+float getEdgeStepsBack(
+    vec2 edgeJigsawCoordNN,
+    int layer)
+{
+    uint esbField = textureLod(JigsawOverlapTex, edgeJigsawCoordNN, 0).y;
+    uint esbVal = ((esbField >> (layer * LAYER_BITNESS)) & ((1u<<LAYER_BITNESS)-1)) - 1;
+    return float(esbVal);
+}
+
 void emitShapeVertex(
     mat4 ClipTransform,
     mat4 WorldTransform,
@@ -96,10 +105,9 @@ void emitShapeVertex(
     vec2 edgeJigsawCoordNN = makeEdgeJigsawCoordNearest(edgeJigsawPieceCoord, inData[i].texCoord + texCoordDisp);
 
     /* TODO: Implement edgeStepsBack layers.  For now I'll assume just
-     * layer 0 (with that offset of 1)
+     * layer 0
      */
-    float edgeStepsBack = textureLod(JigsawOverlapTex, edgeJigsawCoordNN, 0).y;
-    edgeStepsBack -= 1.0f;
+    float edgeStepsBack = getEdgeStepsBack(edgeJigsawCoordNN, 0);
 
     /* Construct the cube co-ordinate for this vertex.  It will be
      * in the range 0..1.

@@ -670,7 +670,9 @@ __kernel void makeShape3DEdge(
      * as much work now.)
      */
 
-    /* To test, I'm going to use only layer 0 and make sure I didn't break anything. */
+    int layer[6]; /* one per face */
+    for (int face = 0; face < 6; ++face) layer[face] = 0;
+
     for (int stepsBack = 0; stepsBack < (EDIM-1); ++stepsBack)
     {
         for (int face = 0; face < 6; ++face)
@@ -691,11 +693,10 @@ __kernel void makeShape3DEdge(
                 setEdgeStepsBack(edgeStepsBack, xdim, zdim, face, 0, stepsBack);
             }
 #else
-            int l0esb;
             if (lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f &&
-                !getEdgeStepsBack(edgeStepsBack, xdim, zdim, face, 0, &l0esb))
+                layer[face] < LAYERS)
             {
-                setEdgeStepsBack(edgeStepsBack, xdim, zdim, face, 0, stepsBack);
+                setEdgeStepsBack(edgeStepsBack, xdim, zdim, face, layer[face]++, stepsBack);
             }
 #endif /* FAKE_TEST_VAPOUR */
         }
