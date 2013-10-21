@@ -209,74 +209,48 @@ int2 makeEdgeJigsawCoord(__global const struct AFK_3DEdgeComputeUnit *units, int
     return baseCoord;
 }
 
-float3 makeEdgeVertexBase(int face, int xdim, int zdim, int stepsBack)
-{
-    float3 baseVertex;
-
-    switch (face)
-    {
-    case AFK_SHF_BOTTOM:
-        baseVertex = (float3)((float)xdim, (float)stepsBack, (float)zdim);
-        break;
-
-    case AFK_SHF_LEFT:
-        baseVertex = (float3)((float)stepsBack, (float)xdim, (float)zdim);
-        break;
-
-    case AFK_SHF_FRONT:
-        baseVertex = (float3)((float)xdim, (float)zdim, (float)stepsBack);
-        break;
-
-    case AFK_SHF_BACK:
-        baseVertex = (float3)((float)xdim, (float)zdim, (float)(VDIM - stepsBack));
-        break;
-
-    case AFK_SHF_RIGHT:
-        baseVertex = (float3)((float)(VDIM - stepsBack), (float)xdim, (float)zdim);
-        break;
-
-    case AFK_SHF_TOP:
-        baseVertex = (float3)((float)xdim, (float)(VDIM - stepsBack), (float)zdim);
-        break;
-    }
-
-    baseVertex = baseVertex / (float)POINT_SUBDIVISION_FACTOR;
-    return baseVertex;
-}
-
-/* This function makes the displacement co-ordinate at a vapour point.
- */
-float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 location)
-{
-    /* TODO: Writing the home vertex (0, 0, 0 point) here, and transforming
-     * in the geometry shader.  Change this to only have a single texel
-     * per piece in the jigsaw to save space ...
-     */
-#if 0
-    return (float4)(
-        makeEdgeVertexBase(face, xdim, zdim, stepsBack) + location.xyz / location.w,
-        1.0f / location.w);
-#else
-    return (float4)(
-        location.xyz / location.w,
-        1.0f / location.w);
-#endif
-}
-
 
 /* Follows stuff for resolving the faces and culling triangle overlaps. */
 
 /* In this array, we write how far back each edge point is from the face.
+ * The array is packed with LAYERS entries of LAYER_BITNESS each.
+ * The value 0 means no edge; non-zero values should be decremented by 1
+ * to find the real distance from the edge.
  */
 #define DECL_EDGE_STEPS_BACK(edgeStepsBack) __local int edgeStepsBack[EDIM][EDIM][6]
 
-#define NO_EDGE -127
+#define NO_EDGE 0
 
 void initEdgeStepsBack(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int zdim)
 {
     for (int i = 0; i < 6; ++i)
     {
         edgeStepsBack[xdim][zdim][i] = NO_EDGE;
+    }
+}
+
+#define LAYER_MASK ((1<<LAYER_BITNESS)-1)
+
+void setEdgeStepsBack(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int zdim, int face, int layer, int esb)
+{
+    /* Clear this layer first... */
+    edgeStepsBack[xdim][zdim][face] &= ~(LAYER_MASK << (layer * LAYER_BITNESS));
+
+    /* ... then push the value in... */
+    edgeStepsBack[xdim][zdim][face] |= (((esb + 1) & LAYER_MASK) << (layer * LAYER_BITNESS));
+}
+
+bool getEdgeStepsBack(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int zdim, int face, int layer, int *esb)
+{
+    int esbVal = ((edgeStepsBack[xdim][zdim][face] >> (layer * LAYER_BITNESS)) & LAYER_MASK);
+    if (esbVal > 0)
+    {
+        *esb = esbVal - 1;
+        return true;
+    }
+    else
+    {
+        return false;
     }
 }
 
@@ -354,8 +328,8 @@ bool makeTriangleVapourCoord(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int 
     /* Next, work out the vapour coords ... */
     for (int i = 0; i < 3; ++i)
     {
-        int esb = edgeStepsBack[faceCoord[i].x][faceCoord[i].y][face];
-        if (esb < 0) return false;
+        int esb;
+        if (!getEdgeStepsBack(edgeStepsBack, faceCoord[i].x, faceCoord[i].y, face, 0, &esb)) return false;
         o_triCoord[i] = makeVapourCoord(face, faceCoord[i].x, faceCoord[i].y, esb);
     }
 
@@ -638,6 +612,25 @@ __kernel void makeShape3DEdge(
     const int xdim = get_local_id(1); /* 0..EDIM-1 */
     const int zdim = get_local_id(2); /* 0..EDIM-1 */
 
+    /* Write the base displacement of this shape cube.
+     * TODO: Change the jigsaw so that the displacement texture only
+     * has one texel per cube: that's all I need.
+     */
+    for (int face = 0; face < 6; ++face)
+    {
+        int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
+        float4 location = units[unitOffset].location;
+
+        /* Transforming into homogeneous co-ordinates like this lets
+         * me use a 0-1 value for the cube offset in the geometry
+         * shader.
+         */
+        float4 edgeVertex = (float4)(
+            location.xyz / location.w,
+            1.0f / location.w);
+        write_imagef(jigsawDisp, edgeCoord, edgeVertex);
+    }
+
     /* Iterate through the possible steps back until I find an edge.
      */
     DECL_EDGE_STEPS_BACK(edgeStepsBack);
@@ -677,12 +670,11 @@ __kernel void makeShape3DEdge(
      * as much work now.)
      */
 
+    /* To test, I'm going to use only layer 0 and make sure I didn't break anything. */
     for (int stepsBack = 0; stepsBack < (EDIM-1); ++stepsBack)
     {
         for (int face = 0; face < 6; ++face)
         {
-            barrier(CLK_LOCAL_MEM_FENCE);
-
             /* Read the next points to compare with */
             int4 lastVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack - 1);
             float4 lastVapourPoint = readVapourPoint(vapour, fake3D_size, fake3D_mult, units, unitOffset, lastVapourPointCoord);
@@ -694,24 +686,16 @@ __kernel void makeShape3DEdge(
 
 #if FAKE_TEST_VAPOUR
             /* Always claiming right away should result in a cube. */
-            if (edgeStepsBack[xdim][zdim][face] == NO_EDGE)
+            if (stepsBack == 0)
             {
-                int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
-                float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
-
-                write_imagef(jigsawDisp, edgeCoord, edgeVertex);
-                edgeStepsBack[xdim][zdim][face] = stepsBack;
+                setEdgeStepsBack(edgeStepsBack, xdim, zdim, face, 0, stepsBack);
             }
 #else
-            if (edgeStepsBack[xdim][zdim][face] == NO_EDGE &&
-                lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f)
+            int l0esb;
+            if (lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f &&
+                !getEdgeStepsBack(edgeStepsBack, xdim, zdim, face, 0, &l0esb))
             {
-                /* This is an edge, write its coord. */
-                int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
-                float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
-
-                write_imagef(jigsawDisp, edgeCoord, edgeVertex);
-                edgeStepsBack[xdim][zdim][face] = stepsBack;
+                setEdgeStepsBack(edgeStepsBack, xdim, zdim, face, 0, stepsBack);
             }
 #endif /* FAKE_TEST_VAPOUR */
         }

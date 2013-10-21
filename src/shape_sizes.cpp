@@ -15,6 +15,8 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
+#include <cassert>
+
 #include "def.hpp"
 #include "shape_sizes.hpp"
 
@@ -37,5 +39,12 @@ AFK_ShapeSizes::AFK_ShapeSizes(
     featureMinSize(1.0f / (2.0f * (float)config->shape_skeletonFlagGridDim * (float)config->subdivisionFactor)),
     edgeThreshold(config->shape_edgeThreshold)
 {
+    for (layerBitness = 3; /* minimum bits for expressing overlap */
+        (1u<<layerBitness) < (pointSubdivisionFactor+1);
+        ++layerBitness);
+
+    assert(layerBitness < (8 * sizeof(uint32_t)));
+
+    for (layers = 0; (layers + 1) * layerBitness < (8 * sizeof(uint32_t)); ++layers);
 }
 

@@ -95,7 +95,11 @@ void emitShapeVertex(
      */
     vec2 edgeJigsawCoordNN = makeEdgeJigsawCoordNearest(edgeJigsawPieceCoord, inData[i].texCoord + texCoordDisp);
 
+    /* TODO: Implement edgeStepsBack layers.  For now I'll assume just
+     * layer 0 (with that offset of 1)
+     */
     float edgeStepsBack = textureLod(JigsawOverlapTex, edgeJigsawCoordNN, 0).y;
+    edgeStepsBack -= 1.0f;
 
     /* Construct the cube co-ordinate for this vertex.  It will be
      * in the range 0..1.

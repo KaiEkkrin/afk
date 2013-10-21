@@ -325,6 +325,8 @@ void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<st
         args << "-D FEATURE_MAX_SIZE="          << sSizes.featureMaxSize         << " ";
         args << "-D FEATURE_MIN_SIZE="          << sSizes.featureMinSize         << " ";
         args << "-D THRESHOLD="                 << sSizes.edgeThreshold          << " ";
+        args << "-D LAYERS="                    << sSizes.layers                 << " ";
+        args << "-D LAYER_BITNESS="             << sSizes.layerBitness           << " ";
         if (useFake3DImages(config))
             args << "-D AFK_FAKE3D=1 ";
         else
