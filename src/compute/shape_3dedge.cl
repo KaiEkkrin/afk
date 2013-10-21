@@ -646,7 +646,7 @@ __kernel void makeShape3DEdge(
     DECL_EDGE_STEPS_BACK(edgeStepsBack);
     initEdgeStepsBack(edgeStepsBack, xdim, zdim);
 
-    /* TODO: Plan for the layers system:
+    /* Plan for the layers system:
      * - Two new pre-calculated values (evaluate in shape_sizes, inject into this
      * file as preprocessor macros):
      *   o LAYERS: Number of layers to each edge.  Must be constructed such that

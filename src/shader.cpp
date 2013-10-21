@@ -122,6 +122,7 @@ void afk_loadShaders(const AFK_Config *config)
         "\\bVDIM\\b",                       boost::lexical_cast<std::string>(sSizes.vDim),
         "\\bEDIM\\b",                       boost::lexical_cast<std::string>(sSizes.eDim),
         "\\bTDIM\\b",                       boost::lexical_cast<std::string>(sSizes.tDim),
+        "\\bLAYERS\\b",                     boost::lexical_cast<std::string>(sSizes.layers),
         "\\bLAYER_BITNESS\\b",              boost::lexical_cast<std::string>(sSizes.layerBitness)
     };
 
