@@ -49,7 +49,7 @@ void main()
     vec4 jigsawSTAndYBounds = texelFetch(DisplayTBO, gl_InstanceID * 2 + 1);
 
     outData.jigsawCoord = jigsawSTAndYBounds.xy + (JigsawPiecePitch * TexCoord.st);
-    float jigsawYDisp = textureLod(JigsawYDispTex, outData.jigsawCoord, 0);
+    float jigsawYDisp = textureLod(JigsawYDispTex, outData.jigsawCoord, 0).x;
 
     // Apply the y displacement now.  The rest is for the fragment
     // shader.
