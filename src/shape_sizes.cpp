@@ -15,6 +15,15 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
+
+/* Disable switch for the layers system, which will hopefully plug
+ * image gaps, but in its incomplete state it doesn't --
+ * with this, the compiled GPU code shouldn't be significantly more
+ * heavyweight than the old layer-less code
+ */
+#define AFK_SHAPE_LAYERS 0
+
+
 #include <cassert>
 
 #include "def.hpp"
@@ -45,6 +54,7 @@ AFK_ShapeSizes::AFK_ShapeSizes(
 
     assert(layerBitness < (8 * sizeof(uint32_t)));
 
+#if AFK_SHAPE_LAYERS
     /* limiting layers to pointSubdivisionFactor isn't strictly necessary
      * for the algorithm, but having more layers than that would be,
      * you know, silly, because it wouldn't be possible to
@@ -53,5 +63,8 @@ AFK_ShapeSizes::AFK_ShapeSizes(
     for (layers = 0;
         (layers + 1) * layerBitness < (8 * sizeof(uint32_t)) && (layers + 1) < pointSubdivisionFactor;
         ++layers);
+#else
+    layers = 1;
+#endif
 }
 
