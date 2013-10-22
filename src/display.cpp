@@ -165,14 +165,18 @@ void afk_display(void)
         lastWindowHeight = windowHeight;
     }
 
+    Vec2<float> windowSize = afk_core.camera->getWindowSize();
+
     glClearColor(afk_core.skyColour.v[0], afk_core.skyColour.v[1], afk_core.skyColour.v[2], 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glEnable(GL_DEPTH_TEST);
+    glDepthRangef(afk_core.config->zNear, afk_core.config->zFar);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
+    glEnable(GL_PROGRAM_POINT_SIZE);
 
-    afk_core.world->display(projection, afk_core.sun);
+    afk_core.world->display(projection, windowSize, afk_core.sun);
 
     /* TODO: This placeholder protagonist is cheating, because
      * I created it manually.

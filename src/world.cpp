@@ -618,6 +618,7 @@ AFK_World::AFK_World(
 
     entity_shaderLight = new AFK_ShaderLight(entity_shaderProgram->program);
     entity_projectionTransformLocation = glGetUniformLocation(entity_shaderProgram->program, "ProjectionTransform");
+    entity_windowSizeLocation = glGetUniformLocation(entity_shaderProgram->program, "WindowSize");
     entity_skyColourLocation = glGetUniformLocation(entity_shaderProgram->program, "SkyColour");
     entity_farClipDistanceLocation = glGetUniformLocation(entity_shaderProgram->program, "FarClipDistance");
 
@@ -856,7 +857,7 @@ void AFK_World::doComputeTasks(void)
     }
 }
 
-void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLight)
+void AFK_World::display(const Mat4<float>& projection, const Vec2<float>& windowSize, const AFK_Light &globalLight)
 {
     /* Render the landscape */
     glUseProgram(landscape_shaderProgram->program);
@@ -888,6 +889,7 @@ void AFK_World::display(const Mat4<float>& projection, const AFK_Light &globalLi
     glUseProgram(entity_shaderProgram->program);
     entity_shaderLight->setupLight(globalLight);
     glUniformMatrix4fv(entity_projectionTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
+    glUniform2fv(entity_windowSizeLocation, 1, &windowSize.v[0]);
     glUniform3fv(entity_skyColourLocation, 1, &afk_core.skyColour.v[0]);
     glUniform1f(entity_farClipDistanceLocation, afk_core.config->zFar);
     AFK_GLCHK("shape uniforms")

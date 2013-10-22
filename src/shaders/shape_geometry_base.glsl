@@ -52,6 +52,7 @@ uniform vec3 VapourJigsawPiecePitch;
 uniform vec2 EdgeJigsawPiecePitch;
 
 uniform mat4 ProjectionTransform;
+uniform vec2 WindowSize;
 
 in VertexData
 {
@@ -93,23 +94,8 @@ float getEdgeStepsBack(
     return float(esbVal);
 }
 
-void emitShapeVertex(
-    mat4 ClipTransform,
-    mat4 WorldTransform,
-    vec3 vapourJigsawPieceCoord,
-    vec2 edgeJigsawPieceCoord,
-    vec2 texCoordDisp,
-    uint layer,
-    int i)
+vec3 makeCubeCoordFromESB(float edgeStepsBack, int i)
 {
-    vec2 edgeJigsawCoord = makeEdgeJigsawCoordLinear(edgeJigsawPieceCoord, inData[i].texCoord + texCoordDisp);
-    /* This version with the `sample wiggle' necessary to correctly
-     * do nearest-neighbour sampling.
-     */
-    vec2 edgeJigsawCoordNN = makeEdgeJigsawCoordNearest(edgeJigsawPieceCoord, inData[i].texCoord + texCoordDisp);
-
-    float edgeStepsBack = getEdgeStepsBack(edgeJigsawCoordNN, layer);
-
     /* Construct the cube co-ordinate for this vertex.  It will be
      * in the range 0..1.
      */
@@ -159,6 +145,15 @@ void emitShapeVertex(
         break;
     }
 
+    return cubeCoord;
+}
+
+vec4 makePositionFromCubeCoord(
+    mat4 ClipTransform,
+    vec3 cubeCoord,
+    vec2 edgeJigsawCoordNN)
+{
+
     /* TODO Right now, I'm writing the same displacement position
      * for every vertex in the same piece in the disp tex -- that's
      * thoroughly suboptimal.  I should change the displacement
@@ -171,8 +166,18 @@ void emitShapeVertex(
     /* Subtle: note magic use of `w' part of homogeneous
      * dispPositionBase co-ordinates to allow me to add a 0-1 value for
      * displacement within the cube */
-    gl_Position = ClipTransform * (dispPositionBase +
+    return ClipTransform * (dispPositionBase +
         vec4(cubeCoord * EDIM / VDIM, 0.0));
+}
+
+void emitShapeVertexAtPosition(
+    vec4 position,
+    vec3 cubeCoord,
+    mat4 WorldTransform,
+    vec3 vapourJigsawPieceCoord,
+    uint layer)
+{
+    gl_Position = position;
 
     /* It maps to the range 1..(TDIM-1) on the vapour,
      * due to the overlaps in the vapour image:
@@ -184,9 +189,40 @@ void emitShapeVertex(
         ((cubeCoord * EDIM + 1.5) / TDIM);
 
     outData.colour = textureLod(JigsawDensityTex, vapourJigsawCoord, 0).xyz;
+    // TODO: Debug colour based on layer, to see what's going on
+    //switch (layer)
+    //{
+    //case 0: outData.colour = vec3(1.0, 0.0, 0.0); break;
+    //case 1: outData.colour = vec3(0.0, 1.0, 0.0); break;
+    //case 2: outData.colour = vec3(0.0, 0.0, 1.0); break;
+    //case 3: outData.colour = vec3(0.0, 1.0, 1.0); break;
+    //case 4: outData.colour = vec3(1.0, 0.0, 1.0); break;
+    //case 5: outData.colour = vec3(1.0, 1.0, 0.0); break;
+    //default: outData.colour = vec3(1.0, 1.0, 1.0); break;
+    //}
     vec4 normal = textureLod(JigsawNormalTex, vapourJigsawCoord, 0);
     outData.normal = mat3(WorldTransform) * normal.xyz;
     EmitVertex();
+}
+
+void emitShapeVertex(
+    mat4 ClipTransform,
+    mat4 WorldTransform,
+    vec3 vapourJigsawPieceCoord,
+    vec2 edgeJigsawPieceCoord,
+    vec2 texCoordDisp,
+    uint layer,
+    int i)
+{
+    /* This version with the `sample wiggle' necessary to correctly
+     * do nearest-neighbour sampling.
+     */
+    vec2 edgeJigsawCoordNN = makeEdgeJigsawCoordNearest(edgeJigsawPieceCoord, inData[i].texCoord + texCoordDisp);
+
+    float edgeStepsBack = getEdgeStepsBack(edgeJigsawCoordNN, layer);
+    vec3 cubeCoord = makeCubeCoordFromESB(edgeStepsBack, i);
+    vec4 position = makePositionFromCubeCoord(ClipTransform, cubeCoord, edgeJigsawCoordNN);
+    emitShapeVertexAtPosition(position, cubeCoord, WorldTransform, vapourJigsawPieceCoord, layer);
 }
 
 // Creates the correct displacement for the edge jigsaw in order

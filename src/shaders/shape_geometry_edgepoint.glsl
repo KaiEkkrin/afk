@@ -27,6 +27,26 @@ layout (invocations = 6) in; /* one for each face */
 layout (points) out;
 layout (max_vertices = 1) out;
 
+bool withinView(vec4 clipPosition)
+{
+    return (abs(clipPosition.x) <= clipPosition.w &&
+        abs(clipPosition.y) <= clipPosition.w &&
+        abs(clipPosition.z) <= clipPosition.w);
+}
+
+vec2 clipToScreenXY(vec4 clipPosition)
+{
+    /* Make normalized device co-ordinates
+     * (between -1 and 1):
+     */
+    vec2 ndcXY = clipPosition.xy / clipPosition.w;
+
+    /* Now, scale this to the screen: */
+    return vec2(
+        WindowSize.x * (ndcXY.x + 1.0) / 2.0,
+        WindowSize.y * (ndcXY.y + 1.0) / 2.0);
+}
+
 void main()
 {
     /* Reconstruct this instance's jigsaw piece coords.
@@ -39,8 +59,38 @@ void main()
     {
         mat4 WorldTransform = getWorldTransform(inData[0].instanceId);
         mat4 ClipTransform = ProjectionTransform * WorldTransform;
-        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, 0);
-        EndPrimitive();
+
+        /* Work out a good size for this point, by pulling the adjacent ones
+         * and calculating their distance within the clip transform.
+         */
+        vec2 basePointEdgeCoord = makeEdgeJigsawCoordNearest(edgeJigsawPieceCoord, inData[0].texCoord + texCoordDisp);
+        float edgeStepsBack = getEdgeStepsBack(basePointEdgeCoord, layer);
+
+        /* A negative edge steps back means no edge was detected here. */
+        if (edgeStepsBack >= 0.0)
+        {
+            /* Work out where the base point would be. */
+            vec3 cubeCoordBase = makeCubeCoordFromESB(edgeStepsBack, 0);
+            vec4 positionBase = makePositionFromCubeCoord(ClipTransform, cubeCoordBase, basePointEdgeCoord);
+            vec2 screenXYBase = clipToScreenXY(positionBase);
+
+            float adjDist = 1.0; /* always draw _something_ */
+            for (int adj = 1; adj <= 3; ++adj)
+            {
+                vec2 adjPointEdgeCoord = makeEdgeJigsawCoordNearest(edgeJigsawPieceCoord, inData[adj].texCoord + texCoordDisp);
+                vec3 cubeCoordAdj = makeCubeCoordFromESB(edgeStepsBack, adj);
+                vec4 positionAdj = makePositionFromCubeCoord(ClipTransform, cubeCoordAdj, adjPointEdgeCoord);
+                if (withinView(positionAdj)) /* very important, clipped points will distort the result massively */
+                {
+                    vec2 screenXYAdj = clipToScreenXY(positionAdj);
+                    adjDist = max(adjDist, distance(screenXYAdj, screenXYBase));
+                }
+            }
+
+            gl_PointSize = adjDist;
+            emitShapeVertexAtPosition(positionBase, cubeCoordBase, WorldTransform, vapourJigsawPieceCoord, layer);
+            EndPrimitive();
+        }
     }
 }
 

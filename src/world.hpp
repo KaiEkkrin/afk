@@ -126,6 +126,7 @@ protected:
     AFK_ShaderProgram *entity_shaderProgram;
     AFK_ShaderLight *entity_shaderLight;
     GLuint entity_projectionTransformLocation;
+    GLuint entity_windowSizeLocation;
     GLuint entity_skyColourLocation;
     GLuint entity_farClipDistanceLocation;
 
@@ -316,7 +317,7 @@ public:
     /* Draws the world in the current OpenGL context.
      * (There's no AFK_DisplayedObject for the world.)
      */
-    void display(const Mat4<float>& projection, const AFK_Light &globalLight);
+    void display(const Mat4<float>& projection, const Vec2<float>& windowSize, const AFK_Light &globalLight);
 
     /* Takes a world checkpoint. */
     void checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint);

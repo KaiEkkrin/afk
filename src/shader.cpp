@@ -30,7 +30,7 @@
 #include "shader.hpp"
 #include "shape_sizes.hpp"
 
-#define RENDER_SHAPE_AS_POINTS 0
+#define RENDER_SHAPE_AS_POINTS 1
 
 std::vector<struct AFK_ShaderSpec> shaders = {
     {   GL_FRAGMENT_SHADER, 0,  "landscape_fragment",   {   "landscape_fragment.glsl",  }, },

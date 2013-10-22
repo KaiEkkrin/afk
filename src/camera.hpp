@@ -40,6 +40,7 @@ protected:
      * matrix multiplication!
      */
     Mat4<float> projection;
+    Vec2<float> windowSize;
 
     void updateProjection(void);
 
@@ -63,6 +64,7 @@ public:
 
     void driveAndUpdateProjection(const Vec3<float>& velocity, const Vec3<float>& axisDisplacement);
     Mat4<float> getProjection(void) const;
+    Vec2<float> getWindowSize(void) const;
 };
 
 #endif /* _AFK_CAMERA_H_ */

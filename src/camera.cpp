@@ -73,6 +73,8 @@ void AFK_Camera::setWindowDimensions(int width, int height)
      */
     tanHalfFov = tanf((afk_core.config->fov / 2.0f) * M_PI / 180.0f);
     ar = ((float)windowWidth) / ((float)windowHeight);
+
+    windowSize = afk_vec2<float>((float)windowWidth, (float)windowHeight);
 }
 
 float AFK_Camera::getDetailPitchAsSeen(float scale, float distanceToViewer) const
@@ -99,5 +101,10 @@ void AFK_Camera::driveAndUpdateProjection(const Vec3<float>& velocity, const Vec
 Mat4<float> AFK_Camera::getProjection(void) const
 {
     return projection;
+}
+
+Vec2<float> AFK_Camera::getWindowSize(void) const
+{
+    return windowSize;
 }
 
