@@ -30,6 +30,8 @@
 #include "shader.hpp"
 #include "shape_sizes.hpp"
 
+#define RENDER_SHAPE_AS_POINTS 0
+
 std::vector<struct AFK_ShaderSpec> shaders = {
     {   GL_FRAGMENT_SHADER, 0,  "landscape_fragment",   {   "landscape_fragment.glsl",  }, },
     {   GL_GEOMETRY_SHADER, 0,  "landscape_geometry",   {   "landscape_geometry.glsl",  }, },
@@ -37,7 +39,11 @@ std::vector<struct AFK_ShaderSpec> shaders = {
     {   GL_FRAGMENT_SHADER, 0,  "protagonist_fragment", {   "protagonist_fragment.glsl",}, },
     {   GL_VERTEX_SHADER,   0,  "protagonist_vertex",   {   "protagonist_vertex.glsl",  }, },
     {   GL_FRAGMENT_SHADER, 0,  "shape_fragment",       {   "shape_fragment.glsl",      }, },
-    {   GL_GEOMETRY_SHADER, 0,  "shape_geometry",       {   "shape_geometry.glsl",      }, },
+#if RENDER_SHAPE_AS_POINTS
+    {   GL_GEOMETRY_SHADER, 0,  "shape_geometry",       {   "shape_geometry_base.glsl", "shape_geometry_edgepoint.glsl",    }, },
+#else
+    {   GL_GEOMETRY_SHADER, 0,  "shape_geometry",       {   "shape_geometry_base.glsl", "shape_geometry_tri.glsl", }, },
+#endif
     {   GL_VERTEX_SHADER,   0,  "shape_vertex",         {   "shape_vertex.glsl",        }, },
 };
 

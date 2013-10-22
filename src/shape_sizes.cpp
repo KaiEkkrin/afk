@@ -21,7 +21,7 @@
  * with this, the compiled GPU code shouldn't be significantly more
  * heavyweight than the old layer-less code
  */
-#define AFK_SHAPE_LAYERS 0
+#define AFK_SHAPE_LAYERS 1
 
 
 #include <cassert>
