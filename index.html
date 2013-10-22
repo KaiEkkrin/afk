@@ -28,7 +28,22 @@
 
     <div class="container">
       <section id="main_content">
-        <p>17 October 2013</p>
+        <p>22 October 2013</p>
+
+<h3>
+<a name="points" class="anchor" href="#points"><span class="octicon octicon-link"></span></a>Points</h3>
+
+<p>I've been wrestling with filling the gaps in my 3D edge shapes, adding lots of code to no effect (and also, to be fair, procrastinating by refactoring the jigsaw, working on the Windows port, and all that kind of thing).  Because <em>most</em> triangles are correct and there's such a huge volume of data, I've found it very frustrating to try to figure out the corner cases where the triangles get omitted.</p>
+
+<p>In an effort to find the causes of those gaps, I built a shape renderer that uses points instead.  I was intending to use it only as a debug thing, but after I fixed the point sizes and removed my debug colours the result is remarkably good:</p>
+
+<p><a href="https://www.youtube.com/watch?v=BDxZB5DGOHo">https://www.youtube.com/watch?v=BDxZB5DGOHo</a></p>
+
+<p>So good, in fact, that I'm now considering giving up on the fixed triangles baked by the OpenCL edge kernel in favour of refining this render instead.</p>
+
+<p>As of now, the master branch will render shapes to points by default.  It can be put back to the triangles render by setting RENDER_SHAPE_AS_POINTS to 0 in shader.cpp.</p>
+
+<hr><p>17 October 2013</p>
 
 <h3>
 <a name="a-nuts-n-bolts-update" class="anchor" href="#a-nuts-n-bolts-update"><span class="octicon octicon-link"></span></a>A nuts 'n' bolts update</h3>
