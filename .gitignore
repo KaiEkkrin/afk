@@ -1,0 +1,16 @@
+# The build directory.
+# (Don't ignore binaries elsewhere: it's a bug if the build system produces those.)
+build/
+
+# Core dumps
+core
+
+# Vim swap files
+.*.swp
+
+# SConstruct database
+.sconsign.dblite
+
+# The gprof helper, if you compiled it
+src/gprof-helper/gprof-helper.so
+
