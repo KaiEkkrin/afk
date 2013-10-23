@@ -18,7 +18,7 @@
 // Shape geometry shader for rendering as points.
 // Depends on shape_edgepoint_base.
 
-layout (lines_adjacency) in;
+layout (points) in;
 layout (points) out;
 layout (max_vertices = 1) out;
 
@@ -45,22 +45,38 @@ void main()
      */
     if (inData[0].edgeStepsBack >= 0.0)
     {
+        /* Pull those transforms out again.
+         * (I'm wary about pushing something this big through the interface
+         * block.  The texture will be cached and processing's cheap.)
+         */
+        mat4 WorldTransform = getWorldTransform(inData[0].instanceId);
+        mat4 ClipTransform = ProjectionTransform * WorldTransform;
+
+        /* My adjust points will vary by 1 edge step in each of the 3
+         * directions.
+         */
+        vec3 cubeAdj[3] = vec3[3](
+            vec3(1.0 / EDIM, 0.0, 0.0),
+            vec3(0.0, 1.0 / EDIM, 0.0),
+            vec3(0.0, 0.0, 1.0 / EDIM));
+
         float adjDist = 1.0; /* always draw _something_ */
-        for (int adj = 1; adj <= 3; ++adj)
+        for (int adj = 0; adj < 3; ++adj)
         {
-            if (inData[adj].edgeStepsBack >= 0.0 &&
-                withinView(inData[adj].position)) /* very important, clipped points would distort the result massively */
+            /* Construct the adjust point in screen XY. */
+            vec4 adjPosition = makePositionFromCubeCoord(ClipTransform, inData[0].cubeCoord, cubeAdj[adj], inData[0].instanceId);
+            vec2 adjScreenXY = clipToScreenXY(adjPosition);
+
+            if (withinView(adjPosition)) /* very important, clipped points would distort the result massively */
             {
-                adjDist = max(adjDist, distance(inData[adj].screenXY, inData[0].screenXY));
+                adjDist = max(adjDist, 1.4 * distance(adjScreenXY, inData[0].screenXY));
             }
         }
         
         gl_Position = inData[0].position;
         gl_PointSize = adjDist;
         
-        mat4 WorldTransform = getWorldTransform(inData[0].instanceId);
-        vec3 vapourJigsawPieceCoord = texelFetch(DisplayTBO, inData[0].instanceId * 7 + 5).xyz;
-        vec3 vapourJigsawCoord = makeVapourJigsawCoord(vapourJigsawPieceCoord, inData[0].cubeCoord);
+        vec3 vapourJigsawCoord = makeVapourJigsawCoord(inData[0].vapourJigsawPieceCoord, inData[0].cubeCoord);
         outData.colour = textureLod(JigsawDensityTex, vapourJigsawCoord, 0).xyz;
         vec3 rawNormal = textureLod(JigsawNormalTex, vapourJigsawCoord, 0).xyz;
         outData.normal = mat3(WorldTransform) * rawNormal;

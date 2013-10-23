@@ -45,11 +45,22 @@ void main()
     mat4 WorldTransform = getWorldTransform(gl_InstanceID);
     mat4 ClipTransform = ProjectionTransform * WorldTransform;
 
-    /* Locate the 3D edge point */
+    /* Locate the 3D edge point
+     * TODO: The point location (especially for finer LoDs) looks utterly
+     * broken since I've moved this stuff to the vertex shader, and
+     * I don't know why.  I notice that if I hardwire "face", that apparent
+     * brokenness goes away, although there are many straggler singleton
+     * points.  I think I need to sit down and compare carefully what this shader is
+     * doing to what the old all-geometry one is doing in order to figure
+     * out the problem.  To what extent is the thing that looks like a bug
+     * JUST singleton spraying?
+     * Or will it turn out those singletons are ruining the finer-detail
+     * edges and I need layers, after all?
+     */
     vec2 edgeJigsawCoord = makeEdgeJigsawCoordNearest(edgeJigsawPieceCoord, TexCoord.st + texCoordDisp);
     outData.edgeStepsBack = textureLod(JigsawESBTex, edgeJigsawCoord, 0);
     outData.cubeCoord = makeCubeCoordFromESB(TexCoord.st, outData.edgeStepsBack, face);
-    outData.position = makePositionFromCubeCoord(ClipTransform, outData.cubeCoord, edgeJigsawCoord, gl_InstanceID);
+    outData.position = makePositionFromCubeCoord(ClipTransform, outData.cubeCoord, vec3(0.0, 0.0, 0.0), gl_InstanceID);
 
     /* Calculate its screen co-ordinates too.  The geometry shader
      * wants this in order to figure out how much it overlaps its

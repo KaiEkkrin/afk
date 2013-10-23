@@ -27,8 +27,6 @@ AFK_3DEdgeShapeBaseVertex::AFK_3DEdgeShapeBaseVertex(
 {
 }
 
-#define RESTART_INDEX 65535
-
 AFK_3DEdgeShapeBase::AFK_3DEdgeShapeBase(const AFK_ShapeSizes& sSizes):
     bufs(nullptr)
 {
@@ -37,37 +35,15 @@ AFK_3DEdgeShapeBase::AFK_3DEdgeShapeBase(const AFK_ShapeSizes& sSizes):
      */
     for (int face = 0; face < 6; ++face)
     {
-        for (unsigned int x = 0; x < sSizes.eDim; ++x)
+        for (unsigned int x = 0; x < sSizes.vDim; ++x)
         {
-            for (unsigned int z = 0; z < sSizes.eDim; ++z)
+            for (unsigned int z = 0; z < sSizes.vDim; ++z)
             {
                 vertices.push_back(AFK_3DEdgeShapeBaseVertex(
                     afk_vec2<float>(
                         (float)x / (float)sSizes.eDim,
                         (float)z / (float)sSizes.eDim),
                     afk_vec2<int>(face, 0)));
-            }
-        }
-    }
-
-    for (unsigned short face = 0; face < 6; ++face)
-    {
-        unsigned short faceOffset = face * sSizes.eDim * sSizes.eDim;
-
-        for (unsigned short s = 0; s < sSizes.pointSubdivisionFactor; ++s)
-        {
-            for (unsigned short t = 0; t < sSizes.pointSubdivisionFactor; ++t)
-            {
-                unsigned short i_r1c1 = faceOffset + s * sSizes.eDim + t;
-                unsigned short i_r2c1 = faceOffset + (s + 1) * sSizes.eDim + t;
-                unsigned short i_r1c2 = faceOffset + s * sSizes.eDim + (t + 1);
-                unsigned short i_r2c2 = faceOffset + (s + 1) * sSizes.eDim + (t + 1);
-        
-                indices.push_back(i_r1c1);
-                indices.push_back(i_r1c2);
-                indices.push_back(i_r2c1);
-                indices.push_back(i_r2c2);
-                indices.push_back(RESTART_INDEX);
             }
         }
     }
@@ -95,22 +71,15 @@ void AFK_3DEdgeShapeBase::initGL()
     if (needBufferPush)
         glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(AFK_3DEdgeShapeBaseVertex), &vertices[0], GL_STATIC_DRAW);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bufs[1]);
-    if (needBufferPush)
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned short), &indices[0], GL_STATIC_DRAW);
-
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(AFK_3DEdgeShapeBaseVertex), 0);
     glVertexAttribPointer(1, 2, GL_INT, GL_FALSE, sizeof(AFK_3DEdgeShapeBaseVertex), (GLvoid *)sizeof(Vec2<float>));
-
-    glEnable(GL_PRIMITIVE_RESTART);
-    glPrimitiveRestartIndex(RESTART_INDEX);
 }
 
 void AFK_3DEdgeShapeBase::draw(unsigned int instanceCount) const
 {
-    glDrawElementsInstanced(GL_LINE_STRIP_ADJACENCY, indices.size(), GL_UNSIGNED_SHORT, 0, instanceCount);
+    glDrawArraysInstanced(GL_POINTS, 0, vertices.size(), instanceCount);
     AFK_GLCHK("3d edge shape draw")
 }
 

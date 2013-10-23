@@ -143,7 +143,7 @@ vec3 makeCubeCoordFromESB(vec2 texCoord, float edgeStepsBack, int face)
 vec4 makePositionFromCubeCoord(
     mat4 ClipTransform,
     vec3 cubeCoord,
-    vec2 edgeJigsawCoordNN,
+    vec3 offset,
     int instanceId)
 {
     vec4 dispPositionBase = texelFetch(DisplayTBO, instanceId * 7 + 4);
@@ -151,7 +151,7 @@ vec4 makePositionFromCubeCoord(
     /* Subtle: note magic use of `w' part of homogeneous
      * dispPositionBase co-ordinates to allow me to add a 0-1 value for
      * displacement within the cube */
-    return ClipTransform * (dispPositionBase +
+    return ClipTransform * (dispPositionBase + vec4(offset, 0.0) +
         vec4(cubeCoord * EDIM / VDIM, 0.0));
 }
 

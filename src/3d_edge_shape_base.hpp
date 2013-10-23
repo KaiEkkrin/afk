@@ -32,14 +32,6 @@
  * in a 3 (x) by 2 (y) formation:
  * back     right   top
  * bottom   left    front
- * The vertices are texture co-ordinates only, with the full 3D world
- * co-ordinates read from the texture.  I've done this even though
- * many of them are predictable to avoid really torturous logic in
- * the shaders.
- *
- * Whilst I notionally render only points now, I still want the
- * 4-point lines adjacency in order to determine the correct point size
- * to fill the between-points spaces without overlapping.
  */
 
 class AFK_3DEdgeShapeBaseVertex
@@ -58,7 +50,6 @@ class AFK_3DEdgeShapeBase
 {
 protected:
     std::vector<AFK_3DEdgeShapeBaseVertex> vertices;
-    std::vector<unsigned short> indices;
 
     GLuint vertexArray;
     GLuint *bufs;
