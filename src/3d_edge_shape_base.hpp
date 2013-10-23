@@ -42,10 +42,22 @@
  * to fill the between-points spaces without overlapping.
  */
 
+class AFK_3DEdgeShapeBaseVertex
+{
+public:
+    Vec2<float> texCoord;
+    Vec2<int> meta; /* (face, unused) */
+
+    AFK_3DEdgeShapeBaseVertex(
+        const Vec2<float>& _texCoord,
+        const Vec2<int>& _meta);
+
+};
+
 class AFK_3DEdgeShapeBase
 {
 protected:
-    std::vector<Vec2<float> > vertices;
+    std::vector<AFK_3DEdgeShapeBaseVertex> vertices;
     std::vector<unsigned short> indices;
 
     GLuint vertexArray;

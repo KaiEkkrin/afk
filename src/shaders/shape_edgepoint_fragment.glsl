@@ -32,6 +32,8 @@ in GeometryData
     vec3 normal;
 } inData;
 
+out vec4 fragColour;
+
 struct Light
 {
     vec3 Colour;
@@ -53,7 +55,7 @@ void main()
     vec3 CombinedColour = colour * (AmbientColour + DiffuseColour * DiffuseFactor);
 
     float depth = (gl_FragCoord.z / gl_FragCoord.w) / FarClipDistance;
-    gl_FragColor = mix(
+    fragColour = mix(
         vec4(CombinedColour, 1.0),
         vec4(SkyColour, 1.0),
         depth);

@@ -50,6 +50,7 @@ public:
  * the above `aligned' ...
  */
 #define AFK_TER_BASE_VERTEX_SIZE 32
+static_assert(sizeof(AFK_TerrainBaseTileVertex) == AFK_TER_BASE_VERTEX_SIZE, "Terrain base tile size");
 
 BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_TerrainBaseTileVertex>::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_TerrainBaseTileVertex>::value));

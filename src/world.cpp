@@ -606,15 +606,15 @@ AFK_World::AFK_World(
     landscape_skyColourLocation = glGetUniformLocation(landscape_shaderProgram->program, "SkyColour");
     landscape_farClipDistanceLocation = glGetUniformLocation(landscape_shaderProgram->program, "FarClipDistance");
 
-    entity_shaderProgram = new AFK_ShaderProgram();
-    *entity_shaderProgram << "shape_fragment" << "shape_geometry" << "shape_vertex";
-    entity_shaderProgram->Link();
+    entity_edgepointShaderProgram = new AFK_ShaderProgram();
+    *entity_edgepointShaderProgram << "shape_edgepoint_fragment" << "shape_edgepoint_geometry" << "shape_edgepoint_vertex";
+    entity_edgepointShaderProgram->Link();
 
-    entity_shaderLight = new AFK_ShaderLight(entity_shaderProgram->program);
-    entity_projectionTransformLocation = glGetUniformLocation(entity_shaderProgram->program, "ProjectionTransform");
-    entity_windowSizeLocation = glGetUniformLocation(entity_shaderProgram->program, "WindowSize");
-    entity_skyColourLocation = glGetUniformLocation(entity_shaderProgram->program, "SkyColour");
-    entity_farClipDistanceLocation = glGetUniformLocation(entity_shaderProgram->program, "FarClipDistance");
+    entity_edgepointShaderLight = new AFK_ShaderLight(entity_edgepointShaderProgram->program);
+    entity_edgepointProjectionTransformLocation = glGetUniformLocation(entity_edgepointShaderProgram->program, "ProjectionTransform");
+    entity_edgepointWindowSizeLocation = glGetUniformLocation(entity_edgepointShaderProgram->program, "WindowSize");
+    entity_edgepointSkyColourLocation = glGetUniformLocation(entity_edgepointShaderProgram->program, "SkyColour");
+    entity_edgepointFarClipDistanceLocation = glGetUniformLocation(entity_edgepointShaderProgram->program, "FarClipDistance");
 
     glGenVertexArrays(1, &landscapeTileArray);
     glBindVertexArray(landscapeTileArray);
@@ -670,8 +670,8 @@ AFK_World::~AFK_World()
     delete landscape_shaderProgram;
     delete landscape_shaderLight;
 
-    delete entity_shaderProgram;
-    delete entity_shaderLight;
+    delete entity_edgepointShaderProgram;
+    delete entity_edgepointShaderLight;
 
     delete edgeShapeBase;
     glDeleteVertexArrays(1, &edgeShapeBaseArray);
@@ -880,12 +880,12 @@ void AFK_World::display(const Mat4<float>& projection, const Vec2<float>& window
     glBindVertexArray(0);
 
     /* Render the shapes */
-    glUseProgram(entity_shaderProgram->program);
-    entity_shaderLight->setupLight(globalLight);
-    glUniformMatrix4fv(entity_projectionTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
-    glUniform2fv(entity_windowSizeLocation, 1, &windowSize.v[0]);
-    glUniform3fv(entity_skyColourLocation, 1, &afk_core.skyColour.v[0]);
-    glUniform1f(entity_farClipDistanceLocation, afk_core.config->zFar);
+    glUseProgram(entity_edgepointShaderProgram->program);
+    entity_edgepointShaderLight->setupLight(globalLight);
+    glUniformMatrix4fv(entity_edgepointProjectionTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
+    glUniform2fv(entity_edgepointWindowSizeLocation, 1, &windowSize.v[0]);
+    glUniform3fv(entity_edgepointSkyColourLocation, 1, &afk_core.skyColour.v[0]);
+    glUniform1f(entity_edgepointFarClipDistanceLocation, afk_core.config->zFar);
     AFK_GLCHK("shape uniforms")
 
     glBindVertexArray(edgeShapeBaseArray);
@@ -899,7 +899,7 @@ void AFK_World::display(const Mat4<float>& projection, const Vec2<float>& window
         unsigned int vapourPuzzle, edgePuzzle;
         entityFair2DIndex.get2D(i, vapourPuzzle, edgePuzzle);
         entityDrawQueues[i]->draw(
-            entity_shaderProgram,
+            entity_edgepointShaderProgram,
             vapourJigsaws->getPuzzle(vapourPuzzle),
             edgeJigsaws->getPuzzle(edgePuzzle),
             edgeShapeBase,

@@ -20,38 +20,55 @@
 #include "3d_edge_shape_base.hpp"
 #include "display.hpp"
 
+AFK_3DEdgeShapeBaseVertex::AFK_3DEdgeShapeBaseVertex(
+    const Vec2<float>& _texCoord,
+    const Vec2<int>& _meta):
+        texCoord(_texCoord), meta(_meta)
+{
+}
+
 #define RESTART_INDEX 65535
 
 AFK_3DEdgeShapeBase::AFK_3DEdgeShapeBase(const AFK_ShapeSizes& sSizes):
     bufs(nullptr)
 {
-    /* The base shape is now a single face once more.  It's instanced
-     * into six in shape_geometry.glsl.
+    /* I make six faces, each distinguished only by the face
+     * identifier (x field of the meta.)
      */
-    for (unsigned int x = 0; x < sSizes.eDim; ++x)
+    for (int face = 0; face < 6; ++face)
     {
-        for (unsigned int z = 0; z < sSizes.eDim; ++z)
+        for (unsigned int x = 0; x < sSizes.eDim; ++x)
         {
-            vertices.push_back(afk_vec2<float>(
-                (float)x / (float)sSizes.eDim,
-                (float)z / (float)sSizes.eDim));
+            for (unsigned int z = 0; z < sSizes.eDim; ++z)
+            {
+                vertices.push_back(AFK_3DEdgeShapeBaseVertex(
+                    afk_vec2<float>(
+                        (float)x / (float)sSizes.eDim,
+                        (float)z / (float)sSizes.eDim),
+                    afk_vec2<int>(face, 0)));
+            }
         }
     }
 
-    for (unsigned short s = 0; s < sSizes.pointSubdivisionFactor; ++s)
+    for (unsigned short face = 0; face < 6; ++face)
     {
-        for (unsigned short t = 0; t < sSizes.pointSubdivisionFactor; ++t)
-        {
-            unsigned short i_r1c1 = s * sSizes.eDim + t;
-            unsigned short i_r2c1 = (s + 1) * sSizes.eDim + t;
-            unsigned short i_r1c2 = s * sSizes.eDim + (t + 1);
-            unsigned short i_r2c2 = (s + 1) * sSizes.eDim + (t + 1);
+        unsigned short faceOffset = face * sSizes.eDim * sSizes.eDim;
 
-            indices.push_back(i_r1c1);
-            indices.push_back(i_r1c2);
-            indices.push_back(i_r2c1);
-            indices.push_back(i_r2c2);
-            indices.push_back(RESTART_INDEX);
+        for (unsigned short s = 0; s < sSizes.pointSubdivisionFactor; ++s)
+        {
+            for (unsigned short t = 0; t < sSizes.pointSubdivisionFactor; ++t)
+            {
+                unsigned short i_r1c1 = faceOffset + s * sSizes.eDim + t;
+                unsigned short i_r2c1 = faceOffset + (s + 1) * sSizes.eDim + t;
+                unsigned short i_r1c2 = faceOffset + s * sSizes.eDim + (t + 1);
+                unsigned short i_r2c2 = faceOffset + (s + 1) * sSizes.eDim + (t + 1);
+        
+                indices.push_back(i_r1c1);
+                indices.push_back(i_r1c2);
+                indices.push_back(i_r2c1);
+                indices.push_back(i_r2c2);
+                indices.push_back(RESTART_INDEX);
+            }
         }
     }
 }
@@ -76,14 +93,16 @@ void AFK_3DEdgeShapeBase::initGL()
 
     glBindBuffer(GL_ARRAY_BUFFER, bufs[0]);
     if (needBufferPush)
-        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vec2<float>), &vertices[0], GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(AFK_3DEdgeShapeBaseVertex), &vertices[0], GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bufs[1]);
     if (needBufferPush)
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned short), &indices[0], GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vec2<float>), 0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(AFK_3DEdgeShapeBaseVertex), 0);
+    glVertexAttribPointer(1, 2, GL_INT, GL_FALSE, sizeof(AFK_3DEdgeShapeBaseVertex), (GLvoid *)sizeof(Vec2<float>));
 
     glEnable(GL_PRIMITIVE_RESTART);
     glPrimitiveRestartIndex(RESTART_INDEX);
@@ -98,5 +117,6 @@ void AFK_3DEdgeShapeBase::draw(unsigned int instanceCount) const
 void AFK_3DEdgeShapeBase::teardownGL(void) const
 {
     glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
 }
 

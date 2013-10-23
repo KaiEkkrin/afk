@@ -123,12 +123,12 @@ protected:
     Vec3<float> landscape_baseColour;
 
     /* Entity shader details. */
-    AFK_ShaderProgram *entity_shaderProgram;
-    AFK_ShaderLight *entity_shaderLight;
-    GLuint entity_projectionTransformLocation;
-    GLuint entity_windowSizeLocation;
-    GLuint entity_skyColourLocation;
-    GLuint entity_farClipDistanceLocation;
+    AFK_ShaderProgram *entity_edgepointShaderProgram;
+    AFK_ShaderLight *entity_edgepointShaderLight;
+    GLuint entity_edgepointProjectionTransformLocation;
+    GLuint entity_edgepointWindowSizeLocation;
+    GLuint entity_edgepointSkyColourLocation;
+    GLuint entity_edgepointFarClipDistanceLocation;
 
     /* The cache of world cells we're tracking.
      */

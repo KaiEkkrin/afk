@@ -52,18 +52,6 @@ uniform vec2 EdgeJigsawPiecePitch;
 uniform mat4 ProjectionTransform;
 uniform vec2 WindowSize;
 
-in VertexData
-{
-    int instanceId;
-    vec2 texCoord;
-} inData[];
-
-out GeometryData
-{
-    vec3 colour;
-    vec3 normal;
-} outData;
-
 
 /* Makes an edge jigsaw co-ordinate for linear sampling. */
 vec2 makeEdgeJigsawCoordLinear(
@@ -83,54 +71,69 @@ vec2 makeEdgeJigsawCoordNearest(
     return pieceCoord + EdgeJigsawPiecePitch * (texCoord + 0.5f / EDIM);
 }
 
-vec3 makeCubeCoordFromESB(float edgeStepsBack, int i)
+/* Makes a vapour jigsaw co-ordinate. */
+vec3 makeVapourJigsawCoord(
+    vec3 pieceCoord,
+    vec3 cubeCoord)
+{
+    /* It maps to the range 1..(TDIM-1) on the vapour,
+     * due to the overlaps in the vapour image:
+     * (note the use of the +0.5 "wiggle" here too: it does seem
+     * to stop even the linear sampler from running into the gutters,
+     * which surprises me)
+     */
+    return (pieceCoord + VapourJigsawPiecePitch *
+        ((cubeCoord * EDIM + 1.5) / TDIM));
+}
+
+vec3 makeCubeCoordFromESB(vec2 texCoord, float edgeStepsBack, int face)
 {
     /* Construct the cube co-ordinate for this vertex.  It will be
      * in the range 0..1.
      */
     vec3 cubeCoord;
-    switch (gl_InvocationID)
+    switch (face)
     {
     case 0:
         cubeCoord = vec3(
-            inData[i].texCoord.x,
+            texCoord.x,
             edgeStepsBack / EDIM,
-            inData[i].texCoord.y);
+            texCoord.y);
         break;
 
     case 1:
         cubeCoord = vec3(
             edgeStepsBack / EDIM,
-            inData[i].texCoord.x,
-            inData[i].texCoord.y);
+            texCoord.x,
+            texCoord.y);
         break;
 
     case 2:
         cubeCoord = vec3(
-            inData[i].texCoord.x,
-            inData[i].texCoord.y,
+            texCoord.x,
+            texCoord.y,
             edgeStepsBack / EDIM);
         break;
 
     case 3:
         cubeCoord = vec3(
-            inData[i].texCoord.x,
-            inData[i].texCoord.y,
+            texCoord.x,
+            texCoord.y,
             (VDIM - edgeStepsBack) / EDIM);
         break;
 
     case 4:
         cubeCoord = vec3(
             (VDIM - edgeStepsBack) / EDIM,
-            inData[i].texCoord.x,
-            inData[i].texCoord.y);
+            texCoord.x,
+            texCoord.y);
         break;
 
     default:
         cubeCoord = vec3(
-            inData[i].texCoord.x,
+            texCoord.x,
             (VDIM - edgeStepsBack) / EDIM,
-            inData[i].texCoord.y);
+            texCoord.y);
         break;
     }
 
@@ -152,35 +155,12 @@ vec4 makePositionFromCubeCoord(
         vec4(cubeCoord * EDIM / VDIM, 0.0));
 }
 
-void emitShapeVertexAtPosition(
-    vec4 position,
-    vec3 cubeCoord,
-    mat4 WorldTransform,
-    vec3 vapourJigsawPieceCoord)
-{
-    gl_Position = position;
-
-    /* It maps to the range 1..(TDIM-1) on the vapour,
-     * due to the overlaps in the vapour image:
-     * (note the use of the +0.5 "wiggle" here too: it does seem
-     * to stop even the linear sampler from running into the gutters,
-     * which surprises me)
-     */
-    vec3 vapourJigsawCoord = vapourJigsawPieceCoord + VapourJigsawPiecePitch *
-        ((cubeCoord * EDIM + 1.5) / TDIM);
-
-    outData.colour = textureLod(JigsawDensityTex, vapourJigsawCoord, 0).xyz;
-    vec4 normal = textureLod(JigsawNormalTex, vapourJigsawCoord, 0);
-    outData.normal = mat3(WorldTransform) * normal.xyz;
-    EmitVertex();
-}
-
 // Creates the correct displacement for the edge jigsaw in order
 // to access the 3x2 face tiling.
-vec2 getTexCoordDisp()
+vec2 getTexCoordDisp(int face)
 {
     vec2 texCoordDisp = vec2(0.0, 0.0);
-    switch (gl_InvocationID)
+    switch (face)
     {
     case 1: texCoordDisp = vec2(1.0, 0.0); break;
     case 2: texCoordDisp = vec2(2.0, 0.0); break;
@@ -206,5 +186,25 @@ mat4 getWorldTransform(int instanceId)
         vec4(WTRow1.w, WTRow2.w, WTRow3.w, WTRow4.w));
 
     return WorldTransform;
+}
+
+bool withinView(vec4 clipPosition)
+{
+    return (abs(clipPosition.x) <= clipPosition.w &&
+        abs(clipPosition.y) <= clipPosition.w &&
+        abs(clipPosition.z) <= clipPosition.w);
+}
+
+vec2 clipToScreenXY(vec4 clipPosition)
+{
+    /* Make normalized device co-ordinates
+     * (between -1 and 1):
+     */
+    vec2 ndcXY = clipPosition.xy / clipPosition.w;
+
+    /* Now, scale this to the screen: */
+    return vec2(
+        WindowSize.x * (ndcXY.x + 1.0) / 2.0,
+        WindowSize.y * (ndcXY.y + 1.0) / 2.0);
 }
 

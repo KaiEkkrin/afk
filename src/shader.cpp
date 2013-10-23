@@ -39,9 +39,9 @@ std::vector<struct AFK_ShaderSpec> shaders = {
     /* TODO the edgepoint logic can probably be mostly crammed into a
      * vertex shader instead...
      */
-    {   GL_FRAGMENT_SHADER, 0,  "shape_fragment",       {   "shape_fragment.glsl",      }, },
-    {   GL_GEOMETRY_SHADER, 0,  "shape_geometry",       {   "shape_geometry_base.glsl", "shape_geometry_edgepoint.glsl",    }, },
-    {   GL_VERTEX_SHADER,   0,  "shape_vertex",         {   "shape_vertex.glsl",        }, },
+    {   GL_FRAGMENT_SHADER, 0,  "shape_edgepoint_fragment",     {   "shape_edgepoint_fragment.glsl",      }, },
+    {   GL_GEOMETRY_SHADER, 0,  "shape_edgepoint_geometry",     {   "shape_edgepoint_base.glsl",    "shape_edgepoint_geometry.glsl",    }, },
+    {   GL_VERTEX_SHADER,   0,  "shape_edgepoint_vertex",       {   "shape_edgepoint_base.glsl",    "shape_edgepoint_vertex.glsl",      }, },
 };
 
 
