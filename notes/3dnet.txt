@@ -1,0 +1,16 @@
+3dnet branch
+============
+
+The goal of this branch is to replace the triangle shapes with a refined version of the point shapes.
+
+ - First of all, clean up the codebase removing all the triangle shape code.  There's a lot of that cluttering things about, and this is a branch.
+
+ - For distant shapes (render LoD is above the threshold for a coarser LoD, if one were to exist):
+   o Keep rendering the point shapes
+   o Cull back-facing points (check by dotting the normal with the viewer->location vector.)
+
+ - For closer points, proceed as per the Google Keep note, with the exception that I think the swarm should be a GL-only jigsaw: I'll be needing separate render spaces for each entity otherwise there will be overlap fail.
+   o (1) Render points into swarm, fitting each cube into its screen space bounding box.  Point size is to match separation between points as in the existing simple point render pipeline.  Fragment colour should be *vapour jigsaw coord*.  (It must be cubes not entities because each swarm piece needs to represent a similar amount of information)
+   o (2) For each cube, tessellate the bounding box a quad, using detailPitch to decide how many points to make.  (This is the net.)  Then, lookup each point of the net into the matching swarm texture, pull out the vapour jigsaw coord, and displace the point to its real location and use the vapour colour and normal.
+   o (3) A net geometry shader could then reject triangles with one or more pairs of equal points.
+
