@@ -85,11 +85,6 @@ void AFK_3DEdgeShapeBase::initGL()
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vec2<float>), 0);
 
-    /* Overlap works based on squares of 2 triangles.  Since I
-     * want to be able to cull in pairs, I'm going to use
-     * triangle strips with primitive restart as my base
-     * geometry type.
-     */
     glEnable(GL_PRIMITIVE_RESTART);
     glPrimitiveRestartIndex(RESTART_INDEX);
 }

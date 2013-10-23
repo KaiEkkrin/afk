@@ -37,12 +37,9 @@
  * many of them are predictable to avoid really torturous logic in
  * the shaders.
  *
- * In order to avoid overlap of triangles from different faces, the
- * overlap edge texture will contain the face identifier each group of
- * vertices is homed to, so that the geometry shader can drop it from
- * other faces.  Because I want to group vertices in 4s, I'm going to
- * counter-intuitively use a line_adjacency primitive, which the geometry
- * shader can transform into a triangle_strip for proper rendering.
+ * Whilst I notionally render only points now, I still want the
+ * 4-point lines adjacency in order to determine the correct point size
+ * to fill the between-points spaces without overlapping.
  */
 
 class AFK_3DEdgeShapeBase

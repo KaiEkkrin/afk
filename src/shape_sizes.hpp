@@ -44,14 +44,6 @@ public:
     const float featureMaxSize; /* Max feature size in vapour cube space */
     const float featureMinSize; /* Min feature size in vapour cube space */
     const float edgeThreshold; /* The vapour number that needs to be hit to be called an edge */
-    unsigned int layerBitness; /* 1<<layerBitness is the next power of 2 above pointSubdivisionFactor+1.
-                                * This value determines the number of bits that each entry in the overlap
-                                * texture occupies.  The +1 is there to reserve the value 0 to mean "no edge";
-                                * the actual edgeStepsBack value should be decremented by 1 when used.
-                                */
-    unsigned int layers;        /* The number of layers per edge, i.e. the number of entries (of
-                                 * layerBitness size each) packed into the channels of the overlap texels.
-                                 */
 
     AFK_ShapeSizes(const AFK_Config *config);
 };

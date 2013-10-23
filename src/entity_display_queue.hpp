@@ -91,7 +91,7 @@ protected:
     GLuint jigsawDispTexSamplerLocation;
     GLuint jigsawDensityTexSamplerLocation;
     GLuint jigsawNormalTexSamplerLocation;
-    GLuint jigsawOverlapTexSamplerLocation;
+    GLuint jigsawESBTexSamplerLocation;
     GLuint displayTBOSamplerLocation;
 
 public:

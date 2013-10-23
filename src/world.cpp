@@ -585,9 +585,9 @@ AFK_World::AFK_World(
                 AFK_JigsawDimensions::TWO,
                 tBu
             ),
-            AFK_JigsawImageDescriptor( /* Overlap */
+            AFK_JigsawImageDescriptor( /* Edge steps back */
                 edgePieceSize,
-                AFK_JigsawFormat::UINT32_2,
+                AFK_JigsawFormat::UINT32,
                 AFK_JigsawDimensions::TWO,
                 tBu
             )

@@ -36,7 +36,7 @@ AFK_EntityDisplayQueue::AFK_EntityDisplayQueue():
     jigsawDispTexSamplerLocation(0),
     jigsawDensityTexSamplerLocation(0),
     jigsawNormalTexSamplerLocation(0),
-    jigsawOverlapTexSamplerLocation(0),
+    jigsawESBTexSamplerLocation(0),
     displayTBOSamplerLocation(0)
 {
 }
@@ -71,7 +71,7 @@ void AFK_EntityDisplayQueue::draw(
         jigsawDispTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawDispTex");
         jigsawDensityTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawDensityTex");
         jigsawNormalTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawNormalTex");
-        jigsawOverlapTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawOverlapTex");
+        jigsawESBTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawESBTex");
         displayTBOSamplerLocation = glGetUniformLocation(shaderProgram->program, "DisplayTBO");
     }
 
@@ -113,7 +113,7 @@ void AFK_EntityDisplayQueue::draw(
     edgeJigsaw->bindTexture(1);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glUniform1i(jigsawOverlapTexSamplerLocation, 3);
+    glUniform1i(jigsawESBTexSamplerLocation, 3);
     
     /* Set up the entity display texbuf. */
     glActiveTexture(GL_TEXTURE4);

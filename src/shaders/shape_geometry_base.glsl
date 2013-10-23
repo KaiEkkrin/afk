@@ -34,8 +34,8 @@ uniform sampler3D JigsawDensityTex;
 // ...and the normal
 uniform sampler3D JigsawNormalTex;
 
-// ...and the overlap information.
-uniform usampler2D JigsawOverlapTex;
+// ...and the edge-steps-back information.
+uniform usampler2D JigsawESBTex;
 
 // This is the entity display queue.  There are five texels
 // per instance, which contain:
@@ -83,15 +83,6 @@ vec2 makeEdgeJigsawCoordNearest(
     vec2 texCoord)
 {
     return pieceCoord + EdgeJigsawPiecePitch * (texCoord + 0.5f / EDIM);
-}
-
-float getEdgeStepsBack(
-    vec2 edgeJigsawCoordNN,
-    uint layer)
-{
-    uint esbField = textureLod(JigsawOverlapTex, edgeJigsawCoordNN, 0).y;
-    uint esbVal = ((esbField >> (layer * LAYER_BITNESS)) & ((1u<<LAYER_BITNESS)-1)) - 1;
-    return float(esbVal);
 }
 
 vec3 makeCubeCoordFromESB(float edgeStepsBack, int i)
@@ -174,8 +165,7 @@ void emitShapeVertexAtPosition(
     vec4 position,
     vec3 cubeCoord,
     mat4 WorldTransform,
-    vec3 vapourJigsawPieceCoord,
-    uint layer)
+    vec3 vapourJigsawPieceCoord)
 {
     gl_Position = position;
 
@@ -189,40 +179,9 @@ void emitShapeVertexAtPosition(
         ((cubeCoord * EDIM + 1.5) / TDIM);
 
     outData.colour = textureLod(JigsawDensityTex, vapourJigsawCoord, 0).xyz;
-    // TODO: Debug colour based on layer, to see what's going on
-    //switch (layer)
-    //{
-    //case 0: outData.colour = vec3(1.0, 0.0, 0.0); break;
-    //case 1: outData.colour = vec3(0.0, 1.0, 0.0); break;
-    //case 2: outData.colour = vec3(0.0, 0.0, 1.0); break;
-    //case 3: outData.colour = vec3(0.0, 1.0, 1.0); break;
-    //case 4: outData.colour = vec3(1.0, 0.0, 1.0); break;
-    //case 5: outData.colour = vec3(1.0, 1.0, 0.0); break;
-    //default: outData.colour = vec3(1.0, 1.0, 1.0); break;
-    //}
     vec4 normal = textureLod(JigsawNormalTex, vapourJigsawCoord, 0);
     outData.normal = mat3(WorldTransform) * normal.xyz;
     EmitVertex();
-}
-
-void emitShapeVertex(
-    mat4 ClipTransform,
-    mat4 WorldTransform,
-    vec3 vapourJigsawPieceCoord,
-    vec2 edgeJigsawPieceCoord,
-    vec2 texCoordDisp,
-    uint layer,
-    int i)
-{
-    /* This version with the `sample wiggle' necessary to correctly
-     * do nearest-neighbour sampling.
-     */
-    vec2 edgeJigsawCoordNN = makeEdgeJigsawCoordNearest(edgeJigsawPieceCoord, inData[i].texCoord + texCoordDisp);
-
-    float edgeStepsBack = getEdgeStepsBack(edgeJigsawCoordNN, layer);
-    vec3 cubeCoord = makeCubeCoordFromESB(edgeStepsBack, i);
-    vec4 position = makePositionFromCubeCoord(ClipTransform, cubeCoord, edgeJigsawCoordNN);
-    emitShapeVertexAtPosition(position, cubeCoord, WorldTransform, vapourJigsawPieceCoord, layer);
 }
 
 // Creates the correct displacement for the edge jigsaw in order

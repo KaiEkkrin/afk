@@ -55,42 +55,39 @@ void main()
     vec2 edgeJigsawPieceCoord = texelFetch(DisplayTBO, inData[0].instanceId * 6 + 5).xy;
     vec2 texCoordDisp = getTexCoordDisp();
 
-    for (uint layer = 0; layer < LAYERS; ++layer)
+    mat4 WorldTransform = getWorldTransform(inData[0].instanceId);
+    mat4 ClipTransform = ProjectionTransform * WorldTransform;
+
+    /* Work out a good size for this point, by pulling the adjacent ones
+     * and calculating their distance within the clip transform.
+     */
+    vec2 basePointEdgeCoord = makeEdgeJigsawCoordNearest(edgeJigsawPieceCoord, inData[0].texCoord + texCoordDisp);
+    float edgeStepsBack = textureLod(JigsawESBTex, basePointEdgeCoord, 0);
+
+    /* A negative edge steps back means no edge was detected here. */
+    if (edgeStepsBack >= 0.0)
     {
-        mat4 WorldTransform = getWorldTransform(inData[0].instanceId);
-        mat4 ClipTransform = ProjectionTransform * WorldTransform;
+        /* Work out where the base point would be. */
+        vec3 cubeCoordBase = makeCubeCoordFromESB(edgeStepsBack, 0);
+        vec4 positionBase = makePositionFromCubeCoord(ClipTransform, cubeCoordBase, basePointEdgeCoord);
+        vec2 screenXYBase = clipToScreenXY(positionBase);
 
-        /* Work out a good size for this point, by pulling the adjacent ones
-         * and calculating their distance within the clip transform.
-         */
-        vec2 basePointEdgeCoord = makeEdgeJigsawCoordNearest(edgeJigsawPieceCoord, inData[0].texCoord + texCoordDisp);
-        float edgeStepsBack = getEdgeStepsBack(basePointEdgeCoord, layer);
-
-        /* A negative edge steps back means no edge was detected here. */
-        if (edgeStepsBack >= 0.0)
+        float adjDist = 1.0; /* always draw _something_ */
+        for (int adj = 1; adj <= 3; ++adj)
         {
-            /* Work out where the base point would be. */
-            vec3 cubeCoordBase = makeCubeCoordFromESB(edgeStepsBack, 0);
-            vec4 positionBase = makePositionFromCubeCoord(ClipTransform, cubeCoordBase, basePointEdgeCoord);
-            vec2 screenXYBase = clipToScreenXY(positionBase);
-
-            float adjDist = 1.0; /* always draw _something_ */
-            for (int adj = 1; adj <= 3; ++adj)
+            vec2 adjPointEdgeCoord = makeEdgeJigsawCoordNearest(edgeJigsawPieceCoord, inData[adj].texCoord + texCoordDisp);
+            vec3 cubeCoordAdj = makeCubeCoordFromESB(edgeStepsBack, adj);
+            vec4 positionAdj = makePositionFromCubeCoord(ClipTransform, cubeCoordAdj, adjPointEdgeCoord);
+            if (withinView(positionAdj)) /* very important, clipped points will distort the result massively */
             {
-                vec2 adjPointEdgeCoord = makeEdgeJigsawCoordNearest(edgeJigsawPieceCoord, inData[adj].texCoord + texCoordDisp);
-                vec3 cubeCoordAdj = makeCubeCoordFromESB(edgeStepsBack, adj);
-                vec4 positionAdj = makePositionFromCubeCoord(ClipTransform, cubeCoordAdj, adjPointEdgeCoord);
-                if (withinView(positionAdj)) /* very important, clipped points will distort the result massively */
-                {
-                    vec2 screenXYAdj = clipToScreenXY(positionAdj);
-                    adjDist = max(adjDist, distance(screenXYAdj, screenXYBase));
-                }
+                vec2 screenXYAdj = clipToScreenXY(positionAdj);
+                adjDist = max(adjDist, distance(screenXYAdj, screenXYBase));
             }
-
-            gl_PointSize = adjDist;
-            emitShapeVertexAtPosition(positionBase, cubeCoordBase, WorldTransform, vapourJigsawPieceCoord, layer);
-            EndPrimitive();
         }
+
+        gl_PointSize = adjDist;
+        emitShapeVertexAtPosition(positionBase, cubeCoordBase, WorldTransform, vapourJigsawPieceCoord);
+        EndPrimitive();
     }
 }
 

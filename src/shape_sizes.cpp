@@ -16,16 +16,6 @@
  */
 
 
-/* Disable switch for the layers system, which will hopefully plug
- * image gaps, but in its incomplete state it doesn't --
- * with this, the compiled GPU code shouldn't be significantly more
- * heavyweight than the old layer-less code
- */
-#define AFK_SHAPE_LAYERS 1
-
-
-#include <cassert>
-
 #include "def.hpp"
 #include "shape_sizes.hpp"
 
@@ -48,23 +38,5 @@ AFK_ShapeSizes::AFK_ShapeSizes(
     featureMinSize(1.0f / (2.0f * (float)config->shape_skeletonFlagGridDim * (float)config->subdivisionFactor)),
     edgeThreshold(config->shape_edgeThreshold)
 {
-    for (layerBitness = 3; /* minimum bits for expressing overlap */
-        (1u<<layerBitness) < (pointSubdivisionFactor+1);
-        ++layerBitness);
-
-    assert(layerBitness < (8 * sizeof(uint32_t)));
-
-#if AFK_SHAPE_LAYERS
-    /* limiting layers to pointSubdivisionFactor isn't strictly necessary
-     * for the algorithm, but having more layers than that would be,
-     * you know, silly, because it wouldn't be possible to
-     * actually populate them all :P
-     */
-    for (layers = 0;
-        (layers + 1) * layerBitness < (8 * sizeof(uint32_t)) && (layers + 1) < pointSubdivisionFactor;
-        ++layers);
-#else
-    layers = 1;
-#endif
 }
 
