@@ -41,10 +41,16 @@ class AFK_Jigsaw;
 class AFK_EntityDisplayUnit
 {
 protected:
-    /* This transform describes where this particular face is in
+    /* This transform describes where the entity is in
      * the world.
      */
     Mat4<float>         transform;
+
+    /* This is the location of this particular shape cube
+     * relative to the overall shape, as a homogeneous
+     * co-ordinate.
+     */
+    Vec4<float>         location;
 
     /* This maps it onto the vapour jigsaw. */
     Vec3<float>         vapourJigsawPieceSTR;
@@ -55,13 +61,14 @@ protected:
 public:
     AFK_EntityDisplayUnit(
         const Mat4<float>& _transform,
+        const Vec4<float>& _location,
         const Vec3<float>& _vapourJigsawPieceSTR,
         const Vec2<float>& _edgeJigsawPieceST);
 
     //friend std::ostream& operator<<(std::ostream& os, const AFK_EntityDisplayUnit& unit);
 } __attribute__((aligned(16)));
 
-#define ENTITY_DISPLAY_UNIT_SIZE (24 * sizeof(float))
+#define ENTITY_DISPLAY_UNIT_SIZE (28 * sizeof(float))
 static_assert(ENTITY_DISPLAY_UNIT_SIZE == sizeof(AFK_EntityDisplayUnit), "EDU size");
 
 //std::ostream& operator<<(std::ostream& os, const AFK_EntityDisplayUnit& unit);

@@ -171,6 +171,7 @@ void AFK_ShapeCell::enqueueEdgeDisplayUnit(
     entityDisplayFair.getUpdateQueue(index)->add(
         AFK_EntityDisplayUnit(
             worldTransform,
+            cell.toHomogeneous(SHAPE_CELL_WORLD_SCALE),
             vapourJigsaws->getPuzzle(vapourJigsawPiece)->getTexCoordSTR(vapourJigsawPiece),
             edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTexCoordST(edgeJigsawPiece)));
 }

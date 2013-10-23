@@ -51,8 +51,8 @@ void main()
 {
     /* Reconstruct this instance's jigsaw piece coords.
      */
-    vec3 vapourJigsawPieceCoord = texelFetch(DisplayTBO, inData[0].instanceId * 6 + 4).xyz;
-    vec2 edgeJigsawPieceCoord = texelFetch(DisplayTBO, inData[0].instanceId * 6 + 5).xy;
+    vec3 vapourJigsawPieceCoord = texelFetch(DisplayTBO, inData[0].instanceId * 7 + 5).xyz;
+    vec2 edgeJigsawPieceCoord = texelFetch(DisplayTBO, inData[0].instanceId * 7 + 6).xy;
     vec2 texCoordDisp = getTexCoordDisp();
 
     mat4 WorldTransform = getWorldTransform(inData[0].instanceId);
@@ -69,7 +69,7 @@ void main()
     {
         /* Work out where the base point would be. */
         vec3 cubeCoordBase = makeCubeCoordFromESB(edgeStepsBack, 0);
-        vec4 positionBase = makePositionFromCubeCoord(ClipTransform, cubeCoordBase, basePointEdgeCoord);
+        vec4 positionBase = makePositionFromCubeCoord(ClipTransform, cubeCoordBase, basePointEdgeCoord, inData[0].instanceId);
         vec2 screenXYBase = clipToScreenXY(positionBase);
 
         float adjDist = 1.0; /* always draw _something_ */
@@ -77,7 +77,7 @@ void main()
         {
             vec2 adjPointEdgeCoord = makeEdgeJigsawCoordNearest(edgeJigsawPieceCoord, inData[adj].texCoord + texCoordDisp);
             vec3 cubeCoordAdj = makeCubeCoordFromESB(edgeStepsBack, adj);
-            vec4 positionAdj = makePositionFromCubeCoord(ClipTransform, cubeCoordAdj, adjPointEdgeCoord);
+            vec4 positionAdj = makePositionFromCubeCoord(ClipTransform, cubeCoordAdj, adjPointEdgeCoord, inData[0].instanceId);
             if (withinView(positionAdj)) /* very important, clipped points will distort the result massively */
             {
                 vec2 screenXYAdj = clipToScreenXY(positionAdj);

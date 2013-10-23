@@ -579,12 +579,6 @@ AFK_World::AFK_World(
     edgeJigsaws = new AFK_JigsawCollection(
         computer,
         {
-            AFK_JigsawImageDescriptor( /* Displacement. TODO Shrink this to eDim==1 pieces */
-                edgePieceSize,
-                AFK_JigsawFormat::FLOAT32_4,
-                AFK_JigsawDimensions::TWO,
-                tBu
-            ),
             AFK_JigsawImageDescriptor( /* Edge steps back */
                 edgePieceSize,
                 AFK_JigsawFormat::UINT32,

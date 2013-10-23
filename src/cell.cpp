@@ -148,6 +148,16 @@ Vec4<float> AFK_Cell::toWorldSpace(float worldScale) const
         (float)coord.v[3] * worldScale);
 }
 
+Vec4<float> AFK_Cell::toHomogeneous(float worldScale) const
+{
+    Vec4<float> ws = toWorldSpace(worldScale);
+    return afk_vec4<float>(
+        ws.v[0] / ws.v[3],
+        ws.v[1] / ws.v[3],
+        ws.v[2] / ws.v[3],
+        1.0f / ws.v[3]);
+}
+
 AFK_Cell afk_cell(const AFK_Cell& other)
 {
     AFK_Cell cell;

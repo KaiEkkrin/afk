@@ -146,6 +146,13 @@ public:
 
     /* Transforms this cell's co-ordinates to world space. */
     Vec4<float> toWorldSpace(float worldScale) const;
+
+    /* The same, but produces a homogeneous co-ordinate
+     * suitable for feeding into the GL, and such that
+     * adding or subtracting units (1.0) to the axes
+     * displace by cell sizes
+     */
+    Vec4<float> toHomogeneous(float worldScale) const;
 };
 
 /* Useful ways of making cells. */
