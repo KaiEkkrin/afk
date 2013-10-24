@@ -119,21 +119,12 @@ AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight
     wmDeleteWindow = XInternAtom(dpy, "WM_DELETE_WINDOW", 0);
     XSetWMProtocols(dpy, w, &wmDeleteWindow, 1);
 
-    /* Make a dummy, universally possible initial GLX context
-     * so that GLEW can start and sort out my stuff.
-     */
-    GLXContext initGlxCtx = glXCreateContext(dpy, visInfo, 0, GL_TRUE);
-    if (!initGlxCtx) throw AFK_Exception("Unable to create initial GLX context");
-    if (!glXMakeCurrent(dpy, w, initGlxCtx)) throw AFK_Exception("Unable to make initial GLX context current");
-
-    /* Now, initialise GLEW with that initial context...
-     */
-    GLenum res = glewInit();
-    if (res != GLEW_OK) throw AFK_Exception("Unable to initialise GLEW");
-    if (!GLEW_VERSION_4_0) throw AFK_Exception("AFK requires OpenGL 4.0 or later");
-
-    /* And now that I've got all the real OpenGL functions set up,
-     * make a proper context and throw that old one away
+    /* I need to make the GLX context without GLEW, because GLEW needs
+     * a valid context to load and initialise its other functions
+     * (how awkward).
+     * Remember that I must create the final context here and not a
+     * basic one to test, because AMD doesn't cope with creating
+     * more than one context (?) ...
      */
     glXCreateContextAttribsARBProc ccProc = (glXCreateContextAttribsARBProc)
         glXGetProcAddressARB((const GLubyte *)"glXCreateContextAttribsARB");
@@ -147,9 +138,12 @@ AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight
     if (!glxFbConfig) throw AFK_Exception("Unable to get GLX framebuffer config");
 
     realGlxCtx = (*ccProc)(dpy, glxFbConfig[0], nullptr, true, glAttr);
-
+    if (!realGlxCtx) throw AFK_Exception("Can't create GLX context (no OpenGL 4.0?)");
     if (!glXMakeCurrent(dpy, w, realGlxCtx)) throw AFK_Exception("Unable to make real GLX context current");
-    glXDestroyContext(dpy, initGlxCtx);
+
+    /* Now I can set up. */
+    GLenum res = glewInit();
+    if (res != GLEW_OK) throw AFK_Exception("Unable to initialise GLEW");
 
     /* Fix the Vsync setting */
     bool haveSwapControl = false;
