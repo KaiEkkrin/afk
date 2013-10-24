@@ -109,6 +109,7 @@ public:
         void *user_data,
         cl_int *errcode_ret);
 
+#ifdef CL_VERSION_1_2
     AFK_OCL_FUNC(cl_mem, CreateFromGLTexture,
         cl_context context,
         cl_mem_flags flags,
@@ -116,6 +117,7 @@ public:
         GLint miplevel,
         GLuint texture,
         cl_int *errcode_ret);
+#endif
 
     AFK_OCL_FUNC(cl_mem, CreateFromGLTexture2D,
         cl_context context,
@@ -133,6 +135,7 @@ public:
         GLuint texture,
         cl_int *errcode_ret);
 
+#ifdef CL_VERSION_1_2
     AFK_OCL_FUNC(cl_mem, CreateImage,
         cl_context context,
         cl_mem_flags flags,
@@ -140,6 +143,7 @@ public:
         const cl_image_desc *image_desc,
         void *host_ptr,
         cl_int *errcode_ret);
+#endif
 
     AFK_OCL_FUNC(cl_mem, CreateImage2D,
         cl_context context,

@@ -19,6 +19,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <cstdlib>
 #include <sstream>
 
 #include "computer.hpp"
@@ -420,6 +421,14 @@ size_t AFK_JigsawImageDescriptor::getPieceSizeInBytes(void) const
     return format.texelSize * pieceSize.v[0] * pieceSize.v[1] * pieceSize.v[2];
 }
 
+size_t AFK_JigsawImageDescriptor::getImageSizeInBytes(const Vec3<int>& _jigsawSize) const
+{
+    return format.texelSize *
+        pieceSize.v[0] * _jigsawSize.v[0] *
+        pieceSize.v[1] * _jigsawSize.v[1] *
+        pieceSize.v[2] * _jigsawSize.v[2];
+}
+
 std::ostream& operator<<(std::ostream& os, const AFK_JigsawImageDescriptor& _desc)
 {
     os << "Image(" << _desc.pieceSize << ", " << _desc.format << ", " << _desc.dimensions << ", " << _desc.bufferUsage << ", " << _desc.fake3D << ")";
@@ -437,9 +446,6 @@ void AFK_JigsawImage::initClImage(const Vec3<int>& _jigsawSize)
     cl_command_queue q;
     computer->lock(ctxt, q);
 
-    cl_image_desc imageDesc;
-    memset(&imageDesc, 0, sizeof(cl_image_desc));
-
     cl_mem_object_type clImageType = desc.getClObjectType();
 
     Vec3<int> clImageSize;
@@ -455,13 +461,17 @@ void AFK_JigsawImage::initClImage(const Vec3<int>& _jigsawSize)
             desc.pieceSize.v[2] * _jigsawSize.v[2]);
     }
 
-    imageDesc.image_type        = clImageType;
-    imageDesc.image_width       = clImageSize.v[0];
-    imageDesc.image_height      = clImageSize.v[1];
-    imageDesc.image_depth       = clImageSize.v[2];
-
+#ifdef CL_VERSION_1_2
     if (computer->testVersion(1, 2))
     {
+        cl_image_desc imageDesc;
+        memset(&imageDesc, 0, sizeof(cl_image_desc));
+
+        imageDesc.image_type        = clImageType;
+        imageDesc.image_width       = clImageSize.v[0];
+        imageDesc.image_height      = clImageSize.v[1];
+        imageDesc.image_depth       = clImageSize.v[2];
+
         clTex = computer->oclShim.CreateImage()(
             ctxt,
             CL_MEM_READ_WRITE,
@@ -471,6 +481,7 @@ void AFK_JigsawImage::initClImage(const Vec3<int>& _jigsawSize)
             &error);
     }
     else
+#endif
     {
         switch (clImageType)
         {
@@ -479,9 +490,9 @@ void AFK_JigsawImage::initClImage(const Vec3<int>& _jigsawSize)
                 ctxt,
                 CL_MEM_READ_WRITE,
                 &desc.format.clFormat,
-                imageDesc.image_width,
-                imageDesc.image_height,
-                imageDesc.image_row_pitch,
+                clImageSize.v[0],
+                clImageSize.v[1],
+                0,
                 nullptr,
                 &error);
             break;
@@ -491,11 +502,11 @@ void AFK_JigsawImage::initClImage(const Vec3<int>& _jigsawSize)
                 ctxt,
                 CL_MEM_READ_WRITE,
                 &desc.format.clFormat,
-                imageDesc.image_width,
-                imageDesc.image_height,
-                imageDesc.image_depth,
-                imageDesc.image_row_pitch,
-                imageDesc.image_slice_pitch,
+                clImageSize.v[0],
+                clImageSize.v[1],
+                clImageSize.v[2],
+                0,
+                0,
                 nullptr,
                 &error);
             break;
@@ -515,31 +526,51 @@ void AFK_JigsawImage::initGlImage(const Vec3<int>& _jigsawSize)
     glGenTextures(1, &glTex);
     glBindTexture(texTarget, glTex);
 
+    /* Switching away from using glTexStorage2D() here because
+     * it requires a more recent GLEW, which is inconvenient in
+     * Ubuntu 12.04 LTS.
+     * initGlImage() is not called very often, so it's okay
+     * to be pushing zeroes here.
+     */
+    size_t zeroBufSize = desc.getImageSizeInBytes(_jigsawSize);
+    assert(zeroBufSize > 0);
+    void *zeroBuf = calloc(zeroBufSize, 1);
+
     switch (desc.dimensions)
     {
     case AFK_JigsawDimensions::TWO:
-        glTexStorage2D(
+        glTexImage2D(
             texTarget,
-            1,
-            desc.format.glInternalFormat,
-            desc.pieceSize.v[0] * _jigsawSize.v[0],
-            desc.pieceSize.v[1] * _jigsawSize.v[1]);
-        break;
-
-    case AFK_JigsawDimensions::THREE:
-        glTexStorage3D(
-            texTarget,
-            1,
+            0,
             desc.format.glInternalFormat,
             desc.pieceSize.v[0] * _jigsawSize.v[0],
             desc.pieceSize.v[1] * _jigsawSize.v[1],
-            desc.pieceSize.v[2] * _jigsawSize.v[2]);
+            0,
+            desc.format.glFormat,
+            desc.format.glDataType,
+            zeroBuf);
+        break;
+
+    case AFK_JigsawDimensions::THREE:
+        glTexImage3D(
+            texTarget,
+            0,
+            desc.format.glInternalFormat,
+            desc.pieceSize.v[0] * _jigsawSize.v[0],
+            desc.pieceSize.v[1] * _jigsawSize.v[1],
+            desc.pieceSize.v[2] * _jigsawSize.v[2],
+            0,
+            desc.format.glFormat,
+            desc.format.glDataType,
+            zeroBuf);
         break;
 
     default:
         throw AFK_Exception("Unrecognised texTarget");
     }
+
     AFK_GLCHK("AFK_JigSaw texStorage")
+    free(zeroBuf);
 }
 
 void AFK_JigsawImage::initClImageFromGlImage(const Vec3<int>& _jigsawSize)
@@ -553,6 +584,7 @@ void AFK_JigsawImage::initClImageFromGlImage(const Vec3<int>& _jigsawSize)
     GLuint texTarget = desc.getGlTarget();
     glBindTexture(texTarget, glTex);
 
+#ifdef CL_VERSION_1_2
     if (computer->testVersion(1, 2))
     {
         clTex = computer->oclShim.CreateFromGLTexture()(
@@ -564,6 +596,7 @@ void AFK_JigsawImage::initClImageFromGlImage(const Vec3<int>& _jigsawSize)
             &error);
     }
     else
+#endif
     {
         switch (desc.dimensions)
         {

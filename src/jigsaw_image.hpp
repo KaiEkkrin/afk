@@ -162,6 +162,7 @@ public:
     GLuint getGlTarget(void) const;
     GLuint getGlProxyTarget(void) const;
     size_t getPieceSizeInBytes(void) const;
+    size_t getImageSizeInBytes(const Vec3<int>& _jigsawSize) const;
 };
 
 std::ostream& operator<<(std::ostream& os, const AFK_JigsawImageDescriptor& _desc);
