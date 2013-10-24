@@ -47,9 +47,11 @@ enum class AFK_JigsawFormat : int
 /* This enumeration describes what buffers we manage -- CL, GL, both. */
 enum class AFK_JigsawBufferUsage : int
 {
-    CL_ONLY         = 0,
-    CL_GL_COPIED    = 1,
-    CL_GL_SHARED    = 2
+    NO_IMAGE        = 0,    /* For debugging, pretty much. */
+    CL_ONLY         = 1,
+    GL_ONLY         = 2,
+    CL_GL_COPIED    = 3,
+    CL_GL_SHARED    = 4
 };
 
 std::ostream& operator<<(std::ostream& os, const AFK_JigsawBufferUsage bufferUsage);
@@ -188,6 +190,11 @@ protected:
      * wait on before I can push data to the GL.
      */
     std::vector<cl_event> changeEvents;
+
+    /* These functions initialise the images in various ways. */
+    void initClImage(const Vec3<int>& _jigsawSize);
+    void initGlImage(const Vec3<int>& _jigsawSize);
+    void initClImageFromGlImage(const Vec3<int>& _jigsawSize);
 
     /* These functions help to pull changed data from the CL
      * textures and push them to the GL.

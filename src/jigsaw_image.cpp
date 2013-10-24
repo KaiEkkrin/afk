@@ -34,9 +34,11 @@ std::ostream& operator<<(std::ostream& os, const AFK_JigsawBufferUsage bufferUsa
 {
     switch (bufferUsage)
     {
-    case AFK_JigsawBufferUsage::CL_ONLY:       os << "cl only";        break;
-    case AFK_JigsawBufferUsage::CL_GL_COPIED:  os << "cl_gl copied";   break;
-    case AFK_JigsawBufferUsage::CL_GL_SHARED:  os << "cl_gl shared";   break;
+    case AFK_JigsawBufferUsage::NO_IMAGE:       os << "no image";       break;
+    case AFK_JigsawBufferUsage::CL_ONLY:        os << "cl only";        break;
+    case AFK_JigsawBufferUsage::GL_ONLY:        os << "gl only";        break;
+    case AFK_JigsawBufferUsage::CL_GL_COPIED:   os << "cl_gl copied";   break;
+    case AFK_JigsawBufferUsage::CL_GL_SHARED:   os << "cl_gl shared";   break;
     default:
         throw AFK_Exception("Unrecognised buffer usage");
     }
@@ -389,7 +391,8 @@ Vec3<int> AFK_JigsawImageDescriptor::getJigsawSize(
 void AFK_JigsawImageDescriptor::setUseFake3D(const Vec3<int>& _jigsawSize)
 {
     assert(!fake3D.getUseFake3D()); /* no overwrites */
-    assert(bufferUsage != AFK_JigsawBufferUsage::CL_GL_SHARED);
+    assert(bufferUsage != AFK_JigsawBufferUsage::CL_GL_SHARED &&
+        bufferUsage != AFK_JigsawBufferUsage::GL_ONLY);
     fake3D = AFK_JigsawFake3DDescriptor(true, afk_vec3<int>(
         pieceSize.v[0] * _jigsawSize.v[0],
         pieceSize.v[1] * _jigsawSize.v[1],
@@ -425,6 +428,173 @@ std::ostream& operator<<(std::ostream& os, const AFK_JigsawImageDescriptor& _des
 
 
 /* AFK_JigsawImage implementation */
+
+void AFK_JigsawImage::initClImage(const Vec3<int>& _jigsawSize)
+{
+    cl_int error;
+
+    cl_context ctxt;
+    cl_command_queue q;
+    computer->lock(ctxt, q);
+
+    cl_image_desc imageDesc;
+    memset(&imageDesc, 0, sizeof(cl_image_desc));
+
+    cl_mem_object_type clImageType = desc.getClObjectType();
+
+    Vec3<int> clImageSize;
+    if (desc.fake3D.getUseFake3D())
+    {
+        clImageSize = desc.fake3D.get2DSize();
+    }
+    else
+    {
+        clImageSize = afk_vec3<int>(
+            desc.pieceSize.v[0] * _jigsawSize.v[0],
+            desc.pieceSize.v[1] * _jigsawSize.v[1],
+            desc.pieceSize.v[2] * _jigsawSize.v[2]);
+    }
+
+    imageDesc.image_type        = clImageType;
+    imageDesc.image_width       = clImageSize.v[0];
+    imageDesc.image_height      = clImageSize.v[1];
+    imageDesc.image_depth       = clImageSize.v[2];
+
+    if (computer->testVersion(1, 2))
+    {
+        clTex = computer->oclShim.CreateImage()(
+            ctxt,
+            CL_MEM_READ_WRITE,
+            &desc.format.clFormat,
+            &imageDesc,
+            nullptr,
+            &error);
+    }
+    else
+    {
+        switch (clImageType)
+        {
+        case CL_MEM_OBJECT_IMAGE2D:
+            clTex = computer->oclShim.CreateImage2D()(
+                ctxt,
+                CL_MEM_READ_WRITE,
+                &desc.format.clFormat,
+                imageDesc.image_width,
+                imageDesc.image_height,
+                imageDesc.image_row_pitch,
+                nullptr,
+                &error);
+            break;
+
+        case CL_MEM_OBJECT_IMAGE3D:
+            clTex = computer->oclShim.CreateImage3D()(
+                ctxt,
+                CL_MEM_READ_WRITE,
+                &desc.format.clFormat,
+                imageDesc.image_width,
+                imageDesc.image_height,
+                imageDesc.image_depth,
+                imageDesc.image_row_pitch,
+                imageDesc.image_slice_pitch,
+                nullptr,
+                &error);
+            break;
+
+        default:
+            throw AFK_Exception("Unrecognised texTarget");
+        }
+    }
+
+    AFK_HANDLE_CL_ERROR(error);
+    computer->unlock();
+}
+
+void AFK_JigsawImage::initGlImage(const Vec3<int>& _jigsawSize)
+{
+    GLuint texTarget = desc.getGlTarget();
+    glGenTextures(1, &glTex);
+    glBindTexture(texTarget, glTex);
+
+    switch (desc.dimensions)
+    {
+    case AFK_JigsawDimensions::TWO:
+        glTexStorage2D(
+            texTarget,
+            1,
+            desc.format.glInternalFormat,
+            desc.pieceSize.v[0] * _jigsawSize.v[0],
+            desc.pieceSize.v[1] * _jigsawSize.v[1]);
+        break;
+
+    case AFK_JigsawDimensions::THREE:
+        glTexStorage3D(
+            texTarget,
+            1,
+            desc.format.glInternalFormat,
+            desc.pieceSize.v[0] * _jigsawSize.v[0],
+            desc.pieceSize.v[1] * _jigsawSize.v[1],
+            desc.pieceSize.v[2] * _jigsawSize.v[2]);
+        break;
+
+    default:
+        throw AFK_Exception("Unrecognised texTarget");
+    }
+    AFK_GLCHK("AFK_JigSaw texStorage")
+}
+
+void AFK_JigsawImage::initClImageFromGlImage(const Vec3<int>& _jigsawSize)
+{
+    cl_int error;
+
+    cl_context ctxt;
+    cl_command_queue q;
+    computer->lock(ctxt, q);
+
+    GLuint texTarget = desc.getGlTarget();
+    glBindTexture(texTarget, glTex);
+
+    if (computer->testVersion(1, 2))
+    {
+        clTex = computer->oclShim.CreateFromGLTexture()(
+            ctxt,
+            CL_MEM_READ_WRITE,
+            texTarget,
+            0,
+            glTex,
+            &error);
+    }
+    else
+    {
+        switch (desc.dimensions)
+        {
+        case AFK_JigsawDimensions::TWO:
+            clTex = computer->oclShim.CreateFromGLTexture2D()(
+                ctxt,
+                CL_MEM_READ_WRITE,
+                texTarget,
+                0,
+                glTex,
+                &error);           
+            break;
+    
+        case AFK_JigsawDimensions::THREE:
+            clTex = computer->oclShim.CreateFromGLTexture3D()(
+                ctxt,
+                CL_MEM_READ_WRITE,
+                texTarget,
+                0,
+                glTex,
+                &error);           
+            break;
+    
+        default:
+            throw AFK_Exception("Unrecognised texTarget");
+        }
+    }
+
+    AFK_HANDLE_CL_ERROR(error);
+    computer->unlock();
+}
 
 void AFK_JigsawImage::getClChangeData(
     const std::vector<AFK_JigsawCuboid>& drawCuboids,
@@ -578,161 +748,30 @@ AFK_JigsawImage::AFK_JigsawImage(
         clTex(0),
         desc(_desc)
 {
-    cl_int error;
-
-    cl_context ctxt;
-    cl_command_queue q;
-    computer->lock(ctxt, q);
-
-    if (desc.bufferUsage != AFK_JigsawBufferUsage::CL_GL_SHARED)
+    switch (desc.bufferUsage)
     {
-        /* Do native CL buffering here. */
-        cl_image_desc imageDesc;
-        memset(&imageDesc, 0, sizeof(cl_image_desc));
+    case AFK_JigsawBufferUsage::NO_IMAGE:
+        /* Nothing to do :P */
+        break;
 
-        cl_mem_object_type clImageType = desc.getClObjectType();
+    case AFK_JigsawBufferUsage::CL_ONLY:
+        initClImage(_jigsawSize);
+        break;
 
-        Vec3<int> clImageSize;
-        if (desc.fake3D.getUseFake3D())
-        {
-            clImageSize = desc.fake3D.get2DSize();
-        }
-        else
-        {
-            clImageSize = afk_vec3<int>(
-                desc.pieceSize.v[0] * _jigsawSize.v[0],
-                desc.pieceSize.v[1] * _jigsawSize.v[1],
-                desc.pieceSize.v[2] * _jigsawSize.v[2]);
-        }
+    case AFK_JigsawBufferUsage::GL_ONLY:
+        initGlImage(_jigsawSize);
+        break;
 
-        imageDesc.image_type        = clImageType;
-        imageDesc.image_width       = clImageSize.v[0];
-        imageDesc.image_height      = clImageSize.v[1];
-        imageDesc.image_depth       = clImageSize.v[2];
+    case AFK_JigsawBufferUsage::CL_GL_COPIED:
+        initClImage(_jigsawSize);
+        initGlImage(_jigsawSize);
+        break;
 
-        if (afk_core.computer->testVersion(1, 2))
-        {
-            clTex = computer->oclShim.CreateImage()(
-                ctxt,
-                CL_MEM_READ_WRITE,
-                &desc.format.clFormat,
-                &imageDesc,
-                nullptr,
-                &error);
-        }
-        else
-        {
-            switch (clImageType)
-            {
-            case CL_MEM_OBJECT_IMAGE2D:
-                clTex = computer->oclShim.CreateImage2D()(
-                    ctxt,
-                    CL_MEM_READ_WRITE,
-                    &desc.format.clFormat,
-                    imageDesc.image_width,
-                    imageDesc.image_height,
-                    imageDesc.image_row_pitch,
-                    nullptr,
-                    &error);
-                break;
-
-            case CL_MEM_OBJECT_IMAGE3D:
-                clTex = computer->oclShim.CreateImage3D()(
-                    ctxt,
-                    CL_MEM_READ_WRITE,
-                    &desc.format.clFormat,
-                    imageDesc.image_width,
-                    imageDesc.image_height,
-                    imageDesc.image_depth,
-                    imageDesc.image_row_pitch,
-                    imageDesc.image_slice_pitch,
-                    nullptr,
-                    &error);
-                break;
-
-            default:
-                throw AFK_Exception("Unrecognised texTarget");
-            }
-        }
+    case AFK_JigsawBufferUsage::CL_GL_SHARED:
+        initGlImage(_jigsawSize);
+        initClImageFromGlImage(_jigsawSize);
+        break;
     }
-
-    if (desc.bufferUsage != AFK_JigsawBufferUsage::CL_ONLY)
-    {
-        GLuint texTarget = desc.getGlTarget();
-        glGenTextures(1, &glTex);
-        glBindTexture(texTarget, glTex);
-
-        switch (desc.dimensions)
-        {
-        case AFK_JigsawDimensions::TWO:
-            glTexStorage2D(
-                texTarget,
-                1,
-                desc.format.glInternalFormat,
-                desc.pieceSize.v[0] * _jigsawSize.v[0],
-                desc.pieceSize.v[1] * _jigsawSize.v[1]);
-            break;
-
-        case AFK_JigsawDimensions::THREE:
-            glTexStorage3D(
-                texTarget,
-                1,
-                desc.format.glInternalFormat,
-                desc.pieceSize.v[0] * _jigsawSize.v[0],
-                desc.pieceSize.v[1] * _jigsawSize.v[1],
-                desc.pieceSize.v[2] * _jigsawSize.v[2]);
-            break;
-
-        default:
-            throw AFK_Exception("Unrecognised texTarget");
-        }
-        AFK_GLCHK("AFK_JigSaw texStorage")
-
-        if (desc.bufferUsage == AFK_JigsawBufferUsage::CL_GL_SHARED)
-        {
-            if (afk_core.computer->testVersion(1, 2))
-            {
-                clTex = computer->oclShim.CreateFromGLTexture()(
-                    ctxt,
-                    CL_MEM_READ_WRITE,
-                    texTarget,
-                    0,
-                    glTex,
-                    &error);
-            }
-            else
-            {
-                switch (desc.dimensions)
-                {
-                case AFK_JigsawDimensions::TWO:
-                    clTex = computer->oclShim.CreateFromGLTexture2D()(
-                        ctxt,
-                        CL_MEM_READ_WRITE,
-                        texTarget,
-                        0,
-                        glTex,
-                        &error);           
-                    break;
-
-                case AFK_JigsawDimensions::THREE:
-                    clTex = computer->oclShim.CreateFromGLTexture3D()(
-                        ctxt,
-                        CL_MEM_READ_WRITE,
-                        texTarget,
-                        0,
-                        glTex,
-                        &error);           
-                    break;
-
-                default:
-                    throw AFK_Exception("Unrecognised texTarget");
-                }
-            }
-        }
-    }
-
-    AFK_HANDLE_CL_ERROR(error);
-    computer->unlock();
 }
 
 AFK_JigsawImage::~AFK_JigsawImage()
@@ -773,6 +812,10 @@ cl_mem AFK_JigsawImage::acquireForCl(std::vector<cl_event>& o_events)
 
     switch (desc.bufferUsage)
     {
+    case AFK_JigsawBufferUsage::NO_IMAGE:
+    case AFK_JigsawBufferUsage::GL_ONLY:
+        throw AFK_Exception("Called acquireForCl() on jigsaw image without CL");
+
     case AFK_JigsawBufferUsage::CL_GL_SHARED:
         cl_event acquireEvent;
         AFK_CLCHK(computer->oclShim.EnqueueAcquireGLObjects()(q, 1, &clTex, changeEvents.size(), &changeEvents[0], &acquireEvent))
@@ -812,6 +855,22 @@ void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCub
 
     switch (desc.bufferUsage)
     {
+    case AFK_JigsawBufferUsage::NO_IMAGE:
+    case AFK_JigsawBufferUsage::GL_ONLY:
+        throw AFK_Exception("Called releaseFrom() on jigsaw image without CL");
+
+    case AFK_JigsawBufferUsage::CL_ONLY:
+        /* The supplied events get retained and fed into the
+         * change event list, so that they can be waited for
+         * upon any subsequent acquire.
+         */
+        for (auto ev : eventWaitList)
+        {
+            AFK_CLCHK(computer->oclShim.RetainEvent()(ev))
+            changeEvents.push_back(ev);
+        }
+        break;
+
     case AFK_JigsawBufferUsage::CL_GL_COPIED:
         /* Make sure that anything pending with that change data has been
          * finished up because I'm about to re-use the buffer.
@@ -856,18 +915,6 @@ void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCub
         }
         allWaitList.clear();
         break;
-
-    default:
-        /* The supplied events get retained and fed into the
-         * change event list, so that they can be waited for
-         * upon any subsequent acquire.
-         */
-        for (auto ev : eventWaitList)
-        {
-            AFK_CLCHK(computer->oclShim.RetainEvent()(ev))
-            changeEvents.push_back(ev);
-        }
-        break;
     }
 
     computer->unlock();
@@ -875,23 +922,37 @@ void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCub
 
 void AFK_JigsawImage::bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboids)
 {
-    glBindTexture(desc.getGlTarget(), glTex);
 
-    if (desc.bufferUsage == AFK_JigsawBufferUsage::CL_GL_COPIED)
+    switch (desc.bufferUsage)
     {
-        /* Wait for the change readback to be finished. */
-        if (changeEvents.size() == 0) return;
+    case AFK_JigsawBufferUsage::NO_IMAGE:
+    case AFK_JigsawBufferUsage::CL_ONLY:
+        throw AFK_Exception("Called bindTexture() on jigsaw image without GL");
 
-        AFK_CLCHK(computer->oclShim.WaitForEvents()(changeEvents.size(), &changeEvents[0]))
-        for (unsigned int e = 0; e < changeEvents.size(); ++e)
+    case AFK_JigsawBufferUsage::GL_ONLY:
+        /* I shouldn't have any change events to worry about. */
+        assert(changeEvents.size() == 0);
+        glBindTexture(desc.getGlTarget(), glTex);
+        break;
+
+    case AFK_JigsawBufferUsage::CL_GL_COPIED:
+    case AFK_JigsawBufferUsage::CL_GL_SHARED:
+        /* Wait for any sync-up to be finished. */
+        if (changeEvents.size() > 0)
         {
-            AFK_CLCHK(computer->oclShim.ReleaseEvent()(changeEvents[e]))
+            AFK_CLCHK(computer->oclShim.WaitForEvents()(changeEvents.size(), &changeEvents[0]))
+            for (unsigned int e = 0; e < changeEvents.size(); ++e)
+            {
+                AFK_CLCHK(computer->oclShim.ReleaseEvent()(changeEvents[e]))
+            }
+        
+            changeEvents.clear();
         }
 
-        changeEvents.clear();
-
-        /* Push all the changed pieces into the GL texture. */
-        putClChangeData(drawCuboids);
+        glBindTexture(desc.getGlTarget(), glTex);
+        if (desc.bufferUsage == AFK_JigsawBufferUsage::CL_GL_COPIED)
+            putClChangeData(drawCuboids);
+        break;
     }
 }
 
