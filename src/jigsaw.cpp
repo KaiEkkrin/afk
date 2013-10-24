@@ -467,30 +467,30 @@ Vec3<float> AFK_Jigsaw::getPiecePitchSTR(void) const
 
 Vec2<int> AFK_Jigsaw::getFake3D_size(unsigned int tex) const
 {
-    return images[tex]->getFake3D_size();
+    return images.at(tex)->getFake3D_size();
 }
 
 int AFK_Jigsaw::getFake3D_mult(unsigned int tex) const
 {
-    return images[tex]->getFake3D_mult();
+    return images.at(tex)->getFake3D_mult();
 }
 
 cl_mem AFK_Jigsaw::acquireForCl(unsigned int tex, std::vector<cl_event>& o_events)
 {
     boost::upgrade_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
-    return images[tex]->acquireForCl(o_events);
+    return images.at(tex)->acquireForCl(o_events);
 }
 
 void AFK_Jigsaw::releaseFromCl(unsigned int tex, const std::vector<cl_event>& eventWaitList)
 {
     boost::upgrade_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
-    images[tex]->releaseFromCl(cuboids[drawCs], eventWaitList);
+    images.at(tex)->releaseFromCl(cuboids[drawCs], eventWaitList);
 }
 
 void AFK_Jigsaw::bindTexture(unsigned int tex)
 {
     boost::upgrade_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
-    images[tex]->bindTexture(cuboids[drawCs]);
+    images.at(tex)->bindTexture(cuboids[drawCs]);
 }
 
 #define FLIP_DEBUG 0

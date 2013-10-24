@@ -90,6 +90,10 @@ public:
         AFK_Frame *o_timestamps,
         size_t count);
 
+    /* These next functions will throw std::out_of_range if they
+     * can't find a particular puzzle...
+     */
+
     /* Gets you the puzzle that matches a particular piece. */
     AFK_Jigsaw *getPuzzle(const AFK_JigsawPiece& piece);
 

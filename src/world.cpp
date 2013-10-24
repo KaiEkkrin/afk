@@ -28,9 +28,9 @@
 #include "world.hpp"
 
 
-#define PRINT_CHECKPOINTS 1
+#define PRINT_CHECKPOINTS 0
 #define PRINT_CACHE_STATS 0
-#define PRINT_JIGSAW_STATS 0
+#define PRINT_JIGSAW_STATS 1
 
 #define PROTAGONIST_CELL_DEBUG 0
 
@@ -832,11 +832,17 @@ void AFK_World::doComputeTasks(void)
     {
         unsigned int vapourPuzzle, edgePuzzle;
         entityFair2DIndex.get2D(i, vapourPuzzle, edgePuzzle);
-        edgeComputeQueues[i]->computeStart(
-            afk_core.computer,
-            vapourJigsaws->getPuzzle(vapourPuzzle),
-            edgeJigsaws->getPuzzle(edgePuzzle),
-            sSizes);
+        try
+        {
+            edgeComputeQueues[i]->computeStart(
+                afk_core.computer,
+                vapourJigsaws->getPuzzle(vapourPuzzle),
+                edgeJigsaws->getPuzzle(edgePuzzle),
+                sSizes);
+        }
+        catch (std::out_of_range) {} /* slightly naughty, but it's normal for
+                                      * the entityFair2DIndex to form gaps
+                                      */
     }
 
     /* If I finalise stuff now, the y-reduce information will
@@ -904,12 +910,16 @@ void AFK_World::display(const Mat4<float>& projection, const Vec2<float>& window
     {
         unsigned int vapourPuzzle, edgePuzzle;
         entityFair2DIndex.get2D(i, vapourPuzzle, edgePuzzle);
-        entityDrawQueues[i]->draw(
-            entity_shaderProgram,
-            vapourJigsaws->getPuzzle(vapourPuzzle),
-            edgeJigsaws->getPuzzle(edgePuzzle),
-            edgeShapeBase,
-            sSizes);
+        try
+        {
+           entityDrawQueues[i]->draw(
+               entity_shaderProgram,
+               vapourJigsaws->getPuzzle(vapourPuzzle),
+               edgeJigsaws->getPuzzle(edgePuzzle),
+               edgeShapeBase,
+               sSizes);
+        }
+        catch (std::out_of_range) {} /* see comment in doComputeTasks() */
     }
 
     glBindVertexArray(0);
