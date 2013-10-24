@@ -24,6 +24,9 @@
 #include <string>
 #include <vector>
 
+#include <boost/thread/condition.hpp>
+#include <boost/thread/mutex.hpp>
+
 #include "config.hpp"
 #include "def.hpp"
 #include "exception.hpp"
@@ -133,6 +136,11 @@ std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p);
  * doubt end up with separate contexts if I use several threads.
  */
 
+/* This utility wraps programBuilt() so that the CL can call it
+ * as a callback function.
+ */
+void afk_programBuiltNotify(cl_program program, void *user_data);
+
 class AFK_Computer
 {
 protected:
@@ -167,13 +175,20 @@ protected:
 
     AFK_ClDeviceProperties *firstDeviceProps;
 
+    /* For tracking CL program compilation. */
+    boost::condition_variable buildCond;
+    boost::mutex buildMut;
+    unsigned int stillBuilding;
+
     cl_context ctxt;
     cl_command_queue q;
 
     /* Helper functions */
     bool findClGlDevices(cl_platform_id platform);
     void loadProgramFromFiles(const AFK_Config *config, std::vector<struct AFK_ClProgram>::iterator& p);
-    void printBuildLog(std::ostream& os, cl_program program, cl_device_id device);
+    void programBuilt(void);
+    void waitForBuild(void);
+    void printBuildLog(std::ostream& os, const struct AFK_ClProgram& p, cl_device_id device);
 public:
     /* TODO: Make this protected, and make a cleaner wrapper around the
      * OpenCL functions for the rest of AFK to use.
@@ -240,6 +255,8 @@ public:
 
     /* Release it when you're done with this. */
     void unlock(void);
+
+    friend void afk_programBuiltNotify(cl_program program, void *user_data);
 };
 
 

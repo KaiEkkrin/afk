@@ -165,6 +165,11 @@ std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p)
 
 /* AFK_Computer implementation */
 
+void afk_programBuiltNotify(cl_program program, void *user_data)
+{
+    ((AFK_Computer *)user_data)->programBuilt();
+}
+
 /* This helper is used to cram ostensibly-64 bit pointer types from GLX
  * into the 32-bit fields that they actually fit into without causing
  * compiler warnings.
@@ -317,23 +322,45 @@ void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<st
     std::string argsStr = args.str();
     if (argsStr.size() > 0)
         std::cout << "AFK: Passing compiler arguments: " << argsStr << std::endl;
-    error = oclShim.BuildProgram()(p->program, devicesSize, devices, argsStr.size() > 0 ? argsStr.c_str() : NULL, NULL, NULL);
-    for (size_t dI = 0; dI < devicesSize; ++dI)
-        printBuildLog(std::cout, p->program, devices[dI]);
+    error = oclShim.BuildProgram()(
+        p->program,
+        devicesSize,
+        devices,
+        argsStr.size() > 0 ? argsStr.c_str() : NULL,
+        afk_programBuiltNotify,
+        this);
 
     AFK_HANDLE_CL_ERROR(error);
 }
 
-void AFK_Computer::printBuildLog(std::ostream& s, cl_program program, cl_device_id device)
+void AFK_Computer::programBuilt(void)
+{
+    boost::unique_lock<boost::mutex> lock(buildMut);
+    --stillBuilding;
+    buildCond.notify_all();
+}
+
+void AFK_Computer::waitForBuild(void)
+{
+    boost::unique_lock<boost::mutex> lock(buildMut);
+    while (stillBuilding > 0)
+    {
+        buildCond.wait(lock);
+    }
+}
+
+void AFK_Computer::printBuildLog(std::ostream& s, const struct AFK_ClProgram& p, cl_device_id device)
 {
     char *buildLog;
     size_t buildLogSize;
 
-    AFK_CLCHK(oclShim.GetProgramBuildInfo()(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &buildLogSize))
+    AFK_CLCHK(oclShim.GetProgramBuildInfo()(p.program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &buildLogSize))
     buildLog = new char[buildLogSize+1];
-    AFK_CLCHK(oclShim.GetProgramBuildInfo()(program, device, CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, NULL))
+    AFK_CLCHK(oclShim.GetProgramBuildInfo()(p.program, device, CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, NULL))
     buildLog[buildLogSize] = '\0'; /* paranoia */
-    s << buildLog << std::endl;
+
+    s << "--- Build log for " << p.programName << " ---" << std::endl;
+    s << buildLog << std::endl << std::endl;
     delete[] buildLog;
 }
 
@@ -404,8 +431,13 @@ void AFK_Computer::loadPrograms(const AFK_Config *config)
         throw AFK_Exception("AFK_Computer: Unable to switch to programs dir: " + errStream.str());
 
     /* Load all the programs I know about. */
+    stillBuilding = programs.size();
     for (auto pIt = programs.begin(); pIt != programs.end(); ++pIt)
         loadProgramFromFiles(config, pIt);
+    waitForBuild();
+    for (auto p : programs)
+        for (size_t dI = 0; dI < devicesSize; ++dI)
+            printBuildLog(std::cout, p, devices[dI]);
 
     /* ...and all the kernels... */
     for (auto kIt = kernels.begin(); kIt != kernels.end(); ++kIt)
