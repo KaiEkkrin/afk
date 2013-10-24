@@ -28,27 +28,6 @@
 #include "shape_sizes.hpp"
 
 
-/* The set of known programs, just like the shaders doodah. */
-
-std::vector<struct AFK_ClProgram> programs = {
-    {   0,  "landscape_surface",    { "landscape_surface.cl" }, },
-    {   0,  "landscape_terrain",    { "landscape_terrain.cl" }, },
-    {   0,  "landscape_yreduce",    { "landscape_yreduce.cl" }, },
-    {   0,  "shape_3dedge",         { "fake3d.cl", "shape_3dedge.cl" }, },
-    {   0,  "shape_3dvapour_feature",   { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_feature.cl" }, },
-    {   0,  "shape_3dvapour_normal",    { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_normal.cl" }, }
-};
-
-std::vector<struct AFK_ClKernel> kernels = { 
-    {   0,  "landscape_surface",        "makeLandscapeSurface"          },
-    {   0,  "landscape_terrain",        "makeLandscapeTerrain"          },
-    {   0,  "landscape_yreduce",        "makeLandscapeYReduce"          },
-    {   0,  "shape_3dedge",             "makeShape3DEdge"               },
-    {   0,  "shape_3dvapour_feature",   "makeShape3DVapourFeature"      },
-    {   0,  "shape_3dvapour_normal",    "makeShape3DVapourNormal"       }
-};
-
-
 void afk_handleClError(cl_int error, const char *_file, const int _line)
 {
     if (error != CL_SUCCESS)
