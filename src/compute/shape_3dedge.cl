@@ -178,31 +178,11 @@ __kernel void makeShape3DEdge(
     __global const struct AFK_3DEdgeComputeUnit *units,
     const int2 fake3D_size,
     const int fake3D_mult,
-    __write_only image2d_t jigsawDisp,
     __write_only image2d_t jigsawESB)
 {
     const int unitOffset = get_global_id(0);
     const int xdim = get_global_id(1); /* 0..EDIM-1 */
     const int zdim = get_global_id(2); /* 0..EDIM-1 */
-
-    /* Write the base displacement of this shape cube.
-     * TODO: Change the jigsaw so that the displacement texture only
-     * has one texel per cube: that's all I need.
-     */
-    for (int face = 0; face < 6; ++face)
-    {
-        int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
-        float4 location = units[unitOffset].location;
-
-        /* Transforming into homogeneous co-ordinates like this lets
-         * me use a 0-1 value for the cube offset in the geometry
-         * shader.
-         */
-        float4 edgeVertex = (float4)(
-            location.xyz / location.w,
-            1.0f / location.w);
-        write_imagef(jigsawDisp, edgeCoord, edgeVertex);
-    }
 
     /* Iterate through the possible steps back until I find an edge.
      */

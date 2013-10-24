@@ -105,7 +105,7 @@ void AFK_EntityDisplayQueue::draw(
     glUniform1i(jigsawNormalTexSamplerLocation, 1);
 
     glActiveTexture(GL_TEXTURE2);
-    edgeJigsaw->bindTexture(1);
+    edgeJigsaw->bindTexture(0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glUniform1i(jigsawESBTexSamplerLocation, 2);

@@ -25,7 +25,6 @@ out VertexData
 {
     vec3 vapourJigsawPieceCoord;
     vec3 cubeCoord;
-    vec4 position;
     vec2 screenXY;
     int instanceId;
     float edgeStepsBack;
@@ -38,7 +37,7 @@ void main()
     outData.vapourJigsawPieceCoord = texelFetch(DisplayTBO, gl_InstanceID * 7 + 5).xyz;
     vec2 edgeJigsawPieceCoord = texelFetch(DisplayTBO, gl_InstanceID * 7 + 6).xy;
 
-    int face = Meta.s; /* t unused */
+    int face = Meta.x; /* y unused */
     vec2 texCoordDisp = getTexCoordDisp(face);
     
     /* Reconstruct those transforms */
@@ -58,15 +57,15 @@ void main()
      * edges and I need layers, after all?
      */
     vec2 edgeJigsawCoord = makeEdgeJigsawCoordNearest(edgeJigsawPieceCoord, TexCoord.st + texCoordDisp);
-    outData.edgeStepsBack = textureLod(JigsawESBTex, edgeJigsawCoord, 0);
+    outData.edgeStepsBack = textureLod(JigsawESBTex, edgeJigsawCoord, 0).x;
     outData.cubeCoord = makeCubeCoordFromESB(TexCoord.st, outData.edgeStepsBack, face);
-    outData.position = makePositionFromCubeCoord(ClipTransform, outData.cubeCoord, vec3(0.0, 0.0, 0.0), gl_InstanceID);
+    gl_Position = makePositionFromCubeCoord(ClipTransform, outData.cubeCoord, vec3(0.0, 0.0, 0.0), gl_InstanceID);
 
     /* Calculate its screen co-ordinates too.  The geometry shader
      * wants this in order to figure out how much it overlaps its
      * neighbours.
      */
-    outData.screenXY = clipToScreenXY(outData.position);
+    outData.screenXY = clipToScreenXY(gl_Position);
 
     outData.instanceId = gl_InstanceID;
 }

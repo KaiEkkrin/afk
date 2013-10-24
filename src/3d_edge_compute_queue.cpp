@@ -111,8 +111,7 @@ void AFK_3DEdgeComputeQueue::computeStart(
     /* Set up the rest of the parameters */
     preEdgeWaitList.clear();
     cl_mem vapourJigsawDensityMem = vapourJigsaw->acquireForCl(0, preEdgeWaitList);
-    cl_mem edgeJigsawDispMem = edgeJigsaw->acquireForCl(0, preEdgeWaitList);
-    cl_mem edgeJigsawESBMem = edgeJigsaw->acquireForCl(1, preEdgeWaitList);
+    cl_mem edgeJigsawESBMem = edgeJigsaw->acquireForCl(0, preEdgeWaitList);
 
     AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 0, sizeof(cl_mem), &vapourJigsawDensityMem))
     AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 1, sizeof(cl_mem), &unitsBuf))
@@ -127,8 +126,7 @@ void AFK_3DEdgeComputeQueue::computeStart(
     AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 2, sizeof(cl_int2), &fake3D_size.v[0]))
     AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 3, sizeof(cl_int), &fake3D_mult))
 
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 4, sizeof(cl_mem), &edgeJigsawDispMem))
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 5, sizeof(cl_mem), &edgeJigsawESBMem))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 4, sizeof(cl_mem), &edgeJigsawESBMem))
 
     size_t edgeGlobalDim[3];
     edgeGlobalDim[0] = unitCount;
@@ -153,7 +151,6 @@ void AFK_3DEdgeComputeQueue::computeStart(
     postEdgeWaitList.push_back(edgeEvent);
     vapourJigsaw->releaseFromCl(0, postEdgeWaitList);
     edgeJigsaw->releaseFromCl(0, postEdgeWaitList);
-    edgeJigsaw->releaseFromCl(1, postEdgeWaitList);
     AFK_CLCHK(computer->oclShim.ReleaseEvent()(edgeEvent))
 
     computer->unlock();

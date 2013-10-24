@@ -37,8 +37,8 @@ uniform usampler2D JigsawESBTex;
 // per instance, which contain:
 // - first 4: the 4 rows of the transform matrix for the instance
 // - fifth: the location relative to the shape origin
-// - fifth: the (s, t, r) vapour jigsaw co-ordinates
-// - sixth: the (s, t) edge jigsaw co-ordinates
+// - sixth: the (s, t, r) vapour jigsaw co-ordinates
+// - seventh: the (s, t) edge jigsaw co-ordinates
 uniform samplerBuffer DisplayTBO; 
 
 // This is the size of an individual vapour jigsaw piece

@@ -205,13 +205,13 @@ AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(const AFK_JigsawPiece& piece)
 {
     if (piece == AFK_JigsawPiece()) throw AFK_Exception("AFK_JigsawCollection: Called getPuzzle() with the null piece");
     boost::shared_lock<boost::upgrade_mutex> lock(mut);
-    return puzzles[piece.puzzle];
+    return puzzles.at(piece.puzzle);
 }
 
 AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(int puzzle)
 {
     boost::shared_lock<boost::upgrade_mutex> lock(mut);
-    return puzzles[puzzle];
+    return puzzles.at(puzzle);
 }
 
 int AFK_JigsawCollection::acquireAllForCl(
@@ -227,7 +227,7 @@ int AFK_JigsawCollection::acquireAllForCl(
     assert(puzzleCount <= count);
 
     for (i = 0; i < puzzleCount; ++i)
-        allMem[i] = puzzles[i]->acquireForCl(tex, o_events);
+        allMem[i] = puzzles.at(i)->acquireForCl(tex, o_events);
     for (int excess = i; excess < count; ++excess)
         allMem[excess] = allMem[0];
 
@@ -242,8 +242,8 @@ void AFK_JigsawCollection::releaseAllFromCl(
 {
     boost::shared_lock<boost::upgrade_mutex> lock(mut);
     
-    for (int i = 0; i < count; ++i)
-        puzzles[i]->releaseFromCl(tex, eventWaitList);
+    for (int i = 0; i < count && i < (int)puzzles.size(); ++i)
+        puzzles.at(i)->releaseFromCl(tex, eventWaitList);
 }
 
 void AFK_JigsawCollection::flipCuboids(AFK_Computer *computer, const AFK_Frame& currentFrame)
@@ -251,8 +251,8 @@ void AFK_JigsawCollection::flipCuboids(AFK_Computer *computer, const AFK_Frame& 
     boost::upgrade_lock<boost::upgrade_mutex> ulock(mut);
     boost::upgrade_to_unique_lock<boost::upgrade_mutex> utoulock(ulock);
 
-    for (int puzzle = 0; puzzle < (int)puzzles.size(); ++puzzle)
-        puzzles[puzzle]->flipCuboids(currentFrame);
+    for (auto puzzle : puzzles)
+        puzzle->flipCuboids(currentFrame);
 
     if (!spare && (maxPuzzles == 0 || puzzles.size() < maxPuzzles))
     {
@@ -269,7 +269,7 @@ void AFK_JigsawCollection::printStats(std::ostream& os, const std::string& prefi
     {
         std::ostringstream puzPf;
         puzPf << prefix << " " << std::dec << puzzle;
-        puzzles[puzzle]->printStats(os, puzPf.str());
+        puzzles.at(puzzle)->printStats(os, puzPf.str());
     }
 }
 

@@ -26,7 +26,6 @@ in VertexData
 {
     vec3 vapourJigsawPieceCoord;
     vec3 cubeCoord;
-    vec4 position;
     vec2 screenXY;
     int instanceId;
     float edgeStepsBack;
@@ -73,7 +72,7 @@ void main()
             }
         }
         
-        gl_Position = inData[0].position;
+        gl_Position = gl_in[0].gl_Position;
         gl_PointSize = adjDist;
         
         vec3 vapourJigsawCoord = makeVapourJigsawCoord(inData[0].vapourJigsawPieceCoord, inData[0].cubeCoord);

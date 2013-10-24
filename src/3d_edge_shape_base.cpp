@@ -53,7 +53,7 @@ AFK_3DEdgeShapeBase::~AFK_3DEdgeShapeBase()
 {
     if (bufs)
     {
-        glDeleteBuffers(2, &bufs[0]);
+        glDeleteBuffers(1, &bufs[0]);
         delete[] bufs;
     }
 }
@@ -63,8 +63,8 @@ void AFK_3DEdgeShapeBase::initGL()
     bool needBufferPush = (bufs == nullptr);
     if (needBufferPush)
     {
-        bufs = new GLuint[2];
-        glGenBuffers(2, bufs);
+        bufs = new GLuint[1];
+        glGenBuffers(1, bufs);
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, bufs[0]);
