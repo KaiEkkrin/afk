@@ -20,10 +20,10 @@ To build AFK you will currently need:
  - a modern OpenCL implementation (supporting OpenCL 1.1) and its development libraries
  - GLX
  - GLEW
- - Boost (AFK currently links with boost_chrono, boost_random, boost_regex, boost_system and boost_thread.  I used version 1.53)
+ - Boost >=1.5x (AFK currently links with boost_chrono, boost_random, boost_regex, boost_system and boost_thread.)
  - SConstruct, the python build system.
 
-I have tested AFK on Nvidia Fermi based GPUs using the binary "nvidia" driver, and an AMD VLIW5 GPU using the binary "fglrx" driver. Some day I hope to make it run on a broader range of hardware and operating systems.
+See COMPATIBILITY.txt.
 
 Build and run example:
 
