@@ -99,7 +99,7 @@ unsigned int AFK_WorldCell::getStartingEntityShapeKey(AFK_RNG& rng)
      * starting shapes to juggle -- but it's very dependent on
      * exactly what kind of world I'm trying to make!
      */
-    return (rng.uirand() & 0x3f);
+    return (rng.uirand() & 0xf);
 }
 
 void AFK_WorldCell::addStartingEntity(

@@ -224,7 +224,6 @@ int AFK_JigsawCollection::acquireAllForCl(
 
     int i;
     int puzzleCount = (int)puzzles.size();
-    assert(puzzleCount <= count);
 
     for (i = 0; i < puzzleCount; ++i)
         allMem[i] = puzzles.at(i)->acquireForCl(tex, o_events);

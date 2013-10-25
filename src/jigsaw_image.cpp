@@ -332,8 +332,16 @@ Vec3<int> AFK_JigsawImageDescriptor::getJigsawSize(
                  testJigsawSize.v[1] <= (int)_clDeviceProps.image3DMaxHeight &&
                  testJigsawSize.v[2] <= (int)_clDeviceProps.image3DMaxDepth));
 
-        /* Try to make a pretend texture of the current jigsaw size */
-        dimensionsOK &= ((testJigsawSize.v[0] * testJigsawSize.v[1] * testJigsawSize.v[2] * getPieceSizeInBytes()) < (_clDeviceProps.maxMemAllocSize / 2));
+        /* Try to make a pretend texture of the current jigsaw size
+         * TODO: This is going wrong, and I need to remove it.  Instead,
+         * after I've used the logic in this function to determine the
+         * _maximum_ jigsaw size, I should go through all the jigsaws
+         * I want to build and divide the available memory one single
+         * time between all the things.  I should add another function
+         * that returns the nearest jigsaw dimensions for a given amount
+         * of available memory.
+         */
+        dimensionsOK &= ((testJigsawSize.v[0] * testJigsawSize.v[1] * testJigsawSize.v[2] * getPieceSizeInBytes()) < (_clDeviceProps.maxMemAllocSize / 8));
         if (!dimensionsOK) break;
 
         glBindTexture(proxyTexTarget, glProxyTex);
