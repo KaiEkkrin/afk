@@ -149,7 +149,7 @@ AFK_JigsawFormatDescriptor::AFK_JigsawFormatDescriptor(
     str                                 = _fd.str;
 }
 
-AFK_JigsawFormatDescriptor AFK_JigsawFormatDescriptor::operator=(
+AFK_JigsawFormatDescriptor& AFK_JigsawFormatDescriptor::operator=(
     const AFK_JigsawFormatDescriptor& _fd)
 {
     glInternalFormat                    = _fd.glInternalFormat;
@@ -191,7 +191,7 @@ AFK_JigsawFake3DDescriptor::AFK_JigsawFake3DDescriptor(
 {
 }
 
-AFK_JigsawFake3DDescriptor AFK_JigsawFake3DDescriptor::operator=(
+AFK_JigsawFake3DDescriptor& AFK_JigsawFake3DDescriptor::operator=(
     const AFK_JigsawFake3DDescriptor& _fake3D)
 {
     fakeSize    = _fake3D.fakeSize;
@@ -284,7 +284,7 @@ AFK_JigsawImageDescriptor::AFK_JigsawImageDescriptor(
 {
 }
 
-AFK_JigsawImageDescriptor AFK_JigsawImageDescriptor::operator=(
+AFK_JigsawImageDescriptor& AFK_JigsawImageDescriptor::operator=(
     const AFK_JigsawImageDescriptor& _desc)
 {
     pieceSize       = _desc.pieceSize;
@@ -295,106 +295,74 @@ AFK_JigsawImageDescriptor AFK_JigsawImageDescriptor::operator=(
     return *this;
 }
 
-Vec3<int> AFK_JigsawImageDescriptor::getJigsawSize(
-    int pieceCount,
-    unsigned int concurrency,
+bool AFK_JigsawImageDescriptor::isJigsawSizeOK(
+    const Vec3<int>& jigsawSize,
     const AFK_ClDeviceProperties& _clDeviceProps) const
 {
-    /* Figure out a jigsaw size.  I want the rows to always be a
-     * round multiple of `concurrency' to avoid breaking rectangles
-     * apart.
-     * For this I need to try all the formats: I stop testing
-     * when any one of the formats fails, because all the
-     * jigsaw textures need to be identical aside from their
-     * texels
-     */
-    Vec3<int> jigsawSizeIncrement = (
-        dimensions == AFK_JigsawDimensions::TWO ? afk_vec3<int>(concurrency, concurrency, 0) :
-        afk_vec3<int>(concurrency, concurrency, concurrency));
-    Vec3<int> jigsawSize = (
-        dimensions == AFK_JigsawDimensions::TWO ? afk_vec3<int>(concurrency, concurrency, 1) :
-        afk_vec3<int>(concurrency, concurrency, concurrency));
+    bool dimensionsOK = (
+        dimensions == AFK_JigsawDimensions::TWO ?
+            (jigsawSize.v[0] <= (int)_clDeviceProps.image2DMaxWidth &&
+             jigsawSize.v[1] <= (int)_clDeviceProps.image2DMaxHeight) :
+            (jigsawSize.v[0] <= (int)_clDeviceProps.image3DMaxWidth &&
+             jigsawSize.v[1] <= (int)_clDeviceProps.image3DMaxHeight &&
+             jigsawSize.v[2] <= (int)_clDeviceProps.image3DMaxDepth));
 
+    dimensionsOK &= ((jigsawSize.v[0] * jigsawSize.v[1] * jigsawSize.v[2] * getPieceSizeInBytes()) < _clDeviceProps.maxMemAllocSize);
+    if (!dimensionsOK) return false;
+
+    /* Try to make a pretend texture of this jigsaw size
+     */
     GLuint proxyTexTarget = getGlProxyTarget();
     GLuint glProxyTex;
     glGenTextures(1, &glProxyTex);
-    GLint texWidth;
-    bool dimensionsOK = true;
-    for (Vec3<int> testJigsawSize = jigsawSize;
-        dimensionsOK && jigsawSize.v[0] * jigsawSize.v[1] < pieceCount;
-        testJigsawSize += jigsawSizeIncrement)
+    glBindTexture(proxyTexTarget, glProxyTex);
+    switch (dimensions)
     {
-        dimensionsOK = (
-            dimensions == AFK_JigsawDimensions::TWO ?
-                (testJigsawSize.v[0] <= (int)_clDeviceProps.image2DMaxWidth &&
-                 testJigsawSize.v[1] <= (int)_clDeviceProps.image2DMaxHeight) :
-                (testJigsawSize.v[0] <= (int)_clDeviceProps.image3DMaxWidth &&
-                 testJigsawSize.v[1] <= (int)_clDeviceProps.image3DMaxHeight &&
-                 testJigsawSize.v[2] <= (int)_clDeviceProps.image3DMaxDepth));
-
-        /* Try to make a pretend texture of the current jigsaw size
-         * TODO: This is going wrong, and I need to remove it.  Instead,
-         * after I've used the logic in this function to determine the
-         * _maximum_ jigsaw size, I should go through all the jigsaws
-         * I want to build and divide the available memory one single
-         * time between all the things.  I should add another function
-         * that returns the nearest jigsaw dimensions for a given amount
-         * of available memory.
-         */
-        dimensionsOK &= ((testJigsawSize.v[0] * testJigsawSize.v[1] * testJigsawSize.v[2] * getPieceSizeInBytes()) < (_clDeviceProps.maxMemAllocSize / 8));
-        if (!dimensionsOK) break;
-
-        glBindTexture(proxyTexTarget, glProxyTex);
-        switch (dimensions)
-        {
-        case AFK_JigsawDimensions::TWO:
-            glTexImage2D(
-                proxyTexTarget,
-                0,
-                format.glInternalFormat,
-                pieceSize.v[0] * testJigsawSize.v[0],
-                pieceSize.v[1] * testJigsawSize.v[1],
-                0,
-                format.glFormat,
-                format.glDataType,
-                nullptr);
-            break;
-
-        case AFK_JigsawDimensions::THREE:
-            glTexImage3D(
-                proxyTexTarget,
-                0,
-                format.glInternalFormat,
-                pieceSize.v[0] * testJigsawSize.v[0],
-                pieceSize.v[1] * testJigsawSize.v[1],
-                pieceSize.v[2] * testJigsawSize.v[2],
-				0,
-                format.glFormat,
-                format.glDataType,
-                nullptr);
-            break;
-
-        default:
-            throw AFK_Exception("Unrecognised proxyTexTarget");
-        }
-
-        /* See if it worked */
-        glGetTexLevelParameteriv(
+    case AFK_JigsawDimensions::TWO:
+        glTexImage2D(
             proxyTexTarget,
             0,
-            GL_TEXTURE_WIDTH,
-            &texWidth);
+            format.glInternalFormat,
+            pieceSize.v[0] * jigsawSize.v[0],
+            pieceSize.v[1] * jigsawSize.v[1],
+            0,
+            format.glFormat,
+            format.glDataType,
+            nullptr);
+        break;
 
-        dimensionsOK &= (texWidth != 0);
+    case AFK_JigsawDimensions::THREE:
+        glTexImage3D(
+            proxyTexTarget,
+            0,
+            format.glInternalFormat,
+            pieceSize.v[0] * jigsawSize.v[0],
+            pieceSize.v[1] * jigsawSize.v[1],
+            pieceSize.v[2] * jigsawSize.v[2],
+			0,
+            format.glFormat,
+            format.glDataType,
+            nullptr);
+        break;
 
-        if (dimensionsOK) jigsawSize = testJigsawSize;
-
-        /* Drop errors */
-        glGetError();
+    default:
+        throw AFK_Exception("Unrecognised proxyTexTarget");
     }
 
+    /* See if it worked */
+    GLint texWidth = 0;
+    glGetTexLevelParameteriv(
+        proxyTexTarget,
+        0,
+        GL_TEXTURE_WIDTH,
+        &texWidth);
+
     glDeleteTextures(1, &glProxyTex);
-    return jigsawSize;
+
+    /* Drop errors */
+    glGetError();
+
+    return (texWidth != 0);
 }
 
 void AFK_JigsawImageDescriptor::setUseFake3D(const Vec3<int>& _jigsawSize)
@@ -440,6 +408,162 @@ size_t AFK_JigsawImageDescriptor::getImageSizeInBytes(const Vec3<int>& _jigsawSi
 std::ostream& operator<<(std::ostream& os, const AFK_JigsawImageDescriptor& _desc)
 {
     os << "Image(" << _desc.pieceSize << ", " << _desc.format << ", " << _desc.dimensions << ", " << _desc.bufferUsage << ", " << _desc.fake3D << ")";
+    return os;
+}
+
+
+/* AFK_JigsawMemoryAllocation implementation */
+
+AFK_JigsawMemoryAllocation::Entry::Entry(
+    std::initializer_list<AFK_JigsawImageDescriptor> _desc,
+    unsigned int _puzzleCount,
+    float _ratio):
+        desc(_desc), puzzleCount(_puzzleCount), ratio(_ratio),
+        jigsawSizeSet(false)
+{
+    auto dIt = desc.begin();
+    dimensions = dIt->dimensions;
+
+    while ((++dIt) != desc.end())
+        assert(dIt->dimensions == dimensions);
+}
+
+size_t AFK_JigsawMemoryAllocation::Entry::getTotalPieceSizeInBytes(void) const
+{
+    size_t totalSize = 0;
+    for (auto d : desc)
+        totalSize += d.getPieceSizeInBytes();       
+    return totalSize;
+}
+
+float AFK_JigsawMemoryAllocation::Entry::getBytewiseRatio(void) const
+{
+    return ratio * (float)puzzleCount * (float)getTotalPieceSizeInBytes();
+}
+
+void AFK_JigsawMemoryAllocation::Entry::makeJigsawSize(
+    unsigned int concurrency,
+    size_t maxSizeInBytes,
+    const AFK_ClDeviceProperties& _clDeviceProps)
+{
+    /* Figure out a jigsaw size.  I want the rows to always be a
+     * round multiple of `concurrency' to avoid breaking rectangles
+     * apart.
+     */
+    Vec3<int> jigsawSizeIncrement = (
+        dimensions == AFK_JigsawDimensions::TWO ? afk_vec3<int>(concurrency, concurrency, 0) :
+        afk_vec3<int>(concurrency, concurrency, concurrency));
+    jigsawSize = (
+        dimensions == AFK_JigsawDimensions::TWO ? afk_vec3<int>(concurrency, concurrency, 1) :
+        afk_vec3<int>(concurrency, concurrency, concurrency));
+
+    bool dimensionsOK = true;
+    for (Vec3<int> testJigsawSize = jigsawSize;
+        dimensionsOK;
+        testJigsawSize += jigsawSizeIncrement)
+    {
+        size_t sizeOfAllImages = 0;
+
+        for (auto d : desc)
+        {
+            dimensionsOK &= d.isJigsawSizeOK(testJigsawSize, _clDeviceProps);
+            sizeOfAllImages += d.getImageSizeInBytes(testJigsawSize);
+        }
+
+        dimensionsOK &= (maxSizeInBytes == 0 || sizeOfAllImages < maxSizeInBytes);
+
+        if (dimensionsOK) jigsawSize = testJigsawSize;
+    }
+
+    jigsawSizeSet = true;
+}
+
+void AFK_JigsawMemoryAllocation::Entry::setUseFake3D(void)
+{
+    for (auto dIt = desc.begin(); dIt != desc.end(); ++dIt)
+    {
+        if (dIt->dimensions == AFK_JigsawDimensions::THREE) dIt->setUseFake3D(jigsawSize);
+    }
+}
+
+unsigned int AFK_JigsawMemoryAllocation::Entry::getPieceCount(void) const
+{
+    assert(jigsawSizeSet);
+    unsigned int pieceCount = jigsawSize.v[0] * jigsawSize.v[1] * jigsawSize.v[2];
+    assert(pieceCount > 0);
+    return pieceCount;
+}
+
+unsigned int AFK_JigsawMemoryAllocation::Entry::getPuzzleCount(void) const
+{
+    return puzzleCount;
+}
+
+Vec3<int> AFK_JigsawMemoryAllocation::Entry::getJigsawSize(void) const
+{
+    assert(jigsawSizeSet);
+    return jigsawSize;
+}
+
+std::vector<AFK_JigsawImageDescriptor>::const_iterator AFK_JigsawMemoryAllocation::Entry::beginDescriptors() const
+{
+    return desc.begin();
+}
+
+std::vector<AFK_JigsawImageDescriptor>::const_iterator AFK_JigsawMemoryAllocation::Entry::endDescriptors() const
+{
+    return desc.end();
+}
+
+AFK_JigsawMemoryAllocation::AFK_JigsawMemoryAllocation(
+    std::initializer_list<AFK_JigsawMemoryAllocation::Entry> _entries,
+    unsigned int concurrency,
+    bool useFake3D,
+    const AFK_ClDeviceProperties& _clDeviceProps):
+        entries(_entries)
+{
+    /* Work out the `real' ratios.  I need to multiply up by
+     * the puzzle counts, and also by the byte piece sizes,
+     * since what I've been given is a piece count ratio
+     */
+    float ratioTotal = 0.0f;
+    for (auto e : entries)
+        ratioTotal += e.getBytewiseRatio();
+
+    /* And now that I've got those figures I can cram them into
+     * the space that the CL reports is available (which will be
+     * way less than all of it, so I can assume that there will
+     * be room for mirror buffers in the GL as required, I think)
+     */
+    for (auto eIt = entries.begin(); eIt != entries.end(); ++eIt)
+    {
+        eIt->makeJigsawSize(
+            concurrency,
+            (size_t)(
+                (float)_clDeviceProps.maxMemAllocSize * eIt->getBytewiseRatio() / ratioTotal),
+            _clDeviceProps);
+        if (useFake3D) eIt->setUseFake3D();
+    }
+}
+
+const AFK_JigsawMemoryAllocation::Entry& AFK_JigsawMemoryAllocation::at(unsigned int entry) const
+{
+    return entries.at(entry);
+}
+
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawMemoryAllocation::Entry& _entry)
+{
+    if (_entry.jigsawSizeSet)
+    {
+        os << "Jigsaw memory allocation entry with size " << _entry.jigsawSize << ", using " <<
+            (float)(_entry.getTotalPieceSizeInBytes() * _entry.getPieceCount()) / (1024.0f * 1024.0f) << " MB :" << std::endl;
+    }
+    else
+    {
+        os << "Uncalculated jigsaw memory allocation" << std::endl;
+    }
+
+    for (auto d : _entry.desc) os << d << std::endl;
     return os;
 }
 

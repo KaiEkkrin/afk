@@ -21,6 +21,7 @@
 #include "afk.hpp"
 
 #include "jigsaw.hpp"
+#include "jigsaw_image.hpp"
 
 /* This encapsulates a collection of jigsawed textures, which are used
  * to give out pieces of the same size and usage.
@@ -30,10 +31,8 @@ class AFK_JigsawCollection
 {
 protected:
     std::vector<AFK_JigsawImageDescriptor> desc;
-    AFK_JigsawFake3DDescriptor fake3D;
 
     Vec3<int> jigsawSize;
-    int pieceCount;
     const unsigned int concurrency;
     const unsigned int maxPuzzles;
 
@@ -57,16 +56,11 @@ protected:
 public:
     AFK_JigsawCollection(
         AFK_Computer *_computer,
-        std::initializer_list<AFK_JigsawImageDescriptor> _desc,
-        int _pieceCount,
-        unsigned int minPuzzleCount,
+        const AFK_JigsawMemoryAllocation::Entry& _e,
         const AFK_ClDeviceProperties& _clDeviceProps,
         unsigned int concurrency,
-        bool useFake3D,
         unsigned int _maxPuzzles /* 0 for no maximum */);
     virtual ~AFK_JigsawCollection();
-
-    int getPieceCount(void) const;
 
     /* Gives you a some pieces.  This will usually be quick,
      * but it may stall if we need to add a new jigsaw

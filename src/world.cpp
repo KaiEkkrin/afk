@@ -477,47 +477,115 @@ AFK_World::AFK_World(
         entitySparseness            (config->entitySparseness)
 
 {
-    /* Set up the caches and generator gang. */
-
-    unsigned int tileCacheEntries = tileCacheSize / lSizes.tSize;
+    /* Declare the jigsaw images and decide how big things can be. */
     Vec3<int> tpSize = afk_vec3<int>((int)lSizes.tDim, (int)lSizes.tDim, 1);
     AFK_JigsawBufferUsage tBu = config->clGlSharing ?
         AFK_JigsawBufferUsage::CL_GL_SHARED : AFK_JigsawBufferUsage::CL_GL_COPIED;
+
+    Vec3<int> vpSize = afk_vec3<int>((int)sSizes.tDim, (int)sSizes.tDim, (int)sSizes.tDim);
+
+    /* Each edge piece will have 3 faces horizontally by 2 vertically to
+     * cram the 6 faces together in a better manner than stringing them
+     * in a line.
+     */
+    Vec3<int> epSize = afk_vec3<int>(sSizes.eDim * 3, sSizes.eDim * 2, 1);
+
+    /* I can't use cl_gl sharing along with fake 3D,
+     * because of the need to convert it to proper 3D
+     * for the GL.
+     */
+    AFK_JigsawBufferUsage vBu = (config->clGlSharing && !computer->useFake3DImages(config) ?
+        AFK_JigsawBufferUsage::CL_GL_SHARED : AFK_JigsawBufferUsage::CL_GL_COPIED);
 
     /* Packed 8-bit signed doesn't seem to work with cl_gl sharing */
     AFK_JigsawFormat normalFormat = config->clGlSharing ?
         AFK_JigsawFormat::FLOAT32_4 : AFK_JigsawFormat::FLOAT8_SNORM_4;
 
+    AFK_JigsawMemoryAllocation jigsawAlloc(
+        {
+            /* 0: Landscape */
+            AFK_JigsawMemoryAllocation::Entry(
+                {
+                    AFK_JigsawImageDescriptor( /* Y displacement */
+                        tpSize,
+                        AFK_JigsawFormat::FLOAT32,
+                        AFK_JigsawDimensions::TWO,
+                        tBu
+                    ),
+                    AFK_JigsawImageDescriptor( /* Colour */
+                        tpSize,
+                        AFK_JigsawFormat::FLOAT8_UNORM_4,
+                        AFK_JigsawDimensions::TWO,
+                        tBu
+                    ),
+                    AFK_JigsawImageDescriptor( /* Normal */
+                        tpSize,
+                        normalFormat,
+                        AFK_JigsawDimensions::TWO,
+                        tBu
+                    ),
+                },    
+                2,
+                1.0f),
+
+            /* 1: Vapour */
+            AFK_JigsawMemoryAllocation::Entry(
+                {
+                    AFK_JigsawImageDescriptor( /* Feature: colour and density (TODO: try to split these, colour needs only 8bpc) */
+                        /* TODO *2: Density won't need to be copied to the GL */
+                        vpSize,
+                        AFK_JigsawFormat::FLOAT32_4,
+                        AFK_JigsawDimensions::THREE,
+                        vBu
+                    ),
+                    AFK_JigsawImageDescriptor( /* Normal */
+                        vpSize,
+                        normalFormat,
+                        AFK_JigsawDimensions::THREE,
+                        vBu
+                    )
+                },
+                1, /* TODO: Might want to try the same by-LoD caching trick as with the landscape;
+                    * try counting recomputes in the vapour first
+                    */
+                3.0f),
+
+            /* 2: Edges */
+            AFK_JigsawMemoryAllocation::Entry(
+                {
+                    AFK_JigsawImageDescriptor( /* Displacement. TODO Remove this, push it in the texbuf instead */
+                        epSize,
+                        AFK_JigsawFormat::FLOAT32_4,
+                        AFK_JigsawDimensions::TWO,
+                        tBu
+                    ),
+                    AFK_JigsawImageDescriptor( /* Overlap */
+                        epSize,
+                        AFK_JigsawFormat::UINT32_2,
+                        AFK_JigsawDimensions::TWO,
+                        tBu
+                    )
+                },
+                1,
+                3.0f)
+        },
+        config->concurrency,
+        computer->useFake3DImages(config),
+        computer->getFirstDeviceProps());
+
+    /* Set up the caches and generator gang. */
+
+    unsigned int tileCacheEntries = tileCacheSize / lSizes.tSize;
+
+    std::cout << "AFK_World: Configuring landscape jigsaws with: " << jigsawAlloc.at(0) << std::endl;
     landscapeJigsaws = new AFK_JigsawCollection(
         computer,
-        {
-            AFK_JigsawImageDescriptor( /* Y displacement */
-                tpSize,
-                AFK_JigsawFormat::FLOAT32,
-                AFK_JigsawDimensions::TWO,
-                tBu
-            ),
-            AFK_JigsawImageDescriptor( /* Colour */
-                tpSize,
-                AFK_JigsawFormat::FLOAT8_UNORM_4,
-                AFK_JigsawDimensions::TWO,
-                tBu
-            ),
-            AFK_JigsawImageDescriptor( /* Normal */
-                tpSize,
-                normalFormat,
-                AFK_JigsawDimensions::TWO,
-                tBu
-            ),
-        },
-        (int)tileCacheEntries,
-        2, /* I want at least two, so I can put big tiles only into the first one */
+        jigsawAlloc.at(0),
         computer->getFirstDeviceProps(),
         config->concurrency,
-        false,
         0);
 
-    tileCacheEntries = landscapeJigsaws->getPieceCount();
+    tileCacheEntries = jigsawAlloc.at(0).getPieceCount();
     unsigned int tileCacheBitness = afk_suggestCacheBitness(tileCacheEntries);
 
     landscapeCache = new AFK_LANDSCAPE_CACHE(
@@ -535,68 +603,24 @@ AFK_World::AFK_World(
     worldCache = new AFK_WORLD_CACHE(
         worldCacheBitness, 8, AFK_HashCell(), worldCacheEntries, 0xfffffffeu);
 
-    unsigned int shapeCacheEntries = shapeCacheSize / (32 * SQUARE(sSizes.eDim) * 6 + 16 * CUBE(sSizes.tDim));
+    // TODO: Fix the size of the shape cache (which is no doubt
+    // in a huge mess)
+    //unsigned int shapeCacheEntries = shapeCacheSize / (32 * SQUARE(sSizes.eDim) * 6 + 16 * CUBE(sSizes.tDim));
 
-    Vec3<int> vpSize = afk_vec3<int>((int)sSizes.tDim, (int)sSizes.tDim, (int)sSizes.tDim);
-
-    /* I can't use cl_gl sharing along with fake 3D,
-     * because of the need to convert it to proper 3D
-     * for the GL.
-     */
-    AFK_JigsawBufferUsage vBu = (config->clGlSharing && !computer->useFake3DImages(config) ?
-        AFK_JigsawBufferUsage::CL_GL_SHARED : AFK_JigsawBufferUsage::CL_GL_COPIED);
-
+    std::cout << "AFK_World: Configuring vapour jigsaws with: " << jigsawAlloc.at(1) << std::endl;
     vapourJigsaws = new AFK_JigsawCollection(
         computer,
-        {
-            AFK_JigsawImageDescriptor( /* Feature: colour and density (TODO: try to split these, colour needs only 8bpc) */
-                /* TODO *2: Density won't need to be copied to the GL */
-                vpSize,
-                AFK_JigsawFormat::FLOAT32_4,
-                AFK_JigsawDimensions::THREE,
-                vBu
-            ),
-            AFK_JigsawImageDescriptor( /* Normal */
-                vpSize,
-                normalFormat,
-                AFK_JigsawDimensions::THREE,
-                vBu
-            )
-        },
-        (int)shapeCacheEntries,
-        1,
+        jigsawAlloc.at(1),
         computer->getFirstDeviceProps(),
         config->concurrency,
-        computer->useFake3DImages(config),
         AFK_MAX_VAPOUR);
 
-    /* Each edge piece will have 3 faces horizontally by 2 vertically to
-     * cram the 6 faces together in a better manner than stringing them
-     * in a line.
-     */
-    Vec3<int> edgePieceSize = afk_vec3<int>(sSizes.eDim * 3, sSizes.eDim * 2, 1);
-
+    std::cout << "AFK_World: Configuring edge jigsaws with: " << jigsawAlloc.at(2) << std::endl;
     edgeJigsaws = new AFK_JigsawCollection(
         computer,
-        {
-            AFK_JigsawImageDescriptor( /* Displacement. TODO Shrink this to eDim==1 pieces */
-                edgePieceSize,
-                AFK_JigsawFormat::FLOAT32_4,
-                AFK_JigsawDimensions::TWO,
-                tBu
-            ),
-            AFK_JigsawImageDescriptor( /* Overlap */
-                edgePieceSize,
-                AFK_JigsawFormat::UINT32_2,
-                AFK_JigsawDimensions::TWO,
-                tBu
-            )
-        },
-        (int)shapeCacheEntries,
-        1,
+        jigsawAlloc.at(2),
         computer->getFirstDeviceProps(),
         config->concurrency,
-        false,
         0);
 
     genGang = new AFK_AsyncGang<union AFK_WorldWorkParam, bool>(

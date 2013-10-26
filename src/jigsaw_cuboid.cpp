@@ -34,7 +34,7 @@ AFK_JigsawCuboid::AFK_JigsawCuboid(const AFK_JigsawCuboid& other):
     columns.store(other.columns.load());
 }
 
-AFK_JigsawCuboid AFK_JigsawCuboid::operator=(const AFK_JigsawCuboid& other)
+AFK_JigsawCuboid& AFK_JigsawCuboid::operator=(const AFK_JigsawCuboid& other)
 {
     r = other.r;
     c = other.c;

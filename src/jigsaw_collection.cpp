@@ -59,73 +59,21 @@ AFK_Jigsaw *AFK_JigsawCollection::makeNewJigsaw(AFK_Computer *computer) const
 
 AFK_JigsawCollection::AFK_JigsawCollection(
     AFK_Computer *_computer,
-    std::initializer_list<AFK_JigsawImageDescriptor> _desc,
-    int _pieceCount,
-    unsigned int minPuzzleCount,
+    const AFK_JigsawMemoryAllocation::Entry& _e,
     const AFK_ClDeviceProperties& _clDeviceProps,
     unsigned int _concurrency,
-    bool useFake3D,
     unsigned int _maxPuzzles):
-        desc(_desc),
-        pieceCount(_pieceCount),
+        jigsawSize(_e.getJigsawSize()),
         concurrency(_concurrency),
         maxPuzzles(_maxPuzzles)
 {
-    assert(maxPuzzles == 0 || maxPuzzles >= minPuzzleCount);
+    assert(maxPuzzles == 0 || maxPuzzles >= _e.getPuzzleCount());
 
-    for (auto dInit : _desc)
-    {
-        desc.push_back(dInit);
-    }
+    for (auto d = _e.beginDescriptors(); d != _e.endDescriptors(); ++d)
+        desc.push_back(*d);
 
-    /* Figure out a jigsaw size, by going through all the image
-     * descriptors and picking the minimum jigsaw size that fits
-     * all of them.
-     */
-    std::cout << "AFK_JigsawCollection: Requested " << std::dec << " pieces..." << std::endl;
-    jigsawSize = afk_vec3<int>(INT_MAX, INT_MAX, INT_MAX);
-    for (auto d : desc)
-    {
-        Vec3<int> dSize = d.getJigsawSize(pieceCount, concurrency, _clDeviceProps);
-        std::cout << "AFK_JigsawCollection: " << d << " makes a jigsaw of size " << dSize << std::endl;
-        jigsawSize.v[0] = std::min(jigsawSize.v[0], dSize.v[0]);
-        jigsawSize.v[1] = std::min(jigsawSize.v[1], dSize.v[1]);
-        jigsawSize.v[2] = std::min(jigsawSize.v[2], dSize.v[2]);
-    }
-
-    std::cout << "AFK_JigsawCollection: Using jigsaw size " << jigsawSize << std::endl;
-
-    /* Update the dimensions and actual piece count to reflect what I found */
-    unsigned int jigsawCount = pieceCount / (jigsawSize.v[0] * jigsawSize.v[1] * jigsawSize.v[2]) + 1;
-    if (jigsawCount < minPuzzleCount) jigsawCount = minPuzzleCount;
-    pieceCount = jigsawCount * jigsawSize.v[0] * jigsawSize.v[1] * jigsawSize.v[2];
-
-    std::cout << "AFK_JigsawCollection: Making " << jigsawCount << " jigsaws with " << jigsawSize << " pieces each (actually " << pieceCount << " pieces)" << std::endl;
-
-    if (useFake3D)
-    {
-        for (auto d = desc.begin(); d != desc.end(); ++d)
-        {
-            d->setUseFake3D(jigsawSize);
-        }
-
-        /* I won't try to execute the below jigsaw size calculation for the
-         * 2D piece separately.  Typical size limits are much lower for 3D
-         * textures, so it's very unlikely I'll run into a size limit on the
-         * 2D one when I didn't get one for 3D.
-         */
-    }
-
-    std::cout << "AFK_JigsawCollection: Using jigsaw descriptors:" << std::endl;
-    for (auto d : desc)
-    {
-        std::cout << d << std::endl;
-    }
-
-    for (unsigned int j = 0; j < jigsawCount; ++j)
-    {
+    for (unsigned int j = 0; j < _e.getPuzzleCount(); ++j)
         puzzles.push_back(makeNewJigsaw(_computer));
-    }
 
     spare = makeNewJigsaw(_computer);
 
@@ -136,11 +84,6 @@ AFK_JigsawCollection::~AFK_JigsawCollection()
 {
     for (auto p : puzzles) delete p;
     if (spare) delete spare;
-}
-
-int AFK_JigsawCollection::getPieceCount(void) const
-{
-    return pieceCount;
 }
 
 void AFK_JigsawCollection::grab(
@@ -180,17 +123,22 @@ void AFK_JigsawCollection::grab(
 
     mut.unlock_upgrade_and_lock();
 
-    if (spare)
+    /* remember to re-check whether we tried all puzzles, someone else
+     * might've just gone through here and chucked the spare in
+     */
+    if (puzzle == (int)puzzles.size())
     {
-        puzzles.push_back(spare);
-        spare = nullptr;
-    }
-
-    if ((int)puzzles.size() == puzzle)
-    {
-        /* Properly out of room.  Failed. */
-        mut.unlock();
-        throw AFK_Exception("Jigsaw ran out of room");
+        if (spare)
+        {
+            puzzles.push_back(spare);
+            spare = nullptr;
+        }
+        else
+        {
+            /* Properly out of room.  Failed. */
+            mut.unlock();
+            throw AFK_Exception("Jigsaw ran out of room");
+        }
     }
 
     mut.unlock();

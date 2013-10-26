@@ -42,7 +42,7 @@ public:
     AFK_JigsawCuboid(int _r, int _c, int _s, int _rows, int _slices);
 
     AFK_JigsawCuboid(const AFK_JigsawCuboid& other);
-    AFK_JigsawCuboid operator=(const AFK_JigsawCuboid& other);
+    AFK_JigsawCuboid& operator=(const AFK_JigsawCuboid& other);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_JigsawCuboid& sr);
 };

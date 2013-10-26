@@ -77,7 +77,7 @@ public:
     AFK_JigsawFormatDescriptor(AFK_JigsawFormat);
 
     AFK_JigsawFormatDescriptor(const AFK_JigsawFormatDescriptor& _fd);
-    AFK_JigsawFormatDescriptor operator=(const AFK_JigsawFormatDescriptor& _fd);
+    AFK_JigsawFormatDescriptor& operator=(const AFK_JigsawFormatDescriptor& _fd);
 };
 
 std::ostream& operator<<(std::ostream& os, const AFK_JigsawFormatDescriptor& _format);
@@ -111,7 +111,7 @@ public:
 
     AFK_JigsawFake3DDescriptor(bool _useFake3D, const Vec3<int>& _fakeSize);
     AFK_JigsawFake3DDescriptor(const AFK_JigsawFake3DDescriptor& _fake3D);
-    AFK_JigsawFake3DDescriptor operator=(const AFK_JigsawFake3DDescriptor& _fake3D);
+    AFK_JigsawFake3DDescriptor& operator=(const AFK_JigsawFake3DDescriptor& _fake3D);
 
     bool getUseFake3D(void) const;
     Vec3<int> get2DSize(void) const;
@@ -144,15 +144,12 @@ public:
         AFK_JigsawBufferUsage _bufferUsage);
 
     AFK_JigsawImageDescriptor(const AFK_JigsawImageDescriptor& _desc);
-    AFK_JigsawImageDescriptor operator=(const AFK_JigsawImageDescriptor& _desc);
+    AFK_JigsawImageDescriptor& operator=(const AFK_JigsawImageDescriptor& _desc);
 
-    /* Finds the biggest jigsaw dimensions that the GL will
-     * accept for this image.
-     * For 2D images, the slices value will be 1.
+    /* This utility function checks whether a jigsaw size would be OK.
      */
-    Vec3<int> getJigsawSize(
-        int pieceCount,
-        unsigned int concurrency,
+    bool isJigsawSizeOK(
+        const Vec3<int>& jigsawSize,
         const AFK_ClDeviceProperties& _clDeviceProps) const;
 
     /* Enables fake 3D. */
@@ -166,6 +163,78 @@ public:
 };
 
 std::ostream& operator<<(std::ostream& os, const AFK_JigsawImageDescriptor& _desc);
+
+/* This object helps split available memory between a collection of
+ * jigsaws, and assigns the fake 3D property.
+ */
+class AFK_JigsawMemoryAllocation
+{
+public:
+    class Entry
+    {
+    protected:
+        /* Initial entries. */
+        std::vector<AFK_JigsawImageDescriptor>   desc;
+        unsigned int                puzzleCount;
+        float                       ratio; /* ratio of *piece counts* */
+
+        /* Dimensions pull-out (these should be the same between descriptors
+         * in the same entry)
+         */
+        AFK_JigsawDimensions        dimensions;
+
+        /* This get computed. */
+        Vec3<int>                   jigsawSize;
+        bool                        jigsawSizeSet;
+
+    public:
+        Entry(
+            std::initializer_list<AFK_JigsawImageDescriptor> _desc,
+            unsigned int _puzzleCount,
+            float _ratio);
+
+        /* Gets a sum of all the piece sizes (so that bytewise ratios
+         * can be worked out)
+         */
+        size_t getTotalPieceSizeInBytes(void) const;
+
+        /* Gets a bytewise piece size ratio. */
+        float getBytewiseRatio(void) const;
+
+        /* Fills out a maximum jigsaw size that will fit all the
+         * descriptors here.
+         */
+        void makeJigsawSize(
+            unsigned int concurrency,
+            size_t maxSizeInBytes,
+            const AFK_ClDeviceProperties& _clDeviceProps);
+
+        void setUseFake3D(void);
+
+        unsigned int getPieceCount(void) const; /* per-puzzle */
+        unsigned int getPuzzleCount(void) const;
+        Vec3<int> getJigsawSize(void) const;
+
+        std::vector<AFK_JigsawImageDescriptor>::const_iterator beginDescriptors() const;
+        std::vector<AFK_JigsawImageDescriptor>::const_iterator endDescriptors() const;
+
+        friend std::ostream& operator<<(std::ostream& os, const Entry& _entry);
+    };
+
+protected:
+    std::vector<Entry> entries;
+
+public:
+    AFK_JigsawMemoryAllocation(
+        std::initializer_list<Entry> _entries,
+        unsigned int concurrency,
+        bool useFake3D,
+        const AFK_ClDeviceProperties& _clDeviceProps);
+
+    const AFK_JigsawMemoryAllocation::Entry& at(unsigned int entry) const;
+};
+
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawMemoryAllocation::Entry& _entry);
 
 /* Note that AFK_JigsawImage is _not synchronized_: the synchronization is
  * done in the Jigsaw.

@@ -338,7 +338,15 @@ AFK_Jigsaw::AFK_Jigsaw(
         }
     }
 
-    sweepPosition = getSweepTarget(afk_vec2<int>(0, 0));
+    /* Start the sweep position as far through the jigsaw as I
+     * can whilst still being on a concurrency boundary
+     * (which is expected, because cuboids occupy `concurrency'
+     * rows each)
+     */
+    sweepPosition = afk_vec2<int>(
+        jigsawSize.v[0] - 1,
+        jigsawSize.v[2] - 1);
+    sweepPosition.v[0] -= (sweepPosition.v[0] % concurrency);
 
     /* Make a starting update cuboid. */
     if (!startNewCuboid(

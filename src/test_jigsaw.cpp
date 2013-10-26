@@ -47,27 +47,31 @@ void afk_testJigsaw(
      * texture -- verify that the values come out OK and don't
      * trample each other either.
      */
-    const int testIterations = 1000;
-    int startingPieceCount = 400;
+    const int testIterations = 50;
+
+    AFK_JigsawMemoryAllocation testAllocation(
+        {
+            AFK_JigsawMemoryAllocation::Entry(
+                {
+                    AFK_JigsawImageDescriptor(
+                        afk_vec3<int>(9, 9, 1),
+                        AFK_JigsawFormat::FLOAT32_4,
+                        AFK_JigsawDimensions::TWO,
+                        AFK_JigsawBufferUsage::CL_ONLY)
+                },
+                4,
+                1.0f),
+        },
+        config->concurrency,
+        computer->useFake3DImages(config),
+        computer->getFirstDeviceProps());
 
     AFK_JigsawCollection testCollection(
         computer,
-        {
-            AFK_JigsawImageDescriptor(
-                afk_vec3<int>(9, 9, 1),
-                AFK_JigsawFormat::FLOAT32_4,
-                AFK_JigsawDimensions::TWO,
-                AFK_JigsawBufferUsage::CL_ONLY)
-        },
-        startingPieceCount,
-        4,
+        testAllocation.at(0),
         computer->getFirstDeviceProps(),
         config->concurrency,
-        false,
         0);
-
-    int pieceCount = testCollection.getPieceCount();
-    assert(pieceCount >= startingPieceCount);
 
     AFK_Frame frame;
     frame.increment();
@@ -75,7 +79,7 @@ void afk_testJigsaw(
 
     for (int i = 0; i < testIterations; ++i)
     {
-        int piecesThisFrame = rand() % (config->concurrency * pieceCount / 4);
+        int piecesThisFrame = rand() % (config->concurrency * testAllocation.at(0).getPieceCount() / 4);
         std::cout << "Test frame " << frame << ": Getting " << piecesThisFrame << " pieces" << std::endl;
 
         /* Here, I map each piece that I've drawn to its timestamp. */
