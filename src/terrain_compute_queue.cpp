@@ -19,6 +19,7 @@
 
 #include <sstream>
 
+#include "compute_dependency.hpp"
 #include "computer.hpp"
 #include "exception.hpp"
 #include "landscape_tile.hpp"
@@ -160,9 +161,9 @@ void AFK_TerrainComputeQueue::computeStart(
     /* Set up the rest of the terrain parameters */
     Vec4<float> baseColour4 = afk_vec4<float>(baseColour, 0.0f);
 
-    preTerrainWaitList.clear();
-    cl_mem jigsawYDispMem = jigsaw->acquireForCl(0, preTerrainWaitList);
-    cl_mem jigsawColourMem = jigsaw->acquireForCl(1, preTerrainWaitList);
+    AFK_ComputeDependency preTerrainDep(computer);
+    cl_mem jigsawYDispMem = jigsaw->acquireForCl(0, preTerrainDep);
+    cl_mem jigsawColourMem = jigsaw->acquireForCl(1, preTerrainDep);
 
     AFK_CLCHK(computer->oclShim.SetKernelArg()(terrainKernel, 0, sizeof(cl_mem), &terrainBufs[0]))
     AFK_CLCHK(computer->oclShim.SetKernelArg()(terrainKernel, 1, sizeof(cl_mem), &terrainBufs[1]))
@@ -175,17 +176,12 @@ void AFK_TerrainComputeQueue::computeStart(
     terrainDim[0] = terrainDim[1] = lSizes.tDim;
     terrainDim[2] = unitCount;
 
-    cl_event terrainEvent;
+    AFK_ComputeDependency preSurfaceDep(computer);
 
     AFK_CLCHK(computer->oclShim.EnqueueNDRangeKernel()(q, terrainKernel, 3, nullptr, &terrainDim[0], nullptr,
-        preTerrainWaitList.size(),
-        &preTerrainWaitList[0],
-        &terrainEvent))
-
-    for (auto ev : preTerrainWaitList)
-    {
-        AFK_CLCHK(computer->oclShim.ReleaseEvent()(ev))
-    }
+        preTerrainDep.getEventCount(),
+        preTerrainDep.getEvents(),
+        preSurfaceDep.addEvent()))
 
     /* For the next two I'm going to need this ...
      */
@@ -197,9 +193,7 @@ void AFK_TerrainComputeQueue::computeStart(
         &error);
     AFK_HANDLE_CL_ERROR(error);
 
-    preSurfaceWaitList.clear();
-    preSurfaceWaitList.push_back(terrainEvent);
-    cl_mem jigsawNormalMem = jigsaw->acquireForCl(2, preSurfaceWaitList);
+    cl_mem jigsawNormalMem = jigsaw->acquireForCl(2, preSurfaceDep);
 
     /* Now, I need to run the kernel to bake the surface normals.
      */
@@ -216,10 +210,10 @@ void AFK_TerrainComputeQueue::computeStart(
     surfaceLocalDim[0] = surfaceLocalDim[1] = lSizes.tDim - 1;
     surfaceLocalDim[2] = 1;
 
-    cl_event surfaceEvent, yReduceEvent;
+    AFK_ComputeDependency postTerrainDep(computer);
 
     AFK_CLCHK(computer->oclShim.EnqueueNDRangeKernel()(q, surfaceKernel, 3, 0, &surfaceGlobalDim[0], &surfaceLocalDim[0],
-        preSurfaceWaitList.size(), &preSurfaceWaitList[0], &surfaceEvent))
+        preSurfaceDep.getEventCount(), preSurfaceDep.getEvents(), postTerrainDep.addEvent()))
 
     /* Finally, do the y reduce. */
     yReduce->compute(
@@ -228,32 +222,20 @@ void AFK_TerrainComputeQueue::computeStart(
         &jigsawYDispMem,
         &jigsawYDispSampler,
         lSizes,
-        preSurfaceWaitList.size(),
-        &preSurfaceWaitList[0],
-        &yReduceEvent);
-
-    postTerrainWaitList.clear();
-    postTerrainWaitList.push_back(surfaceEvent);
-    postTerrainWaitList.push_back(yReduceEvent);
+        preSurfaceDep,
+        postTerrainDep);
 
     /* Release the things */
     AFK_CLCHK(computer->oclShim.ReleaseSampler()(jigsawYDispSampler))
-
-    for (auto ev : preSurfaceWaitList)
-    {
-        if (ev) AFK_CLCHK(computer->oclShim.ReleaseEvent()(ev))
-    }
 
     for (unsigned int i = 0; i < 3; ++i)
     {
         AFK_CLCHK(computer->oclShim.ReleaseMemObject()(terrainBufs[i]))
     }
 
-    jigsaw->releaseFromCl(0, postTerrainWaitList);
-    jigsaw->releaseFromCl(1, postTerrainWaitList);
-    jigsaw->releaseFromCl(2, postTerrainWaitList);
-    AFK_CLCHK(computer->oclShim.ReleaseEvent()(surfaceEvent))
-    AFK_CLCHK(computer->oclShim.ReleaseEvent()(yReduceEvent))
+    jigsaw->releaseFromCl(0, postTerrainDep);
+    jigsaw->releaseFromCl(1, postTerrainDep);
+    jigsaw->releaseFromCl(2, postTerrainDep);
 
     computer->unlock();
 }

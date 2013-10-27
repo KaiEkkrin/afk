@@ -273,11 +273,11 @@ protected:
     void getClChangeData(
         const std::vector<AFK_JigsawCuboid>& drawCuboids,
         cl_command_queue q,
-        const std::vector<cl_event>& eventWaitList);
+        const AFK_ComputeDependency& dep);
     void getClChangeDataFake3D(
         const std::vector<AFK_JigsawCuboid>& drawCuboids,
         cl_command_queue q,
-        const std::vector<cl_event>& eventWaitList);
+        const AFK_ComputeDependency& dep);
     void putClChangeData(const std::vector<AFK_JigsawCuboid>& drawCuboids);
 
 public:

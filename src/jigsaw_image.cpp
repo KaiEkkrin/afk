@@ -764,7 +764,7 @@ void AFK_JigsawImage::initClImageFromGlImage(const Vec3<int>& _jigsawSize)
 void AFK_JigsawImage::getClChangeData(
     const std::vector<AFK_JigsawCuboid>& drawCuboids,
     cl_command_queue q,
-    const AFK_ChangeDependency& dep)
+    const AFK_ComputeDependency& dep)
 {
     size_t pieceSizeInBytes = desc.getPieceSizeInBytes();
 
@@ -982,7 +982,7 @@ cl_mem AFK_JigsawImage::acquireForCl(AFK_ComputeDependency& o_dep)
         /* If there are leftover events the caller needs to wait
          * for them ...
          */
-        o_dep += changeEvents;
+        o_dep += changeDep;
         break;
     }
 
@@ -1056,7 +1056,7 @@ void AFK_JigsawImage::bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboi
 
     case AFK_JigsawBufferUsage::GL_ONLY:
         /* I shouldn't have any change events to worry about. */
-        assert(changeEvents.size() == 0);
+        assert(changeDep.getEventCount() == 0);
         glBindTexture(desc.getGlTarget(), glTex);
         break;
 

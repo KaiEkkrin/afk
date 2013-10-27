@@ -21,7 +21,7 @@
 #include "yreduce.hpp"
 
 AFK_YReduce::AFK_YReduce(AFK_Computer *_computer):
-    computer(_computer), buf(0), bufSize(0), readback(nullptr), readbackSize(0), readbackEvent(0)
+    computer(_computer), buf(0), bufSize(0), readback(nullptr), readbackSize(0), readbackDep(computer)
 {
     if (!computer->findKernel("makeLandscapeYReduce", yReduceKernel))
         throw AFK_Exception("Cannot find Y-reduce kernel");
@@ -30,7 +30,6 @@ AFK_YReduce::AFK_YReduce(AFK_Computer *_computer):
 AFK_YReduce::~AFK_YReduce()
 {
     if (buf) computer->oclShim.ReleaseMemObject()(buf);
-    if (readbackEvent) computer->oclShim.ReleaseEvent()(readbackEvent);
     if (readback != nullptr) delete[] readback;
 }
 
@@ -40,9 +39,8 @@ void AFK_YReduce::compute(
     cl_mem *jigsawYDisp,
     cl_sampler *yDispSampler,
     const AFK_LandscapeSizes& lSizes,
-    cl_uint eventsInWaitList,
-    const cl_event *eventWaitList,
-    cl_event *o_event)
+    const AFK_ComputeDependency& preDep,
+    AFK_ComputeDependency& o_postDep)
 {
     cl_int error;
 
@@ -82,7 +80,7 @@ void AFK_YReduce::compute(
     yReduceLocalDim[1] = 1;
 
     AFK_CLCHK(computer->oclShim.EnqueueNDRangeKernel()(q, yReduceKernel, 2, 0, &yReduceGlobalDim[0], &yReduceLocalDim[0],
-        eventsInWaitList, eventWaitList, o_event))
+        preDep.getEventCount(), preDep.getEvents(), o_postDep.addEvent()))
 
     size_t requiredReadbackSize = requiredSize / sizeof(float);
     if (readbackSize < requiredReadbackSize)
@@ -100,7 +98,7 @@ void AFK_YReduce::compute(
      */
     AFK_CLCHK(computer->oclShim.EnqueueReadBuffer()(q, buf,
         afk_core.computer->isAMD() ? CL_TRUE : CL_FALSE,
-        0, requiredSize, readback, 1, o_event, &readbackEvent))
+        0, requiredSize, readback, o_postDep.getEventCount(), o_postDep.getEvents(), readbackDep.addEvent()))
 
     computer->unlock();
 }
@@ -109,12 +107,7 @@ void AFK_YReduce::readBack(
     unsigned int unitCount,
     std::vector<AFK_LandscapeTile*>& landscapeTiles)
 {
-    if (!readbackEvent) return;
-
-    AFK_CLCHK(computer->oclShim.WaitForEvents()(1, &readbackEvent))
-    AFK_CLCHK(computer->oclShim.ReleaseEvent()(readbackEvent))
-    readbackEvent = 0;
-
+    readbackDep.waitFor();
 #if 0
     std::cout << "Computed y bounds: ";
     for (unsigned int i = 0; i < 4 && i < unitCount; ++i)
