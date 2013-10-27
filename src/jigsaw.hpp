@@ -30,6 +30,7 @@
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
+#include "compute_dependency.hpp"
 #include "computer.hpp"
 #include "data/frame.hpp"
 #include "data/moving_average.hpp"
@@ -278,13 +279,14 @@ public:
      */
 
     /* Acquires an image for the CL.
-     * Fills out `o_events' with events you need to wait for
-     * before the images are ready (none or more)
+     * Fills out the given compute dependency as required.
      */
-    cl_mem acquireForCl(unsigned int tex, std::vector<cl_event>& o_events);
+    cl_mem acquireForCl(unsigned int tex, AFK_ComputeDependency& o_dep);
 
-    /* Releases an image from the CL. */
-    void releaseFromCl(unsigned int tex, const std::vector<cl_event>& eventWaitList);
+    /* Releases an image from the CL,
+     * waiting for the given dependency.
+     */
+    void releaseFromCl(unsigned int tex, const AFK_ComputeDependency& dep);
 
     /* Binds an image to the GL as a texture.
      * Expects you to have set glActiveTexture() appropriately first!

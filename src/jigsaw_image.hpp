@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "def.hpp"
+#include "compute_dependency.hpp"
 #include "computer.hpp"
 #include "jigsaw_cuboid.hpp"
 
@@ -256,10 +257,10 @@ protected:
      */
     std::vector<uint8_t> changeData;
 
-    /* If bufferUsage is cl gl copied, these are the events I need to
-     * wait on before I can push data to the GL.
+    /* This is the dependency to wait on before the change data is
+     * ready.
      */
-    std::vector<cl_event> changeEvents;
+    AFK_ComputeDependency changeDep;
 
     /* These functions initialise the images in various ways. */
     void initClImage(const Vec3<int>& _jigsawSize);
@@ -297,10 +298,10 @@ public:
      */
 
     /* Acquires this image for the CL. */
-    cl_mem acquireForCl(std::vector<cl_event>& o_events);
+    cl_mem acquireForCl(AFK_ComputeDependency& o_dep);
 
     /* Releases this image from the CL. */
-    void releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCuboids, const std::vector<cl_event>& eventWaitList);
+    void releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCuboids, const AFK_ComputeDependency& dep);
 
     /* Binds this image to the GL as a texture. */
     void bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboids);

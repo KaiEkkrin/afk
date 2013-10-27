@@ -367,6 +367,7 @@ void AFK_Computer::printBuildLog(std::ostream& s, const struct AFK_ClProgram& p,
 AFK_Computer::AFK_Computer(const AFK_Config *config):
     platform(0),
     platformProps(NULL),
+    async(config->async),
     devices(NULL),
     devicesSize(0),
     firstDeviceProps(NULL),
@@ -397,9 +398,16 @@ AFK_Computer::AFK_Computer(const AFK_Config *config):
 
     if (!devices) throw AFK_Exception("No cl_gl devices found");
 
-    /* TODO Multiple queues for multiple devices? */
+    /* TODO Multiple queues for multiple devices?
+     * TODO *2: Split the queue out into a separate class and
+     * try to nicely wrap the queued functions ...?
+     */
     cl_int error;
-    q = oclShim.CreateCommandQueue()(ctxt, devices[0], CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &error);
+    q = oclShim.CreateCommandQueue()(
+        ctxt,
+        devices[0],
+        async ? CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE : 0,
+        &error);
     AFK_HANDLE_CL_ERROR(error);
 }
 
@@ -485,6 +493,11 @@ bool AFK_Computer::testVersion(unsigned int majorVersion, unsigned int minorVers
 {
     return (platformProps->majorVersion > majorVersion ||
         (platformProps->majorVersion == majorVersion && platformProps->minorVersion >= minorVersion));
+}
+
+bool AFK_Computer::useAsync(void) const
+{
+    return async;
 }
 
 bool AFK_Computer::isAMD(void) const

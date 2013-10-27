@@ -764,11 +764,10 @@ void AFK_JigsawImage::initClImageFromGlImage(const Vec3<int>& _jigsawSize)
 void AFK_JigsawImage::getClChangeData(
     const std::vector<AFK_JigsawCuboid>& drawCuboids,
     cl_command_queue q,
-    const std::vector<cl_event>& eventWaitList)
+    const AFK_ChangeDependency& dep)
 {
     size_t pieceSizeInBytes = desc.getPieceSizeInBytes();
 
-    unsigned int changeEvent = 0;
     size_t changeDataOffset = 0;
     for (unsigned int cI = 0; cI < drawCuboids.size(); ++cI)
     {
@@ -791,12 +790,10 @@ void AFK_JigsawImage::getClChangeData(
         region[2] = drawCuboids[cI].slices * desc.pieceSize.v[2];
 
         changeData.resize(changeDataOffset + cuboidSizeInBytes);
-        changeEvents.resize(changeEvent + 1);
   
         AFK_CLCHK(computer->oclShim.EnqueueReadImage()(
             q, clTex, CL_FALSE, origin, region, 0, 0, &changeData[changeDataOffset],
-                eventWaitList.size(), &eventWaitList[0], &changeEvents[changeEvent]))
-        ++changeEvent;
+                dep.getEventCount(), dep.getEvents(), changeDep.addEvent()))
         changeDataOffset += cuboidSizeInBytes;
     }
 }
@@ -804,12 +801,11 @@ void AFK_JigsawImage::getClChangeData(
 void AFK_JigsawImage::getClChangeDataFake3D(
     const std::vector<AFK_JigsawCuboid>& drawCuboids,
     cl_command_queue q,
-    const std::vector<cl_event>& eventWaitList)
+    const AFK_ComputeDependency& dep)
 {
     size_t pieceSliceSizeInBytes = desc.format.texelSize * desc.pieceSize.v[0] * desc.pieceSize.v[1];
     assert(pieceSliceSizeInBytes > 0);
 
-    unsigned int changeEvent = 0;
     size_t changeDataOffset = 0;
     for (unsigned int cI = 0; cI < drawCuboids.size(); ++cI)
     {
@@ -843,12 +839,10 @@ void AFK_JigsawImage::getClChangeDataFake3D(
                 region[2] = 1;
 
                 changeData.resize(changeDataOffset + cuboidSliceSizeInBytes);
-                changeEvents.resize(changeEvent + 1);
 
                 AFK_CLCHK(computer->oclShim.EnqueueReadImage()(
                     q, clTex, CL_FALSE, origin, region, 0, 0, &changeData[changeDataOffset],
-                        eventWaitList.size(), &eventWaitList[0], &changeEvents[changeEvent]))
-                ++changeEvent;
+                        dep.getEventCount(), dep.getEvents(), changeDep.addEvent()))
                 changeDataOffset += cuboidSliceSizeInBytes;
             }
         }
@@ -911,7 +905,8 @@ AFK_JigsawImage::AFK_JigsawImage(
         computer(_computer),
         glTex(0),
         clTex(0),
-        desc(_desc)
+        desc(_desc),
+        changeDep(_computer)
 {
     switch (desc.bufferUsage)
     {
@@ -942,8 +937,6 @@ AFK_JigsawImage::AFK_JigsawImage(
 AFK_JigsawImage::~AFK_JigsawImage()
 {
     if (clTex) computer->oclShim.ReleaseMemObject()(clTex);
-    for (auto ev : changeEvents)
-        if (ev) computer->oclShim.ReleaseEvent()(ev);
     if (glTex) glDeleteTextures(1, &glTex);
 }
 
@@ -969,7 +962,7 @@ int AFK_JigsawImage::getFake3D_mult(void) const
     return desc.fake3D.getUseFake3D() ? desc.fake3D.getMult() : 0;
 }
 
-cl_mem AFK_JigsawImage::acquireForCl(std::vector<cl_event>& o_events)
+cl_mem AFK_JigsawImage::acquireForCl(AFK_ComputeDependency& o_dep)
 {
     cl_context ctxt;
     cl_command_queue q;
@@ -982,27 +975,14 @@ cl_mem AFK_JigsawImage::acquireForCl(std::vector<cl_event>& o_events)
         throw AFK_Exception("Called acquireForCl() on jigsaw image without CL");
 
     case AFK_JigsawBufferUsage::CL_GL_SHARED:
-        cl_event acquireEvent;
-        AFK_CLCHK(computer->oclShim.EnqueueAcquireGLObjects()(q, 1, &clTex, changeEvents.size(), &changeEvents[0], &acquireEvent))
-        for (auto ev : changeEvents)
-        {
-            AFK_CLCHK(computer->oclShim.ReleaseEvent()(ev))
-        }
-        changeEvents.clear();
-        o_events.push_back(acquireEvent);
+        AFK_CLCHK(computer->oclShim.EnqueueAcquireGLObjects()(q, 1, &clTex, changeDep.getEventCount(), changeDep.getEvents(), o_dep.addEvent()))
         break;
 
     default:
-        /* Make sure the change state is reset so that I can start
-         * accumulating new changes
-         * If there are leftover events the caller needs to wait
+        /* If there are leftover events the caller needs to wait
          * for them ...
          */
-        for (auto ev : changeEvents)
-        {
-            AFK_CLCHK(computer->oclShim.RetainEvent()(ev))
-            o_events.push_back(ev);
-        }
+        o_dep += changeEvents;
         break;
     }
 
@@ -1010,7 +990,7 @@ cl_mem AFK_JigsawImage::acquireForCl(std::vector<cl_event>& o_events)
     return clTex;
 }
 
-void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCuboids, const std::vector<cl_event>& eventWaitList)
+void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCuboids, const AFK_ComputeDependency& dep)
 {
     std::vector<cl_event> allWaitList;
 
@@ -1028,26 +1008,18 @@ void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCub
         /* The supplied events get retained and fed into the
          * change event list, so that they can be waited for
          * upon any subsequent acquire.
+         * This replaces any prior events (which the caller
+         * had to wait for, directly or indirectly, by calling
+         * acquireForCl() earlier.)
          */
-        for (auto ev : eventWaitList)
-        {
-            AFK_CLCHK(computer->oclShim.RetainEvent()(ev))
-            changeEvents.push_back(ev);
-        }
+        changeDep = dep;
         break;
 
     case AFK_JigsawBufferUsage::CL_GL_COPIED:
         /* Make sure that anything pending with that change data has been
          * finished up because I'm about to re-use the buffer.
          */
-        if (changeEvents.size() > 0)
-        {
-            AFK_CLCHK(computer->oclShim.WaitForEvents()(changeEvents.size(), &changeEvents[0]))
-            for (auto ev : changeEvents)
-            {
-                AFK_CLCHK(computer->oclShim.ReleaseEvent()(ev))
-            }
-        }
+        changeDep.waitFor();
 
         /* Now, read back all the pieces, appending the data to `changeData'
          * in order.
@@ -1055,30 +1027,18 @@ void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCub
          * will be okay!
          */
         if (desc.fake3D.getUseFake3D())
-            getClChangeDataFake3D(drawCuboids, q, eventWaitList);
+            getClChangeDataFake3D(drawCuboids, q, dep);
         else
-            getClChangeData(drawCuboids, q, eventWaitList);
+            getClChangeData(drawCuboids, q, dep);
         break;
 
     case AFK_JigsawBufferUsage::CL_GL_SHARED:
-        /* A release here is contingent on any old change events
-         * being finished, of course.
+        /* Make sure that anything pending with that change data has been
+         * finished up because I'm about to re-use the buffer.
          */
-        allWaitList.reserve(eventWaitList.size() + changeEvents.size());
-        for (auto ev : eventWaitList)
-        {
-            AFK_CLCHK(computer->oclShim.RetainEvent()(ev))
-            allWaitList.push_back(ev);
-        }
-        std::copy(changeEvents.begin(), changeEvents.end(), allWaitList.end());
+        changeDep.waitFor();
 
-        changeEvents.resize(1);
-        AFK_CLCHK(computer->oclShim.EnqueueReleaseGLObjects()(q, 1, &clTex, allWaitList.size(), &allWaitList[0], &changeEvents[0]))
-        for (auto aw : allWaitList)
-        {
-            AFK_CLCHK(computer->oclShim.ReleaseEvent()(aw))
-        }
-        allWaitList.clear();
+        AFK_CLCHK(computer->oclShim.EnqueueReleaseGLObjects()(q, 1, &clTex, dep.getEventCount(), dep.getEvents(), changeDep.addEvent()))
         break;
     }
 
@@ -1103,16 +1063,7 @@ void AFK_JigsawImage::bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboi
     case AFK_JigsawBufferUsage::CL_GL_COPIED:
     case AFK_JigsawBufferUsage::CL_GL_SHARED:
         /* Wait for any sync-up to be finished. */
-        if (changeEvents.size() > 0)
-        {
-            AFK_CLCHK(computer->oclShim.WaitForEvents()(changeEvents.size(), &changeEvents[0]))
-            for (unsigned int e = 0; e < changeEvents.size(); ++e)
-            {
-                AFK_CLCHK(computer->oclShim.ReleaseEvent()(changeEvents[e]))
-            }
-        
-            changeEvents.clear();
-        }
+        changeDep.waitFor();
 
         glBindTexture(desc.getGlTarget(), glTex);
         if (desc.bufferUsage == AFK_JigsawBufferUsage::CL_GL_COPIED)
@@ -1123,14 +1074,6 @@ void AFK_JigsawImage::bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboi
 
 void AFK_JigsawImage::waitForAll(void)
 {
-    if (changeEvents.size() > 0)
-    {
-        AFK_CLCHK(computer->oclShim.WaitForEvents()(changeEvents.size(), &changeEvents[0]))
-        for (auto ev : changeEvents)
-        {
-            AFK_CLCHK(computer->oclShim.ReleaseEvent()(ev))
-        }
-        changeEvents.clear();
-    }
+    changeDep.waitFor();
 }
 

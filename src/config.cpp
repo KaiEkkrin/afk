@@ -115,6 +115,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     concurrency                 = boost::thread::hardware_concurrency() + 1;
     clProgramsDir               = nullptr;
     clGlSharing                 = false; /* TODO Find hardware this actually improves performance on and default-true for that */
+    async                       = true;
     forceFake3DImages           = false;
 
     startingDetailPitch         = 512.0f;
@@ -206,6 +207,13 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         else if (strcmp(argv[argi], "--cl-gl-sharing") == 0)
         {
             clGlSharing = true;
+        }
+        /* TODO: I could do with standard forms for command line
+         * args, a configuration file etc etc
+         */
+        else if (strcmp(argv[argi], "--cl-sync") == 0)
+        {
+            async = false;
         }
         else if (strcmp(argv[argi], "--force-fake-3D-images") == 0)
         {

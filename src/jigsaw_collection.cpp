@@ -166,7 +166,7 @@ int AFK_JigsawCollection::acquireAllForCl(
     unsigned int tex,
     cl_mem *allMem,
     int count,
-    std::vector<cl_event>& o_events)
+    AFK_ComputeDependency& o_dep)
 {
     boost::shared_lock<boost::upgrade_mutex> lock(mut);
 
@@ -174,7 +174,7 @@ int AFK_JigsawCollection::acquireAllForCl(
     int puzzleCount = (int)puzzles.size();
 
     for (i = 0; i < puzzleCount; ++i)
-        allMem[i] = puzzles.at(i)->acquireForCl(tex, o_events);
+        allMem[i] = puzzles.at(i)->acquireForCl(tex, o_dep);
     for (int excess = i; excess < count; ++excess)
         allMem[excess] = allMem[0];
 
@@ -185,12 +185,12 @@ void AFK_JigsawCollection::releaseAllFromCl(
     unsigned int tex,
     cl_mem *allMem,
     int count,
-    const std::vector<cl_event>& eventWaitList)
+    const AFK_ComputeDependency& dep)
 {
     boost::shared_lock<boost::upgrade_mutex> lock(mut);
     
     for (int i = 0; i < count && i < (int)puzzles.size(); ++i)
-        puzzles.at(i)->releaseFromCl(tex, eventWaitList);
+        puzzles.at(i)->releaseFromCl(tex, dep);
 }
 
 void AFK_JigsawCollection::flipCuboids(AFK_Computer *computer, const AFK_Frame& currentFrame)

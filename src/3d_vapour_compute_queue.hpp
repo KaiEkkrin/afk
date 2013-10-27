@@ -96,10 +96,6 @@ protected:
 
     cl_kernel vapourFeatureKernel;
     cl_kernel vapourNormalKernel;
-
-    std::vector<cl_event> preVapourWaitList;
-    std::vector<cl_event> preNormalWaitList;
-    std::vector<cl_event> postVapourWaitList;
     
 public:
     AFK_3DVapourComputeQueue();

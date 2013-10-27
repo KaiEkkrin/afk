@@ -104,6 +104,7 @@ public:
     unsigned int concurrency;
     char        *clProgramsDir;
     bool        clGlSharing;
+    bool        async;
     bool        forceFake3DImages;
 
     /* World setup */

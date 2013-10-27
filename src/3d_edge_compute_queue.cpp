@@ -109,10 +109,12 @@ void AFK_3DEdgeComputeQueue::computeStart(
     AFK_HANDLE_CL_ERROR(error);
 
     /* Set up the rest of the parameters */
-    preEdgeWaitList.clear();
-    cl_mem vapourJigsawDensityMem = vapourJigsaw->acquireForCl(0, preEdgeWaitList);
-    cl_mem edgeJigsawDispMem = edgeJigsaw->acquireForCl(0, preEdgeWaitList);
-    cl_mem edgeJigsawOverlapMem = edgeJigsaw->acquireForCl(1, preEdgeWaitList);
+    AFK_ComputeDependency preEdgeDep(computer);
+    AFK_ComputeDependency postEdgeDep(computer);
+
+    cl_mem vapourJigsawDensityMem = vapourJigsaw->acquireForCl(0, preEdgeDep);
+    cl_mem edgeJigsawDispMem = edgeJigsaw->acquireForCl(0, preEdgeDep);
+    cl_mem edgeJigsawOverlapMem = edgeJigsaw->acquireForCl(1, preEdgeDep);
 
     AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 0, sizeof(cl_mem), &vapourJigsawDensityMem))
     AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 1, sizeof(cl_mem), &unitsBuf))
@@ -138,27 +140,17 @@ void AFK_3DEdgeComputeQueue::computeStart(
     edgeLocalDim[0] = 1;
     edgeLocalDim[1] = edgeLocalDim[2] = sSizes.eDim;
 
-    cl_event edgeEvent;
-
     AFK_CLCHK(computer->oclShim.EnqueueNDRangeKernel()(q, edgeKernel, 3, 0, &edgeGlobalDim[0],
         &edgeLocalDim[0],
-        preEdgeWaitList.size(),
-        &preEdgeWaitList[0],
-        &edgeEvent))
-
-    for (auto ev : preEdgeWaitList)
-    {
-        AFK_CLCHK(computer->oclShim.ReleaseEvent()(ev))
-    }
+        preEdgeDep.getEventCount(),
+        preEdgeDep.getEvents(),
+        postEdgeDep.addEvent()))
 
     AFK_CLCHK(computer->oclShim.ReleaseMemObject()(unitsBuf))
 
-    postEdgeWaitList.clear();
-    postEdgeWaitList.push_back(edgeEvent);
-    vapourJigsaw->releaseFromCl(0, postEdgeWaitList);
-    edgeJigsaw->releaseFromCl(0, postEdgeWaitList);
-    edgeJigsaw->releaseFromCl(1, postEdgeWaitList);
-    AFK_CLCHK(computer->oclShim.ReleaseEvent()(edgeEvent))
+    vapourJigsaw->releaseFromCl(0, postEdgeDep);
+    edgeJigsaw->releaseFromCl(0, postEdgeDep);
+    edgeJigsaw->releaseFromCl(1, postEdgeDep);
 
     computer->unlock();
 }

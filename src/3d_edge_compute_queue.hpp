@@ -72,9 +72,6 @@ protected:
     boost::mutex mut;
 
     cl_kernel edgeKernel;
-
-    std::vector<cl_event> preEdgeWaitList;
-    std::vector<cl_event> postEdgeWaitList;
     
 public:
     AFK_3DEdgeComputeQueue();

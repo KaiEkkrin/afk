@@ -98,22 +98,24 @@ public:
      * Complains if there are more than `count' puzzles.
      * If there are fewer puzzles, fills out the remaining
      * fields of the array with the first one.
+     * Fills out the given compute dependency as required.
      * Returns the actual number of puzzles acquired.
      */
     int acquireAllForCl(
         unsigned int tex,
         cl_mem *allMem,
         int count,
-        std::vector<cl_event>& o_events);
+        AFK_ComputeDependency& o_dep);
 
     /* Releases all puzzles from the CL, when acquired with the above.
      * `count' should be the number returned by acquireAllFromCl.
+     * Waits for the given compute dependency before proceeding.
      */
     void releaseAllFromCl(
         unsigned int tex,
         cl_mem *allMem,
         int count,
-        const std::vector<cl_event>& eventWaitList);    
+        const AFK_ComputeDependency& dep);
 
     /* Flips the cuboids in all the jigsaws. */
     void flipCuboids(AFK_Computer *computer, const AFK_Frame& currentFrame);

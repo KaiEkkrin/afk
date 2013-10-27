@@ -483,16 +483,16 @@ int AFK_Jigsaw::getFake3D_mult(unsigned int tex) const
     return images.at(tex)->getFake3D_mult();
 }
 
-cl_mem AFK_Jigsaw::acquireForCl(unsigned int tex, std::vector<cl_event>& o_events)
+cl_mem AFK_Jigsaw::acquireForCl(unsigned int tex, AFK_ComputeDependency& o_dep)
 {
     boost::upgrade_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
-    return images.at(tex)->acquireForCl(o_events);
+    return images.at(tex)->acquireForCl(o_dep);
 }
 
-void AFK_Jigsaw::releaseFromCl(unsigned int tex, const std::vector<cl_event>& eventWaitList)
+void AFK_Jigsaw::releaseFromCl(unsigned int tex, const AFK_ComputeDependency& dep)
 {
     boost::upgrade_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
-    images.at(tex)->releaseFromCl(cuboids[drawCs], eventWaitList);
+    images.at(tex)->releaseFromCl(cuboids[drawCs], dep);
 }
 
 void AFK_Jigsaw::bindTexture(unsigned int tex)
