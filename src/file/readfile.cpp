@@ -42,6 +42,7 @@ bool afk_pushDir(const std::string& path, std::ostream& io_errStream)
     }
 
     dirStack.push(currentDirStr);
+    free(currentDir);
     return true;
 }
 
@@ -140,4 +141,4 @@ finished:
     if (f) fclose(f);
     return success;
 }
-    
+

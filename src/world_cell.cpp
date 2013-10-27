@@ -25,8 +25,8 @@
 
 
 AFK_WorldCell::AFK_WorldCell():
-    AFK_Claimable(),
-    moveQueue(32) /* I don't expect very many */
+    AFK_Claimable()
+    //moveQueue(32) /* I don't expect very many */
 {
 }
 
@@ -40,8 +40,8 @@ AFK_WorldCell::~AFK_WorldCell()
     /* I also own the contents of the move list.  All entries
      * have already been removed from their old owner cells.
      */
-    AFK_Entity *e;
-    while (moveQueue.pop(e)) delete e;
+    //AFK_Entity *e;
+    //while (moveQueue.pop(e)) delete e;
 }
 
 Vec4<float> AFK_WorldCell::getRealCoord(void) const
@@ -187,6 +187,7 @@ AFK_ENTITY_LIST::iterator AFK_WorldCell::eraseEntity(AFK_ENTITY_LIST::iterator e
     return entities.erase(eIt);
 }
 
+#if 0
 void AFK_WorldCell::moveEntity(AFK_Entity *entity)
 {
     moveQueue.push(entity);
@@ -198,6 +199,7 @@ void AFK_WorldCell::popMoveQueue(void)
     while (moveQueue.pop(e))
         entities.push_back(e);
 }
+#endif
 
 bool AFK_WorldCell::canBeEvicted(void) const
 {

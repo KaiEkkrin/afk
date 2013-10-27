@@ -439,11 +439,9 @@ public:
 
     virtual ~AFK_Polymer()
     {
-#if 0
         /* Wipeout time.  I hope nobody is attempting concurrent access now.
          */
         delete chains;
-#endif
     }
 
     size_t size() const

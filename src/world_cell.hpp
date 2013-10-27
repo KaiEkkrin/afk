@@ -69,7 +69,7 @@ protected:
      * entity list entirely in OpenCL buffers and not spread
      * it back out to the CPU.
      */
-    AFK_ENTITY_MOVE_QUEUE moveQueue;
+    //AFK_ENTITY_MOVE_QUEUE moveQueue;
 
     /* For generating the shapes for our starting entities. */
     bool checkClaimedShape(unsigned int shapeKey, AFK_Shape& shape, const AFK_ShapeSizes& sSizes);
@@ -129,11 +129,11 @@ public:
     /* Pushes an entity into this cell's move queue.  It's okay
      * to call this without having the claim.
      */
-    void moveEntity(AFK_Entity *entity);
+    //void moveEntity(AFK_Entity *entity);
 
     /* Pops the contents of the move queue into this cell's list.
      */
-    void popMoveQueue(void);
+    //void popMoveQueue(void);
 
     /* AFK_Claimable implementation. */
 

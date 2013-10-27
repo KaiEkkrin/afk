@@ -48,7 +48,8 @@ void afk_handleClError(cl_int error, const char *_file, const int _line)
 
 /* AFK_ClPlatformProperties implementation */
 
-AFK_ClPlatformProperties::AFK_ClPlatformProperties(AFK_Computer *computer, cl_platform_id platform)
+AFK_ClPlatformProperties::AFK_ClPlatformProperties(AFK_Computer *computer, cl_platform_id platform):
+    versionStr(nullptr)
 {
     AFK_CLCHK(computer->oclShim.GetPlatformInfo()(platform, CL_PLATFORM_VERSION, 0, NULL, &versionStrSize))
     versionStr = new char[versionStrSize];
@@ -62,10 +63,15 @@ AFK_ClPlatformProperties::AFK_ClPlatformProperties(AFK_Computer *computer, cl_pl
     }
 }
 
+AFK_ClPlatformProperties::~AFK_ClPlatformProperties()
+{
+    if (versionStr) delete[] versionStr;
+}
+
 /* AFK_ClDeviceProperties implementation. */
 
 AFK_ClDeviceProperties::AFK_ClDeviceProperties(AFK_Computer *computer, cl_device_id device):
-    maxWorkItemSizes(NULL)
+    maxWorkItemSizes(nullptr)
 {
     computer->getClDeviceInfoFixed<cl_ulong>(device, CL_DEVICE_GLOBAL_MEM_SIZE, &globalMemSize, 0);
     computer->getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE2D_MAX_WIDTH, &image2DMaxWidth, 0);
@@ -123,7 +129,7 @@ bool AFK_ClDeviceProperties::supportsExtension(const std::string& ext) const
     boost::tokenizer<boost::char_separator<char> > extTok(extensions, spcSep);
     for (auto testExt : extTok)
     {
-        if (testExt == ext) return true;
+        //if (testExt == ext) return true;
     }
 
     return false;
@@ -281,6 +287,7 @@ void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<st
     p->program = oclShim.CreateProgramWithSource()(ctxt, sourceCount, (const char **)sources, sourceLengths, &error);
     AFK_HANDLE_CL_ERROR(error);
 
+    for (int s = 0; s < sourceCount; ++s) free(sources[s]);
     delete[] sources;
     delete[] sourceLengths;
 
@@ -396,6 +403,8 @@ AFK_Computer::AFK_Computer(const AFK_Config *config):
         }
     }
 
+    free(platforms);
+
     if (!devices) throw AFK_Exception("No cl_gl devices found");
 
     /* TODO Multiple queues for multiple devices?
@@ -427,6 +436,8 @@ AFK_Computer::~AFK_Computer()
 
         delete[] devices;
     }
+
+    if (platformProps) delete platformProps;
 }
 
 void AFK_Computer::loadPrograms(const AFK_Config *config)

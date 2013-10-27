@@ -73,7 +73,7 @@ public:
     unsigned int minorVersion;
 
     AFK_ClPlatformProperties(AFK_Computer *computer, cl_platform_id platform);
-    ~AFK_ClPlatformProperties();
+    virtual ~AFK_ClPlatformProperties();
 };
 
 class AFK_ClDeviceProperties

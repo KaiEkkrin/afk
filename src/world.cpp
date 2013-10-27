@@ -412,7 +412,7 @@ bool AFK_World::generateClaimedWorldCell(
         /* Pop any new entities out from the move queue into the
          * proper list.
          */
-        worldCell.popMoveQueue();
+        //worldCell.popMoveQueue();
 
         /* We don't need this any more */
         worldCell.release(threadId, AFK_CL_CLAIMED);

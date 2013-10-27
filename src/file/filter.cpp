@@ -84,7 +84,7 @@ void AFK_FileFilter::filter(int count, char **sources, size_t *sourceLengths) co
         /* Now, splice the replaced string back into the source vector.
          */
         std::string repstr = repss.str();
-        if (sourceLengths[i] < repstr.size())
+        if (sourceLengths[i] < (repstr.size() + 1))
             sources[i] = (char *)realloc(sources[i], repstr.size() + 1);
 
         strcpy(sources[i], repstr.c_str());

@@ -103,10 +103,10 @@ static void loadShaderFromFiles(
         throw AFK_Exception("Error compiling shader " + s->shaderName + ": " + infoLog);
     }
 
-    /* TODO I'm currently not cleaning up properly, add a cleanup
-     * function to the readfile module.
-     */
-
+    for (int i = 0; i < sourceCount; ++i)
+    {
+        free(sources[i]);
+    }
     delete[] sources;
     delete[] sourceLengths;
     delete[] sourceLengthsInt;
