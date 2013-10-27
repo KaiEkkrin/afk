@@ -64,6 +64,7 @@ void afk_testJigsaw(
         },
         config->concurrency,
         computer->useFake3DImages(config),
+        1.0f,
         computer->getFirstDeviceProps());
 
     AFK_JigsawCollection testCollection(

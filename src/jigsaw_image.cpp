@@ -519,6 +519,7 @@ AFK_JigsawMemoryAllocation::AFK_JigsawMemoryAllocation(
     std::initializer_list<AFK_JigsawMemoryAllocation::Entry> _entries,
     unsigned int concurrency,
     bool useFake3D,
+    float proportionOfMaxSizeToUse,
     const AFK_ClDeviceProperties& _clDeviceProps):
         entries(_entries)
 {
@@ -540,7 +541,7 @@ AFK_JigsawMemoryAllocation::AFK_JigsawMemoryAllocation(
         eIt->makeJigsawSize(
             concurrency,
             (size_t)(
-                (float)_clDeviceProps.maxMemAllocSize * eIt->getBytewiseRatio() / ratioTotal),
+                (float)_clDeviceProps.maxMemAllocSize * proportionOfMaxSizeToUse * eIt->getBytewiseRatio() / ratioTotal),
             _clDeviceProps);
         if (useFake3D) eIt->setUseFake3D();
     }
@@ -761,13 +762,29 @@ void AFK_JigsawImage::initClImageFromGlImage(const Vec3<int>& _jigsawSize)
     computer->unlock();
 }
 
+void AFK_JigsawImage::resizeChangeData(const std::vector<AFK_JigsawCuboid>& drawCuboids)
+{
+    size_t pieceSizeInBytes = desc.getPieceSizeInBytes();
+    size_t changeDataSize = 0;
+    for (unsigned int cI = 0; cI < drawCuboids.size(); ++cI)
+    {
+        changeDataSize += (pieceSizeInBytes *
+            drawCuboids[cI].rows *
+            drawCuboids[cI].columns.load() *
+            drawCuboids[cI].slices);
+    }
+
+    changeData.resize(changeDataSize);
+}
+
 void AFK_JigsawImage::getClChangeData(
     const std::vector<AFK_JigsawCuboid>& drawCuboids,
     cl_command_queue q,
     const AFK_ComputeDependency& dep)
 {
-    size_t pieceSizeInBytes = desc.getPieceSizeInBytes();
+    resizeChangeData(drawCuboids);
 
+    size_t pieceSizeInBytes = desc.getPieceSizeInBytes();
     size_t changeDataOffset = 0;
     for (unsigned int cI = 0; cI < drawCuboids.size(); ++cI)
     {
@@ -788,14 +805,14 @@ void AFK_JigsawImage::getClChangeData(
         region[0] = drawCuboids[cI].rows * desc.pieceSize.v[0];
         region[1] = drawCuboids[cI].columns.load() * desc.pieceSize.v[1];
         region[2] = drawCuboids[cI].slices * desc.pieceSize.v[2];
-
-        changeData.resize(changeDataOffset + cuboidSizeInBytes);
   
         AFK_CLCHK(computer->oclShim.EnqueueReadImage()(
             q, clTex, CL_FALSE, origin, region, 0, 0, &changeData[changeDataOffset],
                 dep.getEventCount(), dep.getEvents(), changeDep.addEvent()))
         changeDataOffset += cuboidSizeInBytes;
     }
+
+    assert(changeDataOffset == changeData.size());
 }
 
 void AFK_JigsawImage::getClChangeDataFake3D(
@@ -803,6 +820,11 @@ void AFK_JigsawImage::getClChangeDataFake3D(
     cl_command_queue q,
     const AFK_ComputeDependency& dep)
 {
+    /* I should be moving exactly the same amount of data as
+     * if it were a real 3D image.
+     */
+    resizeChangeData(drawCuboids);
+
     size_t pieceSliceSizeInBytes = desc.format.texelSize * desc.pieceSize.v[0] * desc.pieceSize.v[1];
     assert(pieceSliceSizeInBytes > 0);
 
@@ -838,8 +860,6 @@ void AFK_JigsawImage::getClChangeDataFake3D(
                 region[1] = drawCuboids[cI].columns.load() * desc.pieceSize.v[1];
                 region[2] = 1;
 
-                changeData.resize(changeDataOffset + cuboidSliceSizeInBytes);
-
                 AFK_CLCHK(computer->oclShim.EnqueueReadImage()(
                     q, clTex, CL_FALSE, origin, region, 0, 0, &changeData[changeDataOffset],
                         dep.getEventCount(), dep.getEvents(), changeDep.addEvent()))
@@ -847,6 +867,8 @@ void AFK_JigsawImage::getClChangeDataFake3D(
             }
         }
     }
+
+    assert(changeDataOffset == changeData.size());
 }
 
 void AFK_JigsawImage::putClChangeData(const std::vector<AFK_JigsawCuboid>& drawCuboids)
@@ -896,6 +918,9 @@ void AFK_JigsawImage::putClChangeData(const std::vector<AFK_JigsawCuboid>& drawC
 
         changeDataOffset += cuboidSizeInBytes;
     }
+
+    assert(changeDataOffset == changeData.size());
+    changeData.clear();
 }
 
 AFK_JigsawImage::AFK_JigsawImage(

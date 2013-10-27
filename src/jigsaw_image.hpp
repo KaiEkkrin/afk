@@ -230,6 +230,7 @@ public:
         std::initializer_list<Entry> _entries,
         unsigned int concurrency,
         bool useFake3D,
+        float proportionOfMaxSizeToUse,
         const AFK_ClDeviceProperties& _clDeviceProps);
 
     const AFK_JigsawMemoryAllocation::Entry& at(unsigned int entry) const;
@@ -270,6 +271,7 @@ protected:
     /* These functions help to pull changed data from the CL
      * textures and push them to the GL.
      */
+    void resizeChangeData(const std::vector<AFK_JigsawCuboid>& drawCuboids);
     void getClChangeData(
         const std::vector<AFK_JigsawCuboid>& drawCuboids,
         cl_command_queue q,
