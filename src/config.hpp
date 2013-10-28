@@ -106,6 +106,8 @@ public:
     bool        clGlSharing;
     bool        async;
     bool        forceFake3DImages;
+    float       jigsawUsageFactor; /* Proportion of available CL memory to
+                                    * use for jigsaws */
 
     /* World setup */
     float startingDetailPitch;

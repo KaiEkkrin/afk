@@ -571,7 +571,7 @@ AFK_World::AFK_World(
         },
         config->concurrency,
         computer->useFake3DImages(config),
-        config->clGlSharing ? 1.0f : 0.5f, /* Leave extra space for CL-GL copies */
+        config->jigsawUsageFactor,
         computer->getFirstDeviceProps());
 
     /* Set up the caches and generator gang. */

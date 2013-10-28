@@ -117,6 +117,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     clGlSharing                 = false; /* TODO Find hardware this actually improves performance on and default-true for that */
     async                       = true;
     forceFake3DImages           = false;
+    jigsawUsageFactor           = 0.5f;
 
     startingDetailPitch         = 512.0f;
     maxDetailPitch              = 4096.0f;
@@ -218,6 +219,11 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         else if (strcmp(argv[argi], "--force-fake-3D-images") == 0)
         {
             forceFake3DImages = true;
+        }
+        else if (strcmp(argv[argi], "--jigsaw-usage-factor") == 0)
+        {
+            REQUIRE_ARGUMENT("--jigsaw-usage-factor")
+            jigsawUsageFactor = strtof(argv[argi], NULL);
         }
         else if (strcmp(argv[argi], "--starting-detail-pitch") == 0)
         {
