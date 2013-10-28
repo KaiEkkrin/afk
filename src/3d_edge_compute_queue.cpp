@@ -56,12 +56,13 @@ std::ostream& operator<<(std::ostream& os, const AFK_3DEdgeComputeUnit& unit)
 /* AFK_3DEdgeComputeQueue implementation */
 
 AFK_3DEdgeComputeQueue::AFK_3DEdgeComputeQueue():
-    edgeKernel(0)
+    edgeKernel(0), postEdgeDep(nullptr)
 {
 }
 
 AFK_3DEdgeComputeQueue::~AFK_3DEdgeComputeQueue()
 {
+    if (postEdgeDep) delete postEdgeDep;
 }
 
 AFK_3DEdgeComputeUnit AFK_3DEdgeComputeQueue::append(
@@ -110,7 +111,8 @@ void AFK_3DEdgeComputeQueue::computeStart(
 
     /* Set up the rest of the parameters */
     AFK_ComputeDependency preEdgeDep(computer);
-    AFK_ComputeDependency postEdgeDep(computer);
+    if (!postEdgeDep) postEdgeDep = new AFK_ComputeDependency(computer);
+    assert(postEdgeDep->getEventCount() == 0);
 
     cl_mem vapourJigsawDensityMem = vapourJigsaw->acquireForCl(0, preEdgeDep);
     cl_mem edgeJigsawDispMem = edgeJigsaw->acquireForCl(0, preEdgeDep);
@@ -144,22 +146,24 @@ void AFK_3DEdgeComputeQueue::computeStart(
         &edgeLocalDim[0],
         preEdgeDep.getEventCount(),
         preEdgeDep.getEvents(),
-        postEdgeDep.addEvent()))
+        postEdgeDep->addEvent()))
 
     AFK_CLCHK(computer->oclShim.ReleaseMemObject()(unitsBuf))
-
-    vapourJigsaw->releaseFromCl(0, postEdgeDep);
-    edgeJigsaw->releaseFromCl(0, postEdgeDep);
-    edgeJigsaw->releaseFromCl(1, postEdgeDep);
 
     computer->unlock();
 }
 
-void AFK_3DEdgeComputeQueue::computeFinish(void)
+void AFK_3DEdgeComputeQueue::computeFinish(
+    AFK_Jigsaw *vapourJigsaw,
+    AFK_Jigsaw *edgeJigsaw)
 {
-    /* This method is included for symmetry with TerrainComputeQueue.
-     * Right now it does nothing.
-     */
+    assert(postEdgeDep || units.size() == 0);
+    if (units.size() > 0)
+    {
+        vapourJigsaw->releaseFromCl(0, *postEdgeDep);
+        edgeJigsaw->releaseFromCl(0, *postEdgeDep);
+        edgeJigsaw->releaseFromCl(1, *postEdgeDep);
+    }
 }
 
 bool AFK_3DEdgeComputeQueue::empty(void)
@@ -173,6 +177,7 @@ void AFK_3DEdgeComputeQueue::clear(void)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
+    if (postEdgeDep) postEdgeDep->waitFor();
     units.clear();
 }
 

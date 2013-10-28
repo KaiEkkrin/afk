@@ -183,7 +183,6 @@ int AFK_JigsawCollection::acquireAllForCl(
 
 void AFK_JigsawCollection::releaseAllFromCl(
     unsigned int tex,
-    cl_mem *allMem,
     int count,
     const AFK_ComputeDependency& dep)
 {

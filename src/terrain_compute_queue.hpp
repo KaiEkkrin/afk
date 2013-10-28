@@ -89,6 +89,7 @@ protected:
     /* Compute stuff. */
     cl_kernel terrainKernel, surfaceKernel;
     AFK_YReduce *yReduce;
+    AFK_ComputeDependency *postTerrainDep;
 
     /* In this vector, we store the in-order list of pointers
      * to the source LandscapeTiles, so that the yreduce
@@ -112,7 +113,7 @@ public:
     /* Computes the terrain.
      */
     void computeStart(AFK_Computer *computer, AFK_Jigsaw *jigsaw, const AFK_LandscapeSizes& lSizes, const Vec3<float>& baseColour);
-    void computeFinish(void);
+    void computeFinish(AFK_Jigsaw *jigsaw);
 
     bool empty(void);
 

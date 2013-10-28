@@ -113,7 +113,6 @@ public:
      */
     void releaseAllFromCl(
         unsigned int tex,
-        cl_mem *allMem,
         int count,
         const AFK_ComputeDependency& dep);
 

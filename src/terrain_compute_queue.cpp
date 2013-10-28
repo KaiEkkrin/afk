@@ -52,13 +52,14 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainComputeUnit& unit)
 /* AFK_TerrainComputeQueue implementation */
 
 AFK_TerrainComputeQueue::AFK_TerrainComputeQueue():
-    terrainKernel(0), surfaceKernel(0), yReduce(nullptr)
+    terrainKernel(0), surfaceKernel(0), yReduce(nullptr), postTerrainDep(nullptr)
 {
 }
 
 AFK_TerrainComputeQueue::~AFK_TerrainComputeQueue()
 {
     if (yReduce) delete yReduce;
+    if (postTerrainDep) delete postTerrainDep;
 }
 
 AFK_TerrainComputeUnit AFK_TerrainComputeQueue::extend(const AFK_TerrainList& list, const Vec2<int>& piece, AFK_LandscapeTile *landscapeTile, const AFK_LandscapeSizes& lSizes)
@@ -210,10 +211,11 @@ void AFK_TerrainComputeQueue::computeStart(
     surfaceLocalDim[0] = surfaceLocalDim[1] = lSizes.tDim - 1;
     surfaceLocalDim[2] = 1;
 
-    AFK_ComputeDependency postTerrainDep(computer);
+    if (!postTerrainDep) postTerrainDep = new AFK_ComputeDependency(computer);
+    assert(postTerrainDep->getEventCount() == 0);
 
     AFK_CLCHK(computer->oclShim.EnqueueNDRangeKernel()(q, surfaceKernel, 3, 0, &surfaceGlobalDim[0], &surfaceLocalDim[0],
-        preSurfaceDep.getEventCount(), preSurfaceDep.getEvents(), postTerrainDep.addEvent()))
+        preSurfaceDep.getEventCount(), preSurfaceDep.getEvents(), postTerrainDep->addEvent()))
 
     /* Finally, do the y reduce. */
     yReduce->compute(
@@ -223,7 +225,7 @@ void AFK_TerrainComputeQueue::computeStart(
         &jigsawYDispSampler,
         lSizes,
         preSurfaceDep,
-        postTerrainDep);
+        *postTerrainDep);
 
     /* Release the things */
     AFK_CLCHK(computer->oclShim.ReleaseSampler()(jigsawYDispSampler))
@@ -233,19 +235,21 @@ void AFK_TerrainComputeQueue::computeStart(
         AFK_CLCHK(computer->oclShim.ReleaseMemObject()(terrainBufs[i]))
     }
 
-    jigsaw->releaseFromCl(0, postTerrainDep);
-    jigsaw->releaseFromCl(1, postTerrainDep);
-    jigsaw->releaseFromCl(2, postTerrainDep);
-
     computer->unlock();
 }
 
-void AFK_TerrainComputeQueue::computeFinish(void)
+void AFK_TerrainComputeQueue::computeFinish(AFK_Jigsaw *jigsaw)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
     unsigned int unitCount = units.size();
     if (unitCount == 0) return;
+
+    /* Release the images. */
+    assert(postTerrainDep && yReduce);
+    jigsaw->releaseFromCl(0, *postTerrainDep);
+    jigsaw->releaseFromCl(1, *postTerrainDep);
+    jigsaw->releaseFromCl(2, *postTerrainDep);
 
     /* Read back the Y reduce. */
     yReduce->readBack(unitCount, landscapeTiles);
@@ -261,6 +265,8 @@ bool AFK_TerrainComputeQueue::empty(void)
 void AFK_TerrainComputeQueue::clear(void)
 {
     boost::unique_lock<boost::mutex> lock(mut);
+
+    if (postTerrainDep) postTerrainDep->waitFor();
 
     f.clear();
     t.clear();

@@ -779,8 +779,7 @@ void AFK_JigsawImage::resizeChangeData(const std::vector<AFK_JigsawCuboid>& draw
 
 void AFK_JigsawImage::getClChangeData(
     const std::vector<AFK_JigsawCuboid>& drawCuboids,
-    cl_command_queue q,
-    const AFK_ComputeDependency& dep)
+    cl_command_queue q)
 {
     resizeChangeData(drawCuboids);
 
@@ -808,7 +807,7 @@ void AFK_JigsawImage::getClChangeData(
   
         AFK_CLCHK(computer->oclShim.EnqueueReadImage()(
             q, clTex, CL_FALSE, origin, region, 0, 0, &changeData[changeDataOffset],
-                dep.getEventCount(), dep.getEvents(), changeDep.addEvent()))
+                postClDep.getEventCount(), postClDep.getEvents(), changeDep.addEvent()))
         changeDataOffset += cuboidSizeInBytes;
     }
 
@@ -817,8 +816,7 @@ void AFK_JigsawImage::getClChangeData(
 
 void AFK_JigsawImage::getClChangeDataFake3D(
     const std::vector<AFK_JigsawCuboid>& drawCuboids,
-    cl_command_queue q,
-    const AFK_ComputeDependency& dep)
+    cl_command_queue q)
 {
     /* I should be moving exactly the same amount of data as
      * if it were a real 3D image.
@@ -862,7 +860,7 @@ void AFK_JigsawImage::getClChangeDataFake3D(
 
                 AFK_CLCHK(computer->oclShim.EnqueueReadImage()(
                     q, clTex, CL_FALSE, origin, region, 0, 0, &changeData[changeDataOffset],
-                        dep.getEventCount(), dep.getEvents(), changeDep.addEvent()))
+                        postClDep.getEventCount(), postClDep.getEvents(), changeDep.addEvent()))
                 changeDataOffset += cuboidSliceSizeInBytes;
             }
         }
@@ -919,6 +917,9 @@ void AFK_JigsawImage::putClChangeData(const std::vector<AFK_JigsawCuboid>& drawC
         changeDataOffset += cuboidSizeInBytes;
     }
 
+    /* These two combine to make sure I only transfer the
+     * change data once
+     */
     assert(changeDataOffset == changeData.size());
     changeData.clear();
 }
@@ -931,7 +932,11 @@ AFK_JigsawImage::AFK_JigsawImage(
         glTex(0),
         clTex(0),
         desc(_desc),
-        changeDep(_computer)
+        clUserCount(0),
+        preClDep(_computer),
+        postClDep(_computer),
+        changeDep(_computer),
+        glUserCount(0)
 {
     switch (desc.bufferUsage)
     {
@@ -993,23 +998,33 @@ cl_mem AFK_JigsawImage::acquireForCl(AFK_ComputeDependency& o_dep)
     cl_command_queue q;
     computer->lock(ctxt, q);
 
+    /* I mustn't be doing this while there are outstanding dependencies
+     * from the last compute cycle.
+     */
+    assert(glUserCount == 0);
+    assert(postClDep.getEventCount() == 0);
+
     switch (desc.bufferUsage)
     {
     case AFK_JigsawBufferUsage::NO_IMAGE:
     case AFK_JigsawBufferUsage::GL_ONLY:
         throw AFK_Exception("Called acquireForCl() on jigsaw image without CL");
 
-    case AFK_JigsawBufferUsage::CL_GL_SHARED:
-        AFK_CLCHK(computer->oclShim.EnqueueAcquireGLObjects()(q, 1, &clTex, changeDep.getEventCount(), changeDep.getEvents(), o_dep.addEvent()))
+    case AFK_JigsawBufferUsage::CL_ONLY:
+    case AFK_JigsawBufferUsage::CL_GL_COPIED:
+        /* Nothing to do, the image is ready immediately */
         break;
 
-    default:
-        /* If there are leftover events the caller needs to wait
-         * for them ...
-         */
-        o_dep += changeDep;
+    case AFK_JigsawBufferUsage::CL_GL_SHARED:
+        if (clUserCount == 0) /* First user */
+        {
+            AFK_CLCHK(computer->oclShim.EnqueueAcquireGLObjects()(q, 1, &clTex, 0, NULL, preClDep.addEvent()))
+        }
+        o_dep += preClDep;
         break;
     }
+
+    ++clUserCount;
 
     computer->unlock();
     return clTex;
@@ -1017,54 +1032,39 @@ cl_mem AFK_JigsawImage::acquireForCl(AFK_ComputeDependency& o_dep)
 
 void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCuboids, const AFK_ComputeDependency& dep)
 {
-    std::vector<cl_event> allWaitList;
-
     cl_context ctxt;
     cl_command_queue q;
     computer->lock(ctxt, q);
 
-    switch (desc.bufferUsage)
+    postClDep += dep;
+    if (--clUserCount == 0)
     {
-    case AFK_JigsawBufferUsage::NO_IMAGE:
-    case AFK_JigsawBufferUsage::GL_ONLY:
-        throw AFK_Exception("Called releaseFrom() on jigsaw image without CL");
-
-    case AFK_JigsawBufferUsage::CL_ONLY:
-        /* The supplied events get retained and fed into the
-         * change event list, so that they can be waited for
-         * upon any subsequent acquire.
-         * This replaces any prior events (which the caller
-         * had to wait for, directly or indirectly, by calling
-         * acquireForCl() earlier.)
-         */
-        changeDep = dep;
-        break;
-
-    case AFK_JigsawBufferUsage::CL_GL_COPIED:
-        /* Make sure that anything pending with that change data has been
-         * finished up because I'm about to re-use the buffer.
-         */
-        changeDep.waitFor();
-
-        /* Now, read back all the pieces, appending the data to `changeData'
-         * in order.
-         * So long as `bindTexture' writes them in the same order everything
-         * will be okay!
-         */
-        if (desc.fake3D.getUseFake3D())
-            getClChangeDataFake3D(drawCuboids, q, dep);
-        else
-            getClChangeData(drawCuboids, q, dep);
-        break;
-
-    case AFK_JigsawBufferUsage::CL_GL_SHARED:
-        /* Make sure that anything pending with that change data has been
-         * finished up because I'm about to re-use the buffer.
-         */
-        changeDep.waitFor();
-
-        AFK_CLCHK(computer->oclShim.EnqueueReleaseGLObjects()(q, 1, &clTex, dep.getEventCount(), dep.getEvents(), changeDep.addEvent()))
-        break;
+        switch (desc.bufferUsage)
+        {
+        case AFK_JigsawBufferUsage::NO_IMAGE:
+        case AFK_JigsawBufferUsage::GL_ONLY:
+            throw AFK_Exception("Called releaseFrom() on jigsaw image without CL");
+        
+        case AFK_JigsawBufferUsage::CL_ONLY:
+            /* Nothing to do. */
+            break;
+        
+        case AFK_JigsawBufferUsage::CL_GL_COPIED:
+            /* Read back all the pieces, appending the data to `changeData'
+             * in order.
+             * So long as `bindTexture' writes them in the same order everything
+             * will be okay!
+             */
+            if (desc.fake3D.getUseFake3D())
+                getClChangeDataFake3D(drawCuboids, q);
+            else
+                getClChangeData(drawCuboids, q);
+            break;
+        
+        case AFK_JigsawBufferUsage::CL_GL_SHARED:
+            AFK_CLCHK(computer->oclShim.EnqueueReleaseGLObjects()(q, 1, &clTex, postClDep.getEventCount(), postClDep.getEvents(), changeDep.addEvent()))
+            break;
+        }
     }
 
     computer->unlock();
@@ -1072,6 +1072,7 @@ void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCub
 
 void AFK_JigsawImage::bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboids)
 {
+    assert(clUserCount == 0);
 
     switch (desc.bufferUsage)
     {
@@ -1091,14 +1092,23 @@ void AFK_JigsawImage::bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboi
         changeDep.waitFor();
 
         glBindTexture(desc.getGlTarget(), glTex);
-        if (desc.bufferUsage == AFK_JigsawBufferUsage::CL_GL_COPIED)
+        if (desc.bufferUsage == AFK_JigsawBufferUsage::CL_GL_COPIED &&
+            glUserCount == 0) /* First user gets the copy */
+        {
             putClChangeData(drawCuboids);
+        }
         break;
     }
+
+    ++glUserCount;
 }
 
 void AFK_JigsawImage::waitForAll(void)
 {
+    assert(clUserCount == 0);
+    preClDep.waitFor();
+    postClDep.waitFor();
     changeDep.waitFor();
+    glUserCount = 0;
 }
 

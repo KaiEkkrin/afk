@@ -96,6 +96,12 @@ protected:
 
     cl_kernel vapourFeatureKernel;
     cl_kernel vapourNormalKernel;
+
+    /* The number of vapour density and normal jigsaws we acquired... */
+    int jpDCount, jpNCount;
+
+    /* ...and the events we need to wait for before releasing them */
+    AFK_ComputeDependency *preReleaseDep;
     
 public:
     AFK_3DVapourComputeQueue();
@@ -130,7 +136,8 @@ public:
         AFK_Computer *computer,
         AFK_JigsawCollection *vapourJigsaws,
         const AFK_ShapeSizes& sSizes);
-    void computeFinish(void);
+    void computeFinish(
+        AFK_JigsawCollection *vapourJigsaws);
 
     /* To be part of a Fair. */
     bool empty(void);

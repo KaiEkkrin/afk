@@ -841,14 +841,14 @@ void AFK_World::doComputeTasks(void)
      */
     for (unsigned int puzzle = 0; puzzle < terrainComputeQueues.size(); ++puzzle)
     {
-        terrainComputeQueues[puzzle]->computeStart(afk_core.computer, landscapeJigsaws->getPuzzle(puzzle), lSizes, landscape_baseColour);
+        terrainComputeQueues.at(puzzle)->computeStart(afk_core.computer, landscapeJigsaws->getPuzzle(puzzle), lSizes, landscape_baseColour);
     }
 
     std::vector<boost::shared_ptr<AFK_3DVapourComputeQueue> > vapourComputeQueues;
     vapourComputeFair.getDrawQueues(vapourComputeQueues);
     assert(vapourComputeQueues.size() <= 1);
     if (vapourComputeQueues.size() == 1)
-        vapourComputeQueues[0]->computeStart(afk_core.computer, vapourJigsaws, sSizes);
+        vapourComputeQueues.at(0)->computeStart(afk_core.computer, vapourJigsaws, sSizes);
 
     std::vector<boost::shared_ptr<AFK_3DEdgeComputeQueue> > edgeComputeQueues;
     edgeComputeFair.getDrawQueues(edgeComputeQueues);
@@ -859,7 +859,7 @@ void AFK_World::doComputeTasks(void)
         entityFair2DIndex.get2D(i, vapourPuzzle, edgePuzzle);
         try
         {
-            edgeComputeQueues[i]->computeStart(
+            edgeComputeQueues.at(i)->computeStart(
                 afk_core.computer,
                 vapourJigsaws->getPuzzle(vapourPuzzle),
                 edgeJigsaws->getPuzzle(edgePuzzle),
@@ -876,15 +876,23 @@ void AFK_World::doComputeTasks(void)
      */
     for (unsigned int puzzle = 0; puzzle < terrainComputeQueues.size(); ++puzzle)
     {
-        terrainComputeQueues[puzzle]->computeFinish();
+        terrainComputeQueues.at(puzzle)->computeFinish(landscapeJigsaws->getPuzzle(puzzle));
     }
 
     if (vapourComputeQueues.size() == 1)
-        vapourComputeQueues[0]->computeFinish();
+        vapourComputeQueues.at(0)->computeFinish(vapourJigsaws);
 
     for (unsigned int i = 0; i < edgeComputeQueues.size(); ++i)
     {
-        edgeComputeQueues[i]->computeFinish();
+        unsigned int vapourPuzzle, edgePuzzle;
+        entityFair2DIndex.get2D(i, vapourPuzzle, edgePuzzle);
+        try
+        {
+            edgeComputeQueues.at(i)->computeFinish(
+                vapourJigsaws->getPuzzle(vapourPuzzle),
+                edgeJigsaws->getPuzzle(edgePuzzle));
+        }
+        catch (std::out_of_range) {} /* likewise */
     }
 }
 

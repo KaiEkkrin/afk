@@ -72,6 +72,11 @@ protected:
     boost::mutex mut;
 
     cl_kernel edgeKernel;
+
+    /* The events to wait for before we can release the vapour
+     * and edges
+     */
+    AFK_ComputeDependency *postEdgeDep;
     
 public:
     AFK_3DEdgeComputeQueue();
@@ -90,7 +95,9 @@ public:
         AFK_Jigsaw *vapourJigsaw,
         AFK_Jigsaw *edgeJigsaw,
         const AFK_ShapeSizes& sSizes);
-    void computeFinish(void);
+    void computeFinish(
+        AFK_Jigsaw *vapourJigsaw,
+        AFK_Jigsaw *edgeJigsaw);
 
     /* To be part of a Fair. */
     bool empty(void);

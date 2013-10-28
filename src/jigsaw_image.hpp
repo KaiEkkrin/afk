@@ -253,6 +253,14 @@ protected:
     /* Descriptions of the format of this image. */
     const AFK_JigsawImageDescriptor desc;
 
+    /* Describes how many users have acquired this image for CL,
+     * what they need to wait for before they can use it, and what
+     * I need to wait for before I can release it from the CL.
+     */
+    unsigned int clUserCount;
+    AFK_ComputeDependency preClDep;
+    AFK_ComputeDependency postClDep;
+
     /* If bufferUsage is cl gl copied, this is the cuboid data I've
      * read back from the CL and that needs to go into the GL.
      */
@@ -262,6 +270,9 @@ protected:
      * ready.
      */
     AFK_ComputeDependency changeDep;
+
+    /* ... And the number of GL users. */
+    unsigned int glUserCount;
 
     /* These functions initialise the images in various ways. */
     void initClImage(const Vec3<int>& _jigsawSize);
@@ -274,12 +285,10 @@ protected:
     void resizeChangeData(const std::vector<AFK_JigsawCuboid>& drawCuboids);
     void getClChangeData(
         const std::vector<AFK_JigsawCuboid>& drawCuboids,
-        cl_command_queue q,
-        const AFK_ComputeDependency& dep);
+        cl_command_queue q);
     void getClChangeDataFake3D(
         const std::vector<AFK_JigsawCuboid>& drawCuboids,
-        cl_command_queue q,
-        const AFK_ComputeDependency& dep);
+        cl_command_queue q);
     void putClChangeData(const std::vector<AFK_JigsawCuboid>& drawCuboids);
 
 public:
@@ -302,13 +311,18 @@ public:
     /* Acquires this image for the CL. */
     cl_mem acquireForCl(AFK_ComputeDependency& o_dep);
 
-    /* Releases this image from the CL. */
+    /* Releases this image from the CL.
+     * All calls to acquireForCl() need to have been performed before
+     * you start calling releaseFromCl().
+     */
     void releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCuboids, const AFK_ComputeDependency& dep);
 
     /* Binds this image to the GL as a texture. */
     void bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboids);
 
-    /* Makes sure all events are finished. */
+    /* Makes sure all events are finished.  Do this when CL/GL
+     * operations are finished for the frame.
+     */
     void waitForAll(void);
 };
 

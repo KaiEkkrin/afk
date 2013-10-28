@@ -72,12 +72,14 @@ std::ostream& operator<<(std::ostream& os, const AFK_3DVapourComputeUnit& unit)
 
 AFK_3DVapourComputeQueue::AFK_3DVapourComputeQueue():
     vapourFeatureKernel(0),
-    vapourNormalKernel(0)
+    vapourNormalKernel(0),
+    preReleaseDep(nullptr)
 {
 }
 
 AFK_3DVapourComputeQueue::~AFK_3DVapourComputeQueue()
 {
+    if (preReleaseDep) delete preReleaseDep;
 }
 
 void AFK_3DVapourComputeQueue::extend(
@@ -170,7 +172,7 @@ void AFK_3DVapourComputeQueue::computeStart(
     /* Set up the rest of the vapour parameters */
     AFK_ComputeDependency preVapourDep(computer);
     cl_mem vapourJigsawsDensityMem[4];
-    int jpCount = vapourJigsaws->acquireAllForCl(0, vapourJigsawsDensityMem, 4, preVapourDep);
+    jpDCount = vapourJigsaws->acquireAllForCl(0, vapourJigsawsDensityMem, 4, preVapourDep);
 
     AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourFeatureKernel, 0, sizeof(cl_mem), &vapourBufs[0]))
     AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourFeatureKernel, 1, sizeof(cl_mem), &vapourBufs[1]))
@@ -204,7 +206,8 @@ void AFK_3DVapourComputeQueue::computeStart(
 
     /* Next, compute the vapour normals. */
     cl_mem vapourJigsawsNormalMem[4];
-    int jpNCount = vapourJigsaws->acquireAllForCl(1, vapourJigsawsNormalMem, 4, preNormalDep);
+    jpNCount = vapourJigsaws->acquireAllForCl(1, vapourJigsawsNormalMem, 4, preNormalDep);
+    assert(jpNCount == jpDCount);
 
     AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourNormalKernel, 0, sizeof(cl_mem), &vapourBufs[2]))
     AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourNormalKernel, 1, sizeof(cl_int2), &fake3D_size.v[0]))
@@ -215,27 +218,28 @@ void AFK_3DVapourComputeQueue::computeStart(
         AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourNormalKernel, jpI + 7, sizeof(cl_mem), &vapourJigsawsNormalMem[jpI])) /* normal */
     }
 
-    AFK_ComputeDependency postNormalDep(computer);
+    if (!preReleaseDep) preReleaseDep = new AFK_ComputeDependency(computer);
+    assert(preReleaseDep->getEventCount() == 0);
 
     AFK_CLCHK(computer->oclShim.EnqueueNDRangeKernel()(q, vapourNormalKernel, 3, NULL, &vapourDim[0], NULL,
-        preNormalDep.getEventCount(), preNormalDep.getEvents(), postNormalDep.addEvent()))
+        preNormalDep.getEventCount(), preNormalDep.getEvents(), preReleaseDep->addEvent()))
 
     for (unsigned int i = 0; i < 3; ++i)
     {
         AFK_CLCHK(computer->oclShim.ReleaseMemObject()(vapourBufs[i]))
     }
 
-    vapourJigsaws->releaseAllFromCl(0, vapourJigsawsDensityMem, jpCount, postNormalDep);
-    vapourJigsaws->releaseAllFromCl(1, vapourJigsawsNormalMem, jpNCount, postNormalDep);
-
     computer->unlock();
 }
 
-void AFK_3DVapourComputeQueue::computeFinish(void)
+void AFK_3DVapourComputeQueue::computeFinish(AFK_JigsawCollection *vapourJigsaws)
 {
-    /* This method is included for symmetry with TerrainComputeQueue.
-     * Right now it does nothing.
-     */
+    assert(preReleaseDep || units.size() == 0);
+    if (units.size() > 0)
+    {
+        vapourJigsaws->releaseAllFromCl(0, jpDCount, *preReleaseDep);
+        vapourJigsaws->releaseAllFromCl(1, jpNCount, *preReleaseDep);
+    }
 }
 
 bool AFK_3DVapourComputeQueue::empty(void)
@@ -248,6 +252,8 @@ bool AFK_3DVapourComputeQueue::empty(void)
 void AFK_3DVapourComputeQueue::clear(void)
 {
     boost::unique_lock<boost::mutex> lock(mut);
+
+    if (preReleaseDep) preReleaseDep->waitFor();
 
     f.clear();
     c.clear();
