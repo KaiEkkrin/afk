@@ -919,7 +919,7 @@ void AFK_World::display(const Mat4<float>& projection, const Vec2<float>& window
     /* Those queues are in puzzle order. */
     for (unsigned int puzzle = 0; puzzle < landscapeDrawQueues.size(); ++puzzle)
     {
-        landscapeDrawQueues[puzzle]->draw(landscape_shaderProgram, landscapeJigsaws->getPuzzle(puzzle), landscapeTerrainBase, lSizes);
+        landscapeDrawQueues.at(puzzle)->draw(landscape_shaderProgram, landscapeJigsaws->getPuzzle(puzzle), landscapeTerrainBase, lSizes);
     }
 
     glBindVertexArray(0);
@@ -945,7 +945,7 @@ void AFK_World::display(const Mat4<float>& projection, const Vec2<float>& window
         entityFair2DIndex.get2D(i, vapourPuzzle, edgePuzzle);
         try
         {
-           entityDrawQueues[i]->draw(
+           entityDrawQueues.at(i)->draw(
                entity_shaderProgram,
                vapourJigsaws->getPuzzle(vapourPuzzle),
                edgeJigsaws->getPuzzle(edgePuzzle),

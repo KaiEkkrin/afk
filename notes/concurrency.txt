@@ -1,0 +1,20 @@
+Concurrency bugs, 28/10/13
+--------------------------
+
+I'm still occasionally hitting:
+ - "boost: mutex lock failed in pthread_mutex_lock: Invalid argument" (this appears to be because one thread tries to use a mutex structure before a different thread has finished committing its initialisation to memory)
+ - a similar boost condition variable error in an eviction thread, presumably when trying to evict an object that another thread suddenly tries to use
+ - thread escapes
+ - "Assertion `changeDataOffset == changeData.size()' failed", which I'm having trouble debugging due to the above interfering.
+
+All this stuff happens more often on my Core 2 Quad system, presumably because it has longer latency on memory writes from one core being seen by all the others (internally it's two dual-core chips attached via a Front-Side Bus).
+
+I want to try to fix this up in a branch.  My plan tentatively involves:
+ - Claimable: bring the lock-free implementation up to date with upgrade support.  Change `claimingThreadId' to a uint64_t and use the top bit as the "exclusive" bit.
+ - Polymer: no more monomers individually allocated on the heap and referenced by an atomic pointer.  Instead, each polymer chain is a contiguous list of the actual monomers.  Obviously this restricts what can be in a monomer, especially its size:
+ - Things that are monomers (ShapeCell, VapourCell, LandscapeTile, WorldCell): Remove the variable-length data.  Feature lists are actually fixed length and can be stored in std::array (but can I instead port the RNG to OpenCL?).  The variable length entity list in WorldCell will need to get moved elsewhere if I'm going to do movement/physics in OpenCL anyway.  Maybe try to compress the skeleton in the VapourCell a bit.  The idea is that each monomer should contain the key, the relevant jigsaw pieces, and maybe a few OpenCL readback results.
+ - Monomer key fields need to become atomic and to default to a special (templated?) "unassigned" value (try using xyz=0, scale=negative) so that I can compare_exchange those fields to assign an monomer.
+ - The eviction thread should do no more heap operations, only atomically flip the key fields back to "unassigned".
+ - Put back the assert() against thread escapes.  Try removing the superstitious barriers in work_queue (they're almost all around boost atomic operations that issue barriers anyway).
+ - If the thread escape assert() is hit, change the logic in async for deciding when the work queue is finished: rather than tracking items left, wait for the worker to return true.  All worker functions will return false, but the top level function will have a dependency (propagated down in all subcell recursions) that returns true, signalling that everything is finished.
+
