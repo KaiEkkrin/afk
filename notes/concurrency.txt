@@ -10,11 +10,15 @@ I'm still occasionally hitting:
 All this stuff happens more often on my Core 2 Quad system, presumably because it has longer latency on memory writes from one core being seen by all the others (internally it's two dual-core chips attached via a Front-Side Bus).
 
 I want to try to fix this up in a branch.  My plan tentatively involves:
- - Claimable: bring the lock-free implementation up to date with upgrade support.  Change `claimingThreadId' to a uint64_t and use the top bit as the "exclusive" bit.
- - Polymer: no more monomers individually allocated on the heap and referenced by an atomic pointer.  Instead, each polymer chain is a contiguous list of the actual monomers.  Obviously this restricts what can be in a monomer, especially its size:
- - Things that are monomers (ShapeCell, VapourCell, LandscapeTile, WorldCell): Remove the variable-length data.  Feature lists are actually fixed length and can be stored in std::array (but can I instead port the RNG to OpenCL?).  The variable length entity list in WorldCell will need to get moved elsewhere if I'm going to do movement/physics in OpenCL anyway.  Maybe try to compress the skeleton in the VapourCell a bit.  The idea is that each monomer should contain the key, the relevant jigsaw pieces, and maybe a few OpenCL readback results.
- - Monomer key fields need to become atomic and to default to a special (templated?) "unassigned" value (try using xyz=0, scale=negative) so that I can compare_exchange those fields to assign an monomer.
- - The eviction thread should do no more heap operations, only atomically flip the key fields back to "unassigned".
- - Put back the assert() against thread escapes.  Try removing the superstitious barriers in work_queue (they're almost all around boost atomic operations that issue barriers anyway).
- - If the thread escape assert() is hit, change the logic in async for deciding when the work queue is finished: rather than tracking items left, wait for the worker to return true.  All worker functions will return false, but the top level function will have a dependency (propagated down in all subcell recursions) that returns true, signalling that everything is finished.
+ 1. Claimable: bring the lock-free implementation up to date with upgrade support.  Change `claimingThreadId' to a uint64_t and use the top bit as the "exclusive" bit.
+ 2. Polymer: no more monomers individually allocated on the heap and referenced by an atomic pointer.  Instead, each polymer chain is a contiguous list of the actual monomers.  Obviously this restricts what can be in a monomer, especially its size:
+ 3. Things that are monomers (ShapeCell, VapourCell, LandscapeTile, WorldCell): Remove the variable-length data.  Feature lists are actually fixed length and can be stored in std::array (but can I instead port the RNG to OpenCL?).  The variable length entity list in WorldCell will need to get moved elsewhere if I'm going to do movement/physics in OpenCL anyway.  Maybe try to compress the skeleton in the VapourCell a bit.  The idea is that each monomer should contain the key, the relevant jigsaw pieces, and maybe a few OpenCL readback results.
+ 4. Monomer key fields need to become atomic and to default to a special (templated?) "unassigned" value (try using xyz=0, scale=negative) so that I can compare_exchange those fields to assign an monomer.
+ 5. The eviction thread should do no more heap operations, only atomically flip the key fields back to "unassigned".
+ 6. Put back the assert() against thread escapes.  Try removing the superstitious barriers in work_queue (they're almost all around boost atomic operations that issue barriers anyway).
+ 7. If the thread escape assert() is hit, change the logic in async for deciding when the work queue is finished: rather than tracking items left, wait for the worker to return true.  All worker functions will return false, but the top level function will have a dependency (propagated down in all subcell recursions) that returns true, signalling that everything is finished.
+
+Status:
+ 1: Done, but with it enabled we rapidly hit a situation where a higher cell required for lower-LoD terrain hasn't gone into the polymer yet.  I think the right way to fix this is to port the RNG to the OpenCL and remove the cross-cell feature list build, which is a great big waste anyway.  (3. Yes, lots of work.)
+ 7: Yes, this assert() still gets hit.  I should make the suggested change.
 

@@ -115,16 +115,12 @@ public:
 
     virtual ~AFK_PolymerChain()
     {
-        AFK_PolymerChain<KeyType, ValueType> *next = nextChain.load();
-        if (next)
-        {
-            delete next;
-            nextChain.store(nullptr);
-        }
+        AFK_PolymerChain<KeyType, ValueType> *next = nextChain.exchange(nullptr);
+        if (next) delete next;
 
         for (unsigned int i = 0; i < CHAIN_SIZE; ++i)
         {
-            AFK_Monomer<KeyType, ValueType> *monomer = chain[i].load();
+            AFK_Monomer<KeyType, ValueType> *monomer = chain[i].exchange(nullptr);
             if (monomer) delete monomer;
         }
     }
@@ -150,7 +146,13 @@ public:
     AFK_Monomer<KeyType, ValueType> *at(unsigned int hops, size_t baseHash) const
     {
         size_t offset = chainOffset(hops, baseHash);
+
+        /* Make sure any outstanding memory operations (e.g. initialising
+         * the monomer) don't get reordered with this
+         * boost atomics don't insert a fence instruction by themselves on x86
+         */
         return chain[offset].load();
+        boost::atomic_thread_fence(boost::memory_order_seq_cst);
     }
     
     /* Inserts a monomer into a specific place.
@@ -160,6 +162,7 @@ public:
     {
         AFK_Monomer<KeyType, ValueType> *expected = nullptr;
         size_t offset = chainOffset(hops, baseHash);
+        boost::atomic_thread_fence(boost::memory_order_seq_cst);
         return chain[offset].compare_exchange_strong(expected, monomer);
     }
 
@@ -169,6 +172,7 @@ public:
     bool erase(unsigned int hops, size_t baseHash, AFK_Monomer<KeyType, ValueType> *monomer)
     {
         size_t offset = chainOffset(hops, baseHash);
+        boost::atomic_thread_fence(boost::memory_order_seq_cst);
         return chain[offset].compare_exchange_strong(monomer, nullptr);
     }
 

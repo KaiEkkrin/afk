@@ -254,7 +254,7 @@ public:
         return workers.size();
     }
 
-    bool assertNoQueuedWork(void)
+    bool noQueuedWork(void)
     {
         return queue.finished();
     }

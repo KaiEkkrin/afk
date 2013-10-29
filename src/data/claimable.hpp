@@ -97,9 +97,6 @@ enum AFK_ClaimStatus
     AFK_CL_TAKEN               /* Someone else has it */
 };
 
-/* This is the "unclaimed" thread ID. */
-#define UNCLAIMED 0xffffffffu
-
 /* For errors.  Shouldn't happen in normal usage. */
 class AFK_ClaimException: public std::exception {};
 
@@ -116,10 +113,12 @@ protected:
     boost::upgrade_mutex claimingMut;
 #else
     /* Which thread ID (as assigned by the async module) has
-     * claimed use of this object.
+     * claimed use of this object.  I'll increment it by 1 to
+     * make sure no thread IDs of 0 are knocking about.
+     * 0 means nobody.
+     * 1<<63 is a special bit signifying "non-shared lock".
      */
-    boost::atomic<unsigned int> claimingThreadId;
-
+    boost::atomic<uint64_t> claimingThreadId;
 #endif
 
 public:

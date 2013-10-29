@@ -17,6 +17,7 @@
 
 #include "afk.hpp"
 
+#include <cassert>
 #include <cmath>
 
 #include "core.hpp"
@@ -28,9 +29,9 @@
 #include "world.hpp"
 
 
-#define PRINT_CHECKPOINTS 0
+#define PRINT_CHECKPOINTS 1
 #define PRINT_CACHE_STATS 0
-#define PRINT_JIGSAW_STATS 1
+#define PRINT_JIGSAW_STATS 0
 
 #define PROTAGONIST_CELL_DEBUG 0
 
@@ -739,8 +740,9 @@ void AFK_World::flipRenderQueues(const AFK_Frame& newFrame)
     /* Verify that the concurrency control business has done
      * its job correctly.
      */
-    if (!genGang->assertNoQueuedWork())
+    if (!genGang->noQueuedWork())
         threadEscapes.fetch_add(1);
+    //assert(genGang->noQueuedWork());
 
     landscapeComputeFair.flipQueues();
     landscapeDisplayFair.flipQueues();

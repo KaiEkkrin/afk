@@ -22,19 +22,15 @@
 #include "claimable.hpp"
 
 
+#if CLAIMABLE_MUTEX
 
 AFK_Claimable::AFK_Claimable()
-#if CLAIMABLE_MUTEX
-#else
-    :claimingThreadId(UNCLAIMED)
-#endif
 {
 }
 
 enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimType type, const AFK_Frame& currentFrame)
 {
     AFK_ClaimStatus status = AFK_CL_TAKEN;
-#if CLAIMABLE_MUTEX
     bool gotUpgradeLock = false;
     switch (type)
     {
@@ -54,10 +50,6 @@ enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimT
         claimingMut.lock();
         break;
     }
-#else
-    unsigned int expectedId = UNCLAIMED;
-    if (claimingThreadId.compare_exchange_strong(expectedId, threadId))
-#endif
     {
         switch (type)
         {
@@ -110,24 +102,12 @@ enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimT
             throw AFK_ClaimException();
         }
     }
-#if CLAIMABLE_MUTEX
-#else
-    else
-    {
-        /* I might as well check whether I'd ever give it to
-         * you at all
-         */
-        if (type == AFK_CLT_EXCLUSIVE && lastSeenExclusively == currentFrame)
-            status = AFK_CL_ALREADY_PROCESSED;
-    }
-#endif
 
     return status;
 }
 
 enum AFK_ClaimStatus AFK_Claimable::upgrade(unsigned int threadId, enum AFK_ClaimStatus status)
 {
-#if CLAIMABLE_MUTEX
     switch (status)
     {
     case AFK_CL_CLAIMED_UPGRADABLE:
@@ -138,17 +118,12 @@ enum AFK_ClaimStatus AFK_Claimable::upgrade(unsigned int threadId, enum AFK_Clai
     default:
         throw AFK_ClaimException();
     }
-#else
-    /* Not supported right now */
-    throw AFK_ClaimException();
-#endif
 
     return status;
 }
 
 void AFK_Claimable::release(unsigned int threadId, enum AFK_ClaimStatus status)
 {
-#if CLAIMABLE_MUTEX
     switch (status)
     {
     case AFK_CL_CLAIMED:
@@ -167,16 +142,133 @@ void AFK_Claimable::release(unsigned int threadId, enum AFK_ClaimStatus status)
         /* Another programming error */
         throw AFK_ClaimException();
     }
-#else
-    if (!claimingThreadId.compare_exchange_strong(threadId, UNCLAIMED))
-        throw AFK_ClaimException();
-#endif
 }
+
+#else /* CLAIMABLE_MUTEX */
+
+#define NO_THREAD 0
+#define NONSHARED (1uLL<<63)
+
+#define THREAD_ID_SHARED(id) (((uint64_t)(id))+1uLL)
+#define THREAD_ID_SHARED_MASK(id) (~THREAD_ID_SHARED(id))
+
+#define THREAD_ID_NONSHARED(id) (THREAD_ID_SHARED(id) | NONSHARED)
+#define THREAD_ID_NONSHARED_MASK(id) (~THREAD_ID_NONSHARED(id))
+
+AFK_Claimable::AFK_Claimable():
+    claimingThreadId(NO_THREAD)
+{
+}
+
+enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimType type, const AFK_Frame& currentFrame)
+{
+    AFK_ClaimStatus status = AFK_CL_TAKEN;
+
+    switch (type)
+    {
+    case AFK_CLT_NONEXCLUSIVE_SHARED:
+    case AFK_CLT_NONEXCLUSIVE_UPGRADE:
+        /* These are the same in non-mutex land.  Try to take it
+         * without having a set nonshared bit.
+         */
+        if ((claimingThreadId.fetch_or(THREAD_ID_SHARED(threadId)) & NONSHARED) == NONSHARED)
+        {
+            /* Someone's got it exclusively!  Flip that bit back. */
+            claimingThreadId.fetch_and(THREAD_ID_SHARED_MASK(threadId));
+        }
+        else
+        {
+            status = AFK_CL_CLAIMED_UPGRADABLE;
+        }
+        break;
+
+    case AFK_CLT_EXCLUSIVE:
+    case AFK_CLT_NONEXCLUSIVE:
+    case AFK_CLT_EVICTOR:
+        /* Likewise.  Try to take it and set the nonshared bit.
+         * For this to work you shouldn't have it at all
+         */
+        uint64_t expected = NO_THREAD;
+        if (claimingThreadId.compare_exchange_strong(expected, THREAD_ID_NONSHARED(threadId)))
+        {
+            status = AFK_CL_CLAIMED;
+        }
+        break;
+    }
+
+    if (status == AFK_CL_CLAIMED)
+    {
+        /* You got a claim; sort out the frame tracking. */
+        switch (type)
+        {
+        case AFK_CLT_EXCLUSIVE:
+            if (lastSeenExclusively == currentFrame)
+            {
+                /* You've already processed this. */
+                release(threadId, AFK_CL_CLAIMED);
+                status = AFK_CL_ALREADY_PROCESSED;
+            }
+            else
+            {
+                /* Bump both last seen fields. */
+                lastSeen = currentFrame;
+                lastSeenExclusively = currentFrame;
+            }
+            break;
+
+        case AFK_CLT_EVICTOR:
+            /* Don't bother bumping anything */
+            break;
+
+        default:
+            /* Bump only lastSeen. */
+            lastSeen = currentFrame;
+            break;
+        }
+    }
+
+    return status;
+}
+
+enum AFK_ClaimStatus AFK_Claimable::upgrade(unsigned int threadId, enum AFK_ClaimStatus status)
+{
+    assert(status == AFK_CL_CLAIMED_UPGRADABLE);
+    uint64_t expected = THREAD_ID_SHARED(threadId);
+    if (claimingThreadId.compare_exchange_strong(expected, THREAD_ID_NONSHARED(threadId)))
+    {
+        status = AFK_CL_CLAIMED;
+    }
+
+    return status;
+}
+
+void AFK_Claimable::release(unsigned int threadId, enum AFK_ClaimStatus status)
+{
+    /* This oughtn't to make a difference, but just to be
+     * sure, I shouldn't clear the nonshared bit with shared
+     * statuses
+     */
+    switch (status)
+    {
+    case AFK_CL_CLAIMED:
+        claimingThreadId.fetch_and(THREAD_ID_NONSHARED_MASK(threadId));
+        break;
+
+    case AFK_CL_CLAIMED_UPGRADABLE:
+        claimingThreadId.fetch_and(THREAD_ID_SHARED_MASK(threadId));
+        break;
+
+    default:
+        throw AFK_ClaimException();
+    }
+}
+
+#endif /* CLAIMABLE_MUTEX */
 
 enum AFK_ClaimStatus AFK_Claimable::claimYieldLoop(unsigned int threadId, enum AFK_ClaimType type, const AFK_Frame& currentFrame)
 {
     enum AFK_ClaimStatus status = AFK_CL_TAKEN;
-    for (unsigned int tries = 0; status == AFK_CL_TAKEN /* && tries < 2 */; ++tries)
+    while (status == AFK_CL_TAKEN)
     {
         status = claim(threadId, type, currentFrame);
         if (status == AFK_CL_TAKEN) boost::this_thread::yield();
