@@ -63,8 +63,13 @@ enum AFK_LandscapeTileArtworkState
 /* Describes a landscape tile, including managing its rendered vertex
  * and index buffers.
  */
-class AFK_LandscapeTile: public AFK_Claimable
+class AFK_LandscapeTile
 {
+public:
+    /* For the polymer. */
+    boost::atomic<AFK_Tile> key;
+    AFK_Claimable claimable;
+
 protected:
     /* The structure that describes the terrain present at this
      * tile.
@@ -72,8 +77,8 @@ protected:
      * the terrain here and the terrain at all the ancestral tiles.)
      */
     bool haveTerrainDescriptor;
-    std::vector<AFK_TerrainFeature> terrainFeatures; /* landscapeSizes->featureCountPerTile features per tile, in order */
-    std::vector<AFK_TerrainTile> terrainTiles;
+    std::vector<AFK_TerrainFeature> *terrainFeatures; /* landscapeSizes->featureCountPerTile features per tile, in order */
+    std::vector<AFK_TerrainTile> *terrainTiles;
 
     /* The jigsaw piece for this tile, or the null piece if it hasn't
      * been assigned yet.
@@ -151,7 +156,8 @@ public:
         AFK_LandscapeDisplayUnit& o_unit) const;
 
     /* For handling claiming and eviction. */
-    virtual bool canBeEvicted(void) const;
+    bool canBeEvicted(void) const;
+    void evict(void);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_LandscapeTile& t);
 };

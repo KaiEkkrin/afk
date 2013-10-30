@@ -152,6 +152,9 @@ public:
 AFK_Cell afk_cell(const AFK_Cell& other);
 AFK_Cell afk_cell(const Vec4<int64_t>& _coord);
 
+/* An invalid "unassigned" cell value for polymer keying. */
+#define AFK_UNASSIGNED_CELL afk_cell(afk_vec4<int64_t>(0, 0, 0, -1))
+
 /* Returns the cell (of the requested scale) that contains this point. */
 AFK_Cell afk_cellContaining(const Vec3<float>& _coord, int64_t scale, float worldScale);
 

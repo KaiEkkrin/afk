@@ -37,9 +37,6 @@ public:
      */
     virtual Value& operator[](const Key& key) = 0;
 
-    /* For debugging. */
-    virtual void printEverything(std::ostream& os) const = 0;
-
     /* TODO: I need a way of analysing the duplication rate.  Right now,
      * there isn't anything.
      */

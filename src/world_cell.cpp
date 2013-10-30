@@ -25,23 +25,15 @@
 
 
 AFK_WorldCell::AFK_WorldCell():
-    AFK_Claimable()
-    //moveQueue(32) /* I don't expect very many */
+    key(AFK_UNASSIGNED_CELL),
+    claimable(),
+    entities(nullptr)
 {
 }
 
 AFK_WorldCell::~AFK_WorldCell()
 {
-    for (auto e : entities)
-    {
-        delete e;
-    }
-
-    /* I also own the contents of the move list.  All entries
-     * have already been removed from their old owner cells.
-     */
-    //AFK_Entity *e;
-    //while (moveQueue.pop(e)) delete e;
+    evict();
 }
 
 Vec4<float> AFK_WorldCell::getRealCoord(void) const
@@ -49,13 +41,12 @@ Vec4<float> AFK_WorldCell::getRealCoord(void) const
     return visibleCell.getRealCoord();
 }
 
-void AFK_WorldCell::bind(const AFK_Cell& _cell, float _worldScale)
+void AFK_WorldCell::bind(float _worldScale)
 {
-    cell = _cell;
     /* TODO If this actually *changes* something, I need to
      * clear the terrain so that it can be re-made.
      */
-    visibleCell.bindToCell(cell, _worldScale);
+    visibleCell.bindToCell(key.load(), _worldScale);
 }
 
 bool AFK_WorldCell::testDetailPitch(
@@ -77,7 +68,7 @@ unsigned int AFK_WorldCell::getStartingEntitiesWanted(
     unsigned int entitySparseness) const
 {
     unsigned int entityCount = 0;
-    if (entities.size() == 0)
+    if (!entities || entities->size() == 0)
     {
         /* I want more entities in larger cells */
         Vec4<float> realCoord = getRealCoord();
@@ -107,7 +98,7 @@ void AFK_WorldCell::addStartingEntity(
     const AFK_ShapeSizes& sSizes,
     AFK_RNG& rng)
 {
-    AFK_Entity *e = new AFK_Entity(shapeKey);
+    AFK_Entity e(shapeKey);
 
     Vec4<float> realCoord = getRealCoord();
 
@@ -164,42 +155,29 @@ void AFK_WorldCell::addStartingEntity(
     Vec3<float> entityRotation = afk_vec3<float>(0.0f, 0.0f, 0.0f);
 #endif
 
-    e->position(
+    e.position(
         afk_vec3<float>(entitySize, entitySize, entitySize),
         entityDisplacement,
         entityRotation);
 
-    entities.push_back(e);
+    if (!entities) entities = new AFK_ENTITY_LIST();
+    entities->push_back(e);
 }
 
 AFK_ENTITY_LIST::iterator AFK_WorldCell::entitiesBegin(void)
 {
-    return entities.begin();
+    return entities->begin();
 }
 
 AFK_ENTITY_LIST::iterator AFK_WorldCell::entitiesEnd(void)
 {
-    return entities.end();
+    return entities->end();
 }
 
 AFK_ENTITY_LIST::iterator AFK_WorldCell::eraseEntity(AFK_ENTITY_LIST::iterator eIt)
 {
-    return entities.erase(eIt);
+    return entities->erase(eIt);
 }
-
-#if 0
-void AFK_WorldCell::moveEntity(AFK_Entity *entity)
-{
-    moveQueue.push(entity);
-}
-
-void AFK_WorldCell::popMoveQueue(void)
-{
-    AFK_Entity *e;
-    while (moveQueue.pop(e))
-        entities.push_back(e);
-}
-#endif
 
 bool AFK_WorldCell::canBeEvicted(void) const
 {
@@ -215,8 +193,17 @@ bool AFK_WorldCell::canBeEvicted(void) const
     return canEvict;
 }
 
+void AFK_WorldCell::evict(void) const
+{
+    if (entities)
+    {
+        delete entities;
+        entities = nullptr;
+    }
+}
+
 std::ostream& operator<<(std::ostream& os, const AFK_WorldCell& worldCell)
 {
-    return os << "World cell (last seen " << worldCell.lastSeen << ")";
+    return os << "World cell at " << key.load() << " (last seen " << worldCell.lastSeen << ")";
 }
 

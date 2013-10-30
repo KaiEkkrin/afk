@@ -98,6 +98,10 @@ class Vec3
 public:
     /* use a storage space of 4, to match OpenCL's
      * 3-vectors.
+     * However, this isn't just padding!  v[3] MUST be initialised
+     * as well as the others, because Vec3s get used in Tiles, which
+     * are polymer keys (need to be compared with memcmp() ).
+     * Therefore, v[3] is defined to always be 0.
      */
     F v[4];
 
@@ -114,14 +118,14 @@ public:
     Vec3<F> operator+(F f) const
     {
         Vec3<F> r;
-        r.v[0] = v[0] + f; r.v[1] = v[1] + f; r.v[2] = v[2] + f;
+        r.v[0] = v[0] + f; r.v[1] = v[1] + f; r.v[2] = v[2] + f; r.v[3] = v[3];
         return r;
     }
 
     Vec3<F> operator+(const Vec3<F>& p) const
     {
         Vec3<F> r;
-        r.v[0] = v[0] + p.v[0]; r.v[1] = v[1] + p.v[1]; r.v[2] = v[2] + p.v[2];
+        r.v[0] = v[0] + p.v[0]; r.v[1] = v[1] + p.v[1]; r.v[2] = v[2] + p.v[2]; r.v[3] = v[3];
         return r;
     }
 
@@ -134,35 +138,35 @@ public:
     Vec3<F> operator-(void) const
     {
         Vec3<F> r;
-        r.v[0] = -v[0]; r.v[1] = -v[1]; r.v[2] = -v[2];
+        r.v[0] = -v[0]; r.v[1] = -v[1]; r.v[2] = -v[2]; r.v[3] = v[3];
         return r;
     }
 
     Vec3<F> operator-(F f) const
     {
         Vec3<F> r;
-        r.v[0] = v[0] - f; r.v[1] = v[1] - f; r.v[2] = v[2] - f;
+        r.v[0] = v[0] - f; r.v[1] = v[1] - f; r.v[2] = v[2] - f; r.v[3] = v[3];
         return r;
     }
 
     Vec3<F> operator-(const Vec3<F>& p) const
     {
         Vec3<F> r;
-        r.v[0] = v[0] - p.v[0]; r.v[1] = v[1] - p.v[1]; r.v[2] = v[2] - p.v[2];
+        r.v[0] = v[0] - p.v[0]; r.v[1] = v[1] - p.v[1]; r.v[2] = v[2] - p.v[2]; r.v[3] = v[3];
         return r;
     }
 
     Vec3<F> operator*(F f) const
     {
         Vec3<F> r;
-        r.v[0] = v[0] * f; r.v[1] = v[1] * f; r.v[2] = v[2] * f;
+        r.v[0] = v[0] * f; r.v[1] = v[1] * f; r.v[2] = v[2] * f; r.v[3] = v[3];
         return r;
     }
 
     Vec3<F> operator/(F f) const
     {
         Vec3<F> r;
-        r.v[0] = v[0] / f; r.v[1] = v[1] / f; r.v[2] = v[2] / f;
+        r.v[0] = v[0] / f; r.v[1] = v[1] / f; r.v[2] = v[2] / f; r.v[3] = v[3];
         return r;
     }
 
@@ -205,6 +209,7 @@ public:
         r.v[0] = v[1] * p.v[2] - v[2] * p.v[1];
         r.v[1] = v[2] * p.v[0] - v[0] * p.v[2];
         r.v[2] = v[0] * p.v[1] - v[1] * p.v[0];
+        r.v[3] = v[3];
         return r;
     }
 };
@@ -213,7 +218,7 @@ template<typename F>
 Vec3<F> afk_vec3(const Vec3<F>& o)
 {
     Vec3<F> v;
-    v.v[0] = o.v[0]; v.v[1] = o.v[1]; v.v[2] = o.v[2];
+    v.v[0] = o.v[0]; v.v[1] = o.v[1]; v.v[2] = o.v[2]; v.v[3] = o.v[3];
     return v;
 }
 
@@ -221,7 +226,7 @@ template<typename F>
 Vec3<F> afk_vec3(F e0, F e1, F e2)
 {
     Vec3<F> v;
-    v.v[0] = e0; v.v[1] = e1; v.v[2] = e2;
+    v.v[0] = e0; v.v[1] = e1; v.v[2] = e2; v.v[3] = 0;
     return v;
 }
 

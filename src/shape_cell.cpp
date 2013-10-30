@@ -36,20 +36,21 @@ Vec4<float> AFK_ShapeCell::getBaseColour(void) const
     AFK_RNG_Value shapeSeed(
         afk_core.config->masterSeed.v.ll[0],
         afk_core.config->masterSeed.v.ll[1],
-        cell.key * 0x0013001300130013ll);
+        getCell().key * 0x0013001300130013ll);
     rng.seed(shapeSeed);
     return afk_vec4<float>(
         rng.frand(), rng.frand(), rng.frand(), 0.0f);
 }
 
-void AFK_ShapeCell::bind(const AFK_KeyedCell& _cell)
+AFK_ShapeCell::AFK_ShapeCell():
+    key(AFK_UNCLAIMED_KEYED_CELL),
+    claimable()
 {
-    cell = _cell;
 }
 
 const AFK_KeyedCell& AFK_ShapeCell::getCell(void) const
 {
-    return cell;
+    return key.load();
 }
 
 bool AFK_ShapeCell::hasVapour(AFK_JigsawCollection *vapourJigsaws) const
@@ -86,12 +87,12 @@ void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
         vapourComputeFair.getUpdateQueue(0);
 
 #if SHAPE_COMPUTE_DEBUG
-    AFK_DEBUG_PRINTL("Shape cell " << cell << ": Computing new vapour at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE) << " with adjacency: " << std::hex << adjacency << " and list " << list)
+    AFK_DEBUG_PRINTL("Shape cell " << cell << ": Computing new vapour at location: " << getCell().toWorldSpace(SHAPE_CELL_WORLD_SCALE) << " with adjacency: " << std::hex << adjacency << " and list " << list)
 #endif
 
     vapourComputeQueue->extend(list, o_cubeOffset, o_cubeCount);
     vapourComputeQueue->addUnit(
-        cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
+        getCell().toWorldSpace(SHAPE_CELL_WORLD_SCALE),
         getBaseColour(),
         vapourJigsawPiece,
         adjacency,
@@ -114,11 +115,11 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
         vapourComputeFair.getUpdateQueue(0);
 
 #if SHAPE_COMPUTE_DEBUG
-    AFK_DEBUG_PRINTL("Shape cell " << cell << ": Computing existing vapour at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE) << " with adjacency: " << std::hex << adjacency)
+    AFK_DEBUG_PRINTL("Shape cell " << cell << ": Computing existing vapour at location: " << getCell().toWorldSpace(SHAPE_CELL_WORLD_SCALE) << " with adjacency: " << std::hex << adjacency)
 #endif
 
     vapourComputeQueue->addUnit(
-        cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
+        getCell().toWorldSpace(SHAPE_CELL_WORLD_SCALE),
         getBaseColour(),
         vapourJigsawPiece,
         adjacency,
@@ -141,10 +142,10 @@ void AFK_ShapeCell::enqueueEdgeComputeUnit(
             entityFair2DIndex.get1D(vapourJigsawPiece.puzzle, edgeJigsawPiece.puzzle));
 
 #if SHAPE_COMPUTE_DEBUG
-     AFK_DEBUG_PRINTL("Computing edges at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE))
+     AFK_DEBUG_PRINTL("Computing edges at location: " << getCell().toWorldSpace(SHAPE_CELL_WORLD_SCALE))
 #endif
 
-     edgeComputeQueue->append(cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
+     edgeComputeQueue->append(getCell().toWorldSpace(SHAPE_CELL_WORLD_SCALE),
          vapourJigsawPiece, edgeJigsawPiece);
 }
 
@@ -158,7 +159,7 @@ void AFK_ShapeCell::enqueueEdgeDisplayUnit(
     const AFK_Fair2DIndex& entityFair2DIndex) const
 {
 #if SHAPE_DISPLAY_DEBUG
-    AFK_DEBUG_PRINTL("Displaying edges at cell " << worldTransform * cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE))
+    AFK_DEBUG_PRINTL("Displaying edges at cell " << worldTransform * getCell().toWorldSpace(SHAPE_CELL_WORLD_SCALE))
 #endif
 
     /* TODO Deal with multiple vapour jigsaws in this queue.
@@ -179,6 +180,10 @@ bool AFK_ShapeCell::canBeEvicted(void) const
 {
     bool canEvict = ((afk_core.computingFrame - lastSeen) > 10);
     return canEvict;
+}
+
+void AFK_ShapeCell::evict(void)
+{
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_ShapeCell& shapeCell)

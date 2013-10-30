@@ -30,9 +30,12 @@
 /* AFK_LandscapeTile implementation */
 
 AFK_LandscapeTile::AFK_LandscapeTile():
-    AFK_Claimable(),
+    key(AFK_UNASSIGNED_TILE),
+    claimable(),
     haveTerrainDescriptor(false),
-    jigsaws(NULL),
+    terrainFeatures(nullptr),
+    terrainTiles(nullptr),
+    jigsaws(nullptr),
     yBoundLower(-FLT_MAX),
     yBoundUpper(FLT_MAX)
 {
@@ -40,6 +43,7 @@ AFK_LandscapeTile::AFK_LandscapeTile():
 
 AFK_LandscapeTile::~AFK_LandscapeTile()
 {
+    evict();
 }
 
 bool AFK_LandscapeTile::hasTerrainDescriptor() const
@@ -58,7 +62,13 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
 
         /* I'm going to make 5 terrain tiles. */
         AFK_Tile descriptorTiles[5];
-        tile.enumerateDescriptorTiles(&descriptorTiles[0], 5, lSizes.subdivisionFactor);
+        key.load().enumerateDescriptorTiles(&descriptorTiles[0], 5, lSizes.subdivisionFactor);
+
+        assert(!terrainFeatures);
+        terrainFeatures = new std::vector<AFK_TerrainFeature>();
+
+        assert(!terrainTiles);
+        terrainTiles = new std::vector<AFK_TerrainTile>();
 
         for (unsigned int i = 0; i < 5; ++i)
         {
@@ -66,11 +76,11 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
             Vec3<float> tileCoord = descriptorTiles[i].toWorldSpace(minCellSize);
             AFK_TerrainTile t;
             t.make(
-                terrainFeatures,
+                *terrainFeatures,
                 tileCoord,
                 lSizes,
                 rng);
-            terrainTiles.push_back(t);
+            terrainTiles->push_back(t);
         }
 
         haveTerrainDescriptor = true;
@@ -86,17 +96,18 @@ void AFK_LandscapeTile::buildTerrainList(
     const AFK_LANDSCAPE_CACHE *cache) const
 {
     /* Add the local terrain tiles to the list. */
-    list.extend(terrainFeatures, terrainTiles);
+    list.extend(*terrainFeatures, *terrainTiles);
 
     /* If this isn't the top level cell... */
-    if (tile.coord.v[2] < maxDistance)
+    AFK_Cell cell = key.load();
+    if (cell.coord.v[2] < maxDistance)
     {
         /* Find the parent tile in the cache.
          * If it's not here I'll throw an exception -- that would be a bug.
          */
-        AFK_Tile parentTile = tile.parent(subdivisionFactor);
+        AFK_Tile parentTile = cell.parent(subdivisionFactor);
         AFK_LandscapeTile& parentLandscapeTile = cache->at(parentTile);
-        enum AFK_ClaimStatus claimStatus = parentLandscapeTile.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
+        enum AFK_ClaimStatus claimStatus = parentLandscapeTile.claimable.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
         if (claimStatus != AFK_CL_CLAIMED_SHARED && claimStatus != AFK_CL_CLAIMED_UPGRADABLE)
         {
             std::ostringstream ss;
@@ -104,7 +115,7 @@ void AFK_LandscapeTile::buildTerrainList(
             throw AFK_Exception(ss.str());
         }
         parentLandscapeTile.buildTerrainList(threadId, list, parentTile, subdivisionFactor, maxDistance, cache);
-        parentLandscapeTile.release(threadId, claimStatus);
+        parentLandscapeTile.claimable.release(threadId, claimStatus);
     }
 }
 
@@ -143,19 +154,22 @@ float AFK_LandscapeTile::getYBoundUpper() const
 
 void AFK_LandscapeTile::setYBounds(float _yBoundLower, float _yBoundUpper)
 {
-    /* Convert these bounds into world space.
-     * The native tile is the first one in the list
-     */
-    float tileScale = terrainTiles[0].getTileScale();
-    yBoundLower = _yBoundLower * tileScale;
-    yBoundUpper = _yBoundUpper * tileScale;
+    if (terrainTiles)
+    {
+        /* Convert these bounds into world space.
+         * The native tile is the first one in the list
+         */
+        float tileScale = (*terrainTiles)[0].getTileScale();
+        yBoundLower = _yBoundLower * tileScale;
+        yBoundUpper = _yBoundUpper * tileScale;
 
     /* Debugging here because it's a good indicator that the tile
      * has been computed now.
      */
 #if 0
-    AFK_DEBUG_PRINTL("Tile " << terrainTiles[0].getTileCoord() << ": new y-bounds appeared: " << yBoundLower << ", " << yBoundUpper)
+        AFK_DEBUG_PRINTL("Tile " << (*terrainTiles)[0].getTileCoord() << ": new y-bounds appeared: " << yBoundLower << ", " << yBoundUpper)
 #endif
+    }
 }
 
 bool AFK_LandscapeTile::realCellWithinYBounds(const Vec4<float>& coord) const
@@ -196,6 +210,21 @@ bool AFK_LandscapeTile::canBeEvicted(void) const
     /* This is a tweakable value ... */
     bool canEvict = ((afk_core.computingFrame - lastSeen) > 10);
     return canEvict;
+}
+
+void AFK_LandscapeTile::evict(void)
+{
+    if (terrainTiles)
+    {
+        delete terrainTiles;
+        terrainTiles = nullptr;
+    }
+
+    if (terrainFeatures)
+    {
+        delete terrainFeatures;
+        terrainFeatures = nullptr;
+    }
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_LandscapeTile& t)

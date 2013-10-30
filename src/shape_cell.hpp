@@ -22,6 +22,8 @@
 
 #include <sstream>
 
+#include <boost/atomic.hpp>
+
 #include "3d_edge_compute_queue.hpp"
 #include "3d_solid.hpp"
 #include "3d_vapour_compute_queue.hpp"
@@ -50,11 +52,15 @@
 /* A ShapeCell describes one level of detail in a 3D
  * shape, and is cached by the Shape.
  */
-class AFK_ShapeCell: public AFK_Claimable
+class AFK_ShapeCell
 {
+public:
+    /* For the polymer. */
+    boost::atomic<AFK_KeyedCell> key;
+    AFK_Claimable claimable;
+
 protected:
-    /* Location information in shape space.
-     * A VisibleCell will be used to test visibility and
+    /* A VisibleCell will be used to test visibility and
      * detail pitch, but it will be transient, because
      * these will be different for each Entity that
      * instances the shape.
@@ -62,7 +68,6 @@ protected:
      * `shape' module, I think, to create that VisibleCell
      * and perform the two tests upon it.
      */
-    AFK_KeyedCell cell;
 
     AFK_JigsawPiece vapourJigsawPiece;
     AFK_Frame vapourJigsawPieceTimestamp;
@@ -74,8 +79,8 @@ protected:
     Vec4<float> getBaseColour(void) const;
 
 public:
-    /* Binds a shape cell to the shape. */
-    void bind(const AFK_KeyedCell& _cell);
+    AFK_ShapeCell();
+
     const AFK_KeyedCell& getCell(void) const;
 
     bool hasVapour(AFK_JigsawCollection *vapourJigsaws) const;
@@ -129,7 +134,8 @@ public:
         const AFK_Fair2DIndex& entityFair2DIndex) const;
 
     /* For handling claiming and eviction. */
-    virtual bool canBeEvicted(void) const;
+    bool canBeEvicted(void) const;
+    void evict(void);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_ShapeCell& shapeCell);
 };

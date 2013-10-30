@@ -45,16 +45,19 @@ AFK_KeyedCell afk_shapeToVapourCell(const AFK_KeyedCell& cell, const AFK_ShapeSi
  * because VapourCells exist at larger scales, crossing multiple
  * ShapeCells.
  */
-class AFK_VapourCell: public AFK_Claimable
+class AFK_VapourCell
 {
-protected:
-    AFK_KeyedCell cell;
+public:
+    /* For the polymer. */
+    AFK_KeyedCell key;
+    AFK_Claimable claimable;
 
+protected:
     /* The actual features here. */
     bool haveDescriptor;
-    AFK_Skeleton skeleton;
-    std::vector<AFK_3DVapourFeature> features;
-    std::vector<AFK_3DVapourCube> cubes;
+    AFK_Skeleton *skeleton;
+    std::vector<AFK_3DVapourFeature> *features;
+    std::vector<AFK_3DVapourCube> *cubes;
 
     /* These fields track whether this vapour cell has already
      * been pushed into the vapour compute queue this round,
@@ -66,8 +69,10 @@ protected:
     AFK_Frame computeCubeFrame;
 
 public:
-    /* Binds a shape cell to the shape. */
-    void bind(const AFK_KeyedCell& _cell);
+    AFK_VapourCell();
+    virtual ~AFK_VapourCell();
+
+    const AFK_KeyedCell& getCell(void) const;
 
     bool hasDescriptor(void) const;
 
@@ -150,7 +155,8 @@ public:
         unsigned int cubeCount);
 
     /* For handling claiming and eviction. */
-    virtual bool canBeEvicted(void) const;
+    bool canBeEvicted(void) const;
+    void evict(void);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_VapourCell& vapourCell);
 };

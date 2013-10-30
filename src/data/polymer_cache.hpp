@@ -33,15 +33,15 @@ unsigned int afk_suggestCacheBitness(unsigned int entries);
 
 /* This defines the AFK cache as an unguarded polymer cache. */
 
-template<typename Key, typename Value, typename Hasher>
-class AFK_PolymerCache: public AFK_Cache<Key, Value>
+template<typename Key, typename Monomer, typename Hasher>
+class AFK_PolymerCache: public AFK_Cache<Key, Monomer>
 {
 protected:
-    AFK_Polymer<Key, Value, Hasher> polymer;
+    AFK_Polymer<Key, Monomer, Hasher> polymer;
 
 public:
-    AFK_PolymerCache(unsigned int hashBits, unsigned int targetContention, Hasher hasher):
-        polymer(hashBits, targetContention, hasher)
+    AFK_PolymerCache(const Key& unassigned, unsigned int hashBits, unsigned int targetContention, Hasher hasher):
+        polymer(unassigned, hashBits, targetContention, hasher)
     {
     }
 
@@ -50,19 +50,14 @@ public:
         return polymer.size();
     }
 
-    virtual Value& at(const Key& key) const
+    virtual Monomer& at(const Key& key) const
     {
         return polymer.at(key);
     }
 
-    virtual Value& operator[](const Key& key)
+    virtual Monomer& operator[](const Key& key)
     {
         return polymer[key];
-    }
-
-    virtual bool erase(const Key& key)
-    {
-        return polymer.erase(key);
     }
 
     /* I'll want to try this some day ? */
@@ -80,15 +75,6 @@ public:
         return false;
     }
 #endif
-
-    virtual void printEverything(std::ostream& os) const
-    {
-        for (auto monoIt = polymer.begin(); monoIt != polymer.end(); ++monoIt)
-        {
-            AFK_Monomer<Key, Value>* monomer = monoIt->load();
-            os << monomer->key << " -> " << monomer->value << std::endl;
-        }
-    }
 
     virtual void printStats(std::ostream& os, const std::string& prefix) const
     {

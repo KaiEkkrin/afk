@@ -60,16 +60,6 @@ public:
     }
 #endif
 
-    virtual void printEverything(std::ostream& os) const
-    {
-        for (typename boost::unordered_map<Key, Value>::const_iterator mapIt = map.begin();
-            mapIt != map.end(); ++mapIt)
-        {
-            std::pair<Key, Value> entry = *mapIt;
-            os << entry.first << " -> " << entry.second << std::endl;
-        }
-    }
-
     virtual void printStats(std::ostream& os, const std::string& prefix) const
     {
     }

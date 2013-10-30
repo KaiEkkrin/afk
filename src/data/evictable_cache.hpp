@@ -29,11 +29,15 @@
 
 /* An evictable cache is a polymer cache that can run an
  * eviction thread to remove old entries.
- * It assumes that the Value is a Claimable.
+ * It assumes that the Monomer has:
+ * - a Claimable field named `claimable';
+ * - a method bool canBeEvicted(void) const, that tells it
+ * whether it's evictable
+ * - a method void evict(void) that cleans it out.
  */
 
-template<typename Key, typename Value, typename Hasher>
-class AFK_EvictableCache: public AFK_PolymerCache<Key, Value, Hasher>
+template<typename Key, typename Monomer, typename Hasher>
+class AFK_EvictableCache: public AFK_PolymerCache<Key, Monomer, Hasher>
 {
 protected:
     /* The state of the evictor. */
@@ -56,7 +60,6 @@ protected:
     void evictionWorker(void)
     {
         unsigned int entriesEvicted = 0;
-        std::vector<AFK_Monomer<Key, Value>*> forRemoval;
 
         do
         {
@@ -67,8 +70,8 @@ protected:
             size_t slotCount = this->polymer.slotCount(); /* don't keep recomputing */
             for (size_t slot = 0; slot < slotCount; ++slot)
             {
-                AFK_Monomer<Key, Value> *candidate = this->polymer.atSlot(slot);
-                if (candidate && candidate->value.canBeEvicted())
+                Monomer& candidate;
+                if (this->polymer.atSlot(slot, candidate))
                 {
                     /* Claim it first, otherwise someone else will
                      * and the world will not be a happy place.
@@ -77,27 +80,16 @@ protected:
                      * Note that the evictor claim type never uses
                      * a real frame number and so the following is OK
                      */
-                    if (candidate->value.claim(threadId, AFK_CLT_EVICTOR, AFK_Frame()) == AFK_CL_CLAIMED)
+                    if (candidate.claimable.claim(threadId, AFK_CLT_EVICTOR, AFK_Frame()) == AFK_CL_CLAIMED)
                     {
-                        bool deleted = false;
-
-                        if (this->polymer.eraseSlot(slot, candidate))
+                        if (candidate.canBeEvicted() &&
+                            this->polymer.eraseSlot(slot, candidate.key.load()))
                         {
-                            /* Double check */
-                            if (candidate->value.canBeEvicted())
-                            {
-                                delete candidate;
-                                ++entriesEvicted;
-                                deleted = true;
-                            }
-                            else
-                            {
-                                /* Uh oh.  Quick, put it back. */
-                                this->polymer.reinsertSlot(slot, candidate);
-                            }
+                            candidate.evict();
+                            ++entriesEvicted;
                         }
-    
-                        if (!deleted) candidate->value.release(threadId, AFK_CL_CLAIMED);
+
+                        candidate.claimable.release(threadId, AFK_CL_CLAIMED);
                     }
                 }
             }
@@ -108,12 +100,13 @@ protected:
 
 public:
     AFK_EvictableCache(
+        const Key& unassigned,
         unsigned int hashBits,
         unsigned int targetContention,
         Hasher hasher,
         size_t _targetSize,
         unsigned int _threadId):
-            AFK_PolymerCache<Key, Value, Hasher>(hashBits, targetContention, hasher),
+            AFK_PolymerCache<Key, Monomer, Hasher>(unassigned, hashBits, targetContention, hasher),
             targetSize(_targetSize),
             kickoffSize(_targetSize + _targetSize / 4),
             complainSize(_targetSize + _targetSize / 2),
@@ -159,7 +152,7 @@ public:
             {
                 /* Kick off a new eviction task */
                 rp = new boost::promise<unsigned int>();
-                th = new boost::thread(&AFK_EvictableCache<Key, Value, Hasher>::evictionWorker, this);
+                th = new boost::thread(&AFK_EvictableCache<Key, Monomer, Hasher>::evictionWorker, this);
                 result = rp->get_future();
             }
             else
