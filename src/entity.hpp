@@ -45,8 +45,11 @@
  * If I don't do that, I won't be able to produce the swarms
  * of Entities that I really want to be able to produce. :)
  */
-class AFK_Entity: public AFK_Claimable
+class AFK_Entity
 {
+public:
+    AFK_Claimable claimable;
+
 protected:
     /* The shape key is used to vary the RNG output to generate
      * the shape, and keys the shape cell and vapour cell
@@ -70,6 +73,10 @@ protected:
 
 public:
     AFK_Entity(unsigned int _shapeKey);
+
+    /* I need this for the std::list */
+    AFK_Entity(const AFK_Entity& _entity);
+
     virtual ~AFK_Entity();
 
     unsigned int getShapeKey(void) const;
@@ -82,28 +89,7 @@ public:
         const Vec3<float>& rotation /* pitch, yaw, roll */
         );
 
-    /* AFK_Claimable implementation. */
-    virtual bool canBeEvicted(void) const;
-
-    /* The shape cell generating worker will need to access
-     * the fields here.
-     */
-    friend class AFK_Shape;
-
-    friend bool afk_generateEntity(
-        unsigned int threadId,
-        const union AFK_WorldWorkParam& param,
-        AFK_WorldWorkQueue& queue);
-
-    friend bool afk_generateVapourDescriptor(
-        unsigned int threadId,
-        const union AFK_WorldWorkParam& param,
-        AFK_WorldWorkQueue& queue);
-
-    friend bool afk_generateShapeCells(
-        unsigned int threadId,
-        const union AFK_WorldWorkParam& param,
-        AFK_WorldWorkQueue& queue);
+    Mat4<float> getTransformation(void) const { return obj.getTransformation(); }
 };
 
 #endif /* _AFK_ENTITY_H_ */

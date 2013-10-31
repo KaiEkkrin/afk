@@ -164,6 +164,9 @@ enum AFK_ClaimStatus AFK_Claimable::claim(unsigned int threadId, enum AFK_ClaimT
 {
     AFK_ClaimStatus status = AFK_CL_TAKEN;
 
+    /* Try to make sure we're current */
+    boost::atomic_thread_fence(boost::memory_order_seq_cst);
+
     switch (type)
     {
     case AFK_CLT_NONEXCLUSIVE_SHARED:
@@ -261,6 +264,11 @@ void AFK_Claimable::release(unsigned int threadId, enum AFK_ClaimStatus status)
     default:
         throw AFK_ClaimException();
     }
+
+    /* Try to make sure other threads see a current view of
+     * the changes
+     */
+    boost::atomic_thread_fence(boost::memory_order_seq_cst);
 }
 
 #endif /* CLAIMABLE_MUTEX */

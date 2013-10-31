@@ -189,11 +189,11 @@ bool AFK_WorldCell::canBeEvicted(void) const
      * them should always return false (or at least, be much
      * more likely to return false ......)
      */
-    bool canEvict = ((afk_core.computingFrame - lastSeen) > 60);
+    bool canEvict = ((afk_core.computingFrame - claimable.getLastSeen()) > 60);
     return canEvict;
 }
 
-void AFK_WorldCell::evict(void) const
+void AFK_WorldCell::evict(void)
 {
     if (entities)
     {
@@ -204,6 +204,6 @@ void AFK_WorldCell::evict(void) const
 
 std::ostream& operator<<(std::ostream& os, const AFK_WorldCell& worldCell)
 {
-    return os << "World cell at " << key.load() << " (last seen " << worldCell.lastSeen << ")";
+    return os << "World cell at " << worldCell.key.load() << " (last seen " << worldCell.claimable.getLastSeen() << ")";
 }
 

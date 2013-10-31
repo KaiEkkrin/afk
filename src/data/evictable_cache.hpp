@@ -70,8 +70,8 @@ protected:
             size_t slotCount = this->polymer.slotCount(); /* don't keep recomputing */
             for (size_t slot = 0; slot < slotCount; ++slot)
             {
-                Monomer& candidate;
-                if (this->polymer.atSlot(slot, candidate))
+                Monomer *candidate;
+                if (this->polymer.getSlot(slot, &candidate))
                 {
                     /* Claim it first, otherwise someone else will
                      * and the world will not be a happy place.
@@ -80,16 +80,16 @@ protected:
                      * Note that the evictor claim type never uses
                      * a real frame number and so the following is OK
                      */
-                    if (candidate.claimable.claim(threadId, AFK_CLT_EVICTOR, AFK_Frame()) == AFK_CL_CLAIMED)
+                    if (candidate->claimable.claim(threadId, AFK_CLT_EVICTOR, AFK_Frame()) == AFK_CL_CLAIMED)
                     {
-                        if (candidate.canBeEvicted() &&
-                            this->polymer.eraseSlot(slot, candidate.key.load()))
+                        if (candidate->canBeEvicted() &&
+                            this->polymer.eraseSlot(slot, candidate->key.load()))
                         {
-                            candidate.evict();
+                            candidate->evict();
                             ++entriesEvicted;
                         }
 
-                        candidate.claimable.release(threadId, AFK_CL_CLAIMED);
+                        candidate->claimable.release(threadId, AFK_CL_CLAIMED);
                     }
                 }
             }
@@ -164,7 +164,7 @@ public:
 
     virtual void printStats(std::ostream& os, const std::string& prefix) const
     {
-        AFK_PolymerCache<Key, Value, Hasher>::printStats(os, prefix);
+        AFK_PolymerCache<Key, Monomer, Hasher>::printStats(os, prefix);
         /* TODO An eviction rate would be much more interesting */
         os << prefix << ": Evicted " << entriesEvicted << " entries" << std::endl;
         os << prefix << ": " << runsOverlapped << " runs overlapped, " << runsSkipped << " runs skipped" << std::endl;

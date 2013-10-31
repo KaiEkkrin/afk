@@ -49,7 +49,7 @@ class AFK_VapourCell
 {
 public:
     /* For the polymer. */
-    AFK_KeyedCell key;
+    boost::atomic<AFK_KeyedCell> key;
     AFK_Claimable claimable;
 
 protected:
@@ -72,7 +72,7 @@ public:
     AFK_VapourCell();
     virtual ~AFK_VapourCell();
 
-    const AFK_KeyedCell& getCell(void) const;
+    const AFK_KeyedCell getCell(void) const { return key.load(); }
 
     bool hasDescriptor(void) const;
 

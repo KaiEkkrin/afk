@@ -90,7 +90,6 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
 void AFK_LandscapeTile::buildTerrainList(
     unsigned int threadId,
     AFK_TerrainList& list,
-    const AFK_Tile& tile,
     unsigned int subdivisionFactor,
     float maxDistance,
     const AFK_LANDSCAPE_CACHE *cache) const
@@ -98,14 +97,14 @@ void AFK_LandscapeTile::buildTerrainList(
     /* Add the local terrain tiles to the list. */
     list.extend(*terrainFeatures, *terrainTiles);
 
-    /* If this isn't the top level cell... */
-    AFK_Cell cell = key.load();
-    if (cell.coord.v[2] < maxDistance)
+    /* If this isn't the top level tile... */
+    AFK_Tile tile = key.load();
+    if (tile.coord.v[2] < maxDistance)
     {
         /* Find the parent tile in the cache.
          * If it's not here I'll throw an exception -- that would be a bug.
          */
-        AFK_Tile parentTile = cell.parent(subdivisionFactor);
+        AFK_Tile parentTile = tile.parent(subdivisionFactor);
         AFK_LandscapeTile& parentLandscapeTile = cache->at(parentTile);
         enum AFK_ClaimStatus claimStatus = parentLandscapeTile.claimable.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
         if (claimStatus != AFK_CL_CLAIMED_SHARED && claimStatus != AFK_CL_CLAIMED_UPGRADABLE)
@@ -114,7 +113,7 @@ void AFK_LandscapeTile::buildTerrainList(
             ss << "Unable to claim tile at " << parentTile << ": got status " << claimStatus;
             throw AFK_Exception(ss.str());
         }
-        parentLandscapeTile.buildTerrainList(threadId, list, parentTile, subdivisionFactor, maxDistance, cache);
+        parentLandscapeTile.buildTerrainList(threadId, list, subdivisionFactor, maxDistance, cache);
         parentLandscapeTile.claimable.release(threadId, claimStatus);
     }
 }
@@ -208,7 +207,7 @@ bool AFK_LandscapeTile::makeDisplayUnit(
 bool AFK_LandscapeTile::canBeEvicted(void) const
 {
     /* This is a tweakable value ... */
-    bool canEvict = ((afk_core.computingFrame - lastSeen) > 10);
+    bool canEvict = ((afk_core.computingFrame - claimable.getLastSeen()) > 10);
     return canEvict;
 }
 

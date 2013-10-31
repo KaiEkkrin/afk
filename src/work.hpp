@@ -112,7 +112,7 @@ union AFK_WorldWorkParam
     struct Shape
     {
         AFK_KeyedCell cell;
-        AFK_Entity *entity;
+        Mat4<float> transformation;
         AFK_World *world;
         Vec3<float> viewerLocation;
         const AFK_Camera *camera;

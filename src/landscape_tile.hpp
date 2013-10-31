@@ -122,7 +122,6 @@ public:
     void buildTerrainList(
         unsigned int threadId,
         AFK_TerrainList& list,
-        const AFK_Tile& tile,
         unsigned int subdivisionFactor,
         float maxDistance,
         const AFK_LANDSCAPE_CACHE *cache) const;

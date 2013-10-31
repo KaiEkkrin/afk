@@ -50,13 +50,12 @@ bool afk_generateEntity(
 
     AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
     AFK_VapourCell& vapourCell = (*(shape.vapourCellCache))[vc];
-    vapourCell.bind(vc);
-    AFK_ClaimStatus claimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_UPGRADE, afk_core.computingFrame);
+    AFK_ClaimStatus claimStatus = vapourCell.claimable.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_UPGRADE, afk_core.computingFrame);
 
     if (!vapourCell.hasDescriptor())
     {
         /* Get an exclusive claim, and make its descriptor. */
-        claimStatus = vapourCell.upgrade(threadId, claimStatus);
+        claimStatus = vapourCell.claimable.upgrade(threadId, claimStatus);
 
         if (claimStatus == AFK_CL_CLAIMED)
         {
@@ -98,7 +97,7 @@ bool afk_generateEntity(
         resume = true;
     }
 
-    vapourCell.release(threadId, claimStatus);
+    vapourCell.claimable.release(threadId, claimStatus);
 
     if (resume)
     {
@@ -138,7 +137,7 @@ bool afk_generateShapeCells(
     AFK_WorldWorkQueue& queue)
 {
     const AFK_KeyedCell cell                = param.shape.cell;
-    AFK_Entity *entity                      = param.shape.entity;
+    Mat4<float> worldTransform              = param.shape.transformation;
     AFK_World *world                        = param.shape.world;
     const Vec3<float>& viewerLocation       = param.shape.viewerLocation;
     const AFK_Camera *camera                = param.shape.camera;
@@ -146,12 +145,10 @@ bool afk_generateShapeCells(
     bool entirelyVisible                    = ((param.shape.flags & AFK_SCG_FLAG_ENTIRELY_VISIBLE) != 0);
 
     AFK_Shape& shape                        = world->shape;
-    Mat4<float> worldTransform              = entity->obj.getTransformation();
 
     /* Next, handle the shape cell ... */
     AFK_ShapeCell& shapeCell = (*(shape.shapeCellCache))[cell];
-    shapeCell.bind(cell);
-    AFK_ClaimStatus shapeCellClaimStatus = shapeCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
+    AFK_ClaimStatus shapeCellClaimStatus = shapeCell.claimable.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
 
     bool resume = false;
 
@@ -185,13 +182,12 @@ bool afk_generateShapeCells(
          */
         AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
         AFK_VapourCell& vapourCell = (*(shape.vapourCellCache))[vc];
-        vapourCell.bind(vc);
-        AFK_ClaimStatus vapourCellClaimStatus = vapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
+        AFK_ClaimStatus vapourCellClaimStatus = vapourCell.claimable.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
 
         if (!vapourCell.hasDescriptor())
         {
             if (vapourCellClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
-                vapourCellClaimStatus = vapourCell.upgrade(threadId, vapourCellClaimStatus);
+                vapourCellClaimStatus = vapourCell.claimable.upgrade(threadId, vapourCellClaimStatus);
 
             if (vapourCellClaimStatus == AFK_CL_CLAIMED)
             {
@@ -201,9 +197,9 @@ bool afk_generateShapeCells(
                  */
                 AFK_KeyedCell upperVC = vc.parent(world->sSizes.subdivisionFactor);
                 AFK_VapourCell& upperVapourCell = shape.vapourCellCache->at(upperVC);
-                AFK_ClaimStatus upperVCClaimStatus = upperVapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
+                AFK_ClaimStatus upperVCClaimStatus = upperVapourCell.claimable.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
                 vapourCell.makeDescriptor(upperVapourCell, world->sSizes);
-                upperVapourCell.release(threadId, upperVCClaimStatus);
+                upperVapourCell.claimable.release(threadId, upperVCClaimStatus);
             }
         }
 
@@ -278,13 +274,13 @@ bool afk_generateShapeCells(
 
         if (vapourCellClaimStatus != AFK_CL_TAKEN)
         {
-            vapourCell.release(threadId, vapourCellClaimStatus);
+            vapourCell.claimable.release(threadId, vapourCellClaimStatus);
         }
     }
 
     if (shapeCellClaimStatus != AFK_CL_TAKEN)
     {
-        shapeCell.release(threadId, shapeCellClaimStatus);
+        shapeCell.claimable.release(threadId, shapeCellClaimStatus);
     }
 
     if (resume)
@@ -336,7 +332,7 @@ bool AFK_Shape::generateClaimedShapeCell(
          * to upgrade my claim.
          */
         if (shapeCellClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
-            shapeCellClaimStatus = shapeCell.upgrade(threadId, shapeCellClaimStatus);
+            shapeCellClaimStatus = shapeCell.claimable.upgrade(threadId, shapeCellClaimStatus);
 
         if (shapeCellClaimStatus == AFK_CL_CLAIMED)
         {
@@ -355,7 +351,7 @@ bool AFK_Shape::generateClaimedShapeCell(
             {
                 /* I need to upgrade my vapour cell claim first */
                 if (vapourCellClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
-                    vapourCellClaimStatus = vapourCell.upgrade(threadId, vapourCellClaimStatus);
+                    vapourCellClaimStatus = vapourCell.claimable.upgrade(threadId, vapourCellClaimStatus);
 
                 if (vapourCellClaimStatus == AFK_CL_CLAIMED)
                 {
@@ -380,7 +376,7 @@ bool AFK_Shape::generateClaimedShapeCell(
          * to upgrade my claim.
          */
         if (shapeCellClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
-            shapeCellClaimStatus = shapeCell.upgrade(threadId, shapeCellClaimStatus);
+            shapeCellClaimStatus = shapeCell.claimable.upgrade(threadId, shapeCellClaimStatus);
 
         if (shapeCellClaimStatus == AFK_CL_CLAIMED)
         {
@@ -422,6 +418,7 @@ AFK_Shape::AFK_Shape(
         (2 * config->shape_skeletonMaxSize * 6 * SQUARE(config->shape_pointSubdivisionFactor));
     unsigned int shapeCellCacheBitness = afk_suggestCacheBitness(shapeCellCacheEntries);
     shapeCellCache = new AFK_SHAPE_CELL_CACHE(
+        AFK_UNASSIGNED_KEYED_CELL,
         shapeCellCacheBitness,
         4,
         AFK_HashKeyedCell(),
@@ -432,6 +429,7 @@ AFK_Shape::AFK_Shape(
         (2 * config->shape_skeletonMaxSize * CUBE(config->shape_pointSubdivisionFactor));
     unsigned int vapourCellCacheBitness = afk_suggestCacheBitness(vapourCellCacheEntries);
     vapourCellCache = new AFK_VAPOUR_CELL_CACHE(
+        AFK_UNASSIGNED_KEYED_CELL,
         vapourCellCacheBitness,
         4,
         AFK_HashKeyedCell(),

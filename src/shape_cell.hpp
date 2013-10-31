@@ -81,7 +81,7 @@ protected:
 public:
     AFK_ShapeCell();
 
-    const AFK_KeyedCell& getCell(void) const;
+    const AFK_KeyedCell getCell(void) const { return key.load(); }
 
     bool hasVapour(AFK_JigsawCollection *vapourJigsaws) const;
     bool hasEdges(AFK_JigsawCollection *edgeJigsaws) const;

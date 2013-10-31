@@ -43,14 +43,9 @@ Vec4<float> AFK_ShapeCell::getBaseColour(void) const
 }
 
 AFK_ShapeCell::AFK_ShapeCell():
-    key(AFK_UNCLAIMED_KEYED_CELL),
+    key(AFK_UNASSIGNED_KEYED_CELL),
     claimable()
 {
-}
-
-const AFK_KeyedCell& AFK_ShapeCell::getCell(void) const
-{
-    return key.load();
 }
 
 bool AFK_ShapeCell::hasVapour(AFK_JigsawCollection *vapourJigsaws) const
@@ -178,7 +173,7 @@ void AFK_ShapeCell::enqueueEdgeDisplayUnit(
 
 bool AFK_ShapeCell::canBeEvicted(void) const
 {
-    bool canEvict = ((afk_core.computingFrame - lastSeen) > 10);
+    bool canEvict = ((afk_core.computingFrame - claimable.getLastSeen()) > 10);
     return canEvict;
 }
 
@@ -188,7 +183,7 @@ void AFK_ShapeCell::evict(void)
 
 std::ostream& operator<<(std::ostream& os, const AFK_ShapeCell& shapeCell)
 {
-    os << "Shape cell at " << shapeCell.cell;
+    os << "Shape cell at " << shapeCell.key.load();
     os << " (Vapour piece: " << shapeCell.vapourJigsawPiece << ")";
     os << " (Edge piece: " << shapeCell.edgeJigsawPiece << ")";
     return os;

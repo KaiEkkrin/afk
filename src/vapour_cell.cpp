@@ -28,7 +28,7 @@
 
 AFK_KeyedCell afk_shapeToVapourCell(const AFK_KeyedCell& cell, const AFK_ShapeSizes& sSizes)
 {
-    return getCell().parent(sSizes.skeletonFlagGridDim);
+    return cell.parent(sSizes.skeletonFlagGridDim);
 }
 
 
@@ -46,11 +46,6 @@ AFK_VapourCell::AFK_VapourCell():
 AFK_VapourCell::~AFK_VapourCell()
 {
     evict();
-}
-
-const AFK_KeyedCell& AFK_VapourCell::getCell(void) const
-{
-    return key.load();
 }
 
 bool AFK_VapourCell::hasDescriptor(void) const
@@ -93,15 +88,16 @@ void AFK_VapourCell::makeDescriptor(
 }
 
 void AFK_VapourCell::makeDescriptor(
-    const AFK_VapourCell& upperCell,
+    const AFK_VapourCell& upperVapourCell,
     const AFK_ShapeSizes& sSizes)
 {
     /* Sanity check. */
-    if (!upperCell.hasDescriptor()) throw AFK_Exception("Vapour cell descriptors built in wrong order");
+    if (!upperVapourCell.hasDescriptor()) throw AFK_Exception("Vapour cell descriptors built in wrong order");
 
     if (!haveDescriptor)
     {
         AFK_KeyedCell cell = getCell();
+        AFK_KeyedCell upperCell = upperVapourCell.getCell();
 
         assert(!skeleton);
         skeleton = new AFK_Skeleton();
@@ -119,11 +115,11 @@ void AFK_VapourCell::makeDescriptor(
         Vec3<int64_t> thisCellShapeSpace = afk_vec3<int64_t>(
             cell.c.coord.v[0], cell.c.coord.v[1], cell.c.coord.v[2]);
         Vec3<int64_t> upperCellShapeSpace = afk_vec3<int64_t>(
-            upperCell.cell.c.coord.v[0], upperCell.cell.c.coord.v[1], upperCell.cell.c.coord.v[2]);
+            upperCell.c.coord.v[0], upperCell.c.coord.v[1], upperCell.c.coord.v[2]);
         Vec3<int64_t> upperOffset = (thisCellShapeSpace - upperCellShapeSpace) * (sSizes.skeletonFlagGridDim/2) / cell.c.coord.v[3];
 
         if (skeleton->make(
-            *(upperCell.skeleton),
+            *(upperVapourCell.skeleton),
             upperOffset,
             rng,
             sSizes) > 0)
@@ -170,7 +166,7 @@ int AFK_VapourCell::skeletonFullAdjacency(const AFK_KeyedCell& shapeCell, const 
 }
 
 AFK_VapourCell::ShapeCells::ShapeCells(const AFK_VapourCell& _vapourCell, const AFK_ShapeSizes& _sSizes):
-    bones(AFK_Skeleton::Bones(_vapourCell.skeleton)),
+    bones(AFK_Skeleton::Bones(*(_vapourCell.skeleton))),
     vapourCell(_vapourCell),
     sSizes(_sSizes)
 {
@@ -248,7 +244,7 @@ void AFK_VapourCell::enqueued(
 
 bool AFK_VapourCell::canBeEvicted(void) const
 {
-    bool canEvict = ((afk_core.computingFrame - lastSeen) > 10);
+    bool canEvict = ((afk_core.computingFrame - claimable.getLastSeen()) > 10);
     return canEvict;
 }
 
@@ -275,7 +271,7 @@ void AFK_VapourCell::evict(void)
 
 std::ostream& operator<<(std::ostream& os, const AFK_VapourCell& vapourCell)
 {
-    os << "Vapour cell with " <<
+    os << "Vapour cell at " << vapourCell.key.load() << " with " <<
         (vapourCell.features ? vapourCell.features->size() : 0) << " features and " <<
         (vapourCell.cubes ? vapourCell.cubes->size() : 0) << " cubes";
     return os;

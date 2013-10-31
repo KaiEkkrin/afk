@@ -61,7 +61,7 @@ public:
     AFK_WorldCell();
     virtual ~AFK_WorldCell();
 
-    const AFK_Cell& getCell(void) const { return key; }
+    const AFK_Cell getCell(void) const { return key.load(); }
     Vec4<float> getRealCoord(void) const;
 
     /* Binds a world cell to the world.  Needs to be called

@@ -122,8 +122,7 @@ public:
      */
     enum AFK_ClaimStatus claimYieldLoop(unsigned int threadId, enum AFK_ClaimType type, const AFK_Frame& currentFrame);
 
-    /* Things the implementer needs to define. */
-    virtual bool canBeEvicted(void) const = 0;
+    const AFK_Frame& getLastSeen(void) const { return lastSeen; }
 };
 
 #endif /* _AFK_DATA_CLAIMABLE_H_ */

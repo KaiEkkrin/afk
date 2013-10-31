@@ -52,12 +52,14 @@ public:
 
     virtual Monomer& at(const Key& key) const
     {
-        return polymer.at(key);
+        Monomer *ptr = polymer.get(key);
+        return *ptr;
     }
 
     virtual Monomer& operator[](const Key& key)
     {
-        return polymer[key];
+        Monomer *ptr = polymer.insert(key);
+        return *ptr;
     }
 
     /* I'll want to try this some day ? */

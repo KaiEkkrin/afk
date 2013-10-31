@@ -66,7 +66,7 @@ bool afk_generateWorldCells(
      * trying"; in those cases I don't want an exclusive claim, and
      * I won't do a recursive search.
      */
-    if (worldCell.claimYieldLoop(threadId,
+    if (worldCell.claimable.claimYieldLoop(threadId,
         (renderTerrain || resume) ? AFK_CLT_NONEXCLUSIVE : AFK_CLT_EXCLUSIVE,
         afk_core.computingFrame) == AFK_CL_CLAIMED)
     {
@@ -160,7 +160,6 @@ void AFK_World::generateLandscapeArtwork(
     landscapeTile.buildTerrainList(
         threadId,
         terrainList,
-        tile,
         subdivisionFactor,
         maxDistance,
         landscapeCache);
@@ -224,7 +223,7 @@ bool AFK_World::generateClaimedWorldCell(
 
     bool retval = true;
 
-    worldCell.bind(cell, minCellSize);
+    worldCell.bind(minCellSize);
 
     /* Check for visibility. */
     bool someVisible = entirelyVisible;
@@ -236,7 +235,7 @@ bool AFK_World::generateClaimedWorldCell(
         cellsInvisible.fetch_add(1);
 
         /* Nothing else to do with it now either. */
-        worldCell.release(threadId, AFK_CL_CLAIMED);
+        worldCell.claimable.release(threadId, AFK_CL_CLAIMED);
     }
     else /* if (cell.coord.v[1] == 0) */
     {
@@ -260,7 +259,7 @@ bool AFK_World::generateClaimedWorldCell(
          * terrain description.
          */
         AFK_LandscapeTile& landscapeTile = (*landscapeCache)[tile];
-        AFK_ClaimStatus landscapeClaimStatus = landscapeTile.claimYieldLoop(
+        AFK_ClaimStatus landscapeClaimStatus = landscapeTile.claimable.claimYieldLoop(
             threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
 
         bool generateArtwork = false;
@@ -271,7 +270,7 @@ bool AFK_World::generateClaimedWorldCell(
              * our claim if we can.
              */
             if (landscapeClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
-                landscapeClaimStatus = landscapeTile.upgrade(threadId, landscapeClaimStatus);
+                landscapeClaimStatus = landscapeTile.claimable.upgrade(threadId, landscapeClaimStatus);
 
             if (landscapeClaimStatus == AFK_CL_CLAIMED)
             {
@@ -304,7 +303,7 @@ bool AFK_World::generateClaimedWorldCell(
         /* At any rate, I should relinquish my claim on the tile
          * now.
          */
-        landscapeTile.release(threadId, landscapeClaimStatus);
+        landscapeTile.claimable.release(threadId, landscapeClaimStatus);
 
         if (display)
         {
@@ -316,12 +315,12 @@ bool AFK_World::generateClaimedWorldCell(
                  * that it has the opportunity to reject the tile for display
                  * because the cell is entirely outside the y bounds.
                  */
-                landscapeClaimStatus = landscapeTile.claimYieldLoop(
+                landscapeClaimStatus = landscapeTile.claimable.claimYieldLoop(
                     threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
                 AFK_JigsawPiece jigsawPiece;
                 AFK_LandscapeDisplayUnit unit;
                 bool displayThisTile = landscapeTile.makeDisplayUnit(cell, minCellSize, jigsawPiece, unit);
-                landscapeTile.release(threadId, landscapeClaimStatus);
+                landscapeTile.claimable.release(threadId, landscapeClaimStatus);
 
                 if (displayThisTile)
                 {
@@ -374,8 +373,7 @@ bool AFK_World::generateClaimedWorldCell(
 #endif
         while (eIt != worldCell.entitiesEnd())
         {
-            AFK_Entity *e = *eIt;
-            if (e->claimYieldLoop(threadId, AFK_CLT_EXCLUSIVE, afk_core.computingFrame) == AFK_CL_CLAIMED)
+            if (eIt->claimable.claimYieldLoop(threadId, AFK_CLT_EXCLUSIVE, afk_core.computingFrame) == AFK_CL_CLAIMED)
             {
                 /* Make sure everything I need in that shape
                  * has been computed ...
@@ -383,8 +381,8 @@ bool AFK_World::generateClaimedWorldCell(
                 AFK_WorldWorkQueue::WorkItem shapeCellItem;
                 shapeCellItem.func                          = afk_generateEntity;
                 shapeCellItem.param.shape.cell              = afk_keyedCell(afk_vec4<int64_t>(
-                                                                0, 0, 0, SHAPE_CELL_MAX_DISTANCE), e->getShapeKey());
-                shapeCellItem.param.shape.entity            = e;
+                                                                0, 0, 0, SHAPE_CELL_MAX_DISTANCE), eIt->getShapeKey());
+                shapeCellItem.param.shape.transformation    = eIt->getTransformation();
                 shapeCellItem.param.shape.world             = this;               
                 shapeCellItem.param.shape.viewerLocation    = viewerLocation;
                 shapeCellItem.param.shape.camera            = camera;
@@ -401,7 +399,7 @@ bool AFK_World::generateClaimedWorldCell(
 
                 entitiesQueued.fetch_add(1);
 
-                e->release(threadId, AFK_CL_CLAIMED);
+                eIt->claimable.release(threadId, AFK_CL_CLAIMED);
             }
 
             ++eIt;
@@ -410,13 +408,8 @@ bool AFK_World::generateClaimedWorldCell(
 #endif
         }
 
-        /* Pop any new entities out from the move queue into the
-         * proper list.
-         */
-        //worldCell.popMoveQueue();
-
         /* We don't need this any more */
-        worldCell.release(threadId, AFK_CL_CLAIMED);
+        worldCell.claimable.release(threadId, AFK_CL_CLAIMED);
 
         /* If the terrain here was at too coarse a resolution to
          * be displayable, recurse through the subcells
@@ -447,7 +440,7 @@ bool AFK_World::generateClaimedWorldCell(
 #if 0
     else
     {
-        worldCell.release(threadId, AFK_CL_CLAIMED);
+        worldCell.claimable.release(threadId, AFK_CL_CLAIMED);
     }
 #endif
 
@@ -591,7 +584,12 @@ AFK_World::AFK_World(
     unsigned int tileCacheBitness = afk_suggestCacheBitness(tileCacheEntries);
 
     landscapeCache = new AFK_LANDSCAPE_CACHE(
-        tileCacheBitness, 8, AFK_HashTile(), tileCacheEntries / 2, 0xffffffffu);
+        AFK_UNASSIGNED_TILE,
+        tileCacheBitness,
+        8,
+        AFK_HashTile(),
+        tileCacheEntries / 2,
+        0xffffffffu);
 
     /* TODO Right now I don't have a sensible value for the
      * world cache size, because I'm not doing any exciting
@@ -603,7 +601,12 @@ AFK_World::AFK_World(
     unsigned int worldCacheBitness = afk_suggestCacheBitness(worldCacheEntries);
 
     worldCache = new AFK_WORLD_CACHE(
-        worldCacheBitness, 8, AFK_HashCell(), worldCacheEntries, 0xfffffffeu);
+        AFK_UNASSIGNED_CELL,
+        worldCacheBitness,
+        8,
+        AFK_HashCell(),
+        worldCacheEntries,
+        0xfffffffeu);
 
     // TODO: Fix the size of the shape cache (which is no doubt
     // in a huge mess)

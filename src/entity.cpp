@@ -29,6 +29,21 @@ AFK_Entity::AFK_Entity(unsigned int _shapeKey):
 {
 }
 
+/* TODO: This is a nasty mess, technically very wrong.  however,
+ * it's currently only being used on uninitialised entities before
+ * we Claim them in order to generate them (therefore we _want_ a
+ * default Claimable with a lastSeen of never).  In future, the task
+ * of moving entities about will no doubt end up in the OpenCL with
+ * jigsaws to contain them, which should get rid of this problem
+ * entirely.
+ */
+AFK_Entity::AFK_Entity(const AFK_Entity& _entity):
+    claimable(),
+    shapeKey(_entity.shapeKey),
+    obj(_entity.obj)
+{
+}
+
 AFK_Entity::~AFK_Entity()
 {
 }
@@ -48,14 +63,5 @@ void AFK_Entity::position(
     if (rotation.v[0] != 0.0f) obj.adjustAttitude(AXIS_PITCH, rotation.v[0]);
     if (rotation.v[1] != 0.0f) obj.adjustAttitude(AXIS_YAW, rotation.v[1]);
     if (rotation.v[2] != 0.0f) obj.adjustAttitude(AXIS_ROLL, rotation.v[2]);
-}
-
-bool AFK_Entity::canBeEvicted(void) const
-{
-    /* We shouldn't actually be calling this.  I'm using
-     * Claimable for the frame-tracking claim utility,
-     * not as an evictable thing.
-     */
-    throw AFK_Exception("Wanted to evict an Entity");
 }
 
