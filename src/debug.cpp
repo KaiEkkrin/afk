@@ -16,6 +16,7 @@
  */
 
 #include <boost/thread/mutex.hpp>
+#include <boost/thread/thread.hpp>
 
 #include "debug.hpp"
 
@@ -24,6 +25,6 @@ boost::mutex coutMut;
 void afk_debugPrint(const std::string& s)
 {
     boost::unique_lock<boost::mutex> lock(coutMut);
-    std::cout << s;
+    std::cout << boost::this_thread::get_id() << ": " << s;
 }
 

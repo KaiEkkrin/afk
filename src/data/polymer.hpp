@@ -138,7 +138,8 @@ public:
     bool get(unsigned int hops, size_t baseHash, const KeyType& key, MonomerType **o_monomerPtr) const
     {
         size_t offset = chainOffset(hops, baseHash);
-        if (chain[offset].key.load() == key)
+        KeyType found = chain[offset].key.load();
+        if (found == key)
         {
             *o_monomerPtr = &chain[offset];
             if (debug)
@@ -148,7 +149,7 @@ public:
         else
         {
             if (debug)
-                AFK_DEBUG_PRINTL(*this << " get(): " << key << " (offset " << offset << ") no match")
+                AFK_DEBUG_PRINTL(*this << " get(): " << key << " (offset " << offset << ") no match (found " << found << ")")
             return false;
         }
     }
@@ -178,7 +179,8 @@ public:
     /* Returns the next chain, or nullptr if we're at the end. */
     AFK_PolymerChain<KeyType, MonomerType, debug> *next(void) const
     {
-        return nextChain.load();
+        AFK_PolymerChain<KeyType, MonomerType, debug> *nextCh = nextChain.load();
+        return nextCh;
     }
 
     unsigned int getIndex(void) const
@@ -298,7 +300,7 @@ public:
 template<typename KeyType, typename MonomerType, bool debug>
 std::ostream& operator<<(std::ostream& os, const AFK_PolymerChain<KeyType, MonomerType, debug>& _chain)
 {
-    os << "PolymerChain(index=" << _chain.index << ", addr=" << &_chain << ")";
+    os << "PolymerChain(index=" << _chain.index << ", addr=" << _chain.chain << ")";
     return os;
 }
 
@@ -417,7 +419,7 @@ public:
     MonomerType *get(const KeyType& key) const
     {
         size_t hash = wring(hasher(key));
-        MonomerType *monomer;
+        MonomerType *monomer = nullptr;
         if (!retrieveMonomer(key, hash, &monomer)) throw AFK_PolymerOutOfRange();
         return monomer;
     }
@@ -430,7 +432,7 @@ public:
     MonomerType *insert(const KeyType& key)
     {
         size_t hash = wring(hasher(key));
-        MonomerType *monomer;
+        MonomerType *monomer = nullptr;
 
         /* I'm going to assume it's probably there already, and first
          * just do a basic search.
@@ -465,7 +467,9 @@ public:
 
     bool getSlot(size_t slot, MonomerType **o_monomerPtr) const
     {
-        return chains->atSlot(slot, o_monomerPtr);
+        /* Don't return unassigneds */
+        return (chains->atSlot(slot, o_monomerPtr) &&
+            (*o_monomerPtr)->key.load() != unassigned);
     }
 
     /* Removes from a slot so long as it contains the key specified
