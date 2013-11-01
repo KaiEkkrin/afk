@@ -23,9 +23,13 @@
 #include <sstream>
 
 #include <boost/atomic.hpp>
-#include <boost/iterator/indirect_iterator.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
+
+#define POLYMER_ITERATOR 0
+#if POLYMER_ITERATOR
+#include <boost/iterator/indirect_iterator.hpp>
+#endif
 
 #include "../debug.hpp"
 #include "stats.hpp"
@@ -116,21 +120,21 @@ public:
     }
     
     /* Appends a new chain. */
-    void extend(AFK_PolymerChain<KeyType, MonomerType, debug> *chain, unsigned int _index)
+    void extend(AFK_PolymerChain<KeyType, MonomerType, debug> *newChain, unsigned int _index)
     {
         assert(index == _index);
 
         AFK_PolymerChain<KeyType, MonomerType, debug> *expected = nullptr;
-        bool gotIt = nextChain.compare_exchange_strong(expected, chain);
+        bool gotIt = nextChain.compare_exchange_strong(expected, newChain);
         if (gotIt)
         {
-            chain->index = _index + 1;
+            newChain->index = _index + 1;
         }
         else
         {
             AFK_PolymerChain<KeyType, MonomerType, debug> *next = nextChain.load();
             assert(next);
-            next->extend(chain, _index + 1);
+            next->extend(newChain, _index + 1);
         }
     }
 
@@ -197,6 +201,7 @@ public:
             return 1;
     }
 
+#if POLYMER_ITERATOR
     /* This iterator goes through the elements present in a
      * traditional manner.
      */
@@ -251,6 +256,7 @@ public:
         iterator(AFK_PolymerChain<KeyType, MonomerType, debug> *chain, unsigned int _index):
             currentChain (chain), index (_index) { forwardToFirst(); }
     };
+#endif /* POLYMER_ITERATOR */
 
     /* Methods for supporting direct-slot access. */
 
@@ -446,6 +452,7 @@ public:
         return monomer;
     }
 
+#if POLYMER_ITERATOR
     typename AFK_PolymerChain<KeyType, MonomerType, debug>::iterator begin() const
     {
         return typename AFK_PolymerChain<KeyType, MonomerType, debug>::iterator(chains);
@@ -455,6 +462,7 @@ public:
     {
         return typename AFK_PolymerChain<KeyType, MonomerType, debug>::iterator(nullptr);
     }
+#endif
 
     /* For accessing the chain slots directly.  Use carefully (it's really
      * just for the eviction thread).
