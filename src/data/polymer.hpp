@@ -130,19 +130,19 @@ public:
     }
     
     /* Appends a new chain. */
-    void extend(AFK_PolymerChain<KeyType, ValueType> *chain, unsigned int _index)
+    void extend(AFK_PolymerChain<KeyType, ValueType> *newChain, unsigned int _index)
     {
         AFK_PolymerChain<KeyType, ValueType> *expected = nullptr;
-        bool gotIt = nextChain.compare_exchange_strong(expected, chain);
+        bool gotIt = nextChain.compare_exchange_strong(expected, newChain);
         if (gotIt)
         {
-            chain->index = _index + 1;
+            newChain->index = _index + 1;
         }
         else
         {
             AFK_PolymerChain<KeyType, ValueType> *next = nextChain.load();
             assert(next);
-            next->extend(chain, _index + 1);
+            next->extend(newChain, _index + 1);
         }
     }
 
