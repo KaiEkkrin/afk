@@ -42,7 +42,7 @@
 #define TERRAIN_TILES_PER_TILE 5
 
 #ifndef AFK_LANDSCAPE_CACHE
-#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile>
+#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile, true>
 #endif
 
 class AFK_LandscapeDisplayUnit;

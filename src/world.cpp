@@ -296,7 +296,12 @@ bool AFK_World::generateClaimedWorldCell(
             }
         }
 
-        /* If I was picked to generate the geometry, do that. */
+        /* If I was picked to generate the geometry, do that.
+         * TODO I'm pretty sure this is going to way too much effort. Before
+         * computing the geometry of a tile, we should check realCellWithinYBounds()
+         * of the higher level tile if it exists.  (See landscape_tile).  The check
+         * just before drawing is not aggressive enough by far
+         */
         if (generateArtwork)
             generateLandscapeArtwork(tile, landscapeTile, threadId);
 
@@ -367,45 +372,48 @@ bool AFK_World::generateClaimedWorldCell(
             }
         }
 
-        auto eIt = worldCell.entitiesBegin();
-#if AFK_SHAPE_ENUM_DEBUG
-        unsigned int eCounter = 0;
-#endif
-        while (eIt != worldCell.entitiesEnd())
+        if (worldCell.hasEntities())
         {
-            if (eIt->claimable.claimYieldLoop(threadId, AFK_CLT_EXCLUSIVE, afk_core.computingFrame) == AFK_CL_CLAIMED)
+            auto eIt = worldCell.entitiesBegin();
+#if AFK_SHAPE_ENUM_DEBUG
+            unsigned int eCounter = 0;
+#endif
+            while (eIt != worldCell.entitiesEnd())
             {
-                /* Make sure everything I need in that shape
-                 * has been computed ...
-                 */
-                AFK_WorldWorkQueue::WorkItem shapeCellItem;
-                shapeCellItem.func                          = afk_generateEntity;
-                shapeCellItem.param.shape.cell              = afk_keyedCell(afk_vec4<int64_t>(
-                                                                0, 0, 0, SHAPE_CELL_MAX_DISTANCE), eIt->getShapeKey());
-                shapeCellItem.param.shape.transformation    = eIt->getTransformation();
-                shapeCellItem.param.shape.world             = this;               
-                shapeCellItem.param.shape.viewerLocation    = viewerLocation;
-                shapeCellItem.param.shape.camera            = camera;
-                shapeCellItem.param.shape.flags             = 0;
+                if (eIt->claimable.claimYieldLoop(threadId, AFK_CLT_EXCLUSIVE, afk_core.computingFrame) == AFK_CL_CLAIMED)
+                {
+                    /* Make sure everything I need in that shape
+                     * has been computed ...
+                     */
+                    AFK_WorldWorkQueue::WorkItem shapeCellItem;
+                    shapeCellItem.func                          = afk_generateEntity;
+                    shapeCellItem.param.shape.cell              = afk_keyedCell(afk_vec4<int64_t>(
+                                                                    0, 0, 0, SHAPE_CELL_MAX_DISTANCE), eIt->getShapeKey());
+                    shapeCellItem.param.shape.transformation    = eIt->getTransformation();
+                    shapeCellItem.param.shape.world             = this;               
+                    shapeCellItem.param.shape.viewerLocation    = viewerLocation;
+                    shapeCellItem.param.shape.camera            = camera;
+                    shapeCellItem.param.shape.flags             = 0;
 
 #if AFK_SHAPE_ENUM_DEBUG
-                shapeCellItem.param.shape.asedWorldCell     = worldCell.getCell();
-                shapeCellItem.param.shape.asedCounter       = eCounter;
-                AFK_DEBUG_PRINTL("ASED: Enqueued entity: worldCell=" << worldCell.getCell() << ", entity counter=" << eCounter)
+                    shapeCellItem.param.shape.asedWorldCell     = worldCell.getCell();
+                    shapeCellItem.param.shape.asedCounter       = eCounter;
+                    AFK_DEBUG_PRINTL("ASED: Enqueued entity: worldCell=" << worldCell.getCell() << ", entity counter=" << eCounter)
 #endif
 
-                shapeCellItem.param.shape.dependency        = nullptr;
-                queue.push(shapeCellItem);
-
-                entitiesQueued.fetch_add(1);
-
-                eIt->claimable.release(threadId, AFK_CL_CLAIMED);
+                    shapeCellItem.param.shape.dependency        = nullptr;
+                    queue.push(shapeCellItem);
+            
+                    entitiesQueued.fetch_add(1);
+            
+                    eIt->claimable.release(threadId, AFK_CL_CLAIMED);
+                }
+            
+                ++eIt;
+#if AFK_SHAPE_ENUM_DEBUG
+                ++eCounter;
+#endif
             }
-
-            ++eIt;
-#if AFK_SHAPE_ENUM_DEBUG
-            ++eCounter;
-#endif
         }
 
         /* We don't need this any more */

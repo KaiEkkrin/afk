@@ -150,6 +150,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_Tile& tile)
     return os << "Tile(" << std::dec <<
         tile.coord.v[0] << ", " <<
         tile.coord.v[1] << ", scale " <<
-        tile.coord.v[2] << ")";
+        tile.coord.v[2] << ", padding " <<
+        tile.coord.v[3] << ")";
 }
 

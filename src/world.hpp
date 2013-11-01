@@ -147,7 +147,7 @@ protected:
      * I'm going to get a bit of overload?
      */
 #ifndef AFK_LANDSCAPE_CACHE
-#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile>
+#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile, true>
 #endif
     AFK_LANDSCAPE_CACHE *landscapeCache;
     unsigned int tileCacheEntries;

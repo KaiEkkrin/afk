@@ -99,6 +99,9 @@ public:
         const AFK_ShapeSizes& sSizes,
         AFK_RNG& rng);
 
+    /* Check this before iterating. */
+    bool hasEntities(void) const;
+
     /* Iterates through this cell's entities. */
     AFK_ENTITY_LIST::iterator entitiesBegin(void);
     AFK_ENTITY_LIST::iterator entitiesEnd(void);

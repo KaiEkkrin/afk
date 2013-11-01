@@ -164,6 +164,11 @@ void AFK_WorldCell::addStartingEntity(
     entities->push_back(e);
 }
 
+bool AFK_WorldCell::hasEntities(void) const
+{
+    return (entities != nullptr);
+}
+
 AFK_ENTITY_LIST::iterator AFK_WorldCell::entitiesBegin(void)
 {
     return entities->begin();

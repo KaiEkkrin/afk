@@ -83,6 +83,9 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
             terrainTiles->push_back(t);
         }
 
+        /* TODO remove debug */
+        AFK_DEBUG_PRINTL("makeTerrainDescriptor(): generated terrain for " << tile)
+
         haveTerrainDescriptor = true;
     }
 }
@@ -105,16 +108,28 @@ void AFK_LandscapeTile::buildTerrainList(
          * If it's not here I'll throw an exception -- that would be a bug.
          */
         AFK_Tile parentTile = tile.parent(subdivisionFactor);
-        AFK_LandscapeTile& parentLandscapeTile = cache->at(parentTile);
-        enum AFK_ClaimStatus claimStatus = parentLandscapeTile.claimable.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
-        if (claimStatus != AFK_CL_CLAIMED_SHARED && claimStatus != AFK_CL_CLAIMED_UPGRADABLE)
+
+        /* TODO remove debug */
+        AFK_DEBUG_PRINTL("buildTerrainList(): looking for terrain for " << parentTile)
+
+        try
         {
-            std::ostringstream ss;
-            ss << "Unable to claim tile at " << parentTile << ": got status " << claimStatus;
-            throw AFK_Exception(ss.str());
+            AFK_LandscapeTile& parentLandscapeTile = cache->at(parentTile);
+            enum AFK_ClaimStatus claimStatus = parentLandscapeTile.claimable.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
+            if (claimStatus != AFK_CL_CLAIMED_SHARED && claimStatus != AFK_CL_CLAIMED_UPGRADABLE)
+            {
+                std::ostringstream ss;
+                ss << "Unable to claim tile at " << parentTile << ": got status " << claimStatus;
+                throw AFK_Exception(ss.str());
+            }
+            parentLandscapeTile.buildTerrainList(threadId, list, subdivisionFactor, maxDistance, cache);
+            parentLandscapeTile.claimable.release(threadId, claimStatus);
         }
-        parentLandscapeTile.buildTerrainList(threadId, list, subdivisionFactor, maxDistance, cache);
-        parentLandscapeTile.claimable.release(threadId, claimStatus);
+        catch (AFK_PolymerOutOfRange e)
+        {
+            AFK_DEBUG_PRINTL("buildTerrainList(): can't find terrain for " << parentTile)
+            throw e;
+        }
     }
 }
 
