@@ -19,6 +19,7 @@
 #include <functional>
 #include <iostream>
 
+#include <boost/atomic.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/random/random_device.hpp>
 #include <boost/random/taus88.hpp>
@@ -39,11 +40,16 @@ struct expensivelyHashInt
     }
 };
 
+#define UNASSIGNED_KEY -1
+
 class IntStartingAtZero
 {
 public:
+    /* For the polymer cache, where the key is included the value. */
+    boost::atomic<int> key;
+
     int v;
-    IntStartingAtZero(): v(0) {}
+    IntStartingAtZero(): key(UNASSIGNED_KEY), v(0) {}
     IntStartingAtZero& operator+=(const int& o) { v += o; return *this; }
 };
 
@@ -130,7 +136,7 @@ void test_cache(void)
 
     /* Now let's try it again with the polymer cache */
     std::function<size_t (const int&)> hashFunc = expensivelyHashInt();
-    AFK_PolymerCache<int, IntStartingAtZero, std::function<size_t (const int&)> > polymerCache(16, 4, hashFunc);
+    AFK_PolymerCache<int, IntStartingAtZero, std::function<size_t (const int&)> > polymerCache(UNASSIGNED_KEY, 16, 4, hashFunc);
 
     for (unsigned int i = 0; i < CACHE_TEST_THREAD_COUNT; ++i)
     {
