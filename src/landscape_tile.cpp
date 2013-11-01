@@ -97,11 +97,15 @@ void AFK_LandscapeTile::buildTerrainList(
     float maxDistance,
     const AFK_LANDSCAPE_CACHE *cache) const
 {
+    AFK_Tile tile = key.load();
+
+    /* TODO remove debug */
+    AFK_DEBUG_PRINTL("buildTerrainList(): adding local terrain for " << tile)
+
     /* Add the local terrain tiles to the list. */
     list.extend(*terrainFeatures, *terrainTiles);
 
     /* If this isn't the top level tile... */
-    AFK_Tile tile = key.load();
     if (tile.coord.v[2] < maxDistance)
     {
         /* Find the parent tile in the cache.
