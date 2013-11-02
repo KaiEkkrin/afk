@@ -98,6 +98,7 @@ void AFK_LandscapeTile::buildTerrainList(
     const AFK_LANDSCAPE_CACHE *cache) const
 {
     AFK_Tile tile = key.load();
+    if (!terrainFeatures || !terrainTiles) throw AFK_Exception("Null terrain features found");
 
     /* TODO remove debug */
     AFK_DEBUG_PRINTL("buildTerrainList(): adding local terrain for " << tile)
