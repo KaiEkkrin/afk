@@ -40,7 +40,7 @@ struct expensivelyHashInt
     }
 };
 
-#define UNASSIGNED_KEY -1
+const int afk_cacheTestUnassignedKey = -1;
 
 class IntStartingAtZero
 {
@@ -49,7 +49,7 @@ public:
     boost::atomic<int> key;
 
     int v;
-    IntStartingAtZero(): key(UNASSIGNED_KEY), v(0) {}
+    IntStartingAtZero(): key(afk_cacheTestUnassignedKey), v(0) {}
     IntStartingAtZero& operator+=(const int& o) { v += o; return *this; }
 };
 
@@ -136,7 +136,7 @@ void test_cache(void)
 
     /* Now let's try it again with the polymer cache */
     std::function<size_t (const int&)> hashFunc = expensivelyHashInt();
-    AFK_PolymerCache<int, IntStartingAtZero, std::function<size_t (const int&)> > polymerCache(UNASSIGNED_KEY, 16, 4, hashFunc);
+    AFK_PolymerCache<int, IntStartingAtZero, std::function<size_t (const int&)>, afk_cacheTestUnassignedKey> polymerCache(16, 4, hashFunc);
 
     for (unsigned int i = 0; i < CACHE_TEST_THREAD_COUNT; ++i)
     {

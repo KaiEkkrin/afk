@@ -418,7 +418,6 @@ AFK_Shape::AFK_Shape(
         (2 * config->shape_skeletonMaxSize * 6 * SQUARE(config->shape_pointSubdivisionFactor));
     unsigned int shapeCellCacheBitness = afk_suggestCacheBitness(shapeCellCacheEntries);
     shapeCellCache = new AFK_SHAPE_CELL_CACHE(
-        AFK_UNASSIGNED_KEYED_CELL,
         shapeCellCacheBitness,
         4,
         AFK_HashKeyedCell(),
@@ -429,7 +428,6 @@ AFK_Shape::AFK_Shape(
         (2 * config->shape_skeletonMaxSize * CUBE(config->shape_pointSubdivisionFactor));
     unsigned int vapourCellCacheBitness = afk_suggestCacheBitness(vapourCellCacheEntries);
     vapourCellCache = new AFK_VAPOUR_CELL_CACHE(
-        AFK_UNASSIGNED_KEYED_CELL,
         vapourCellCacheBitness,
         4,
         AFK_HashKeyedCell(),

@@ -50,7 +50,7 @@ AFK_KeyedCell afk_keyedCell(const AFK_Cell& _baseCell, int64_t _key);
 AFK_KeyedCell afk_keyedCell(const Vec4<int64_t>& _coord, int64_t _key);
 
 /* A default "unassigned" keyed cell value for polymer keying. */
-#define AFK_UNASSIGNED_KEYED_CELL afk_keyedCell(afk_vec4<int64_t>(0, 0, 0, -1), -1)
+extern const AFK_KeyedCell afk_unassignedKeyedCell;
 
 size_t hash_value(const AFK_KeyedCell& cell);
 

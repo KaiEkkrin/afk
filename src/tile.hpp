@@ -59,7 +59,7 @@ AFK_Tile afk_tile(const Vec3<int64_t>& _coord);
 AFK_Tile afk_tile(const AFK_Cell& cell);
 
 /* An invalid "unassigned" tile value for polymer keying. */
-#define AFK_UNASSIGNED_TILE afk_tile(afk_vec3<int64_t>(0, 0, -1))
+extern const AFK_Tile afk_unassignedTile;
 
 AFK_Cell afk_cell(const AFK_Tile& tile, int64_t yCoord);
 

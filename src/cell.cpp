@@ -162,6 +162,8 @@ AFK_Cell afk_cell(const Vec4<int64_t>& _coord)
     return cell;
 }
 
+const AFK_Cell afk_unassignedCell = afk_cell(afk_vec4<int64_t>(0, 0, 0, -1));
+
 AFK_Cell afk_cellContaining(const Vec3<float>& _coord, int64_t scale, float worldScale)
 {
     /* Turn these floats into something at minimum cell scale.

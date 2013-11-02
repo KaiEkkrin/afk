@@ -75,6 +75,8 @@ AFK_KeyedCell afk_keyedCell(const Vec4<int64_t>& _coord, int64_t _key)
     return cell;
 }
 
+const AFK_KeyedCell afk_unassignedKeyedCell = afk_keyedCell(afk_vec4<int64_t>(0, 0, 0, -1), -1);
+
 size_t hash_value(const AFK_KeyedCell& cell)
 {
     size_t hash = (size_t)cell.key;

@@ -592,7 +592,6 @@ AFK_World::AFK_World(
     unsigned int tileCacheBitness = afk_suggestCacheBitness(tileCacheEntries);
 
     landscapeCache = new AFK_LANDSCAPE_CACHE(
-        AFK_UNASSIGNED_TILE,
         tileCacheBitness,
         8,
         AFK_HashTile(),
@@ -609,7 +608,6 @@ AFK_World::AFK_World(
     unsigned int worldCacheBitness = afk_suggestCacheBitness(worldCacheEntries);
 
     worldCache = new AFK_WORLD_CACHE(
-        AFK_UNASSIGNED_CELL,
         worldCacheBitness,
         8,
         AFK_HashCell(),

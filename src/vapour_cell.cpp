@@ -35,7 +35,7 @@ AFK_KeyedCell afk_shapeToVapourCell(const AFK_KeyedCell& cell, const AFK_ShapeSi
 /* AFK_VapourCell implementation. */
 
 AFK_VapourCell::AFK_VapourCell():
-    key(AFK_UNASSIGNED_KEYED_CELL),
+    key(afk_unassignedKeyedCell),
     claimable(),
     skeleton(nullptr),
     features(nullptr),
