@@ -36,8 +36,8 @@
  * - a method void evict(void) that cleans it out.
  */
 
-template<typename Key, typename Monomer, typename Hasher, bool debug = false>
-class AFK_EvictableCache: public AFK_PolymerCache<Key, Monomer, Hasher, debug>
+template<typename Key, typename Monomer, typename Hasher, const Key& unassigned, bool debug = false>
+class AFK_EvictableCache: public AFK_PolymerCache<Key, Monomer, Hasher, unassigned, debug>
 {
 protected:
     /* The state of the evictor. */
@@ -100,13 +100,12 @@ protected:
 
 public:
     AFK_EvictableCache(
-        const Key& unassigned,
         unsigned int hashBits,
         unsigned int targetContention,
         Hasher hasher,
         size_t _targetSize,
         unsigned int _threadId):
-            AFK_PolymerCache<Key, Monomer, Hasher, debug>(unassigned, hashBits, targetContention, hasher),
+            AFK_PolymerCache<Key, Monomer, Hasher, unassigned, debug>(hashBits, targetContention, hasher),
             targetSize(_targetSize),
             kickoffSize(_targetSize + _targetSize / 4),
             complainSize(_targetSize + _targetSize / 2),
@@ -152,7 +151,7 @@ public:
             {
                 /* Kick off a new eviction task */
                 rp = new boost::promise<unsigned int>();
-                th = new boost::thread(&AFK_EvictableCache<Key, Monomer, Hasher, debug>::evictionWorker, this);
+                th = new boost::thread(&AFK_EvictableCache<Key, Monomer, Hasher, unassigned, debug>::evictionWorker, this);
                 result = rp->get_future();
             }
             else
@@ -164,7 +163,7 @@ public:
 
     virtual void printStats(std::ostream& os, const std::string& prefix) const
     {
-        AFK_PolymerCache<Key, Monomer, Hasher, debug>::printStats(os, prefix);
+        AFK_PolymerCache<Key, Monomer, Hasher, unassigned, debug>::printStats(os, prefix);
         /* TODO An eviction rate would be much more interesting */
         os << prefix << ": Evicted " << entriesEvicted << " entries" << std::endl;
         os << prefix << ": " << runsOverlapped << " runs overlapped, " << runsSkipped << " runs skipped" << std::endl;

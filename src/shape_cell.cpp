@@ -43,7 +43,7 @@ Vec4<float> AFK_ShapeCell::getBaseColour(void) const
 }
 
 AFK_ShapeCell::AFK_ShapeCell():
-    key(AFK_UNASSIGNED_KEYED_CELL),
+    key(afk_unassignedKeyedCell),
     claimable()
 {
 }

@@ -25,7 +25,7 @@
 
 
 AFK_WorldCell::AFK_WorldCell():
-    key(AFK_UNASSIGNED_CELL),
+    key(afk_unassignedCell),
     claimable(),
     entities(nullptr)
 {

@@ -37,7 +37,7 @@
 #include "shape_sizes.hpp"
 
 #ifndef AFK_SHAPE_CELL_CACHE
-#define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell>
+#define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell, afk_unassignedKeyedCell>
 #endif
 
 

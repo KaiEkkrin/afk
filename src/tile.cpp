@@ -136,6 +136,8 @@ AFK_Cell afk_cell(const AFK_Tile& tile, int64_t yCoord)
     return afk_cell(afk_vec4<int64_t>(tile.coord.v[0], yCoord, tile.coord.v[1], tile.coord.v[2]));
 }
 
+const AFK_Tile afk_unassignedTile = afk_tile(afk_vec3<int64_t>(0, 0, -1));
+
 size_t hash_value(const AFK_Tile &tile)
 {
     size_t hash = 0;

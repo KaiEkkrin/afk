@@ -133,7 +133,7 @@ protected:
     /* The cache of world cells we're tracking.
      */
 #ifndef AFK_WORLD_CACHE
-#define AFK_WORLD_CACHE AFK_EvictableCache<AFK_Cell, AFK_WorldCell, AFK_HashCell>
+#define AFK_WORLD_CACHE AFK_EvictableCache<AFK_Cell, AFK_WorldCell, AFK_HashCell, afk_unassignedCell>
 #endif
     AFK_WORLD_CACHE *worldCache;
 
@@ -147,7 +147,7 @@ protected:
      * I'm going to get a bit of overload?
      */
 #ifndef AFK_LANDSCAPE_CACHE
-#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile, true>
+#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile, afk_unassignedTile, true>
 #endif
     AFK_LANDSCAPE_CACHE *landscapeCache;
     unsigned int tileCacheEntries;

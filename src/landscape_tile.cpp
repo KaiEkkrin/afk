@@ -30,7 +30,7 @@
 /* AFK_LandscapeTile implementation */
 
 AFK_LandscapeTile::AFK_LandscapeTile():
-    key(AFK_UNASSIGNED_TILE),
+    key(afk_unassignedTile),
     claimable(),
     haveTerrainDescriptor(false),
     terrainFeatures(nullptr),

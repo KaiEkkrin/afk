@@ -32,7 +32,7 @@
 #include "skeleton.hpp"
 
 #ifndef AFK_VAPOUR_CELL_CACHE
-#define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashKeyedCell>
+#define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashKeyedCell, afk_unassignedKeyedCell>
 #endif
 
 /* To access a vapour cell cache, use afk_shapeToVapourCell() to
