@@ -26,16 +26,22 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/lockfree/queue.hpp>
 
-#include "camera.hpp"
-#include "computer.hpp"
-#include "config.hpp"
 #include "data/frame.hpp"
 #include "def.hpp"
 #include "display.hpp"
 #include "light.hpp"
-#include "rng/rng.hpp"
-#include "window.hpp"
-#include "world.hpp"
+
+
+/* Forward declare a pile of stuff, to avoid this header file depending
+ * on everything in existence just because I'm declaring pointers to
+ * named classes
+ */
+class AFK_Camera;
+class AFK_Config;
+class AFK_Computer;
+class AFK_RNG;
+class AFK_Window;
+class AFK_World;
 
 
 #define DISPLAY_THREAD_ID 0xdddddddd
@@ -173,6 +179,17 @@ public:
 };
 
 extern AFK_Core afk_core;
+
+/* This function accesses the computing frame counter in the AFK core.
+ * Used by the caches to track entry age.
+ */
+const AFK_Frame& afk_getComputingFrame(void);
+
+/* I'll define the caches here, it's a nice central place to put them. */
+#define AFK_WORLD_CACHE AFK_EvictableCache<AFK_Cell, AFK_WorldCell, AFK_HashCell, afk_unassignedCell, 60, afk_getComputingFrame>
+#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile, afk_unassignedTile, 10, afk_getComputingFrame, true>
+#define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 10, afk_getComputingFrame>
+#define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 10, afk_getComputingFrame>
 
 #endif /* _AFK_CORE_H_ */
 

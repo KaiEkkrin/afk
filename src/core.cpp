@@ -21,6 +21,9 @@
 
 #include <boost/thread/future.hpp>
 
+#include "camera.hpp"
+#include "computer.hpp"
+#include "config.hpp"
 #include "core.hpp"
 #include "debug.hpp"
 #include "def.hpp"
@@ -28,8 +31,10 @@
 #include "event.hpp"
 #include "exception.hpp"
 #include "rng/boost_taus88.hpp"
+#include "rng/rng.hpp"
 #include "test_jigsaw.hpp"
 #include "window_glx.hpp"
+#include "world.hpp"
 
 
 #define FRAME_NUMBER_DEBUG 0
@@ -430,5 +435,14 @@ void AFK_Core::glBuffersForDeletion(GLuint *bufs, size_t bufsSize)
 {
     for (size_t i = 0; i < bufsSize; ++i)
         glGarbageBufs.push(bufs[i]);
+}
+
+const AFK_Frame& afk_getComputingFrame(void)
+{
+    /* TODO Do I need atomic access to this?  (in which case I possibly
+     * want to redefine AFK_Frame as inherently atomic rather than
+     * continuing the current usage)
+     */
+    return afk_core.computingFrame;
 }
 

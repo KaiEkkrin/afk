@@ -25,8 +25,6 @@
 
 
 AFK_WorldCell::AFK_WorldCell():
-    key(afk_unassignedCell),
-    claimable(),
     entities(nullptr)
 {
 }
@@ -41,12 +39,12 @@ Vec4<float> AFK_WorldCell::getRealCoord(void) const
     return visibleCell.getRealCoord();
 }
 
-void AFK_WorldCell::bind(float _worldScale)
+void AFK_WorldCell::bind(const AFK_Cell& cell, float _worldScale)
 {
     /* TODO If this actually *changes* something, I need to
      * clear the terrain so that it can be re-made.
      */
-    visibleCell.bindToCell(key.load(), _worldScale);
+    visibleCell.bindToCell(cell, _worldScale);
 }
 
 bool AFK_WorldCell::testDetailPitch(
@@ -209,6 +207,6 @@ void AFK_WorldCell::evict(void)
 
 std::ostream& operator<<(std::ostream& os, const AFK_WorldCell& worldCell)
 {
-    return os << "World cell at " << worldCell.key.load() << " (last seen " << worldCell.claimable.getLastSeen() << ")";
+    return os << "World cell at " << worldCell.getRealCoord() << " (last seen " << worldCell.claimable.getLastSeen() << ")";
 }
 

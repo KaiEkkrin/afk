@@ -40,11 +40,6 @@
  */
 class AFK_WorldCell
 {
-public:
-    /* For the polymer. */
-    boost::atomic<AFK_Cell> key;
-    AFK_Claimable claimable;
-
 protected:
     /* Describes the cell's visibility in the world. */
     /* TODO: This needs to change upon a rebase ... */
@@ -61,14 +56,13 @@ public:
     AFK_WorldCell();
     virtual ~AFK_WorldCell();
 
-    const AFK_Cell getCell(void) const { return key.load(); }
     Vec4<float> getRealCoord(void) const;
 
     /* Binds a world cell to the world.  Needs to be called
      * before anything else gets done, because WorldCells
      * are created uninitialised in the cache.
      */
-    void bind(float worldScale);
+    void bind(const AFK_Cell& cell, float worldScale);
 
     /* Tests whether this cell is within the specified detail pitch
      * when viewed from the specified location.

@@ -70,7 +70,7 @@ class AFK_LandscapeDisplayQueue
 {
 protected:
     std::vector<AFK_LandscapeDisplayUnit> queue;
-    std::vector<const AFK_LandscapeTile*> landscapeTiles; /* for last-moment y bounds fetch */
+    std::vector<AFK_Tile> landscapeTiles; /* for last-moment y bounds fetch */
     GLuint buf;
     boost::mutex mut;
 
@@ -93,7 +93,7 @@ public:
     /* The cell enumerator workers should call this to add a unit
      * for rendering.
      */
-    void add(const AFK_LandscapeDisplayUnit& _unit, const AFK_LandscapeTile *landscapeTile);
+    void add(const AFK_LandscapeDisplayUnit& _unit, const AFK_Tile& _tile);
 
     /* This function draws the part of the landscape represented by
      * this queue, assuming that the basic VAO for the landscape tiles

@@ -32,13 +32,10 @@
 #include "data/frame.hpp"
 #include "def.hpp"
 #include "entity_display_queue.hpp"
+#include "evictable_cache.hpp"
 #include "jigsaw_collection.hpp"
 #include "keyed_cell.hpp"
 #include "shape_sizes.hpp"
-
-#ifndef AFK_SHAPE_CELL_CACHE
-#define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell, afk_unassignedKeyedCell>
-#endif
 
 
 /* A ShapeCell has an artificial max distance set really
@@ -54,11 +51,6 @@
  */
 class AFK_ShapeCell
 {
-public:
-    /* For the polymer. */
-    boost::atomic<AFK_KeyedCell> key;
-    AFK_Claimable claimable;
-
 protected:
     /* A VisibleCell will be used to test visibility and
      * detail pitch, but it will be transient, because
@@ -81,8 +73,6 @@ protected:
 public:
     AFK_ShapeCell();
 
-    const AFK_KeyedCell getCell(void) const { return key.load(); }
-
     bool hasVapour(AFK_JigsawCollection *vapourJigsaws) const;
     bool hasEdges(AFK_JigsawCollection *edgeJigsaws) const;
 
@@ -90,11 +80,19 @@ public:
      * the relevant jigsaw pieces with new ones.
      * Use the matching VapourCell to build the 3D list required
      * here.
+     * In all these cases, `realCoord' should come from the VisibleCell
+     * you made for this shape cell (see above)...
+     * - TODO: Why is `realCoord' relevant at all?  Surely it shouldn't
+     * be (indeed it hardwires objects in place).  With the 3dnet changes
+     * I think I should remove it from here, and supply it only to the
+     * display queue.
      */
     void enqueueVapourComputeUnitWithNewVapour(
         unsigned int threadId,
         int adjacency,
         const AFK_3DList& list,
+        const Vec4<float>& realCoord,
+        int64_t key,
         const AFK_ShapeSizes& sSizes,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair,
@@ -106,6 +104,8 @@ public:
         int adjacency,
         unsigned int cubeOffset,
         unsigned int cubeCount,
+        const Vec4<float>& realCoord,
+        int64_t key,
         const AFK_ShapeSizes& sSizes,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair);
@@ -118,6 +118,7 @@ public:
     void enqueueEdgeComputeUnit(
         unsigned int threadId,
         const AFK_SHAPE_CELL_CACHE *cache,
+        const Vec4<float>& realCoord,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_JigsawCollection *edgeJigsaws,
         AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
@@ -134,7 +135,6 @@ public:
         const AFK_Fair2DIndex& entityFair2DIndex) const;
 
     /* For handling claiming and eviction. */
-    bool canBeEvicted(void) const;
     void evict(void);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_ShapeCell& shapeCell);

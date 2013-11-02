@@ -29,8 +29,8 @@
 #include "world.hpp"
 
 
-#define PRINT_CHECKPOINTS 1
-#define PRINT_CACHE_STATS 0
+#define PRINT_CHECKPOINTS 0
+#define PRINT_CACHE_STATS 1
 #define PRINT_JIGSAW_STATS 0
 
 #define PROTAGONIST_CELL_DEBUG 0
@@ -66,16 +66,11 @@ bool afk_generateWorldCells(
      * trying"; in those cases I don't want an exclusive claim, and
      * I won't do a recursive search.
      */
-    if (worldCell.claimable.claimYieldLoop(threadId,
-        (renderTerrain || resume) ? AFK_CLT_NONEXCLUSIVE : AFK_CLT_EXCLUSIVE,
-        afk_core.computingFrame) == AFK_CL_CLAIMED)
-    {
-        /* This releases the world cell itself when it's done
-         * (which isn't at the end of its processing).
-         */
-        retval = world->generateClaimedWorldCell(
-            worldCell, threadId, param.world, queue);
-    }
+    AFK_ClaimFlags claimFlags = AFK_ClaimFlags::LOOP;
+    if (!renderTerrain && !resume) claimFlags |= AFK_ClaimFlags::EXCLUSIVE;
+    retval = world->generateClaimedWorldCell(
+        (*(world->worldCache))[cell].claimable.claim(threadId, claimFlags),
+        threadId, param.world, queue);
 
     /* If this cell had a dependency ... */
     if (param.world.dependency)
@@ -195,6 +190,36 @@ void AFK_World::generateLandscapeArtwork(
     tilesComputed.fetch_add(1);
 }
 
+void AFK_World::displayLandscapeTile(
+    const AFK_Tile& tile,
+    const AFK_LandscapeTile& landscapeTile,
+    unsigned int threadId)
+{
+    assert(landscapeTile.artworkState() == AFK_LANDSCAPE_TILE_HAS_ARTWORK);
+
+    /* Get it to make us a unit to
+     * feed into the display queue.
+     * The reason I go through the landscape tile here is so
+     * that it has the opportunity to reject the tile for display
+     * because the cell is entirely outside the y bounds.
+     */
+    AFK_JigsawPiece jigsawPiece;
+    AFK_LandscapeDisplayUnit unit;
+    bool reallyDisplayThisTile = landscapeTile.makeDisplayUnit(cell, minCellSize, jigsawPiece, unit);
+
+    if (reallyDisplayThisTile)
+    {
+#if DEBUG_JIGSAW_ASSOCIATION
+        AFK_DEBUG_PRINTL("Display: " << tile << " -> " << jigsawPiece << " -> " << unit)
+#endif
+        boost::shared_ptr<AFK_LandscapeDisplayQueue> ldq =
+            landscapeDisplayFair.getUpdateQueue(jigsawPiece.puzzle);
+
+        ldq->add(unit, tile);
+        tilesQueued.fetch_add(1);
+    }
+}
+
 void AFK_World::generateStartingEntity(
     unsigned int shapeKey,
     AFK_WorldCell& worldCell,
@@ -208,7 +233,7 @@ void AFK_World::generateStartingEntity(
 }
 
 bool AFK_World::generateClaimedWorldCell(
-    AFK_WorldCell& worldCell,
+    AFK_Claim<AFK_WorldCell>& claim,
     unsigned int threadId,
     const struct AFK_WorldWorkParam::World& param,
     AFK_WorldWorkQueue& queue)
@@ -223,6 +248,7 @@ bool AFK_World::generateClaimedWorldCell(
 
     bool retval = true;
 
+    AFK_WorldCell& worldCell = claim.get();
     worldCell.bind(minCellSize);
 
     /* Check for visibility. */
@@ -233,9 +259,6 @@ bool AFK_World::generateClaimedWorldCell(
     if (!someVisible && !renderTerrain)
     {
         cellsInvisible.fetch_add(1);
-
-        /* Nothing else to do with it now either. */
-        worldCell.claimable.release(threadId, AFK_CL_CLAIMED);
     }
     else /* if (cell.coord.v[1] == 0) */
     {
@@ -254,91 +277,55 @@ bool AFK_World::generateClaimedWorldCell(
          */
         AFK_Tile tile = afk_tile(cell);
 
-        /* We always at least touch the landscape.  Higher detailed
-         * landscape tiles are dependent on lower detailed ones for their
-         * terrain description.
-         */
-        AFK_LandscapeTile& landscapeTile = (*landscapeCache)[tile];
-        AFK_ClaimStatus landscapeClaimStatus = landscapeTile.claimable.claimYieldLoop(
-            threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
-
-        bool generateArtwork = false;
-        if (!landscapeTile.hasTerrainDescriptor() ||
-            ((renderTerrain || display) && landscapeTile.artworkState() != AFK_LANDSCAPE_TILE_HAS_ARTWORK))
         {
-            /* In order to generate this tile we need to upgrade
-             * our claim if we can.
+            /* We always at least touch the landscape.  Higher detailed
+             * landscape tiles are dependent on lower detailed ones for their
+             * terrain description.
              */
-            if (landscapeClaimStatus == AFK_CL_CLAIMED_UPGRADABLE)
-                landscapeClaimStatus = landscapeTile.claimable.upgrade(threadId, landscapeClaimStatus);
-
-            if (landscapeClaimStatus == AFK_CL_CLAIMED)
+            AFK_SharedClaim<AFK_LandscapeTile> landscapeSharedClaim = (*landscapeCache)[tile].claimable.claimShared(
+                AFK_ClaimFlags::LOOP);
+            const AFK_LandscapeTile& landscapeTileConst = landscapeSharedClaim.get();
+        
+            bool generateArtwork = false;
+            if (!landscapeTileConst.hasTerrainDescriptor() ||
+                ((renderTerrain || display) && landscapeTileConst.artworkState() != AFK_LANDSCAPE_TILE_HAS_ARTWORK))
             {
-                generateArtwork = checkClaimedLandscapeTile(
-                    tile, landscapeTile, display);
-            }
-            else
-            {
-                /* Uh oh.  Having an un-generated tile here is not
-                 * an option.  Queue a resume of this cell.
-                 * Some thread or other will have got the upgradable
-                 * claim and will fix it so that when we come back
-                 * here, the tile will be generated.
+                /* In order to generate this tile we need to upgrade
+                 * our claim if we can.
                  */
-                AFK_WorldWorkQueue::WorkItem resumeItem;
-                resumeItem.func = afk_generateWorldCells;
-                resumeItem.param.world = param;
-                resumeItem.param.world.flags |= AFK_WCG_FLAG_RESUME;
-
-                if (param.dependency) param.dependency->retain();
-                queue.push(resumeItem);
-                tilesResumed.fetch_add(1);
-            }
-        }
-
-        /* If I was picked to generate the geometry, do that.
-         * TODO I'm pretty sure this is going to way too much effort. Before
-         * computing the geometry of a tile, we should check realCellWithinYBounds()
-         * of the higher level tile if it exists.  (See landscape_tile).  The check
-         * just before drawing is not aggressive enough by far
-         */
-        if (generateArtwork)
-            generateLandscapeArtwork(tile, landscapeTile, threadId);
-
-        /* At any rate, I should relinquish my claim on the tile
-         * now.
-         */
-        landscapeTile.claimable.release(threadId, landscapeClaimStatus);
-
-        if (display)
-        {
-            if (landscapeTile.artworkState() == AFK_LANDSCAPE_TILE_HAS_ARTWORK)
-            {
-                /* Get it to make us a unit to
-                 * feed into the display queue.
-                 * The reason I go through the landscape tile here is so
-                 * that it has the opportunity to reject the tile for display
-                 * because the cell is entirely outside the y bounds.
-                 */
-                landscapeClaimStatus = landscapeTile.claimable.claimYieldLoop(
-                    threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
-                AFK_JigsawPiece jigsawPiece;
-                AFK_LandscapeDisplayUnit unit;
-                bool displayThisTile = landscapeTile.makeDisplayUnit(cell, minCellSize, jigsawPiece, unit);
-                landscapeTile.claimable.release(threadId, landscapeClaimStatus);
-
-                if (displayThisTile)
+                try
                 {
-#if DEBUG_JIGSAW_ASSOCIATION
-                    AFK_DEBUG_PRINTL("Display: " << tile << " -> " << jigsawPiece << " -> " << unit)
-#endif
-
-                    boost::shared_ptr<AFK_LandscapeDisplayQueue> ldq =
-                        landscapeDisplayFair.getUpdateQueue(jigsawPiece.puzzle);
-
-                    ldq->add(unit, &landscapeTile);
-                    tilesQueued.fetch_add(1);
+                    AFK_Claim<AFK_LandscapeTile> landscapeClaim = landscapeSharedClaim.upgrade();
+                    AFK_LandscapeTile& landscapeTile = landscapeClaim.get();
+                    if (checkClaimedLandscapeTile(tile, landscapeTile, display))
+                        generateLandscapeArtwork(tile, landscapeTile, threadId);
+        
+                    if (display)
+                        displayLandscapeTile(tile, landscapeTile, threadId);
                 }
+                catch (AFK_ClaimException)
+                {
+                    /* Uh oh.  Having an un-generated tile here is not
+                     * an option.  Queue a resume of this cell.
+                     * Some thread or other will have got the upgradable
+                     * claim and will fix it so that when we come back
+                     * here, the tile will be generated.
+                     */
+                    landscapeSharedClaim.release();
+        
+                    AFK_WorldWorkQueue::WorkItem resumeItem;
+                    resumeItem.func = afk_generateWorldCells;
+                    resumeItem.param.world = param;
+                    resumeItem.param.world.flags |= AFK_WCG_FLAG_RESUME;
+        
+                    if (param.dependency) param.dependency->retain();
+                    queue.push(resumeItem);
+                    tilesResumed.fetch_add(1);
+                }
+            }
+            else if (display)
+            {
+                displayLandscapeTile(tile, landscapeTileConst, threadId);
             }
         }
 
@@ -417,7 +404,7 @@ bool AFK_World::generateClaimedWorldCell(
         }
 
         /* We don't need this any more */
-        worldCell.claimable.release(threadId, AFK_CL_CLAIMED);
+        claim.release();
 
         /* If the terrain here was at too coarse a resolution to
          * be displayable, recurse through the subcells
@@ -445,12 +432,6 @@ bool AFK_World::generateClaimedWorldCell(
             delete[] subcells;
         }
     }
-#if 0
-    else
-    {
-        worldCell.claimable.release(threadId, AFK_CL_CLAIMED);
-    }
-#endif
 
     return retval;
 }

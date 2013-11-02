@@ -28,7 +28,7 @@
 
 /* AFK_ShapeCell implementation. */
 
-Vec4<float> AFK_ShapeCell::getBaseColour(void) const
+Vec4<float> AFK_ShapeCell::getBaseColour(int64_t key) const
 {
     /* I think it's okay to recompute this, it's pretty quick. */
     AFK_Boost_Taus88_RNG rng;
@@ -36,15 +36,13 @@ Vec4<float> AFK_ShapeCell::getBaseColour(void) const
     AFK_RNG_Value shapeSeed(
         afk_core.config->masterSeed.v.ll[0],
         afk_core.config->masterSeed.v.ll[1],
-        getCell().key * 0x0013001300130013ll);
+        key * 0x0013001300130013ll);
     rng.seed(shapeSeed);
     return afk_vec4<float>(
         rng.frand(), rng.frand(), rng.frand(), 0.0f);
 }
 
-AFK_ShapeCell::AFK_ShapeCell():
-    key(afk_unassignedKeyedCell),
-    claimable()
+AFK_ShapeCell::AFK_ShapeCell()
 {
 }
 
@@ -66,6 +64,8 @@ void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
     unsigned int threadId,
     int adjacency,
     const AFK_3DList& list,
+    const Vec4<float>& realCoord,
+    int64_t key,
     const AFK_ShapeSizes& sSizes,
     AFK_JigsawCollection *vapourJigsaws,
     AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair,
@@ -82,13 +82,13 @@ void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
         vapourComputeFair.getUpdateQueue(0);
 
 #if SHAPE_COMPUTE_DEBUG
-    AFK_DEBUG_PRINTL("Shape cell " << cell << ": Computing new vapour at location: " << getCell().toWorldSpace(SHAPE_CELL_WORLD_SCALE) << " with adjacency: " << std::hex << adjacency << " and list " << list)
+    AFK_DEBUG_PRINTL("Shape cell : Computing new vapour at location: " << realCoord << " with adjacency: " << std::hex << adjacency << " and list " << list)
 #endif
 
     vapourComputeQueue->extend(list, o_cubeOffset, o_cubeCount);
     vapourComputeQueue->addUnit(
-        getCell().toWorldSpace(SHAPE_CELL_WORLD_SCALE),
-        getBaseColour(),
+        realCoord,
+        getBaseColour(key),
         vapourJigsawPiece,
         adjacency,
         o_cubeOffset,
@@ -100,6 +100,8 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
     int adjacency,
     unsigned int cubeOffset,
     unsigned int cubeCount,
+    const Vec4<float>& realCoord,
+    int64_t key,
     const AFK_ShapeSizes& sSizes,
     AFK_JigsawCollection *vapourJigsaws,
     AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair)
@@ -110,12 +112,12 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
         vapourComputeFair.getUpdateQueue(0);
 
 #if SHAPE_COMPUTE_DEBUG
-    AFK_DEBUG_PRINTL("Shape cell " << cell << ": Computing existing vapour at location: " << getCell().toWorldSpace(SHAPE_CELL_WORLD_SCALE) << " with adjacency: " << std::hex << adjacency)
+    AFK_DEBUG_PRINTL("Shape cell : Computing existing vapour at location: " << realCoord << " with adjacency: " << std::hex << adjacency)
 #endif
 
     vapourComputeQueue->addUnit(
-        getCell().toWorldSpace(SHAPE_CELL_WORLD_SCALE),
-        getBaseColour(),
+        realCoord,
+        getBaseColour(key),
         vapourJigsawPiece,
         adjacency,
         cubeOffset,
@@ -125,6 +127,7 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
 void AFK_ShapeCell::enqueueEdgeComputeUnit(
     unsigned int threadId,
     const AFK_SHAPE_CELL_CACHE *cache,
+    const Vec4<float>& realCoord,
     AFK_JigsawCollection *vapourJigsaws,
     AFK_JigsawCollection *edgeJigsaws,
     AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
@@ -137,14 +140,11 @@ void AFK_ShapeCell::enqueueEdgeComputeUnit(
             entityFair2DIndex.get1D(vapourJigsawPiece.puzzle, edgeJigsawPiece.puzzle));
 
 #if SHAPE_COMPUTE_DEBUG
-     AFK_DEBUG_PRINTL("Computing edges at location: " << getCell().toWorldSpace(SHAPE_CELL_WORLD_SCALE))
+     AFK_DEBUG_PRINTL("Computing edges at location: " << realCoord)
 #endif
 
-     edgeComputeQueue->append(getCell().toWorldSpace(SHAPE_CELL_WORLD_SCALE),
-         vapourJigsawPiece, edgeJigsawPiece);
+     edgeComputeQueue->append(realCoord, vapourJigsawPiece, edgeJigsawPiece);
 }
-
-#define SHAPE_DISPLAY_DEBUG 0
 
 void AFK_ShapeCell::enqueueEdgeDisplayUnit(
     const Mat4<float>& worldTransform,
@@ -153,10 +153,6 @@ void AFK_ShapeCell::enqueueEdgeDisplayUnit(
     AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair,
     const AFK_Fair2DIndex& entityFair2DIndex) const
 {
-#if SHAPE_DISPLAY_DEBUG
-    AFK_DEBUG_PRINTL("Displaying edges at cell " << worldTransform * getCell().toWorldSpace(SHAPE_CELL_WORLD_SCALE))
-#endif
-
     /* TODO Deal with multiple vapour jigsaws in this queue.
      * I think I'll want to decide I'm fed up with handling
      * vapour0 vapour1 vapour2 vapour3 everywhere, etc,
@@ -171,19 +167,13 @@ void AFK_ShapeCell::enqueueEdgeDisplayUnit(
             edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTexCoordST(edgeJigsawPiece)));
 }
 
-bool AFK_ShapeCell::canBeEvicted(void) const
-{
-    bool canEvict = ((afk_core.computingFrame - claimable.getLastSeen()) > 10);
-    return canEvict;
-}
-
 void AFK_ShapeCell::evict(void)
 {
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_ShapeCell& shapeCell)
 {
-    os << "Shape cell at " << shapeCell.key.load();
+    os << "Shape cell";
     os << " (Vapour piece: " << shapeCell.vapourJigsawPiece << ")";
     os << " (Edge piece: " << shapeCell.edgeJigsawPiece << ")";
     return os;

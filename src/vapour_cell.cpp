@@ -35,8 +35,6 @@ AFK_KeyedCell afk_shapeToVapourCell(const AFK_KeyedCell& cell, const AFK_ShapeSi
 /* AFK_VapourCell implementation. */
 
 AFK_VapourCell::AFK_VapourCell():
-    key(afk_unassignedKeyedCell),
-    claimable(),
     skeleton(nullptr),
     features(nullptr),
     cubes(nullptr)
@@ -240,12 +238,6 @@ void AFK_VapourCell::enqueued(
     computeCubeOffset = cubeOffset;
     computeCubeCount = cubeCount;
     computeCubeFrame = afk_core.computingFrame;
-}
-
-bool AFK_VapourCell::canBeEvicted(void) const
-{
-    bool canEvict = ((afk_core.computingFrame - claimable.getLastSeen()) > 10);
-    return canEvict;
 }
 
 void AFK_VapourCell::evict(void)

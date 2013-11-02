@@ -25,15 +25,11 @@
 
 #include "3d_solid.hpp"
 #include "data/claimable.hpp"
-#include "data/evictable_cache.hpp"
 #include "data/frame.hpp"
+#include "evictable_cache.hpp"
 #include "keyed_cell.hpp"
 #include "shape_sizes.hpp"
 #include "skeleton.hpp"
-
-#ifndef AFK_VAPOUR_CELL_CACHE
-#define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashKeyedCell, afk_unassignedKeyedCell>
-#endif
 
 /* To access a vapour cell cache, use afk_shapeToVapourCell() to
  * translate cell co-ordinates.
@@ -47,11 +43,6 @@ AFK_KeyedCell afk_shapeToVapourCell(const AFK_KeyedCell& cell, const AFK_ShapeSi
  */
 class AFK_VapourCell
 {
-public:
-    /* For the polymer. */
-    boost::atomic<AFK_KeyedCell> key;
-    AFK_Claimable claimable;
-
 protected:
     /* The actual features here. */
     bool haveDescriptor;
@@ -71,8 +62,6 @@ protected:
 public:
     AFK_VapourCell();
     virtual ~AFK_VapourCell();
-
-    const AFK_KeyedCell getCell(void) const { return key.load(); }
 
     bool hasDescriptor(void) const;
 
@@ -155,7 +144,6 @@ public:
         unsigned int cubeCount);
 
     /* For handling claiming and eviction. */
-    bool canBeEvicted(void) const;
     void evict(void);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_VapourCell& vapourCell);

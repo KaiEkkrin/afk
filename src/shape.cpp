@@ -174,6 +174,7 @@ bool afk_generateShapeCells(
         bool display = (
             cell.c.coord.v[3] == 1 || visibleCell.testDetailPitch(
                 world->getEntityDetailPitch(), *camera, viewerLocation));
+        Vec4<float> realCoord = visibleCell.getRealCoord();
 
         /* Always build the vapour descriptor, because other cells
          * will need it.
@@ -218,7 +219,7 @@ bool afk_generateShapeCells(
                 if (display) 
                 {
                     if (!shape.generateClaimedShapeCell(
-                        threadId, vapourCell, shapeCell, vapourCellClaimStatus, shapeCellClaimStatus, worldTransform, world))
+                        threadId, vapourCell, shapeCell, vapourCellClaimStatus, shapeCellClaimStatus, worldTransform, realCoord, cell.key, world))
                     {
                         DEBUG_VISIBLE_CELL("needs resume")
                         resume = true;
@@ -316,6 +317,8 @@ bool AFK_Shape::generateClaimedShapeCell(
     enum AFK_ClaimStatus& vapourCellClaimStatus,
     enum AFK_ClaimStatus& shapeCellClaimStatus,
     const Mat4<float>& worldTransform,
+    const Vec4<float>& realCoord,
+    int64_t key,
     AFK_World *world)
 {
     AFK_JigsawCollection *vapourJigsaws     = world->vapourJigsaws;
@@ -344,7 +347,7 @@ bool AFK_Shape::generateClaimedShapeCell(
             {
                 int adjacency = vapourCell.skeletonFullAdjacency(shapeCell.getCell(), world->sSizes);
                 shapeCell.enqueueVapourComputeUnitFromExistingVapour(
-                    threadId, adjacency, cubeOffset, cubeCount, world->sSizes, vapourJigsaws, world->vapourComputeFair);
+                    threadId, adjacency, cubeOffset, cubeCount, realCoord, key, world->sSizes, vapourJigsaws, world->vapourComputeFair);
                 world->shapeVapoursComputed.fetch_add(1);
             }
             else
@@ -360,7 +363,7 @@ bool AFK_Shape::generateClaimedShapeCell(
 
                     int adjacency = vapourCell.skeletonFullAdjacency(shapeCell.getCell(), world->sSizes);
                     shapeCell.enqueueVapourComputeUnitWithNewVapour(
-                        threadId, adjacency, list, world->sSizes, vapourJigsaws, world->vapourComputeFair, cubeOffset, cubeCount);
+                        threadId, adjacency, list, realCoord, key, world->sSizes, vapourJigsaws, world->vapourComputeFair, cubeOffset, cubeCount);
                     vapourCell.enqueued(cubeOffset, cubeCount);
                     world->shapeVapoursComputed.fetch_add(1);
                 }
@@ -386,7 +389,7 @@ bool AFK_Shape::generateClaimedShapeCell(
             if (shapeCell.hasVapour(vapourJigsaws))
             {
                 shapeCell.enqueueEdgeComputeUnit(
-                    threadId, shapeCellCache, vapourJigsaws, edgeJigsaws, world->edgeComputeFair, world->entityFair2DIndex);
+                    threadId, shapeCellCache, realCoord, vapourJigsaws, edgeJigsaws, world->edgeComputeFair, world->entityFair2DIndex);
                 world->shapeEdgesComputed.fetch_add(1);
             }
         }

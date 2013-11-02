@@ -29,17 +29,56 @@
 
 /* An evictable cache is a polymer cache that can run an
  * eviction thread to remove old entries.
- * It assumes that the Monomer has:
- * - a Claimable field named `claimable';
- * - a method bool canBeEvicted(void) const, that tells it
- * whether it's evictable
- * - a method void evict(void) that cleans it out.
+ * It uses the Evictable defined here as a monomer.
+ * We require that the Value define the function:
+ * - void evict(void) : evicts the entry.  should be OK to call multiple
+ * times.  don't count on it always being the means for deletion.
  */
 
-template<typename Key, typename Monomer, typename Hasher, const Key& unassigned, bool debug = false>
-class AFK_EvictableCache: public AFK_PolymerCache<Key, Monomer, Hasher, unassigned, debug>
+template<
+    typename Key,
+    typename Value,
+    const Key& unassigned,
+    int64_t framesBeforeEviction,
+    AFK_GetComputingFrame getComputingFrame>
+class AFK_Evictable
+{
+public:
+    boost::atomic<Key> key;
+    AFK_Claimable<Value> claimable;
+
+    AFK_Evictable(): key(unassigned), claimable() {}
+
+    bool canBeEvicted(void) const
+    {
+        bool canEvict = ((getComputingFrame() - claimable.getLastSeen()) > framesBeforeEviction);
+        return canEvict;
+    }
+};
+
+std::ostream& operator<<(std::ostream& os, const AFK_Evictable<Key, Value, unassigned, framesBeforeEviction>& ev)
+{
+    os << "Evictable(Key=" << ev.key.load() << ", Value=" << ev.claimable << ")";
+    return os;
+}
+
+template<
+    typename Key,
+    typename Value,
+    typename Hasher,
+    const Key& unassigned,
+    int64_t framesBeforeEviction,
+    GetComputingFrame getComputingFrame,
+    bool debug = false>
+class AFK_EvictableCache:
+    public AFK_PolymerCache<
+        Key,
+        AFK_Evictable<Key, Value, unassigned, framesBeforeEviction, getComputingFrame>,
+        Hasher, unassigned, debug>
 {
 protected:
+    typedef AFK_Evictable<Key, Value, unassigned, framesBeforeEviction, getComputingFrame> Monomer;
+
     /* The state of the evictor. */
     const size_t targetSize;
     const size_t kickoffSize;
@@ -73,23 +112,37 @@ protected:
                 Monomer *candidate;
                 if (this->polymer.getSlot(slot, &candidate))
                 {
-                    /* Claim it first, otherwise someone else will
-                     * and the world will not be a happy place.
-                     * If someone else has it, chances are it's
-                     * needed after all and I should let go!
-                     * Note that the evictor claim type never uses
-                     * a real frame number and so the following is OK
-                     */
-                    if (candidate->claimable.claim(threadId, AFK_CLT_EVICTOR, AFK_Frame()) == AFK_CL_CLAIMED)
+                    if (candidate->canBeEvicted(void)
                     {
-                        if (candidate->canBeEvicted() &&
-                            this->polymer.eraseSlot(slot, candidate->key.load()))
+                        /* Claim it first, otherwise someone else will
+                         * and the world will not be a happy place.
+                         * If someone else has it, chances are it's
+                         * needed after all and I should let go!
+                         * Note that the evictor claim type never uses
+                         * a real frame number and so the following is OK
+                         */
+                        try
                         {
-                            candidate->evict();
-                            ++entriesEvicted;
-                        }
+                            auto claim = candidate->claim(threadId, AFK_ClaimFlags::EVICTOR);
+                            if (candidate->canBeEvicted())
+                            {
+                                Value& obj = claim.get();
+                                obj.evict();
 
-                        candidate->claimable.release(threadId, AFK_CL_CLAIMED);
+                                /* Reset it: the polymer won't */
+                                obj = Value();
+
+                                if (!this->polymer.eraseSlot(slot, candidate->key))
+                                {
+                                    /* We'd better not release (and commit the reset value)
+                                     * in this case!
+                                     * (Which ought to be unlikely ...)
+                                     */
+                                    claim.invalidate();
+                                }
+                            }
+                        }
+                        catch (AFK_ClaimException) {}
                     }
                 }
             }

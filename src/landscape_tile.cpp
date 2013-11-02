@@ -30,8 +30,6 @@
 /* AFK_LandscapeTile implementation */
 
 AFK_LandscapeTile::AFK_LandscapeTile():
-    key(afk_unassignedTile),
-    claimable(),
     haveTerrainDescriptor(false),
     terrainFeatures(nullptr),
     terrainTiles(nullptr),
@@ -62,7 +60,7 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
 
         /* I'm going to make 5 terrain tiles. */
         AFK_Tile descriptorTiles[5];
-        key.load().enumerateDescriptorTiles(&descriptorTiles[0], 5, lSizes.subdivisionFactor);
+        tile.enumerateDescriptorTiles(&descriptorTiles[0], 5, lSizes.subdivisionFactor);
 
         assert(!terrainFeatures);
         terrainFeatures = new std::vector<AFK_TerrainFeature>();
@@ -93,11 +91,11 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
 void AFK_LandscapeTile::buildTerrainList(
     unsigned int threadId,
     AFK_TerrainList& list,
+    const AFK_Tile& tile,
     unsigned int subdivisionFactor,
     float maxDistance,
     const AFK_LANDSCAPE_CACHE *cache) const
 {
-    AFK_Tile tile = key.load();
     if (!terrainFeatures || !terrainTiles) throw AFK_Exception("Null terrain features found");
 
     /* TODO remove debug */
@@ -127,7 +125,7 @@ void AFK_LandscapeTile::buildTerrainList(
                 ss << "Unable to claim tile at " << parentTile << ": got status " << claimStatus;
                 throw AFK_Exception(ss.str());
             }
-            parentLandscapeTile.buildTerrainList(threadId, list, subdivisionFactor, maxDistance, cache);
+            parentLandscapeTile.buildTerrainList(threadId, list, parentTile, subdivisionFactor, maxDistance, cache);
             parentLandscapeTile.claimable.release(threadId, claimStatus);
         }
         catch (AFK_PolymerOutOfRange e)
@@ -222,13 +220,6 @@ bool AFK_LandscapeTile::makeDisplayUnit(
     }
 
     return displayed;
-}
-
-bool AFK_LandscapeTile::canBeEvicted(void) const
-{
-    /* This is a tweakable value ... */
-    bool canEvict = ((afk_core.computingFrame - claimable.getLastSeen()) > 10);
-    return canEvict;
 }
 
 void AFK_LandscapeTile::evict(void)

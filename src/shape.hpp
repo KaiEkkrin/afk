@@ -27,10 +27,9 @@
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
 #include "3d_solid.hpp"
-#include "data/claimable.hpp"
+#include "core.hpp"
 #include "data/evictable_cache.hpp"
 #include "data/fair.hpp"
-#include "data/frame.hpp"
 #include "entity_display_queue.hpp"
 #include "object.hpp"
 #include "jigsaw_collection.hpp"
@@ -45,14 +44,6 @@ enum AFK_ShapeArtworkState
     AFK_SHAPE_PIECE_SWEPT,
     AFK_SHAPE_HAS_ARTWORK
 };
-
-#ifndef AFK_SHAPE_CELL_CACHE
-#define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell, afk_unassignedKeyedCell>
-#endif
-
-#ifndef AFK_VAPOUR_CELL_CACHE
-#define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashKeyedCell, afk_unassignedKeyedCell>
-#endif
 
 /* This is the top level entity worker.  It makes sure that
  * the top vapour cell has been made and then uses that to
@@ -94,6 +85,8 @@ protected:
         enum AFK_ClaimStatus& vapourCellClaimStatus,
         enum AFK_ClaimStatus& shapeCellClaimStatus,
         const Mat4<float>& worldTransform,
+        const Vec4<float>& realCoord,
+        int64_t key,
         AFK_World *world);
 
     /* TODO: Try to move the shape-dependent stuff out of

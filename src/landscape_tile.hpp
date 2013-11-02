@@ -29,9 +29,9 @@
 
 #include "data/claimable.hpp"
 #include "data/frame.hpp"
-#include "data/polymer_cache.hpp"
 #include "def.hpp"
 #include "display.hpp"
+#include "evictable_cache.hpp"
 #include "jigsaw_collection.hpp"
 #include "landscape_display_queue.hpp"
 #include "landscape_sizes.hpp"
@@ -40,10 +40,6 @@
 #include "world.hpp"
 
 #define TERRAIN_TILES_PER_TILE 5
-
-#ifndef AFK_LANDSCAPE_CACHE
-#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile, afk_unassignedTile, true>
-#endif
 
 class AFK_LandscapeDisplayUnit;
 
@@ -65,11 +61,6 @@ enum AFK_LandscapeTileArtworkState
  */
 class AFK_LandscapeTile
 {
-public:
-    /* For the polymer. */
-    boost::atomic<AFK_Tile> key;
-    AFK_Claimable claimable;
-
 protected:
     /* The structure that describes the terrain present at this
      * tile.
@@ -155,7 +146,6 @@ public:
         AFK_LandscapeDisplayUnit& o_unit) const;
 
     /* For handling claiming and eviction. */
-    bool canBeEvicted(void) const;
     void evict(void);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_LandscapeTile& t);

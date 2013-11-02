@@ -35,6 +35,7 @@
 #include "cell.hpp"
 #include "computer.hpp"
 #include "config.hpp"
+#include "core.hpp"
 #include "data/evictable_cache.hpp"
 #include "data/fair.hpp"
 #include "data/moving_average.hpp"
@@ -132,9 +133,6 @@ protected:
 
     /* The cache of world cells we're tracking.
      */
-#ifndef AFK_WORLD_CACHE
-#define AFK_WORLD_CACHE AFK_EvictableCache<AFK_Cell, AFK_WorldCell, AFK_HashCell, afk_unassignedCell>
-#endif
     AFK_WORLD_CACHE *worldCache;
 
     /* These jigsaws form the computed landscape artwork. */
@@ -146,9 +144,6 @@ protected:
      * world) that handles the landscape, otherwise
      * I'm going to get a bit of overload?
      */
-#ifndef AFK_LANDSCAPE_CACHE
-#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile, afk_unassignedTile, true>
-#endif
     AFK_LANDSCAPE_CACHE *landscapeCache;
     unsigned int tileCacheEntries;
 
@@ -219,6 +214,12 @@ protected:
         AFK_LandscapeTile& landscapeTile,
         unsigned int threadId);
 
+    /* Pushes a landscape tile into the display queue. */
+    void displayLandscapeTile(
+        const AFK_Tile& tile,
+        const AFK_LandscapeTile& landscapeTile,
+        unsigned int threadId);
+
     /* Makes one starting entity for a world cell, including generating
      * the shape as required.
      */
@@ -230,7 +231,7 @@ protected:
 
     /* Generates this world cell, as necessary. */
     bool generateClaimedWorldCell(
-        AFK_WorldCell& worldCell,
+        AFK_Claim<AFK_WorldCell>& claim,
         unsigned int threadId,
         const struct AFK_WorldWorkParam::World& param,
         AFK_WorldWorkQueue& queue);
