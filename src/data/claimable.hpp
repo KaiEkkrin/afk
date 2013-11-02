@@ -18,6 +18,7 @@
 #ifndef _AFK_DATA_CLAIMABLE_H_
 #define _AFK_DATA_CLAIMABLE_H_
 
+#include <cassert>
 #include <exception>
 
 #include <boost/atomic.hpp>
@@ -30,100 +31,225 @@
  * re-use until the next frame.
  */
 
-/* Optionally, define this to try using a mutex instead.
+/* This exception is thrown when you can't get something because
+ * it's in use.  Try again.
+ * Actual program errors are assert()ed instead.
  */
-#define CLAIMABLE_MUTEX 0
-
-#if CLAIMABLE_MUTEX
-#include <boost/thread/shared_mutex.hpp>
-#endif
-
-/* Here are the different ways in which we can claim a cell. */
-enum AFK_ClaimType
-{
-    AFK_CLT_EXCLUSIVE,          /* Wants to be the only claim to processing the cell this frame */
-    AFK_CLT_NONEXCLUSIVE,       /* Bump the frame, but other threads may claim it this frame after
-                                 * we've released.  Still unique and writable while holding the
-                                 * claim.
-                                 */
-    AFK_CLT_NONEXCLUSIVE_SHARED,/* Bump the frame and hold a shared lock -- other threads may
-                                 * claim it simultaneously, but no non-shared ones.  *Don't write*.
-                                 * Not supported by the non-mutex version -- you get a non-shared
-                                 * claim instead.
-                                 * This may return AFK_CL_CLAIMED_UPGRADEABLE to you -- if so, you
-                                 * can call upgrade() to get the object all to yourself for a while
-                                 * (ironically, an AFK_CLT_NONEXCLUSIVE :) ) and write to it.
-                                 * Otherwise, if you need to do something to it that requires
-                                 * writing, you'd better release your claim and go do something else
-                                 * for a while before retrying.
-                                 */
-    AFK_CLT_NONEXCLUSIVE_UPGRADE,/* This is like AFK_CLT_NONEXCLUSIVE_SHARED, but will always
-                                  * return AFK_CL_CLAIMED_UPGRADEABLE (or AFK_CL_TAKEN).  It may
-                                  * be slower.  For those occasions when you know you're going
-                                  * to upgrade on a shared claimable
-                                  */
-    AFK_CLT_EVICTOR             /* We're the evictor.  Don't bump the frame. */
-};
-
-/* First here are the possible results from a claim attempt.
- */
-enum AFK_ClaimStatus
-{
-    AFK_CL_CLAIMED,            /* You've got it */
-    AFK_CL_CLAIMED_UPGRADABLE, /* You've got it, in an upgradable context */
-    AFK_CL_CLAIMED_SHARED,     /* You've got it, in a shared context */
-    AFK_CL_ALREADY_PROCESSED,  /* It's already been processed this frame, and you wanted an
-                                * exclusive claim
-                                */
-    AFK_CL_TAKEN               /* Someone else has it */
-};
-
-/* For errors.  Shouldn't happen in normal usage. */
 class AFK_ClaimException: public std::exception {};
 
+template<typename T>
+class AFK_Claimable<T>;
+
+template<typename T>
+class AFK_SharedClaim
+{
+private:
+    AFK_SharedClaim(const AFK_SharedClaim& _c) { assert(false); }
+    AFK_SharedClaim& operator=(const AFK_SharedClaim& _c) { assert(false); return *this; }
+
+protected:
+    unsigned int threadId; /* TODO change all thread IDs to 64-bit */
+    AFK_Claimable<T> *claimable;
+    bool released;
+
+    AFK_SharedClaim(unsigned int _threadId, AFK_Claimable<T> *_claimable):
+        threadId(_threadId), claimable(_claimable), released = false
+    {
+    }
+
+public:
+    virtual ~AFK_SharedClaim() { if (!released) release(); }
+
+    const T& get(void) const
+    {
+        assert(!released);
+        return claimable->obj;
+    }
+
+    void release(void)
+    {
+        assert(!released);
+        claimable->releaseShared(threadId);
+        released = true;
+    }
+
+    template<typename T>
+    friend class AFK_Claimable<T>;
+};
+
+template<typename T>
+class AFK_Claim
+{
+private:
+    AFK_Claim(const AFK_Claim& _c) { assert(false); }
+    AFK_Claim& operator=(const AFK_Claim& _c) { assert(false); return *this; }
+
+protected:
+    unsigned int threadId;
+    AFK_Claimable<T> *claimable;
+    bool released;
+
+    /* For sanity checking, for now I'm going to have the Claim
+     * take an original of the object, as well as copy it to
+     * give it to the caller to modify.
+     * Upon release we can compare this with what's present to
+     * make sure everything's working as expected
+     */
+    T original;
+    T obj;
+
+    AFK_Claim(unsigned int _threadId, AFK_Claimable<T> *_claimable):
+        threadId(_threadId), claimable(_claimable), released(false),
+        original(_claimable->obj), obj(_claimable->obj)
+    {
+    }
+
+public:
+    virtual ~AFK_Claim() { if (!released) release(); }
+
+    T& get(void) const
+    {
+        assert(!released);
+        return claimable->obj;
+    }
+
+    void release(void)
+    {
+        assert(!released);
+        assert(claimable->obj.compare_exchange_strong(original, obj));
+        claimable->release(threadId);
+        released = true;
+    }
+
+    template<typename T>
+    friend class AFK_Claimable<T>;
+}
+
+enum class AFK_ClaimFlags : int
+{
+    LOOP        = 1,
+    EXCLUSIVE   = 2
+};
+
+template<typename T>
 class AFK_Claimable
 {
 protected:
-    /* The last time the object was seen. */
-    AFK_Frame lastSeen;
-
-    /* The last time the object was claimed exclusively. */
-    AFK_Frame lastSeenExclusively;
-
-#if CLAIMABLE_MUTEX
-    boost::upgrade_mutex claimingMut;
-#else
-    /* Which thread ID (as assigned by the async module) has
-     * claimed use of this object.  I'll increment it by 1 to
-     * make sure no thread IDs of 0 are knocking about.
-     * 0 means nobody.
-     * 1<<63 is a special bit signifying "non-shared lock".
+    /* Which thread ID has claimed use of the object.
+     * The thread ID is incremented by 1 to make sure no 0s are
+     * knocking about; 0 means unclaimed, and the top bit is the
+     * non-shared flag.
      */
-    boost::atomic<uint64_t> claimingThreadId;
-#endif
+    boost::atomic<uint64_t> id;
+
+    /* Last times the object was seen. */
+    boost::atomic<int64_t> lastSeen;
+    boost::atomic<int64_t> lastSeenExclusively;
+
+    /* The claimable object itself. */
+    boost::atomic<T> obj;
+
+#define AFK_CL_NO_THREAD 0
+#define AFK_CL_NONSHARED (1uLL<<63)
+
+#define AFK_CL_THREAD_ID_SHARED(id) (((uint64_t)(id))+1uLL)
+#define AFK_CL_THREAD_ID_SHARED_MASK(id) (~AFK_CL_THREAD_ID_SHARED(id))
+
+#define AFK_CL_THREAD_ID_NONSHARED(id) (AFK_CL_THREAD_ID_SHARED(id) | AFK_CL_NONSHARED)
+#define AFK_CL_THREAD_ID_NONSHARED_MASK(id) (~AFK_CL_THREAD_ID_NONSHARED(id))
+
+    void releaseShared(unsigned int threadId)
+    {
+        id.fetch_and(AFK_CL_THREAD_ID_SHARED_MASK(threadId));
+    }
+
+    void release(unsigned int threadId)
+    {
+        id.fetch_and(AFK_CL_THREAD_ID_NONSHARED_MASK(threadId));
+    }
 
 public:
-    AFK_Claimable();
+    AFK_Claimable(): id(0), lastSeen(), lastSeenExclusively(), obj() {}
+    
+    /* Gets you a shared (const) claim. */
+    AFK_SharedClaim<T> claimShared(unsigned int threadId, AFK_ClaimFlags flags, const AFK_Frame& currentFrame)
+    {
+        bool claimed = false;
 
-    /* Tries to claim this object for processing.
-     * When finished, release it by calling release().
+        do
+        {
+            if ((id.fetch_or(AFK_CL_THREAD_ID_SHARED(threadId)) & AFK_CL_NONSHARED) == AFK_CL_NONSHARED)
+            {
+                /* It's already claimed exclusively, flip that
+                 * bit back
+                 */
+                id.fetch_and(AFK_CL_THREAD_ID_SHARED_MASK(threadId));
+
+                if (flags & AFK_ClaimFlags::LOOP) boost::this_thread::yield();
+            }
+            else claimed = true;
+        }
+        while (!claimed && (flags & AFK_ClaimFlags::LOOP));
+
+        if (!claimed) throw AFK_ClaimException();
+
+        return AFK_SharedClaim<T>(threadId, this);
+    }
+
+    /* Gets you an unshared claim directly.
+     * The `exclusive' flag causes the `lastSeenExclusively'
+     * field to be incremented if it's not already equal to
+     * the current frame; this mechanism locks out an object
+     * from being claimed more than once per frame.
      */
-    enum AFK_ClaimStatus claim(unsigned int threadId, enum AFK_ClaimType type, const AFK_Frame& currentFrame);
+    AFK_Claim<T> claim(unsigned int threadId, AFK_ClaimFlags flags, const AFK_Frame& currentFrame)
+    {
+        bool claimed = false;
 
-    /* Upgrades a shared claim to a non-shared one.
-     * Again, call release() to finish.
-     */
-    enum AFK_ClaimStatus upgrade(unsigned int threadId, enum AFK_ClaimStatus status);
+        do
+        {
+            uint64_t expected = AFK_CL_NO_THREAD;
+            claimed = id.compare_exchange_strong(expected, AFK_CL_THREAD_ID_NONSHARED(threadId));
+            if (!claimed && (flags & AFK_ClaimFlags::LOOP)) boost::this_thread::yield();
+        }
+        while (!claimed && (flags & AFK_ClaimFlags::LOOP));
 
-    void release(unsigned int threadId, enum AFK_ClaimStatus status);
+        if (!claimed) throw AFK_ClaimException();
 
-    /* Helper -- tries a bit harder to claim the cell.
-     * Returns the resulting status.
-     */
-    enum AFK_ClaimStatus claimYieldLoop(unsigned int threadId, enum AFK_ClaimType type, const AFK_Frame& currentFrame);
+        int64_t currentFrameNum = currentFrame.get();
+        lastSeen.store(currentFrameNum);
+        
+        if (flags & AFK_ClaimFlags::EXCLUSIVE)
+        {
+            if (lastSeenExclusively.exchange(currentFrameNum) == currentFrameNum)
+            {
+                release(threadId);
+                throw AFK_ClaimException();
+            }
+        }
 
-    const AFK_Frame& getLastSeen(void) const { return lastSeen; }
+        return AFK_Claim<T>(threadId, this);
+    }
+
+    /* Upgrades your shared claim to an unshared one. */
+    AFK_Claim upgrade(AFK_SharedClaim& shared)
+    {
+        uint64_t expected = AFK_CL_THREAD_ID_SHARED(shared.threadId);
+        if (id.compare_exchange_strong(expected, AFK_CL_THREAD_ID_NONSHARED(threadId)))
+        {
+            /* Invalidate that old shared claim */
+            shared.released = true;
+
+            return AFK_Claim<T>(shared.threadId, this);
+        }
+
+        throw AFK_ClaimException();
+    }
+
+    template<typename T>
+    friend class AFK_SharedClaim<T>;
+
+    template<typename T>
+    friend class AFK_Claim<T>;
 };
-
-#endif /* _AFK_DATA_CLAIMABLE_H_ */
 

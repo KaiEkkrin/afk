@@ -18,6 +18,7 @@
 #ifndef _AFK_FRAME_H_
 #define _AFK_FRAME_H_
 
+#include <climits>
 #include <sstream>
 
 #include <boost/static_assert.hpp>
@@ -28,7 +29,7 @@
 class AFK_Frame
 {
 protected:
-    uint64_t id;
+    int64_t id;
 
     /* This means "it never happened" when tracking things by
      * which frame they happened on.
@@ -37,10 +38,23 @@ protected:
 
 public:
     AFK_Frame(): id(0), never(true) {}
+    AFK_Frame(int64_t _id)
+    {
+        if (_id >= 0)
+        {
+            id = _id;
+            never = false;
+        }
+        else
+        {
+            id = 0;
+            never = true;
+        }
+    }
 
     void increment()
     {
-        ++id; /* hopefully this is guaranteed to wrap */
+        if (++id < 0) id = 0;
         never = false;
     }
 
@@ -74,10 +88,10 @@ public:
         }
     }
 
-    uint64_t operator-(const AFK_Frame& f) const
+    int64_t operator-(const AFK_Frame& f) const
     {
         if (never)
-            return 0xffffffffffffffffull; /* as long ago as possible */
+            return LLONG_MAX; /* as long ago as possible */
         else
             return id - f.id; /* hopefully more useful wrapping behaviour */
     }
