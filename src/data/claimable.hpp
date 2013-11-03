@@ -53,8 +53,9 @@ private:
     AFK_Claim& operator=(const AFK_Claim& _c) { assert(false); return *this; }
 
 protected:
-    unsigned int threadId;
+    unsigned int threadId; /* TODO change all thread IDs to 64-bit */
     AFK_Claimable<T> *claimable;
+    bool shared;
     bool released;
 
     /* For sanity checking, for now I'm going to have the Claim
@@ -62,30 +63,62 @@ protected:
      * give it to the caller to modify.
      * Upon release we can compare this with what's present to
      * make sure everything's working as expected
+     * `obj' will always be valid (and will be the one modified
+     * with a nonshared Claim); `original' will not be pulled
+     * on a shared Claim.
      */
-    T original;
     T obj;
+    T original;
 
-    AFK_Claim(unsigned int _threadId, AFK_Claimable<T> *_claimable):
-        threadId(_threadId), claimable(_claimable), released(false),
-        original(_claimable->obj), obj(_claimable->obj)
+    AFK_Claim(unsigned int _threadId, AFK_Claimable<T> *_claimable, bool _shared):
+        threadId(_threadId), claimable(_claimable), shared(_shared), released(false),
+        obj(_claimable->obj.load())
     {
+        if (!shared) original = obj;
     }
 
 public:
     virtual ~AFK_Claim() { if (!released) release(); }
 
-    T& get(void) const
+    const T& getShared(void) const
     {
         assert(!released);
-        return claimable->obj;
+        return obj;
+    }
+
+    T& get(void) const
+    {
+        assert(!shared);
+        assert(!released);
+        return obj;
+    }
+
+    bool upgrade(void)
+    {
+        if (!shared) return true;
+
+        if (claimable->tryUpgradeShared(threadId))
+        {
+            shared = false;
+            original = obj;
+            return true;
+        }
+        else return false;
     }
 
     void release(void)
     {
         assert(!released);
-        assert(claimable->obj.compare_exchange_strong(original, obj));
-        claimable->release(threadId);
+        if (shared)
+        {
+            claimable->releaseShared(threadId);
+        }
+        else
+        {
+            assert(claimable->obj.compare_exchange_strong(original, obj));
+            claimable->release(threadId);
+        }
+
         released = true;
     }
 
@@ -95,64 +128,14 @@ public:
     void invalidate(void)
     {
         assert(!released);
-        claimable->release(threadId);
+        if (shared) claimable->releaseShared(threadId);
+        else claimable->release(threadId);
         released = true;
     }
 
     template<typename T, AFK_GetComputingFrame getComputingFrame>
     friend class AFK_Claimable<T, getComputingFrame>;
 }
-
-template<typename T>
-class AFK_SharedClaim
-{
-private:
-    AFK_SharedClaim(const AFK_SharedClaim& _c) { assert(false); }
-    AFK_SharedClaim& operator=(const AFK_SharedClaim& _c) { assert(false); return *this; }
-
-protected:
-    unsigned int threadId; /* TODO change all thread IDs to 64-bit */
-    AFK_Claimable<T> *claimable;
-    bool released;
-
-    AFK_SharedClaim(unsigned int _threadId, AFK_Claimable<T> *_claimable):
-        threadId(_threadId), claimable(_claimable), released = false
-    {
-    }
-
-public:
-    virtual ~AFK_SharedClaim() { if (!released) release(); }
-
-    const T& get(void) const
-    {
-        assert(!released);
-        return claimable->obj;
-    }
-
-    AFK_Claim<T> upgrade(void)
-    {
-        if (claimable->tryUpgradeShared(threadId))
-        {
-            /* Invalidate this shared claim, the claimable id is
-             * no longer the one the release method expects
-             */
-            released = true;
-
-            return AFK_Claim<T>(threadId, claimable);
-        }
-        else throw AFK_ClaimException();
-    }
-
-    void release(void)
-    {
-        assert(!released);
-        claimable->releaseShared(threadId);
-        released = true;
-    }
-
-    template<typename T, GetComputingFrame getComputingFrame>
-    friend class AFK_Claimable<T, getComputingFrame>;
-};
 
 enum class AFK_ClaimFlags : int
 {
@@ -204,26 +187,11 @@ protected:
         id.fetch_and(AFK_CL_THREAD_ID_NONSHARED_MASK(threadId));
     }
 
-    /* Upgrades your shared claim to an unshared one. */
-    AFK_Claim upgrade(AFK_SharedClaim& shared)
-    {
-        uint64_t expected = AFK_CL_THREAD_ID_SHARED(shared.threadId);
-        if (id.compare_exchange_strong(expected, AFK_CL_THREAD_ID_NONSHARED(threadId)))
-        {
-            /* Invalidate that old shared claim */
-            shared.released = true;
-
-            return AFK_Claim<T>(shared.threadId, this);
-        }
-
-        throw AFK_ClaimException();
-    }
-
 public:
     AFK_Claimable(): id(0), lastSeen(-1), lastSeenExclusively(-1), obj() {}
     
     /* Gets you a shared (const) claim. */
-    AFK_SharedClaim<T> claimShared(unsigned int threadId, AFK_ClaimFlags flags)
+    AFK_Claim<T> claimShared(unsigned int threadId, AFK_ClaimFlags flags)
     {
         bool claimed = false;
 
@@ -247,7 +215,7 @@ public:
         int64_t computingFrameNum = getComputingFrame().get();
         lastSeen.store(computingFrameNum);
 
-        return AFK_SharedClaim<T>(threadId, this);
+        return AFK_Claim<T>(threadId, this, true);
     }
 
     /* Gets you an unshared claim directly.
@@ -295,11 +263,8 @@ public:
             }
         }
 
-        return AFK_Claim<T>(threadId, this);
+        return AFK_Claim<T>(threadId, this, false);
     }
-
-    template<typename T>
-    friend class AFK_SharedClaim<T>;
 
     template<typename T>
     friend class AFK_Claim<T>;

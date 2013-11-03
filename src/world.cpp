@@ -43,6 +43,11 @@
 
 /* The cell generating worker. */
 
+/* TODO I probably want to part-revert the work in here, to reflect
+ * the new upgrade() that changes an existing Claim rather than
+ * making a new one.
+ */
+
 bool afk_generateWorldCells(
     unsigned int threadId,
     const union AFK_WorldWorkParam& param,
@@ -249,7 +254,7 @@ bool AFK_World::generateClaimedWorldCell(
     bool retval = true;
 
     AFK_WorldCell& worldCell = claim.get();
-    worldCell.bind(minCellSize);
+    worldCell.bind(cell, minCellSize);
 
     /* Check for visibility. */
     bool someVisible = entirelyVisible;
@@ -282,20 +287,18 @@ bool AFK_World::generateClaimedWorldCell(
              * landscape tiles are dependent on lower detailed ones for their
              * terrain description.
              */
-            AFK_SharedClaim<AFK_LandscapeTile> landscapeSharedClaim = (*landscapeCache)[tile].claimable.claimShared(
+            AFK_Claim<AFK_LandscapeTile> landscapeClaim = (*landscapeCache)[tile].claimable.claimShared(
                 AFK_ClaimFlags::LOOP);
-            const AFK_LandscapeTile& landscapeTileConst = landscapeSharedClaim.get();
         
             bool generateArtwork = false;
-            if (!landscapeTileConst.hasTerrainDescriptor() ||
+            if (!landscapeClaim.getShared().hasTerrainDescriptor() ||
                 ((renderTerrain || display) && landscapeTileConst.artworkState() != AFK_LANDSCAPE_TILE_HAS_ARTWORK))
             {
                 /* In order to generate this tile we need to upgrade
                  * our claim if we can.
                  */
-                try
+                if (landscapeClaim.upgrade())
                 {
-                    AFK_Claim<AFK_LandscapeTile> landscapeClaim = landscapeSharedClaim.upgrade();
                     AFK_LandscapeTile& landscapeTile = landscapeClaim.get();
                     if (checkClaimedLandscapeTile(tile, landscapeTile, display))
                         generateLandscapeArtwork(tile, landscapeTile, threadId);
@@ -303,7 +306,7 @@ bool AFK_World::generateClaimedWorldCell(
                     if (display)
                         displayLandscapeTile(tile, landscapeTile, threadId);
                 }
-                catch (AFK_ClaimException)
+                else
                 {
                     /* Uh oh.  Having an un-generated tile here is not
                      * an option.  Queue a resume of this cell.
@@ -325,7 +328,7 @@ bool AFK_World::generateClaimedWorldCell(
             }
             else if (display)
             {
-                displayLandscapeTile(tile, landscapeTileConst, threadId);
+                displayLandscapeTile(tile, landscapeClaim.getShared(), threadId);
             }
         }
 
@@ -367,23 +370,27 @@ bool AFK_World::generateClaimedWorldCell(
 #endif
             while (eIt != worldCell.entitiesEnd())
             {
-                if (eIt->claimable.claimYieldLoop(threadId, AFK_CLT_EXCLUSIVE, afk_core.computingFrame) == AFK_CL_CLAIMED)
+                try
                 {
+                    AFK_Claim<AFK_Entity> entityClaim = eIt->claimable.claim(
+                        threadId, AFK_ClaimFlags::LOOP | AFK_ClaimFlags::EXCLUSIVE);
+                    AFK_Entity& e = entityClaim.get();
+
                     /* Make sure everything I need in that shape
                      * has been computed ...
                      */
                     AFK_WorldWorkQueue::WorkItem shapeCellItem;
                     shapeCellItem.func                          = afk_generateEntity;
                     shapeCellItem.param.shape.cell              = afk_keyedCell(afk_vec4<int64_t>(
-                                                                    0, 0, 0, SHAPE_CELL_MAX_DISTANCE), eIt->getShapeKey());
-                    shapeCellItem.param.shape.transformation    = eIt->getTransformation();
+                                                                    0, 0, 0, SHAPE_CELL_MAX_DISTANCE), e.getShapeKey());
+                    shapeCellItem.param.shape.transformation    = e.getTransformation();
                     shapeCellItem.param.shape.world             = this;               
                     shapeCellItem.param.shape.viewerLocation    = viewerLocation;
                     shapeCellItem.param.shape.camera            = camera;
                     shapeCellItem.param.shape.flags             = 0;
 
 #if AFK_SHAPE_ENUM_DEBUG
-                    shapeCellItem.param.shape.asedWorldCell     = worldCell.getCell();
+                    shapeCellItem.param.shape.asedWorldCell     = cell;
                     shapeCellItem.param.shape.asedCounter       = eCounter;
                     AFK_DEBUG_PRINTL("ASED: Enqueued entity: worldCell=" << worldCell.getCell() << ", entity counter=" << eCounter)
 #endif
@@ -392,9 +399,8 @@ bool AFK_World::generateClaimedWorldCell(
                     queue.push(shapeCellItem);
             
                     entitiesQueued.fetch_add(1);
-            
-                    eIt->claimable.release(threadId, AFK_CL_CLAIMED);
                 }
+                catch (AFK_ClaimException) {} /* already processed? */
             
                 ++eIt;
 #if AFK_SHAPE_ENUM_DEBUG
