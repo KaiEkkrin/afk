@@ -28,10 +28,10 @@
 #include <boost/shared_ptr.hpp>
 
 #include "data/claimable.hpp"
+#include "data/evictable_cache.hpp"
 #include "data/frame.hpp"
 #include "def.hpp"
 #include "display.hpp"
-#include "evictable_cache.hpp"
 #include "jigsaw_collection.hpp"
 #include "landscape_display_queue.hpp"
 #include "landscape_sizes.hpp"
@@ -113,6 +113,7 @@ public:
     void buildTerrainList(
         unsigned int threadId,
         AFK_TerrainList& list,
+        const AFK_Tile& tile,
         unsigned int subdivisionFactor,
         float maxDistance,
         const AFK_LANDSCAPE_CACHE *cache) const;

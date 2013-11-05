@@ -25,6 +25,7 @@
 #include "display.hpp"
 #include "exception.hpp"
 #include "object.hpp"
+#include "world.hpp"
 
 
 void afk_displayedBufferGlBuffersForDeletion(GLuint *bufs, size_t bufsSize)

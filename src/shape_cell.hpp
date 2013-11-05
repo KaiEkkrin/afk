@@ -28,11 +28,11 @@
 #include "3d_solid.hpp"
 #include "3d_vapour_compute_queue.hpp"
 #include "data/claimable.hpp"
+#include "data/evictable_cache.hpp"
 #include "data/fair.hpp"
 #include "data/frame.hpp"
 #include "def.hpp"
 #include "entity_display_queue.hpp"
-#include "evictable_cache.hpp"
 #include "jigsaw_collection.hpp"
 #include "keyed_cell.hpp"
 #include "shape_sizes.hpp"
@@ -68,7 +68,7 @@ protected:
     AFK_JigsawPiece edgeJigsawPiece;
     AFK_Frame edgeJigsawPieceTimestamp;
 
-    Vec4<float> getBaseColour(void) const;
+    Vec4<float> getBaseColour(int64_t key) const;
 
 public:
     AFK_ShapeCell();

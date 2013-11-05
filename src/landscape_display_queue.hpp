@@ -31,6 +31,7 @@
 #include "landscape_sizes.hpp"
 #include "shader.hpp"
 #include "terrain_base_tile.hpp"
+#include "tile.hpp"
 
 class AFK_Jigsaw;
 class AFK_LandscapeTile;

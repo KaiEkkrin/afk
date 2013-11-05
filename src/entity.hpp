@@ -23,7 +23,6 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include "cell.hpp"
-#include "data/claimable.hpp"
 #include "data/fair.hpp"
 #include "def.hpp"
 #include "entity_display_queue.hpp"
@@ -34,7 +33,7 @@
 
 /* An Entity is a moveable object that exists within the
  * world cells.
- * An Entity is Claimable: the worker thread should take
+ * An Entity should be Claimable-wrapped: the worker thread should take
  * out an exclusive claim on it to ensure each one is
  * only processed once per frame.  It isn't cached, though:
  * instead they are stored within the world cells.
@@ -48,15 +47,13 @@
 class AFK_Entity
 {
 public:
-    AFK_Claimable claimable;
-
-protected:
     /* The shape key is used to vary the RNG output to generate
      * the shape, and keys the shape cell and vapour cell
      * caches.
      */
     const unsigned int shapeKey;
 
+protected:
     /* Describes where this entity is located. */
     AFK_Object obj;
 
@@ -72,14 +69,10 @@ protected:
      */
 
 public:
-    AFK_Entity(unsigned int _shapeKey);
-
     /* I need this for the std::list */
     AFK_Entity(const AFK_Entity& _entity);
 
     virtual ~AFK_Entity();
-
-    unsigned int getShapeKey(void) const;
 
     /* Positions the entity.
      */

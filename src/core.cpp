@@ -446,3 +446,5 @@ const AFK_Frame& afk_getComputingFrame(void)
     return afk_core.computingFrame;
 }
 
+AFK_GetComputingFrame afk_getComputingFrameFunc = afk_getComputingFrame;
+

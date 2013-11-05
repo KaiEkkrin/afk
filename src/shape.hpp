@@ -80,13 +80,11 @@ protected:
      */
     bool generateClaimedShapeCell(
         unsigned int threadId,
-        AFK_VapourCell& vapourCell,
-        AFK_ShapeCell& shapeCell,
-        enum AFK_ClaimStatus& vapourCellClaimStatus,
-        enum AFK_ClaimStatus& shapeCellClaimStatus,
+        AFK_KeyedCell& cell,
+        AFK_CLAIM_OF(VapourCell)& vapourCellClaim,
+        AFK_CLAIM_OF(ShapeCell)& shapeCellClaim,
         const Mat4<float>& worldTransform,
         const Vec4<float>& realCoord,
-        int64_t key,
         AFK_World *world);
 
     /* TODO: Try to move the shape-dependent stuff out of

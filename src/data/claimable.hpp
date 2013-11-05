@@ -20,10 +20,11 @@
 
 #include <cassert>
 #include <exception>
+#include <functional>
 #include <sstream>
 
 #include <boost/atomic.hpp>
-#include <boost/functional.hpp>
+#include <boost/thread.hpp>
 
 #include "frame.hpp"
 
@@ -40,12 +41,12 @@
 class AFK_ClaimException: public std::exception {};
 
 /* How to specify a function to obtain the current computing frame */
-typedef boost::function<const AFK_Frame& (void)> AFK_GetComputingFrame;
+typedef std::function<const AFK_Frame& (void)> AFK_GetComputingFrame;
 
-template<typename T, AFK_GetComputingFrame getComputingFrame>
-class AFK_Claimable<T, getComputingFrame>;
+template<typename T, AFK_GetComputingFrame& getComputingFrame>
+class AFK_Claimable;
 
-template<typename T>
+template<typename T, AFK_GetComputingFrame& getComputingFrame>
 class AFK_Claim
 {
 private:
@@ -54,7 +55,7 @@ private:
 
 protected:
     unsigned int threadId; /* TODO change all thread IDs to 64-bit */
-    AFK_Claimable<T> *claimable;
+    AFK_Claimable<T, getComputingFrame> *claimable;
     bool shared;
     bool released;
 
@@ -70,7 +71,7 @@ protected:
     T obj;
     T original;
 
-    AFK_Claim(unsigned int _threadId, AFK_Claimable<T> *_claimable, bool _shared):
+    AFK_Claim(unsigned int _threadId, AFK_Claimable<T, getComputingFrame> *_claimable, bool _shared):
         threadId(_threadId), claimable(_claimable), shared(_shared), released(false),
         obj(_claimable->obj.load())
     {
@@ -103,7 +104,8 @@ public:
             original = obj;
             return true;
         }
-        else return false;
+        
+        return false;
     }
 
     void release(void)
@@ -133,18 +135,29 @@ public:
         released = true;
     }
 
-    template<typename T, AFK_GetComputingFrame getComputingFrame>
     friend class AFK_Claimable<T, getComputingFrame>;
-}
+};
 
 enum class AFK_ClaimFlags : int
 {
     LOOP        = 1,
     EXCLUSIVE   = 2,
-    EVICTOR     = 4
+    EVICTOR     = 4,
+    SHARED      = 8
 };
 
-template<typename T, GetComputingFrame getComputingFrame>
+/* TODO this is silly, remove the enum class and templates and just use
+ * int with preprocessor :P
+ */
+template<AFK_ClaimFlags f>
+constexpr AFK_ClaimFlags afk_claimFlagList(void) { return f; }
+
+template<AFK_ClaimFlags f, AFK_ClaimFlags... n>
+constexpr AFK_ClaimFlags afk_claimFlagList(void) { return ((int)f | (int)afk_claimFlagList<n...>()); }
+
+#define AFK_TEST_CLAIM_FLAG(flags, f) ((int)(flags) & (int)AFK_ClaimFlags::f)
+
+template<typename T, AFK_GetComputingFrame& getComputingFrame>
 class AFK_Claimable
 {
 protected:
@@ -171,9 +184,29 @@ protected:
 #define AFK_CL_THREAD_ID_NONSHARED(id) (AFK_CL_THREAD_ID_SHARED(id) | AFK_CL_NONSHARED)
 #define AFK_CL_THREAD_ID_NONSHARED_MASK(id) (~AFK_CL_THREAD_ID_NONSHARED(id))
 
+    bool tryClaim(unsigned int threadId)
+    {
+        uint64_t expected = AFK_CL_NO_THREAD;
+        return id.compare_exchange_strong(expected, AFK_CL_THREAD_ID_NONSHARED(threadId));
+    }
+
+    bool tryClaimShared(unsigned int threadId)
+    {
+        if ((id.fetch_or(AFK_CL_THREAD_ID_SHARED(threadId)) & AFK_CL_NONSHARED) == AFK_CL_NONSHARED)
+        {
+            /* It's already claimed exclusively, flip that
+             * bit back
+             */
+            id.fetch_and(AFK_CL_THREAD_ID_SHARED_MASK(threadId));
+            return false;
+        }
+
+        return true;
+    }
+
     bool tryUpgradeShared(unsigned int threadId)
     {
-        uint64_t expected = AFK_CL_THREAD_ID_SHARED(shared.threadId);
+        uint64_t expected = AFK_CL_THREAD_ID_SHARED(threadId);
         return id.compare_exchange_strong(expected, AFK_CL_THREAD_ID_NONSHARED(threadId));
     }
 
@@ -189,60 +222,33 @@ protected:
 
 public:
     AFK_Claimable(): id(0), lastSeen(-1), lastSeenExclusively(-1), obj() {}
-    
-    /* Gets you a shared (const) claim. */
-    AFK_Claim<T> claimShared(unsigned int threadId, AFK_ClaimFlags flags)
-    {
-        bool claimed = false;
 
-        do
-        {
-            if ((id.fetch_or(AFK_CL_THREAD_ID_SHARED(threadId)) & AFK_CL_NONSHARED) == AFK_CL_NONSHARED)
-            {
-                /* It's already claimed exclusively, flip that
-                 * bit back
-                 */
-                id.fetch_and(AFK_CL_THREAD_ID_SHARED_MASK(threadId));
-
-                if (flags & AFK_ClaimFlags::LOOP) boost::this_thread::yield();
-            }
-            else claimed = true;
-        }
-        while (!claimed && (flags & AFK_ClaimFlags::LOOP));
-
-        if (!claimed) throw AFK_ClaimException();
-
-        int64_t computingFrameNum = getComputingFrame().get();
-        lastSeen.store(computingFrameNum);
-
-        return AFK_Claim<T>(threadId, this, true);
-    }
-
-    /* Gets you an unshared claim directly.
+    /* Gets you a claim of the desired type.
      * The `exclusive' flag causes the `lastSeenExclusively'
      * field to be incremented if it's not already equal to
      * the current frame; this mechanism locks out an object
      * from being claimed more than once per frame.
      */
-    AFK_Claim<T> claim(unsigned int threadId, AFK_ClaimFlags flags)
+    AFK_Claim<T, getComputingFrame> claim(unsigned int threadId, AFK_ClaimFlags flags)
     {
         bool claimed = false;
 
         do
         {
-            uint64_t expected = AFK_CL_NO_THREAD;
-            claimed = id.compare_exchange_strong(expected, AFK_CL_THREAD_ID_NONSHARED(threadId));
-            if (!claimed && (flags & AFK_ClaimFlags::LOOP)) boost::this_thread::yield();
+            if (AFK_TEST_CLAIM_FLAG(flags, SHARED)) claimed = tryClaimShared(threadId);
+            else claimed = tryClaim(threadId);
+            if (!claimed && AFK_TEST_CLAIM_FLAG(flags, LOOP)) boost::this_thread::yield();
         }
-        while (!claimed && (flags & AFK_ClaimFlags::LOOP));
+        while (!claimed && AFK_TEST_CLAIM_FLAG(flags, LOOP));
 
         if (!claimed) throw AFK_ClaimException();
 
         int64_t computingFrameNum = getComputingFrame().get();
 
         /* Help the evictor out a little */
-        if (flags & AFK_ClaimFlags::EVICTOR)
+        if (AFK_TEST_CLAIM_FLAG(flags, EVICTOR))
         {
+            assert(!AFK_TEST_CLAIM_FLAG(flags, SHARED));
             if (lastSeen.load() == computingFrameNum)
             {
                 release(threadId);
@@ -253,8 +259,9 @@ public:
         {
             lastSeen.store(computingFrameNum);
         
-            if (flags & AFK_ClaimFlags::EXCLUSIVE)
+            if ((int)flags & (int)AFK_ClaimFlags::EXCLUSIVE)
             {
+                assert(!AFK_TEST_CLAIM_FLAG(flags, SHARED));
                 if (lastSeenExclusively.exchange(computingFrameNum) == computingFrameNum)
                 {
                     release(threadId);
@@ -263,17 +270,19 @@ public:
             }
         }
 
-        return AFK_Claim<T>(threadId, this, false);
+        return AFK_Claim<T, getComputingFrame>(threadId, this, false);
     }
 
-    template<typename T>
-    friend class AFK_Claim<T>;
+    int64_t getLastSeen(void) const { return lastSeen.load(); }
+    int64_t getLastSeenExclusively(void) const { return lastSeenExclusively.load(); }
 
-    template<typename T, GetComputingFrame getComputingFrame>
-    friend std::ostream& operator<< <T>(std::ostream& os, const AFK_Claimable<T, getComputingFrame>& c);
+    friend class AFK_Claim<T, getComputingFrame>;
+
+    template<typename _T, AFK_GetComputingFrame& _getComputingFrame>
+    friend std::ostream& operator<<(std::ostream& os, const AFK_Claimable<_T, _getComputingFrame>& c);
 };
 
-template<typename T, GetComputingFrame getComputingFrame>
+template<typename T, AFK_GetComputingFrame& getComputingFrame>
 std::ostream& operator<<(std::ostream& os, const AFK_Claimable<T, getComputingFrame>& c)
 {
     /* I'm going to ignore any claims here and just read
@@ -281,7 +290,9 @@ std::ostream& operator<<(std::ostream& os, const AFK_Claimable<T, getComputingFr
      * these functions are for diagnostics only and that
      * should be OK
      */
-    os << "Claimable(" << c.obj.load() << ", last seen " << c.lastSeen.load() << ", last seen exclusively " << c.lastSeenExclusively.load() << ")";
+    os << "Claimable(" << c.obj.load() << ", last seen " << c.getLastSeen() << ", last seen exclusively " << c.getLastSeenExclusively() << ")";
     return os;
 }
+
+#endif /* _AFK_DATA_CLAIMABLE_H_ */
 

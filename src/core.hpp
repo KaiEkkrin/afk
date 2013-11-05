@@ -25,11 +25,14 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/lockfree/queue.hpp>
+#include <boost/thread/future.hpp>
 
+#include "data/claimable.hpp"
 #include "data/frame.hpp"
 #include "def.hpp"
 #include "display.hpp"
 #include "light.hpp"
+#include "window.hpp"
 
 
 /* Forward declare a pile of stuff, to avoid this header file depending
@@ -40,7 +43,6 @@ class AFK_Camera;
 class AFK_Config;
 class AFK_Computer;
 class AFK_RNG;
-class AFK_Window;
 class AFK_World;
 
 
@@ -183,13 +185,18 @@ extern AFK_Core afk_core;
 /* This function accesses the computing frame counter in the AFK core.
  * Used by the caches to track entry age.
  */
-const AFK_Frame& afk_getComputingFrame(void);
+extern AFK_GetComputingFrame afk_getComputingFrameFunc;
+
+/* Here's a shorthand for claim types with that frame counter
+ * getter function
+ */
+#define AFK_CLAIM_OF(t) AFK_Claim<AFK_##t, afk_getComputingFrameFunc>
 
 /* I'll define the caches here, it's a nice central place to put them. */
-#define AFK_WORLD_CACHE AFK_EvictableCache<AFK_Cell, AFK_WorldCell, AFK_HashCell, afk_unassignedCell, 60, afk_getComputingFrame>
-#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile, afk_unassignedTile, 10, afk_getComputingFrame, true>
-#define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 10, afk_getComputingFrame>
-#define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 10, afk_getComputingFrame>
+#define AFK_WORLD_CACHE AFK_EvictableCache<AFK_Cell, AFK_WorldCell, AFK_HashCell, afk_unassignedCell, 60, afk_getComputingFrameFunc>
+#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile, afk_unassignedTile, 10, afk_getComputingFrameFunc, true>
+#define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 10, afk_getComputingFrameFunc>
+#define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 10, afk_getComputingFrameFunc>
 
 #endif /* _AFK_CORE_H_ */
 

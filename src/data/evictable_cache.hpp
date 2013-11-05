@@ -40,12 +40,12 @@ template<
     typename Value,
     const Key& unassigned,
     int64_t framesBeforeEviction,
-    AFK_GetComputingFrame getComputingFrame>
+    AFK_GetComputingFrame& getComputingFrame>
 class AFK_Evictable
 {
 public:
     boost::atomic<Key> key;
-    AFK_Claimable<Value> claimable;
+    AFK_Claimable<Value, getComputingFrame> claimable;
 
     AFK_Evictable(): key(unassigned), claimable() {}
 
@@ -56,7 +56,15 @@ public:
     }
 };
 
-std::ostream& operator<<(std::ostream& os, const AFK_Evictable<Key, Value, unassigned, framesBeforeEviction>& ev)
+template<
+    typename Key,
+    typename Value,
+    const Key& unassigned,
+    int64_t framesBeforeEviction,
+    AFK_GetComputingFrame& getComputingFrame>
+std::ostream& operator<<(
+    std::ostream& os,
+    const AFK_Evictable<Key, Value, unassigned, framesBeforeEviction, getComputingFrame>& ev)
 {
     os << "Evictable(Key=" << ev.key.load() << ", Value=" << ev.claimable << ")";
     return os;
@@ -68,7 +76,7 @@ template<
     typename Hasher,
     const Key& unassigned,
     int64_t framesBeforeEviction,
-    GetComputingFrame getComputingFrame,
+    AFK_GetComputingFrame& getComputingFrame,
     bool debug = false>
 class AFK_EvictableCache:
     public AFK_PolymerCache<
@@ -112,7 +120,7 @@ protected:
                 Monomer *candidate;
                 if (this->polymer.getSlot(slot, &candidate))
                 {
-                    if (candidate->canBeEvicted(void)
+                    if (candidate->canBeEvicted())
                     {
                         /* Claim it first, otherwise someone else will
                          * and the world will not be a happy place.
@@ -204,7 +212,9 @@ public:
             {
                 /* Kick off a new eviction task */
                 rp = new boost::promise<unsigned int>();
-                th = new boost::thread(&AFK_EvictableCache<Key, Monomer, Hasher, unassigned, debug>::evictionWorker, this);
+                th = new boost::thread(
+                    &AFK_EvictableCache<Key, Monomer, Hasher, unassigned, framesBeforeEviction, getComputingFrame, debug>::evictionWorker,
+                    this);
                 result = rp->get_future();
             }
             else

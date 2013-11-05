@@ -58,12 +58,12 @@ AFK_LandscapeDisplayQueue::~AFK_LandscapeDisplayQueue()
     if (buf) glDeleteBuffers(1, &buf);
 }
 
-void AFK_LandscapeDisplayQueue::add(const AFK_LandscapeDisplayUnit& _unit, const AFK_LandscapeTile *landscapeTile)
+void AFK_LandscapeDisplayQueue::add(const AFK_LandscapeDisplayUnit& _unit, const AFK_Tile& _tile)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
     queue.push_back(_unit);
-    landscapeTiles.push_back(landscapeTile);
+    landscapeTiles.push_back(_tile);
 }
 
 #define COPY_TO_GL_CULLING 1

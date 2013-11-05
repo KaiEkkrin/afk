@@ -92,11 +92,15 @@ unsigned int AFK_WorldCell::getStartingEntityShapeKey(AFK_RNG& rng)
 }
 
 void AFK_WorldCell::addStartingEntity(
+    unsigned int threadId,
     unsigned int shapeKey,
     const AFK_ShapeSizes& sSizes,
     AFK_RNG& rng)
 {
-    AFK_Entity e(shapeKey);
+    AFK_Claimable<AFK_Entity, afk_getComputingFrameFunc> claimableEntity;
+    auto claim = claimableEntity.claim(threadId, 0);
+    AFK_Entity& e = claim.get();
+    e.shapeKey = shapeKey;
 
     Vec4<float> realCoord = getRealCoord();
 
@@ -158,8 +162,10 @@ void AFK_WorldCell::addStartingEntity(
         entityDisplacement,
         entityRotation);
 
+    claim.release();
+
     if (!entities) entities = new AFK_ENTITY_LIST();
-    entities->push_back(e);
+    entities->push_back(claimableEntity);
 }
 
 bool AFK_WorldCell::hasEntities(void) const
@@ -180,20 +186,6 @@ AFK_ENTITY_LIST::iterator AFK_WorldCell::entitiesEnd(void)
 AFK_ENTITY_LIST::iterator AFK_WorldCell::eraseEntity(AFK_ENTITY_LIST::iterator eIt)
 {
     return entities->erase(eIt);
-}
-
-bool AFK_WorldCell::canBeEvicted(void) const
-{
-    /* This is a tweakable value ... */
-    /* TODO Should I check contained entities too?  For now,
-     * I don't think so.  They'll always get hit along with the
-     * cell.
-     * However, when I get persistent entities, the cell homing
-     * them should always return false (or at least, be much
-     * more likely to return false ......)
-     */
-    bool canEvict = ((afk_core.computingFrame - claimable.getLastSeen()) > 60);
-    return canEvict;
 }
 
 void AFK_WorldCell::evict(void)

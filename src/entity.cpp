@@ -24,11 +24,6 @@
 
 /* AFK_Entity implementation */
 
-AFK_Entity::AFK_Entity(unsigned int _shapeKey):
-    shapeKey(_shapeKey)
-{
-}
-
 /* TODO: This is a nasty mess, technically very wrong.  however,
  * it's currently only being used on uninitialised entities before
  * we Claim them in order to generate them (therefore we _want_ a
@@ -38,7 +33,6 @@ AFK_Entity::AFK_Entity(unsigned int _shapeKey):
  * entirely.
  */
 AFK_Entity::AFK_Entity(const AFK_Entity& _entity):
-    claimable(),
     shapeKey(_entity.shapeKey),
     obj(_entity.obj)
 {
@@ -46,11 +40,6 @@ AFK_Entity::AFK_Entity(const AFK_Entity& _entity):
 
 AFK_Entity::~AFK_Entity()
 {
-}
-
-unsigned int AFK_Entity::getShapeKey(void) const
-{
-    return shapeKey;
 }
 
 void AFK_Entity::position(

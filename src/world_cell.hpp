@@ -25,6 +25,7 @@
 #include <boost/atomic.hpp>
 
 #include "data/claimable.hpp"
+#include "core.hpp"
 #include "entity.hpp"
 #include "rng/rng.hpp"
 #include "shape.hpp"
@@ -33,7 +34,7 @@
 #include "world.hpp"
 
 
-#define AFK_ENTITY_LIST std::list<AFK_Entity>
+#define AFK_ENTITY_LIST std::list<AFK_Claimable<AFK_Entity, afk_getComputingFrameFunc> >
 
 /* Describes one cell in the world.  This is the value that we
  * cache in the big ol' WorldCache.
@@ -104,10 +105,6 @@ public:
      * calling moveEntity() on the new cell.
      */
     AFK_ENTITY_LIST::iterator eraseEntity(AFK_ENTITY_LIST::iterator eIt);
-
-    /* Says whether this cell can be evicted from the cache.
-     */
-    bool canBeEvicted(void) const;
 
     /* Evicts the cell. */
     void evict(void);

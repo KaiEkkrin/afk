@@ -160,6 +160,7 @@ void AFK_World::generateLandscapeArtwork(
     landscapeTile.buildTerrainList(
         threadId,
         terrainList,
+        tile,
         subdivisionFactor,
         maxDistance,
         landscapeCache);
@@ -238,7 +239,7 @@ void AFK_World::generateStartingEntity(
 }
 
 bool AFK_World::generateClaimedWorldCell(
-    AFK_Claim<AFK_WorldCell>& claim,
+    AFK_CLAIM_OF(WorldCell)& claim,
     unsigned int threadId,
     const struct AFK_WorldWorkParam::World& param,
     AFK_WorldWorkQueue& queue)
@@ -287,8 +288,8 @@ bool AFK_World::generateClaimedWorldCell(
              * landscape tiles are dependent on lower detailed ones for their
              * terrain description.
              */
-            AFK_Claim<AFK_LandscapeTile> landscapeClaim = (*landscapeCache)[tile].claimable.claimShared(
-                AFK_ClaimFlags::LOOP);
+            auto landscapeClaim = (*landscapeCache)[tile].claimable.claim(
+                AFK_ClaimFlags::LOOP | AFK_ClaimFlags::SHARED);
         
             bool generateArtwork = false;
             if (!landscapeClaim.getShared().hasTerrainDescriptor() ||
@@ -372,7 +373,7 @@ bool AFK_World::generateClaimedWorldCell(
             {
                 try
                 {
-                    AFK_Claim<AFK_Entity> entityClaim = eIt->claimable.claim(
+                    auto entityClaim = eIt->claimable.claim(
                         threadId, AFK_ClaimFlags::LOOP | AFK_ClaimFlags::EXCLUSIVE);
                     AFK_Entity& e = entityClaim.get();
 
@@ -382,7 +383,7 @@ bool AFK_World::generateClaimedWorldCell(
                     AFK_WorldWorkQueue::WorkItem shapeCellItem;
                     shapeCellItem.func                          = afk_generateEntity;
                     shapeCellItem.param.shape.cell              = afk_keyedCell(afk_vec4<int64_t>(
-                                                                    0, 0, 0, SHAPE_CELL_MAX_DISTANCE), e.getShapeKey());
+                                                                    0, 0, 0, SHAPE_CELL_MAX_DISTANCE), e.shapeKey);
                     shapeCellItem.param.shape.transformation    = e.getTransformation();
                     shapeCellItem.param.shape.world             = this;               
                     shapeCellItem.param.shape.viewerLocation    = viewerLocation;
