@@ -67,11 +67,14 @@ void afk_testJigsaw(
         1.0f,
         computer->getFirstDeviceProps());
 
+    std::vector<unsigned int> threadIds;
+    for (unsigned int t = 0; t < config->concurrency; ++t) threadIds.push_back(t);
+
     AFK_JigsawCollection testCollection(
         computer,
         testAllocation.at(0),
         computer->getFirstDeviceProps(),
-        config->concurrency,
+        threadIds,
         0);
 
     AFK_Frame frame;

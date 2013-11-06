@@ -105,8 +105,9 @@ void test_cache(void)
     int t;
     boost::unique_future<bool> result;
 
+    AFK_ThreadAllocation threadAlloc;
     AFK_AsyncGang<struct insertSqrtParam, bool> gang(
-        CACHE_TEST_THREAD_COUNT, CACHE_TEST_THREAD_COUNT);       
+        CACHE_TEST_THREAD_COUNT, threadAlloc, CACHE_TEST_THREAD_COUNT);       
 
     AFK_WorkQueue<struct insertSqrtParam, bool>::WorkItem items[CACHE_TEST_THREAD_COUNT];
     for (unsigned int i = 0; i < CACHE_TEST_THREAD_COUNT; ++i)

@@ -27,6 +27,10 @@
 #include <boost/lockfree/queue.hpp>
 #include <boost/thread/future.hpp>
 
+#include "async/thread_allocation.hpp"
+#include "camera.hpp"
+#include "computer.hpp"
+#include "config.hpp"
 #include "data/claimable.hpp"
 #include "data/evictable_cache.hpp"
 #include "data/frame.hpp"
@@ -46,8 +50,6 @@ class AFK_Computer;
 class AFK_RNG;
 class AFK_World;
 
-
-#define DISPLAY_THREAD_ID 0xdddddddd
 
 void afk_idle(void);
 
@@ -88,6 +90,7 @@ public:
     /* General things. */
     AFK_Config          *config;
     AFK_Computer        *computer;
+    AFK_ThreadAllocation    threadAlloc;
     AFK_Window          *window;
 
     /* This RNG is used only for setting things up. */

@@ -272,6 +272,7 @@ public:
     AFK_World(
         const AFK_Config *config,
         AFK_Computer *computer,
+        AFK_ThreadAllocation& threadAlloc,
         float _maxDistance,
         unsigned int worldCacheSize, /* in bytes */
         unsigned int tileCacheSize, /* also in bytes */

@@ -388,6 +388,7 @@ bool AFK_Shape::generateClaimedShapeCell(
 
 AFK_Shape::AFK_Shape(
     const AFK_Config *config,
+    AFK_ThreadAllocation& threadAlloc,
     unsigned int shapeCacheSize)
 {
     /* This is naughty, but I really want an auto-create
@@ -401,7 +402,7 @@ AFK_Shape::AFK_Shape(
         4,
         AFK_HashKeyedCell(),
         shapeCellCacheEntries / 2,
-        0xfffffffdu);
+        threadAlloc.getNewId());
 
     unsigned int vapourCellCacheEntries = shapeCacheSize /
         (2 * config->shape_skeletonMaxSize * CUBE(config->shape_pointSubdivisionFactor));
@@ -411,7 +412,7 @@ AFK_Shape::AFK_Shape(
         4,
         AFK_HashKeyedCell(),
         vapourCellCacheEntries / 2,
-        0xfffffffcu);
+        threadAlloc.getNewId());
 }
 
 AFK_Shape::~AFK_Shape()

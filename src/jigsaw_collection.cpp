@@ -54,17 +54,17 @@ AFK_Jigsaw *AFK_JigsawCollection::makeNewJigsaw(AFK_Computer *computer) const
         computer,
         jigsawSize,
         desc,
-        concurrency);
+        threadIds);
 }
 
 AFK_JigsawCollection::AFK_JigsawCollection(
     AFK_Computer *_computer,
     const AFK_JigsawMemoryAllocation::Entry& _e,
     const AFK_ClDeviceProperties& _clDeviceProps,
-    unsigned int _concurrency,
+    const std::vector<unsigned int>& _threadIds,
     unsigned int _maxPuzzles):
         jigsawSize(_e.getJigsawSize()),
-        concurrency(_concurrency),
+        threadIds(_threadIds),
         maxPuzzles(_maxPuzzles)
 {
     assert(maxPuzzles == 0 || maxPuzzles >= _e.getPuzzleCount());
