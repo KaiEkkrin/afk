@@ -71,7 +71,13 @@ void AFK_LandscapeDisplayQueue::add(const AFK_LandscapeDisplayUnit& _unit, const
 
 #define COPY_TO_GL_CULLING 1
 
-void AFK_LandscapeDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw *jigsaw, AFK_LANDSCAPE_CACHE *cache, const AFK_TerrainBaseTile *baseTile, const AFK_LandscapeSizes& lSizes)
+void AFK_LandscapeDisplayQueue::draw(
+    unsigned int threadId,
+    AFK_ShaderProgram *shaderProgram,
+    AFK_Jigsaw *jigsaw,
+    AFK_LANDSCAPE_CACHE *cache,
+    const AFK_TerrainBaseTile *baseTile,
+    const AFK_LandscapeSizes& lSizes)
 {
     /* First, check there's anything to draw at all ... */
 #if COPY_TO_GL_CULLING
@@ -89,7 +95,7 @@ void AFK_LandscapeDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsa
 
             try
             {
-                auto claim = cache->at(landscapeTiles[i]).claimable.claim(AFK_CL_SHARED);
+                auto claim = cache->at(landscapeTiles[i]).claimable.claim(threadId, AFK_CL_SHARED);
                 if (claim.getShared().realCellWithinYBounds(queue[i].cellCoord))
                 {
                     /* I do want to draw this tile. */

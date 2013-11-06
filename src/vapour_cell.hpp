@@ -72,29 +72,33 @@ public:
      * so that the caller can turn these into shape cells
      * to enqueue.
      */
-    void makeDescriptor(const AFK_ShapeSizes& sSizes);
+    void makeDescriptor(
+        const AFK_KeyedCell& cell,
+        const AFK_ShapeSizes& sSizes);
 
     /* This one makes a finer detail vapour cell, whose
      * skeleton is derived from the upper cell.
      */
     void makeDescriptor(
-        const AFK_VapourCell& upperCell,
+        const AFK_KeyedCell& cell,
+        const AFK_KeyedCell& upperCell,
+        const AFK_VapourCell& upperVapourCell,
         const AFK_ShapeSizes& sSizes);
 
     /* You can check whether a specific ShapeCell is within
      * the skeleton, so long as a descriptor is present ...
      */
-    bool withinSkeleton(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const;
+    bool withinSkeleton(const AFK_KeyedCell& cell, const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const;
 
     /* ...and obtain its adjacency (flags; 0-5 inclusive; in the
      * usual order).
      */
-    int skeletonAdjacency(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const;
+    int skeletonAdjacency(const AFK_KeyedCell& cell, const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const;
 
     /* As above, but returns the full adjacency (see description
      * in skeleton.hpp)
      */
-    int skeletonFullAdjacency(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const;
+    int skeletonFullAdjacency(const AFK_KeyedCell& cell, const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const;
 
     /* This enumerates the shape cells that compose the bones of
      * the skeleton here, so that they can be easily enqueued.
@@ -103,11 +107,11 @@ public:
     {
     protected:
         AFK_Skeleton::Bones bones;
-        const AFK_VapourCell& vapourCell;
+        const AFK_KeyedCell& vc;
         const AFK_ShapeSizes& sSizes;
 
     public:
-        ShapeCells(const AFK_VapourCell& _vapourCell, const AFK_ShapeSizes& _sSizes);
+        ShapeCells(const AFK_KeyedCell& _vc, const AFK_VapourCell& _vapourCell, const AFK_ShapeSizes& _sSizes);
 
         bool hasNext(void);
         AFK_KeyedCell next(void);
@@ -121,6 +125,7 @@ public:
      */
     void build3DList(
         unsigned int threadId,
+        const AFK_KeyedCell& cell,
         AFK_3DList& list,
         const AFK_ShapeSizes& sSizes,
         const AFK_VAPOUR_CELL_CACHE *cache) const;

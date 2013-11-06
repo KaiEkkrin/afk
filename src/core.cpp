@@ -164,7 +164,7 @@ void afk_idle(void)
         afk_core.computingUpdate = afk_core.world->updateWorld();
 
         /* Meanwhile, draw the previous frame */
-        afk_display();
+        afk_display(afk_core.masterThreadId);
     }
 
     /* Clean up anything that's gotten queued into the garbage queue */
@@ -255,6 +255,7 @@ AFK_Core::AFK_Core():
     world(nullptr),
     protagonist(nullptr)
 {
+    masterThreadId = threadAlloc.getNewId();
 }
 
 AFK_Core::~AFK_Core()

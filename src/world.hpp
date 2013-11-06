@@ -216,6 +216,7 @@ protected:
 
     /* Pushes a landscape tile into the display queue. */
     void displayLandscapeTile(
+        const AFK_Cell& cell,
         const AFK_Tile& tile,
         const AFK_LandscapeTile& landscapeTile,
         unsigned int threadId);
@@ -314,12 +315,16 @@ public:
     boost::unique_future<bool> updateWorld(void);
 
     /* CL-tasks-at-start-of-frame function. */
-    void doComputeTasks(void);
+    void doComputeTasks(unsigned int threadId);
 
     /* Draws the world in the current OpenGL context.
      * (There's no AFK_DisplayedObject for the world.)
      */
-    void display(const Mat4<float>& projection, const Vec2<float>& windowSize, const AFK_Light &globalLight);
+    void display(
+        unsigned int threadId,
+        const Mat4<float>& projection,
+        const Vec2<float>& windowSize,
+        const AFK_Light &globalLight);
 
     /* Takes a world checkpoint. */
     void checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint);

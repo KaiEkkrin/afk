@@ -61,8 +61,6 @@ bool afk_generateWorldCells(
 
     bool retval = true;
 
-    AFK_WorldCell& worldCell = (*(world->worldCache))[cell];
-
     /* I want an exclusive claim on world cells to stop me from
      * repeating the recursive search process.
      * The render flag means "definitely render this cell's terrain
@@ -186,17 +184,18 @@ void AFK_World::generateLandscapeArtwork(
     Vec2<int> piece2D = afk_vec2<int>(jigsawPiece.u, jigsawPiece.v);
 #if DEBUG_TERRAIN_COMPUTE_QUEUE
     AFK_TerrainComputeUnit unit = computeQueue->extend(
-        terrainList, piece2D, &landscapeTile, lSizes);
+        terrainList, piece2D, tile, lSizes);
     AFK_DEBUG_PRINTL("Pushed to queue for " << tile << ": " << unit << ": " << std::endl)
     //AFK_DEBUG_PRINTL(computeQueue->debugTerrain(unit, lSizes))
 #else
-    computeQueue->extend(terrainList, piece2D, &landscapeTile, lSizes);
+    computeQueue->extend(terrainList, piece2D, tile, lSizes);
 #endif
 
     tilesComputed.fetch_add(1);
 }
 
 void AFK_World::displayLandscapeTile(
+    const AFK_Cell& cell,
     const AFK_Tile& tile,
     const AFK_LandscapeTile& landscapeTile,
     unsigned int threadId)
@@ -283,17 +282,20 @@ bool AFK_World::generateClaimedWorldCell(
          */
         AFK_Tile tile = afk_tile(cell);
 
+        /* I'm going to want this in a moment. */
+        float landscapeTileUpperYBound = FLT_MAX;
+
         {
             /* We always at least touch the landscape.  Higher detailed
              * landscape tiles are dependent on lower detailed ones for their
              * terrain description.
              */
             auto landscapeClaim = (*landscapeCache)[tile].claimable.claim(
-                AFK_CL_LOOP | AFK_CL_SHARED);
+                threadId, AFK_CL_LOOP | AFK_CL_SHARED);
+            landscapeTileUpperYBound = landscapeClaim.getShared().getYBoundUpper();
         
-            bool generateArtwork = false;
             if (!landscapeClaim.getShared().hasTerrainDescriptor() ||
-                ((renderTerrain || display) && landscapeTileConst.artworkState() != AFK_LANDSCAPE_TILE_HAS_ARTWORK))
+                ((renderTerrain || display) && landscapeClaim.getShared().artworkState() != AFK_LANDSCAPE_TILE_HAS_ARTWORK))
             {
                 /* In order to generate this tile we need to upgrade
                  * our claim if we can.
@@ -305,7 +307,7 @@ bool AFK_World::generateClaimedWorldCell(
                         generateLandscapeArtwork(tile, landscapeTile, threadId);
         
                     if (display)
-                        displayLandscapeTile(tile, landscapeTile, threadId);
+                        displayLandscapeTile(cell, tile, landscapeTile, threadId);
                 }
                 else
                 {
@@ -315,8 +317,8 @@ bool AFK_World::generateClaimedWorldCell(
                      * claim and will fix it so that when we come back
                      * here, the tile will be generated.
                      */
-                    landscapeSharedClaim.release();
-        
+                    landscapeClaim.release();
+
                     AFK_WorldWorkQueue::WorkItem resumeItem;
                     resumeItem.func = afk_generateWorldCells;
                     resumeItem.param.world = param;
@@ -351,7 +353,7 @@ bool AFK_World::generateClaimedWorldCell(
         AFK_Boost_Taus88_RNG staticRng;
         staticRng.seed(cell.rngSeed());
 
-        if (worldCell.getRealCoord().v[1] >= landscapeTile.getYBoundUpper())
+        if (worldCell.getRealCoord().v[1] >= landscapeTileUpperYBound)
         {
             unsigned int startingEntityCount = worldCell.getStartingEntitiesWanted(
                 staticRng, maxEntitiesPerCell, entitySparseness);
@@ -373,7 +375,7 @@ bool AFK_World::generateClaimedWorldCell(
             {
                 try
                 {
-                    auto entityClaim = eIt->claimable.claim(
+                    auto entityClaim = eIt->claim(
                         threadId, AFK_CL_LOOP | AFK_CL_EXCLUSIVE);
                     AFK_Entity& e = entityClaim.get();
 
@@ -393,7 +395,7 @@ bool AFK_World::generateClaimedWorldCell(
 #if AFK_SHAPE_ENUM_DEBUG
                     shapeCellItem.param.shape.asedWorldCell     = cell;
                     shapeCellItem.param.shape.asedCounter       = eCounter;
-                    AFK_DEBUG_PRINTL("ASED: Enqueued entity: worldCell=" << worldCell.getCell() << ", entity counter=" << eCounter)
+                    AFK_DEBUG_PRINTL("ASED: Enqueued entity: worldCell=" << cell << ", entity counter=" << eCounter)
 #endif
 
                     shapeCellItem.param.shape.dependency        = nullptr;
@@ -831,7 +833,7 @@ boost::unique_future<bool> AFK_World::updateWorld(void)
     return genGang->start();
 }
 
-void AFK_World::doComputeTasks(void)
+void AFK_World::doComputeTasks(unsigned int threadId)
 {
     /* The fair organises the terrain lists and jigsaw pieces by
      * puzzle, so that I can easily batch up work that applies to the
@@ -880,7 +882,7 @@ void AFK_World::doComputeTasks(void)
      */
     for (unsigned int puzzle = 0; puzzle < terrainComputeQueues.size(); ++puzzle)
     {
-        terrainComputeQueues.at(puzzle)->computeFinish(landscapeJigsaws->getPuzzle(puzzle));
+        terrainComputeQueues.at(puzzle)->computeFinish(threadId, landscapeJigsaws->getPuzzle(puzzle), landscapeCache);
     }
 
     if (vapourComputeQueues.size() == 1)
@@ -900,7 +902,11 @@ void AFK_World::doComputeTasks(void)
     }
 }
 
-void AFK_World::display(const Mat4<float>& projection, const Vec2<float>& windowSize, const AFK_Light &globalLight)
+void AFK_World::display(
+    unsigned int threadId,
+    const Mat4<float>& projection,
+    const Vec2<float>& windowSize,
+    const AFK_Light &globalLight)
 {
     /* Render the landscape */
     glUseProgram(landscape_shaderProgram->program);
@@ -924,6 +930,7 @@ void AFK_World::display(const Mat4<float>& projection, const Vec2<float>& window
     for (unsigned int puzzle = 0; puzzle < landscapeDrawQueues.size(); ++puzzle)
     {
         landscapeDrawQueues.at(puzzle)->draw(
+            threadId,
             landscape_shaderProgram,
             landscapeJigsaws->getPuzzle(puzzle),
             landscapeCache,

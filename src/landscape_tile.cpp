@@ -117,16 +117,8 @@ void AFK_LandscapeTile::buildTerrainList(
 
         try
         {
-            AFK_LandscapeTile& parentLandscapeTile = cache->at(parentTile);
-            enum AFK_ClaimStatus claimStatus = parentLandscapeTile.claimable.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
-            if (claimStatus != AFK_CL_CLAIMED_SHARED && claimStatus != AFK_CL_CLAIMED_UPGRADABLE)
-            {
-                std::ostringstream ss;
-                ss << "Unable to claim tile at " << parentTile << ": got status " << claimStatus;
-                throw AFK_Exception(ss.str());
-            }
-            parentLandscapeTile.buildTerrainList(threadId, list, parentTile, subdivisionFactor, maxDistance, cache);
-            parentLandscapeTile.claimable.release(threadId, claimStatus);
+            auto parentLandscapeTileClaim = cache->at(parentTile).claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
+            parentLandscapeTileClaim.getShared().buildTerrainList(threadId, list, parentTile, subdivisionFactor, maxDistance, cache);
         }
         catch (AFK_PolymerOutOfRange e)
         {

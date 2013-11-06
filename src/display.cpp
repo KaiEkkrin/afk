@@ -148,9 +148,9 @@ void AFK_DisplayedProtagonist::display(const Mat4<float>& projection)
 }
 
 
-void afk_display(void)
+void afk_display(unsigned int threadId)
 {
-    afk_core.world->doComputeTasks();
+    afk_core.world->doComputeTasks(threadId);
 
     Mat4<float> projection = afk_core.camera->getProjection();
 
@@ -177,7 +177,7 @@ void afk_display(void)
     glCullFace(GL_BACK);
     glEnable(GL_PROGRAM_POINT_SIZE);
 
-    afk_core.world->display(projection, windowSize, afk_core.sun);
+    afk_core.world->display(threadId, projection, windowSize, afk_core.sun);
 
     /* TODO: This placeholder protagonist is cheating, because
      * I created it manually.

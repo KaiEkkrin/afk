@@ -30,6 +30,7 @@
 #include "entity_display_queue.hpp"
 #include "jigsaw.hpp"
 #include "shape.hpp"
+#include "vapour_cell.hpp"
 #include "world.hpp"
 
 
@@ -61,7 +62,7 @@ bool afk_generateEntity(
 
             if (!vapourCell.hasDescriptor())
             {
-                vapourCell.makeDescriptor(world->sSizes);
+                vapourCell.makeDescriptor(vc, world->sSizes);
                 world->separateVapoursComputed.fetch_add(1);
             }
         }
@@ -70,7 +71,7 @@ bool afk_generateEntity(
     if (claim.getShared().hasDescriptor())
     {
         /* Go through the skeleton... */
-        AFK_VapourCell::ShapeCells shapeCells(claim.getShared(), world->sSizes);
+        AFK_VapourCell::ShapeCells shapeCells(vc, claim.getShared(), world->sSizes);
         while (shapeCells.hasNext())
         {
             AFK_KeyedCell nextCell = shapeCells.next();
@@ -179,7 +180,7 @@ bool afk_generateShapeCells(
          */
         AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
         auto vapourCellClaim = (*(shape.vapourCellCache))[vc].claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
-        const VapourCell& vapourCell = vapourCellClaim.getShared();
+        const AFK_VapourCell& vapourCell = vapourCellClaim.getShared();
 
         if (!vapourCell.hasDescriptor())
         {
@@ -192,7 +193,7 @@ bool afk_generateShapeCells(
                 AFK_KeyedCell upperVC = vc.parent(world->sSizes.subdivisionFactor);
                 auto upperVapourCellClaim =
                     shape.vapourCellCache->at(upperVC).claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
-                vapourCellClaim.get().makeDescriptor(upperVapourCellClaim.getShared(), world->sSizes);
+                vapourCellClaim.get().makeDescriptor(vc, upperVC, upperVapourCellClaim.getShared(), world->sSizes);
             }
         }
 
@@ -206,14 +207,14 @@ bool afk_generateShapeCells(
              * cells based on whether they're surrounded by solid cells or
              * not.
              */
-            if (vapourCell.withinSkeleton(cell, world->sSizes))
+            if (vapourCell.withinSkeleton(vc, cell, world->sSizes))
             {
                 if (display) 
                 {
                     /* I want that shape cell now ... */
                     auto shapeCellClaim = (*(shape.shapeCellCache))[cell].claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
                     if (!shape.generateClaimedShapeCell(
-                        threadId, cell, vapourCellClaim, shapeCellClaim, worldTransform, visibleCell.getRealCoord(), world))
+                        threadId, vc, cell, vapourCellClaim, shapeCellClaim, worldTransform, visibleCell.getRealCoord(), world))
                     {
                         DEBUG_VISIBLE_CELL("needs resume")
                         resume = true;
@@ -296,7 +297,8 @@ bool afk_generateShapeCells(
 
 bool AFK_Shape::generateClaimedShapeCell(
     unsigned int threadId,
-    AFK_KeyedCell& cell,
+    const AFK_KeyedCell& vc,
+    const AFK_KeyedCell& cell,
     AFK_CLAIM_OF(VapourCell)& vapourCellClaim,
     AFK_CLAIM_OF(ShapeCell)& shapeCellClaim,
     const Mat4<float>& worldTransform,
@@ -325,7 +327,7 @@ bool AFK_Shape::generateClaimedShapeCell(
             unsigned int cubeOffset, cubeCount;
             if (vapourCellClaim.getShared().alreadyEnqueued(cubeOffset, cubeCount))
             {
-                int adjacency = vapourCell.skeletonFullAdjacency(cell, world->sSizes);
+                int adjacency = vapourCellClaim.getShared().skeletonFullAdjacency(vc, cell, world->sSizes);
                 shapeCellClaim.get().enqueueVapourComputeUnitFromExistingVapour(
                     threadId, adjacency, cubeOffset, cubeCount, realCoord, cell.key, world->sSizes, vapourJigsaws, world->vapourComputeFair);
                 world->shapeVapoursComputed.fetch_add(1);
@@ -338,9 +340,9 @@ bool AFK_Shape::generateClaimedShapeCell(
                     AFK_VapourCell& vapourCell = vapourCellClaim.get();
 
                     AFK_3DList list;
-                    vapourCell.build3DList(threadId, list, world->sSizes, vapourCellCache);
+                    vapourCell.build3DList(threadId, vc, list, world->sSizes, vapourCellCache);
 
-                    int adjacency = vapourCell.skeletonFullAdjacency(cell, world->sSizes);
+                    int adjacency = vapourCell.skeletonFullAdjacency(vc, cell, world->sSizes);
                     shapeCellClaim.get().enqueueVapourComputeUnitWithNewVapour(
                         threadId, adjacency, list, realCoord, cell.key, world->sSizes, vapourJigsaws, world->vapourComputeFair, cubeOffset, cubeCount);
                     vapourCell.enqueued(cubeOffset, cubeCount);

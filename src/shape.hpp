@@ -82,7 +82,8 @@ protected:
      */
     bool generateClaimedShapeCell(
         unsigned int threadId,
-        AFK_KeyedCell& cell,
+        const AFK_KeyedCell& vc,
+        const AFK_KeyedCell& cell,
         AFK_CLAIM_OF(VapourCell)& vapourCellClaim,
         AFK_CLAIM_OF(ShapeCell)& shapeCellClaim,
         const Mat4<float>& worldTransform,

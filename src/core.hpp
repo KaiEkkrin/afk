@@ -90,6 +90,7 @@ public:
     /* General things. */
     AFK_Config          *config;
     AFK_Computer        *computer;
+    unsigned int        masterThreadId;
     AFK_ThreadAllocation    threadAlloc;
     AFK_Window          *window;
 

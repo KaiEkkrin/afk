@@ -59,6 +59,7 @@ public:
         AFK_ComputeDependency& o_postDep);
 
     void readBack(
+        unsigned int threadId,
         unsigned int unitCount,
         const std::vector<AFK_Tile>& landscapeTiles,
         AFK_LANDSCAPE_CACHE *cache);

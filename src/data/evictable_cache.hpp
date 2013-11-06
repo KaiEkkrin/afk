@@ -104,6 +104,7 @@ protected:
     unsigned int runsSkipped;
     unsigned int runsOverlapped;
 
+public:
     void evictionWorker(void)
     {
         unsigned int entriesEvicted = 0;
@@ -131,7 +132,7 @@ protected:
                          */
                         try
                         {
-                            auto claim = candidate->claim(threadId, AFK_CL_EVICTOR);
+                            AFK_Claim<Value, getComputingFrame> claim = candidate->claimable.claim(threadId, AFK_CL_EVICTOR);
                             if (candidate->canBeEvicted())
                             {
                                 Value& obj = claim.get();
@@ -159,7 +160,6 @@ protected:
         rp->set_value(entriesEvicted);
     }
 
-public:
     AFK_EvictableCache(
         unsigned int hashBits,
         unsigned int targetContention,

@@ -239,7 +239,7 @@ void AFK_TerrainComputeQueue::computeStart(
     computer->unlock();
 }
 
-void AFK_TerrainComputeQueue::computeFinish(AFK_Jigsaw *jigsaw, AFK_LANDSCAPE_CACHE *cache)
+void AFK_TerrainComputeQueue::computeFinish(unsigned int threadId, AFK_Jigsaw *jigsaw, AFK_LANDSCAPE_CACHE *cache)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
@@ -253,7 +253,7 @@ void AFK_TerrainComputeQueue::computeFinish(AFK_Jigsaw *jigsaw, AFK_LANDSCAPE_CA
     jigsaw->releaseFromCl(2, *postTerrainDep);
 
     /* Read back the Y reduce. */
-    yReduce->readBack(unitCount, landscapeTiles, cache);
+    yReduce->readBack(threadId, unitCount, landscapeTiles, cache);
 }
 
 bool AFK_TerrainComputeQueue::empty(void)

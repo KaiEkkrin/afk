@@ -102,6 +102,7 @@ public:
      * has already been selected
      */
     void draw(
+        unsigned int threadId,
         AFK_ShaderProgram *shaderProgram,
         AFK_Jigsaw *jigsaw,
         AFK_LANDSCAPE_CACHE *cache,

@@ -49,10 +49,6 @@ class AFK_Claimable;
 template<typename T, AFK_GetComputingFrame& getComputingFrame>
 class AFK_Claim
 {
-private:
-    AFK_Claim(const AFK_Claim& _c) { assert(false); }
-    AFK_Claim& operator=(const AFK_Claim& _c) { assert(false); return *this; }
-
 protected:
     unsigned int threadId; /* TODO change all thread IDs to 64-bit */
     AFK_Claimable<T, getComputingFrame> *claimable;
@@ -79,6 +75,20 @@ protected:
     }
 
 public:
+    /* No reference counting is performed, so I must never copy a
+     * claim around
+     */
+    AFK_Claim(const AFK_Claim& _c) = delete;
+    AFK_Claim& operator=(const AFK_Claim& _c) = delete;
+
+    /* I need a move constructor in order to return a claim from
+     * the claimable's claim method.  A default will do
+     */ 
+    AFK_Claim(AFK_Claim&& _claim) = default;
+
+    /* ...likewise... */
+    AFK_Claim& operator=(AFK_Claim&& _claim) = default;
+
     virtual ~AFK_Claim() { if (!released) release(); }
 
     const T& getShared(void) const
@@ -87,7 +97,7 @@ public:
         return obj;
     }
 
-    T& get(void) const
+    T& get(void)
     {
         assert(!shared);
         assert(!released);

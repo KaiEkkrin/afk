@@ -102,7 +102,7 @@ public:
     virtual void display(const Mat4<float>& projection);
 };
 
-void afk_display(void);
+void afk_display(unsigned int threadId);
 
 #endif /* _AFK_DISPLAY_H_ */
 

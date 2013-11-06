@@ -107,6 +107,7 @@ void AFK_YReduce::compute(
 }
 
 void AFK_YReduce::readBack(
+    unsigned int threadId,
     unsigned int unitCount,
     const std::vector<AFK_Tile>& landscapeTiles,
     AFK_LANDSCAPE_CACHE *cache)
@@ -142,7 +143,7 @@ void AFK_YReduce::readBack(
 
             try
             {
-                auto claim = cache->at(landscapeTiles[i]).claimable.claim(0);
+                auto claim = cache->at(landscapeTiles[i]).claimable.claim(threadId, 0);
                 claim.get().setYBounds(readback[i * 2], readback[i * 2 + 1]);
                 pushed[i] = true;
             }
