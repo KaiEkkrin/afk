@@ -39,8 +39,6 @@
 #include "world.hpp"
 
 
-#define DISPLAY_THREAD_ID 0xdddddddd
-
 void afk_idle(void);
 
 class AFK_Core
