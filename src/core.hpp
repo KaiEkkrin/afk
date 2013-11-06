@@ -26,6 +26,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/lockfree/queue.hpp>
 
+#include "async/thread_allocation.hpp"
 #include "camera.hpp"
 #include "computer.hpp"
 #include "config.hpp"
@@ -79,6 +80,7 @@ public:
     /* General things. */
     AFK_Config          *config;
     AFK_Computer        *computer;
+    AFK_ThreadAllocation    threadAlloc;
     AFK_Window          *window;
 
     /* This RNG is used only for setting things up. */

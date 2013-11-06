@@ -337,6 +337,7 @@ void AFK_Core::loop(void)
     world = new AFK_World(
         config,
         computer,
+        threadAlloc,
         worldMaxDistance,   /* maxDistance -- zFar must be a lot bigger or things will vanish */
         clGlMaxAllocSize / 4,
         clGlMaxAllocSize / 4,

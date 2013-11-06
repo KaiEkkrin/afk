@@ -20,6 +20,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include "async.hpp"
+#include "thread_allocation.hpp"
 #include "work_queue.hpp"
 
 
@@ -122,8 +123,10 @@ void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<
         i.param.step        = 2;
         i.param.max         = primeMax;
 
+        AFK_ThreadAllocation threadAlloc;
+
         AFK_AsyncGang<struct primeFilterParam, bool> primeFilterGang(
-            primeMax / 100, concurrency);
+            primeMax / 100, threadAlloc, concurrency);
         primeFilterGang << i;
         boost::unique_future<bool> finished = primeFilterGang.start(); 
 

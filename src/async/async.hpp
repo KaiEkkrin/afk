@@ -30,6 +30,7 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 
+#include "thread_allocation.hpp"
 #include "work_queue.hpp"
 
 /* Don't enable this unless you want MAXIMAL SPAM */
@@ -86,11 +87,16 @@ private:
     /* It's really important this thing doesn't get accidentally
      * duplicated
      */
-    AFK_AsyncControls(const AFK_AsyncControls& controls): workerCount(controls.workerCount) {}
-    AFK_AsyncControls& operator=(const AFK_AsyncControls& controls) { return *this; }
+    AFK_AsyncControls(const AFK_AsyncControls& controls) { assert(false); }
+    AFK_AsyncControls& operator=(const AFK_AsyncControls& controls) { assert(false); return *this; }
 
 protected:
-    const unsigned int workerCount;
+    /* Here's the list of thread IDs of the workers (the size of this
+     * list is, of course, the worker count.)
+     */
+    std::vector<unsigned int> workerIds;
+
+    uint64_t allWorkerMask;
 
     /* The workers wait on this condition variable until things are
      * primed and they're ready to go. Here's how we do it:
@@ -106,12 +112,15 @@ protected:
      */
     boost::condition_variable workCond;
     boost::mutex workMut;
-    size_t workReady;
+    uint64_t workReady;
     bool quit; /* Tells the workers to instead quit out entirely */
 
 public:
-    AFK_AsyncControls(const unsigned int _workerCount):
-        workerCount(_workerCount), workReady(0), quit(false) {}
+    AFK_AsyncControls(const std::vector<unsigned int>& _workerIds):
+        workerIds(_workerIds), allWorkerMask(0), workReady(0), quit(false)
+    {
+        for (auto id : _workerIds) allWorkerMask |= (1ull << id);
+    }
 
     void control_workReady(void);
     void control_quit(void);
@@ -125,6 +134,7 @@ template<class ParameterType, class ReturnType>
 void afk_asyncWorker(
     AFK_AsyncControls& controls,
     unsigned int id,
+    bool first,
     AFK_WorkQueue<ParameterType, ReturnType>& queue,
     boost::promise<ReturnType>*& promise)
 {
@@ -175,14 +185,12 @@ void afk_asyncWorker(
 #endif
 
         /* At this point, everyone has finished.
-         * See TODO above: for expediency, if I'm worker
-         * 0, I'll populate the return value, otherwise
+         * See TODO above: for expediency, if I've got the `first' flag
+         * (only one worker has), I'll populate the return value, otherwise
          * I'll throw it away now
          */
-        if (id == 0)
+        if (first)
         {
-            
-
 #if ASYNC_DEBUG_SPAM
             ASYNC_DEBUG("busy field: " << std::hex << controls.workersBusy.load())
 #endif
@@ -200,7 +208,8 @@ class AFK_AsyncGang
 {
 protected:
     std::vector<boost::thread*> workers;
-    AFK_AsyncControls controls;
+    std::vector<unsigned int> threadIds;
+    AFK_AsyncControls *controls;
 
     /* The queue of functions and parameters. */
     AFK_WorkQueue<ParameterType, ReturnType> queue;
@@ -208,50 +217,63 @@ protected:
     /* The promised return value. */
     boost::promise<ReturnType> *promise;
 
-    void initWorkers(unsigned int concurrency)
+    void initWorkers(void)
     {
-        for (unsigned int i = 0; i < concurrency; ++i)
+        bool first = true;
+        for (auto id : threadIds)
         { 
             boost::thread *t = new boost::thread(
                 afk_asyncWorker<ParameterType, ReturnType>,
-                boost::ref(controls),
-                i,
+                boost::ref(*controls),
+                id,
+                first,
                 boost::ref(queue),
                 boost::ref(promise));
             workers.push_back(t);
+            first = false;
         }
     }
 
 public:
-    AFK_AsyncGang(size_t queueSize, unsigned int concurrency):
-        controls(concurrency), promise(nullptr)
+    AFK_AsyncGang(size_t queueSize, AFK_ThreadAllocation& threadAllocation, unsigned int concurrency):
+        promise(nullptr)
     {
-        /* Make sure the flags for this level of concurrency will fit
-         * into a size_t
+        /* Work out the actual maximum number of threads I can add
+         * to the thread allocation
          */
-        assert(concurrency < (sizeof(size_t) * 8));
+        unsigned int threadCount = std::min(concurrency, threadAllocation.getMaxNewIds());
 
-        initWorkers(concurrency);
+        threadIds.reserve(threadCount);
+        for (unsigned int t = 0; t < threadCount; ++t)
+            threadIds.push_back(threadAllocation.getNewId());
+
+        controls = new AFK_AsyncControls(threadIds);
+        initWorkers();
     }
 
-    AFK_AsyncGang(size_t queueSize):
-        controls(boost::thread::hardware_concurrency()), promise(nullptr)
+    AFK_AsyncGang(size_t queueSize, AFK_ThreadAllocation& threadAllocation):
+        AFK_AsyncGang(queueSize, threadAllocation, boost::thread::hardware_concurrency() + 1)
     {
-        initWorkers(boost::thread::hardware_concurrency() + 1);
     }
 
     virtual ~AFK_AsyncGang()
     {
-        controls.control_quit();
+        controls->control_quit();
         for (auto w : workers) w->join();
         for (auto w : workers) delete w;
 
         if (promise) delete promise;
+        delete controls;
     }
 
-    size_t getConcurrency(void) const
+    unsigned int getConcurrency(void) const
     {
         return workers.size();
+    }
+
+    const std::vector<unsigned int>& getThreadIds(void) const
+    {
+        return threadIds;
     }
 
     bool assertNoQueuedWork(void)
@@ -287,7 +309,7 @@ public:
 #endif
 
         /* Set things off */
-        controls.control_workReady();
+        controls->control_workReady();
 
         /* Send back the future */
         return promise->get_future();

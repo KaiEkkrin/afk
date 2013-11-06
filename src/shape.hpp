@@ -27,6 +27,7 @@
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
 #include "3d_solid.hpp"
+#include "async/thread_allocation.hpp"
 #include "data/claimable.hpp"
 #include "data/evictable_cache.hpp"
 #include "data/fair.hpp"
@@ -107,6 +108,7 @@ protected:
 public:
     AFK_Shape(
         const AFK_Config *config,
+        AFK_ThreadAllocation& threadAlloc,
         unsigned int shapeCacheSize);
     virtual ~AFK_Shape();
 

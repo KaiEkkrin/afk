@@ -93,6 +93,8 @@ enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromCuboid(
     AFK_DEBUG_PRINTL("grabPieceFromCuboid: with cuboid " << cuboid << "( " << cuboid << " and threadId " << threadId)
 #endif
 
+    assert(threadId < concurrency);
+
     if ((int)threadId >= cuboid.rows)
     {
         /* There aren't enough rows in this cuboid, try the
@@ -309,18 +311,23 @@ AFK_Jigsaw::AFK_Jigsaw(
     AFK_Computer *_computer,
     const Vec3<int>& _jigsawSize,
     const std::vector<AFK_JigsawImageDescriptor>& _desc,
-    unsigned int _concurrency):
+    const std::vector<unsigned int>& _threadIds):
         jigsawSize(_jigsawSize),
-        concurrency(_concurrency),
+        concurrency(_threadIds.size()),
         updateCs(0),
         drawCs(1),
         columnCounts(8, 0)
 {
+    /* Sort out the mapping from the supplied jigsaw user thread IDs
+     * to 0..concurrency.
+     */
+    unsigned int threadIdInternal = 0;
+    for (auto id : _threadIds)
+        threadIdMap[id] = threadIdInternal++;
+
     /* Make the images. */
     for (auto d : _desc)
-    {
         images.push_back(new AFK_JigsawImage(_computer, jigsawSize, d));
-    }
 
     /* Now that I've got the textures, fill out the jigsaw state. */
     rowTimestamp = new AFK_Frame*[jigsawSize.v[0]];
@@ -385,7 +392,7 @@ bool AFK_Jigsaw::grab(unsigned int threadId, Vec3<int>& o_uvw, AFK_Frame *o_time
     unsigned int cI;
     for (cI = 0; cI < cuboids[updateCs].size(); ++cI)
     {
-        switch (grabPieceFromCuboid(cuboids[updateCs][cI], threadId, o_uvw, o_timestamp))
+        switch (grabPieceFromCuboid(cuboids[updateCs][cI], threadIdMap.at(threadId), o_uvw, o_timestamp))
         {
 #if 0
         case AFK_JIGSAW_CUBOID_OUT_OF_SPACE:

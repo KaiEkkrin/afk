@@ -456,6 +456,7 @@ bool AFK_World::generateClaimedWorldCell(
 AFK_World::AFK_World(
     const AFK_Config *config,
     AFK_Computer *computer,
+    AFK_ThreadAllocation& threadAlloc,
     float _maxDistance,
     unsigned int worldCacheSize,
     unsigned int tileCacheSize,
@@ -466,7 +467,7 @@ AFK_World::AFK_World(
         maxDetailPitch              (config->maxDetailPitch),
         detailPitch                 (config->startingDetailPitch), /* This is a starting point */
         averageDetailPitch          (config->framesPerCalibration, config->startingDetailPitch),
-        shape                       (config, shapeCacheSize),
+        shape                       (config, threadAlloc, shapeCacheSize),
         entityFair2DIndex           (AFK_MAX_VAPOUR),
         maxDistance                 (_maxDistance),
         subdivisionFactor           (config->subdivisionFactor),
@@ -578,19 +579,11 @@ AFK_World::AFK_World(
 
     unsigned int tileCacheEntries = tileCacheSize / lSizes.tSize;
 
-    std::cout << "AFK_World: Configuring landscape jigsaws with: " << jigsawAlloc.at(0) << std::endl;
-    landscapeJigsaws = new AFK_JigsawCollection(
-        computer,
-        jigsawAlloc.at(0),
-        computer->getFirstDeviceProps(),
-        config->concurrency,
-        0);
-
     tileCacheEntries = jigsawAlloc.at(0).getPieceCount();
     unsigned int tileCacheBitness = afk_suggestCacheBitness(tileCacheEntries);
 
     landscapeCache = new AFK_LANDSCAPE_CACHE(
-        tileCacheBitness, 8, AFK_HashTile(), tileCacheEntries / 2, 0xffffffffu);
+        tileCacheBitness, 8, AFK_HashTile(), tileCacheEntries / 2, threadAlloc.getNewId());
 
     /* TODO Right now I don't have a sensible value for the
      * world cache size, because I'm not doing any exciting
@@ -602,18 +595,29 @@ AFK_World::AFK_World(
     unsigned int worldCacheBitness = afk_suggestCacheBitness(worldCacheEntries);
 
     worldCache = new AFK_WORLD_CACHE(
-        worldCacheBitness, 8, AFK_HashCell(), worldCacheEntries, 0xfffffffeu);
+        worldCacheBitness, 8, AFK_HashCell(), worldCacheEntries, threadAlloc.getNewId());
 
     // TODO: Fix the size of the shape cache (which is no doubt
     // in a huge mess)
     //unsigned int shapeCacheEntries = shapeCacheSize / (32 * SQUARE(sSizes.eDim) * 6 + 16 * CUBE(sSizes.tDim));
+
+    genGang = new AFK_AsyncGang<union AFK_WorldWorkParam, bool>(
+        100, threadAlloc, config->concurrency);
+
+    std::cout << "AFK_World: Configuring landscape jigsaws with: " << jigsawAlloc.at(0) << std::endl;
+    landscapeJigsaws = new AFK_JigsawCollection(
+        computer,
+        jigsawAlloc.at(0),
+        computer->getFirstDeviceProps(),
+        genGang->getThreadIds(),
+        0);
 
     std::cout << "AFK_World: Configuring vapour jigsaws with: " << jigsawAlloc.at(1) << std::endl;
     vapourJigsaws = new AFK_JigsawCollection(
         computer,
         jigsawAlloc.at(1),
         computer->getFirstDeviceProps(),
-        config->concurrency,
+        genGang->getThreadIds(),
         AFK_MAX_VAPOUR);
 
     std::cout << "AFK_World: Configuring edge jigsaws with: " << jigsawAlloc.at(2) << std::endl;
@@ -621,11 +625,12 @@ AFK_World::AFK_World(
         computer,
         jigsawAlloc.at(2),
         computer->getFirstDeviceProps(),
-        config->concurrency,
+        genGang->getThreadIds(),
         0);
 
-    genGang = new AFK_AsyncGang<union AFK_WorldWorkParam, bool>(
-        100, config->concurrency);
+    /* Set up the jigsaws (which need to be aware of which thread IDs
+     * the gang is using).
+     */
 
     /* Set up the landscape shader. */
     landscape_shaderProgram = new AFK_ShaderProgram();

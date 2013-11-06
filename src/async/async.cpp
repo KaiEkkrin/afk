@@ -21,9 +21,9 @@
 boost::mutex debugSpamMut;
 #endif
 
-static void afk_workerBusyBitAndMask(unsigned int id, size_t& o_busyBit, size_t& o_busyMask)
+static void afk_workerBusyBitAndMask(unsigned int id, uint64_t& o_busyBit, uint64_t& o_busyMask)
 {
-    o_busyBit = (size_t)1 << id;
+    o_busyBit = 1ull << id;
     o_busyMask = ~o_busyBit;
 }
 
@@ -40,7 +40,7 @@ void AFK_AsyncControls::control_workReady(void)
         workCond.wait(lock);
     }
 
-    workReady = ((size_t)1 << workerCount) - 1;
+    workReady = allWorkerMask;
     quit = false;
 
     ASYNC_CONTROL_DEBUG("control_workReady: (workersBusy " <<
@@ -62,7 +62,7 @@ void AFK_AsyncControls::control_quit(void)
         workCond.wait(lock);
     }
 
-    workReady = ((size_t)1 << workerCount) - 1;
+    workReady = allWorkerMask;
     quit = true;
     workCond.notify_all();
 }
@@ -86,7 +86,7 @@ bool AFK_AsyncControls::worker_waitForWork(unsigned int id)
     while (workReady != 0)
     {
         /* Register this thread as working on the task */
-        size_t busyBit, busyMask;
+        uint64_t busyBit, busyMask;
         afk_workerBusyBitAndMask(id, busyBit, busyMask);
         workReady &= busyMask;
         ASYNC_CONTROL_DEBUG("worker_waitForWork: " << std::hex << workReady << " left over (quit=" << quit << ")")

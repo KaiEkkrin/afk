@@ -33,7 +33,7 @@ protected:
     std::vector<AFK_JigsawImageDescriptor> desc;
 
     Vec3<int> jigsawSize;
-    const unsigned int concurrency;
+    std::vector<unsigned int> threadIds;
     const unsigned int maxPuzzles;
 
     std::vector<AFK_Jigsaw*> puzzles;
@@ -58,7 +58,7 @@ public:
         AFK_Computer *_computer,
         const AFK_JigsawMemoryAllocation::Entry& _e,
         const AFK_ClDeviceProperties& _clDeviceProps,
-        unsigned int concurrency,
+        const std::vector<unsigned int>& _threadIds,
         unsigned int _maxPuzzles /* 0 for no maximum */);
     virtual ~AFK_JigsawCollection();
 

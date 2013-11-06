@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <map>
 #include <sstream>
 #include <vector>
 
@@ -152,6 +153,13 @@ protected:
     unsigned int drawCs;
     boost::upgrade_mutex cuboidMuts[2];
 
+    /* This maps caller thread IDs (declared to us in the constructor)
+     * to numbers 0..concurrency.
+     * All internal protected functions that take a thread ID parameter
+     * will take one that has already been looked up in the map.
+     */
+    std::map<unsigned int, unsigned int> threadIdMap;
+
     /* This is the sweep position, which tracks ahead of the update
      * cuboids.  Every flip, we should move the sweep position up and back
      * and re-timestamp all the rows it passes, telling the enumerators
@@ -229,7 +237,7 @@ public:
         AFK_Computer *_computer,
         const Vec3<int>& _jigsawSize,
         const std::vector<AFK_JigsawImageDescriptor>& _desc,
-        unsigned int _concurrency);
+        const std::vector<unsigned int>& _threadIds);
     virtual ~AFK_Jigsaw();
 
     /* Acquires a new piece for your thread.
