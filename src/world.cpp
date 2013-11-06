@@ -27,6 +27,7 @@
 #include "rng/boost_taus88.hpp"
 #include "rng/rng.hpp"
 #include "world.hpp"
+#include "world_cell.hpp"
 
 
 #define PRINT_CHECKPOINTS 0
@@ -71,9 +72,9 @@ bool afk_generateWorldCells(
      */
     unsigned int claimFlags = AFK_CL_LOOP;
     if (!renderTerrain && !resume) claimFlags |= AFK_CL_EXCLUSIVE;
+    auto worldCellClaim = (*(world->worldCache))[cell].claimable.claim(threadId, claimFlags);
     retval = world->generateClaimedWorldCell(
-        (*(world->worldCache))[cell].claimable.claim(threadId, claimFlags),
-        threadId, param.world, queue);
+        worldCellClaim, threadId, param.world, queue);
 
     /* If this cell had a dependency ... */
     if (param.world.dependency)
@@ -234,7 +235,7 @@ void AFK_World::generateStartingEntity(
     /* I don't need to initialise it here.  We'll come to that when
      * we try to draw it
      */
-    worldCell.addStartingEntity(shapeKey, sSizes, rng);
+    worldCell.addStartingEntity(threadId, shapeKey, sSizes, rng);
 }
 
 bool AFK_World::generateClaimedWorldCell(
@@ -331,7 +332,7 @@ bool AFK_World::generateClaimedWorldCell(
             }
             else if (display)
             {
-                displayLandscapeTile(tile, landscapeClaim.getShared(), threadId);
+                displayLandscapeTile(cell, tile, landscapeClaim.getShared(), threadId);
             }
         }
 

@@ -20,8 +20,6 @@
 
 #include "afk.hpp"
 
-#include <list>
-
 #include <boost/atomic.hpp>
 
 #include "data/claimable.hpp"
@@ -34,6 +32,11 @@
 #include "world.hpp"
 
 
+/* TODO I wanted this to be a std::list for easy insertion and removal,
+ * and it can't be (issues with copies of atomics).  However, I expect
+ * once I'm actually moving entities about they'll be held in a jigsaw
+ * anyway so the OpenCL can process them...?
+ */
 #define AFK_ENTITY_LIST std::list<AFK_Claimable<AFK_Entity, afk_getComputingFrameFunc> >
 
 /* Describes one cell in the world.  This is the value that we
@@ -90,6 +93,7 @@ public:
     unsigned int getStartingEntityShapeKey(AFK_RNG& rng);
 
     void addStartingEntity(
+        unsigned int threadId,
         unsigned int shapeKey,
         const AFK_ShapeSizes& sSizes,
         AFK_RNG& rng);

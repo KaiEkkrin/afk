@@ -213,7 +213,7 @@ public:
                 /* Kick off a new eviction task */
                 rp = new boost::promise<unsigned int>();
                 th = new boost::thread(
-                    &AFK_EvictableCache<Key, Monomer, Hasher, unassigned, framesBeforeEviction, getComputingFrame, debug>::evictionWorker,
+                    &AFK_EvictableCache<Key, Value, Hasher, unassigned, framesBeforeEviction, getComputingFrame, debug>::evictionWorker,
                     this);
                 result = rp->get_future();
             }

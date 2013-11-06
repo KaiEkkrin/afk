@@ -24,23 +24,7 @@
 
 /* AFK_Entity implementation */
 
-/* TODO: This is a nasty mess, technically very wrong.  however,
- * it's currently only being used on uninitialised entities before
- * we Claim them in order to generate them (therefore we _want_ a
- * default Claimable with a lastSeen of never).  In future, the task
- * of moving entities about will no doubt end up in the OpenCL with
- * jigsaws to contain them, which should get rid of this problem
- * entirely.
- */
-AFK_Entity::AFK_Entity(const AFK_Entity& _entity):
-    shapeKey(_entity.shapeKey),
-    obj(_entity.obj)
-{
-}
-
-AFK_Entity::~AFK_Entity()
-{
-}
+AFK_Entity::AFK_Entity(): shapeKey(0) {}
 
 void AFK_Entity::position(
     const Vec3<float>& scale,

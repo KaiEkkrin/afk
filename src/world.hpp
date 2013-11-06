@@ -53,12 +53,12 @@
 #include "terrain_compute_queue.hpp"
 #include "tile.hpp"
 #include "work.hpp"
-#include "world_cell.hpp"
 
 /* The world of AFK. */
 
 class AFK_LandscapeDisplayQueue;
 class AFK_LandscapeTile;
+class AFK_WorldCell;
 
 
 /* This is the cell generating worker function */

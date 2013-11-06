@@ -51,7 +51,7 @@ public:
      * the shape, and keys the shape cell and vapour cell
      * caches.
      */
-    const unsigned int shapeKey;
+    unsigned int shapeKey;
 
 protected:
     /* Describes where this entity is located. */
@@ -69,10 +69,7 @@ protected:
      */
 
 public:
-    /* I need this for the std::list */
-    AFK_Entity(const AFK_Entity& _entity);
-
-    virtual ~AFK_Entity();
+    AFK_Entity();
 
     /* Positions the entity.
      */

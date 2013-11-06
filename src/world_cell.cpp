@@ -199,6 +199,6 @@ void AFK_WorldCell::evict(void)
 
 std::ostream& operator<<(std::ostream& os, const AFK_WorldCell& worldCell)
 {
-    return os << "World cell at " << worldCell.getRealCoord() << " (last seen " << worldCell.claimable.getLastSeen() << ")";
+    return os << "World cell at " << worldCell.getRealCoord();
 }
 
