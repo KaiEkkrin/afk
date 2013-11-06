@@ -28,6 +28,7 @@
 #include <boost/thread/future.hpp>
 
 #include "data/claimable.hpp"
+#include "data/evictable_cache.hpp"
 #include "data/frame.hpp"
 #include "def.hpp"
 #include "display.hpp"
@@ -197,6 +198,9 @@ extern AFK_GetComputingFrame afk_getComputingFrameFunc;
 #define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile, afk_unassignedTile, 10, afk_getComputingFrameFunc, true>
 #define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 10, afk_getComputingFrameFunc>
 #define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 10, afk_getComputingFrameFunc>
+
+/* Some fixed thread IDs for non-pool threads. */
+
 
 #endif /* _AFK_CORE_H_ */
 

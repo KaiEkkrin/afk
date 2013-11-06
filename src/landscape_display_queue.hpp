@@ -27,6 +27,7 @@
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
+#include "core.hpp"
 #include "def.hpp"
 #include "landscape_sizes.hpp"
 #include "shader.hpp"
@@ -100,7 +101,12 @@ public:
      * this queue, assuming that the basic VAO for the landscape tiles
      * has already been selected
      */
-    void draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw* jigsaw, const AFK_TerrainBaseTile *baseTile, const AFK_LandscapeSizes& lSizes);
+    void draw(
+        AFK_ShaderProgram *shaderProgram,
+        AFK_Jigsaw *jigsaw,
+        AFK_LANDSCAPE_CACHE *cache,
+        const AFK_TerrainBaseTile *baseTile,
+        const AFK_LandscapeSizes& lSizes);
 
     bool empty(void);
 

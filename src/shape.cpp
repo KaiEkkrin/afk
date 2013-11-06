@@ -50,7 +50,7 @@ bool afk_generateEntity(
     bool resume = false;
 
     AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
-    auto claim = (*(shape.vapourCellCache))[vc].claimable.claim(threadId, afk_claimFlagList<AFK_ClaimFlags::LOOP, AFK_ClaimFlags::SHARED>());
+    auto claim = (*(shape.vapourCellCache))[vc].claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
 
     if (!claim.getShared().hasDescriptor())
     {
@@ -178,7 +178,7 @@ bool afk_generateShapeCells(
          * cell, however.
          */
         AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
-        auto vapourCellClaim = (*(shape.vapourCellCache))[vc].claimable.claim(threadId, afk_claimFlagList<AFK_ClaimFlags::LOOP, AFK_ClaimFlags::SHARED>());
+        auto vapourCellClaim = (*(shape.vapourCellCache))[vc].claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
         const VapourCell& vapourCell = vapourCellClaim.getShared();
 
         if (!vapourCell.hasDescriptor())
@@ -191,7 +191,7 @@ bool afk_generateShapeCells(
                  */
                 AFK_KeyedCell upperVC = vc.parent(world->sSizes.subdivisionFactor);
                 auto upperVapourCellClaim =
-                    shape.vapourCellCache->at(upperVC).claimable.claim(threadId, afk_claimFlagList<AFK_ClaimFlags::LOOP, AFK_ClaimFlags::SHARED>());
+                    shape.vapourCellCache->at(upperVC).claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
                 vapourCellClaim.get().makeDescriptor(upperVapourCellClaim.getShared(), world->sSizes);
             }
         }
@@ -211,7 +211,7 @@ bool afk_generateShapeCells(
                 if (display) 
                 {
                     /* I want that shape cell now ... */
-                    auto shapeCellClaim = (*(shape.shapeCellCache))[cell].claimable.claim(threadId, afk_claimFlagList<AFK_ClaimFlags::LOOP, AFK_ClaimFlags::SHARED>());
+                    auto shapeCellClaim = (*(shape.shapeCellCache))[cell].claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
                     if (!shape.generateClaimedShapeCell(
                         threadId, cell, vapourCellClaim, shapeCellClaim, worldTransform, visibleCell.getRealCoord(), world))
                     {

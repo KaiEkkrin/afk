@@ -71,8 +71,8 @@ bool afk_generateWorldCells(
      * trying"; in those cases I don't want an exclusive claim, and
      * I won't do a recursive search.
      */
-    AFK_ClaimFlags claimFlags = AFK_ClaimFlags::LOOP;
-    if (!renderTerrain && !resume) claimFlags |= AFK_ClaimFlags::EXCLUSIVE;
+    unsigned int claimFlags = AFK_CL_LOOP;
+    if (!renderTerrain && !resume) claimFlags |= AFK_CL_EXCLUSIVE;
     retval = world->generateClaimedWorldCell(
         (*(world->worldCache))[cell].claimable.claim(threadId, claimFlags),
         threadId, param.world, queue);
@@ -289,7 +289,7 @@ bool AFK_World::generateClaimedWorldCell(
              * terrain description.
              */
             auto landscapeClaim = (*landscapeCache)[tile].claimable.claim(
-                AFK_ClaimFlags::LOOP | AFK_ClaimFlags::SHARED);
+                AFK_CL_LOOP | AFK_CL_SHARED);
         
             bool generateArtwork = false;
             if (!landscapeClaim.getShared().hasTerrainDescriptor() ||
@@ -374,7 +374,7 @@ bool AFK_World::generateClaimedWorldCell(
                 try
                 {
                     auto entityClaim = eIt->claimable.claim(
-                        threadId, AFK_ClaimFlags::LOOP | AFK_ClaimFlags::EXCLUSIVE);
+                        threadId, AFK_CL_LOOP | AFK_CL_EXCLUSIVE);
                     AFK_Entity& e = entityClaim.get();
 
                     /* Make sure everything I need in that shape
@@ -918,7 +918,12 @@ void AFK_World::display(const Mat4<float>& projection, const Vec2<float>& window
     /* Those queues are in puzzle order. */
     for (unsigned int puzzle = 0; puzzle < landscapeDrawQueues.size(); ++puzzle)
     {
-        landscapeDrawQueues.at(puzzle)->draw(landscape_shaderProgram, landscapeJigsaws->getPuzzle(puzzle), landscapeTerrainBase, lSizes);
+        landscapeDrawQueues.at(puzzle)->draw(
+            landscape_shaderProgram,
+            landscapeJigsaws->getPuzzle(puzzle),
+            landscapeCache,
+            landscapeTerrainBase,
+            lSizes);
     }
 
     glBindVertexArray(0);

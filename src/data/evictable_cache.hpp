@@ -131,7 +131,7 @@ protected:
                          */
                         try
                         {
-                            auto claim = candidate->claim(threadId, AFK_ClaimFlags::EVICTOR);
+                            auto claim = candidate->claim(threadId, AFK_CL_EVICTOR);
                             if (candidate->canBeEvicted())
                             {
                                 Value& obj = claim.get();

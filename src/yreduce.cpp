@@ -15,9 +15,12 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
+#include <boost/thread/thread.hpp>
+
 #include "core.hpp"
 #include "exception.hpp"
 #include "landscape_tile.hpp"
+#include "world.hpp"
 #include "yreduce.hpp"
 
 AFK_YReduce::AFK_YReduce(AFK_Computer *_computer):
@@ -105,7 +108,8 @@ void AFK_YReduce::compute(
 
 void AFK_YReduce::readBack(
     unsigned int unitCount,
-    std::vector<AFK_LandscapeTile*>& landscapeTiles)
+    const std::vector<AFK_Tile>& landscapeTiles,
+    AFK_LANDSCAPE_CACHE *cache)
 {
     readbackDep.waitFor();
 #if 0
@@ -118,10 +122,35 @@ void AFK_YReduce::readBack(
     std::cout << std::endl;
 #endif
 
-    for (unsigned int i = 0; i < unitCount; ++i)
+    /* Push all those tile bounds into the cache, so long as an
+     * entry can be found.
+     * TODO This logic is almost the same as that found in
+     * landscape_display_queue to cull the draw list.  Can I make
+     * it into a template algorithm?
+     */
+    bool allPushed = false;
+    std::vector<bool> pushed;
+    pushed.reserve(landscapeTiles.size());
+    for (unsigned int i = 0; i < landscapeTiles.size(); ++i) pushed.push_back(false);
+
+    do
     {
-        landscapeTiles[i]->setYBounds(
-            readback[i * 2], readback[i * 2 + 1]);
-    }
+        allPushed = true;
+        for (unsigned int i = 0; i < landscapeTiles.size(); ++i)
+        {
+            if (pushed[i]) continue;
+
+            try
+            {
+                auto claim = cache->at(landscapeTiles[i]).claimable.claim(0);
+                claim.get().setYBounds(readback[i * 2], readback[i * 2 + 1]);
+                pushed[i] = true;
+            }
+            catch (AFK_PolymerOutOfRange) { pushed[i] = true; /* Ignore, no entry any more */ }
+            catch (AFK_ClaimException) { allPushed = false; /* Want to retry */ }
+        }
+
+        if (!allPushed) boost::this_thread::yield();
+    } while (!allPushed);
 }
 

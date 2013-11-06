@@ -24,6 +24,7 @@
 #include "exception.hpp"
 #include "landscape_tile.hpp"
 #include "terrain_compute_queue.hpp"
+#include "world.hpp"
 
 
 /* AFK_TerrainComputeUnit implementation */
@@ -62,7 +63,7 @@ AFK_TerrainComputeQueue::~AFK_TerrainComputeQueue()
     if (postTerrainDep) delete postTerrainDep;
 }
 
-AFK_TerrainComputeUnit AFK_TerrainComputeQueue::extend(const AFK_TerrainList& list, const Vec2<int>& piece, AFK_LandscapeTile *landscapeTile, const AFK_LandscapeSizes& lSizes)
+AFK_TerrainComputeUnit AFK_TerrainComputeQueue::extend(const AFK_TerrainList& list, const Vec2<int>& piece, const AFK_Tile& tile, const AFK_LandscapeSizes& lSizes)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
@@ -87,7 +88,7 @@ AFK_TerrainComputeUnit AFK_TerrainComputeQueue::extend(const AFK_TerrainList& li
         piece);
     AFK_TerrainList::extend(list);
     units.push_back(newUnit);
-	landscapeTiles.push_back(landscapeTile);
+	landscapeTiles.push_back(tile);
     return newUnit;
 }
 
@@ -238,7 +239,7 @@ void AFK_TerrainComputeQueue::computeStart(
     computer->unlock();
 }
 
-void AFK_TerrainComputeQueue::computeFinish(AFK_Jigsaw *jigsaw)
+void AFK_TerrainComputeQueue::computeFinish(AFK_Jigsaw *jigsaw, AFK_LANDSCAPE_CACHE *cache)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
@@ -252,7 +253,7 @@ void AFK_TerrainComputeQueue::computeFinish(AFK_Jigsaw *jigsaw)
     jigsaw->releaseFromCl(2, *postTerrainDep);
 
     /* Read back the Y reduce. */
-    yReduce->readBack(unitCount, landscapeTiles);
+    yReduce->readBack(unitCount, landscapeTiles, cache);
 }
 
 bool AFK_TerrainComputeQueue::empty(void)

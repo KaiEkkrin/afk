@@ -24,9 +24,9 @@
 
 #include "compute_dependency.hpp"
 #include "computer.hpp"
+#include "core.hpp"
 #include "landscape_sizes.hpp"
-
-class AFK_LandscapeTile;
+#include "tile.hpp"
 
 /* This object manages the reduction of the y-bounds out of the y-displacement
  * texture.
@@ -60,7 +60,8 @@ public:
 
     void readBack(
         unsigned int unitCount,
-        std::vector<AFK_LandscapeTile*>& landscapeTiles);
+        const std::vector<AFK_Tile>& landscapeTiles,
+        AFK_LANDSCAPE_CACHE *cache);
 };
 
 #endif /* _AFK_YREDUCE_H_ */
