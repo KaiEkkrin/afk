@@ -20,6 +20,8 @@
 
 #include "afk.hpp"
 
+#include <cassert>
+
 #include <boost/atomic.hpp>
 
 #include "data/claimable.hpp"
@@ -31,13 +33,14 @@
 #include "visible_cell.hpp"
 #include "world.hpp"
 
+typedef AFK_Claimable<AFK_Entity, afk_getComputingFrameFunc> AFK_ClaimableEntity;
 
 /* TODO I wanted this to be a std::list for easy insertion and removal,
  * and it can't be (issues with copies of atomics).  However, I expect
  * once I'm actually moving entities about they'll be held in a jigsaw
  * anyway so the OpenCL can process them...?
  */
-#define AFK_ENTITY_LIST std::list<AFK_Claimable<AFK_Entity, afk_getComputingFrameFunc> >
+#define AFK_ENTITY_LIST std::list<AFK_ClaimableEntity>
 
 /* Describes one cell in the world.  This is the value that we
  * cache in the big ol' WorldCache.
@@ -50,7 +53,14 @@ protected:
     AFK_VisibleCell visibleCell;
 
     /* The list of Entities currently homed to this cell. */
-    AFK_ENTITY_LIST *entities;
+    //AFK_ENTITY_LIST *entities;
+    AFK_ClaimableEntity *entities;
+    unsigned int entityCount;
+
+    /* This tracks how far I've gotten along the whole business
+     * of adding entities.
+     */
+    unsigned int entityAddI;
 
     /* For generating the shapes for our starting entities. */
     bool checkClaimedShape(unsigned int shapeKey, AFK_Shape& shape, const AFK_ShapeSizes& sSizes);
@@ -88,7 +98,7 @@ public:
     unsigned int getStartingEntitiesWanted(
         AFK_RNG& rng,
         unsigned int maxEntitiesPerCell,
-        unsigned int entitySparseness) const;
+        unsigned int entitySparseness);
 
     unsigned int getStartingEntityShapeKey(AFK_RNG& rng);
 
@@ -98,6 +108,7 @@ public:
         const AFK_ShapeSizes& sSizes,
         AFK_RNG& rng);
 
+#if 0
     /* Check this before iterating. */
     bool hasEntities(void) const;
 
@@ -109,6 +120,10 @@ public:
      * calling moveEntity() on the new cell.
      */
     AFK_ENTITY_LIST::iterator eraseEntity(AFK_ENTITY_LIST::iterator eIt);
+#else
+    unsigned int getEntityCount() const { return entityCount; }
+    AFK_ClaimableEntity& getEntityAt(unsigned int i) { assert(i < entityCount); return entities[i]; }
+#endif
 
     /* Evicts the cell. */
     void evict(void);

@@ -17,6 +17,7 @@
 
 #include "afk.hpp"
 
+#include <cassert>
 #include <cmath>
 
 #include "core.hpp"
@@ -25,7 +26,7 @@
 
 
 AFK_WorldCell::AFK_WorldCell():
-    entities(nullptr)
+    entities(nullptr), entityCount(0), entityAddI(0)
 {
 }
 
@@ -63,11 +64,13 @@ void AFK_WorldCell::testVisibility(const AFK_Camera& camera, bool& io_someVisibl
 unsigned int AFK_WorldCell::getStartingEntitiesWanted(
     AFK_RNG& rng,
     unsigned int maxEntitiesPerCell,
-    unsigned int entitySparseness) const
+    unsigned int entitySparseness)
 {
-    unsigned int entityCount = 0;
-    if (!entities || entities->size() == 0)
+    if (!entities)
     {
+        assert(entityCount == 0);
+        assert(entityAddI == 0);
+
         /* I want more entities in larger cells */
         Vec4<float> realCoord = getRealCoord();
         float sparseMult = log(realCoord.v[3]);
@@ -77,9 +80,12 @@ unsigned int AFK_WorldCell::getStartingEntitiesWanted(
             if (rng.frand() < (sparseMult / ((float)entitySparseness)))
                 ++entityCount;
         }
-    }
 
-    return entityCount;
+        /* Make sure I've got space for these entities now */
+        entities = new AFK_ClaimableEntity[entityCount]();
+        return entityCount;
+    }
+    else return 0; /* got all my entities already, don't make me any more! */
 }
 
 unsigned int AFK_WorldCell::getStartingEntityShapeKey(AFK_RNG& rng)
@@ -97,7 +103,12 @@ void AFK_WorldCell::addStartingEntity(
     const AFK_ShapeSizes& sSizes,
     AFK_RNG& rng)
 {
-    AFK_Claimable<AFK_Entity, afk_getComputingFrameFunc> claimableEntity;
+    assert(entities);
+
+    /* I'm going to fill out the next entity along my
+     * entity addition iterator element.
+     */
+    AFK_ClaimableEntity& claimableEntity = getEntityAt(entityAddI++);
     auto claim = claimableEntity.claim(threadId, 0);
     AFK_Entity& e = claim.get();
     e.shapeKey = shapeKey;
@@ -161,13 +172,9 @@ void AFK_WorldCell::addStartingEntity(
         afk_vec3<float>(entitySize, entitySize, entitySize),
         entityDisplacement,
         entityRotation);
-
-    claim.release();
-
-    if (!entities) entities = new AFK_ENTITY_LIST();
-    entities->push_back(claimableEntity);
 }
 
+#if 0
 bool AFK_WorldCell::hasEntities(void) const
 {
     return (entities != nullptr);
@@ -187,18 +194,21 @@ AFK_ENTITY_LIST::iterator AFK_WorldCell::eraseEntity(AFK_ENTITY_LIST::iterator e
 {
     return entities->erase(eIt);
 }
+#endif
 
 void AFK_WorldCell::evict(void)
 {
     if (entities)
     {
-        delete entities;
+        delete[] entities;
         entities = nullptr;
+        entityCount = 0;
+        entityAddI = 0;
     }
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_WorldCell& worldCell)
 {
-    return os << "World cell at " << worldCell.getRealCoord();
+    return os << "World cell at " << worldCell.getRealCoord() << " with " << worldCell.entityCount << " entities";
 }
 

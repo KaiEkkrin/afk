@@ -366,51 +366,40 @@ bool AFK_World::generateClaimedWorldCell(
             }
         }
 
-        if (worldCell.hasEntities())
+        for (unsigned int eI = 0; eI < worldCell.getEntityCount(); ++eI)
         {
-            auto eIt = worldCell.entitiesBegin();
-#if AFK_SHAPE_ENUM_DEBUG
-            unsigned int eCounter = 0;
-#endif
-            while (eIt != worldCell.entitiesEnd())
+            try
             {
-                try
-                {
-                    auto entityClaim = eIt->claim(
-                        threadId, AFK_CL_LOOP | AFK_CL_EXCLUSIVE);
-                    AFK_Entity& e = entityClaim.get();
+                AFK_ClaimableEntity& ce = worldCell.getEntityAt(eI);
+                auto entityClaim = ce.claim(
+                    threadId, AFK_CL_LOOP | AFK_CL_EXCLUSIVE);
+                AFK_Entity& e = entityClaim.get();
 
-                    /* Make sure everything I need in that shape
-                     * has been computed ...
-                     */
-                    AFK_WorldWorkQueue::WorkItem shapeCellItem;
-                    shapeCellItem.func                          = afk_generateEntity;
-                    shapeCellItem.param.shape.cell              = afk_keyedCell(afk_vec4<int64_t>(
-                                                                    0, 0, 0, SHAPE_CELL_MAX_DISTANCE), e.shapeKey);
-                    shapeCellItem.param.shape.transformation    = e.getTransformation();
-                    shapeCellItem.param.shape.world             = this;               
-                    shapeCellItem.param.shape.viewerLocation    = viewerLocation;
-                    shapeCellItem.param.shape.camera            = camera;
-                    shapeCellItem.param.shape.flags             = 0;
+                /* Make sure everything I need in that shape
+                 * has been computed ...
+                 */
+                AFK_WorldWorkQueue::WorkItem shapeCellItem;
+                shapeCellItem.func                          = afk_generateEntity;
+                shapeCellItem.param.shape.cell              = afk_keyedCell(afk_vec4<int64_t>(
+                                                                0, 0, 0, SHAPE_CELL_MAX_DISTANCE), e.shapeKey);
+                shapeCellItem.param.shape.transformation    = e.getTransformation();
+                shapeCellItem.param.shape.world             = this;               
+                shapeCellItem.param.shape.viewerLocation    = viewerLocation;
+                shapeCellItem.param.shape.camera            = camera;
+                shapeCellItem.param.shape.flags             = 0;
 
 #if AFK_SHAPE_ENUM_DEBUG
-                    shapeCellItem.param.shape.asedWorldCell     = cell;
-                    shapeCellItem.param.shape.asedCounter       = eCounter;
-                    AFK_DEBUG_PRINTL("ASED: Enqueued entity: worldCell=" << cell << ", entity counter=" << eCounter)
+                shapeCellItem.param.shape.asedWorldCell     = cell;
+                shapeCellItem.param.shape.asedCounter       = eI;
+                AFK_DEBUG_PRINTL("ASED: Enqueued entity: worldCell=" << cell << ", entity counter=" << eCounter)
 #endif
 
-                    shapeCellItem.param.shape.dependency        = nullptr;
-                    queue.push(shapeCellItem);
-            
-                    entitiesQueued.fetch_add(1);
-                }
-                catch (AFK_ClaimException) {} /* already processed? */
-            
-                ++eIt;
-#if AFK_SHAPE_ENUM_DEBUG
-                ++eCounter;
-#endif
+                shapeCellItem.param.shape.dependency        = nullptr;
+                queue.push(shapeCellItem);
+        
+                entitiesQueued.fetch_add(1);
             }
+            catch (AFK_ClaimException) {} /* already processed? */
         }
 
         /* We don't need this any more */
