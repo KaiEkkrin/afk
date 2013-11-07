@@ -112,7 +112,7 @@ bool AFK_World::checkClaimedLandscapeTile(
     bool needsArtwork = false;
     if (display)
     {
-        enum AFK_LandscapeTileArtworkState artworkState = landscapeTile.artworkState();
+        enum AFK_LandscapeTileArtworkState artworkState = landscapeTile.artworkState(landscapeJigsaws);
         switch (artworkState)
         {
         case AFK_LANDSCAPE_TILE_NO_PIECE_ASSIGNED:
@@ -201,7 +201,7 @@ void AFK_World::displayLandscapeTile(
     const AFK_LandscapeTile& landscapeTile,
     unsigned int threadId)
 {
-    assert(landscapeTile.artworkState() == AFK_LANDSCAPE_TILE_HAS_ARTWORK);
+    assert(landscapeTile.artworkState(landscapeJigsaws) == AFK_LANDSCAPE_TILE_HAS_ARTWORK);
 
     /* Get it to make us a unit to
      * feed into the display queue.
@@ -211,7 +211,7 @@ void AFK_World::displayLandscapeTile(
      */
     AFK_JigsawPiece jigsawPiece;
     AFK_LandscapeDisplayUnit unit;
-    bool reallyDisplayThisTile = landscapeTile.makeDisplayUnit(cell, minCellSize, jigsawPiece, unit);
+    bool reallyDisplayThisTile = landscapeTile.makeDisplayUnit(cell, minCellSize, landscapeJigsaws, jigsawPiece, unit);
 
     if (reallyDisplayThisTile)
     {
@@ -296,7 +296,7 @@ bool AFK_World::generateClaimedWorldCell(
             landscapeTileUpperYBound = landscapeClaim.getShared().getYBoundUpper();
         
             if (!landscapeClaim.getShared().hasTerrainDescriptor() ||
-                ((renderTerrain || display) && landscapeClaim.getShared().artworkState() != AFK_LANDSCAPE_TILE_HAS_ARTWORK))
+                ((renderTerrain || display) && landscapeClaim.getShared().artworkState(landscapeJigsaws) != AFK_LANDSCAPE_TILE_HAS_ARTWORK))
             {
                 /* In order to generate this tile we need to upgrade
                  * our claim if we can.

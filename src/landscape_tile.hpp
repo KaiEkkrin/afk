@@ -68,6 +68,7 @@ protected:
      * the terrain here and the terrain at all the ancestral tiles.)
      */
     bool haveTerrainDescriptor;
+
     std::vector<AFK_TerrainFeature> *terrainFeatures; /* landscapeSizes->featureCountPerTile features per tile, in order */
     std::vector<AFK_TerrainTile> *terrainTiles;
 
@@ -75,12 +76,6 @@ protected:
      * been assigned yet.
      */
     AFK_JigsawPiece jigsawPiece;
-
-    /* What jigsaws that piece comes from.  (This is just a cross-
-     * reference, we don't own it.  But we need to be able to put
-     * our piece back upon delete.)
-     */
-    AFK_JigsawCollection *jigsaws;
 
     /* The frame when we got that jigsaw piece.  Jigsaw pieces expire
      * as the new-piece creation row rolls around; when we query the
@@ -121,7 +116,7 @@ public:
     /* Assigns a jigsaw piece to this tile. */
     AFK_JigsawPiece getJigsawPiece(unsigned int threadId, int minJigsaw, AFK_JigsawCollection *_jigsaws);
 
-    enum AFK_LandscapeTileArtworkState artworkState() const;
+    enum AFK_LandscapeTileArtworkState artworkState(AFK_JigsawCollection *jigsaws) const;
     float getYBoundLower() const;
     float getYBoundUpper() const;
 
@@ -143,6 +138,7 @@ public:
     bool makeDisplayUnit(
         const AFK_Cell& cell,
         float minCellSize,
+        AFK_JigsawCollection *jigsaws,
         AFK_JigsawPiece& o_jigsawPiece,
         AFK_LandscapeDisplayUnit& o_unit) const;
 

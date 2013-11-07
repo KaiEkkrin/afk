@@ -33,7 +33,6 @@ AFK_LandscapeTile::AFK_LandscapeTile():
     haveTerrainDescriptor(false),
     terrainFeatures(nullptr),
     terrainTiles(nullptr),
-    jigsaws(nullptr),
     yBoundLower(-FLT_MAX),
     yBoundUpper(FLT_MAX)
 {
@@ -82,7 +81,7 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
         }
 
         /* TODO remove debug */
-        AFK_DEBUG_PRINTL("makeTerrainDescriptor(): generated terrain for " << tile)
+        AFK_DEBUG_PRINTL("makeTerrainDescriptor(): generated terrain for " << tile << " (landscape tile at 0x" << std::hex << this << ")")
 
         haveTerrainDescriptor = true;
     }
@@ -98,8 +97,15 @@ void AFK_LandscapeTile::buildTerrainList(
 {
     if (!terrainFeatures || !terrainTiles) throw AFK_Exception("Null terrain features found");
 
-    /* TODO remove debug */
-    AFK_DEBUG_PRINTL("buildTerrainList(): adding local terrain for " << tile)
+    /* TODO remove debug
+     * So, I'm getting never-before-seen pointers here, indicating
+     * a bug.  I suspect the Claimable stuff of maybe double
+     * copying (over use of the move constructor?), or deleting
+     * early.  It might be necessary to play with a reference
+     * count after all, and certainly I should put debug tracking
+     * into Claimable to see what's up.
+     */
+    AFK_DEBUG_PRINTL("buildTerrainList(): adding local terrain for " << tile << " (landscape tile at 0x" << std::hex << this << ")")
 
     /* Add the local terrain tiles to the list. */
     list.extend(*terrainFeatures, *terrainTiles);
@@ -128,15 +134,15 @@ void AFK_LandscapeTile::buildTerrainList(
     }
 }
 
-AFK_JigsawPiece AFK_LandscapeTile::getJigsawPiece(unsigned int threadId, int minJigsaw, AFK_JigsawCollection *_jigsaws)
+AFK_JigsawPiece AFK_LandscapeTile::getJigsawPiece(unsigned int threadId, int minJigsaw, AFK_JigsawCollection *jigsaws)
 {
-    if (artworkState() == AFK_LANDSCAPE_TILE_HAS_ARTWORK) throw AFK_Exception("Tried to overwrite a tile's artwork");
-    jigsaws = _jigsaws;
+    if (artworkState(jigsaws) == AFK_LANDSCAPE_TILE_HAS_ARTWORK) throw AFK_Exception("Tried to overwrite a tile's artwork");
     jigsaws->grab(threadId, minJigsaw, &jigsawPiece, &jigsawPieceTimestamp, 1);
     return jigsawPiece;
 }
 
-enum AFK_LandscapeTileArtworkState AFK_LandscapeTile::artworkState() const
+enum AFK_LandscapeTileArtworkState AFK_LandscapeTile::artworkState(
+    AFK_JigsawCollection *jigsaws) const
 {
     if (!hasTerrainDescriptor() || jigsawPiece == AFK_JigsawPiece()) return AFK_LANDSCAPE_TILE_NO_PIECE_ASSIGNED;
 
@@ -195,6 +201,7 @@ bool AFK_LandscapeTile::realCellWithinYBounds(const Vec4<float>& coord) const
 bool AFK_LandscapeTile::makeDisplayUnit(
     const AFK_Cell& cell,
     float minCellSize,
+    AFK_JigsawCollection *jigsaws,
     AFK_JigsawPiece& o_jigsawPiece,
     AFK_LandscapeDisplayUnit& o_unit) const
 {
@@ -233,7 +240,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_LandscapeTile& t)
 {
     os << "Landscape tile";
     if (t.haveTerrainDescriptor) os << " (Terrain)";
-    if (t.artworkState() == AFK_LANDSCAPE_TILE_HAS_ARTWORK) os << " (Computed with bounds: " << t.yBoundLower << " - " << t.yBoundUpper << ")";
+    os << " (With bounds: " << t.yBoundLower << " - " << t.yBoundUpper << ")";
     return os;
 }
 

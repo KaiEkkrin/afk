@@ -80,7 +80,11 @@ public:
         );
 
     Mat4<float> getTransformation(void) const { return obj.getTransformation(); }
+
+    friend std::ostream& operator<<(std::ostream& os, const AFK_Entity& _entity);
 };
+
+std::ostream& operator<<(std::ostream& os, const AFK_Entity& _entity);
 
 #endif /* _AFK_ENTITY_H_ */
 

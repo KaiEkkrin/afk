@@ -199,7 +199,7 @@ extern AFK_GetComputingFrame afk_getComputingFrameFunc;
 
 /* I'll define the caches here, it's a nice central place to put them. */
 #define AFK_WORLD_CACHE AFK_EvictableCache<AFK_Cell, AFK_WorldCell, AFK_HashCell, afk_unassignedCell, 60, afk_getComputingFrameFunc>
-#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile, afk_unassignedTile, 10, afk_getComputingFrameFunc, true>
+#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile, afk_unassignedTile, 10, afk_getComputingFrameFunc>
 #define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 10, afk_getComputingFrameFunc>
 #define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 10, afk_getComputingFrameFunc>
 

@@ -26,6 +26,7 @@
 #include <boost/atomic.hpp>
 #include <boost/thread.hpp>
 
+#include "../debug.hpp"
 #include "frame.hpp"
 
 /* A "Claimable" is a lockable thing with useful features. 
@@ -64,14 +65,21 @@ protected:
      * with a nonshared Claim); `original' will not be pulled
      * on a shared Claim.
      */
+    /* TODO: See below -- this isn't working, removing for now */
+#define AFK_CL_COMPARE_ORIGINAL 0
+
     T obj;
+#if AFK_CL_COMPARE_ORIGINAL
     T original;
+#endif
 
     AFK_Claim(unsigned int _threadId, AFK_Claimable<T, getComputingFrame> *_claimable, bool _shared):
         threadId(_threadId), claimable(_claimable), shared(_shared), released(false),
         obj(_claimable->obj.load())
     {
+#if AFK_CL_COMPARE_ORIGINAL
         if (!shared) original = obj;
+#endif
     }
 
 public:
@@ -111,7 +119,9 @@ public:
         if (claimable->tryUpgradeShared(threadId))
         {
             shared = false;
+#if AFK_CL_COMPARE_ORIGINAL
             original = obj;
+#endif
             return true;
         }
         
@@ -127,7 +137,24 @@ public:
         }
         else
         {
-            assert(claimable->obj.compare_exchange_strong(original, obj));
+            /* TODO: I've verified, below, that this comparison
+             * (that I wanted to perform) does not work.  :(
+             * Bit-identical objects compare as different.
+             * Therefore, I'm going to do store() for now and
+             * comment out the `original' stuff, and lose a
+             * valuable sanity check :(
+             */
+            //assert(claimable->obj.compare_exchange_strong(original, obj));
+#if AFK_CL_COMPARE_ORIGINAL
+            if (!claimable->obj.compare_exchange_strong(original, obj))
+            {
+                T inplace = claimable->obj.load();
+                AFK_DEBUG_PRINTL("release failed: original " << original << ", inplace " << inplace)
+                assert(false);
+            }
+#else
+            claimable->obj.store(obj);
+#endif
             claimable->release(threadId);
         }
 

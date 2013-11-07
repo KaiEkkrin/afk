@@ -38,3 +38,11 @@ void AFK_Entity::position(
     if (rotation.v[2] != 0.0f) obj.adjustAttitude(AXIS_ROLL, rotation.v[2]);
 }
 
+std::ostream& operator<<(std::ostream& os, const AFK_Entity& _entity)
+{
+    // TODO give Object an operator<<
+    //os << "Entity(shapeKey=" << _entity.shapeKey << ", obj=" << _entity.obj << ")";
+    os << "Entity(shapeKey=" << _entity.shapeKey << ")";
+    return os;
+}
+
