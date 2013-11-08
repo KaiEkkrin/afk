@@ -90,14 +90,42 @@ public:
     AFK_Claim& operator=(const AFK_Claim& _c) = delete;
 
     /* I need a move constructor in order to return a claim from
-     * the claimable's claim method.  A default will do
+     * the claimable's claim method.  (Although for whatever
+     * reason, this and the move assign don't seem to get called
+     * when acquiring world cell and landscape tile claims.
+     * Hmm.
+     * ...I wonder how prone to creating bugs this might be...
      */ 
-    AFK_Claim(AFK_Claim&& _claim) = default;
+    AFK_Claim(AFK_Claim&& _claim):
+        threadId(_claim.threadId), claimable(_claim.claimable), shared(_claim.shared), released(_claim.released),
+        obj(_claim.obj)
+    {
+        AFK_DEBUG_PRINTL("copy moving claim: " << obj)
+
+        /* The moved-away-from claim isn't valid any more,
+         * and mustn't release stuff when destructed.
+         */
+        _claim.released = true;
+    }
 
     /* ...likewise... */
-    AFK_Claim& operator=(AFK_Claim&& _claim) = default;
+    AFK_Claim& operator=(AFK_Claim&& _claim)
+    {
+        AFK_DEBUG_PRINTL("assign moving claim: " << obj)
 
-    virtual ~AFK_Claim() { if (!released) release(); }
+        threadId        = _claim.threadId;
+        claimable       = _claim.claimable;
+        shared          = _claim.shared;
+        released        = _claim.released;
+        _claim.released = true;
+        return *this;
+    }
+
+    virtual ~AFK_Claim()
+    {
+        AFK_DEBUG_PRINTL("destructing claim: " << obj << "(released: " << released << ")")
+        if (!released) release();
+     }
 
     const T& getShared(void) const
     {
