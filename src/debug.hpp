@@ -18,6 +18,8 @@
 #ifndef _AFK_DEBUG_H_
 #define _AFK_DEBUG_H_
 
+#include <cstring>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 
@@ -36,6 +38,33 @@ void afk_debugPrint(const std::string& s);
         ss << expr << std::endl; \
         afk_debugPrint(ss.str()); \
     }
+
+template<typename T, size_t innerBytes = 16>
+class AFK_InnerDebug
+{
+public:
+    const T *objPtr;
+    unsigned char b[innerBytes];
+    const size_t size;
+
+    AFK_InnerDebug(const T *_objPtr):
+        objPtr(_objPtr),
+        size(std::min(innerBytes, sizeof(T)))
+    {
+        memcpy(&b[0], objPtr, size);
+    }
+};
+
+template<typename T, size_t innerBytes = 16>
+std::ostream& operator<<(
+    std::ostream& os,
+    const AFK_InnerDebug<T, innerBytes>& inner)
+{
+    os << "inside: " << std::hex << inner.objPtr << " -> ";
+    for (size_t iBI = 0; iBI < inner.size; ++iBI)
+        os << std::hex << std::setfill('0') << std::setw(2) << (unsigned int)inner.b[iBI] << " ";
+    return os;
+}
 
 #endif /* _AFK_DEBUG_H_ */
 

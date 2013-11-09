@@ -100,30 +100,27 @@ public:
         threadId(_claim.threadId), claimable(_claim.claimable), shared(_claim.shared), released(_claim.released),
         obj(_claim.obj)
     {
-        AFK_DEBUG_PRINTL("copy moving claim: " << obj)
-
-        /* The moved-away-from claim isn't valid any more,
-         * and mustn't release stuff when destructed.
-         */
+        AFK_DEBUG_PRINTL("copy moving claim for " << std::hex << claimable << ": " << obj)
         _claim.released = true;
     }
 
     /* ...likewise... */
     AFK_Claim& operator=(AFK_Claim&& _claim)
     {
-        AFK_DEBUG_PRINTL("assign moving claim: " << obj)
+        AFK_DEBUG_PRINTL("assign moving claim for " << std::hex << claimable << ": " << obj)
 
         threadId        = _claim.threadId;
         claimable       = _claim.claimable;
         shared          = _claim.shared;
         released        = _claim.released;
+        obj             = _claim.obj;
         _claim.released = true;
         return *this;
     }
 
     virtual ~AFK_Claim()
     {
-        AFK_DEBUG_PRINTL("destructing claim: " << obj << "(released: " << released << ")")
+        AFK_DEBUG_PRINTL("destructing claim for " << std::hex << claimable << ": " << obj << "(released: " << released << ")")
         if (!released) release();
      }
 

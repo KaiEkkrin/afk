@@ -81,7 +81,7 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
         }
 
         /* TODO remove debug */
-        AFK_DEBUG_PRINTL("makeTerrainDescriptor(): generated terrain for " << tile << " (landscape tile at 0x" << std::hex << this << ")")
+        AFK_DEBUG_PRINTL("makeTerrainDescriptor(): generated terrain for " << tile << " (terrain tiles " << AFK_InnerDebug<std::vector<AFK_TerrainTile> >(terrainTiles) << ")")
 
         haveTerrainDescriptor = true;
     }
@@ -104,8 +104,13 @@ void AFK_LandscapeTile::buildTerrainList(
      * early.  It might be necessary to play with a reference
      * count after all, and certainly I should put debug tracking
      * into Claimable to see what's up.
+     * ... no, I don't think there are any double copies or early
+     * deletes.  Simply, heap-allocated memory is turning up
+     * wrong on different threads.  The next thing to try is to
+     * not use that rapid heap allocation and instead embed a
+     * std::array in each LandscapeTile ...
      */
-    AFK_DEBUG_PRINTL("buildTerrainList(): adding local terrain for " << tile << " (landscape tile at 0x" << std::hex << this << ")")
+    AFK_DEBUG_PRINTL("buildTerrainList(): adding local terrain for " << tile << " (terrain tiles " << AFK_InnerDebug<std::vector<AFK_TerrainTile> >(terrainTiles) << ")")
 
     /* Add the local terrain tiles to the list. */
     list.extend(*terrainFeatures, *terrainTiles);
