@@ -271,6 +271,24 @@ protected:
 public:
     AFK_Claimable(): id(0), lastSeen(-1), lastSeenExclusively(-1), obj() {}
 
+    /* The move constructors are used to enable initialisation.
+     * They essentially make a new Claimable.
+     */
+    AFK_Claimable(AFK_Claimable&& _claimable):
+        id(0), lastSeen(-1), lastSeenExclusively(-1)
+    {
+        obj.store(_claimable.obj.load());
+    }
+
+    AFK_Claimable& operator=(AFK_Claimable&& _claimable)
+    {
+        id.store(0);
+        lastSeen.store(-1);
+        lastSeenExclusively.store(-1);
+        obj.store(_claimable.obj.load());
+        return *this;
+    }
+
     /* Gets you a claim of the desired type.
      * The `exclusive' flag causes the `lastSeenExclusively'
      * field to be incremented if it's not already equal to

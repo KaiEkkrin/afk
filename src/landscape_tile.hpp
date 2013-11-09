@@ -111,7 +111,7 @@ public:
         const AFK_Tile& tile,
         unsigned int subdivisionFactor,
         float maxDistance,
-        const AFK_LANDSCAPE_CACHE *cache) const;
+        AFK_LANDSCAPE_CACHE *cache) const;
 
     /* Assigns a jigsaw piece to this tile. */
     AFK_JigsawPiece getJigsawPiece(unsigned int threadId, int minJigsaw, AFK_JigsawCollection *_jigsaws);

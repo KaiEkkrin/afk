@@ -21,6 +21,7 @@
 #include <assert.h>
 #include <exception>
 #include <sstream>
+#include <vector>
 
 #include <boost/atomic.hpp>
 #include <boost/thread/mutex.hpp>
@@ -77,7 +78,16 @@ class AFK_PolymerChain
 protected:
     typedef AFK_PolymerChain<KeyType, MonomerType, unassigned, debug> PolymerChain;
 
-    MonomerType *chain;
+    // TODO This can't work as a std::vector because of the need
+    // to move chain elements.  But, it might work as a std::array,
+    // so long as those move constructors get called and refreshed
+    // values for every field get committed at create time.
+    // Try.
+    // The Polymer will now need to be templated with hashBits;
+    // sensible values appear to be
+    // world: 22 or above
+    // landscape and others: maybe 16.
+    std::vector<MonomerType> chain;
     boost::atomic<PolymerChain*> nextChain;
 
     /* Various parameters (replicated from below) */
@@ -103,15 +113,14 @@ public:
         const unsigned int _hashBits):
             nextChain (nullptr), hashBits (_hashBits), index (0)
     {
-        chain = new MonomerType[CHAIN_SIZE](); /* note the default-constructing () */
+        for (unsigned int i = 0; i < CHAIN_SIZE; ++i)
+            chain.push_back(MonomerType());
     }
 
     virtual ~AFK_PolymerChain()
     {
         PolymerChain *next = nextChain.exchange(nullptr);
         if (next) delete next;
-
-        delete[] chain;
     }
     
     /* Appends a new chain. */
@@ -134,13 +143,13 @@ public:
     }
 
     /* Gets a monomer from a specific place. */
-    bool get(unsigned int hops, size_t baseHash, const KeyType& key, MonomerType **o_monomerPtr) const
+    bool get(unsigned int hops, size_t baseHash, const KeyType& key, MonomerType **o_monomerPtr)
     {
         size_t offset = chainOffset(hops, baseHash);
         KeyType found = chain[offset].key.load();
         if (found == key)
         {
-            *o_monomerPtr = &chain[offset];
+            *o_monomerPtr = chain.data() + offset;
             return true;
         }
         else
@@ -159,7 +168,7 @@ public:
         KeyType expected = unassigned;
         if (chain[offset].key.compare_exchange_strong(expected, key))
         {
-            *o_monomerPtr = &chain[offset];
+            *o_monomerPtr = chain.data() + offset;
             return true;
         }
         else
@@ -191,7 +200,7 @@ public:
 
     /* Methods for supporting direct-slot access. */
 
-    bool atSlot(size_t slot, MonomerType **o_monomerPtr) const
+    bool atSlot(size_t slot, MonomerType **o_monomerPtr)
     {
         if (slot & ~HASH_MASK)
         {
@@ -203,7 +212,7 @@ public:
         }
         else
         {
-            *o_monomerPtr = &chain[slot];
+            *o_monomerPtr = chain.data() + slot;
             return true;
         }
     }
@@ -237,7 +246,7 @@ public:
 template<typename KeyType, typename MonomerType, const KeyType& unassigned, bool debug>
 std::ostream& operator<<(std::ostream& os, const AFK_PolymerChain<KeyType, MonomerType, unassigned, debug>& _chain)
 {
-    os << "PolymerChain(index=" << _chain.index << ", addr=" << _chain.chain << ")";
+    os << "PolymerChain(index=" << std::dec << _chain.index << ", addr=" << std::hex << _chain.chain.data() << ")";
     return os;
 }
 
@@ -282,7 +291,7 @@ protected:
     }
 
     /* Retrieves an existing monomer. */
-    bool retrieveMonomer(const KeyType& key, size_t hash, MonomerType **o_monomerPtr) const
+    bool retrieveMonomer(const KeyType& key, size_t hash, MonomerType **o_monomerPtr)
     {
         /* Try a small number of hops first, then expand out.
          */
@@ -351,7 +360,7 @@ public:
     /* Returns a pointer to a map entry.  Throws AFK_PolymerOutOfRange
      * if it can't find it.
      */
-    MonomerType *get(const KeyType& key) const
+    MonomerType *get(const KeyType& key)
     {
         size_t hash = wring(hasher(key));
         MonomerType *monomer = nullptr;
@@ -390,7 +399,7 @@ public:
         return chains->getCount() * CHAIN_SIZE;
     }
 
-    bool getSlot(size_t slot, MonomerType **o_monomerPtr) const
+    bool getSlot(size_t slot, MonomerType **o_monomerPtr)
     {
         /* Don't return unassigneds */
         return (chains->atSlot(slot, o_monomerPtr) &&

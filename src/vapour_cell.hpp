@@ -128,7 +128,7 @@ public:
         const AFK_KeyedCell& cell,
         AFK_3DList& list,
         const AFK_ShapeSizes& sSizes,
-        const AFK_VAPOUR_CELL_CACHE *cache) const;
+        AFK_VAPOUR_CELL_CACHE *cache) const;
 
     /* Checks whether this vapour cell's features have
      * already gone into the compute queue this frame.

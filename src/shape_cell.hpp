@@ -117,7 +117,7 @@ public:
      */
     void enqueueEdgeComputeUnit(
         unsigned int threadId,
-        const AFK_SHAPE_CELL_CACHE *cache,
+        AFK_SHAPE_CELL_CACHE *cache,
         const Vec4<float>& realCoord,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_JigsawCollection *edgeJigsaws,

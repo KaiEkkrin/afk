@@ -186,7 +186,7 @@ void AFK_VapourCell::build3DList(
     const AFK_KeyedCell& cell,
     AFK_3DList& list,
     const AFK_ShapeSizes& sSizes,
-    const AFK_VAPOUR_CELL_CACHE *cache) const
+    AFK_VAPOUR_CELL_CACHE *cache) const
 {
     /* Add the local vapour to the list. */
     list.extend(*features, *cubes);

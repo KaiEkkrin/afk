@@ -49,6 +49,19 @@ public:
 
     AFK_Evictable(): key(unassigned), claimable() {}
 
+    AFK_Evictable(AFK_Evictable&& _evictable):
+        claimable(_evictable.claimable)
+    {
+        key.store(_evictable.key.load());
+    }
+
+    AFK_Evictable& operator=(AFK_Evictable&& _evictable)
+    {
+        key.store(_evictable.key.load());
+        claimable = _evictable.claimable;
+        return *this;
+    }
+
     bool canBeEvicted(void) const 
     {
         bool canEvict = ((getComputingFrame() - claimable.getLastSeen()) > framesBeforeEviction);

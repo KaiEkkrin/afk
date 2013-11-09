@@ -85,7 +85,7 @@ void AFK_LandscapeTile::buildTerrainList(
     const AFK_Tile& tile,
     unsigned int subdivisionFactor,
     float maxDistance,
-    const AFK_LANDSCAPE_CACHE *cache) const
+    AFK_LANDSCAPE_CACHE *cache) const
 {
     /* TODO remove debug
      * So, I'm getting never-before-seen pointers here, indicating

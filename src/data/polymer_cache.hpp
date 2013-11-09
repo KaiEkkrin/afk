@@ -50,7 +50,7 @@ public:
         return polymer.size();
     }
 
-    virtual Monomer& at(const Key& key) const
+    virtual Monomer& at(const Key& key)
     {
         Monomer *ptr = polymer.get(key);
         return *ptr;
