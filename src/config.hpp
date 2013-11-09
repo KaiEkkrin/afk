@@ -116,9 +116,6 @@ public:
     unsigned int subdivisionFactor;
     unsigned int entitySubdivisionFactor;
 
-    /* Terrain setup */
-    unsigned int terrain_pointSubdivisionFactor;
-
     /* Shape setup */
     unsigned int shape_pointSubdivisionFactor;
     unsigned int shape_skeletonMaxSize;

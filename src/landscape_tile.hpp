@@ -20,9 +20,9 @@
 
 #include "afk.hpp"
 
+#include <array>
 #include <exception>
 #include <iostream>
-#include <vector>
 
 #include <boost/atomic.hpp>
 #include <boost/shared_ptr.hpp>
@@ -38,8 +38,6 @@
 #include "terrain.hpp"
 #include "tile.hpp"
 #include "world.hpp"
-
-#define TERRAIN_TILES_PER_TILE 5
 
 class AFK_LandscapeDisplayUnit;
 
@@ -69,8 +67,10 @@ protected:
      */
     bool haveTerrainDescriptor;
 
-    std::vector<AFK_TerrainFeature> *terrainFeatures; /* landscapeSizes->featureCountPerTile features per tile, in order */
-    std::vector<AFK_TerrainTile> *terrainTiles;
+    typedef std::array<AFK_TerrainFeature, afk_terrainFeatureCountPerTile * afk_terrainTilesPerTile> FeatureArray;
+    FeatureArray terrainFeatures;
+    typedef std::array<AFK_TerrainTile, afk_terrainTilesPerTile> TileArray;
+    TileArray terrainTiles;
 
     /* The jigsaw piece for this tile, or the null piece if it hasn't
      * been assigned yet.

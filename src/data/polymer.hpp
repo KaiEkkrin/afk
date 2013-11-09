@@ -141,14 +141,10 @@ public:
         if (found == key)
         {
             *o_monomerPtr = &chain[offset];
-            if (debug)
-                AFK_DEBUG_PRINTL(*this << " get(): " << key << " (offset " << offset << ") -> " << **o_monomerPtr)
             return true;
         }
         else
         {
-            if (debug)
-                AFK_DEBUG_PRINTL(*this << " get(): " << key << " (offset " << offset << ") no match (found " << found << ")")
             return false;
         }
     }
@@ -164,14 +160,10 @@ public:
         if (chain[offset].key.compare_exchange_strong(expected, key))
         {
             *o_monomerPtr = &chain[offset];
-            if (debug)
-                AFK_DEBUG_PRINTL(*this << " insert(): " << key << " (offset " <<  offset << ") <- " << **o_monomerPtr)
             return true;
         }
         else
         {
-            if (debug)
-                AFK_DEBUG_PRINTL(*this << " insert(): " << key << " (offset " << offset << ") taken")
             return false;
         }
     }

@@ -50,7 +50,6 @@ public:
 
     int v;
     IntStartingAtZero(): key(afk_cacheTestUnassignedKey), v(0) {}
-    IntStartingAtZero& operator+=(const int& o) { v += o; return *this; }
 };
 
 std::ostream& operator<<(std::ostream& os, const IntStartingAtZero& i)
@@ -77,8 +76,8 @@ bool testCacheWorker(unsigned int id, const struct insertSqrtParam& param, AFK_W
         for (unsigned int biti = 0; biti < 32; ++biti)
             if (num & (1 << biti)) ++bitcount;
 
-        (*(param.cache))[bitcount] += 1;
-        (*(param.cache))[num % 0xff] += bitcount;
+        (*(param.cache))[bitcount].v += 1;
+        (*(param.cache))[num & 0xff].v += bitcount;
     }
 
     return true;

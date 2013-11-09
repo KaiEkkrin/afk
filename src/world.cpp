@@ -284,7 +284,7 @@ bool AFK_World::generateClaimedWorldCell(
         AFK_Tile tile = afk_tile(cell);
 
         /* I'm going to want this in a moment. */
-        float landscapeTileUpperYBound = FLT_MAX;
+        //float landscapeTileUpperYBound = FLT_MAX;
 
         {
             /* We always at least touch the landscape.  Higher detailed
@@ -293,7 +293,7 @@ bool AFK_World::generateClaimedWorldCell(
              */
             auto landscapeClaim = (*landscapeCache)[tile].claimable.claim(
                 threadId, AFK_CL_LOOP | AFK_CL_SHARED);
-            landscapeTileUpperYBound = landscapeClaim.getShared().getYBoundUpper();
+            //landscapeTileUpperYBound = landscapeClaim.getShared().getYBoundUpper();
         
             if (!landscapeClaim.getShared().hasTerrainDescriptor() ||
                 ((renderTerrain || display) && landscapeClaim.getShared().artworkState(landscapeJigsaws) != AFK_LANDSCAPE_TILE_HAS_ARTWORK))
@@ -342,6 +342,11 @@ bool AFK_World::generateClaimedWorldCell(
          * some starting entities if it hasn't got them
          * already.
          */
+
+        /* TODO: After I've sorted out the landscape with the new
+         * templated Claimable, re-enable entities.
+         */
+#if 0
 
         /* TODO: This RNG will make the same set of entities every
          * time the cell is re-displayed.  This is fine for probably
@@ -401,6 +406,7 @@ bool AFK_World::generateClaimedWorldCell(
             }
             catch (AFK_ClaimException) {} /* already processed? */
         }
+#endif
 
         /* We don't need this any more */
         claim.release();

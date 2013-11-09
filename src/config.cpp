@@ -125,7 +125,6 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     subdivisionFactor           = 2;
     entitySubdivisionFactor     = 4;
 
-    terrain_pointSubdivisionFactor      = 8;
     shape_pointSubdivisionFactor        = 6;
     shape_skeletonMaxSize               = 24;
     shape_skeletonFlagGridDim           = 8;
@@ -249,11 +248,6 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         {
             REQUIRE_ARGUMENT("--entity-subdivision-factor")
             entitySubdivisionFactor = strtoul(argv[argi], NULL, 0);
-        }
-        else if (strcmp(argv[argi], "--terrain-point-subdivision-factor") == 0)
-        {
-            REQUIRE_ARGUMENT("--terrain-point-subdivision-factor")
-            terrain_pointSubdivisionFactor = strtoul(argv[argi], NULL, 0);
         }
         else if (strcmp(argv[argi], "--shape-point-subdivision-factor") == 0)
         {

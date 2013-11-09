@@ -232,13 +232,13 @@ protected:
 #define AFK_CL_THREAD_ID_NONSHARED(id) (AFK_CL_THREAD_ID_SHARED(id) | AFK_CL_NONSHARED)
 #define AFK_CL_THREAD_ID_NONSHARED_MASK(id) (~AFK_CL_THREAD_ID_NONSHARED(id))
 
-    bool tryClaim(unsigned int threadId)
+    bool tryClaim(unsigned int threadId) 
     {
         uint64_t expected = AFK_CL_NO_THREAD;
         return id.compare_exchange_strong(expected, AFK_CL_THREAD_ID_NONSHARED(threadId));
     }
 
-    bool tryClaimShared(unsigned int threadId)
+    bool tryClaimShared(unsigned int threadId) 
     {
         if ((id.fetch_or(AFK_CL_THREAD_ID_SHARED(threadId)) & AFK_CL_NONSHARED) == AFK_CL_NONSHARED)
         {
@@ -252,18 +252,18 @@ protected:
         return true;
     }
 
-    bool tryUpgradeShared(unsigned int threadId)
+    bool tryUpgradeShared(unsigned int threadId) 
     {
         uint64_t expected = AFK_CL_THREAD_ID_SHARED(threadId);
         return id.compare_exchange_strong(expected, AFK_CL_THREAD_ID_NONSHARED(threadId));
     }
 
-    void releaseShared(unsigned int threadId)
+    void releaseShared(unsigned int threadId) 
     {
         id.fetch_and(AFK_CL_THREAD_ID_SHARED_MASK(threadId));
     }
 
-    void release(unsigned int threadId)
+    void release(unsigned int threadId) 
     {
         id.fetch_and(AFK_CL_THREAD_ID_NONSHARED_MASK(threadId));
     }
@@ -277,7 +277,7 @@ public:
      * the current frame; this mechanism locks out an object
      * from being claimed more than once per frame.
      */
-    AFK_Claim<T, getComputingFrame> claim(unsigned int threadId, unsigned int flags)
+    AFK_Claim<T, getComputingFrame> claim(unsigned int threadId, unsigned int flags) 
     {
         bool claimed = false;
 

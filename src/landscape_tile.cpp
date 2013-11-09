@@ -31,8 +31,6 @@
 
 AFK_LandscapeTile::AFK_LandscapeTile():
     haveTerrainDescriptor(false),
-    terrainFeatures(nullptr),
-    terrainTiles(nullptr),
     yBoundLower(-FLT_MAX),
     yBoundUpper(FLT_MAX)
 {
@@ -57,31 +55,25 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
     {
         AFK_Boost_Taus88_RNG rng;
 
-        /* I'm going to make 5 terrain tiles. */
-        AFK_Tile descriptorTiles[5];
-        tile.enumerateDescriptorTiles(&descriptorTiles[0], 5, lSizes.subdivisionFactor);
+        AFK_Tile descriptorTiles[afk_terrainTilesPerTile];
+        tile.enumerateDescriptorTiles(&descriptorTiles[0], afk_terrainTilesPerTile, lSizes.subdivisionFactor);
 
-        assert(!terrainFeatures);
-        terrainFeatures = new std::vector<AFK_TerrainFeature>();
-
-        assert(!terrainTiles);
-        terrainTiles = new std::vector<AFK_TerrainTile>();
-
-        for (unsigned int i = 0; i < 5; ++i)
+        auto featureIt = terrainFeatures.begin();
+        for (unsigned int i = 0; i < afk_terrainTilesPerTile; ++i)
         {
             rng.seed(descriptorTiles[i].rngSeed());
             Vec3<float> tileCoord = descriptorTiles[i].toWorldSpace(minCellSize);
-            AFK_TerrainTile t;
-            t.make(
-                *terrainFeatures,
+            terrainTiles[i].make<FeatureArray::iterator>(
+                featureIt,
                 tileCoord,
                 lSizes,
                 rng);
-            terrainTiles->push_back(t);
         }
 
+        assert(featureIt == terrainFeatures.end());
+
         /* TODO remove debug */
-        AFK_DEBUG_PRINTL("makeTerrainDescriptor(): generated terrain for " << tile << " (terrain tiles " << AFK_InnerDebug<std::vector<AFK_TerrainTile> >(terrainTiles) << ")")
+        AFK_DEBUG_PRINTL("makeTerrainDescriptor(): generated terrain for " << tile << " (terrain tiles " << AFK_InnerDebug<TileArray>(&terrainTiles) << ")")
 
         haveTerrainDescriptor = true;
     }
@@ -95,8 +87,6 @@ void AFK_LandscapeTile::buildTerrainList(
     float maxDistance,
     const AFK_LANDSCAPE_CACHE *cache) const
 {
-    if (!terrainFeatures || !terrainTiles) throw AFK_Exception("Null terrain features found");
-
     /* TODO remove debug
      * So, I'm getting never-before-seen pointers here, indicating
      * a bug.  I suspect the Claimable stuff of maybe double
@@ -110,10 +100,10 @@ void AFK_LandscapeTile::buildTerrainList(
      * not use that rapid heap allocation and instead embed a
      * std::array in each LandscapeTile ...
      */
-    AFK_DEBUG_PRINTL("buildTerrainList(): adding local terrain for " << tile << " (terrain tiles " << AFK_InnerDebug<std::vector<AFK_TerrainTile> >(terrainTiles) << ")")
+    AFK_DEBUG_PRINTL("buildTerrainList(): adding local terrain for " << tile << " (terrain tiles " << AFK_InnerDebug<TileArray>(&terrainTiles) << ")")
 
     /* Add the local terrain tiles to the list. */
-    list.extend(*terrainFeatures, *terrainTiles);
+    list.extend<FeatureArray, TileArray>(terrainFeatures, terrainTiles);
 
     /* If this isn't the top level tile... */
     if (tile.coord.v[2] < maxDistance)
@@ -174,12 +164,12 @@ float AFK_LandscapeTile::getYBoundUpper() const
 
 void AFK_LandscapeTile::setYBounds(float _yBoundLower, float _yBoundUpper)
 {
-    if (terrainTiles)
+    if (haveTerrainDescriptor)
     {
         /* Convert these bounds into world space.
          * The native tile is the first one in the list
          */
-        float tileScale = (*terrainTiles)[0].getTileScale();
+        float tileScale = terrainTiles[0].getTileScale();
         yBoundLower = _yBoundLower * tileScale;
         yBoundUpper = _yBoundUpper * tileScale;
 
@@ -187,7 +177,7 @@ void AFK_LandscapeTile::setYBounds(float _yBoundLower, float _yBoundUpper)
      * has been computed now.
      */
 #if 0
-        AFK_DEBUG_PRINTL("Tile " << (*terrainTiles)[0].getTileCoord() << ": new y-bounds appeared: " << yBoundLower << ", " << yBoundUpper)
+        AFK_DEBUG_PRINTL("Tile " << terrainTiles[0].getTileCoord() << ": new y-bounds appeared: " << yBoundLower << ", " << yBoundUpper)
 #endif
     }
 }
@@ -228,17 +218,7 @@ bool AFK_LandscapeTile::makeDisplayUnit(
 
 void AFK_LandscapeTile::evict(void)
 {
-    if (terrainTiles)
-    {
-        delete terrainTiles;
-        terrainTiles = nullptr;
-    }
-
-    if (terrainFeatures)
-    {
-        delete terrainFeatures;
-        terrainFeatures = nullptr;
-    }
+    haveTerrainDescriptor = false;
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_LandscapeTile& t)

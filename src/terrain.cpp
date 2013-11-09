@@ -45,39 +45,6 @@ Vec3<float> AFK_TerrainTile::getTileCoord(void) const
     return afk_vec3<float>(tileX, tileZ, tileScale);
 }
 
-void AFK_TerrainTile::make(
-    std::vector<AFK_TerrainFeature>& features,
-    const Vec3<float>& _tileCoord,
-    const AFK_LandscapeSizes& lSizes,
-    AFK_RNG& rng)
-{
-    /* This establishes where our terrain cell actually lies. */
-    tileX = _tileCoord.v[0];
-    tileZ = _tileCoord.v[1];
-    tileScale = _tileCoord.v[2];
-
-    /* For now I'm always going to apply `featureCountPerTile'
-     * features instead, to avoid having padding issues in the
-     * terrain compute queue.
-     */
-    for (unsigned int i = 0; i < lSizes.featureCountPerTile; ++i)
-    {
-        AFK_TerrainFeature feature;
-
-        for (unsigned int j = 0; j < 7; ++j)
-        {
-            feature.f[j] = (uint8_t)(rng.frand() * 256.0f);
-        }
-
-        /* For now, I'm going to include one spike per tile,
-         * and make the others humps.
-         */
-        feature.f[AFK_TFO_FTYPE] = (i == 0 ? AFK_TERRAIN_SPIKE : AFK_TERRAIN_HUMP);
-
-        features.push_back(feature);
-    }
-} 
-
 std::ostream& operator<<(std::ostream& os, const AFK_TerrainTile& tile)
 {
     os << "TerrainTile(Coord=" << tile.getTileCoord() << ")";
@@ -87,20 +54,9 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainTile& tile)
 
 /* AFK_TerrainList implementation. */
 
-void AFK_TerrainList::extend(const std::vector<AFK_TerrainFeature>& features, const std::vector<AFK_TerrainTile>& tiles)
-{
-    unsigned int fOldSize = f.size();
-    f.resize(f.size() + features.size());
-    memcpy(&f[fOldSize], &features[0], features.size() * sizeof(AFK_TerrainFeature));
-
-    unsigned int tOldSize = t.size();
-    t.resize(t.size() + tiles.size());
-    memcpy(&t[tOldSize], &tiles[0], tiles.size() * sizeof(AFK_TerrainTile));
-}
-
 void AFK_TerrainList::extend(const AFK_TerrainList& list)
 {
-    extend(list.f, list.t);
+    extend<std::vector<AFK_TerrainFeature>, std::vector<AFK_TerrainTile> >(list.f, list.t);
 }
 
 unsigned int AFK_TerrainList::featureCount(void) const

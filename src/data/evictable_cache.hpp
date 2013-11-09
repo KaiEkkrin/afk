@@ -49,7 +49,7 @@ public:
 
     AFK_Evictable(): key(unassigned), claimable() {}
 
-    bool canBeEvicted(void) const
+    bool canBeEvicted(void) const 
     {
         bool canEvict = ((getComputingFrame() - claimable.getLastSeen()) > framesBeforeEviction);
         return canEvict;
