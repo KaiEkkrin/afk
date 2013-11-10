@@ -93,8 +93,7 @@ protected:
     const size_t kickoffSize;
     const size_t complainSize;
 
-    unsigned int initialisationThreadId;
-    unsigned int evictionThreadId;
+    unsigned int threadId;
     boost::thread *th;
     boost::promise<unsigned int> *rp;
     boost::unique_future<unsigned int> result;
@@ -139,7 +138,7 @@ public:
                          */
                         try
                         {
-                            auto claim = candidate->claimable.claim(evictionThreadId, AFK_CL_EVICTOR);
+                            auto claim = candidate->claimable.claim(threadId, AFK_CL_EVICTOR);
                             if (candidate->canBeEvicted())
                             {
                                 Value& obj = claim.get();
@@ -171,14 +170,12 @@ public:
         unsigned int targetContention,
         Hasher hasher,
         size_t _targetSize,
-        unsigned int _initialisationThreadId,
-        unsigned int _evictionThreadId):
+        unsigned int _threadId):
             AFK_PolymerCache<Key, Monomer, Hasher, unassigned, hashBits, debug>(targetContention, hasher),
             targetSize(_targetSize),
             kickoffSize(_targetSize + _targetSize / 4),
             complainSize(_targetSize + _targetSize / 2),
-            initialisationThreadId(_initialisationThreadId),
-            evictionThreadId(_evictionThreadId),
+            threadId(_threadId),
             th(nullptr), rp(nullptr), stop(false),
             entriesEvicted(0), runsSkipped(0), runsOverlapped(0)
     {
