@@ -197,14 +197,15 @@ extern AFK_GetComputingFrame afk_getComputingFrameFunc;
  */
 #define AFK_CLAIM_OF(t) AFK_Claim<AFK_##t, afk_getComputingFrameFunc>
 
-/* I'll define the caches here, it's a nice central place to put them. */
-#define AFK_WORLD_CACHE AFK_EvictableCache<AFK_Cell, AFK_WorldCell, AFK_HashCell, afk_unassignedCell, 60, afk_getComputingFrameFunc>
-#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile, afk_unassignedTile, 10, afk_getComputingFrameFunc>
-#define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 10, afk_getComputingFrameFunc>
-#define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 10, afk_getComputingFrameFunc>
-
-/* Some fixed thread IDs for non-pool threads. */
-
+/* I'll define the caches here, it's a nice central place to put them.
+ * I'm going to use plenty of hash bits for the world cache (many many
+ * small cells).  The others will have fewer.  These are hardwired
+ * tweakables; check the memory usage.
+ */
+#define AFK_WORLD_CACHE AFK_EvictableCache<AFK_Cell, AFK_WorldCell, AFK_HashCell, afk_unassignedCell, 22, 60, afk_getComputingFrameFunc>
+#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile, afk_unassignedTile, 16, 10, afk_getComputingFrameFunc>
+#define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 16, 10, afk_getComputingFrameFunc>
+#define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 16, 10, afk_getComputingFrameFunc>
 
 #endif /* _AFK_CORE_H_ */
 

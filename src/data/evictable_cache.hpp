@@ -49,19 +49,6 @@ public:
 
     AFK_Evictable(): key(unassigned), claimable() {}
 
-    AFK_Evictable(AFK_Evictable&& _evictable):
-        claimable(_evictable.claimable)
-    {
-        key.store(_evictable.key.load());
-    }
-
-    AFK_Evictable& operator=(AFK_Evictable&& _evictable)
-    {
-        key.store(_evictable.key.load());
-        claimable = _evictable.claimable;
-        return *this;
-    }
-
     bool canBeEvicted(void) const 
     {
         bool canEvict = ((getComputingFrame() - claimable.getLastSeen()) > framesBeforeEviction);
@@ -88,6 +75,7 @@ template<
     typename Value,
     typename Hasher,
     const Key& unassigned,
+    unsigned int hashBits,
     int64_t framesBeforeEviction,
     AFK_GetComputingFrame& getComputingFrame,
     bool debug = false>
@@ -95,7 +83,7 @@ class AFK_EvictableCache:
     public AFK_PolymerCache<
         Key,
         AFK_Evictable<Key, Value, unassigned, framesBeforeEviction, getComputingFrame>,
-        Hasher, unassigned, debug>
+        Hasher, unassigned, hashBits, debug>
 {
 protected:
     typedef AFK_Evictable<Key, Value, unassigned, framesBeforeEviction, getComputingFrame> Monomer;
@@ -105,7 +93,8 @@ protected:
     const size_t kickoffSize;
     const size_t complainSize;
 
-    unsigned int threadId;
+    unsigned int initialisationThreadId;
+    unsigned int evictionThreadId;
     boost::thread *th;
     boost::promise<unsigned int> *rp;
     boost::unique_future<unsigned int> result;
@@ -118,6 +107,11 @@ protected:
     unsigned int runsOverlapped;
 
 public:
+    void initialisationWorker(AFK_PolymerChain<Key, Monomer, unassigned, hashBits, debug> *newChain)
+    {
+        /* TODO: This worker makes sure all elements of the chain are initialised... */
+    }
+
     void evictionWorker(void)
     {
         unsigned int entriesEvicted = 0;
@@ -145,7 +139,7 @@ public:
                          */
                         try
                         {
-                            auto claim = candidate->claimable.claim(threadId, AFK_CL_EVICTOR);
+                            auto claim = candidate->claimable.claim(evictionThreadId, AFK_CL_EVICTOR);
                             if (candidate->canBeEvicted())
                             {
                                 Value& obj = claim.get();
@@ -174,16 +168,17 @@ public:
     }
 
     AFK_EvictableCache(
-        unsigned int hashBits,
         unsigned int targetContention,
         Hasher hasher,
         size_t _targetSize,
-        unsigned int _threadId):
-            AFK_PolymerCache<Key, Monomer, Hasher, unassigned, debug>(hashBits, targetContention, hasher),
+        unsigned int _initialisationThreadId,
+        unsigned int _evictionThreadId):
+            AFK_PolymerCache<Key, Monomer, Hasher, unassigned, hashBits, debug>(targetContention, hasher),
             targetSize(_targetSize),
             kickoffSize(_targetSize + _targetSize / 4),
             complainSize(_targetSize + _targetSize / 2),
-            threadId(_threadId),
+            initialisationThreadId(_initialisationThreadId),
+            evictionThreadId(_evictionThreadId),
             th(nullptr), rp(nullptr), stop(false),
             entriesEvicted(0), runsSkipped(0), runsOverlapped(0)
     {
@@ -226,7 +221,7 @@ public:
                 /* Kick off a new eviction task */
                 rp = new boost::promise<unsigned int>();
                 th = new boost::thread(
-                    &AFK_EvictableCache<Key, Value, Hasher, unassigned, framesBeforeEviction, getComputingFrame, debug>::evictionWorker,
+                    &AFK_EvictableCache<Key, Value, Hasher, unassigned, hashBits, framesBeforeEviction, getComputingFrame, debug>::evictionWorker,
                     this);
                 result = rp->get_future();
             }
@@ -239,7 +234,7 @@ public:
 
     virtual void printStats(std::ostream& os, const std::string& prefix) const
     {
-        AFK_PolymerCache<Key, Monomer, Hasher, unassigned, debug>::printStats(os, prefix);
+        AFK_PolymerCache<Key, Monomer, Hasher, unassigned, hashBits, debug>::printStats(os, prefix);
         /* TODO An eviction rate would be much more interesting */
         os << prefix << ": Evicted " << entriesEvicted << " entries" << std::endl;
         os << prefix << ": " << runsOverlapped << " runs overlapped, " << runsSkipped << " runs skipped" << std::endl;

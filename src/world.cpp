@@ -568,10 +568,8 @@ AFK_World::AFK_World(
     unsigned int tileCacheEntries = tileCacheSize / lSizes.tSize;
 
     tileCacheEntries = jigsawAlloc.at(0).getPieceCount();
-    unsigned int tileCacheBitness = afk_suggestCacheBitness(tileCacheEntries);
 
     landscapeCache = new AFK_LANDSCAPE_CACHE(
-        tileCacheBitness,
         8,
         AFK_HashTile(),
         tileCacheEntries / 2,
@@ -584,10 +582,8 @@ AFK_World::AFK_World(
      */
     unsigned int worldCacheEntrySize = SQUARE(lSizes.pointSubdivisionFactor);
     unsigned int worldCacheEntries = worldCacheSize / worldCacheEntrySize;
-    unsigned int worldCacheBitness = afk_suggestCacheBitness(worldCacheEntries);
 
     worldCache = new AFK_WORLD_CACHE(
-        worldCacheBitness,
         8,
         AFK_HashCell(),
         worldCacheEntries,

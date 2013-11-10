@@ -274,13 +274,13 @@ public:
     /* The move constructors are used to enable initialisation.
      * They essentially make a new Claimable.
      */
-    AFK_Claimable(AFK_Claimable&& _claimable):
+    AFK_Claimable(const AFK_Claimable&& _claimable):
         id(0), lastSeen(-1), lastSeenExclusively(-1)
     {
         obj.store(_claimable.obj.load());
     }
 
-    AFK_Claimable& operator=(AFK_Claimable&& _claimable)
+    AFK_Claimable& operator=(const AFK_Claimable&& _claimable)
     {
         id.store(0);
         lastSeen.store(-1);

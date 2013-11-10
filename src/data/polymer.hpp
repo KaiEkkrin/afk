@@ -18,10 +18,10 @@
 #ifndef _AFK_DATA_POLYMER_H_
 #define _AFK_DATA_POLYMER_H_
 
-#include <assert.h>
+#include <array>
+#include <cassert>
 #include <exception>
 #include <sstream>
-#include <vector>
 
 #include <boost/atomic.hpp>
 #include <boost/thread/mutex.hpp>
@@ -62,38 +62,31 @@ class AFK_PolymerOutOfRange: public std::exception {};
  */
 
 /* A forward declaration or two */
-template<typename KeyType, typename MonomerType, const KeyType& unassigned, bool debug>
+template<typename KeyType, typename MonomerType, const KeyType& unassigned, unsigned int hashBits, bool debug>
 class AFK_PolymerChain;
 
-template<typename KeyType, typename MonomerType, const KeyType& unassigned, bool debug>
-std::ostream& operator<<(std::ostream& os, const AFK_PolymerChain<KeyType, MonomerType, unassigned, debug>& _chain);
+template<typename KeyType, typename MonomerType, const KeyType& unassigned, unsigned int hashBits, bool debug>
+std::ostream& operator<<(std::ostream& os, const AFK_PolymerChain<KeyType, MonomerType, unassigned, hashBits, debug>& _chain);
 
 /* The hash map is stored internally as these chains of
  * links to MonomerType.  When too much contention is deemed to be
  * going on, a new block is added.
  */
-template<typename KeyType, typename MonomerType, const KeyType& unassigned, bool debug>
+template<typename KeyType, typename MonomerType, const KeyType& unassigned, unsigned int hashBits, bool debug>
 class AFK_PolymerChain
 {
 protected:
-    typedef AFK_PolymerChain<KeyType, MonomerType, unassigned, debug> PolymerChain;
+    typedef AFK_PolymerChain<KeyType, MonomerType, unassigned, hashBits, debug> PolymerChain;
 
-    // TODO This can't work as a std::vector because of the need
-    // to move chain elements.  But, it might work as a std::array,
-    // so long as those move constructors get called and refreshed
-    // values for every field get committed at create time.
-    // Try.
+#define CHAIN_SIZE (1u<<hashBits)
+#define HASH_MASK ((1u<<hashBits)-1)
+
     // The Polymer will now need to be templated with hashBits;
     // sensible values appear to be
     // world: 22 or above
     // landscape and others: maybe 16.
-    std::vector<MonomerType> chain;
+    std::array<MonomerType, CHAIN_SIZE> chain;
     boost::atomic<PolymerChain*> nextChain;
-
-    /* Various parameters (replicated from below) */
-    const unsigned int hashBits;
-#define CHAIN_SIZE (1u<<hashBits)
-#define HASH_MASK ((1u<<hashBits)-1)
 
     /* What position in the sequence we appear to be.  Used for
      * swizzling the chain offset around so that different chains
@@ -109,12 +102,9 @@ protected:
     }
     
 public:
-    AFK_PolymerChain(
-        const unsigned int _hashBits):
-            nextChain (nullptr), hashBits (_hashBits), index (0)
+    AFK_PolymerChain():
+        nextChain (nullptr), index (0)
     {
-        for (unsigned int i = 0; i < CHAIN_SIZE; ++i)
-            chain.push_back(MonomerType());
     }
 
     virtual ~AFK_PolymerChain()
@@ -240,24 +230,23 @@ public:
         }
     }
 
-    friend std::ostream& operator<< <KeyType, MonomerType, unassigned, debug>(std::ostream& os, const PolymerChain& _chain);
+    friend std::ostream& operator<< <KeyType, MonomerType, unassigned, hashBits, debug>(std::ostream& os, const PolymerChain& _chain);
 };
 
-template<typename KeyType, typename MonomerType, const KeyType& unassigned, bool debug>
-std::ostream& operator<<(std::ostream& os, const AFK_PolymerChain<KeyType, MonomerType, unassigned, debug>& _chain)
+template<typename KeyType, typename MonomerType, const KeyType& unassigned, unsigned int hashBits, bool debug>
+std::ostream& operator<<(std::ostream& os, const AFK_PolymerChain<KeyType, MonomerType, unassigned, hashBits, debug>& _chain)
 {
     os << "PolymerChain(index=" << std::dec << _chain.index << ", addr=" << std::hex << _chain.chain.data() << ")";
     return os;
 }
 
-template<typename KeyType, typename MonomerType, typename Hasher, const KeyType& unassigned, bool debug>
+template<typename KeyType, typename MonomerType, typename Hasher, const KeyType& unassigned, unsigned int hashBits, bool debug>
 class AFK_Polymer {
 protected:
-    typedef AFK_PolymerChain<KeyType, MonomerType, unassigned, debug> PolymerChain;
+    typedef AFK_PolymerChain<KeyType, MonomerType, unassigned, hashBits, debug> PolymerChain;
     PolymerChain *chains;
 
     /* These values define the behaviour of this polymer. */
-    const unsigned int hashBits; /* Each chain is 1<<hashBits long */
     const unsigned int targetContention; /* The contention level at which we make a new chain */
 
     /* The hasher to use. */
@@ -284,8 +273,7 @@ protected:
         /* TODO Make this have prepared one already (in a different
          * thread), because making a new chain is slow
          */
-        PolymerChain *newChain =
-            new PolymerChain(hashBits);
+        PolymerChain *newChain = new PolymerChain();
         chains->extend(newChain, 0);
         return newChain;
     }
@@ -338,11 +326,11 @@ protected:
     }
 
 public:
-    AFK_Polymer(unsigned int _hashBits, unsigned int _targetContention, Hasher _hasher):
-        hashBits (_hashBits), targetContention (_targetContention), hasher (_hasher)
+    AFK_Polymer(unsigned int _targetContention, Hasher _hasher):
+        targetContention (_targetContention), hasher (_hasher)
     {
         /* Start off with just one chain. */
-        chains = new PolymerChain(_hashBits);
+        chains = new PolymerChain();
     }
 
     virtual ~AFK_Polymer()
