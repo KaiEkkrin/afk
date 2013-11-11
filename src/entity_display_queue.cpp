@@ -15,6 +15,7 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
+#include "debug.hpp"
 #include "display.hpp"
 #include "entity_display_queue.hpp"
 #include "jigsaw.hpp"
@@ -62,6 +63,7 @@ void AFK_EntityDisplayQueue::draw(
     const AFK_ShapeSizes& sSizes)
 {
     unsigned int instanceCount = queue.size();
+    AFK_DEBUG_PRINTL("entity display queue: instanceCount " << instanceCount)
     if (instanceCount == 0) return;
 
     if (!displayTBOSamplerLocation)

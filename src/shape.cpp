@@ -331,6 +331,10 @@ bool AFK_Shape::generateClaimedShapeCell(
                 shapeCellClaim.get().enqueueVapourComputeUnitFromExistingVapour(
                     threadId, adjacency, cubeOffset, cubeCount, realCoord, cell.key, world->sSizes, vapourJigsaws, world->vapourComputeFair);
                 world->shapeVapoursComputed.fetch_add(1);
+
+#if AFK_SHAPE_ENUM_DEBUG
+                AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << ": enqueueing existing vapour with " << cubeCount << " cubes from " << cubeOffset << ", from " << vc)
+#endif
             }
             else
             {
@@ -347,6 +351,9 @@ bool AFK_Shape::generateClaimedShapeCell(
                         threadId, adjacency, list, realCoord, cell.key, world->sSizes, vapourJigsaws, world->vapourComputeFair, cubeOffset, cubeCount);
                     vapourCell.enqueued(cubeOffset, cubeCount);
                     world->shapeVapoursComputed.fetch_add(1);
+#if AFK_SHAPE_ENUM_DEBUG
+                    AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << ": generated new vapour with " << list.cubeCount() << " cubes at " << vc)
+#endif
                 }
             }
         }
@@ -369,6 +376,10 @@ bool AFK_Shape::generateClaimedShapeCell(
                 shapeCellClaim.get().enqueueEdgeComputeUnit(
                     threadId, shapeCellCache, realCoord, vapourJigsaws, edgeJigsaws, world->edgeComputeFair, world->entityFair2DIndex);
                 world->shapeEdgesComputed.fetch_add(1);
+
+#if AFK_SHAPE_ENUM_DEBUG
+                AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << ": generated edges from vapour at " << vc)
+#endif
             }
         }
     }

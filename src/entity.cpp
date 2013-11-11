@@ -24,7 +24,7 @@
 
 /* AFK_Entity implementation */
 
-AFK_Entity::AFK_Entity(): shapeKey(0), lastFrameId(AFK_Frame().get()) {}
+AFK_Entity::AFK_Entity(): shapeKey(0), obj(), lastFrameId(AFK_Frame().get()) {}
 
 void AFK_Entity::position(
     const Vec3<float>& scale,

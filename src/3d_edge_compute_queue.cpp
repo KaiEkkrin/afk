@@ -20,6 +20,7 @@
 #include <algorithm>
 
 #include "3d_edge_compute_queue.hpp"
+#include "debug.hpp"
 #include "exception.hpp"
 
 
@@ -91,6 +92,7 @@ void AFK_3DEdgeComputeQueue::computeStart(
 
     /* Check there's something to do */
     unsigned int unitCount = units.size();
+    AFK_DEBUG_PRINTL("3d edge compute queue: unitCount " << unitCount)
     if (unitCount == 0) return;
 
     /* Make sure the compute stuff is initialised... */
@@ -106,7 +108,7 @@ void AFK_3DEdgeComputeQueue::computeStart(
     cl_mem unitsBuf = computer->oclShim.CreateBuffer()(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         units.size() * sizeof(AFK_3DEdgeComputeUnit),
-        &units[0], &error);
+        units.data(), &error);
     AFK_HANDLE_CL_ERROR(error);
 
     /* Set up the rest of the parameters */

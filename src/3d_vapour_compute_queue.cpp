@@ -19,6 +19,7 @@
 
 #include "3d_vapour_compute_queue.hpp"
 #include "compute_dependency.hpp"
+#include "debug.hpp"
 #include "exception.hpp"
 
 
@@ -133,6 +134,7 @@ void AFK_3DVapourComputeQueue::computeStart(
 
     /* Check there's something to do */
     unsigned int unitCount = units.size();
+    AFK_DEBUG_PRINTL("3d vapour compute queue: unitCount " << unitCount)
     if (unitCount == 0) return;
 
     /* Make sure the compute stuff is initialised... */
@@ -154,19 +156,19 @@ void AFK_3DVapourComputeQueue::computeStart(
     vapourBufs[0] = computer->oclShim.CreateBuffer()(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         f.size() * sizeof(AFK_3DVapourFeature),
-        &f[0], &error);
+        f.data(), &error);
     AFK_HANDLE_CL_ERROR(error);
 
     vapourBufs[1] = computer->oclShim.CreateBuffer()(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         c.size() * sizeof(AFK_3DVapourCube),
-        &c[0], &error);
+        c.data(), &error);
     AFK_HANDLE_CL_ERROR(error);
 
     vapourBufs[2] = computer->oclShim.CreateBuffer()(
         ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         units.size() * sizeof(AFK_3DVapourComputeUnit),
-        &units[0], &error);
+        units.data(), &error);
     AFK_HANDLE_CL_ERROR(error);
 
     /* Set up the rest of the vapour parameters */
