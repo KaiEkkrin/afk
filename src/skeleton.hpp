@@ -79,11 +79,9 @@ public:
 class AFK_Skeleton
 {
 protected:
-    uint64_t **grid;
-    int gridDim;
+    static constexpr int gridDim = afk_shapeSkeletonFlagGridDim;
+    uint64_t grid[gridDim][gridDim];
     int boneCount;
-
-    void initGrid(void);
 
     /* Simple queries. */
     enum AFK_SkeletonFlag testFlag(const AFK_SkeletonCube& where) const;
@@ -113,7 +111,6 @@ protected:
 
 public:
     AFK_Skeleton();
-    virtual ~AFK_Skeleton();
 
     /* This makes a fresh Skeleton from scratch -- a
      * top level one.

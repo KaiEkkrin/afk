@@ -132,18 +132,6 @@ bool AFK_SkeletonCube::atEnd(int gridDim) const
 #define SKELETON_FLAG_XY(x, y) grid[(x)][(y)]
 #define SKELETON_FLAG_Z(z) (1uLL << (z))
 
-void AFK_Skeleton::initGrid(void)
-{
-    if (grid) throw AFK_Exception("Tried to re-init grid");
-
-    grid = new uint64_t*[gridDim];
-    for (int x = 0; x < gridDim; ++x)
-    {
-        grid[x] = new uint64_t[gridDim];
-        memset(grid[x], 0, sizeof(uint64_t) * gridDim);
-    }
-}
-
 enum AFK_SkeletonFlag AFK_Skeleton::testFlag(const AFK_SkeletonCube& where) const
 {
     if (WITHIN_SKELETON_FLAG_GRID(where.coord.v[0], where.coord.v[1], where.coord.v[2]))
@@ -283,28 +271,13 @@ int AFK_Skeleton::embellish(
 }
 
 AFK_Skeleton::AFK_Skeleton():
-    grid(nullptr)
+    boneCount(0)
 {
-}
-
-AFK_Skeleton::~AFK_Skeleton()
-{
-    if (grid)
-    {
-        for (int x = 0; x < gridDim; ++x)
-        {
-            delete[] grid[x];
-        }
-
-        delete[] grid;
-    }
+    memset(grid, 0, sizeof(uint64_t) * gridDim * gridDim);
 }
 
 int AFK_Skeleton::make(AFK_RNG& rng, const AFK_ShapeSizes& sSizes)
 {
-    gridDim = sSizes.skeletonFlagGridDim;
-    initGrid();
-
     /* Begin in the middle. */
     int skeletonSize = (int)sSizes.skeletonMaxSize;
     boneCount = grow(AFK_SkeletonCube(afk_vec3<int64_t>(gridDim / 2, gridDim / 2, gridDim / 2)),
@@ -320,9 +293,6 @@ int AFK_Skeleton::make(
     AFK_RNG& rng,
     const AFK_ShapeSizes& sSizes)
 {
-    gridDim = sSizes.skeletonFlagGridDim;
-    initGrid();
-
     if (upper.getBoneCount() > 0)
     {
         /* Try embellishing that upper skeleton. */

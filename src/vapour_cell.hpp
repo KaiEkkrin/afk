@@ -20,8 +20,8 @@
 
 #include "afk.hpp"
 
+#include <array>
 #include <sstream>
-#include <vector>
 
 #include "3d_solid.hpp"
 #include "data/claimable.hpp"
@@ -46,9 +46,12 @@ class AFK_VapourCell
 protected:
     /* The actual features here. */
     bool haveDescriptor;
-    AFK_Skeleton *skeleton;
-    std::vector<AFK_3DVapourFeature> *features;
-    std::vector<AFK_3DVapourCube> *cubes;
+    AFK_Skeleton skeleton;
+
+    typedef std::array<AFK_3DVapourFeature, afk_shapeFeatureCountPerCube> FeatureArray;
+    FeatureArray features;
+    typedef std::array<AFK_3DVapourCube, 1> CubeArray;
+    CubeArray cubes;
 
     /* These fields track whether this vapour cell has already
      * been pushed into the vapour compute queue this round,

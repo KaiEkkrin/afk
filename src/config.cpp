@@ -125,9 +125,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     subdivisionFactor           = 2;
     entitySubdivisionFactor     = 4;
 
-    shape_pointSubdivisionFactor        = 6;
     shape_skeletonMaxSize               = 24;
-    shape_skeletonFlagGridDim           = 8;
     shape_edgeThreshold                 = 0.03f;
 
     maxEntitiesPerCell          = 4;
@@ -249,20 +247,10 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
             REQUIRE_ARGUMENT("--entity-subdivision-factor")
             entitySubdivisionFactor = strtoul(argv[argi], NULL, 0);
         }
-        else if (strcmp(argv[argi], "--shape-point-subdivision-factor") == 0)
-        {
-            REQUIRE_ARGUMENT("--shape-point-subdivision-factor")
-            shape_pointSubdivisionFactor = strtoul(argv[argi], NULL, 0);
-        }
         else if (strcmp(argv[argi], "--shape-skeleton-max-size") == 0)
         {
             REQUIRE_ARGUMENT("--shape-skeleton-max-size")
             shape_skeletonMaxSize = strtoul(argv[argi], NULL, 0);
-        }
-        else if (strcmp(argv[argi], "--shape-skeleton-flag-grid-dim") == 0)
-        {
-            REQUIRE_ARGUMENT("--shape-skeleton-flag-grid-dim")
-            shape_skeletonFlagGridDim = strtoul(argv[argi], NULL, 0);
         }
         else if (strcmp(argv[argi], "--shape-edge-threshold") == 0)
         {

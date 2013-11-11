@@ -35,9 +35,7 @@ AFK_KeyedCell afk_shapeToVapourCell(const AFK_KeyedCell& cell, const AFK_ShapeSi
 /* AFK_VapourCell implementation. */
 
 AFK_VapourCell::AFK_VapourCell():
-    skeleton(nullptr),
-    features(nullptr),
-    cubes(nullptr)
+    haveDescriptor(false)
 {
 }
 
@@ -57,28 +55,19 @@ void AFK_VapourCell::makeDescriptor(
 {
     if (!haveDescriptor)
     {
-        assert(!skeleton);
-        skeleton = new AFK_Skeleton();
-
-        assert(!features);
-        features = new std::vector<AFK_3DVapourFeature>();
-
-        assert(!cubes);
-        cubes = new std::vector<AFK_3DVapourCube>();
-
         AFK_Boost_Taus88_RNG rng;
 
         rng.seed(cell.rngSeed());
-        skeleton->make(rng, sSizes);
+        skeleton.make(rng, sSizes);
 
-        AFK_3DVapourCube cube;
-        cube.make(
-            *features,
+        auto featureIt = features.begin();
+        cubes[0].make(
+            featureIt,
             cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
-            *skeleton,
+            skeleton,
             sSizes,
             rng);
-        cubes->push_back(cube);
+        assert(featureIt == features.end());
 
         haveDescriptor = true;
     }
@@ -95,15 +84,6 @@ void AFK_VapourCell::makeDescriptor(
 
     if (!haveDescriptor)
     {
-        assert(!skeleton);
-        skeleton = new AFK_Skeleton();
-
-        assert(!features);
-        features = new std::vector<AFK_3DVapourFeature>();
-
-        assert(!cubes);
-        cubes = new std::vector<AFK_3DVapourCube>();
-
         AFK_Boost_Taus88_RNG rng;
 
         rng.seed(cell.rngSeed());
@@ -114,20 +94,21 @@ void AFK_VapourCell::makeDescriptor(
             upperCell.c.coord.v[0], upperCell.c.coord.v[1], upperCell.c.coord.v[2]);
         Vec3<int64_t> upperOffset = (thisCellShapeSpace - upperCellShapeSpace) * (sSizes.skeletonFlagGridDim/2) / cell.c.coord.v[3];
 
-        if (skeleton->make(
-            *(upperVapourCell.skeleton),
+        if (skeleton.make(
+            upperVapourCell.skeleton,
             upperOffset,
             rng,
             sSizes) > 0)
         {
-            AFK_3DVapourCube cube;
-            cube.make(
-                *features,
+            auto featureIt = features.begin();
+            cubes[0].make(
+                featureIt,
                 cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
-                *skeleton,
+                skeleton,
                 sSizes,
                 rng);
-            cubes->push_back(cube);
+
+            assert(featureIt = features.end());
         }
 
         haveDescriptor = true;
@@ -136,33 +117,33 @@ void AFK_VapourCell::makeDescriptor(
 
 bool AFK_VapourCell::withinSkeleton(const AFK_KeyedCell& cell, const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const
 {
-    assert(skeleton);
+    assert(haveDescriptor);
     assert(shapeCell.c.coord.v[3] == cell.c.coord.v[3] / sSizes.skeletonFlagGridDim);
 
     AFK_SkeletonCube cube(cell, shapeCell, sSizes);
-    return skeleton->within(cube);
+    return skeleton.within(cube);
 }
 
 int AFK_VapourCell::skeletonAdjacency(const AFK_KeyedCell& cell, const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const
 {
-    assert(skeleton);
+    assert(haveDescriptor);
     assert(shapeCell.c.coord.v[3] == cell.c.coord.v[3] / sSizes.skeletonFlagGridDim);
 
     AFK_SkeletonCube cube(cell, shapeCell, sSizes);
-    return skeleton->getAdjacency(cube);
+    return skeleton.getAdjacency(cube);
 }
 
 int AFK_VapourCell::skeletonFullAdjacency(const AFK_KeyedCell& cell, const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const
 {
-    assert(skeleton);
+    assert(haveDescriptor);
     assert(shapeCell.c.coord.v[3] == cell.c.coord.v[3] / sSizes.skeletonFlagGridDim);
 
     AFK_SkeletonCube cube(cell, shapeCell, sSizes);
-    return skeleton->getFullAdjacency(cube);
+    return skeleton.getFullAdjacency(cube);
 }
 
 AFK_VapourCell::ShapeCells::ShapeCells(const AFK_KeyedCell& _vc, const AFK_VapourCell& _vapourCell, const AFK_ShapeSizes& _sSizes):
-    bones(AFK_Skeleton::Bones(*(_vapourCell.skeleton))),
+    bones(AFK_Skeleton::Bones(_vapourCell.skeleton)),
     vc(_vc),
     sSizes(_sSizes)
 {
@@ -189,7 +170,7 @@ void AFK_VapourCell::build3DList(
     AFK_VAPOUR_CELL_CACHE *cache) const
 {
     /* Add the local vapour to the list. */
-    list.extend(*features, *cubes);
+    list.extend<FeatureArray, CubeArray>(features, cubes);
 
     /* If this isn't the top level cell... */
     if (cell.c.coord.v[3] < (sSizes.skeletonFlagGridDim * SHAPE_CELL_MAX_DISTANCE))
@@ -231,30 +212,12 @@ void AFK_VapourCell::enqueued(
 
 void AFK_VapourCell::evict(void)
 {
-    if (cubes)
-    {
-        delete cubes;
-        cubes = nullptr;
-    }
-
-    if (features)
-    {
-        delete features;
-        features = nullptr;
-    }
-
-    if (skeleton)
-    {
-        delete skeleton;
-        skeleton = nullptr;
-    }
+    haveDescriptor = false;
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_VapourCell& vapourCell)
 {
-    os << "Vapour cell  with " <<
-        (vapourCell.features ? vapourCell.features->size() : 0) << " features and " <<
-        (vapourCell.cubes ? vapourCell.cubes->size() : 0) << " cubes";
+    os << "Vapour cell with descriptor " << vapourCell.haveDescriptor << ", cube offset " << vapourCell.computeCubeOffset << " and cube count " << vapourCell.computeCubeCount;
     return os;
 }
 

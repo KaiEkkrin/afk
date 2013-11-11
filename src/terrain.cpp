@@ -17,7 +17,6 @@
 
 #include "afk.hpp"
 
-#include <cstring>
 #include <sstream>
 
 #include "computer.hpp"

@@ -117,9 +117,7 @@ public:
     unsigned int entitySubdivisionFactor;
 
     /* Shape setup */
-    unsigned int shape_pointSubdivisionFactor;
     unsigned int shape_skeletonMaxSize;
-    unsigned int shape_skeletonFlagGridDim;
     float shape_edgeThreshold;
 
     /* Entities.
