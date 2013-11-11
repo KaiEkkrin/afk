@@ -124,7 +124,7 @@ void AFK_EntityDisplayQueue::draw(
     glBufferData(
         GL_TEXTURE_BUFFER,
         queue.size() * ENTITY_DISPLAY_UNIT_SIZE,
-        &queue[0],
+        queue.data(),
         GL_STREAM_DRAW);
     glTexBuffer(
         GL_TEXTURE_BUFFER,

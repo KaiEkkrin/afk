@@ -19,6 +19,7 @@
 #define _AFK_DEF_H_
 
 #include <cmath>
+#include <iomanip>
 #include <sstream>
 
 #include <boost/static_assert.hpp>
@@ -377,7 +378,7 @@ std::ostream& operator<<(std::ostream& os, const Mat4<F>& m)
     {
         for (unsigned int col = 0; col < 4; ++col)
         {
-            os << m.m[row][col] << "\t";
+            os << std::setw(12) << m.m[row][col] << "\t";
         }
 
         os << std::endl;
