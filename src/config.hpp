@@ -126,7 +126,6 @@ public:
      * that kind of thing; and have different configurations
      * each.)
      */
-    unsigned int maxEntitiesPerCell;
     unsigned int entitySparseness; /* 1 -- always an entity; 16 -- 1/16th chance of an entity, etc */
 
     /* Initialises AFK configuration, based on command line

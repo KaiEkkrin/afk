@@ -20,11 +20,9 @@
 
 #include "afk.hpp"
 
+#include <array>
 #include <cassert>
 
-#include <boost/atomic.hpp>
-
-#include "data/claimable.hpp"
 #include "core.hpp"
 #include "entity.hpp"
 #include "rng/rng.hpp"
@@ -33,14 +31,12 @@
 #include "visible_cell.hpp"
 #include "world.hpp"
 
-typedef AFK_Claimable<AFK_Entity, afk_getComputingFrameFunc> AFK_ClaimableEntity;
-
 /* TODO I wanted this to be a std::list for easy insertion and removal,
  * and it can't be (issues with copies of atomics).  However, I expect
  * once I'm actually moving entities about they'll be held in a jigsaw
  * anyway so the OpenCL can process them...?
  */
-#define AFK_ENTITY_LIST std::list<AFK_ClaimableEntity>
+#define AFK_ENTITY_LIST std::list<AFK_Entity>
 
 /* Describes one cell in the world.  This is the value that we
  * cache in the big ol' WorldCache.
@@ -54,14 +50,14 @@ protected:
 
     /* The list of Entities currently homed to this cell. */
     //AFK_ENTITY_LIST *entities;
-    // TODO: No.  I need to fix this so it's a suitably short std:array
-    AFK_ClaimableEntity *entities;
-    unsigned int entityCount;
+    static constexpr int maxEntityCount = 4;
+    std::array<AFK_Entity, maxEntityCount> entities;
+    int entityCount; /* -1 for not generated yet */
 
     /* This tracks how far I've gotten along the whole business
      * of adding entities.
      */
-    unsigned int entityAddI;
+    int entityAddI;
 
     /* For generating the shapes for our starting entities. */
     bool checkClaimedShape(unsigned int shapeKey, AFK_Shape& shape, const AFK_ShapeSizes& sSizes);
@@ -98,7 +94,6 @@ public:
     /* For giving this cell a starting entity set. */
     unsigned int getStartingEntitiesWanted(
         AFK_RNG& rng,
-        unsigned int maxEntitiesPerCell,
         unsigned int entitySparseness);
 
     unsigned int getStartingEntityShapeKey(AFK_RNG& rng);
@@ -122,8 +117,8 @@ public:
      */
     AFK_ENTITY_LIST::iterator eraseEntity(AFK_ENTITY_LIST::iterator eIt);
 #else
-    unsigned int getEntityCount() const { return entityCount; }
-    AFK_ClaimableEntity& getEntityAt(unsigned int i) { assert(i < entityCount); return entities[i]; }
+    int getEntityCount() const { return entityCount; }
+    AFK_Entity& getEntityAt(int i) { assert(i < entityAddI); return entities[i]; }
 #endif
 
     /* Evicts the cell. */

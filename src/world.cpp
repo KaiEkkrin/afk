@@ -356,25 +356,21 @@ bool AFK_World::generateClaimedWorldCell(
 
         if (worldCell.getRealCoord().v[1] >= landscapeTileUpperYBound)
         {
-            unsigned int startingEntityCount = worldCell.getStartingEntitiesWanted(
-                staticRng, maxEntitiesPerCell, entitySparseness);
+            int startingEntityCount = worldCell.getStartingEntitiesWanted(
+                staticRng, entitySparseness);
 
-            for (unsigned int e = 0; e < startingEntityCount; ++e)
+            for (int e = 0; e < startingEntityCount; ++e)
             {
-                unsigned int shapeKey = worldCell.getStartingEntityShapeKey(staticRng);
+                int shapeKey = worldCell.getStartingEntityShapeKey(staticRng);
                 generateStartingEntity(shapeKey, worldCell, threadId, staticRng);
             }
         }
 
-        for (unsigned int eI = 0; eI < worldCell.getEntityCount(); ++eI)
+        for (int eI = 0; eI < worldCell.getEntityCount(); ++eI)
         {
-            try
+            AFK_Entity& e = worldCell.getEntityAt(eI);
+            if (e.notProcessedYet(afk_core.computingFrame))
             {
-                AFK_ClaimableEntity& ce = worldCell.getEntityAt(eI);
-                auto entityClaim = ce.claim(
-                    threadId, AFK_CL_LOOP | AFK_CL_EXCLUSIVE);
-                AFK_Entity& e = entityClaim.get();
-
                 /* Make sure everything I need in that shape
                  * has been computed ...
                  */
@@ -391,7 +387,7 @@ bool AFK_World::generateClaimedWorldCell(
 #if AFK_SHAPE_ENUM_DEBUG
                 shapeCellItem.param.shape.asedWorldCell     = cell;
                 shapeCellItem.param.shape.asedCounter       = eI;
-                AFK_DEBUG_PRINTL("ASED: Enqueued entity: worldCell=" << cell << ", entity counter=" << eCounter)
+                AFK_DEBUG_PRINTL("ASED: Enqueued entity: worldCell=" << cell << ", entity counter=" << eI)
 #endif
 
                 shapeCellItem.param.shape.dependency        = nullptr;
@@ -399,7 +395,6 @@ bool AFK_World::generateClaimedWorldCell(
         
                 entitiesQueued.fetch_add(1);
             }
-            catch (AFK_ClaimException) {} /* already processed? */
         }
 
         /* We don't need this any more */
@@ -456,7 +451,6 @@ AFK_World::AFK_World(
         minCellSize                 (config->minCellSize),
         lSizes                      (config),
         sSizes                      (config),
-        maxEntitiesPerCell          (config->maxEntitiesPerCell),
         entitySparseness            (config->entitySparseness)
 
 {

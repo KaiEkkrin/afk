@@ -128,7 +128,6 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     shape_skeletonMaxSize               = 24;
     shape_edgeThreshold                 = 0.03f;
 
-    maxEntitiesPerCell          = 4;
     entitySparseness            = 1024;
     
 
@@ -256,11 +255,6 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         {
             REQUIRE_ARGUMENT("--shape-edge-threshold")
             shape_edgeThreshold = strtof(argv[argi], NULL);
-        }
-        else if (strcmp(argv[argi], "--max-entities-per-cell") == 0)
-        {
-            REQUIRE_ARGUMENT("--max-entities-per-cell")
-            maxEntitiesPerCell = strtoul(argv[argi], NULL, 0);
         }
         else if (strcmp(argv[argi], "--entity-sparseness") == 0)
         {

@@ -20,23 +20,14 @@
 
 #include "afk.hpp"
 
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include <sstream>
 
-#include "cell.hpp"
-#include "data/fair.hpp"
+#include "data/frame.hpp"
 #include "def.hpp"
-#include "entity_display_queue.hpp"
-#include "jigsaw_collection.hpp"
 #include "object.hpp"
-#include "rng/rng.hpp"
-#include "work.hpp"
 
 /* An Entity is a moveable object that exists within the
  * world cells.
- * An Entity should be Claimable-wrapped: the worker thread should take
- * out an exclusive claim on it to ensure each one is
- * only processed once per frame.  It isn't cached, though:
- * instead they are stored within the world cells.
  * An Entity does not have its own geometry.  Instead, it
  * refers to a Shape (which does).  The idea is that I'll
  * make many Entities with the same Shapes, and use
@@ -56,6 +47,12 @@ public:
 protected:
     /* Describes where this entity is located. */
     AFK_Object obj;
+
+    /* The last frame this entity was processed.
+     * This doesn't need to be an atomic or anything -- the caller
+     * will already have a claim on the containing WorldCell.
+     */
+    int64_t lastFrameId;
 
     /* TODO: I need to sort out entity movement.  This should
      * be done in OpenCL with a large queue of entities to
@@ -78,6 +75,11 @@ public:
         const Vec3<float>& displacement,
         const Vec3<float>& rotation /* pitch, yaw, roll */
         );
+
+    /* Checks whether it's been processed this frame -- if not,
+     * returns true and bumps the last frame processed.
+     */
+    bool notProcessedYet(const AFK_Frame& currentFrame);
 
     Mat4<float> getTransformation(void) const { return obj.getTransformation(); }
 

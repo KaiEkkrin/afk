@@ -37,7 +37,7 @@ protected:
     bool never;
 
 public:
-    AFK_Frame(): id(0), never(true) {}
+    AFK_Frame(): id(-1), never(true) {}
     AFK_Frame(int64_t _id)
     {
         if (_id >= 0)

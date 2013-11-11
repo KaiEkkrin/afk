@@ -266,7 +266,6 @@ public:
     /* These parameters define how to initially populate a world
      * cell with entities.
      */
-    const unsigned int maxEntitiesPerCell;
     const unsigned int entitySparseness;
 
 

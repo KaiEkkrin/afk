@@ -24,7 +24,7 @@
 
 /* AFK_Entity implementation */
 
-AFK_Entity::AFK_Entity(): shapeKey(0) {}
+AFK_Entity::AFK_Entity(): shapeKey(0), lastFrameId(AFK_Frame().get()) {}
 
 void AFK_Entity::position(
     const Vec3<float>& scale,
@@ -36,6 +36,16 @@ void AFK_Entity::position(
     if (rotation.v[0] != 0.0f) obj.adjustAttitude(AXIS_PITCH, rotation.v[0]);
     if (rotation.v[1] != 0.0f) obj.adjustAttitude(AXIS_YAW, rotation.v[1]);
     if (rotation.v[2] != 0.0f) obj.adjustAttitude(AXIS_ROLL, rotation.v[2]);
+}
+
+bool AFK_Entity::notProcessedYet(const AFK_Frame& currentFrame)
+{
+    if (lastFrameId != currentFrame.get())
+    {
+        lastFrameId = currentFrame.get();
+        return true;
+    }
+    else return false;
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_Entity& _entity)

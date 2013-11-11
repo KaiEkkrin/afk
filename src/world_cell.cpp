@@ -26,7 +26,7 @@
 
 
 AFK_WorldCell::AFK_WorldCell():
-    entities(nullptr), entityCount(0), entityAddI(0)
+    entityCount(-1), entityAddI(0)
 {
 }
 
@@ -63,26 +63,23 @@ void AFK_WorldCell::testVisibility(const AFK_Camera& camera, bool& io_someVisibl
 
 unsigned int AFK_WorldCell::getStartingEntitiesWanted(
     AFK_RNG& rng,
-    unsigned int maxEntitiesPerCell,
     unsigned int entitySparseness)
 {
-    if (!entities)
+    if (entityCount == -1)
     {
-        assert(entityCount == 0);
         assert(entityAddI == 0);
+        ++entityCount;
 
         /* I want more entities in larger cells */
         Vec4<float> realCoord = getRealCoord();
         float sparseMult = log(realCoord.v[3]);
 
-        for (unsigned int entitySlot = 0; entitySlot < maxEntitiesPerCell; ++entitySlot)
+        for (unsigned int entitySlot = 0; entitySlot < maxEntityCount; ++entitySlot)
         {
             if (rng.frand() < (sparseMult / ((float)entitySparseness)))
                 ++entityCount;
         }
 
-        /* Make sure I've got space for these entities now */
-        entities = new AFK_ClaimableEntity[entityCount]();
         return entityCount;
     }
     else return 0; /* got all my entities already, don't make me any more! */
@@ -103,14 +100,11 @@ void AFK_WorldCell::addStartingEntity(
     const AFK_ShapeSizes& sSizes,
     AFK_RNG& rng)
 {
-    assert(entities);
-
     /* I'm going to fill out the next entity along my
      * entity addition iterator element.
      */
-    AFK_ClaimableEntity& claimableEntity = getEntityAt(entityAddI++);
-    auto claim = claimableEntity.claim(threadId, 0);
-    AFK_Entity& e = claim.get();
+    assert(entityCount != -1 && entityAddI < entityCount);
+    AFK_Entity& e = getEntityAt(entityAddI++);
     e.shapeKey = shapeKey;
 
     Vec4<float> realCoord = getRealCoord();
@@ -198,13 +192,8 @@ AFK_ENTITY_LIST::iterator AFK_WorldCell::eraseEntity(AFK_ENTITY_LIST::iterator e
 
 void AFK_WorldCell::evict(void)
 {
-    if (entities)
-    {
-        delete[] entities;
-        entities = nullptr;
-        entityCount = 0;
-        entityAddI = 0;
-    }
+    entityCount = -1;
+    entityAddI = 0;
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_WorldCell& worldCell)
