@@ -18,7 +18,6 @@
 #include "afk.hpp"
 
 #include <cassert>
-#include <cstring>
 #include <sstream>
 
 #include "3d_solid.hpp"
@@ -62,8 +61,8 @@ static void getAxisMinMax(
     }
 }
 
-void AFK_3DVapourCube::addRandomFeatureAtAdjacencyBit(
-    std::vector<AFK_3DVapourFeature>& features,
+bool AFK_3DVapourCube::addRandomFeatureAtAdjacencyBit(
+    AFK_3DVapourFeature& feature,
     int thisAdj,
     const Vec3<float>& coordMid,
     float slide,
@@ -113,7 +112,6 @@ void AFK_3DVapourCube::addRandomFeatureAtAdjacencyBit(
 #endif
 
     /* Finally!  I've got the possible locations.  Fill out the feature. */
-    AFK_3DVapourFeature feature;
     int j;
     for (j = 0; j < 3; ++j)
     {
@@ -151,11 +149,11 @@ void AFK_3DVapourCube::addRandomFeatureAtAdjacencyBit(
     }
 
     feature.f[j] = (uint8_t)weight;
-    features.push_back(feature);
+    return true;
 }
 
-void AFK_3DVapourCube::addRandomFeature(
-    std::vector<AFK_3DVapourFeature>& features,
+bool AFK_3DVapourCube::addRandomFeature(
+    AFK_3DVapourFeature& feature,
     int thisAdj,
     const Vec3<float>& coordMid,
     float slide,
@@ -166,7 +164,7 @@ void AFK_3DVapourCube::addRandomFeature(
     for (unsigned int i = 0; i < (sizeof(int) * 8); ++i)
         if ((thisAdj & (1<<i)) != 0) ++thisAdjOnes;
 
-    if (thisAdjOnes == 0) return;
+    if (thisAdjOnes == 0) return false;
 
     /* Decide which adjacency to go for.
      * Note that sometimes I won't go for an adjacency but
@@ -174,7 +172,7 @@ void AFK_3DVapourCube::addRandomFeature(
      * lower adjacency instead.
      */
     unsigned int decider = (rng.uirand() & 0x7fffffff); /* no negatives, please */
-    if ((decider & 3) == 0) return;
+    if ((decider & 3) == 0) return false;
     decider = decider >> 2;
     int decIndex = decider % thisAdjOnes;
 
@@ -194,8 +192,8 @@ void AFK_3DVapourCube::addRandomFeature(
         }
     }
 
-    addRandomFeatureAtAdjacencyBit(
-        features,
+    return addRandomFeatureAtAdjacencyBit(
+        feature,
         decBit,
         coordMid,
         slide,
@@ -207,80 +205,6 @@ Vec4<float> AFK_3DVapourCube::getCubeCoord(void) const
     return coord;
 }
 
-#define TRYFADJ_SIZE 4
-const int tryFAdj[TRYFADJ_SIZE] = {
-    0505000505,
-    0252505252,
-    0020252020,
-    0000020000
-};
-
-void AFK_3DVapourCube::make(
-    std::vector<AFK_3DVapourFeature>& features,
-    const Vec4<float>& _coord,
-    const AFK_Skeleton& skeleton,
-    const AFK_ShapeSizes& sSizes,
-    AFK_RNG& rng)
-{
-    coord = _coord;
-
-    /* I want to locate features around the skeleton, not away from it
-     * (those would just get ignored).
-     * To do this, enumerate the skeleton's bones...
-     */
-    std::vector<AFK_SkeletonCube> bones;
-    std::vector<int> bonesCoAdjacency;
-    int boneCount = skeleton.getBoneCount();
-
-    bones.reserve(boneCount);
-    bonesCoAdjacency.reserve(boneCount);
-
-    AFK_Skeleton::Bones bonesEnum(skeleton);
-    while (bonesEnum.hasNext())
-    {
-        AFK_SkeletonCube nextBone = bonesEnum.next();
-        bones.push_back(nextBone);
-        bonesCoAdjacency.push_back(skeleton.getCoAdjacency(nextBone));
-    }
-
-    while (features.size() < sSizes.featureCountPerCube)
-    {
-        unsigned int selector = rng.uirand();
-        unsigned int b = selector % bones.size();
-        selector = selector / bones.size();
-
-        /* This defines the centre of the bone that I picked. */
-        Vec3<float> coordMid = afk_vec3<float>(
-            ((float)bones[b].coord.v[0]) + 0.5f,
-            ((float)bones[b].coord.v[1]) + 0.5f,
-            ((float)bones[b].coord.v[2]) + 0.5f) / (float)sSizes.skeletonFlagGridDim;
-
-        /* This defines the maximum displacement in any direction,
-         * assuming suitable adjacency.
-         */
-        float slide = 0.5f / (float)sSizes.skeletonFlagGridDim;
-
-        /* Go through each of the possible adjacencies to put a
-         * feature near.  I'll prefer the earlier ones, because
-         * they give me a wider range of movement, as it were.
-         */
-        for (int t = 0; t < TRYFADJ_SIZE; ++t)
-        {
-            int thisAdj = (bonesCoAdjacency[b] & tryFAdj[t]);
-            if (thisAdj != 0)
-            {
-                addRandomFeature(
-                    features,
-                    thisAdj,
-                    coordMid,
-                    slide,
-                    rng);
-                break;
-            }
-        }
-    }
-}
-
 std::ostream& operator<<(std::ostream& os, const AFK_3DVapourCube& cube)
 {
     return os << "3DVapourCube(Coord=" << cube.getCubeCoord() << ")";
@@ -288,20 +212,9 @@ std::ostream& operator<<(std::ostream& os, const AFK_3DVapourCube& cube)
 
 /* AFK_3DList implementation. */
 
-void AFK_3DList::extend(const std::vector<AFK_3DVapourFeature>& features, const std::vector<AFK_3DVapourCube>& cubes)
-{
-    unsigned int fOldSize = f.size();
-    f.resize(f.size() + features.size());
-    memcpy(&f[fOldSize], &features[0], features.size() * sizeof(AFK_3DVapourFeature));
-
-    unsigned int cOldSize = c.size();
-    c.resize(c.size() + cubes.size());
-    memcpy(&c[cOldSize], &cubes[0], cubes.size() * sizeof(AFK_3DVapourCube));
-}
-
 void AFK_3DList::extend(const AFK_3DList& list)
 {
-    extend(list.f, list.c);
+    extend<std::vector<AFK_3DVapourFeature>, std::vector<AFK_3DVapourCube> >(list.f, list.c);
 }
 
 unsigned int AFK_3DList::featureCount(void) const

@@ -27,6 +27,17 @@
 #include "rng/boost_taus88.hpp"
 
 
+#define AFK_DEBUG_LANDSCAPE_BUILD 0
+
+#if AFK_DEBUG_LANDSCAPE_BUILD
+#define AFK_DEBUG_PRINT_LANDSCAPE_BUILD(expr) AFK_DEBUG_PRINT(expr)
+#define AFK_DEBUG_PRINTL_LANDSCAPE_BUILD(expr) AFK_DEBUG_PRINTL(expr)
+#else
+#define AFK_DEBUG_PRINT_LANDSCAPE_BUILD(expr)
+#define AFK_DEBUG_PRINTL_LANDSCAPE_BUILD(expr)
+#endif
+
+
 /* AFK_LandscapeTile implementation */
 
 AFK_LandscapeTile::AFK_LandscapeTile():
@@ -72,8 +83,7 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
 
         assert(featureIt == terrainFeatures.end());
 
-        /* TODO remove debug */
-        AFK_DEBUG_PRINTL("makeTerrainDescriptor(): generated terrain for " << tile << " (terrain tiles " << AFK_InnerDebug<TileArray>(&terrainTiles) << ")")
+        AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("makeTerrainDescriptor(): generated terrain for " << tile << " (terrain tiles " << AFK_InnerDebug<TileArray>(&terrainTiles) << ")")
 
         haveTerrainDescriptor = true;
     }
@@ -100,7 +110,7 @@ void AFK_LandscapeTile::buildTerrainList(
      * not use that rapid heap allocation and instead embed a
      * std::array in each LandscapeTile ...
      */
-    AFK_DEBUG_PRINTL("buildTerrainList(): adding local terrain for " << tile << " (terrain tiles " << AFK_InnerDebug<TileArray>(&terrainTiles) << ")")
+    AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): adding local terrain for " << tile << " (terrain tiles " << AFK_InnerDebug<TileArray>(&terrainTiles) << ")")
 
     /* Add the local terrain tiles to the list. */
     list.extend<FeatureArray, TileArray>(terrainFeatures, terrainTiles);
@@ -113,8 +123,7 @@ void AFK_LandscapeTile::buildTerrainList(
          */
         AFK_Tile parentTile = tile.parent(subdivisionFactor);
 
-        /* TODO remove debug */
-        AFK_DEBUG_PRINTL("buildTerrainList(): looking for terrain for " << parentTile)
+        AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): looking for terrain for " << parentTile)
 
         try
         {

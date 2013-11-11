@@ -26,7 +26,6 @@
 #include <boost/atomic.hpp>
 #include <boost/thread.hpp>
 
-#include "../debug.hpp"
 #include "frame.hpp"
 
 /* A "Claimable" is a lockable thing with useful features. 
@@ -34,6 +33,17 @@
  * stamp the object with the frame time of use, and exclude
  * re-use until the next frame.
  */
+
+#define AFK_DEBUG_CLAIMABLE 0
+
+#if AFK_DEBUG_CLAIMABLE
+#include "../debug.hpp"
+#define AFK_DEBUG_PRINT_CLAIMABLE(expr) AFK_DEBUG_PRINT(expr)
+#define AFK_DEBUG_PRINTL_CLAIMABLE(expr) AFK_DEBUG_PRINTL(expr)
+#else
+#define AFK_DEBUG_PRINT_CLAIMABLE(expr)
+#define AFK_DEBUG_PRINTL_CLAIMABLE(expr)
+#endif
 
 /* This exception is thrown when you can't get something because
  * it's in use.  Try again.
@@ -100,14 +110,14 @@ public:
         threadId(_claim.threadId), claimable(_claim.claimable), shared(_claim.shared), released(_claim.released),
         obj(_claim.obj)
     {
-        AFK_DEBUG_PRINTL("copy moving claim for " << std::hex << claimable << ": " << obj)
+        AFK_DEBUG_PRINTL_CLAIMABLE("copy moving claim for " << std::hex << claimable << ": " << obj)
         _claim.released = true;
     }
 
     /* ...likewise... */
     AFK_Claim& operator=(AFK_Claim&& _claim)
     {
-        AFK_DEBUG_PRINTL("assign moving claim for " << std::hex << claimable << ": " << obj)
+        AFK_DEBUG_PRINTL_CLAIMABLE("assign moving claim for " << std::hex << claimable << ": " << obj)
 
         threadId        = _claim.threadId;
         claimable       = _claim.claimable;
@@ -120,7 +130,7 @@ public:
 
     virtual ~AFK_Claim()
     {
-        AFK_DEBUG_PRINTL("destructing claim for " << std::hex << claimable << ": " << obj << "(released: " << released << ")")
+        AFK_DEBUG_PRINTL_CLAIMABLE("destructing claim for " << std::hex << claimable << ": " << obj << "(released: " << released << ")")
         if (!released) release();
      }
 
@@ -174,7 +184,7 @@ public:
             if (!claimable->obj.compare_exchange_strong(original, obj))
             {
                 T inplace = claimable->obj.load();
-                AFK_DEBUG_PRINTL("release failed: original " << original << ", inplace " << inplace)
+                AFK_DEBUG_PRINTL_CLAIMABLE("release failed: original " << original << ", inplace " << inplace)
                 assert(false);
             }
 #else

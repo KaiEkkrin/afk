@@ -19,6 +19,12 @@
 #define _AFK_SHAPE_SIZES_H_
 
 #include "config.hpp"
+#include "def.hpp"
+
+/* Hardwired ones to support fixed-size structures in the code: */
+const unsigned int afk_shapePointSubdivisionFactor      = 6;
+const unsigned int afk_shapeFeatureCountPerCube         = CUBE(afk_shapePointSubdivisionFactor) / 2;
+const unsigned int afk_shapeSkeletonFlagGridDim         = 8;
 
 /* This utility returns the sizes of various parts of the
  * shape constructs.

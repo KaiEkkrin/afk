@@ -54,6 +54,7 @@ protected:
 
     /* The list of Entities currently homed to this cell. */
     //AFK_ENTITY_LIST *entities;
+    // TODO: No.  I need to fix this so it's a suitably short std:array
     AFK_ClaimableEntity *entities;
     unsigned int entityCount;
 

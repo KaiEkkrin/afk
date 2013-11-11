@@ -23,12 +23,14 @@
 #include <boost/thread/future.hpp>
 #include <boost/thread/thread.hpp>
 
+#include "cache.hpp"
 #include "claimable.hpp"
 #include "frame.hpp"
-#include "polymer_cache.hpp"
+#include "polymer.hpp"
 
 /* An evictable cache is a polymer cache that can run an
- * eviction thread to remove old entries.
+ * eviction thread to remove old entries.  (It's not actually
+ * based on PolymerCache, which remains merely as a test class.)
  * It uses the Evictable defined here as a monomer.
  * We require that the Value define the function:
  * - void evict(void) : evicts the entry.  should be OK to call multiple
@@ -80,13 +82,32 @@ template<
     AFK_GetComputingFrame& getComputingFrame,
     bool debug = false>
 class AFK_EvictableCache:
-    public AFK_PolymerCache<
+    public AFK_Cache<
         Key,
-        AFK_Evictable<Key, Value, unassigned, framesBeforeEviction, getComputingFrame>,
-        Hasher, unassigned, hashBits, debug>
+        AFK_Evictable<Key, Value, unassigned, framesBeforeEviction, getComputingFrame> >
 {
 protected:
     typedef AFK_Evictable<Key, Value, unassigned, framesBeforeEviction, getComputingFrame> Monomer;
+    typedef AFK_PolymerChain<Key, Monomer, unassigned, hashBits, debug> PolymerChain;
+
+    class EvictableChainFactory
+    {
+    public:
+        PolymerChain *operator()() const
+        {
+            PolymerChain *newChain = new PolymerChain();
+            for (size_t slot = 0; slot < CHAIN_SIZE; ++slot)
+            {
+                Monomer *monomer;
+                assert(newChain->atSlot(slot, &monomer));
+                monomer->claimable.claim(1 /* doesn't matter, no contention */, AFK_CL_LOOP).get() = Value();
+            }
+
+            return newChain;
+        }
+    };
+
+    AFK_Polymer<Key, Monomer, Hasher, unassigned, hashBits, debug, EvictableChainFactory> polymer;
 
     /* The state of the evictor. */
     const size_t targetSize;
@@ -106,11 +127,6 @@ protected:
     unsigned int runsOverlapped;
 
 public:
-    void initialisationWorker(AFK_PolymerChain<Key, Monomer, unassigned, hashBits, debug> *newChain)
-    {
-        /* TODO: This worker makes sure all elements of the chain are initialised... */
-    }
-
     void evictionWorker(void)
     {
         unsigned int entriesEvicted = 0;
@@ -171,7 +187,7 @@ public:
         Hasher hasher,
         size_t _targetSize,
         unsigned int _threadId):
-            AFK_PolymerCache<Key, Monomer, Hasher, unassigned, hashBits, debug>(targetContention, hasher),
+            polymer(targetContention, hasher),
             targetSize(_targetSize),
             kickoffSize(_targetSize + _targetSize / 4),
             complainSize(_targetSize + _targetSize / 2),
@@ -191,6 +207,23 @@ public:
         }
 
         if (rp) delete rp;
+    }
+
+    virtual size_t size() const
+    {
+        return polymer.size();
+    }
+
+    virtual Monomer& at(const Key& key)
+    {
+        Monomer *ptr = polymer.get(key);
+        return *ptr;
+    }
+
+    virtual Monomer& operator[](const Key& key)
+    {
+        Monomer *ptr = polymer.insert(key);
+        return *ptr;
     }
 
     void doEvictionIfNecessary(void)
@@ -231,7 +264,7 @@ public:
 
     virtual void printStats(std::ostream& os, const std::string& prefix) const
     {
-        AFK_PolymerCache<Key, Monomer, Hasher, unassigned, hashBits, debug>::printStats(os, prefix);
+        polymer.printStats(os, prefix);
         /* TODO An eviction rate would be much more interesting */
         os << prefix << ": Evicted " << entriesEvicted << " entries" << std::endl;
         os << prefix << ": " << runsOverlapped << " runs overlapped, " << runsSkipped << " runs skipped" << std::endl;
