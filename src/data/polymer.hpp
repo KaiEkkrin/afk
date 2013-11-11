@@ -240,8 +240,36 @@ std::ostream& operator<<(std::ostream& os, const AFK_PolymerChain<KeyType, Monom
     return os;
 }
 
-template<typename KeyType, typename MonomerType, typename Hasher, const KeyType& unassigned, unsigned int hashBits, bool debug>
-class AFK_Polymer {
+/* The chain factory is an extensible way of initialising a chain.
+ * The basic one does very little.
+ */
+template<
+    typename KeyType,
+    typename MonomerType,
+    const KeyType& unassigned,
+    unsigned int hashBits,
+    bool debug>
+class AFK_BasePolymerChainFactory
+{
+public:
+    AFK_PolymerChain<KeyType, MonomerType, unassigned, hashBits, debug> *operator()() const
+    {
+        return new AFK_PolymerChain<KeyType, MonomerType, unassigned, hashBits, debug>();
+    }
+};
+
+template<
+    typename KeyType,
+    typename MonomerType,
+    typename Hasher,
+    const KeyType& unassigned,
+    unsigned int hashBits,
+    bool debug,
+    typename ChainFactory = AFK_BasePolymerChainFactory<
+        KeyType, MonomerType, unassigned, hashBits, debug>
+        >
+class AFK_Polymer
+{
 protected:
     typedef AFK_PolymerChain<KeyType, MonomerType, unassigned, hashBits, debug> PolymerChain;
     PolymerChain *chains;
@@ -251,6 +279,9 @@ protected:
 
     /* The hasher to use. */
     Hasher hasher;
+
+    /* How to make new chains. */
+    ChainFactory chainFactory;
 
     /* Analysis */
     AFK_StructureStats stats;
@@ -273,7 +304,7 @@ protected:
         /* TODO Make this have prepared one already (in a different
          * thread), because making a new chain is slow
          */
-        PolymerChain *newChain = new PolymerChain();
+        PolymerChain *newChain = chainFactory();
         chains->extend(newChain, 0);
         return newChain;
     }
@@ -330,7 +361,7 @@ public:
         targetContention (_targetContention), hasher (_hasher)
     {
         /* Start off with just one chain. */
-        chains = new PolymerChain();
+        chains = chainFactory();
     }
 
     virtual ~AFK_Polymer()
