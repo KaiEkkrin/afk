@@ -41,14 +41,10 @@
 class AFK_3DEdgeComputeUnit
 {
 public:
-    /* Displacement and scale compared to the base cube. */
-    Vec4<float> location;
-
     Vec4<int> vapourPiece;
     Vec2<int> edgePiece;
 
     AFK_3DEdgeComputeUnit(
-        const Vec4<float>& _location,
         const AFK_JigsawPiece& _vapourJigsawPiece,
         const AFK_JigsawPiece& _edgeJigsawPiece);
 
@@ -84,7 +80,6 @@ public:
 
     /* Adds the edges of a shape cube to the queue. */
     AFK_3DEdgeComputeUnit append(
-        const Vec4<float>& location,
         const AFK_JigsawPiece& vapourJigsawPiece,
         const AFK_JigsawPiece& edgeJigsawPiece);
 

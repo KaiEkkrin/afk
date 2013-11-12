@@ -46,6 +46,9 @@ protected:
      */
     Mat4<float>         transform;
 
+    /* Displacement relative to the shape's base cube. */
+    Vec4<float>         location;
+
     /* This maps it onto the vapour jigsaw. */
     Vec3<float>         vapourJigsawPieceSTR;
 
@@ -55,13 +58,14 @@ protected:
 public:
     AFK_EntityDisplayUnit(
         const Mat4<float>& _transform,
+        const Vec4<float>& _location,
         const Vec3<float>& _vapourJigsawPieceSTR,
         const Vec2<float>& _edgeJigsawPieceST);
 
     //friend std::ostream& operator<<(std::ostream& os, const AFK_EntityDisplayUnit& unit);
 } __attribute__((aligned(16)));
 
-#define ENTITY_DISPLAY_UNIT_SIZE (24 * sizeof(float))
+#define ENTITY_DISPLAY_UNIT_SIZE (28 * sizeof(float))
 static_assert(ENTITY_DISPLAY_UNIT_SIZE == sizeof(AFK_EntityDisplayUnit), "EDU size");
 
 //std::ostream& operator<<(std::ostream& os, const AFK_EntityDisplayUnit& unit);
@@ -88,7 +92,6 @@ protected:
 
     GLuint vapourJigsawPiecePitchLocation;
     GLuint edgeJigsawPiecePitchLocation;
-    GLuint jigsawDispTexSamplerLocation;
     GLuint jigsawDensityTexSamplerLocation;
     GLuint jigsawNormalTexSamplerLocation;
     GLuint jigsawOverlapTexSamplerLocation;

@@ -554,12 +554,6 @@ AFK_World::AFK_World(
             /* 2: Edges */
             AFK_JigsawMemoryAllocation::Entry(
                 {
-                    AFK_JigsawImageDescriptor( /* Displacement. TODO Remove this, push it in the texbuf instead */
-                        epSize,
-                        AFK_JigsawFormat::FLOAT32_4,
-                        AFK_JigsawDimensions::TWO,
-                        tBu
-                    ),
                     AFK_JigsawImageDescriptor( /* Overlap */
                         epSize,
                         AFK_JigsawFormat::UINT32_2,

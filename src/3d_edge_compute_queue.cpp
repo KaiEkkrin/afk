@@ -26,10 +26,8 @@
 /* AFK_3DEdgeComputeUnit implementation */
 
 AFK_3DEdgeComputeUnit::AFK_3DEdgeComputeUnit(
-    const Vec4<float>& _location,
     const AFK_JigsawPiece& _vapourJigsawPiece,
-    const AFK_JigsawPiece& _edgeJigsawPiece):
-        location(_location)
+    const AFK_JigsawPiece& _edgeJigsawPiece)
 {
     vapourPiece = afk_vec4<int>(
         _vapourJigsawPiece.u,
@@ -45,8 +43,7 @@ AFK_3DEdgeComputeUnit::AFK_3DEdgeComputeUnit(
 std::ostream& operator<<(std::ostream& os, const AFK_3DEdgeComputeUnit& unit)
 {
     os << "(SCU: ";
-    os << "location=" << std::dec << unit.location;
-    os << ", vapourPiece=" << unit.vapourPiece;
+    os << "vapourPiece=" << unit.vapourPiece;
     os << ", edgePiece=" << unit.edgePiece;
     os << ")";
     return os;
@@ -66,14 +63,12 @@ AFK_3DEdgeComputeQueue::~AFK_3DEdgeComputeQueue()
 }
 
 AFK_3DEdgeComputeUnit AFK_3DEdgeComputeQueue::append(
-    const Vec4<float>& location,
     const AFK_JigsawPiece& vapourJigsawPiece,
     const AFK_JigsawPiece& edgeJigsawPiece)
 {
     boost::unique_lock<boost::mutex> lock(mut);
 
     AFK_3DEdgeComputeUnit newUnit(
-        location,
         vapourJigsawPiece,
         edgeJigsawPiece);
     units.push_back(newUnit);
@@ -115,8 +110,7 @@ void AFK_3DEdgeComputeQueue::computeStart(
     assert(postEdgeDep->getEventCount() == 0);
 
     cl_mem vapourJigsawDensityMem = vapourJigsaw->acquireForCl(0, preEdgeDep);
-    cl_mem edgeJigsawDispMem = edgeJigsaw->acquireForCl(0, preEdgeDep);
-    cl_mem edgeJigsawOverlapMem = edgeJigsaw->acquireForCl(1, preEdgeDep);
+    cl_mem edgeJigsawOverlapMem = edgeJigsaw->acquireForCl(0, preEdgeDep);
 
     AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 0, sizeof(cl_mem), &vapourJigsawDensityMem))
     AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 1, sizeof(cl_mem), &unitsBuf))
@@ -131,8 +125,7 @@ void AFK_3DEdgeComputeQueue::computeStart(
     AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 2, sizeof(cl_int2), &fake3D_size.v[0]))
     AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 3, sizeof(cl_int), &fake3D_mult))
 
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 4, sizeof(cl_mem), &edgeJigsawDispMem))
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 5, sizeof(cl_mem), &edgeJigsawOverlapMem))
+    AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 4, sizeof(cl_mem), &edgeJigsawOverlapMem))
 
     size_t edgeGlobalDim[3];
     edgeGlobalDim[0] = unitCount;

@@ -144,8 +144,7 @@ void AFK_ShapeCell::enqueueEdgeComputeUnit(
      AFK_DEBUG_PRINTL("Computing edges at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE))
 #endif
 
-     edgeComputeQueue->append(cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
-         vapourJigsawPiece, edgeJigsawPiece);
+     edgeComputeQueue->append(vapourJigsawPiece, edgeJigsawPiece);
 }
 
 #define SHAPE_DISPLAY_DEBUG 0
@@ -171,6 +170,7 @@ void AFK_ShapeCell::enqueueEdgeDisplayUnit(
     entityDisplayFair.getUpdateQueue(index)->add(
         AFK_EntityDisplayUnit(
             worldTransform,
+            cell.toHomogeneous(SHAPE_CELL_WORLD_SCALE),
             vapourJigsaws->getPuzzle(vapourJigsawPiece)->getTexCoordSTR(vapourJigsawPiece),
             edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTexCoordST(edgeJigsawPiece)));
 }

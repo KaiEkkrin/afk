@@ -43,6 +43,7 @@ public:
     bool isParent(const AFK_KeyedCell& parent) const;
 
     Vec4<float> toWorldSpace(float worldScale) const { return c.toWorldSpace(worldScale); }
+    Vec4<float> toHomogeneous(float worldScale) const { return c.toHomogeneous(worldScale); }
 };
 
 AFK_KeyedCell afk_keyedCell(const AFK_KeyedCell& other);
