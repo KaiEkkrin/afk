@@ -64,7 +64,6 @@ void AFK_EntityDisplayQueue::draw(
     const AFK_ShapeSizes& sSizes)
 {
     unsigned int instanceCount = queue.size();
-    AFK_DEBUG_PRINTL("entity display queue: instanceCount " << instanceCount)
     if (instanceCount == 0) return;
 
     if (!displayTBOSamplerLocation)

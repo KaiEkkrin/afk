@@ -134,7 +134,6 @@ void AFK_3DVapourComputeQueue::computeStart(
 
     /* Check there's something to do */
     unsigned int unitCount = units.size();
-    AFK_DEBUG_PRINTL("3d vapour compute queue: unitCount " << unitCount)
     if (unitCount == 0) return;
 
     /* Make sure the compute stuff is initialised... */

@@ -360,10 +360,12 @@ void AFK_Core::loop(void)
     /* TODO: Move the camera to somewhere above the landscape to
      * start with.
      * (A bit unclear how to best do this ... )
-     * For now, I'll just start them nice and high to reduce the
-     * chance of spawning under the landscape (very annoying)
      */
-    Vec3<float> startingMovement = afk_vec3<float>(0.0f, 8192.0f, 0.0f);
+    Vec3<float> startingMovement = afk_vec3<float>(0.0f, 0.0f, 0.0f); /* TODO Why do all objects vanish into the
+                                                                       * distance when I move this?
+                                                                       * I'm increasingly worried about pointers in the
+                                                                       * work queue
+                                                                       */
     Vec3<float> startingRotation = afk_vec3<float>(0.0f, 0.0f, 0.0f);
     protagonist->object.drive(startingMovement, startingRotation);
     camera->driveAndUpdateProjection(startingMovement, startingRotation);

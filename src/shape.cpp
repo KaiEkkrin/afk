@@ -308,13 +308,12 @@ bool AFK_Shape::generateClaimedShapeCell(
     AFK_JigsawCollection *vapourJigsaws     = world->vapourJigsaws;
     AFK_JigsawCollection *edgeJigsaws       = world->edgeJigsaws;
 
-    const AFK_ShapeCell& shapeCell = shapeCellClaim.getShared();
     bool success = false;
 
     /* Check whether we have rendered vapour here.  If we don't,
      * we need to make that first.
      */
-    if (!shapeCell.hasVapour(vapourJigsaws))
+    if (!shapeCellClaim.getShared().hasVapour(vapourJigsaws))
     {
         /* I need to generate stuff for this cell -- which means I need
          * to upgrade my claim.
@@ -361,7 +360,7 @@ bool AFK_Shape::generateClaimedShapeCell(
 
     /* Try to get this shape cell set up and enqueued.
      */
-    if (!shapeCell.hasEdges(edgeJigsaws))
+    if (!shapeCellClaim.getShared().hasEdges(edgeJigsaws))
     {
         /* I need to generate stuff for this cell -- which means I need
          * to upgrade my claim.
@@ -371,7 +370,7 @@ bool AFK_Shape::generateClaimedShapeCell(
             /* The vapour descriptor must be there already. */
             assert(vapourCellClaim.getShared().hasDescriptor());
 
-            if (shapeCell.hasVapour(vapourJigsaws))
+            if (shapeCellClaim.get().hasVapour(vapourJigsaws))
             {
                 shapeCellClaim.get().enqueueEdgeComputeUnit(
                     threadId, shapeCellCache, vapourJigsaws, edgeJigsaws, world->edgeComputeFair, world->entityFair2DIndex);
@@ -384,10 +383,10 @@ bool AFK_Shape::generateClaimedShapeCell(
         }
     }
 
-    if (shapeCell.hasVapour(vapourJigsaws) &&
-        shapeCell.hasEdges(edgeJigsaws))
+    if (shapeCellClaim.getShared().hasVapour(vapourJigsaws) &&
+        shapeCellClaim.getShared().hasEdges(edgeJigsaws))
     {
-        shapeCell.enqueueEdgeDisplayUnit(
+        shapeCellClaim.getShared().enqueueEdgeDisplayUnit(
             worldTransform,
             visibleCell.getHomogeneous(),
             vapourJigsaws,

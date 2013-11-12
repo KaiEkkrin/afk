@@ -87,7 +87,6 @@ void AFK_3DEdgeComputeQueue::computeStart(
 
     /* Check there's something to do */
     unsigned int unitCount = units.size();
-    AFK_DEBUG_PRINTL("3d edge compute queue: unitCount " << unitCount)
     if (unitCount == 0) return;
 
     /* Make sure the compute stuff is initialised... */
