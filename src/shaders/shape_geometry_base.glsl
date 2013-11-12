@@ -88,8 +88,8 @@ float getEdgeStepsBack(
     vec2 edgeJigsawCoordNN,
     uint layer)
 {
-    //uint esbField = textureLod(JigsawOverlapTex, edgeJigsawCoordNN, 0).y;
-    uint esbField = 1;
+    uint esbField = textureLod(JigsawOverlapTex, edgeJigsawCoordNN, 0).y;
+    //uint esbField = 1;
     uint esbVal = ((esbField >> (layer * LAYER_BITNESS)) & ((1u<<LAYER_BITNESS)-1)) - 1;
     return float(esbVal);
 }
@@ -180,20 +180,20 @@ void emitShapeVertexAtPosition(
     vec3 vapourJigsawCoord = vapourJigsawPieceCoord + VapourJigsawPiecePitch *
         ((cubeCoord * EDIM + 1.5) / TDIM);
 
-    //outData.colour = textureLod(JigsawDensityTex, vapourJigsawCoord, 0).xyz;
+    outData.colour = textureLod(JigsawDensityTex, vapourJigsawCoord, 0).xyz;
     // TODO: Debug colour based on layer, to see what's going on
-    switch (layer)
-    {
-    case 0: outData.colour = vec3(1.0, 0.0, 0.0); break;
-    case 1: outData.colour = vec3(0.0, 1.0, 0.0); break;
-    case 2: outData.colour = vec3(0.0, 0.0, 1.0); break;
-    case 3: outData.colour = vec3(0.0, 1.0, 1.0); break;
-    case 4: outData.colour = vec3(1.0, 0.0, 1.0); break;
-    case 5: outData.colour = vec3(1.0, 1.0, 0.0); break;
-    default: outData.colour = vec3(1.0, 1.0, 1.0); break;
-    }
-    //vec4 normal = textureLod(JigsawNormalTex, vapourJigsawCoord, 0);
-    vec4 normal = vec4(0.0, 1.0, 0.0, 0.0);
+    //switch (layer)
+    //{
+    //case 0: outData.colour = vec3(1.0, 0.0, 0.0); break;
+    //case 1: outData.colour = vec3(0.0, 1.0, 0.0); break;
+    //case 2: outData.colour = vec3(0.0, 0.0, 1.0); break;
+    //case 3: outData.colour = vec3(0.0, 1.0, 1.0); break;
+    //case 4: outData.colour = vec3(1.0, 0.0, 1.0); break;
+    //case 5: outData.colour = vec3(1.0, 1.0, 0.0); break;
+    //default: outData.colour = vec3(1.0, 1.0, 1.0); break;
+    //}
+    vec4 normal = textureLod(JigsawNormalTex, vapourJigsawCoord, 0);
+    //vec4 normal = vec4(0.0, 1.0, 0.0, 0.0);
     outData.normal = mat3(WorldTransform) * normal.xyz;
     EmitVertex();
 }
