@@ -288,8 +288,7 @@ public:
     void enqueueSubcells(
         const AFK_Cell& cell,
         const Vec3<int64_t>& modifier,
-        const Vec3<float>& viewerLocation,
-        const AFK_Camera& camera);
+        const Vec3<float>& viewerLocation);
 
     /* Call when we're about to start a new frame. */
     void flipRenderQueues(const AFK_Frame& newFrame);

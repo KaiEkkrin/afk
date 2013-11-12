@@ -102,20 +102,19 @@ union AFK_WorldWorkParam
     struct World
     {
         AFK_Cell cell;
-        AFK_World *world;
         Vec3<float> viewerLocation;
-        const AFK_Camera *camera;
         unsigned int flags;
-        Dependency *dependency;
+        Dependency *dependency;  /* TODO: I suspect this is wrong and I should have a
+                                  * separate dependency heap to query.  But I'm not
+                                  * using it for much right now ...
+                                  */
     } world;
 
     struct Shape
     {
         AFK_KeyedCell cell;
         Mat4<float> transformation;
-        AFK_World *world;
         Vec3<float> viewerLocation;
-        const AFK_Camera *camera;
         unsigned int flags;
 
 #if AFK_SHAPE_ENUM_DEBUG

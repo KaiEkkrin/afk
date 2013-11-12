@@ -19,9 +19,7 @@
 
 #include <cmath>
 #include <cstring>
-
-#include <boost/functional/hash.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 
 #include "camera.hpp"
 #include "core.hpp"
@@ -44,7 +42,7 @@ bool afk_generateEntity(
     AFK_WorldWorkQueue& queue)
 {
     AFK_KeyedCell cell                      = param.shape.cell;
-    AFK_World *world                        = param.shape.world;
+    std::shared_ptr<AFK_World> world        = afk_core.world;
 
     AFK_Shape& shape                        = world->shape;
 
@@ -140,9 +138,10 @@ bool afk_generateShapeCells(
 {
     const AFK_KeyedCell cell                = param.shape.cell;
     Mat4<float> worldTransform              = param.shape.transformation;
-    AFK_World *world                        = param.shape.world;
     const Vec3<float>& viewerLocation       = param.shape.viewerLocation;
-    const AFK_Camera *camera                = param.shape.camera;
+
+    std::shared_ptr<AFK_World> world        = afk_core.world;
+    std::shared_ptr<AFK_Camera> camera      = afk_core.camera;
 
     bool entirelyVisible                    = ((param.shape.flags & AFK_SCG_FLAG_ENTIRELY_VISIBLE) != 0);
 
@@ -214,7 +213,7 @@ bool afk_generateShapeCells(
                     /* I want that shape cell now ... */
                     auto shapeCellClaim = (*(shape.shapeCellCache))[cell].claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
                     if (!shape.generateClaimedShapeCell(
-                        threadId, vc, cell, vapourCellClaim, shapeCellClaim, worldTransform, visibleCell, world))
+                        threadId, vc, cell, vapourCellClaim, shapeCellClaim, worldTransform))
                     {
                         DEBUG_VISIBLE_CELL("needs resume")
                         resume = true;
@@ -301,10 +300,10 @@ bool AFK_Shape::generateClaimedShapeCell(
     const AFK_KeyedCell& cell,
     AFK_CLAIM_OF(VapourCell)& vapourCellClaim,
     AFK_CLAIM_OF(ShapeCell)& shapeCellClaim,
-    const Mat4<float>& worldTransform,
-    const AFK_VisibleCell& visibleCell,
-    AFK_World *world)
+    const Mat4<float>& worldTransform)
 {
+    std::shared_ptr<AFK_World> world        = afk_core.world;
+
     AFK_JigsawCollection *vapourJigsaws     = world->vapourJigsaws;
     AFK_JigsawCollection *edgeJigsaws       = world->edgeJigsaws;
 
@@ -328,7 +327,7 @@ bool AFK_Shape::generateClaimedShapeCell(
             {
                 int adjacency = vapourCellClaim.getShared().skeletonFullAdjacency(vc, cell, world->sSizes);
                 shapeCellClaim.get().enqueueVapourComputeUnitFromExistingVapour(
-                    threadId, adjacency, cubeOffset, cubeCount, visibleCell.getRealCoord(), cell.key, world->sSizes, vapourJigsaws, world->vapourComputeFair);
+                    threadId, adjacency, cubeOffset, cubeCount, cell, world->sSizes, vapourJigsaws, world->vapourComputeFair);
                 world->shapeVapoursComputed.fetch_add(1);
 
 #if AFK_SHAPE_ENUM_DEBUG
@@ -347,7 +346,7 @@ bool AFK_Shape::generateClaimedShapeCell(
 
                     int adjacency = vapourCell.skeletonFullAdjacency(vc, cell, world->sSizes);
                     shapeCellClaim.get().enqueueVapourComputeUnitWithNewVapour(
-                        threadId, adjacency, list, visibleCell.getRealCoord(), cell.key, world->sSizes, vapourJigsaws, world->vapourComputeFair, cubeOffset, cubeCount);
+                        threadId, adjacency, list, cell, world->sSizes, vapourJigsaws, world->vapourComputeFair, cubeOffset, cubeCount);
                     vapourCell.enqueued(cubeOffset, cubeCount);
                     world->shapeVapoursComputed.fetch_add(1);
 #if AFK_SHAPE_ENUM_DEBUG
@@ -388,7 +387,7 @@ bool AFK_Shape::generateClaimedShapeCell(
     {
         shapeCellClaim.getShared().enqueueEdgeDisplayUnit(
             worldTransform,
-            visibleCell.getHomogeneous(),
+            cell,
             vapourJigsaws,
             edgeJigsaws,
             world->entityDisplayFair,

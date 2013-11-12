@@ -264,9 +264,8 @@ AFK_Core::~AFK_Core()
      * this in ...
      */
     if (window) afk_core.window->closeWindow();
-    if (world) delete world; /* Should stop the threads */
+    if (world) world.reset(); /* Should stop the threads */
     if (rng) delete rng;
-    if (camera) delete camera;
     if (protagonist) delete protagonist;
 
     if (computer) delete computer; /* Should close CL contexts */
@@ -291,7 +290,7 @@ void AFK_Core::configure(int *argcp, char **argv)
     /* TODO Make the viewpoint configurable?  Right now I have a
      * fixed 3rd person view here.
      */
-    camera = new AFK_Camera(afk_vec3<float>(0.0f, -1.5f, 3.0f));
+    camera = std::make_shared<AFK_Camera>(afk_vec3<float>(0.0f, -1.5f, 3.0f));
 
     /* Set up the sun.  (TODO: Make configurable?  Randomly
      * generated?  W/e :) )
@@ -340,7 +339,7 @@ void AFK_Core::loop(void)
     cl_context ctxt;
     cl_command_queue q;
     computer->lock(ctxt, q);
-    world = new AFK_World(
+    world = std::make_shared<AFK_World>(
         config,
         computer,
         threadAlloc,
@@ -361,11 +360,7 @@ void AFK_Core::loop(void)
      * start with.
      * (A bit unclear how to best do this ... )
      */
-    Vec3<float> startingMovement = afk_vec3<float>(0.0f, 0.0f, 0.0f); /* TODO Why do all objects vanish into the
-                                                                       * distance when I move this?
-                                                                       * I'm increasingly worried about pointers in the
-                                                                       * work queue
-                                                                       */
+    Vec3<float> startingMovement = afk_vec3<float>(0.0f, 8192.0f, 0.0f);
     Vec3<float> startingRotation = afk_vec3<float>(0.0f, 0.0f, 0.0f);
     protagonist->object.drive(startingMovement, startingRotation);
     camera->driveAndUpdateProjection(startingMovement, startingRotation);

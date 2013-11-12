@@ -93,12 +93,6 @@ Vec4<float> AFK_VisibleCell::getRealCoord(void) const
         (vertices[1][0][0] - vertices[0][0][0]).magnitude());
 }
 
-Vec4<float> AFK_VisibleCell::getHomogeneous(void) const
-{
-    Vec4<float> worldSpace = getRealCoord();
-    return afk_vec4<float>(worldSpace.v[0], worldSpace.v[1], worldSpace.v[2], 1.0f) / worldSpace.v[3];
-}
-
 bool AFK_VisibleCell::testDetailPitch(
     float detailPitch,
     const AFK_Camera& camera,

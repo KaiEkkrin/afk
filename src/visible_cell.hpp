@@ -50,11 +50,6 @@ public:
     /* Returns (x, y, z, scale), just like a Cell. */
     Vec4<float> getRealCoord() const;
 
-    /* Returns homogeneous co-ordinates, like toHomogeneous()
-     * on a Cell.
-     */
-    Vec4<float> getHomogeneous() const;
-
     /* Tests whether this cell is within the specified detail pitch
      * when viewed from the specified location.
      */

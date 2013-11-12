@@ -64,8 +64,7 @@ void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
     unsigned int threadId,
     int adjacency,
     const AFK_3DList& list,
-    const Vec4<float>& realCoord,
-    int64_t key,
+    const AFK_KeyedCell& cell,
     const AFK_ShapeSizes& sSizes,
     AFK_JigsawCollection *vapourJigsaws,
     AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair,
@@ -82,13 +81,13 @@ void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
         vapourComputeFair.getUpdateQueue(0);
 
 #if SHAPE_COMPUTE_DEBUG
-    AFK_DEBUG_PRINTL("Shape cell : Computing new vapour at location: " << realCoord << " with adjacency: " << std::hex << adjacency << " and list " << list)
+    AFK_DEBUG_PRINTL("Shape cell : Computing new vapour: vapour jigsaw piece " << vapourJigsawPiece)
 #endif
 
     vapourComputeQueue->extend(list, o_cubeOffset, o_cubeCount);
     vapourComputeQueue->addUnit(
-        realCoord,
-        getBaseColour(key),
+        cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
+        getBaseColour(cell.key),
         vapourJigsawPiece,
         adjacency,
         o_cubeOffset,
@@ -100,8 +99,7 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
     int adjacency,
     unsigned int cubeOffset,
     unsigned int cubeCount,
-    const Vec4<float>& realCoord,
-    int64_t key,
+    const AFK_KeyedCell& cell,
     const AFK_ShapeSizes& sSizes,
     AFK_JigsawCollection *vapourJigsaws,
     AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair)
@@ -112,12 +110,12 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
         vapourComputeFair.getUpdateQueue(0);
 
 #if SHAPE_COMPUTE_DEBUG
-    AFK_DEBUG_PRINTL("Shape cell : Computing existing vapour at location: " << realCoord << " with adjacency: " << std::hex << adjacency)
+    AFK_DEBUG_PRINTL("Shape cell : Computing existing vapour with cube offset " << cubeOffset << ", cube count " << cubeCount << ": vapour jigsaw piece " << vapourJigsawPiece)
 #endif
 
     vapourComputeQueue->addUnit(
-        realCoord,
-        getBaseColour(key),
+        cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
+        getBaseColour(cell.key),
         vapourJigsawPiece,
         adjacency,
         cubeOffset,
@@ -139,15 +137,17 @@ void AFK_ShapeCell::enqueueEdgeComputeUnit(
             entityFair2DIndex.get1D(vapourJigsawPiece.puzzle, edgeJigsawPiece.puzzle));
 
 #if SHAPE_COMPUTE_DEBUG
-     AFK_DEBUG_PRINTL("Computing edges at location: " << realCoord)
+     AFK_DEBUG_PRINTL("Computing edges: vapour jigsaw piece " << vapourJigsawPiece << ", edge jigsaw piece " << edgeJigsawPiece)
 #endif
 
      edgeComputeQueue->append(vapourJigsawPiece, edgeJigsawPiece);
 }
 
+#define SHAPE_DISPLAY_DEBUG 0
+
 void AFK_ShapeCell::enqueueEdgeDisplayUnit(
     const Mat4<float>& worldTransform,
-    const Vec4<float>& hgCoord,
+    const AFK_KeyedCell& cell,
     AFK_JigsawCollection *vapourJigsaws,
     AFK_JigsawCollection *edgeJigsaws,
     AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair,
@@ -160,6 +160,11 @@ void AFK_ShapeCell::enqueueEdgeDisplayUnit(
      * a better scheme than the current one!)
      */
     unsigned int index = entityFair2DIndex.get1D(vapourJigsawPiece.puzzle, edgeJigsawPiece.puzzle);
+
+    Vec4<float> hgCoord = cell.toHomogeneous(SHAPE_CELL_WORLD_SCALE);
+#if SHAPE_DISPLAY_DEBUG
+    AFK_DEBUG_PRINTL("Displaying shape at hgCoord " << hgCoord << " with vapour jigsaw piece " << vapourJigsawPiece << ", edge jigsaw piece " << edgeJigsawPiece)
+#endif
     entityDisplayFair.getUpdateQueue(index)->add(
         AFK_EntityDisplayUnit(
             worldTransform,

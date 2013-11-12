@@ -86,9 +86,7 @@ protected:
         const AFK_KeyedCell& cell,
         AFK_CLAIM_OF(VapourCell)& vapourCellClaim,
         AFK_CLAIM_OF(ShapeCell)& shapeCellClaim,
-        const Mat4<float>& worldTransform,
-        const AFK_VisibleCell& visibleCell,
-        AFK_World *world);
+        const Mat4<float>& worldTransform);
 
     /* TODO: Try to move the shape-dependent stuff out of
      * `world' into here, so that I can stop sending along

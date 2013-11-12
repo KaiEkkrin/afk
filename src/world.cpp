@@ -19,6 +19,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <memory>
 
 #include "core.hpp"
 #include "debug.hpp"
@@ -55,7 +56,7 @@ bool afk_generateWorldCells(
     AFK_WorldWorkQueue& queue)
 {
     const AFK_Cell cell                 = param.world.cell;
-    AFK_World *world                    = param.world.world;
+    std::shared_ptr<AFK_World> world    = afk_core.world;
 
     bool renderTerrain                  = ((param.world.flags & AFK_WCG_FLAG_TERRAIN_RENDER) != 0);
     bool resume                         = ((param.world.flags & AFK_WCG_FLAG_RESUME) != 0);
@@ -246,7 +247,7 @@ bool AFK_World::generateClaimedWorldCell(
 {
     const AFK_Cell& cell                = param.cell;
     const Vec3<float>& viewerLocation   = param.viewerLocation;
-    const AFK_Camera *camera            = param.camera;
+    std::shared_ptr<AFK_Camera> camera  = afk_core.camera;
 
     bool entirelyVisible                = ((param.flags & AFK_WCG_FLAG_ENTIRELY_VISIBLE) != 0);
     bool renderTerrain                  = ((param.flags & AFK_WCG_FLAG_TERRAIN_RENDER) != 0);
@@ -283,7 +284,8 @@ bool AFK_World::generateClaimedWorldCell(
          */
         AFK_Tile tile = afk_tile(cell);
 
-        /* I'm going to want this in a moment. */
+        /* I'm going to want this in a moment.
+         */
         float landscapeTileUpperYBound = FLT_MAX;
 
         {
@@ -379,9 +381,7 @@ bool AFK_World::generateClaimedWorldCell(
                 shapeCellItem.param.shape.cell              = afk_keyedCell(afk_vec4<int64_t>(
                                                                 0, 0, 0, SHAPE_CELL_MAX_DISTANCE), e.shapeKey);
                 shapeCellItem.param.shape.transformation    = e.getTransformation();
-                shapeCellItem.param.shape.world             = this;               
                 shapeCellItem.param.shape.viewerLocation    = viewerLocation;
-                shapeCellItem.param.shape.camera            = camera;
                 shapeCellItem.param.shape.flags             = 0;
 
 #if AFK_SHAPE_ENUM_DEBUG
@@ -415,9 +415,7 @@ bool AFK_World::generateClaimedWorldCell(
                 AFK_WorldWorkQueue::WorkItem subcellItem;
                 subcellItem.func                     = afk_generateWorldCells;
                 subcellItem.param.world.cell         = subcells[i];
-                subcellItem.param.world.world        = param.world;
                 subcellItem.param.world.viewerLocation = viewerLocation;
-                subcellItem.param.world.camera       = camera;
                 subcellItem.param.world.flags        = (allVisible ? AFK_WCG_FLAG_ENTIRELY_VISIBLE : 0);
                 subcellItem.param.world.dependency   = nullptr;
                 queue.push(subcellItem);
@@ -693,8 +691,7 @@ AFK_World::~AFK_World()
 void AFK_World::enqueueSubcells(
     const AFK_Cell& cell,
     const Vec3<int64_t>& modifier,
-    const Vec3<float>& viewerLocation,
-    const AFK_Camera& camera)
+    const Vec3<float>& viewerLocation)
 {
     AFK_Cell modifiedCell = afk_cell(afk_vec4<int64_t>(
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[0],
@@ -705,9 +702,7 @@ void AFK_World::enqueueSubcells(
     AFK_WorldWorkQueue::WorkItem cellItem;
     cellItem.func                        = afk_generateWorldCells;
     cellItem.param.world.cell            = modifiedCell;
-    cellItem.param.world.world           = this;
     cellItem.param.world.viewerLocation  = viewerLocation;
-    cellItem.param.world.camera          = &camera;
     cellItem.param.world.flags           = 0;
     cellItem.param.world.dependency      = nullptr;
     (*genGang) << cellItem;
@@ -802,7 +797,7 @@ boost::unique_future<bool> AFK_World::updateWorld(void)
     for (int64_t i = -1; i <= 1; ++i)
         for (int64_t j = -1; j <= 1; ++j)
             for (int64_t k = -1; k <= 1; ++k)
-                enqueueSubcells(cell, afk_vec3<int64_t>(i, j, k), protagonistLocation, *(afk_core.camera));
+                enqueueSubcells(cell, afk_vec3<int64_t>(i, j, k), protagonistLocation);
 
     return genGang->start();
 }

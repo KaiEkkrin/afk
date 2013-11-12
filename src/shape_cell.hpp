@@ -91,8 +91,7 @@ public:
         unsigned int threadId,
         int adjacency,
         const AFK_3DList& list,
-        const Vec4<float>& realCoord,
-        int64_t key,
+        const AFK_KeyedCell& cell,
         const AFK_ShapeSizes& sSizes,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair,
@@ -104,8 +103,7 @@ public:
         int adjacency,
         unsigned int cubeOffset,
         unsigned int cubeCount,
-        const Vec4<float>& realCoord,
-        int64_t key,
+        const AFK_KeyedCell& cell,
         const AFK_ShapeSizes& sSizes,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair);
@@ -128,7 +126,7 @@ public:
      */
     void enqueueEdgeDisplayUnit(
         const Mat4<float>& worldTransform,
-        const Vec4<float>& hgCoord,
+        const AFK_KeyedCell& cell,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_JigsawCollection *edgeJigsaws,
         AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair,
