@@ -125,24 +125,21 @@ void afk_returnShared(const T *mine, volatile T *shared)
     }
 }
 
-/* How to specify a function to obtain the current computing frame */
-typedef std::function<const AFK_Frame& (void)> AFK_GetComputingFrame;
-
-template<typename T, AFK_GetComputingFrame& getComputingFrame>
+template<typename T>
 class AFK_Claimable;
 
-template<typename T, AFK_GetComputingFrame& getComputingFrame>
+template<typename T>
 class AFK_Claim
 {
 protected:
     unsigned int threadId; /* TODO change all thread IDs to 64-bit */
-    AFK_Claimable<T, getComputingFrame> *claimable;
+    AFK_Claimable<T> *claimable;
     bool shared;
     bool released;
 
     T obj;
 
-    AFK_Claim(unsigned int _threadId, AFK_Claimable<T, getComputingFrame> *_claimable, bool _shared):
+    AFK_Claim(unsigned int _threadId, AFK_Claimable<T> *_claimable, bool _shared):
         threadId(_threadId), claimable(_claimable), shared(_shared), released(false)
     {
         boost::atomic_thread_fence(boost::memory_order_seq_cst);
@@ -245,7 +242,7 @@ public:
         released = true;
     }
 
-    friend class AFK_Claimable<T, getComputingFrame>;
+    friend class AFK_Claimable<T>;
 };
 
 #define AFK_CL_LOOP         1
@@ -253,7 +250,7 @@ public:
 #define AFK_CL_EVICTOR      4
 #define AFK_CL_SHARED       8
 
-template<typename T, AFK_GetComputingFrame& getComputingFrame>
+template<typename T>
 class AFK_Claimable
 {
 protected:
@@ -263,10 +260,6 @@ protected:
      * non-shared flag.
      */
     boost::atomic<uint64_t> id;
-
-    /* Last times the object was seen. */
-    boost::atomic<int64_t> lastSeen;
-    boost::atomic<int64_t> lastSeenExclusively;
 
     /* The claimable object itself. */
     volatile T obj;
@@ -314,39 +307,37 @@ protected:
         id.fetch_and(AFK_CL_THREAD_ID_SHARED_MASK(threadId));
     }
 
+public:
     void release(unsigned int threadId) 
     {
         id.fetch_and(AFK_CL_THREAD_ID_NONSHARED_MASK(threadId));
     }
 
-public:
-    AFK_Claimable(): id(0), lastSeen(-1), lastSeenExclusively(-1), obj() {}
+    AFK_Claimable(): id(0), obj() {}
 
     /* The move constructors are used to enable initialisation.
      * They essentially make a new Claimable.
      */
     AFK_Claimable(const AFK_Claimable&& _claimable):
-        id(0), lastSeen(-1), lastSeenExclusively(-1)
+        id(0)
     {
-        obj.store(_claimable.obj.load());
+        obj = _claimable.obj;
     }
 
     AFK_Claimable& operator=(const AFK_Claimable&& _claimable)
     {
         id.store(0);
-        lastSeen.store(-1);
-        lastSeenExclusively.store(-1);
-        obj.store(_claimable.obj.load());
+        obj = _claimable.obj;
         return *this;
     }
 
-    /* Gets you a claim of the desired type.
-     * The `exclusive' flag causes the `lastSeenExclusively'
-     * field to be incremented if it's not already equal to
-     * the current frame; this mechanism locks out an object
-     * from being claimed more than once per frame.
+    /* Claims as requested, but doesn't return any AFK_Claim object.
+     * This is for the benefit of WatchedClaimable which can check for
+     * watches and then return.
+     * Instead this function returns true if successful, else false
+     * If you are not WatchedClaimable DO NOT CALL THIS FUNCTION
      */
-    AFK_Claim<T, getComputingFrame> claim(unsigned int threadId, unsigned int flags) 
+    bool claimInternal(unsigned int threadId, unsigned int flags)
     {
         bool claimed = false;
 
@@ -358,6 +349,77 @@ public:
         }
         while (!claimed && (flags & AFK_CL_LOOP));
 
+        return claimed;
+    }
+
+    /* Returns a claim object, assuming you claimed with claimInternal().
+     * Again, for the benefit of WatchedClaimable.
+     * If you are not WatchedClaimable DO NOT CALL THIS FUNCTION
+     */
+    AFK_Claim<T> getClaimable(unsigned int threadId, unsigned int flags)
+    {
+        return AFK_Claim<T>(threadId, this, flags & AFK_CL_SHARED);
+    }
+
+    /* Gets you a claim of the desired type.
+     * The `exclusive' flag causes the `lastSeenExclusively'
+     * field to be incremented if it's not already equal to
+     * the current frame; this mechanism locks out an object
+     * from being claimed more than once per frame.
+     */
+    AFK_Claim<T> claim(unsigned int threadId, unsigned int flags) 
+    {
+        bool claimed = claimInternal(threadId, flags);
+        if (!claimed) throw AFK_ClaimException();
+        return getClaimable(threadId, flags);
+    }
+
+    friend class AFK_Claim<T>;
+
+    template<typename _T>
+    friend std::ostream& operator<<(std::ostream& os, const AFK_Claimable<_T>& c);
+};
+
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const AFK_Claimable<T>& c)
+{
+    os << "Claimable(at " << std::hex << c.objPtr() << ")";
+    return os;
+}
+
+/* How to specify a function to obtain the current computing frame */
+typedef std::function<const AFK_Frame& (void)> AFK_GetComputingFrame;
+
+template<typename T, AFK_GetComputingFrame& getComputingFrame>
+class AFK_WatchedClaimable
+{
+protected:
+    AFK_Claimable<T> claimable;
+
+    /* Last times the object was seen. */
+    boost::atomic<int64_t> lastSeen;
+    boost::atomic<int64_t> lastSeenExclusively;
+
+public:
+    AFK_WatchedClaimable(): claimable(), lastSeen(-1), lastSeenExclusively(-1) {}
+
+    /* The move constructors are used to enable initialisation.
+     * They essentially make a new Claimable.
+     */
+    AFK_WatchedClaimable(const AFK_WatchedClaimable&& _wc):
+        claimable(_wc.claimable), lastSeen(-1), lastSeenExclusively(-1) {}
+
+    AFK_WatchedClaimable& operator=(const AFK_WatchedClaimable&& _wc)
+    {
+        claimable = _wc.claimable;
+        lastSeen.store(-1);
+        lastSeenExclusively.store(-1);
+        return *this;
+    }
+
+    AFK_Claim<T> claim(unsigned int threadId, unsigned int flags)
+    {
+        bool claimed = claimable.claimInternal(threadId, flags);
         if (!claimed) throw AFK_ClaimException();
 
         int64_t computingFrameNum = getComputingFrame().get();
@@ -368,7 +430,7 @@ public:
             assert(!(flags & AFK_CL_SHARED));
             if (lastSeen.load() == computingFrameNum)
             {
-                release(threadId);
+                claimable.release(threadId);
                 throw AFK_ClaimException();
             }
         }
@@ -381,36 +443,28 @@ public:
                 assert(!(flags & AFK_CL_SHARED));
                 if (lastSeenExclusively.exchange(computingFrameNum) == computingFrameNum)
                 {
-                    release(threadId);
+                    claimable.release(threadId);
                     throw AFK_ClaimException();
                 }
             }
         }
 
-        return AFK_Claim<T, getComputingFrame>(threadId, this, false);
+        return claimable.getClaimable(threadId, flags);
     }
 
     int64_t getLastSeen(void) const { return lastSeen.load(); }
     int64_t getLastSeenExclusively(void) const { return lastSeenExclusively.load(); }
 
-    friend class AFK_Claim<T, getComputingFrame>;
-
     template<typename _T, AFK_GetComputingFrame& _getComputingFrame>
-    friend std::ostream& operator<<(std::ostream& os, const AFK_Claimable<_T, _getComputingFrame>& c);
+    friend std::ostream& operator<<(std::ostream& os, const AFK_WatchedClaimable<_T, _getComputingFrame>& c);
 };
 
 template<typename T, AFK_GetComputingFrame& getComputingFrame>
-std::ostream& operator<<(std::ostream& os, const AFK_Claimable<T, getComputingFrame>& c)
+std::ostream& operator<<(std::ostream& os, const AFK_WatchedClaimable<T, getComputingFrame>& c)
 {
-    /* I'm going to ignore any claims here and just read
-     * out what's there -- it might be out of date, but
-     * these functions are for diagnostics only and that
-     * should be OK
-     */
-    os << "Claimable(" << c.obj.load() << ", last seen " << c.getLastSeen() << ", last seen exclusively " << c.getLastSeenExclusively() << ")";
+    os << "WatchedClaimable(with " << c.claimable << ", last seen " << c.getLastSeen() << ", last seen exclusively " << c.getLastSeenExclusively() << ")";
     return os;
 }
-
 
 #endif /* _AFK_DATA_CLAIMABLE_H_ */
 

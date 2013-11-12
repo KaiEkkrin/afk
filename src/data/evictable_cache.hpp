@@ -47,7 +47,7 @@ class AFK_Evictable
 {
 public:
     boost::atomic<Key> key;
-    AFK_Claimable<Value, getComputingFrame> claimable;
+    AFK_WatchedClaimable<Value, getComputingFrame> claimable;
 
     AFK_Evictable(): key(unassigned), claimable() {}
 

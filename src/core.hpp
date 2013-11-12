@@ -193,10 +193,9 @@ extern AFK_Core afk_core;
  */
 extern AFK_GetComputingFrame afk_getComputingFrameFunc;
 
-/* Here's a shorthand for claim types with that frame counter
- * getter function
+/* Here's a shorthand for claim types
  */
-#define AFK_CLAIM_OF(t) AFK_Claim<AFK_##t, afk_getComputingFrameFunc>
+#define AFK_CLAIM_OF(t) AFK_Claim<AFK_##t>
 
 /* I'll define the caches here, it's a nice central place to put them.
  * I'm going to use plenty of hash bits for the world cache (many many
