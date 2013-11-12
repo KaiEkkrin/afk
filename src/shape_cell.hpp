@@ -118,7 +118,6 @@ public:
     void enqueueEdgeComputeUnit(
         unsigned int threadId,
         AFK_SHAPE_CELL_CACHE *cache,
-        const Vec4<float>& realCoord,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_JigsawCollection *edgeJigsaws,
         AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
@@ -129,6 +128,7 @@ public:
      */
     void enqueueEdgeDisplayUnit(
         const Mat4<float>& worldTransform,
+        const Vec4<float>& hgCoord,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_JigsawCollection *edgeJigsaws,
         AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair,

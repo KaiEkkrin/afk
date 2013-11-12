@@ -146,6 +146,12 @@ public:
 
     /* Transforms this cell's co-ordinates to world space. */
     Vec4<float> toWorldSpace(float worldScale) const;
+
+    /* Transforms this cell's co-ordinates into homogeneous
+     * world space co-ordinates, such that 0-1 is the scale
+     * of the cell cube
+     */
+    Vec4<float> toHomogeneous(float worldScale) const;
 };
 
 /* Useful ways of making cells. */

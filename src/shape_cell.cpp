@@ -127,7 +127,6 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
 void AFK_ShapeCell::enqueueEdgeComputeUnit(
     unsigned int threadId,
     AFK_SHAPE_CELL_CACHE *cache,
-    const Vec4<float>& realCoord,
     AFK_JigsawCollection *vapourJigsaws,
     AFK_JigsawCollection *edgeJigsaws,
     AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
@@ -143,11 +142,12 @@ void AFK_ShapeCell::enqueueEdgeComputeUnit(
      AFK_DEBUG_PRINTL("Computing edges at location: " << realCoord)
 #endif
 
-     edgeComputeQueue->append(realCoord, vapourJigsawPiece, edgeJigsawPiece);
+     edgeComputeQueue->append(vapourJigsawPiece, edgeJigsawPiece);
 }
 
 void AFK_ShapeCell::enqueueEdgeDisplayUnit(
     const Mat4<float>& worldTransform,
+    const Vec4<float>& hgCoord,
     AFK_JigsawCollection *vapourJigsaws,
     AFK_JigsawCollection *edgeJigsaws,
     AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair,
@@ -163,6 +163,7 @@ void AFK_ShapeCell::enqueueEdgeDisplayUnit(
     entityDisplayFair.getUpdateQueue(index)->add(
         AFK_EntityDisplayUnit(
             worldTransform,
+            hgCoord,
             vapourJigsaws->getPuzzle(vapourJigsawPiece)->getTexCoordSTR(vapourJigsawPiece),
             edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTexCoordST(edgeJigsawPiece)));
 }

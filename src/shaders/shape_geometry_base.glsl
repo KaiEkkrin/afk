@@ -21,10 +21,6 @@
 
 #version 400
 
-// This is the displacement jigsaw texture.
-// We sample (x, y, z, w).
-uniform sampler2D JigsawDispTex;
-
 // This is the density texture.  I'll use the first 3 components
 // only, which represent the colour.
 // TODO: change the vapour to have separate colour (3-uint8) and
@@ -40,7 +36,10 @@ uniform usampler2D JigsawOverlapTex;
 // This is the entity display queue.  There are five texels
 // per instance, which contain:
 // - first 4: the 4 rows of the transform matrix for the instance
-// - fifth: (x, y) are the (s, t) jigsaw co-ordinates.
+// - fifth: the displacement relative to the shape's base cube,
+// in homogeneous co-ordinates
+// - sixth: (x, y, z) are the (s, t, r) vapour jigsaw co-ordinates.
+// - seventh: (x, y) are the (s, t) edge jigsaw co-ordinates.
 uniform samplerBuffer DisplayTBO; 
 
 // This is the size of an individual vapour jigsaw piece
@@ -151,7 +150,7 @@ vec3 makeCubeCoordFromESB(float edgeStepsBack, int i)
 vec4 makePositionFromCubeCoord(
     mat4 ClipTransform,
     vec3 cubeCoord,
-    vec2 edgeJigsawCoordNN)
+    int instanceId)
 {
 
     /* TODO Right now, I'm writing the same displacement position
@@ -161,7 +160,7 @@ vec4 makePositionFromCubeCoord(
      * to do that I need to support differing piece sizes in the
      * jigsaw (not there yet).
      */
-    vec4 dispPositionBase = textureLod(JigsawDispTex, edgeJigsawCoordNN, 0);
+    vec4 dispPositionBase = texelFetch(DisplayTBO, instanceId * 7 + 4);
 
     /* Subtle: note magic use of `w' part of homogeneous
      * dispPositionBase co-ordinates to allow me to add a 0-1 value for
@@ -211,6 +210,7 @@ void emitShapeVertex(
     vec3 vapourJigsawPieceCoord,
     vec2 edgeJigsawPieceCoord,
     vec2 texCoordDisp,
+    int instanceId,
     uint layer,
     int i)
 {
@@ -221,7 +221,7 @@ void emitShapeVertex(
 
     float edgeStepsBack = getEdgeStepsBack(edgeJigsawCoordNN, layer);
     vec3 cubeCoord = makeCubeCoordFromESB(edgeStepsBack, i);
-    vec4 position = makePositionFromCubeCoord(ClipTransform, cubeCoord, edgeJigsawCoordNN);
+    vec4 position = makePositionFromCubeCoord(ClipTransform, cubeCoord, instanceId);
     emitShapeVertexAtPosition(position, cubeCoord, WorldTransform, vapourJigsawPieceCoord, layer);
 }
 
@@ -244,10 +244,10 @@ vec2 getTexCoordDisp()
 // Reconstructs the world transform matrix from the texture buffer.
 mat4 getWorldTransform(int instanceId)
 {
-    vec4 WTRow1 = texelFetch(DisplayTBO, instanceId * 6);
-    vec4 WTRow2 = texelFetch(DisplayTBO, instanceId * 6 + 1);
-    vec4 WTRow3 = texelFetch(DisplayTBO, instanceId * 6 + 2);
-    vec4 WTRow4 = texelFetch(DisplayTBO, instanceId * 6 + 3);
+    vec4 WTRow1 = texelFetch(DisplayTBO, instanceId * 7);
+    vec4 WTRow2 = texelFetch(DisplayTBO, instanceId * 7 + 1);
+    vec4 WTRow3 = texelFetch(DisplayTBO, instanceId * 7 + 2);
+    vec4 WTRow4 = texelFetch(DisplayTBO, instanceId * 7 + 3);
 
     mat4 WorldTransform = mat4(
         vec4(WTRow1.x, WTRow2.x, WTRow3.x, WTRow4.x),

@@ -31,6 +31,7 @@ void emitShapeSingleTriangle(
     vec3 vapourJigsawPieceCoord,
     vec2 edgeJigsawPieceCoord,
     vec2 texCoordDisp,
+    int instanceId,
     uint layer,
     int i,
     int j,
@@ -41,15 +42,15 @@ void emitShapeSingleTriangle(
     {
     case 1: case 2: case 5:
         /* Flip this triangle over. */
-        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, i);
-        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, k);
-        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, j);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, instanceId, layer, i);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, instanceId, layer, k);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, instanceId, layer, j);
         break;
 
     default:
-        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, i);
-        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, j);
-        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, k);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, instanceId, layer, i);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, instanceId, layer, j);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, instanceId, layer, k);
         break;
     }
 }
@@ -60,6 +61,7 @@ void emitShapeTrianglePair(
     vec3 vapourJigsawPieceCoord,
     vec2 edgeJigsawPieceCoord,
     vec2 texCoordDisp,
+    int instanceId,
     uint layer,
     int i,
     int j,
@@ -71,17 +73,17 @@ void emitShapeTrianglePair(
     {
     case 1: case 2: case 5:
         /* Flip this triangle over. */
-        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, i);
-        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, k);
-        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, j);
-        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, l);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, instanceId, layer, i);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, instanceId, layer, k);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, instanceId, layer, j);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, instanceId, layer, l);
         break;
 
     default:
-        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, i);
-        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, j);
-        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, k);
-        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, l);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, instanceId, layer, i);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, instanceId, layer, j);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, instanceId, layer, k);
+        emitShapeVertex(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, instanceId, layer, l);
         break;
     }
 }
@@ -90,8 +92,8 @@ void main()
 {
     /* Reconstruct this instance's jigsaw piece coords.
      */
-    vec3 vapourJigsawPieceCoord = texelFetch(DisplayTBO, inData[0].instanceId * 6 + 4).xyz;
-    vec2 edgeJigsawPieceCoord = texelFetch(DisplayTBO, inData[0].instanceId * 6 + 5).xy;
+    vec3 vapourJigsawPieceCoord = texelFetch(DisplayTBO, inData[0].instanceId * 7 + 5).xyz;
+    vec2 edgeJigsawPieceCoord = texelFetch(DisplayTBO, inData[0].instanceId * 7 + 6).xy;
     vec2 texCoordDisp = getTexCoordDisp();
 
     uint allOverlap = textureLod(JigsawOverlapTex,
@@ -119,27 +121,27 @@ void main()
             switch (overlap)
             {
             case 1:
-                emitShapeSingleTriangle(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, 0, 1, 2, gl_InvocationID);
+                emitShapeSingleTriangle(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, inData[0].instanceId, layer, 0, 1, 2, gl_InvocationID);
                 break;
                 
             case 2:
-                emitShapeSingleTriangle(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, 1, 3, 2, gl_InvocationID);
+                emitShapeSingleTriangle(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, inData[0].instanceId, layer, 1, 3, 2, gl_InvocationID);
                 break;
      
             case 3:
-                emitShapeTrianglePair(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, 0, 1, 2, 3, gl_InvocationID);
+                emitShapeTrianglePair(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, inData[0].instanceId, layer, 0, 1, 2, 3, gl_InvocationID);
                 break;
      
             case 5:
-                emitShapeSingleTriangle(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, 2, 0, 3, gl_InvocationID);
+                emitShapeSingleTriangle(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, inData[0].instanceId, layer, 2, 0, 3, gl_InvocationID);
                 break;
      
             case 6:
-                emitShapeSingleTriangle(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, 3, 0, 1, gl_InvocationID);
+                emitShapeSingleTriangle(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, inData[0].instanceId, layer, 3, 0, 1, gl_InvocationID);
                 break;
      
             case 7:
-                emitShapeTrianglePair(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, layer, 2, 0, 3, 1, gl_InvocationID);
+                emitShapeTrianglePair(ClipTransform, WorldTransform, vapourJigsawPieceCoord, edgeJigsawPieceCoord, texCoordDisp, inData[0].instanceId, layer, 2, 0, 3, 1, gl_InvocationID);
                 break;
             }
      

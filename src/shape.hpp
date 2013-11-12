@@ -87,7 +87,7 @@ protected:
         AFK_CLAIM_OF(VapourCell)& vapourCellClaim,
         AFK_CLAIM_OF(ShapeCell)& shapeCellClaim,
         const Mat4<float>& worldTransform,
-        const Vec4<float>& realCoord,
+        const AFK_VisibleCell& visibleCell,
         AFK_World *world);
 
     /* TODO: Try to move the shape-dependent stuff out of

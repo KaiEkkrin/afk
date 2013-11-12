@@ -214,7 +214,7 @@ bool afk_generateShapeCells(
                     /* I want that shape cell now ... */
                     auto shapeCellClaim = (*(shape.shapeCellCache))[cell].claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
                     if (!shape.generateClaimedShapeCell(
-                        threadId, vc, cell, vapourCellClaim, shapeCellClaim, worldTransform, visibleCell.getRealCoord(), world))
+                        threadId, vc, cell, vapourCellClaim, shapeCellClaim, worldTransform, visibleCell, world))
                     {
                         DEBUG_VISIBLE_CELL("needs resume")
                         resume = true;
@@ -302,7 +302,7 @@ bool AFK_Shape::generateClaimedShapeCell(
     AFK_CLAIM_OF(VapourCell)& vapourCellClaim,
     AFK_CLAIM_OF(ShapeCell)& shapeCellClaim,
     const Mat4<float>& worldTransform,
-    const Vec4<float>& realCoord,
+    const AFK_VisibleCell& visibleCell,
     AFK_World *world)
 {
     AFK_JigsawCollection *vapourJigsaws     = world->vapourJigsaws;
@@ -329,7 +329,7 @@ bool AFK_Shape::generateClaimedShapeCell(
             {
                 int adjacency = vapourCellClaim.getShared().skeletonFullAdjacency(vc, cell, world->sSizes);
                 shapeCellClaim.get().enqueueVapourComputeUnitFromExistingVapour(
-                    threadId, adjacency, cubeOffset, cubeCount, realCoord, cell.key, world->sSizes, vapourJigsaws, world->vapourComputeFair);
+                    threadId, adjacency, cubeOffset, cubeCount, visibleCell.getRealCoord(), cell.key, world->sSizes, vapourJigsaws, world->vapourComputeFair);
                 world->shapeVapoursComputed.fetch_add(1);
 
 #if AFK_SHAPE_ENUM_DEBUG
@@ -348,7 +348,7 @@ bool AFK_Shape::generateClaimedShapeCell(
 
                     int adjacency = vapourCell.skeletonFullAdjacency(vc, cell, world->sSizes);
                     shapeCellClaim.get().enqueueVapourComputeUnitWithNewVapour(
-                        threadId, adjacency, list, realCoord, cell.key, world->sSizes, vapourJigsaws, world->vapourComputeFair, cubeOffset, cubeCount);
+                        threadId, adjacency, list, visibleCell.getRealCoord(), cell.key, world->sSizes, vapourJigsaws, world->vapourComputeFair, cubeOffset, cubeCount);
                     vapourCell.enqueued(cubeOffset, cubeCount);
                     world->shapeVapoursComputed.fetch_add(1);
 #if AFK_SHAPE_ENUM_DEBUG
@@ -374,7 +374,7 @@ bool AFK_Shape::generateClaimedShapeCell(
             if (shapeCell.hasVapour(vapourJigsaws))
             {
                 shapeCellClaim.get().enqueueEdgeComputeUnit(
-                    threadId, shapeCellCache, realCoord, vapourJigsaws, edgeJigsaws, world->edgeComputeFair, world->entityFair2DIndex);
+                    threadId, shapeCellCache, vapourJigsaws, edgeJigsaws, world->edgeComputeFair, world->entityFair2DIndex);
                 world->shapeEdgesComputed.fetch_add(1);
 
 #if AFK_SHAPE_ENUM_DEBUG
@@ -389,6 +389,7 @@ bool AFK_Shape::generateClaimedShapeCell(
     {
         shapeCell.enqueueEdgeDisplayUnit(
             worldTransform,
+            visibleCell.getHomogeneous(),
             vapourJigsaws,
             edgeJigsaws,
             world->entityDisplayFair,
