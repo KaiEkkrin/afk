@@ -51,6 +51,80 @@
  */
 class AFK_ClaimException: public std::exception {};
 
+/* These utilities transfer the volatile shared structures into
+ * usable things and back again.
+ */
+
+template<typename T, typename I>
+void afk_grabSharedIntegral(T *mine, const volatile T *shared, size_t& offset)
+{
+    *(reinterpret_cast<I*>(mine) + offset / sizeof(I)) =
+        *(reinterpret_cast<const volatile I*>(shared) + offset / sizeof(I));
+    offset += sizeof(I);
+}
+
+template<typename T>
+void afk_grabShared(T *mine, const volatile T *shared)
+{
+    size_t offset = 0;
+    while (offset < sizeof(T))
+    {
+        switch (sizeof(T) - offset)
+        {
+        case 1:
+            afk_grabSharedIntegral<T, uint8_t>(mine, shared, offset);
+            break;
+
+        case 2: case 3:
+            afk_grabSharedIntegral<T, uint16_t>(mine, shared, offset);
+            break;
+
+        case 4: case 5: case 6: case 7:
+            afk_grabSharedIntegral<T, uint32_t>(mine, shared, offset);
+            break;
+
+        default:
+            afk_grabSharedIntegral<T, uint64_t>(mine, shared, offset);
+            break;
+        }
+    }
+}
+
+template<typename T, typename I>
+void afk_returnSharedIntegral(const T *mine, volatile T *shared, size_t& offset)
+{
+    *(reinterpret_cast<volatile I*>(shared) + offset / sizeof(I)) =
+        *(reinterpret_cast<const I*>(mine) + offset / sizeof(I));
+    offset += sizeof(I);
+}
+
+template<typename T>
+void afk_returnShared(const T *mine, volatile T *shared)
+{
+    size_t offset = 0;
+    while (offset < sizeof(T))
+    {
+        switch (offset)
+        {
+        case 1:
+            afk_returnSharedIntegral<T, uint8_t>(mine, shared, offset);
+            break;
+
+        case 2: case 3:
+            afk_returnSharedIntegral<T, uint16_t>(mine, shared, offset);
+            break;
+
+        case 4: case 5: case 6: case 7:
+            afk_returnSharedIntegral<T, uint32_t>(mine, shared, offset);
+            break;
+
+        default:
+            afk_returnSharedIntegral<T, uint64_t>(mine, shared, offset);
+            break;
+        }
+    }
+}
+
 /* How to specify a function to obtain the current computing frame */
 typedef std::function<const AFK_Frame& (void)> AFK_GetComputingFrame;
 
@@ -66,30 +140,13 @@ protected:
     bool shared;
     bool released;
 
-    /* For sanity checking, for now I'm going to have the Claim
-     * take an original of the object, as well as copy it to
-     * give it to the caller to modify.
-     * Upon release we can compare this with what's present to
-     * make sure everything's working as expected
-     * `obj' will always be valid (and will be the one modified
-     * with a nonshared Claim); `original' will not be pulled
-     * on a shared Claim.
-     */
-    /* TODO: See below -- this isn't working, removing for now */
-#define AFK_CL_COMPARE_ORIGINAL 0
-
     T obj;
-#if AFK_CL_COMPARE_ORIGINAL
-    T original;
-#endif
 
     AFK_Claim(unsigned int _threadId, AFK_Claimable<T, getComputingFrame> *_claimable, bool _shared):
-        threadId(_threadId), claimable(_claimable), shared(_shared), released(false),
-        obj(_claimable->obj.load())
+        threadId(_threadId), claimable(_claimable), shared(_shared), released(false)
     {
-#if AFK_CL_COMPARE_ORIGINAL
-        if (!shared) original = obj;
-#endif
+        boost::atomic_thread_fence(boost::memory_order_seq_cst);
+        afk_grabShared<T>(&obj, claimable->objPtr());
     }
 
 public:
@@ -154,9 +211,6 @@ public:
         if (claimable->tryUpgradeShared(threadId))
         {
             shared = false;
-#if AFK_CL_COMPARE_ORIGINAL
-            original = obj;
-#endif
             return true;
         }
         
@@ -172,24 +226,8 @@ public:
         }
         else
         {
-            /* TODO: I've verified, below, that this comparison
-             * (that I wanted to perform) does not work.  :(
-             * Bit-identical objects compare as different.
-             * Therefore, I'm going to do store() for now and
-             * comment out the `original' stuff, and lose a
-             * valuable sanity check :(
-             */
-            //assert(claimable->obj.compare_exchange_strong(original, obj));
-#if AFK_CL_COMPARE_ORIGINAL
-            if (!claimable->obj.compare_exchange_strong(original, obj))
-            {
-                T inplace = claimable->obj.load();
-                AFK_DEBUG_PRINTL_CLAIMABLE("release failed: original " << original << ", inplace " << inplace)
-                assert(false);
-            }
-#else
-            claimable->obj.store(obj);
-#endif
+            afk_returnShared<T>(&obj, claimable->objPtr());
+            boost::atomic_thread_fence(boost::memory_order_seq_cst);
             claimable->release(threadId);
         }
 
@@ -231,7 +269,10 @@ protected:
     boost::atomic<int64_t> lastSeenExclusively;
 
     /* The claimable object itself. */
-    boost::atomic<T> obj;
+    volatile T obj;
+
+    /* Returns a pointer to it, so the Claim can copy its contents out and back in again */
+    volatile T* objPtr(void) { return &obj; }
 
 #define AFK_CL_NO_THREAD 0
 #define AFK_CL_NONSHARED (1uLL<<63)
