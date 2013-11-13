@@ -264,9 +264,10 @@ AFK_Core::~AFK_Core()
      * this in ...
      */
     if (window) afk_core.window->closeWindow();
-    if (world) world.reset(); /* Should stop the threads */
+    if (world) delete world;
     if (rng) delete rng;
     if (protagonist) delete protagonist;
+    if (camera) delete camera;
 
     if (computer) delete computer; /* Should close CL contexts */
     if (window) delete window; /* Should close GL contexts */
@@ -290,7 +291,7 @@ void AFK_Core::configure(int *argcp, char **argv)
     /* TODO Make the viewpoint configurable?  Right now I have a
      * fixed 3rd person view here.
      */
-    camera = std::make_shared<AFK_Camera>(afk_vec3<float>(0.0f, -1.5f, 3.0f));
+    camera = new AFK_Camera(afk_vec3<float>(0.0f, -1.5f, 3.0f));
 
     /* Set up the sun.  (TODO: Make configurable?  Randomly
      * generated?  W/e :) )
@@ -339,7 +340,7 @@ void AFK_Core::loop(void)
     cl_context ctxt;
     cl_command_queue q;
     computer->lock(ctxt, q);
-    world = std::make_shared<AFK_World>(
+    world = new AFK_World(
         config,
         computer,
         threadAlloc,

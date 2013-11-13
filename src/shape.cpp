@@ -19,7 +19,6 @@
 
 #include <cmath>
 #include <cstring>
-#include <memory>
 
 #include "camera.hpp"
 #include "core.hpp"
@@ -42,7 +41,7 @@ bool afk_generateEntity(
     AFK_WorldWorkQueue& queue)
 {
     AFK_KeyedCell cell                      = param.shape.cell;
-    std::shared_ptr<AFK_World> world        = afk_core.world;
+    AFK_World *world                        = afk_core.world;
 
     AFK_Shape& shape                        = world->shape;
 
@@ -140,8 +139,8 @@ bool afk_generateShapeCells(
     Mat4<float> worldTransform              = param.shape.transformation;
     const Vec3<float>& viewerLocation       = param.shape.viewerLocation;
 
-    std::shared_ptr<AFK_World> world        = afk_core.world;
-    std::shared_ptr<AFK_Camera> camera      = afk_core.camera;
+    AFK_World *world                        = afk_core.world;
+    AFK_Camera *camera                      = afk_core.camera;
 
     bool entirelyVisible                    = ((param.shape.flags & AFK_SCG_FLAG_ENTIRELY_VISIBLE) != 0);
 
@@ -302,7 +301,7 @@ bool AFK_Shape::generateClaimedShapeCell(
     AFK_CLAIM_OF(ShapeCell)& shapeCellClaim,
     const Mat4<float>& worldTransform)
 {
-    std::shared_ptr<AFK_World> world        = afk_core.world;
+    AFK_World *world                        = afk_core.world;
 
     AFK_JigsawCollection *vapourJigsaws     = world->vapourJigsaws;
     AFK_JigsawCollection *edgeJigsaws       = world->edgeJigsaws;

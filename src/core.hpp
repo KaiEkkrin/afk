@@ -21,7 +21,6 @@
 #include "afk.hpp"
 
 #include <iostream>
-#include <memory>
 #include <string>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -109,10 +108,10 @@ public:
     AFK_Frame           computingFrame;
 
     /* The camera.  This gets shared with the worker threads. */
-    std::shared_ptr<AFK_Camera>     camera;
+    AFK_Camera          *camera;
 
     /* The world.  This does too. */
-    std::shared_ptr<AFK_World>      world;
+    AFK_World           *world;
 
     /* Global lighting. */
     AFK_Light           sun;

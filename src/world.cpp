@@ -19,7 +19,6 @@
 
 #include <cassert>
 #include <cmath>
-#include <memory>
 
 #include "core.hpp"
 #include "debug.hpp"
@@ -56,7 +55,7 @@ bool afk_generateWorldCells(
     AFK_WorldWorkQueue& queue)
 {
     const AFK_Cell cell                 = param.world.cell;
-    std::shared_ptr<AFK_World> world    = afk_core.world;
+    AFK_World *world                    = afk_core.world;
 
     bool renderTerrain                  = ((param.world.flags & AFK_WCG_FLAG_TERRAIN_RENDER) != 0);
     bool resume                         = ((param.world.flags & AFK_WCG_FLAG_RESUME) != 0);
@@ -247,7 +246,7 @@ bool AFK_World::generateClaimedWorldCell(
 {
     const AFK_Cell& cell                = param.cell;
     const Vec3<float>& viewerLocation   = param.viewerLocation;
-    std::shared_ptr<AFK_Camera> camera  = afk_core.camera;
+    AFK_Camera *camera                  = afk_core.camera;
 
     bool entirelyVisible                = ((param.flags & AFK_WCG_FLAG_ENTIRELY_VISIBLE) != 0);
     bool renderTerrain                  = ((param.flags & AFK_WCG_FLAG_TERRAIN_RENDER) != 0);
