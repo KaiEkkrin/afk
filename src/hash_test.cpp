@@ -22,16 +22,16 @@
 #include "hash_test.hpp"
 #include "rng/rng.hpp"
 
-void test_cellHash(void)
+void test_cellHash(int64_t startVal, int64_t incrVal)
 {
     std::cout << "Cell hash test" << std::endl;
     std::cout << "--------------" << std::endl;
 
-    for (int64_t x = -1; x <= 1; ++x)
+    for (int64_t x = startVal; x <= (startVal + 2 * incrVal); x += incrVal)
     {
-        for (int64_t y = -1; y <= 1; ++y)
+        for (int64_t y = startVal; y <= (startVal + 2 * incrVal); y += incrVal)
         {
-            for (int64_t z = -1; z <= 1; ++z)
+            for (int64_t z = startVal; z <= (startVal + 2 * incrVal); z += incrVal)
             {
                 for (int64_t scale = 2; scale <= 8; scale *= 2)
                 {
@@ -45,7 +45,7 @@ void test_cellHash(void)
     std::cout << std::endl;
 }
 
-void test_tileHash(void)
+void test_tileHash(int64_t startVal, int64_t incrVal)
 {
     /* To begin with, I'll just go through a few standard
      * tiles making sure the hashes are as varied as they
@@ -55,9 +55,9 @@ void test_tileHash(void)
     std::cout << "Tile hash test" << std::endl;
     std::cout << "--------------" << std::endl;
 
-    for (int64_t x = -1; x <= 1; ++x)
+    for (int64_t x = startVal; x <= (startVal + 2 * incrVal); x += incrVal)
     {
-        for (int64_t z = -1; z <= 1; ++z)
+        for (int64_t z = startVal; z <= (startVal + 2 * incrVal); z += incrVal)
         {
             for (int64_t scale = 2; scale <= 16; scale *= 2)
             {
@@ -68,6 +68,20 @@ void test_tileHash(void)
     }
 
     std::cout << std::endl;
+}
+
+void test_cellHash(void)
+{
+    test_cellHash(-1, 1);
+    test_cellHash(-262144, 131072);
+    test_cellHash(131072, 2);
+}
+
+void test_tileHash(void)
+{
+    test_tileHash(-1, 1);
+    test_tileHash(-262144, 131072);
+    test_tileHash(131072, 2);
 }
 
 void test_rotate(void)

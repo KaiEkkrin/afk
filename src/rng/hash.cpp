@@ -293,14 +293,16 @@ uint64_t afk_hash_swizzle(uint64_t a, uint64_t b)
 {
     /* This is essentially a CBC mode substitution cipher with a
      * 1 byte block size and the above fixed lookup table.
+     * To make sure all blocks affect all other blocks I need
+     * two passes
      */
     uint64_t out = a;
     uint8_t lastByte = (GET_BYTE(a, 0) ^ lut[GET_BYTE(b, 0)]);
-    setByte(out, lastByte, 0);
-    for (int i = 1; i < 8; ++i)
+
+    for (int i = 0; i < 16; ++i)
     {
-        lastByte = (GET_BYTE(a, i) ^ lut[lastByte ^ GET_BYTE(b, i)]);
-        setByte(out, lastByte, i);
+        setByte(out, lastByte, i % 8);
+        lastByte = (GET_BYTE(a, (i + 1) % 8) ^ lut[lastByte ^ GET_BYTE(b, (i + 1) % 8)]);
     }
 
     return out;
