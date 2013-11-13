@@ -19,6 +19,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <memory>
 
 #include "core.hpp"
 #include "debug.hpp"
@@ -181,7 +182,7 @@ void AFK_World::generateLandscapeArtwork(
     /* Now, I need to enqueue the terrain list and the
      * jigsaw piece into one of the rides at the compute fair...
      */
-    boost::shared_ptr<AFK_TerrainComputeQueue> computeQueue = landscapeComputeFair.getUpdateQueue(jigsawPiece.puzzle);
+    std::shared_ptr<AFK_TerrainComputeQueue> computeQueue = landscapeComputeFair.getUpdateQueue(jigsawPiece.puzzle);
     Vec2<int> piece2D = afk_vec2<int>(jigsawPiece.u, jigsawPiece.v);
 #if DEBUG_TERRAIN_COMPUTE_QUEUE
     AFK_TerrainComputeUnit unit = computeQueue->extend(
@@ -218,7 +219,7 @@ void AFK_World::displayLandscapeTile(
 #if DEBUG_JIGSAW_ASSOCIATION
         AFK_DEBUG_PRINTL("Display: " << tile << " -> " << jigsawPiece << " -> " << unit)
 #endif
-        boost::shared_ptr<AFK_LandscapeDisplayQueue> ldq =
+        std::shared_ptr<AFK_LandscapeDisplayQueue> ldq =
             landscapeDisplayFair.getUpdateQueue(jigsawPiece.puzzle);
 
         ldq->add(unit, tile);
@@ -748,7 +749,7 @@ float AFK_World::getEntityDetailPitch(void) const
         (float)sSizes.pointSubdivisionFactor / (float)lSizes.pointSubdivisionFactor;
 }
 
-boost::unique_future<bool> AFK_World::updateWorld(void)
+std::future<bool> AFK_World::updateWorld(void)
 {
     /* Maintenance. */
     landscapeCache->doEvictionIfNecessary();
@@ -807,7 +808,7 @@ void AFK_World::doComputeTasks(unsigned int threadId)
      * puzzle, so that I can easily batch up work that applies to the
      * same jigsaw:
      */
-    std::vector<boost::shared_ptr<AFK_TerrainComputeQueue> > terrainComputeQueues;
+    std::vector<std::shared_ptr<AFK_TerrainComputeQueue> > terrainComputeQueues;
     landscapeComputeFair.getDrawQueues(terrainComputeQueues);
 
     /* The fair's queues are in the same order as the puzzles in
@@ -818,13 +819,13 @@ void AFK_World::doComputeTasks(unsigned int threadId)
         terrainComputeQueues.at(puzzle)->computeStart(afk_core.computer, landscapeJigsaws->getPuzzle(puzzle), lSizes, landscape_baseColour);
     }
 
-    std::vector<boost::shared_ptr<AFK_3DVapourComputeQueue> > vapourComputeQueues;
+    std::vector<std::shared_ptr<AFK_3DVapourComputeQueue> > vapourComputeQueues;
     vapourComputeFair.getDrawQueues(vapourComputeQueues);
     assert(vapourComputeQueues.size() <= 1);
     if (vapourComputeQueues.size() == 1)
         vapourComputeQueues.at(0)->computeStart(afk_core.computer, vapourJigsaws, sSizes);
 
-    std::vector<boost::shared_ptr<AFK_3DEdgeComputeQueue> > edgeComputeQueues;
+    std::vector<std::shared_ptr<AFK_3DEdgeComputeQueue> > edgeComputeQueues;
     edgeComputeFair.getDrawQueues(edgeComputeQueues);
 
     for (unsigned int i = 0; i < edgeComputeQueues.size(); ++i)
@@ -891,7 +892,7 @@ void AFK_World::display(
     /* Now that I've set that up, make the texture that describes
      * where the tiles are in space ...
      */
-    std::vector<boost::shared_ptr<AFK_LandscapeDisplayQueue> > landscapeDrawQueues;
+    std::vector<std::shared_ptr<AFK_LandscapeDisplayQueue> > landscapeDrawQueues;
     landscapeDisplayFair.getDrawQueues(landscapeDrawQueues);
 
     /* Those queues are in puzzle order. */
@@ -920,7 +921,7 @@ void AFK_World::display(
     glBindVertexArray(edgeShapeBaseArray);
     AFK_GLCHK("edge shape bindVertexArray")
 
-    std::vector<boost::shared_ptr<AFK_EntityDisplayQueue> > entityDrawQueues;
+    std::vector<std::shared_ptr<AFK_EntityDisplayQueue> > entityDrawQueues;
     entityDisplayFair.getDrawQueues(entityDrawQueues);
 
     for (unsigned int i = 0; i < entityDrawQueues.size(); ++i)

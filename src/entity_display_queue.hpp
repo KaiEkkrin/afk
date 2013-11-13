@@ -20,9 +20,9 @@
 
 #include "afk.hpp"
 
+#include <mutex>
 #include <vector>
 
-#include <boost/thread/mutex.hpp>
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
@@ -88,7 +88,7 @@ protected:
      * has displacements in all three directions!)
      */
     GLuint buf;
-    boost::mutex mut;
+    std::mutex mut;
 
     GLuint vapourJigsawPiecePitchLocation;
     GLuint edgeJigsawPiecePitchLocation;

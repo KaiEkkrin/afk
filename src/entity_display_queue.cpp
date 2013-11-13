@@ -51,7 +51,7 @@ AFK_EntityDisplayQueue::~AFK_EntityDisplayQueue()
 
 void AFK_EntityDisplayQueue::add(const AFK_EntityDisplayUnit& _unit)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     queue.push_back(_unit);
 }
@@ -135,14 +135,14 @@ void AFK_EntityDisplayQueue::draw(
 
 bool AFK_EntityDisplayQueue::empty(void)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     return queue.empty();
 }
 
 void AFK_EntityDisplayQueue::clear(void)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     queue.clear();
 }

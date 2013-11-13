@@ -146,6 +146,11 @@ protected:
      * the right `cuboidMut' has already been acquired appropriately.
      * There's one each for the update and draw cuboids, flipping just
      * like the cuboid vectors themselves.
+     *
+     * ... TODO: The mutex here.  Try instead instituting a regular
+     * mutex per cuboid vector?  The shared stuff is probably slow given
+     * the few operations we do here; the important thing is to lock
+     * these operations away from the render phase.
      */
     const unsigned int concurrency;
     std::vector<AFK_JigsawCuboid> cuboids[2];

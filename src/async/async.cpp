@@ -18,7 +18,7 @@
 #include "async.hpp"
 
 #if ASYNC_DEBUG_SPAM
-boost::mutex debugSpamMut;
+std::mutex debugSpamMut;
 #endif
 
 static void afk_workerBusyBitAndMask(unsigned int id, uint64_t& o_busyBit, uint64_t& o_busyMask)
@@ -31,7 +31,7 @@ void AFK_AsyncControls::control_workReady(void)
 {
     ASYNC_CONTROL_DEBUG("control_workReady: " << std::dec << workerCount << " workers")   
 
-    boost::unique_lock<boost::mutex> lock(workMut);
+    std::unique_lock<std::mutex> lock(workMut);
     while (workReady != 0)
     {
         ASYNC_CONTROL_DEBUG("control_workReady: waiting")
@@ -53,7 +53,7 @@ void AFK_AsyncControls::control_quit(void)
 {
     ASYNC_CONTROL_DEBUG("control_quit: sending quit")
 
-    boost::unique_lock<boost::mutex> lock(workMut);
+    std::unique_lock<std::mutex> lock(workMut);
     while (workReady != 0)
     {
         ASYNC_CONTROL_DEBUG("control_quit: waiting")
@@ -71,7 +71,7 @@ bool AFK_AsyncControls::worker_waitForWork(unsigned int id)
 {
     ASYNC_CONTROL_DEBUG("worker_waitForWork: entry")
 
-    boost::unique_lock<boost::mutex> lock(workMut);
+    std::unique_lock<std::mutex> lock(workMut);
     while (workReady == 0 && !quit)
     {
         ASYNC_CONTROL_DEBUG("worker_waitForWork: waiting")

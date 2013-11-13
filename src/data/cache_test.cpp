@@ -17,13 +17,13 @@
 
 #include <cmath>
 #include <functional>
+#include <future>
 #include <iostream>
 
 #include <boost/atomic.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/random/random_device.hpp>
 #include <boost/random/taus88.hpp>
-#include <boost/thread/future.hpp>
 
 #include "cache_test.hpp"
 #include "map_cache.hpp"
@@ -102,7 +102,7 @@ void test_cache(void)
     boost::random::random_device rdev;
     boost::posix_time::ptime startTime, endTime;
     int t;
-    boost::unique_future<bool> result;
+    std::future<bool> result;
 
     AFK_ThreadAllocation threadAlloc;
     AFK_AsyncGang<struct insertSqrtParam, bool> gang(

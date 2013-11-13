@@ -342,14 +342,14 @@ void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<st
 
 void AFK_Computer::programBuilt(void)
 {
-    boost::unique_lock<boost::mutex> lock(buildMut);
+    std::unique_lock<std::mutex> lock(buildMut);
     --stillBuilding;
     buildCond.notify_all();
 }
 
 void AFK_Computer::waitForBuild(void)
 {
-    boost::unique_lock<boost::mutex> lock(buildMut);
+    std::unique_lock<std::mutex> lock(buildMut);
     while (stillBuilding > 0)
     {
         buildCond.wait(lock);

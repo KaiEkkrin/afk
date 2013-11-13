@@ -67,7 +67,7 @@ AFK_3DEdgeComputeUnit AFK_3DEdgeComputeQueue::append(
     const AFK_JigsawPiece& vapourJigsawPiece,
     const AFK_JigsawPiece& edgeJigsawPiece)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     AFK_3DEdgeComputeUnit newUnit(
         vapourJigsawPiece,
@@ -82,7 +82,7 @@ void AFK_3DEdgeComputeQueue::computeStart(
     AFK_Jigsaw *edgeJigsaw,
     const AFK_ShapeSizes& sSizes)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
     cl_int error;
 
     /* Check there's something to do */
@@ -162,14 +162,14 @@ void AFK_3DEdgeComputeQueue::computeFinish(
 
 bool AFK_3DEdgeComputeQueue::empty(void)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     return units.empty();
 }
 
 void AFK_3DEdgeComputeQueue::clear(void)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     if (postEdgeDep) postEdgeDep->waitFor();
     units.clear();

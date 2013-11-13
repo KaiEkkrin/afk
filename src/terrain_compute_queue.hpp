@@ -20,10 +20,10 @@
 
 #include "afk.hpp"
 
+#include <mutex>
 #include <sstream>
 #include <vector>
 
-#include <boost/thread/mutex.hpp>
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
@@ -84,7 +84,7 @@ protected:
      * cell evaluator threads will be hitting a single one
      * of these.
      */
-    boost::mutex mut;
+    std::mutex mut;
 
     /* Compute stuff. */
     cl_kernel terrainKernel, surfaceKernel;

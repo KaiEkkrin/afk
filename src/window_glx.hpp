@@ -23,8 +23,7 @@
 #include "afk.hpp"
 
 #include <map>
-
-#include <boost/thread/mutex.hpp>
+#include <mutex>
 
 #include "window.hpp"
 
@@ -56,7 +55,7 @@ protected:
     int numFbConfigElements;
 
     std::map<unsigned int, GLXContext> shadowGlxContexts;
-    boost::mutex shadowCtxMut;
+    std::mutex shadowCtxMut;
 
 public:
     AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight, bool vsync);

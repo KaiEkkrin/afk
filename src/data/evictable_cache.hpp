@@ -18,10 +18,10 @@
 #ifndef _AFK_DATA_EVICTABLE_CACHE_H_
 #define _AFK_DATA_EVICTABLE_CACHE_H_
 
+#include <chrono>
+#include <future>
 #include <sstream>
-
-#include <boost/thread/future.hpp>
-#include <boost/thread/thread.hpp>
+#include <thread>
 
 #include "cache.hpp"
 #include "claimable.hpp"
@@ -115,9 +115,9 @@ protected:
     const size_t complainSize;
 
     unsigned int threadId;
-    boost::thread *th;
-    boost::promise<unsigned int> *rp;
-    boost::unique_future<unsigned int> result;
+    std::thread *th;
+    std::promise<unsigned int> *rp;
+    std::future<unsigned int> result;
 
     bool stop;
 
@@ -231,7 +231,7 @@ public:
         /* Check whether any current eviction task has finished */
         if (th && rp)
         {
-            if (result.is_ready())
+            if (result.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
             {
                 entriesEvicted += result.get();
                 th->join();
@@ -249,8 +249,8 @@ public:
             if (this->polymer.size() > kickoffSize)
             {
                 /* Kick off a new eviction task */
-                rp = new boost::promise<unsigned int>();
-                th = new boost::thread(
+                rp = new std::promise<unsigned int>();
+                th = new std::thread(
                     &AFK_EvictableCache<Key, Value, Hasher, unassigned, hashBits, framesBeforeEviction, getComputingFrame, debug>::evictionWorker,
                     this);
                 result = rp->get_future();

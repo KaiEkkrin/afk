@@ -24,7 +24,6 @@
 #include <vector>
 
 #include <boost/atomic.hpp>
-#include <boost/thread/thread.hpp>
 
 #include "3d_edge_compute_queue.hpp"
 #include "3d_edge_shape_base.hpp"
@@ -310,7 +309,7 @@ public:
      * cells.  Returns a future that becomes available
      * when we're done.
      */
-    boost::unique_future<bool> updateWorld(void);
+    std::future<bool> updateWorld(void);
 
     /* CL-tasks-at-start-of-frame function. */
     void doComputeTasks(unsigned int threadId);

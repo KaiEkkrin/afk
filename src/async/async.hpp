@@ -19,16 +19,14 @@
 #define _AFK_ASYNC_ASYNC_H_
 
 #include <exception>
+#include <future>
 #include <iostream>
+#include <memory>
+#include <mutex>
+#include <thread>
 #include <vector>
 
 #include <boost/atomic.hpp>
-#include <boost/chrono.hpp>
-#include <boost/ref.hpp>
-#include <boost/thread/condition.hpp>
-#include <boost/thread/future.hpp>
-#include <boost/thread/mutex.hpp>
-#include <boost/thread/thread.hpp>
 
 #include "thread_allocation.hpp"
 #include "work_queue.hpp"
@@ -42,11 +40,11 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #if ASYNC_DEBUG_SPAM
-extern boost::mutex debugSpamMut;
+extern std::mutex debugSpamMut;
 
 #define ASYNC_DEBUG(chain) \
     { \
-        boost::unique_lock<boost::mutex> guard(debugSpamMut); \
+        std::unique_lock<std::mutex> guard(debugSpamMut); \
         boost::posix_time::ptime debugTime = boost::posix_time::microsec_clock::local_time(); \
         std::cout << "in thread " << boost::this_thread::get_id() << " at " << debugTime << ": "; \
         std::cout << chain << std::endl; \
@@ -54,7 +52,7 @@ extern boost::mutex debugSpamMut;
 
 #define ASYNC_CONTROL_DEBUG(chain) \
     { \
-        boost::unique_lock<boost::mutex> guard(debugSpamMut); \
+        std::unique_lock<std::mutex> guard(debugSpamMut); \
         boost::posix_time::ptime debugTime = boost::posix_time::microsec_clock::local_time(); \
         std::cout << "control " << this << " in thread "; \
         std::cout << boost::this_thread::get_id() << " at " << debugTime << ": "; \
@@ -110,8 +108,8 @@ protected:
      * all the workers will find a zero `workReady' value and just
      * block until the process is begun again.
      */
-    boost::condition_variable workCond;
-    boost::mutex workMut;
+    std::condition_variable workCond;
+    std::mutex workMut;
     uint64_t workReady;
     bool quit; /* Tells the workers to instead quit out entirely */
 
@@ -136,7 +134,7 @@ void afk_asyncWorker(
     unsigned int id,
     bool first,
     AFK_WorkQueue<ParameterType, ReturnType>& queue,
-    boost::promise<ReturnType>*& promise)
+    std::promise<ReturnType>*& promise)
 {
     while (controls.worker_waitForWork(id))
     {
@@ -165,7 +163,7 @@ void afk_asyncWorker(
                  * This is really important -- the whole system chokes
                  * if I don't do it.
                  */
-                boost::this_thread::yield();
+                std::this_thread::yield();
 #endif
                 break;
 
@@ -207,7 +205,7 @@ template<class ParameterType, class ReturnType>
 class AFK_AsyncGang
 {
 protected:
-    std::vector<boost::thread*> workers;
+    std::vector<std::thread*> workers;
     std::vector<unsigned int> threadIds;
     AFK_AsyncControls *controls;
 
@@ -215,20 +213,20 @@ protected:
     AFK_WorkQueue<ParameterType, ReturnType> queue;
 
     /* The promised return value. */
-    boost::promise<ReturnType> *promise;
+    std::promise<ReturnType> *promise;
 
     void initWorkers(void)
     {
         bool first = true;
         for (auto id : threadIds)
         { 
-            boost::thread *t = new boost::thread(
+            std::thread *t = new std::thread(
                 afk_asyncWorker<ParameterType, ReturnType>,
-                boost::ref(*controls),
+                std::ref(*controls),
                 id,
                 first,
-                boost::ref(queue),
-                boost::ref(promise));
+                std::ref(queue),
+                std::ref(promise));
             workers.push_back(t);
             first = false;
         }
@@ -252,7 +250,7 @@ public:
     }
 
     AFK_AsyncGang(size_t queueSize, AFK_ThreadAllocation& threadAllocation):
-        AFK_AsyncGang(queueSize, threadAllocation, boost::thread::hardware_concurrency() + 1)
+        AFK_AsyncGang(queueSize, threadAllocation, std::thread::hardware_concurrency() + 1)
     {
     }
 
@@ -296,14 +294,14 @@ public:
      * result.
      * The caller should wait on that future, no doubt.
      */
-    boost::unique_future<ReturnType> start(void)
+    std::future<ReturnType> start(void)
     {
 #if ASYNC_DEBUG_SPAM
         ASYNC_DEBUG("deleting promise " << std::hex << (void *)promise)
 #endif
         /* Reset that promise */
         if (promise) delete promise;
-        promise = new boost::promise<ReturnType>();
+        promise = new std::promise<ReturnType>();
 #if ASYNC_DEBUG_SPAM
         ASYNC_DEBUG("making new promise " << std::hex << (void *)promise)
 #endif

@@ -15,7 +15,9 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
-#include <boost/thread/thread.hpp>
+#include "afk.hpp"
+
+#include <thread>
 
 #include "display.hpp"
 #include "jigsaw.hpp"
@@ -63,7 +65,7 @@ AFK_LandscapeDisplayQueue::~AFK_LandscapeDisplayQueue()
 
 void AFK_LandscapeDisplayQueue::add(const AFK_LandscapeDisplayUnit& _unit, const AFK_Tile& _tile)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     queue.push_back(_unit);
     landscapeTiles.push_back(_tile);
@@ -109,7 +111,7 @@ void AFK_LandscapeDisplayQueue::draw(
             catch (AFK_ClaimException) { allChecked = false; /* Want to retry */ }
         }
 
-        if (!allChecked) boost::this_thread::yield(); /* Give things a chance */
+        if (!allChecked) std::this_thread::yield(); /* Give things a chance */
     } while (!allChecked);
 
     unsigned int instanceCount = culledQueue.size();
@@ -190,14 +192,14 @@ void AFK_LandscapeDisplayQueue::draw(
 
 bool AFK_LandscapeDisplayQueue::empty(void)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     return queue.empty();
 }
 
 void AFK_LandscapeDisplayQueue::clear(void)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     queue.clear();
     landscapeTiles.clear();

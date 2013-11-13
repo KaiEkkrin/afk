@@ -17,18 +17,18 @@
 
 #include "afk.hpp"
 
-#include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <sstream>
+#include <thread>
 #include <utility>
 
+#include <ctype.h>
+#include <unistd.h>
+
 #include <boost/random/random_device.hpp>
-#include <boost/thread/thread.hpp>
 
 #include "config.hpp"
 #include "exception.hpp"
@@ -112,7 +112,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     windowHeight                = 0;
 
     clLibDir                    = nullptr;
-    concurrency                 = boost::thread::hardware_concurrency() + 1;
+    concurrency                 = std::thread::hardware_concurrency() + 1;
     clProgramsDir               = nullptr;
     clGlSharing                 = false; /* TODO Find hardware this actually improves performance on and default-true for that */
     async                       = true;

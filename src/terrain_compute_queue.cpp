@@ -65,7 +65,7 @@ AFK_TerrainComputeQueue::~AFK_TerrainComputeQueue()
 
 AFK_TerrainComputeUnit AFK_TerrainComputeQueue::extend(const AFK_TerrainList& list, const Vec2<int>& piece, const AFK_Tile& tile, const AFK_LandscapeSizes& lSizes)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     /* Make sure we're not pushing empties, that's a bug. */
     if (list.tileCount() == 0)
@@ -116,7 +116,7 @@ void AFK_TerrainComputeQueue::computeStart(
     const AFK_LandscapeSizes& lSizes,
     const Vec3<float>& baseColour)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
     cl_int error;
 
     /* Check there's something to do */
@@ -241,7 +241,7 @@ void AFK_TerrainComputeQueue::computeStart(
 
 void AFK_TerrainComputeQueue::computeFinish(unsigned int threadId, AFK_Jigsaw *jigsaw, AFK_LANDSCAPE_CACHE *cache)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     unsigned int unitCount = units.size();
     if (unitCount == 0) return;
@@ -258,14 +258,14 @@ void AFK_TerrainComputeQueue::computeFinish(unsigned int threadId, AFK_Jigsaw *j
 
 bool AFK_TerrainComputeQueue::empty(void)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     return units.empty();
 }
 
 void AFK_TerrainComputeQueue::clear(void)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     if (postTerrainDep) postTerrainDep->waitFor();
 

@@ -20,12 +20,11 @@
 
 #include "afk.hpp"
 
+#include <condition_variable>
 #include <iostream>
+#include <mutex>
 #include <string>
 #include <vector>
-
-#include <boost/thread/condition.hpp>
-#include <boost/thread/mutex.hpp>
 
 #include "config.hpp"
 #include "def.hpp"
@@ -177,8 +176,8 @@ protected:
     AFK_ClDeviceProperties *firstDeviceProps;
 
     /* For tracking CL program compilation. */
-    boost::condition_variable buildCond;
-    boost::mutex buildMut;
+    std::condition_variable buildCond;
+    std::mutex buildMut;
     unsigned int stillBuilding;
 
     cl_context ctxt;

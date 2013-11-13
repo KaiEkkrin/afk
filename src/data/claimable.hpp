@@ -22,9 +22,9 @@
 #include <exception>
 #include <functional>
 #include <sstream>
+#include <thread>
 
 #include <boost/atomic.hpp>
-#include <boost/thread.hpp>
 
 #include "frame.hpp"
 
@@ -345,7 +345,7 @@ public:
         {
             if (flags & AFK_CL_SHARED) claimed = tryClaimShared(threadId);
             else claimed = tryClaim(threadId);
-            if (flags & AFK_CL_LOOP) boost::this_thread::yield();
+            if (flags & AFK_CL_LOOP) std::this_thread::yield();
         }
         while (!claimed && (flags & AFK_CL_LOOP));
 

@@ -17,6 +17,8 @@
 
 #include "afk.hpp"
 
+#include <memory>
+
 #include <boost/functional/hash.hpp>
 
 #include "core.hpp"
@@ -77,7 +79,7 @@ void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
      * all vapours are computed by the same kernel, so that
      * I don't need to worry about cross-vapour stuff.
      */
-    boost::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
+    std::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
         vapourComputeFair.getUpdateQueue(0);
 
 #if SHAPE_COMPUTE_DEBUG
@@ -106,7 +108,7 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
 {
     vapourJigsaws->grab(threadId, 0, &vapourJigsawPiece, &vapourJigsawPieceTimestamp, 1);
 
-    boost::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
+    std::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
         vapourComputeFair.getUpdateQueue(0);
 
 #if SHAPE_COMPUTE_DEBUG
@@ -132,7 +134,7 @@ void AFK_ShapeCell::enqueueEdgeComputeUnit(
 {
     edgeJigsaws->grab(threadId, 0, &edgeJigsawPiece, &edgeJigsawPieceTimestamp, 1);
 
-    boost::shared_ptr<AFK_3DEdgeComputeQueue> edgeComputeQueue =
+    std::shared_ptr<AFK_3DEdgeComputeQueue> edgeComputeQueue =
         edgeComputeFair.getUpdateQueue(
             entityFair2DIndex.get1D(vapourJigsawPiece.puzzle, edgeJigsawPiece.puzzle));
 

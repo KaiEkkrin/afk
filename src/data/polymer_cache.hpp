@@ -18,11 +18,6 @@
 #ifndef _AFK_DATA_POLYMER_CACHE_H_
 #define _AFK_DATA_POLYMER_CACHE_H_
 
-#include <boost/atomic.hpp>
-#include <boost/ref.hpp>
-#include <boost/thread/future.hpp>
-#include <boost/thread/thread.hpp>
-
 #include "cache.hpp"
 #include "polymer.hpp"
 

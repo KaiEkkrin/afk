@@ -19,8 +19,6 @@
 
 #include <cmath>
 
-#include <boost/thread/future.hpp>
-
 #include "camera.hpp"
 #include "computer.hpp"
 #include "config.hpp"
@@ -177,11 +175,11 @@ void afk_idle(void)
     boost::posix_time::ptime waitTime = boost::posix_time::microsec_clock::local_time();
     int frameTimeLeft = FRAME_REFRESH_TIME - (waitTime - startOfFrameTime).total_microseconds();
     boost::chrono::microseconds chFrameTimeLeft(frameTimeLeft);
-    boost::future_status status = afk_core.computingUpdate.wait_for(chFrameTimeLeft);
+    std::future_status status = afk_core.computingUpdate.wait_for(chFrameTimeLeft);
 
     switch (status)
     {
-    case boost::future_status::ready:
+    case std::future_status::ready:
         {
             /* Work out how much time there is left on the clock */
             boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
@@ -208,7 +206,7 @@ void afk_idle(void)
             break;
         }
 
-    case boost::future_status::timeout:
+    case std::future_status::timeout:
         {
             /* Add the required amount of time to the calibration error */
             afk_core.calibrationError += frameTimeLeft;

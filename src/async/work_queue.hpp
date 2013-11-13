@@ -24,24 +24,6 @@
 #include <boost/lockfree/queue.hpp>
 #include <boost/memory_order.hpp>
 
-/* Define this to try using a condition variable to wait
- * for work to appear in the queue, rather than just
- * spinning on yield.
- * Note: Right now, this option appears to be strictly inferior
- * to spinning on this_thread::yield().  It incurs a large system
- * time penalty especially at short wait times, and long wait
- * times result in hitching that the AFK core interprets as
- * GPU overload.  If I remove the wait time some thread always
- * misses the notify and locks up entirely.  I don't think there's
- * any benefit to be had by thrashing on this.
- */
-#define WORK_QUEUE_CONDITION_WAIT 0
-
-#if WORK_QUEUE_CONDITION_WAIT
-#include <boost/thread/condition.hpp>
-#include <boost/thread/mutex.hpp>
-#endif
-
 /* An async work queue encompasses the concept of repeatedly
  * queueing up work items to be fed to a worker function.
  * It tracks the number of work items *either queued or being
@@ -83,11 +65,6 @@ protected:
     boost::lockfree::queue<WorkItem> q;
     boost::atomic<unsigned int> count;
 
-#if WORK_QUEUE_CONDITION_WAIT
-    boost::shared_mutex waitMut;
-    boost::condition_variable_any qHasWork;
-#endif
-
 public:
     AFK_WorkQueue(): q(100) /* arbitrary */, count(0) {}
 
@@ -121,22 +98,11 @@ public:
             }
             else
             {
-#if WORK_QUEUE_CONDITION_WAIT
-                boost::shared_lock<boost::shared_mutex> waitLock(waitMut);
-                boost::chrono::microseconds waitTime(2000); /* Kludge */
-                if (count.load() > 0) qHasWork.wait_for(waitLock, waitTime);
-                return AFK_WQ_BUSY;
-#else
                 return AFK_WQ_WAITING;
-#endif
             }
         }
         else
         {
-#if WORK_QUEUE_CONDITION_WAIT
-            boost::shared_lock<boost::shared_mutex> waitLock(waitMut);
-            qHasWork.notify_all();
-#endif
             return AFK_WQ_FINISHED;
         }
     }
@@ -145,14 +111,7 @@ public:
     {
         if (!q.push(parameter)) throw AFK_WorkQueueException(); /* TODO can that happen? */
         count.fetch_add(1);
-#if WORK_QUEUE_CONDITION_WAIT
-        {
-            boost::shared_lock<boost::shared_mutex> waitLock(waitMut);
-            qHasWork.notify_all();
-        }
-#else
         boost::atomic_thread_fence(boost::memory_order_seq_cst);
-#endif
     }
 
     bool finished(void)

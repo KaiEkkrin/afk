@@ -15,16 +15,16 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
-#include <boost/thread/mutex.hpp>
-#include <boost/thread/thread.hpp>
+#include <mutex>
+#include <thread>
 
 #include "debug.hpp"
 
-boost::mutex coutMut;
+std::mutex coutMut;
 
 void afk_debugPrint(const std::string& s)
 {
-    boost::unique_lock<boost::mutex> lock(coutMut);
-    std::cout << boost::this_thread::get_id() << ": " << s;
+    std::unique_lock<std::mutex> lock(coutMut);
+    std::cout << std::this_thread::get_id() << ": " << s;
 }
 

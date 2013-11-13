@@ -88,7 +88,7 @@ void AFK_3DVapourComputeQueue::extend(
     unsigned int& o_cubeOffset,
     unsigned int& o_cubeCount)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     /* Sanity checks */
     assert(list.cubeCount() > 0);
@@ -106,7 +106,7 @@ AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::addUnit(
     unsigned int cubeOffset,
     unsigned int cubeCount)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     /* Sanity checks */
     assert(cubeOffset >= 0 && cubeOffset < c.size());
@@ -129,7 +129,7 @@ void AFK_3DVapourComputeQueue::computeStart(
     AFK_JigsawCollection *vapourJigsaws,
     const AFK_ShapeSizes& sSizes)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
     cl_int error;
 
     /* Check there's something to do */
@@ -245,14 +245,14 @@ void AFK_3DVapourComputeQueue::computeFinish(AFK_JigsawCollection *vapourJigsaws
 
 bool AFK_3DVapourComputeQueue::empty(void)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     return units.empty();
 }
 
 void AFK_3DVapourComputeQueue::clear(void)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     if (preReleaseDep) preReleaseDep->waitFor();
 

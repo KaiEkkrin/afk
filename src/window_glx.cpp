@@ -173,16 +173,17 @@ AFK_WindowGlx::~AFK_WindowGlx()
 
     if (dpy)
     {
-        shadowCtxMut.lock();
-        for (auto sgc : shadowGlxContexts)
         {
-            if (sgc.second != 0)
+            std::unique_lock<std::mutex> shadowCtxLock(shadowCtxMut);
+            for (auto sgc : shadowGlxContexts)
             {
-                glXDestroyContext(dpy, sgc.second);
-                sgc.second = 0;
+                if (sgc.second != 0)
+                {
+                    glXDestroyContext(dpy, sgc.second);
+                    sgc.second = 0;
+                }
             }
         }
-        shadowCtxMut.unlock();
 
         if (realGlxCtx) glXDestroyContext(dpy, realGlxCtx);
         if (visInfo) XFree(visInfo);
@@ -202,7 +203,7 @@ unsigned int AFK_WindowGlx::getWindowHeight(void) const
 
 void AFK_WindowGlx::shareGLContext(unsigned int threadId)
 {
-    shadowCtxMut.lock();
+    std::unique_lock<std::mutex> shadowCtxLock(shadowCtxMut);
 
     /* Try to cache and keep around per-thread GLX contexts
      * if I can.
@@ -215,12 +216,11 @@ void AFK_WindowGlx::shareGLContext(unsigned int threadId)
     }
 
     glXMakeCurrent(dpy, w, shadowGlxContexts[threadId]);
-    shadowCtxMut.unlock();
 }
 
 void AFK_WindowGlx::releaseGLContext(unsigned int threadId)
 {
-    shadowCtxMut.lock();
+    std::unique_lock<std::mutex> shadowCtxLock(shadowCtxMut);
 
     auto ctxtEntry = shadowGlxContexts.find(threadId);
     if (ctxtEntry != shadowGlxContexts.end())
@@ -228,8 +228,6 @@ void AFK_WindowGlx::releaseGLContext(unsigned int threadId)
         glXDestroyContext(dpy, ctxtEntry->second);
         shadowGlxContexts.erase(ctxtEntry);
     }
-
-    shadowCtxMut.unlock();
 }
 
 void AFK_WindowGlx::shareGLCLContext(AFK_Computer *computer)

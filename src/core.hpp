@@ -20,12 +20,12 @@
 
 #include "afk.hpp"
 
+#include <future>
 #include <iostream>
 #include <string>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/lockfree/queue.hpp>
-#include <boost/thread/future.hpp>
 
 #include "async/thread_allocation.hpp"
 #include "camera.hpp"
@@ -63,7 +63,7 @@ protected:
     /* The result we're currently waiting on from the computing
      * side of things, if there is one.
      */
-    boost::unique_future<bool> computingUpdate;
+    std::future<bool> computingUpdate;
     bool computingUpdateDelayed;
     unsigned int computeDelaysSinceLastCheckpoint;
     unsigned int graphicsDelaysSinceLastCheckpoint;

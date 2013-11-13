@@ -20,10 +20,10 @@
 
 #include "afk.hpp"
 
+#include <mutex>
 #include <sstream>
 #include <vector>
 
-#include <boost/thread/mutex.hpp>
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
@@ -92,7 +92,7 @@ protected:
     /* Describes each unit of computation in sequence. */
     std::vector<AFK_3DVapourComputeUnit> units;
 
-    boost::mutex mut;
+    std::mutex mut;
 
     cl_kernel vapourFeatureKernel;
     cl_kernel vapourNormalKernel;

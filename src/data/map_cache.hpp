@@ -18,12 +18,12 @@
 #ifndef _AFK_DATA_MAP_CACHE_H_
 #define _AFK_DATA_MAP_CACHE_H_
 
-#include <boost/thread/mutex.hpp>
-#include <boost/unordered_map.hpp>
+#include <mutex>
+#include <unordered_map>
 
 #include "cache.hpp"
 
-/* This defines the AFK cache as a simple boost::unordered_map
+/* This defines the AFK cache as a simple std::unordered_map
  * guarded by a mutex.
  *
  * It's deprecated by the way.  I think I should probably just delete
@@ -34,8 +34,8 @@ template<class Key, class Value>
 class AFK_MapCache: public AFK_Cache<Key, Value>
 {
 protected:
-    boost::unordered_map<Key, Value> map;
-    boost::mutex mut;
+    std::unordered_map<Key, Value> map;
+    std::mutex mut;
 
 public:
     AFK_MapCache() {}
@@ -48,7 +48,7 @@ public:
 
     virtual Value& operator[](const Key& key)
     {
-        boost::unique_lock<boost::mutex> lock(mut);
+        std::unique_lock<std::mutex> lock(mut);
         return map[key];
     }
 

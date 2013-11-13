@@ -20,10 +20,10 @@
 
 #include "afk.hpp"
 
+#include <mutex>
 #include <sstream>
 #include <vector>
 
-#include <boost/thread/mutex.hpp>
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
@@ -74,7 +74,7 @@ protected:
     std::vector<AFK_LandscapeDisplayUnit> queue;
     std::vector<AFK_Tile> landscapeTiles; /* for last-moment y bounds fetch */
     GLuint buf;
-    boost::mutex mut;
+    std::mutex mut;
 
     /* After culling cells that are entirely outside y-bounds, the shortened
      * queue goes here

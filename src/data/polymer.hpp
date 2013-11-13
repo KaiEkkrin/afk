@@ -24,8 +24,6 @@
 #include <sstream>
 
 #include <boost/atomic.hpp>
-#include <boost/thread/mutex.hpp>
-#include <boost/thread/thread.hpp>
 
 #include "../debug.hpp"
 #include "stats.hpp"

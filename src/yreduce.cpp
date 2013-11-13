@@ -15,7 +15,9 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
-#include <boost/thread/thread.hpp>
+#include "afk.hpp"
+
+#include <thread>
 
 #include "core.hpp"
 #include "exception.hpp"
@@ -151,7 +153,7 @@ void AFK_YReduce::readBack(
             catch (AFK_ClaimException) { allPushed = false; /* Want to retry */ }
         }
 
-        if (!allPushed) boost::this_thread::yield();
+        if (!allPushed) std::this_thread::yield();
     } while (!allPushed);
 }
 
