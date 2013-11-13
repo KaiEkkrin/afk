@@ -17,8 +17,6 @@
 
 #include "afk.hpp"
 
-#include <boost/functional/hash.hpp>
-
 #include "core.hpp"
 #include "keyed_cell.hpp"
 
@@ -80,7 +78,7 @@ const AFK_KeyedCell afk_unassignedKeyedCell = afk_keyedCell(afk_vec4<int64_t>(0,
 size_t hash_value(const AFK_KeyedCell& cell)
 {
     size_t hash = (size_t)cell.key;
-    boost::hash_combine(hash, hash_value(cell.c));
+    hash = afk_hash_swizzle(hash, hash_value(cell.c), afk_factor5);
     return hash;
 }
 

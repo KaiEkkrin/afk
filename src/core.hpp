@@ -24,11 +24,11 @@
 #include <iostream>
 #include <string>
 
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/lockfree/queue.hpp>
 
 #include "async/thread_allocation.hpp"
 #include "camera.hpp"
+#include "clock.hpp"
 #include "computer.hpp"
 #include "config.hpp"
 #include "data/claimable.hpp"
@@ -68,16 +68,16 @@ protected:
     unsigned int computeDelaysSinceLastCheckpoint;
     unsigned int graphicsDelaysSinceLastCheckpoint;
 
-    boost::posix_time::ptime startOfFrameTime;
-    boost::posix_time::ptime lastFrameTime;
-    boost::posix_time::ptime lastCalibration;
+    afk_clock::time_point startOfFrameTime;
+    afk_clock::time_point lastFrameTime;
+    afk_clock::time_point lastCalibration;
     unsigned int graphicsDelaysSinceLastCalibration;
 
-    /* The calibration error is the number of microseconds away
+    /* The calibration error is the number of milliseconds away
      * I was from filling all the frame time with calculation.
      * Negative means I finished early, positive means late.
      */
-    int calibrationError;
+    float calibrationError;
 
     /* This stuff is for the OpenGL buffer cleanup, glBuffersForDeletion()
      * etc.
@@ -142,7 +142,7 @@ public:
     /* For tracking and occasionally printing what the engine is
      * doing.
      */
-    boost::posix_time::ptime lastCheckpoint;
+    afk_clock::time_point   lastCheckpoint;
     AFK_Frame           frameAtLastCheckpoint;   
 
     AFK_Core();
@@ -158,7 +158,7 @@ public:
     void loop(void);
 
     /* For object updates. */
-    const boost::posix_time::ptime& getStartOfFrameTime(void) const;
+    const afk_clock::time_point& getStartOfFrameTime(void) const;
 
     /* This utility function prints a message at checkpoints,
      * so that I can usefully debug-print
@@ -174,7 +174,7 @@ public:
      * checkpoint interval unless `definitely' is set
      * in which case it happens right away.
      */
-    void checkpoint(boost::posix_time::ptime& now, bool definitely);
+    void checkpoint(afk_clock::time_point& now, bool definitely);
 
     /* TODO NASTY -- Share GL context between all threads and remove
      * Deletes of GL objects from other threads go into here so that
@@ -206,10 +206,10 @@ extern AFK_GetComputingFrame afk_getComputingFrameFunc;
  * temporarily really small.  Better hashBits values for world and
  * landscape are 22 and 16 respectively
  */
-#define AFK_WORLD_CACHE AFK_EvictableCache<AFK_Cell, AFK_WorldCell, AFK_HashCell, afk_unassignedCell, 16, 60, afk_getComputingFrameFunc>
-#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile, afk_unassignedTile, 12, 10, afk_getComputingFrameFunc>
-#define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 12, 10, afk_getComputingFrameFunc>
-#define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 12, 10, afk_getComputingFrameFunc>
+#define AFK_WORLD_CACHE AFK_EvictableCache<AFK_Cell, AFK_WorldCell, AFK_HashCell, afk_unassignedCell, 22, 60, afk_getComputingFrameFunc>
+#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile, afk_unassignedTile, 16, 10, afk_getComputingFrameFunc>
+#define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 16, 10, afk_getComputingFrameFunc>
+#define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 16, 10, afk_getComputingFrameFunc>
 
 #endif /* _AFK_CORE_H_ */
 

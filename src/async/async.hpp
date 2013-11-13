@@ -36,29 +36,31 @@
 
 #define ASYNC_WORKER_DEBUG 0
 
-#include <iostream>
-#include <boost/date_time/posix_time/posix_time.hpp>
-
 #if ASYNC_DEBUG_SPAM
+#include <ctime>
+#include <iostream>
+#include "../clock.hpp"
+
 extern std::mutex debugSpamMut;
 
 #define ASYNC_DEBUG(chain) \
     { \
         std::unique_lock<std::mutex> guard(debugSpamMut); \
-        boost::posix_time::ptime debugTime = boost::posix_time::microsec_clock::local_time(); \
-        std::cout << "in thread " << boost::this_thread::get_id() << " at " << debugTime << ": "; \
+        afk_clock::time_point debugTime = \
+            afk_clock::now(); \
+        std::cout << "in thread " << std::this_thread::get_id() << " at " << debugTime.time_since_epoch().count() << ": "; \
         std::cout << chain << std::endl; \
     }
 
 #define ASYNC_CONTROL_DEBUG(chain) \
     { \
         std::unique_lock<std::mutex> guard(debugSpamMut); \
-        boost::posix_time::ptime debugTime = boost::posix_time::microsec_clock::local_time(); \
+        afk_clock::time_point debugTime = \
+            afk_clock::now(); \
         std::cout << "control " << this << " in thread "; \
-        std::cout << boost::this_thread::get_id() << " at " << debugTime << ": "; \
+        std::cout << std::this_thread::get_id() << " at " << debugTime.time_since_epoch().count() << ": "; \
         std::cout << chain << std::endl; \
     }
-
 
 #else
 #define ASYNC_DEBUG(chain)

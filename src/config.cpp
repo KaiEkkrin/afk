@@ -104,7 +104,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
      * from a few things like the seed which could do with being
      * command line based ...
      */
-    targetFrameTimeMicros       = 16500;
+    targetFrameTimeMillis       = 16.5f;
     framesPerCalibration        = 8;
     vsync                       = false;
 
@@ -162,10 +162,10 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
             REQUIRE_ARGUMENT("--zFar")
             zFar = strtof(argv[argi], NULL);
         }
-        else if (strcmp(argv[argi], "--target-frame-time-micros") == 0)
+        else if (strcmp(argv[argi], "--target-frame-time-millis") == 0)
         {
-            REQUIRE_ARGUMENT("--target-frame-time-micros")
-            targetFrameTimeMicros = strtoul(argv[argi], NULL, 0);
+            REQUIRE_ARGUMENT("--target-frame-time-millis")
+            targetFrameTimeMillis = strtof(argv[argi], NULL);
         }
         else if (strcmp(argv[argi], "--frames-per-calibration") == 0)
         {

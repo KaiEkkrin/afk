@@ -32,6 +32,7 @@
 #include "async/work_queue.hpp"
 #include "camera.hpp"
 #include "cell.hpp"
+#include "clock.hpp"
 #include "computer.hpp"
 #include "config.hpp"
 #include "core.hpp"
@@ -324,7 +325,7 @@ public:
         const AFK_Light &globalLight);
 
     /* Takes a world checkpoint. */
-    void checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint);
+    void checkpoint(afk_duration_mfl& timeSinceLastCheckpoint);
 
     void printCacheStats(std::ostream& ss, const std::string& prefix);
     void printJigsawStats(std::ostream& ss, const std::string& prefix);

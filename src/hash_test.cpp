@@ -85,7 +85,7 @@ void test_rotate(void)
         {
             std::cout << std::hex << test_values[i] <<
                 "<<" << std::dec << rot <<
-                " = " << std::hex << LROTATE_UNSIGNED((uint64_t)test_values[i], rot) << std::endl;
+                " = " << std::hex << AFK_LROTATE_UNSIGNED((uint64_t)test_values[i], rot) << std::endl;
         }
     }
 

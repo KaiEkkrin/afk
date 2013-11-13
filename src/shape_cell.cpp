@@ -19,8 +19,6 @@
 
 #include <memory>
 
-#include <boost/functional/hash.hpp>
-
 #include "core.hpp"
 #include "debug.hpp"
 #include "object.hpp"

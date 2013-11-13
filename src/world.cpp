@@ -18,6 +18,7 @@
 #include "afk.hpp"
 
 #include <cassert>
+#include <cfloat>
 #include <cmath>
 #include <memory>
 
@@ -945,15 +946,15 @@ void AFK_World::display(
 
 /* Worker for the below. */
 #if PRINT_CHECKPOINTS
-static float toRatePerSecond(uint64_t quantity, boost::posix_time::time_duration& interval)
+static float toRatePerSecond(uint64_t quantity, const afk_duration_mfl& interval)
 {
-    return (float)quantity * 1000.0f / (float)interval.total_milliseconds();
+    return (float)quantity * 1000.0f / interval.count();
 }
 
 #define PRINT_RATE_AND_RESET(s, v) std::cout << s << toRatePerSecond((v).exchange(0), timeSinceLastCheckpoint) << "/second" << std::endl;
 #endif
 
-void AFK_World::checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint)
+void AFK_World::checkpoint(afk_duration_mfl& timeSinceLastCheckpoint)
 {
 #if PRINT_CHECKPOINTS
     std::cout << "Detail pitch:                 " << detailPitch << std::endl;

@@ -26,13 +26,14 @@
 #include "rng/test.hpp"
 #include "test_jigsaw_fake3d.hpp"
 
+#include "clock.hpp"
 #include "core.hpp"
 #include "exception.hpp"
 
 
 #define TEST_ASYNC 0
 #define TEST_CACHE 0
-#define TEST_HASH 0
+#define TEST_HASH 1
 #define TEST_JIGSAW_FAKE3D 0
 #define TEST_RNGS 0
 #define TEST_SUBSTRATE 0
@@ -92,7 +93,7 @@ int main(int argc, char **argv)
     {
         retcode = 1;
         std::cerr << "AFK Error: " << e.what() << std::endl;
-        boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
+        afk_clock::time_point now = afk_clock::now();
         afk_core.checkpoint(now, true);
     }
 

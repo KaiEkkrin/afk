@@ -21,7 +21,6 @@
 #include <iostream>
 
 #include <boost/atomic.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/random/random_device.hpp>
 #include <boost/random/taus88.hpp>
 
@@ -29,6 +28,7 @@
 #include "map_cache.hpp"
 #include "polymer_cache.hpp"
 #include "../async/async.hpp"
+#include "../clock.hpp"
 
 struct expensivelyHashInt
 {
@@ -100,7 +100,8 @@ void test_cache(void)
      */
     AFK_MapCache<int, IntStartingAtZero> mapCache;
     boost::random::random_device rdev;
-    boost::posix_time::ptime startTime, endTime;
+    afk_clock::time_point startTime, endTime;
+    afk_duration_mfl timeTaken;
     int t;
     std::future<bool> result;
 
@@ -118,11 +119,12 @@ void test_cache(void)
         gang << items[i];
     }
 
-    startTime = boost::posix_time::microsec_clock::local_time();
+    startTime = afk_clock::now();
     result = gang.start();
     result.wait();
-    endTime = boost::posix_time::microsec_clock::local_time();
-    std::cout << "Map cache finished after " << endTime - startTime << std::endl;
+    endTime = afk_clock::now();
+    timeTaken = std::chrono::duration_cast<afk_duration_mfl>(endTime - startTime);
+    std::cout << "Map cache finished after " << timeTaken.count() << " millis" << std::endl;
 
     for (int t = 0; t < 32; ++t)
     {
@@ -145,11 +147,12 @@ void test_cache(void)
         gang << items[i];
     }
 
-    startTime = boost::posix_time::microsec_clock::local_time();
+    startTime = afk_clock::now();
     result = gang.start();
     result.wait();
-    endTime = boost::posix_time::microsec_clock::local_time();
-    std::cout << "Polymer cache finished after " << endTime - startTime << std::endl;
+    endTime = afk_clock::now();
+    timeTaken = std::chrono::duration_cast<afk_duration_mfl>(endTime - startTime);
+    std::cout << "Polymer cache finished after " << timeTaken.count() << " millis" << std::endl;
     polymerCache.printStats(std::cout, "Polymer stats");
 
     for (t = 0; t < 32; ++t)

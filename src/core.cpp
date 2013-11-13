@@ -39,13 +39,13 @@
 
 
 /* With a little less for wiggle room. */
-#define FRAME_REFRESH_TIME 15500
+#define FRAME_REFRESH_TIME_MILLIS 15.5f
 
 
 #define JIGSAW_TEST 0
 
 
-#define CALIBRATION_INTERVAL_MICROS (afk_core.config->targetFrameTimeMicros * afk_core.config->framesPerCalibration)
+#define CALIBRATION_INTERVAL_MILLIS (afk_core.config->targetFrameTimeMillis * afk_core.config->framesPerCalibration)
 
 void afk_displayInit(void)
 {
@@ -53,26 +53,28 @@ void afk_displayInit(void)
 
 void afk_idle(void)
 {
-    boost::posix_time::ptime startOfFrameTime = boost::posix_time::microsec_clock::local_time();
+    afk_clock::time_point startOfFrameTime = afk_clock::now();
 
     /* If we just took less than FRAME_REFRESH_TIME for the entire
      * cycle, we're showing too little detail if we're not on a
      * Vsync system.
      */
-    unsigned int wholeFrameTime = (startOfFrameTime - afk_core.startOfFrameTime).total_microseconds();
-    if (!afk_core.config->vsync && wholeFrameTime < FRAME_REFRESH_TIME)
+    afk_duration_mfl wholeFrameTime = std::chrono::duration_cast<afk_duration_mfl>(
+        startOfFrameTime - afk_core.startOfFrameTime);
+    if (!afk_core.config->vsync && wholeFrameTime.count() < FRAME_REFRESH_TIME_MILLIS)
     {
-        afk_core.calibrationError -= (FRAME_REFRESH_TIME - wholeFrameTime);
+        afk_core.calibrationError -= (FRAME_REFRESH_TIME_MILLIS - wholeFrameTime.count());
     }
     else
     {
         /* Work out what the graphics delay was. */
-        unsigned int bufferFlipTime = (startOfFrameTime - afk_core.lastFrameTime).total_microseconds();
+        afk_duration_mfl bufferFlipTime = std::chrono::duration_cast<afk_duration_mfl>(
+            startOfFrameTime - afk_core.lastFrameTime);
 
         /* If it's been dropping frames, there will be more than a whole
          * number of `targetFrameTimeMicros' here.
          */
-        unsigned int framesDropped = bufferFlipTime / afk_core.config->targetFrameTimeMicros;
+        float framesDropped = std::floor(bufferFlipTime.count() / afk_core.config->targetFrameTimeMillis);
         afk_core.graphicsDelaysSinceLastCheckpoint += framesDropped;
         afk_core.graphicsDelaysSinceLastCalibration += framesDropped;
     
@@ -81,7 +83,7 @@ void afk_idle(void)
          */
         if (afk_core.graphicsDelaysSinceLastCalibration > 1)
         {
-            afk_core.calibrationError += afk_core.config->targetFrameTimeMicros * framesDropped;
+            afk_core.calibrationError += afk_core.config->targetFrameTimeMillis * framesDropped;
         }
     }
 
@@ -91,11 +93,12 @@ void afk_idle(void)
 
     /* Check whether I need to recalibrate. */
     /* TODO Make the time between calibrations configurable */
-    boost::posix_time::time_duration sinceLastCalibration = startOfFrameTime - afk_core.lastCalibration;
-    if (sinceLastCalibration.total_microseconds() > CALIBRATION_INTERVAL_MICROS)
+    afk_duration_mfl sinceLastCalibration = std::chrono::duration_cast<afk_duration_mfl>(
+        startOfFrameTime - afk_core.lastCalibration);
+    if (sinceLastCalibration.count() > CALIBRATION_INTERVAL_MILLIS)
     {
         /* Work out an error factor, and apply it to the LoD */
-        float normalisedError = (float)afk_core.calibrationError / CALIBRATION_INTERVAL_MICROS; /* between -1 and 1? */
+        float normalisedError = afk_core.calibrationError / CALIBRATION_INTERVAL_MILLIS; /* between -1 and 1? */
 
         /* Cap the normalised error: occasionally the graphics can
          * hang for ages and produce a spurious value which would
@@ -107,7 +110,7 @@ void afk_idle(void)
         afk_core.world->alterDetail(detailFactor);
 
         afk_core.lastCalibration = startOfFrameTime;
-        afk_core.calibrationError = 0;
+        afk_core.calibrationError = 0.0f;
         afk_core.graphicsDelaysSinceLastCalibration = 0;
     }
 
@@ -172,21 +175,23 @@ void afk_idle(void)
     afk_core.deleteGlGarbageBufs();
 
     /* Wait until it's about time to display the next frame. */
-    boost::posix_time::ptime waitTime = boost::posix_time::microsec_clock::local_time();
-    int frameTimeLeft = FRAME_REFRESH_TIME - (waitTime - startOfFrameTime).total_microseconds();
-    boost::chrono::microseconds chFrameTimeLeft(frameTimeLeft);
-    std::future_status status = afk_core.computingUpdate.wait_for(chFrameTimeLeft);
+    afk_clock::time_point waitTime = afk_clock::now();
+    afk_duration_mfl frameTimeTakenSoFar = std::chrono::duration_cast<afk_duration_mfl>(
+        waitTime - startOfFrameTime);
+    float frameTimeLeft = FRAME_REFRESH_TIME_MILLIS - frameTimeTakenSoFar.count();
+    std::future_status status = afk_core.computingUpdate.wait_for(afk_duration_mfl(frameTimeLeft));
 
     switch (status)
     {
     case std::future_status::ready:
         {
             /* Work out how much time there is left on the clock */
-            boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
-            int timeToFinish = (now - waitTime).total_microseconds();
-            int timeLeftAfterFinish = frameTimeLeft - timeToFinish;
+            afk_clock::time_point afterWaitTime = afk_clock::now();
+            afk_duration_mfl frameTimeTaken = std::chrono::duration_cast<afk_duration_mfl>(
+                afterWaitTime - startOfFrameTime);
+            float timeLeftAfterFinish = FRAME_REFRESH_TIME_MILLIS - frameTimeTaken.count();
             afk_core.calibrationError -= timeLeftAfterFinish;
-            afk_core.lastFrameTime = now;
+            afk_core.lastFrameTime = afterWaitTime;
 
             /* Flip the buffers and bump the computing frame */
             afk_core.window->swapBuffers();
@@ -276,6 +281,20 @@ AFK_Core::~AFK_Core()
 
 void AFK_Core::configure(int *argcp, char **argv)
 {
+    /* Measure the clock tick interval and make sure it's somewhere near
+     * sane ...
+     */
+    afk_clock::time_point intervalTestStart = afk_clock::now();
+    afk_clock::time_point intervalTestEnd = afk_clock::now();
+    while (intervalTestStart == intervalTestEnd)
+    {
+        intervalTestEnd = afk_clock::now();
+    }
+
+    afk_duration_mfl tickInterval = std::chrono::duration_cast<afk_duration_mfl>(intervalTestEnd - intervalTestStart);
+    std::cout << "AFK: Using clock with apparent tick interval: " << tickInterval.count() << " millis" << std::endl;
+    assert(tickInterval.count() < 0.1f);
+
     config = new AFK_Config(argcp, argv);
 
     rng = new AFK_Boost_Taus88_RNG();
@@ -366,7 +385,7 @@ void AFK_Core::loop(void)
 
     /* First checkpoint */
     startOfFrameTime = lastFrameTime = lastCheckpoint = lastCalibration =
-        boost::posix_time::microsec_clock::local_time();
+        afk_clock::now();
     computeDelaysSinceLastCheckpoint =
         graphicsDelaysSinceLastCheckpoint =
         graphicsDelaysSinceLastCalibration = 0;
@@ -381,7 +400,7 @@ void AFK_Core::loop(void)
         afk_motion);
 }
 
-const boost::posix_time::ptime& AFK_Core::getStartOfFrameTime(void) const
+const afk_clock::time_point& AFK_Core::getStartOfFrameTime(void) const
 {
     return startOfFrameTime;
 }
@@ -391,18 +410,19 @@ void AFK_Core::occasionallyPrint(const std::string& message)
     occasionalPrints << "AFK Frame " << renderingFrame.get() << ": " << message << std::endl;
 }
 
-void AFK_Core::checkpoint(boost::posix_time::ptime& now, bool definitely)
+void AFK_Core::checkpoint(afk_clock::time_point& now, bool definitely)
 {
-    boost::posix_time::time_duration sinceLastCheckpoint = now - lastCheckpoint;
+    afk_duration_mfl sinceLastCheckpoint = std::chrono::duration_cast<afk_duration_mfl>(
+        now - lastCheckpoint);
 
-    if ((definitely || sinceLastCheckpoint.total_seconds() > 0) &&
+    if ((definitely || sinceLastCheckpoint.count() >= 1000.0f) &&
         !(frameAtLastCheckpoint == renderingFrame))
     {
         lastCheckpoint = now;
 
-        std::cout << "AFK: Checkpoint at " << now << std::endl;
+        std::cout << "AFK: Checkpoint" << std::endl;
         std::cout << "AFK: Since last checkpoint: " << std::dec << renderingFrame - frameAtLastCheckpoint << " frames";
-        float fps = (float)(renderingFrame - frameAtLastCheckpoint) * 1000.0f / (float)sinceLastCheckpoint.total_milliseconds();
+        float fps = (float)(renderingFrame - frameAtLastCheckpoint) * 1000.0f / sinceLastCheckpoint.count();
         std::cout << " (" << fps << " frames/second)";
         std::cout << " (" << computeDelaysSinceLastCheckpoint * 100 / (renderingFrame - frameAtLastCheckpoint) << "\% compute delay, ";
         std::cout << graphicsDelaysSinceLastCheckpoint * 100 / (renderingFrame - frameAtLastCheckpoint) << "\% graphics delay)" << std::endl;

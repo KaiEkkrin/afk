@@ -29,6 +29,7 @@
 #include "display.hpp"
 #include "exception.hpp"
 #include "jigsaw.hpp"
+#include "rng/hash.hpp"
 
 
 #define GRAB_DEBUG 0
@@ -68,10 +69,10 @@ size_t hash_value(const AFK_JigsawPiece& jigsawPiece)
      * need to use this in anger
      */
     size_t hash = 0;
-    boost::hash_combine(hash, jigsawPiece.u * 0x0000c00180030006ll);
-    boost::hash_combine(hash, jigsawPiece.v * 0x00180030006000c0ll);
-    boost::hash_combine(hash, jigsawPiece.w * 0x00030006000c0018ll);
-    boost::hash_combine(hash, jigsawPiece.puzzle * 0x006000c001800300ll);
+    hash = afk_hash_swizzle(hash, jigsawPiece.u, afk_factor1);
+    hash = afk_hash_swizzle(hash, jigsawPiece.v, afk_factor2);
+    hash = afk_hash_swizzle(hash, jigsawPiece.w, afk_factor3);
+    hash = afk_hash_swizzle(hash, jigsawPiece.puzzle, afk_factor4);
     return hash;
 }
 

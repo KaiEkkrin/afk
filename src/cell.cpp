@@ -17,13 +17,13 @@
 
 #include "afk.hpp"
 
-#include <boost/functional/hash.hpp>
 #include <cmath>
 #include <sstream>
 
 #include "cell.hpp"
 #include "core.hpp"
 #include "exception.hpp"
+#include "rng/hash.hpp"
 #include "rng/rng.hpp"
 #include "terrain.hpp"
 
@@ -49,8 +49,7 @@ AFK_RNG_Value AFK_Cell::rngSeed() const
 AFK_RNG_Value AFK_Cell::rngSeed(size_t combinant) const
 {
     size_t hash = combinant;
-    boost::hash_combine(hash, hash_value(*this));
-    return AFK_RNG_Value(hash) ^ afk_core.config->masterSeed;
+    return AFK_RNG_Value(afk_hash_swizzle(hash, hash_value(*this), afk_factor5)) ^ afk_core.config->masterSeed;
 }
 
 unsigned int AFK_Cell::subdivide(
@@ -196,10 +195,10 @@ size_t hash_value(const AFK_Cell& cell)
 {
     /* Getting this thing right is quite important... */
     size_t hash = 0;
-    boost::hash_combine(hash, cell.coord.v[0] * 0x0000c00180030006ll);
-    boost::hash_combine(hash, cell.coord.v[1] * 0x00180030006000c0ll);
-    boost::hash_combine(hash, cell.coord.v[2] * 0x00030006000c0018ll);
-    boost::hash_combine(hash, cell.coord.v[3] * 0x006000c001800300ll);
+    hash = afk_hash_swizzle(hash, cell.coord.v[0], afk_factor1);
+    hash = afk_hash_swizzle(hash, cell.coord.v[1], afk_factor2);
+    hash = afk_hash_swizzle(hash, cell.coord.v[2], afk_factor3);
+    hash = afk_hash_swizzle(hash, cell.coord.v[3], afk_factor4);
     return hash;
 }
 

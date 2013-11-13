@@ -17,11 +17,10 @@
 
 #include <iostream>
 
-#include <boost/date_time/posix_time/posix_time.hpp>
-
 #include "async.hpp"
 #include "thread_allocation.hpp"
 #include "work_queue.hpp"
+#include "../clock.hpp"
 
 
 /* --- async test --- */
@@ -102,7 +101,7 @@ bool primeFilter(unsigned int id, const struct primeFilterParam& param, AFK_Work
 
 void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<unsigned int>& primes)
 {
-    boost::posix_time::ptime startTime, endTime;
+    afk_clock::time_point startTime, endTime;
 
     factors = new boost::atomic<unsigned int>[primeMax];
     enqueued = new boost::atomic<bool>[primeMax];
@@ -114,7 +113,7 @@ void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<
 
     std::cout << "Testing prime number filter with " << concurrency << " threads ..." << std::endl;
 
-    startTime = boost::posix_time::microsec_clock::local_time();
+    startTime = afk_clock::now();
 
     {
         AFK_WorkQueue<struct primeFilterParam, bool>::WorkItem i;
@@ -128,15 +127,16 @@ void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<
         AFK_AsyncGang<struct primeFilterParam, bool> primeFilterGang(
             primeMax / 100, threadAlloc, concurrency);
         primeFilterGang << i;
-        boost::unique_future<bool> finished = primeFilterGang.start(); 
+        std::future<bool> finished = primeFilterGang.start(); 
 
         finished.wait();
         std::cout << std::endl << std::endl;
         std::cout << "Finished with " << finished.get() << std::endl;
     }
 
-    endTime = boost::posix_time::microsec_clock::local_time();
-    std::cout << concurrency << " threads finished after " << endTime - startTime << std::endl;
+    endTime = afk_clock::now();
+    afk_duration_mfl timeTaken = std::chrono::duration_cast<afk_duration_mfl>(endTime - startTime);
+    std::cout << concurrency << " threads finished after " << timeTaken.count() << " millis" << std::endl;
 
     for (unsigned int i = 0; i < primeMax; ++i)
         if (factors[i] == 1)
@@ -191,15 +191,15 @@ void test_async(void)
     check_result(primes[0], primes[2]);
     std::cout << std::endl;
 
-    test_pnFilter(boost::thread::hardware_concurrency(), primeMax, primes[3]);
+    test_pnFilter(std::thread::hardware_concurrency(), primeMax, primes[3]);
     check_result(primes[0], primes[3]);
     std::cout << std::endl;
 
-    test_pnFilter(boost::thread::hardware_concurrency() * 2, primeMax, primes[4]);
+    test_pnFilter(std::thread::hardware_concurrency() * 2, primeMax, primes[4]);
     check_result(primes[0], primes[4]);
     std::cout << std::endl;
 
-    test_pnFilter(boost::thread::hardware_concurrency() * 4, primeMax, primes[5]);
+    test_pnFilter(std::thread::hardware_concurrency() * 4, primeMax, primes[5]);
     check_result(primes[0], primes[5]);
     std::cout << std::endl;
 }

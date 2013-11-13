@@ -90,7 +90,7 @@ public:
     uint64_t    axisInversionMap; /* bitfield of axes that are inverted */
 
     /* Engine calibration */
-    unsigned int targetFrameTimeMicros;
+    float targetFrameTimeMillis;
     unsigned int framesPerCalibration;
     bool vsync;
 
