@@ -49,7 +49,7 @@ AFK_RNG_Value AFK_Cell::rngSeed() const
 AFK_RNG_Value AFK_Cell::rngSeed(size_t combinant) const
 {
     size_t hash = combinant;
-    return AFK_RNG_Value(afk_hash_swizzle(hash, hash_value(*this), afk_factor5)) ^ afk_core.config->masterSeed;
+    return AFK_RNG_Value(afk_hash_swizzle(hash, hash_value(*this))) ^ afk_core.config->masterSeed;
 }
 
 unsigned int AFK_Cell::subdivide(
@@ -195,10 +195,10 @@ size_t hash_value(const AFK_Cell& cell)
 {
     /* Getting this thing right is quite important... */
     size_t hash = 0;
-    hash = afk_hash_swizzle(hash, cell.coord.v[0], afk_factor1);
-    hash = afk_hash_swizzle(hash, cell.coord.v[1], afk_factor2);
-    hash = afk_hash_swizzle(hash, cell.coord.v[2], afk_factor3);
-    hash = afk_hash_swizzle(hash, cell.coord.v[3], afk_factor4);
+    hash = afk_hash_swizzle(hash, cell.coord.v[0]);
+    hash = afk_hash_swizzle(hash, cell.coord.v[1]);
+    hash = afk_hash_swizzle(hash, cell.coord.v[2]);
+    hash = afk_hash_swizzle(hash, cell.coord.v[3]);
     return hash;
 }
 

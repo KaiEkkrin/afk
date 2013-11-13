@@ -69,10 +69,10 @@ size_t hash_value(const AFK_JigsawPiece& jigsawPiece)
      * need to use this in anger
      */
     size_t hash = 0;
-    hash = afk_hash_swizzle(hash, jigsawPiece.u, afk_factor1);
-    hash = afk_hash_swizzle(hash, jigsawPiece.v, afk_factor2);
-    hash = afk_hash_swizzle(hash, jigsawPiece.w, afk_factor3);
-    hash = afk_hash_swizzle(hash, jigsawPiece.puzzle, afk_factor4);
+    hash = afk_hash_swizzle(hash, jigsawPiece.u);
+    hash = afk_hash_swizzle(hash, jigsawPiece.v);
+    hash = afk_hash_swizzle(hash, jigsawPiece.w);
+    hash = afk_hash_swizzle(hash, jigsawPiece.puzzle);
     return hash;
 }
 

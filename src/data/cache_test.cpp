@@ -29,14 +29,21 @@
 #include "polymer_cache.hpp"
 #include "../async/async.hpp"
 #include "../clock.hpp"
+#include "../rng/hash.hpp"
 
 struct expensivelyHashInt
 {
     size_t operator()(const int& v)
     {
+#if 0
         boost::random::taus88 rng;
         rng.seed(v);
         return rng() + (((uint64_t)rng()) << 32);
+#else
+        /* Exercise the hash_swizzle. */
+        return static_cast<size_t>(
+            afk_hash_swizzle(0ull, static_cast<uint64_t>(v)));
+#endif
     }
 };
 

@@ -22,17 +22,11 @@
 
 #define AFK_LROTATE_UNSIGNED(v, r) (((v) << (r)) | ((v) >> (sizeof((v)) * 8 - (r))))
 
-/* I'm fed up with link errors from boost::hash_combine(), and I want one
- * that is happy with 64-bit anyway
+/* boost::hash_combine() is not good enough.  This one is.
+ * Start it off with a==0 ?
  */
 
-const uint64_t afk_factor1 = 0x0040000100400001ull;
-const uint64_t afk_factor2 = 0x0008002000080020ull;
-const uint64_t afk_factor3 = 0x0010000800100008ull;
-const uint64_t afk_factor4 = 0x0002000400020004ull;
-const uint64_t afk_factor5 = 0x0100040001000400ull;
-
-uint64_t afk_hash_swizzle(uint64_t a, uint64_t b, uint64_t factor);
+uint64_t afk_hash_swizzle(uint64_t a, uint64_t b);
 
 #endif /* _AFK_HASH_H_ */
 

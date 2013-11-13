@@ -289,11 +289,21 @@ protected:
      */
     size_t wring(size_t hash) const
     {
+        /* Now that I've fixed the hash function, this
+         * is properly unnecessary.
+         * TODO: However, to mitigate clashes, I ought to
+         * rotate the hash by (say) 7 every time I hop
+         * along a chain ...
+         */
+#if 0
         size_t wrung = 0;
         for (size_t hOff = 0; hOff < (sizeof(size_t) * 8); hOff += hashBits)
             wrung ^= (hash >> hOff);
 
         return (wrung & HASH_MASK);
+#else
+        return (hash & HASH_MASK);
+#endif
     }
 
     /* Adds a new chain, returning a pointer to it. */

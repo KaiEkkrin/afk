@@ -36,7 +36,7 @@ void test_cellHash(void)
                 for (int64_t scale = 2; scale <= 8; scale *= 2)
                 {
                     AFK_Cell testCell = afk_cell(afk_vec4<int64_t>(x, y, z, scale));
-                    std::cout << testCell << " hashes to " << std::hex << hash_value(testCell) << std::endl;
+                    std::cout << testCell << " hashes to \t" << std::hex << hash_value(testCell) << std::endl;
                 }
             }
         }
@@ -62,7 +62,7 @@ void test_tileHash(void)
             for (int64_t scale = 2; scale <= 16; scale *= 2)
             {
                 AFK_Tile testTile = afk_tile(afk_vec3<int64_t>(x, z, scale));
-                std::cout << testTile << " hashes to " << std::hex << hash_value(testTile) << std::endl;
+                std::cout << testTile << " hashes to \t" << std::hex << hash_value(testTile) << std::endl;
             }
         }
     }

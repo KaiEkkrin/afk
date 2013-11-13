@@ -141,9 +141,9 @@ const AFK_Tile afk_unassignedTile = afk_tile(afk_vec3<int64_t>(0, 0, -1));
 size_t hash_value(const AFK_Tile &tile)
 {
     size_t hash = 0;
-    hash = afk_hash_swizzle(hash, tile.coord.v[0], afk_factor1);
-    hash = afk_hash_swizzle(hash, tile.coord.v[1], afk_factor2);
-    hash = afk_hash_swizzle(hash, tile.coord.v[2], afk_factor3);
+    hash = afk_hash_swizzle(hash, tile.coord.v[0]);
+    hash = afk_hash_swizzle(hash, tile.coord.v[1]);
+    hash = afk_hash_swizzle(hash, tile.coord.v[2]);
     return hash;
 }
 
