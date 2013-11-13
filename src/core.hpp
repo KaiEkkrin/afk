@@ -206,7 +206,7 @@ extern AFK_GetComputingFrame afk_getComputingFrameFunc;
  * temporarily really small.  Better hashBits values for world and
  * landscape are 22 and 16 respectively
  */
-#define AFK_WORLD_CACHE AFK_EvictableCache<AFK_Cell, AFK_WorldCell, AFK_HashCell, afk_unassignedCell, 22, 60, afk_getComputingFrameFunc>
+#define AFK_WORLD_CACHE AFK_EvictableCache<AFK_Cell, AFK_WorldCell, AFK_HashCell, afk_unassignedCell, 22, 60, afk_getComputingFrameFunc, true>
 #define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile, afk_unassignedTile, 16, 10, afk_getComputingFrameFunc>
 #define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 16, 10, afk_getComputingFrameFunc>
 #define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 16, 10, afk_getComputingFrameFunc>

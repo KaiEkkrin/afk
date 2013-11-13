@@ -25,7 +25,6 @@
 
 #include <boost/atomic.hpp>
 
-#include "../debug.hpp"
 #include "stats.hpp"
 
 /* The get() function throws this when there's nothing at the
@@ -58,6 +57,15 @@ class AFK_PolymerOutOfRange: public std::exception {};
  * - The Polymer also needs to be built with a default KeyType that
  * can be used as the "nothing here" value.
  */
+
+#define AFK_DEBUG_POLYMER 1
+
+#if AFK_DEBUG_POLYMER
+#include "../debug.hpp"
+#define AFK_DEBUG_PRINTL_POLYMER(expr) if (debug) { AFK_DEBUG_PRINTL(expr) }
+#else
+#define AFK_DEBUG_PRINTL_POLYMER(expr)
+#endif
 
 /* A forward declaration or two */
 template<typename KeyType, typename MonomerType, const KeyType& unassigned, unsigned int hashBits, bool debug>
@@ -137,6 +145,7 @@ public:
         KeyType found = chain[offset].key.load();
         if (found == key)
         {
+            AFK_DEBUG_PRINTL_POLYMER("key " << key << " found at offset " << offset << " (hops " << hops << ", baseHash " << baseHash << ", chain " << index)
             *o_monomerPtr = chain.data() + offset;
             return true;
         }
@@ -156,6 +165,7 @@ public:
         KeyType expected = unassigned;
         if (chain[offset].key.compare_exchange_strong(expected, key))
         {
+            AFK_DEBUG_PRINTL_POLYMER("key " << key << " inserted at offset " << offset << " (hops " << hops << ", baseHash " << baseHash << ", chain " << index)
             *o_monomerPtr = chain.data() + offset;
             return true;
         }
@@ -220,8 +230,7 @@ public:
             KeyType expected = key;
             if (chain[slot].key.compare_exchange_strong(expected, unassigned))
             {
-                if (debug)
-                    AFK_DEBUG_PRINTL(*this << " eraseSlot(): " << key << " (offset " << slot << ") erased")
+                AFK_DEBUG_PRINTL_POLYMER("key " << key << " erased at slot " << slot << ", chain " << index)
                 return true;
             }
             else return false;
