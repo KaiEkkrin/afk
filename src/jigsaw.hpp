@@ -21,7 +21,6 @@
 #include "afk.hpp"
 
 #include <algorithm>
-#include <atomic>
 #include <cstring>
 #include <map>
 #include <sstream>
@@ -234,9 +233,9 @@ protected:
     void doSweep(const Vec2<int>& nextFreeRow, const AFK_Frame& currentFrame);
 
     /* Some internal stats: */
-    std::atomic_uint_fast64_t piecesGrabbed;
-    std::atomic_uint_fast64_t cuboidsStarted;
-    std::atomic_uint_fast64_t piecesSwept;
+    boost::atomic<uint64_t> piecesGrabbed;
+    boost::atomic<uint64_t> cuboidsStarted;
+    boost::atomic<uint64_t> piecesSwept;
 
 public:
     AFK_Jigsaw(

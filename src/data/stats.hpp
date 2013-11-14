@@ -18,8 +18,9 @@
 #ifndef _AFK_DATA_STATS_H_
 #define _AFK_DATA_STATS_H_
 
-#include <atomic>
 #include <sstream>
+
+#include <boost/atomic.hpp>
 
 /* Useful tracking stats module for the async structures. */
 
@@ -27,18 +28,18 @@ class AFK_StructureStats
 {
 protected:
     /* The number of things in use in the structure. */
-    std::atomic_uint size;
+    boost::atomic<unsigned int> size;
 
     /* Accumulated contention: the number of times we
      * had to retry to slot a new thing.
      */
-    std::atomic_uint contention;
+    boost::atomic<unsigned int> contention;
 
     /* The number of things that have been accumulated into
      * the `contention' value.  Reset to re-begin
      * contention sampling
      */
-    std::atomic_uint contentionSampleSize;
+    boost::atomic<unsigned int> contentionSampleSize;
 
 public:
     AFK_StructureStats();

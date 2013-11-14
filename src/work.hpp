@@ -20,7 +20,7 @@
 
 #include "afk.hpp"
 
-#include <atomic>
+#include <boost/atomic.hpp>
 
 #include "async/work_queue.hpp"
 #include "def.hpp"
@@ -51,7 +51,7 @@ public:
     typedef typename AFK_WorkQueue<ParameterType, ReturnType>::WorkItem WorkItem;
 
 protected:
-    std::atomic_uint count;
+    boost::atomic<unsigned int> count;
     WorkItem finalItem;
 
 public:

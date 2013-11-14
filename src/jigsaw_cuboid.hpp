@@ -20,8 +20,9 @@
 
 #include "afk.hpp"
 
-#include <atomic>
 #include <sstream>
+
+#include <boost/atomic.hpp>
 
 /* This class encapsulates a cuboid within the jigsaw that
  * contains all the updates from a frame (we write to it) or all
@@ -36,7 +37,7 @@ public:
      * can grow in columns.
      */
     int r, c, s, rows, slices;
-    std::atomic_int columns;
+    boost::atomic<int> columns;
 
     AFK_JigsawCuboid(int _r, int _c, int _s, int _rows, int _slices);
 

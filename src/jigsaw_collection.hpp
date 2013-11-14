@@ -51,7 +51,7 @@ protected:
     AFK_Jigsaw *makeNewJigsaw(AFK_Computer *computer) const;
 
     /* For stats. */
-    std::atomic_uint_fast64_t spills;
+    boost::atomic<uint64_t> spills;
 
 public:
     AFK_JigsawCollection(

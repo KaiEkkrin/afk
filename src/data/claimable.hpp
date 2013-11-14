@@ -18,12 +18,13 @@
 #ifndef _AFK_DATA_CLAIMABLE_H_
 #define _AFK_DATA_CLAIMABLE_H_
 
-#include <atomic>
 #include <cassert>
 #include <exception>
 #include <functional>
 #include <sstream>
 #include <thread>
+
+#include <boost/atomic.hpp>
 
 #include "frame.hpp"
 
@@ -181,7 +182,7 @@ protected:
     AFK_Claim(unsigned int _threadId, AFK_Claimable<T> *_claimable, bool _shared) noexcept:
         threadId(_threadId), claimable(_claimable), shared(_shared), released(false)
     {
-        std::atomic_thread_fence(std::memory_order_seq_cst);
+        boost::atomic_thread_fence(boost::memory_order_seq_cst);
         afk_grabShared<T>(&obj, claimable->objPtr());
     }
 
@@ -263,7 +264,7 @@ public:
         else
         {
             afk_returnShared<T>(&obj, claimable->objPtr());
-            std::atomic_thread_fence(std::memory_order_seq_cst);
+            boost::atomic_thread_fence(boost::memory_order_seq_cst);
             claimable->release(threadId);
         }
 
@@ -299,7 +300,7 @@ protected:
      * knocking about; 0 means unclaimed, and the top bit is the
      * non-shared flag.
      */
-    std::atomic_uint_fast64_t id;
+    boost::atomic<uint64_t> id;
 
     /* The claimable object itself. */
     volatile T obj;
@@ -354,10 +355,7 @@ public:
         id.fetch_and(AFK_CL_THREAD_ID_NONSHARED_MASK(threadId));
     }
 
-    AFK_Claimable() noexcept: id(AFK_CL_NO_THREAD), obj()
-    {
-        assert(id.is_lock_free());
-    }
+    AFK_Claimable() noexcept: id(AFK_CL_NO_THREAD), obj() {}
 
     /* The move constructors are used to enable initialisation.
      * They essentially make a new Claimable.
@@ -427,9 +425,9 @@ public:
 
         if (claimed)
         {
-            std::atomic_thread_fence(std::memory_order_seq_cst);
+            boost::atomic_thread_fence(boost::memory_order_seq_cst);
             equals = afk_equalsShared<T>(&obj, &other);
-            std::atomic_thread_fence(std::memory_order_seq_cst);
+            boost::atomic_thread_fence(boost::memory_order_seq_cst);
             releaseShared(threadId);
         }
 
@@ -459,8 +457,8 @@ protected:
     AFK_Claimable<T> claimable;
 
     /* Last times the object was seen. */
-    std::atomic_uint_fast64_t lastSeen;
-    std::atomic_uint_fast64_t lastSeenExclusively;
+    boost::atomic<int64_t> lastSeen;
+    boost::atomic<int64_t> lastSeenExclusively;
 
 public:
     AFK_WatchedClaimable(): claimable(), lastSeen(-1), lastSeenExclusively(-1) {}

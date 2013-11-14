@@ -18,10 +18,11 @@
 #ifndef _AFK_ASYNC_WORK_QUEUE_H_
 #define _AFK_ASYNC_WORK_QUEUE_H_
 
-#include <atomic>
 #include <exception>
 
+#include <boost/atomic.hpp>
 #include <boost/lockfree/queue.hpp>
+#include <boost/memory_order.hpp>
 
 /* An async work queue encompasses the concept of repeatedly
  * queueing up work items to be fed to a worker function.
@@ -62,7 +63,7 @@ public:
 
 protected:
     boost::lockfree::queue<WorkItem> q;
-    std::atomic_uint count;
+    boost::atomic<unsigned int> count;
 
 public:
     AFK_WorkQueue(): q(100) /* arbitrary */, count(0) {}
@@ -78,7 +79,7 @@ public:
     {
         WorkItem nextItem;
 
-        std::atomic_thread_fence(std::memory_order_seq_cst);
+        boost::atomic_thread_fence(boost::memory_order_seq_cst);
         if (count.load() > 0)
         {
             if (q.pop(nextItem))
@@ -90,9 +91,9 @@ public:
                  * These fences have no basis in rational thought, but I put them
                  * in and haven't seen a thread fall out early for a while ... :-/
                  */
-                std::atomic_thread_fence(std::memory_order_seq_cst);
+                boost::atomic_thread_fence(boost::memory_order_seq_cst);
                 count.fetch_sub(1);
-                std::atomic_thread_fence(std::memory_order_seq_cst);
+                boost::atomic_thread_fence(boost::memory_order_seq_cst);
                 return AFK_WQ_BUSY;
             }
             else
@@ -110,12 +111,12 @@ public:
     {
         if (!q.push(parameter)) throw AFK_WorkQueueException(); /* TODO can that happen? */
         count.fetch_add(1);
-        std::atomic_thread_fence(std::memory_order_seq_cst);
+        boost::atomic_thread_fence(boost::memory_order_seq_cst);
     }
 
     bool finished(void)
     {
-        std::atomic_thread_fence(std::memory_order_seq_cst);
+        boost::atomic_thread_fence(boost::memory_order_seq_cst);
         return (count.load() == 0);
     }
 };

@@ -15,7 +15,6 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
-#include <atomic>
 #include <iostream>
 
 #include "async.hpp"
@@ -29,12 +28,12 @@
 /* The shared structure I'll use to record which numbers have
  * been seen
  */
-std::atomic_uint *factors;
+boost::atomic<unsigned int> *factors;
 
 /* This structure flags which numbers have been enqueued in
  * the filter
  */
-std::atomic_bool *enqueued;
+boost::atomic<bool> *enqueued;
 
 struct primeFilterParam
 {
@@ -104,8 +103,8 @@ void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<
 {
     afk_clock::time_point startTime, endTime;
 
-    factors = new std::atomic_uint[primeMax];
-    enqueued = new std::atomic_bool[primeMax];
+    factors = new boost::atomic<unsigned int>[primeMax];
+    enqueued = new boost::atomic<bool>[primeMax];
     for (unsigned int i = 0; i < primeMax; ++i)
     {
         factors[i].store(0);
