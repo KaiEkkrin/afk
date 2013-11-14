@@ -141,7 +141,7 @@ bool afk_equalsShared(const volatile T *mine, const T *other) noexcept
     size_t offset = 0;
     while (equals && offset < sizeof(T))
     {
-        switch (offset)
+        switch (sizeof(T) - offset)
         {
         case 1:
             equals &= afk_equalsSharedIntegral<T, uint8_t>(mine, other, offset);
@@ -311,7 +311,7 @@ protected:
 #define AFK_CL_NO_THREAD 0
 #define AFK_CL_NONSHARED (1uLL<<63)
 
-#define AFK_CL_THREAD_ID_SHARED(id) (((uint64_t)(id))+1uLL)
+#define AFK_CL_THREAD_ID_SHARED(id) (1uLL<<((uint64_t)(id)))
 #define AFK_CL_THREAD_ID_SHARED_MASK(id) (~AFK_CL_THREAD_ID_SHARED(id))
 
 #define AFK_CL_THREAD_ID_NONSHARED(id) (AFK_CL_THREAD_ID_SHARED(id) | AFK_CL_NONSHARED)
@@ -345,7 +345,8 @@ protected:
 
     void releaseShared(unsigned int threadId) noexcept
     {
-        id.fetch_and(AFK_CL_THREAD_ID_SHARED_MASK(threadId));
+        uint64_t old = id.fetch_and(AFK_CL_THREAD_ID_SHARED_MASK(threadId));
+        assert(!(old & AFK_CL_NONSHARED));
     }
 
 public:
@@ -354,20 +355,20 @@ public:
         id.fetch_and(AFK_CL_THREAD_ID_NONSHARED_MASK(threadId));
     }
 
-    AFK_Claimable() noexcept: id(0), obj() {}
+    AFK_Claimable() noexcept: id(AFK_CL_NO_THREAD), obj() {}
 
     /* The move constructors are used to enable initialisation.
      * They essentially make a new Claimable.
      */
     AFK_Claimable(const AFK_Claimable&& _claimable) noexcept:
-        id(0)
+        id(AFK_CL_NO_THREAD)
     {
         obj = _claimable.obj;
     }
 
     AFK_Claimable& operator=(const AFK_Claimable&& _claimable) noexcept
     {
-        id.store(0);
+        id.store(AFK_CL_NO_THREAD);
         obj = _claimable.obj;
         return *this;
     }
@@ -421,7 +422,7 @@ public:
     {
         bool equals = false;
 
-        bool claimed = claimInternal(threadId, AFK_CL_SPIN);
+        bool claimed = claimInternal(threadId, AFK_CL_SPIN | AFK_CL_SHARED);
         assert(claimed);
 
         boost::atomic_thread_fence(boost::memory_order_seq_cst);

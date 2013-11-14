@@ -142,7 +142,7 @@ void test_cache(void)
 
     /* Now let's try it again with the polymer cache */
     std::function<size_t (const int&)> hashFunc = expensivelyHashInt();
-    AFK_PolymerCache<int, IntStartingAtZero, std::function<size_t (const int&)>, afk_cacheTestUnassignedKey, 16, true> polymerCache(4, hashFunc);
+    AFK_PolymerCache<int, IntStartingAtZero, std::function<size_t (const int&)>, afk_cacheTestUnassignedKey, 16> polymerCache(4, hashFunc);
 
     for (unsigned int i = 0; i < CACHE_TEST_THREAD_COUNT; ++i)
     {

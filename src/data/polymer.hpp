@@ -77,7 +77,7 @@ protected:
     ValueType value;
 
 public:
-    AFK_Monomer(): value()
+    AFK_Monomer(): key(), value()
     {
         auto keyClaim = key.claim(1, 0);
         keyClaim.get() = unassigned;
