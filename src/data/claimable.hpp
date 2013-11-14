@@ -56,7 +56,7 @@ class AFK_ClaimException: public std::exception {};
  */
 
 template<typename T, typename I>
-void afk_grabSharedIntegral(T *mine, const volatile T *shared, size_t& offset)
+void afk_grabSharedIntegral(T *mine, const volatile T *shared, size_t& offset) noexcept
 {
     *(reinterpret_cast<I*>(mine) + offset / sizeof(I)) =
         *(reinterpret_cast<const volatile I*>(shared) + offset / sizeof(I));
@@ -64,7 +64,7 @@ void afk_grabSharedIntegral(T *mine, const volatile T *shared, size_t& offset)
 }
 
 template<typename T>
-void afk_grabShared(T *mine, const volatile T *shared)
+void afk_grabShared(T *mine, const volatile T *shared) noexcept
 {
     size_t offset = 0;
     while (offset < sizeof(T))
@@ -91,7 +91,7 @@ void afk_grabShared(T *mine, const volatile T *shared)
 }
 
 template<typename T, typename I>
-void afk_returnSharedIntegral(const T *mine, volatile T *shared, size_t& offset)
+void afk_returnSharedIntegral(const T *mine, volatile T *shared, size_t& offset) noexcept
 {
     *(reinterpret_cast<volatile I*>(shared) + offset / sizeof(I)) =
         *(reinterpret_cast<const I*>(mine) + offset / sizeof(I));
@@ -99,7 +99,7 @@ void afk_returnSharedIntegral(const T *mine, volatile T *shared, size_t& offset)
 }
 
 template<typename T>
-void afk_returnShared(const T *mine, volatile T *shared)
+void afk_returnShared(const T *mine, volatile T *shared) noexcept
 {
     size_t offset = 0;
     while (offset < sizeof(T))
@@ -125,6 +125,46 @@ void afk_returnShared(const T *mine, volatile T *shared)
     }
 }
 
+template<typename T, typename I>
+bool afk_equalsSharedIntegral(const volatile T *mine, const T *other, size_t& offset) noexcept
+{
+    bool equals = (*(reinterpret_cast<const volatile I*>(mine) + offset / sizeof(I)) ==
+        *(reinterpret_cast<const I*>(other) + offset / sizeof(I)));
+    offset += sizeof(I);
+    return equals;
+}
+
+template<typename T>
+bool afk_equalsShared(const volatile T *mine, const T *other) noexcept
+{
+    bool equals = true;
+    size_t offset = 0;
+    while (equals && offset < sizeof(T))
+    {
+        switch (offset)
+        {
+        case 1:
+            equals &= afk_equalsSharedIntegral<T, uint8_t>(mine, other, offset);
+            break;
+
+        case 2: case 3:
+            equals &= afk_equalsSharedIntegral<T, uint16_t>(mine, other, offset);
+            break;
+
+        case 4: case 5: case 6: case 7:
+            equals &= afk_equalsSharedIntegral<T, uint32_t>(mine, other, offset);
+            break;
+
+        default:
+            equals &= afk_equalsSharedIntegral<T, uint64_t>(mine, other, offset);
+            break;
+        }
+    }
+
+    return equals;   
+}
+
+
 template<typename T>
 class AFK_Claimable;
 
@@ -139,7 +179,7 @@ protected:
 
     T obj;
 
-    AFK_Claim(unsigned int _threadId, AFK_Claimable<T> *_claimable, bool _shared):
+    AFK_Claim(unsigned int _threadId, AFK_Claimable<T> *_claimable, bool _shared) noexcept:
         threadId(_threadId), claimable(_claimable), shared(_shared), released(false)
     {
         boost::atomic_thread_fence(boost::memory_order_seq_cst);
@@ -160,7 +200,7 @@ public:
      * Hmm.
      * ...I wonder how prone to creating bugs this might be...
      */ 
-    AFK_Claim(AFK_Claim&& _claim):
+    AFK_Claim(AFK_Claim&& _claim) noexcept:
         threadId(_claim.threadId), claimable(_claim.claimable), shared(_claim.shared), released(_claim.released),
         obj(_claim.obj)
     {
@@ -169,7 +209,7 @@ public:
     }
 
     /* ...likewise... */
-    AFK_Claim& operator=(AFK_Claim&& _claim)
+    AFK_Claim& operator=(AFK_Claim&& _claim) noexcept
     {
         AFK_DEBUG_PRINTL_CLAIMABLE("assign moving claim for " << std::hex << claimable << ": " << obj)
 
@@ -182,26 +222,26 @@ public:
         return *this;
     }
 
-    virtual ~AFK_Claim()
+    virtual ~AFK_Claim() noexcept
     {
         AFK_DEBUG_PRINTL_CLAIMABLE("destructing claim for " << std::hex << claimable << ": " << obj << "(released: " << released << ")")
         if (!released) release();
      }
 
-    const T& getShared(void) const
+    const T& getShared(void) const noexcept
     {
         assert(!released);
         return obj;
     }
 
-    T& get(void)
+    T& get(void) noexcept
     {
         assert(!shared);
         assert(!released);
         return obj;
     }
 
-    bool upgrade(void)
+    bool upgrade(void) noexcept
     {
         if (!shared) return true;
 
@@ -214,7 +254,7 @@ public:
         return false;
     }
 
-    void release(void)
+    void release(void) noexcept
     {
         assert(!released);
         if (shared)
@@ -234,7 +274,7 @@ public:
     /* This function releases the claim without swapping the object
      * back, discarding any changes.
      */
-    void invalidate(void)
+    void invalidate(void) noexcept
     {
         assert(!released);
         if (shared) claimable->releaseShared(threadId);
@@ -276,13 +316,13 @@ protected:
 #define AFK_CL_THREAD_ID_NONSHARED(id) (AFK_CL_THREAD_ID_SHARED(id) | AFK_CL_NONSHARED)
 #define AFK_CL_THREAD_ID_NONSHARED_MASK(id) (~AFK_CL_THREAD_ID_NONSHARED(id))
 
-    bool tryClaim(unsigned int threadId) 
+    bool tryClaim(unsigned int threadId) noexcept
     {
         uint64_t expected = AFK_CL_NO_THREAD;
         return id.compare_exchange_strong(expected, AFK_CL_THREAD_ID_NONSHARED(threadId));
     }
 
-    bool tryClaimShared(unsigned int threadId) 
+    bool tryClaimShared(unsigned int threadId) noexcept
     {
         if ((id.fetch_or(AFK_CL_THREAD_ID_SHARED(threadId)) & AFK_CL_NONSHARED) == AFK_CL_NONSHARED)
         {
@@ -296,35 +336,35 @@ protected:
         return true;
     }
 
-    bool tryUpgradeShared(unsigned int threadId) 
+    bool tryUpgradeShared(unsigned int threadId) noexcept
     {
         uint64_t expected = AFK_CL_THREAD_ID_SHARED(threadId);
         return id.compare_exchange_strong(expected, AFK_CL_THREAD_ID_NONSHARED(threadId));
     }
 
-    void releaseShared(unsigned int threadId) 
+    void releaseShared(unsigned int threadId) noexcept
     {
         id.fetch_and(AFK_CL_THREAD_ID_SHARED_MASK(threadId));
     }
 
 public:
-    void release(unsigned int threadId) 
+    void release(unsigned int threadId) noexcept
     {
         id.fetch_and(AFK_CL_THREAD_ID_NONSHARED_MASK(threadId));
     }
 
-    AFK_Claimable(): id(0), obj() {}
+    AFK_Claimable() noexcept: id(0), obj() {}
 
     /* The move constructors are used to enable initialisation.
      * They essentially make a new Claimable.
      */
-    AFK_Claimable(const AFK_Claimable&& _claimable):
+    AFK_Claimable(const AFK_Claimable&& _claimable) noexcept:
         id(0)
     {
         obj = _claimable.obj;
     }
 
-    AFK_Claimable& operator=(const AFK_Claimable&& _claimable)
+    AFK_Claimable& operator=(const AFK_Claimable&& _claimable) noexcept
     {
         id.store(0);
         obj = _claimable.obj;
@@ -337,7 +377,7 @@ public:
      * Instead this function returns true if successful, else false
      * If you are not WatchedClaimable DO NOT CALL THIS FUNCTION
      */
-    bool claimInternal(unsigned int threadId, unsigned int flags)
+    bool claimInternal(unsigned int threadId, unsigned int flags) noexcept
     {
         bool claimed = false;
 
@@ -356,7 +396,7 @@ public:
      * Again, for the benefit of WatchedClaimable.
      * If you are not WatchedClaimable DO NOT CALL THIS FUNCTION
      */
-    AFK_Claim<T> getClaimable(unsigned int threadId, unsigned int flags)
+    AFK_Claim<T> getClaimable(unsigned int threadId, unsigned int flags) noexcept
     {
         return AFK_Claim<T>(threadId, this, flags & AFK_CL_SHARED);
     }
@@ -372,6 +412,25 @@ public:
         bool claimed = claimInternal(threadId, flags);
         if (!claimed) throw AFK_ClaimException();
         return getClaimable(threadId, flags);
+    }
+
+    /* This is a shortcut that avoids making AFK_Claim objects.
+     * It's not strictly speaking an equality check because it
+     * will never loop but instead return false if it can't claim
+     * right away.
+     */
+    bool match(unsigned int threadId, const T& other) noexcept
+    {
+        bool equals = false;
+
+        bool claimed = tryClaimShared(threadId);
+        if (claimed)
+        {
+            equals = afk_equalsShared<T>(objPtr, &other);
+            releaseShared(threadId);
+        }
+
+        return equals;
     }
 
     friend class AFK_Claim<T>;
