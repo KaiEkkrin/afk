@@ -20,6 +20,7 @@
 
 #include <chrono>
 #include <future>
+#include <mutex>
 #include <sstream>
 #include <thread>
 
@@ -87,8 +88,45 @@ protected:
 
     class EvictableChainFactory
     {
-    public:
-        PolymerChain *operator()() const
+    protected:
+        /* There will be concurrent access to this object, it needs
+         * to be guarded
+         */
+        std::mutex mut;
+
+        /* We create new chains in a different thread in advance so
+         * as to not stall the workers.
+         */
+        std::thread *th;
+        std::promise<PolymerChain*> *rp;
+        std::future<PolymerChain*> result;
+
+        void kickoff(void)
+        {
+            rp = new std::promise<PolymerChain*>();
+            th = new std::thread(
+                &AFK_EvictableCache<Key, Value, Hasher, unassigned, hashBits, framesBeforeEviction, getComputingFrame, debug>::EvictableChainFactory::worker,
+                this);
+            result = rp->get_future();
+        }
+
+        PolymerChain *touchdown(void)
+        {
+            assert(result.valid());
+            result.wait();
+            PolymerChain *newChain = result.get();
+
+            /* Clean things up, call kickoff() again to start the
+             * next one
+             */
+            th->join();
+            delete th; th = nullptr;
+            delete rp; rp = nullptr;
+
+            return newChain;
+        }
+
+        void worker(void) noexcept
         {
             PolymerChain *newChain = new PolymerChain();
             for (size_t slot = 0; slot < CHAIN_SIZE; ++slot)
@@ -105,6 +143,29 @@ protected:
                 value->claimable.claim(threadId, AFK_CL_LOOP).get() = Value();
             }
 
+            rp->set_value(newChain);
+        }
+
+    public:
+        EvictableChainFactory()
+        {
+            /* Kick off the task right away so there is a chain in reserve asap */
+            kickoff();
+        }
+
+        virtual ~EvictableChainFactory()
+        {
+            std::unique_lock<std::mutex> lock(mut);
+            touchdown();
+        }
+
+        PolymerChain *operator()()
+        {
+            std::unique_lock<std::mutex> lock(mut);
+            PolymerChain *newChain = touchdown();
+
+            /* Start making the next one right away so it's in reserve */
+            kickoff();
             return newChain;
         }
     };
