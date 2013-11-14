@@ -51,7 +51,7 @@ public:
     typedef typename AFK_WorkQueue<ParameterType, ReturnType>::WorkItem WorkItem;
 
 protected:
-    boost::atomic<unsigned int> count;
+    boost::atomic_uint count;
     WorkItem finalItem;
 
 public:

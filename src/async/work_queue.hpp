@@ -63,7 +63,7 @@ public:
 
 protected:
     boost::lockfree::queue<WorkItem> q;
-    boost::atomic<unsigned int> count;
+    boost::atomic_uint count;
 
 public:
     AFK_WorkQueue(): q(100) /* arbitrary */, count(0) {}

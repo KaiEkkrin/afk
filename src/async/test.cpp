@@ -28,12 +28,12 @@
 /* The shared structure I'll use to record which numbers have
  * been seen
  */
-boost::atomic<unsigned int> *factors;
+boost::atomic_uint *factors;
 
 /* This structure flags which numbers have been enqueued in
  * the filter
  */
-boost::atomic<bool> *enqueued;
+boost::atomic_bool *enqueued;
 
 struct primeFilterParam
 {
@@ -103,8 +103,8 @@ void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<
 {
     afk_clock::time_point startTime, endTime;
 
-    factors = new boost::atomic<unsigned int>[primeMax];
-    enqueued = new boost::atomic<bool>[primeMax];
+    factors = new boost::atomic_uint[primeMax];
+    enqueued = new boost::atomic_bool[primeMax];
     for (unsigned int i = 0; i < primeMax; ++i)
     {
         factors[i].store(0);

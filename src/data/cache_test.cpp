@@ -20,7 +20,6 @@
 #include <future>
 #include <iostream>
 
-#include <boost/atomic.hpp>
 #include <boost/random/random_device.hpp>
 #include <boost/random/taus88.hpp>
 

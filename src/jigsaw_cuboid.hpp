@@ -37,7 +37,7 @@ public:
      * can grow in columns.
      */
     int r, c, s, rows, slices;
-    boost::atomic<int> columns;
+    boost::atomic_int columns;
 
     AFK_JigsawCuboid(int _r, int _c, int _s, int _rows, int _slices);
 

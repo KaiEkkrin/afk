@@ -22,8 +22,6 @@
 
 #include <sstream>
 
-#include <boost/atomic.hpp>
-
 #include "3d_edge_compute_queue.hpp"
 #include "3d_solid.hpp"
 #include "3d_vapour_compute_queue.hpp"

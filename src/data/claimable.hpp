@@ -300,7 +300,7 @@ protected:
      * knocking about; 0 means unclaimed, and the top bit is the
      * non-shared flag.
      */
-    boost::atomic<uint64_t> id;
+    boost::atomic_uint_fast64_t id;
 
     /* The claimable object itself. */
     volatile T obj;
@@ -355,7 +355,10 @@ public:
         id.fetch_and(AFK_CL_THREAD_ID_NONSHARED_MASK(threadId));
     }
 
-    AFK_Claimable() noexcept: id(AFK_CL_NO_THREAD), obj() {}
+    AFK_Claimable() noexcept: id(AFK_CL_NO_THREAD), obj()
+    {
+        assert(id.is_lock_free());
+    }
 
     /* The move constructors are used to enable initialisation.
      * They essentially make a new Claimable.
@@ -457,8 +460,8 @@ protected:
     AFK_Claimable<T> claimable;
 
     /* Last times the object was seen. */
-    boost::atomic<int64_t> lastSeen;
-    boost::atomic<int64_t> lastSeenExclusively;
+    boost::atomic_uint_fast64_t lastSeen;
+    boost::atomic_uint_fast64_t lastSeenExclusively;
 
 public:
     AFK_WatchedClaimable(): claimable(), lastSeen(-1), lastSeenExclusively(-1) {}

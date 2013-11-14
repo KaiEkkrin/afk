@@ -26,8 +26,6 @@
 #include <thread>
 #include <vector>
 
-#include <boost/atomic.hpp>
-
 #include "thread_allocation.hpp"
 #include "work_queue.hpp"
 
