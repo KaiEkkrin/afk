@@ -25,6 +25,7 @@
 
 #include <boost/atomic.hpp>
 
+#include "claimable.hpp"
 #include "stats.hpp"
 
 /* The get() function throws this when there's nothing at the
@@ -51,9 +52,9 @@ class AFK_PolymerOutOfRange: public std::exception {};
  * - KeyType: should be copy constructable, assignable, comparable
  * (with ==) and hashable (with a non-member hash_value() function,
  * `size_t hash_value(const KeyType&)'.
- * - MonomerType: needs to have a boost::atomic<KeyType> field `key' that the
- * Polymer can access *and that is initialised to the unassigned
- * value when the MonomerType is constructed*
+ * - ValueType: needs to have a default constructor so that the
+ * default PolymerChainFactory can make a chain of monomers of them;
+ * or, supply your own PolymerChainFactory
  * - The Polymer also needs to be built with a default KeyType that
  * can be used as the "nothing here" value.
  */
@@ -67,22 +68,107 @@ class AFK_PolymerOutOfRange: public std::exception {};
 #define AFK_DEBUG_PRINTL_POLYMER(expr)
 #endif
 
+/* This is a single value along with its key for checking. */
+template<typename KeyType, typename ValueType, const KeyType& unassigned>
+class AFK_Monomer
+{
+protected:
+    AFK_Claimable<KeyType> key;
+    ValueType value;
+
+public:
+    AFK_Monomer(): value()
+    {
+        auto keyClaim = key.claim(1, 0);
+        keyClaim.get() = unassigned;
+    }
+
+    bool here(unsigned int threadId, bool acceptUnassigned, KeyType *o_key, ValueType **o_valuePtr) noexcept
+    {
+        try
+        {
+            auto keyClaim = key.claim(threadId, AFK_CL_SHARED | AFK_CL_SPIN);
+            if (acceptUnassigned || !(keyClaim.getShared() == unassigned))
+            {
+                *o_key = keyClaim.getShared();
+                *o_valuePtr = &value;
+                return true;
+            }
+            else return false;
+        }
+        catch (AFK_ClaimException)
+        {
+            /* Should be impossible */
+            assert(false);
+        }
+    }
+
+    bool get(unsigned int threadId, const KeyType& _key, ValueType **o_valuePtr) noexcept
+    {
+        if (key.match(threadId, _key))
+        {
+            *o_valuePtr = &value;
+            return true;
+        }
+        else return false;
+    }
+
+    bool insert(unsigned int threadId, const KeyType& _key, ValueType **o_valuePtr) noexcept
+    {
+        try
+        {
+            auto keyClaim = key.claim(threadId, AFK_CL_SPIN);
+            if (keyClaim.getShared() == unassigned)
+            {
+                keyClaim.get() = _key;
+                *o_valuePtr = &value;
+                return true;
+            }
+            else return false;
+        }
+        catch (AFK_ClaimException)
+        {
+            /* Should be impossible */
+            assert(false);
+        }
+    }
+
+    bool erase(unsigned int threadId, const KeyType& _key) noexcept
+    {
+        try
+        {
+            auto keyClaim = key.claim(threadId, AFK_CL_SPIN);
+            if (keyClaim.getShared() == _key)
+            {
+                keyClaim.get() = unassigned;
+                return true;
+            }
+            else return false;
+        }
+        catch (AFK_ClaimException)
+        {
+            /* Should be impossible */
+            assert(false);
+        }
+    }
+};
+
 /* A forward declaration or two */
-template<typename KeyType, typename MonomerType, const KeyType& unassigned, unsigned int hashBits, bool debug>
+template<typename KeyType, typename ValueType, const KeyType& unassigned, unsigned int hashBits, bool debug>
 class AFK_PolymerChain;
 
-template<typename KeyType, typename MonomerType, const KeyType& unassigned, unsigned int hashBits, bool debug>
-std::ostream& operator<<(std::ostream& os, const AFK_PolymerChain<KeyType, MonomerType, unassigned, hashBits, debug>& _chain);
+template<typename KeyType, typename ValueType, const KeyType& unassigned, unsigned int hashBits, bool debug>
+std::ostream& operator<<(std::ostream& os, const AFK_PolymerChain<KeyType, ValueType, unassigned, hashBits, debug>& _chain);
 
 /* The hash map is stored internally as these chains of
- * links to MonomerType.  When too much contention is deemed to be
+ * links to Monomers.  When too much contention is deemed to be
  * going on, a new block is added.
  */
-template<typename KeyType, typename MonomerType, const KeyType& unassigned, unsigned int hashBits, bool debug>
+template<typename KeyType, typename ValueType, const KeyType& unassigned, unsigned int hashBits, bool debug>
 class AFK_PolymerChain
 {
 protected:
-    typedef AFK_PolymerChain<KeyType, MonomerType, unassigned, hashBits, debug> PolymerChain;
+    typedef AFK_PolymerChain<KeyType, ValueType, unassigned, hashBits, debug> PolymerChain;
 
 #define CHAIN_SIZE (1u<<hashBits)
 #define HASH_MASK ((1u<<hashBits)-1)
@@ -91,7 +177,7 @@ protected:
     // sensible values appear to be
     // world: 22 or above
     // landscape and others: maybe 16.
-    std::array<MonomerType, CHAIN_SIZE> chain;
+    std::array<AFK_Monomer<KeyType, ValueType, unassigned>, CHAIN_SIZE> chain;
     boost::atomic<PolymerChain*> nextChain;
 
     /* What position in the sequence we appear to be.  Used for
@@ -101,7 +187,7 @@ protected:
     unsigned int index;
 
     /* Calculates the chain index for a given hash. */
-    size_t chainOffset(unsigned int hops, size_t hash) const
+    size_t chainOffset(unsigned int hops, size_t hash) const noexcept
     {
         size_t offset = ((hash + hops) & HASH_MASK);
         return offset;
@@ -120,7 +206,7 @@ public:
     }
     
     /* Appends a new chain. */
-    void extend(PolymerChain *newChain, unsigned int _index)
+    void extend(PolymerChain *newChain, unsigned int _index) noexcept
     {
         assert(index == _index);
 
@@ -139,55 +225,45 @@ public:
     }
 
     /* Gets a monomer from a specific place. */
-    bool get(unsigned int threadId, unsigned int hops, size_t baseHash, const KeyType& key, MonomerType **o_monomerPtr)
+    bool get(unsigned int threadId, unsigned int hops, size_t baseHash, const KeyType& key, ValueType **o_valuePtr) noexcept
     {
         size_t offset = chainOffset(hops, baseHash);
-        KeyType found = chain[offset].key.load();
-        if (found == key)
+        if (chain[offset].get(threadId, key, o_valuePtr))
         {
             AFK_DEBUG_PRINTL_POLYMER("key " << key << " found at offset " << offset << " (hops " << hops << ", baseHash " << baseHash << ", chain " << index)
-            *o_monomerPtr = chain.data() + offset;
             return true;
         }
-        else
-        {
-            return false;
-        }
+        else return false;
     }
     
     /* Inserts a monomer into a specific place.
      * Returns true if successful, else false.
-     * `o_monomer' gets a reference to the monomer.
+     * `o_value' gets a reference to the monomer.
      */
-    bool insert(unsigned int threadId, unsigned int hops, size_t baseHash, const KeyType& key, MonomerType **o_monomerPtr)
+    bool insert(unsigned int threadId, unsigned int hops, size_t baseHash, const KeyType& key, ValueType **o_valuePtr) noexcept
     {
         size_t offset = chainOffset(hops, baseHash);
-        KeyType expected = unassigned;
-        if (chain[offset].key.compare_exchange_strong(expected, key))
+        if (chain[offset].insert(threadId, key, o_valuePtr))
         {
             AFK_DEBUG_PRINTL_POLYMER("key " << key << " inserted at offset " << offset << " (hops " << hops << ", baseHash " << baseHash << ", chain " << index)
-            *o_monomerPtr = chain.data() + offset;
             return true;
         }
-        else
-        {
-            return false;
-        }
+        else return false;
     }
 
     /* Returns the next chain, or nullptr if we're at the end. */
-    PolymerChain *next(void) const
+    PolymerChain *next(void) const noexcept
     {
         PolymerChain *nextCh = nextChain.load();
         return nextCh;
     }
 
-    unsigned int getIndex(void) const
+    unsigned int getIndex(void) const noexcept
     {
         return index;
     }
 
-    unsigned int getCount(void) const
+    unsigned int getCount(void) const noexcept
     {
         PolymerChain *next = nextChain.load();
         if (next)
@@ -198,24 +274,23 @@ public:
 
     /* Methods for supporting direct-slot access. */
 
-    bool atSlot(unsigned int threadId, size_t slot, MonomerType **o_monomerPtr)
+    bool atSlot(unsigned int threadId, size_t slot, bool acceptUnassigned, KeyType *o_key, ValueType **o_valuePtr) noexcept
     {
         if (slot & ~HASH_MASK)
         {
             PolymerChain *next = nextChain.load();
             if (next)
-                return next->atSlot(threadId, slot - CHAIN_SIZE, o_monomerPtr);
+                return next->atSlot(threadId, slot - CHAIN_SIZE, acceptUnassigned, o_key, o_valuePtr);
             else
                 return false;
         }
         else
         {
-            *o_monomerPtr = chain.data() + slot;
-            return true;
+            return chain[slot].here(threadId, acceptUnassigned, o_key, o_valuePtr);
         }
     }
 
-    bool eraseSlot(unsigned int threadId, size_t slot, const KeyType& key)
+    bool eraseSlot(unsigned int threadId, size_t slot, const KeyType& key) noexcept
     {
         if (slot & ~HASH_MASK)
         {
@@ -227,8 +302,7 @@ public:
         }
         else
         {
-            KeyType expected = key;
-            if (chain[slot].key.compare_exchange_strong(expected, unassigned))
+            if (chain[slot].erase(threadId, key))
             {
                 AFK_DEBUG_PRINTL_POLYMER("key " << key << " erased at slot " << slot << ", chain " << index)
                 return true;
@@ -237,11 +311,11 @@ public:
         }
     }
 
-    friend std::ostream& operator<< <KeyType, MonomerType, unassigned, hashBits, debug>(std::ostream& os, const PolymerChain& _chain);
+    friend std::ostream& operator<< <KeyType, ValueType, unassigned, hashBits, debug>(std::ostream& os, const PolymerChain& _chain);
 };
 
-template<typename KeyType, typename MonomerType, const KeyType& unassigned, unsigned int hashBits, bool debug>
-std::ostream& operator<<(std::ostream& os, const AFK_PolymerChain<KeyType, MonomerType, unassigned, hashBits, debug>& _chain)
+template<typename KeyType, typename ValueType, const KeyType& unassigned, unsigned int hashBits, bool debug>
+std::ostream& operator<<(std::ostream& os, const AFK_PolymerChain<KeyType, ValueType, unassigned, hashBits, debug>& _chain)
 {
     os << "PolymerChain(index=" << std::dec << _chain.index << ", addr=" << std::hex << _chain.chain.data() << ")";
     return os;
@@ -252,33 +326,35 @@ std::ostream& operator<<(std::ostream& os, const AFK_PolymerChain<KeyType, Monom
  */
 template<
     typename KeyType,
-    typename MonomerType,
+    typename ValueType,
     const KeyType& unassigned,
     unsigned int hashBits,
     bool debug>
 class AFK_BasePolymerChainFactory
 {
 public:
-    AFK_PolymerChain<KeyType, MonomerType, unassigned, hashBits, debug> *operator()() const
+    AFK_PolymerChain<KeyType, ValueType, unassigned, hashBits, debug> *operator()() const
     {
-        return new AFK_PolymerChain<KeyType, MonomerType, unassigned, hashBits, debug>();
+        return new AFK_PolymerChain<KeyType, ValueType, unassigned, hashBits, debug>();
     }
 };
 
 template<
     typename KeyType,
-    typename MonomerType,
+    typename ValueType,
     typename Hasher,
     const KeyType& unassigned,
     unsigned int hashBits,
     bool debug,
     typename ChainFactory = AFK_BasePolymerChainFactory<
-        KeyType, MonomerType, unassigned, hashBits, debug>
+        KeyType, ValueType, unassigned, hashBits, debug>
         >
 class AFK_Polymer
 {
+public:
+    typedef AFK_PolymerChain<KeyType, ValueType, unassigned, hashBits, debug> PolymerChain;
+
 protected:
-    typedef AFK_PolymerChain<KeyType, MonomerType, unassigned, hashBits, debug> PolymerChain;
     PolymerChain *chains;
 
     /* These values define the behaviour of this polymer. */
@@ -296,7 +372,7 @@ protected:
     /* This wrings as many bits out of a hash as I can
      * within the `hashBits' limit
      */
-    size_t wring(size_t hash) const
+    size_t wring(size_t hash) const noexcept
     {
         /* Now that I've fixed the hash function, this
          * is properly unnecessary.
@@ -327,7 +403,7 @@ protected:
     }
 
     /* Retrieves an existing monomer. */
-    bool retrieveMonomer(unsigned int threadId, const KeyType& key, size_t hash, MonomerType **o_monomerPtr)
+    bool retrieveMonomer(unsigned int threadId, const KeyType& key, size_t hash, ValueType **o_valuePtr) noexcept
     {
         /* Try a small number of hops first, then expand out.
          */
@@ -336,7 +412,7 @@ protected:
             for (PolymerChain *chain = chains;
                 chain; chain = chain->next())
             {
-                if (chain->get(threadId, hops, hash, key, o_monomerPtr)) return true;
+                if (chain->get(threadId, hops, hash, key, o_valuePtr)) return true;
             }
         }
 
@@ -346,7 +422,7 @@ protected:
     /* Inserts a new monomer, creating a new chain
      * if necessary.
      */
-    void insertMonomer(unsigned int threadId, const KeyType& key, size_t hash, MonomerType **o_monomerPtr)
+    void insertMonomer(unsigned int threadId, const KeyType& key, size_t hash, ValueType **o_valuePtr) noexcept
     {
         bool inserted = false;
         PolymerChain *startChain = chains;
@@ -358,7 +434,7 @@ protected:
                 for (PolymerChain *chain = startChain;
                     chain != nullptr && !inserted; chain = chain->next())
                 {
-                    inserted = chain->insert(threadId, hops, hash, key, o_monomerPtr);
+                    inserted = chain->insert(threadId, hops, hash, key, o_valuePtr);
 
                     if (inserted) stats.insertedOne(hops);
                 }
@@ -396,12 +472,12 @@ public:
     /* Returns a reference to a map entry.  Throws AFK_PolymerOutOfRange
      * if it can't find it.
      */
-    MonomerType& get(unsigned int threadId, const KeyType& key)
+    ValueType& get(unsigned int threadId, const KeyType& key)
     {
         size_t hash = wring(hasher(key));
-        MonomerType *monomer = nullptr;
-        if (!retrieveMonomer(threadId, key, hash, &monomer)) throw AFK_PolymerOutOfRange();
-        return *monomer;
+        ValueType *value = nullptr;
+        if (!retrieveMonomer(threadId, key, hash, &value)) throw AFK_PolymerOutOfRange();
+        return *value;
     }
 
     /* Returns a reference to a map entry.  Inserts a new one if
@@ -409,21 +485,21 @@ public:
      * This will occasionally generate duplicates.  That should be
      * okay.
      */
-    MonomerType& insert(unsigned int threadId, const KeyType& key)
+    ValueType& insert(unsigned int threadId, const KeyType& key)
     {
         size_t hash = wring(hasher(key));
-        MonomerType *monomer = nullptr;
+        ValueType *value = nullptr;
 
         /* I'm going to assume it's probably there already, and first
          * just do a basic search.
          */
-        if (!retrieveMonomer(threadId, key, hash, &monomer))
+        if (!retrieveMonomer(threadId, key, hash, &value))
         {
             /* Make a new one. */
-            insertMonomer(threadId, key, hash, &monomer);
+            insertMonomer(threadId, key, hash, &value);
         }
 
-        return *monomer;
+        return *value;
     }
 
     /* For accessing the chain slots directly.  Use carefully (it's really
@@ -435,11 +511,10 @@ public:
         return chains->getCount() * CHAIN_SIZE;
     }
 
-    bool getSlot(unsigned int threadId, size_t slot, MonomerType **o_monomerPtr)
+    bool getSlot(unsigned int threadId, size_t slot, KeyType *o_key, ValueType **o_valuePtr) noexcept
     {
         /* Don't return unassigneds */
-        return (chains->atSlot(threadId, slot, o_monomerPtr) &&
-            (*o_monomerPtr)->key.load() != unassigned);
+        return (chains->atSlot(threadId, slot, false, o_key, o_valuePtr));
     }
 
     /* Removes from a slot so long as it contains the key specified
@@ -450,7 +525,7 @@ public:
      * suchlike.
      * *DON'T HAVE MORE THAN ONE THREAD CALLING THIS PER POLYMER*
      */
-    bool eraseSlot(unsigned int threadId, size_t slot, const KeyType& key)
+    bool eraseSlot(unsigned int threadId, size_t slot, const KeyType& key) noexcept
     {
         bool success = chains->eraseSlot(threadId, slot, key);
         if (success) stats.erasedOne();

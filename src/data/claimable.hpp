@@ -286,9 +286,10 @@ public:
 };
 
 #define AFK_CL_LOOP         1
-#define AFK_CL_EXCLUSIVE    2
-#define AFK_CL_EVICTOR      4
-#define AFK_CL_SHARED       8
+#define AFK_CL_SPIN         2
+#define AFK_CL_EXCLUSIVE    4
+#define AFK_CL_EVICTOR      8
+#define AFK_CL_SHARED      16
 
 template<typename T>
 class AFK_Claimable
@@ -387,7 +388,7 @@ public:
             else claimed = tryClaim(threadId);
             if (flags & AFK_CL_LOOP) std::this_thread::yield();
         }
-        while (!claimed && (flags & AFK_CL_LOOP));
+        while (!claimed && ((flags & AFK_CL_LOOP) || (flags & AFK_CL_SPIN)));
 
         return claimed;
     }
@@ -415,22 +416,18 @@ public:
     }
 
     /* This is a shortcut that avoids making AFK_Claim objects.
-     * It's not strictly speaking an equality check because it
-     * will never loop but instead return false if it can't claim
-     * right away.
      */
     bool match(unsigned int threadId, const T& other) noexcept
     {
         bool equals = false;
 
-        bool claimed = tryClaimShared(threadId);
-        if (claimed)
-        {
-            boost::atomic_thread_fence(boost::memory_order_seq_cst);
-            equals = afk_equalsShared<T>(objPtr, &other);
-            boost::atomic_thread_fence(boost::memory_order_seq_cst);
-            releaseShared(threadId);
-        }
+        bool claimed = claimInternal(threadId, AFK_CL_SPIN);
+        assert(claimed);
+
+        boost::atomic_thread_fence(boost::memory_order_seq_cst);
+        equals = afk_equalsShared<T>(&obj, &other);
+        boost::atomic_thread_fence(boost::memory_order_seq_cst);
+        releaseShared(threadId);
 
         return equals;
     }

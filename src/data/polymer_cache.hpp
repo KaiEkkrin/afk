@@ -28,11 +28,11 @@ unsigned int afk_suggestCacheBitness(unsigned int entries);
 
 /* This defines the AFK cache as an unguarded polymer cache. */
 
-template<typename Key, typename Monomer, typename Hasher, const Key& unassigned, unsigned int hashBits, bool debug = false>
-class AFK_PolymerCache: public AFK_Cache<Key, Monomer>
+template<typename Key, typename Value, typename Hasher, const Key& unassigned, unsigned int hashBits, bool debug = false>
+class AFK_PolymerCache: public AFK_Cache<Key, Value>
 {
 protected:
-    AFK_Polymer<Key, Monomer, Hasher, unassigned, hashBits, debug> polymer;
+    AFK_Polymer<Key, Value, Hasher, unassigned, hashBits, debug> polymer;
 
 public:
     AFK_PolymerCache(unsigned int targetContention, Hasher hasher):
@@ -45,12 +45,12 @@ public:
         return polymer.size();
     }
 
-    virtual Monomer& get(unsigned int threadId, const Key& key)
+    virtual Value& get(unsigned int threadId, const Key& key)
     {
         return polymer.get(threadId, key);
     }
 
-    virtual Monomer& insert(unsigned int threadId, const Key& key)
+    virtual Value& insert(unsigned int threadId, const Key& key)
     {
         return polymer.insert(threadId, key);
     }

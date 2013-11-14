@@ -38,18 +38,15 @@
  */
 
 template<
-    typename Key,
     typename Value,
-    const Key& unassigned,
     int64_t framesBeforeEviction,
     AFK_GetComputingFrame& getComputingFrame>
 class AFK_Evictable
 {
 public:
-    boost::atomic<Key> key;
     AFK_WatchedClaimable<Value, getComputingFrame> claimable;
 
-    AFK_Evictable(): key(unassigned), claimable() {}
+    AFK_Evictable(): claimable() {}
 
     bool canBeEvicted(void) const 
     {
@@ -59,16 +56,14 @@ public:
 };
 
 template<
-    typename Key,
     typename Value,
-    const Key& unassigned,
     int64_t framesBeforeEviction,
     AFK_GetComputingFrame& getComputingFrame>
 std::ostream& operator<<(
     std::ostream& os,
-    const AFK_Evictable<Key, Value, unassigned, framesBeforeEviction, getComputingFrame>& ev)
+    const AFK_Evictable<Value, framesBeforeEviction, getComputingFrame>& ev)
 {
-    os << "Evictable(Key=" << ev.key.load() << ", Value=" << ev.claimable << ")";
+    os << "Evictable(Value=" << ev.claimable << ")";
     return os;
 }
 
@@ -84,11 +79,11 @@ template<
 class AFK_EvictableCache:
     public AFK_Cache<
         Key,
-        AFK_Evictable<Key, Value, unassigned, framesBeforeEviction, getComputingFrame> >
+        AFK_Evictable<Value, framesBeforeEviction, getComputingFrame> >
 {
 protected:
-    typedef AFK_Evictable<Key, Value, unassigned, framesBeforeEviction, getComputingFrame> Monomer;
-    typedef AFK_PolymerChain<Key, Monomer, unassigned, hashBits, debug> PolymerChain;
+    typedef AFK_Evictable<Value, framesBeforeEviction, getComputingFrame> EvictableValue;
+    typedef AFK_PolymerChain<Key, EvictableValue, unassigned, hashBits, debug> PolymerChain;
 
     class EvictableChainFactory
     {
@@ -99,16 +94,22 @@ protected:
             for (size_t slot = 0; slot < CHAIN_SIZE; ++slot)
             {
                 unsigned int threadId = 1; /* doesn't matter, no contention yet */
-                Monomer *monomer;
-                assert(newChain->atSlot(threadId, slot, &monomer));
-                monomer->claimable.claim(threadId, AFK_CL_LOOP).get() = Value();
+                Key key;
+                EvictableValue *value;
+
+                /* Make sure to sanity check this stuff.  The polymer needs
+                 * to be initialising its monomer keys properly
+                 */
+                assert(newChain->atSlot(threadId, slot, true, &key, &value));
+                assert(key == unassigned);
+                value->claimable.claim(threadId, AFK_CL_LOOP).get() = Value();
             }
 
             return newChain;
         }
     };
 
-    AFK_Polymer<Key, Monomer, Hasher, unassigned, hashBits, debug, EvictableChainFactory> polymer;
+    AFK_Polymer<Key, EvictableValue, Hasher, unassigned, hashBits, debug, EvictableChainFactory> polymer;
 
     /* The state of the evictor. */
     const size_t targetSize;
@@ -128,7 +129,7 @@ protected:
     unsigned int runsOverlapped;
 
 public:
-    void evictionWorker(void)
+    void evictionWorker(void) noexcept
     {
         unsigned int entriesEvicted = 0;
 
@@ -141,8 +142,9 @@ public:
             size_t slotCount = this->polymer.slotCount(); /* don't keep recomputing */
             for (size_t slot = 0; slot < slotCount; ++slot)
             {
-                Monomer *candidate;
-                if (this->polymer.getSlot(threadId, slot, &candidate))
+                Key key;
+                EvictableValue *candidate;
+                if (this->polymer.getSlot(threadId, slot, &key, &candidate))
                 {
                     if (candidate->canBeEvicted())
                     {
@@ -164,7 +166,7 @@ public:
                                 /* Reset it: the polymer won't */
                                 obj = Value();
 
-                                if (!this->polymer.eraseSlot(threadId, slot, candidate->key))
+                                if (!this->polymer.eraseSlot(threadId, slot, key))
                                 {
                                     /* We'd better not release (and commit the reset value)
                                      * in this case!
@@ -215,12 +217,12 @@ public:
         return polymer.size();
     }
 
-    virtual Monomer& get(unsigned int threadId, const Key& key)
+    virtual EvictableValue& get(unsigned int threadId, const Key& key)
     {
         return polymer.get(threadId, key);
     }
 
-    virtual Monomer& insert(unsigned int threadId, const Key& key)
+    virtual EvictableValue& insert(unsigned int threadId, const Key& key)
     {
         return polymer.insert(threadId, key);
     }
