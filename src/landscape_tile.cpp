@@ -127,7 +127,7 @@ void AFK_LandscapeTile::buildTerrainList(
 
         try
         {
-            auto parentLandscapeTileClaim = cache->at(parentTile).claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
+            auto parentLandscapeTileClaim = cache->get(threadId, parentTile).claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
             parentLandscapeTileClaim.getShared().buildTerrainList(threadId, list, parentTile, subdivisionFactor, maxDistance, cache);
         }
         catch (AFK_PolymerOutOfRange e)

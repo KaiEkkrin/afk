@@ -426,7 +426,9 @@ public:
         bool claimed = tryClaimShared(threadId);
         if (claimed)
         {
+            boost::atomic_thread_fence(boost::memory_order_seq_cst);
             equals = afk_equalsShared<T>(objPtr, &other);
+            boost::atomic_thread_fence(boost::memory_order_seq_cst);
             releaseShared(threadId);
         }
 

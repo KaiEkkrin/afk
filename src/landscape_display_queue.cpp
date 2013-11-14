@@ -97,7 +97,7 @@ void AFK_LandscapeDisplayQueue::draw(
 
             try
             {
-                auto claim = cache->at(landscapeTiles[i]).claimable.claim(threadId, AFK_CL_SHARED);
+                auto claim = cache->get(threadId, landscapeTiles[i]).claimable.claim(threadId, AFK_CL_SHARED);
                 if (claim.getShared().realCellWithinYBounds(queue[i].cellCoord))
                 {
                     /* I do want to draw this tile. */

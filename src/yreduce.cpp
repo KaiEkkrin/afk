@@ -145,7 +145,7 @@ void AFK_YReduce::readBack(
 
             try
             {
-                auto claim = cache->at(landscapeTiles[i]).claimable.claim(threadId, 0);
+                auto claim = cache->get(threadId, landscapeTiles[i]).claimable.claim(threadId, 0);
                 claim.get().setYBounds(readback[i * 2], readback[i * 2 + 1]);
                 pushed[i] = true;
             }

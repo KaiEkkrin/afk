@@ -45,16 +45,14 @@ public:
         return polymer.size();
     }
 
-    virtual Monomer& at(const Key& key)
+    virtual Monomer& get(unsigned int threadId, const Key& key)
     {
-        Monomer *ptr = polymer.get(key);
-        return *ptr;
+        return polymer.get(threadId, key);
     }
 
-    virtual Monomer& operator[](const Key& key)
+    virtual Monomer& insert(unsigned int threadId, const Key& key)
     {
-        Monomer *ptr = polymer.insert(key);
-        return *ptr;
+        return polymer.insert(threadId, key);
     }
 
     /* I'll want to try this some day ? */

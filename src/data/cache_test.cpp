@@ -83,8 +83,8 @@ bool testCacheWorker(unsigned int id, const struct insertSqrtParam& param, AFK_W
         for (unsigned int biti = 0; biti < 32; ++biti)
             if (num & (1 << biti)) ++bitcount;
 
-        (*(param.cache))[bitcount].v += 1;
-        (*(param.cache))[num & 0xff].v += bitcount;
+        param.cache->insert(id, bitcount).v += 1;
+        param.cache->insert(id, num & 0xff).v += bitcount;
     }
 
     return true;
@@ -135,7 +135,7 @@ void test_cache(void)
 
     for (int t = 0; t < 32; ++t)
     {
-        std::cout << t << " -> " << mapCache[t].v << "; ";
+        std::cout << t << " -> " << mapCache.get(1, t).v << "; ";
     }
     std::cout << std::endl;
 
@@ -164,7 +164,7 @@ void test_cache(void)
 
     for (t = 0; t < 32; ++t)
     {
-        std::cout << t << " -> " << polymerCache[t].v << "; ";
+        std::cout << t << " -> " << polymerCache.get(1, t).v << "; ";
     }
     std::cout << std::endl;
 

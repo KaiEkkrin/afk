@@ -98,9 +98,10 @@ protected:
             PolymerChain *newChain = new PolymerChain();
             for (size_t slot = 0; slot < CHAIN_SIZE; ++slot)
             {
+                unsigned int threadId = 1; /* doesn't matter, no contention yet */
                 Monomer *monomer;
-                assert(newChain->atSlot(slot, &monomer));
-                monomer->claimable.claim(1 /* doesn't matter, no contention */, AFK_CL_LOOP).get() = Value();
+                assert(newChain->atSlot(threadId, slot, &monomer));
+                monomer->claimable.claim(threadId, AFK_CL_LOOP).get() = Value();
             }
 
             return newChain;
@@ -141,7 +142,7 @@ public:
             for (size_t slot = 0; slot < slotCount; ++slot)
             {
                 Monomer *candidate;
-                if (this->polymer.getSlot(slot, &candidate))
+                if (this->polymer.getSlot(threadId, slot, &candidate))
                 {
                     if (candidate->canBeEvicted())
                     {
@@ -163,7 +164,7 @@ public:
                                 /* Reset it: the polymer won't */
                                 obj = Value();
 
-                                if (!this->polymer.eraseSlot(slot, candidate->key))
+                                if (!this->polymer.eraseSlot(threadId, slot, candidate->key))
                                 {
                                     /* We'd better not release (and commit the reset value)
                                      * in this case!
@@ -214,16 +215,14 @@ public:
         return polymer.size();
     }
 
-    virtual Monomer& at(const Key& key)
+    virtual Monomer& get(unsigned int threadId, const Key& key)
     {
-        Monomer *ptr = polymer.get(key);
-        return *ptr;
+        return polymer.get(threadId, key);
     }
 
-    virtual Monomer& operator[](const Key& key)
+    virtual Monomer& insert(unsigned int threadId, const Key& key)
     {
-        Monomer *ptr = polymer.insert(key);
-        return *ptr;
+        return polymer.insert(threadId, key);
     }
 
     void doEvictionIfNecessary(void)

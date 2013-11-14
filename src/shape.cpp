@@ -48,7 +48,7 @@ bool afk_generateEntity(
     bool resume = false;
 
     AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
-    auto claim = (*(shape.vapourCellCache))[vc].claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
+    auto claim = shape.vapourCellCache->insert(threadId, vc).claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
 
     if (!claim.getShared().hasDescriptor())
     {
@@ -177,7 +177,7 @@ bool afk_generateShapeCells(
          * cell, however.
          */
         AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
-        auto vapourCellClaim = (*(shape.vapourCellCache))[vc].claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
+        auto vapourCellClaim = shape.vapourCellCache->insert(threadId, vc).claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
         const AFK_VapourCell& vapourCell = vapourCellClaim.getShared();
 
         if (!vapourCell.hasDescriptor())
@@ -190,7 +190,7 @@ bool afk_generateShapeCells(
                  */
                 AFK_KeyedCell upperVC = vc.parent(world->sSizes.subdivisionFactor);
                 auto upperVapourCellClaim =
-                    shape.vapourCellCache->at(upperVC).claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
+                    shape.vapourCellCache->get(threadId, upperVC).claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
                 vapourCellClaim.get().makeDescriptor(vc, upperVC, upperVapourCellClaim.getShared(), world->sSizes);
             }
         }
@@ -210,7 +210,7 @@ bool afk_generateShapeCells(
                 if (display) 
                 {
                     /* I want that shape cell now ... */
-                    auto shapeCellClaim = (*(shape.shapeCellCache))[cell].claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
+                    auto shapeCellClaim = shape.shapeCellCache->insert(threadId, cell).claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
                     if (!shape.generateClaimedShapeCell(
                         threadId, vc, cell, vapourCellClaim, shapeCellClaim, worldTransform))
                     {

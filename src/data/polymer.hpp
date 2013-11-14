@@ -139,7 +139,7 @@ public:
     }
 
     /* Gets a monomer from a specific place. */
-    bool get(unsigned int hops, size_t baseHash, const KeyType& key, MonomerType **o_monomerPtr)
+    bool get(unsigned int threadId, unsigned int hops, size_t baseHash, const KeyType& key, MonomerType **o_monomerPtr)
     {
         size_t offset = chainOffset(hops, baseHash);
         KeyType found = chain[offset].key.load();
@@ -159,7 +159,7 @@ public:
      * Returns true if successful, else false.
      * `o_monomer' gets a reference to the monomer.
      */
-    bool insert(unsigned int hops, size_t baseHash, const KeyType& key, MonomerType **o_monomerPtr)
+    bool insert(unsigned int threadId, unsigned int hops, size_t baseHash, const KeyType& key, MonomerType **o_monomerPtr)
     {
         size_t offset = chainOffset(hops, baseHash);
         KeyType expected = unassigned;
@@ -198,13 +198,13 @@ public:
 
     /* Methods for supporting direct-slot access. */
 
-    bool atSlot(size_t slot, MonomerType **o_monomerPtr)
+    bool atSlot(unsigned int threadId, size_t slot, MonomerType **o_monomerPtr)
     {
         if (slot & ~HASH_MASK)
         {
             PolymerChain *next = nextChain.load();
             if (next)
-                return next->atSlot(slot - CHAIN_SIZE, o_monomerPtr);
+                return next->atSlot(threadId, slot - CHAIN_SIZE, o_monomerPtr);
             else
                 return false;
         }
@@ -215,13 +215,13 @@ public:
         }
     }
 
-    bool eraseSlot(size_t slot, const KeyType& key)
+    bool eraseSlot(unsigned int threadId, size_t slot, const KeyType& key)
     {
         if (slot & ~HASH_MASK)
         {
             PolymerChain *next = nextChain.load();
             if (next)
-                return next->eraseSlot(slot - CHAIN_SIZE, key);
+                return next->eraseSlot(threadId, slot - CHAIN_SIZE, key);
             else
                 return false;
         }
@@ -327,7 +327,7 @@ protected:
     }
 
     /* Retrieves an existing monomer. */
-    bool retrieveMonomer(const KeyType& key, size_t hash, MonomerType **o_monomerPtr)
+    bool retrieveMonomer(unsigned int threadId, const KeyType& key, size_t hash, MonomerType **o_monomerPtr)
     {
         /* Try a small number of hops first, then expand out.
          */
@@ -336,7 +336,7 @@ protected:
             for (PolymerChain *chain = chains;
                 chain; chain = chain->next())
             {
-                if (chain->get(hops, hash, key, o_monomerPtr)) return true;
+                if (chain->get(threadId, hops, hash, key, o_monomerPtr)) return true;
             }
         }
 
@@ -346,7 +346,7 @@ protected:
     /* Inserts a new monomer, creating a new chain
      * if necessary.
      */
-    void insertMonomer(const KeyType& key, size_t hash, MonomerType **o_monomerPtr)
+    void insertMonomer(unsigned int threadId, const KeyType& key, size_t hash, MonomerType **o_monomerPtr)
     {
         bool inserted = false;
         PolymerChain *startChain = chains;
@@ -358,7 +358,7 @@ protected:
                 for (PolymerChain *chain = startChain;
                     chain != nullptr && !inserted; chain = chain->next())
                 {
-                    inserted = chain->insert(hops, hash, key, o_monomerPtr);
+                    inserted = chain->insert(threadId, hops, hash, key, o_monomerPtr);
 
                     if (inserted) stats.insertedOne(hops);
                 }
@@ -393,23 +393,23 @@ public:
         return stats.getSize();
     }
 
-    /* Returns a pointer to a map entry.  Throws AFK_PolymerOutOfRange
+    /* Returns a reference to a map entry.  Throws AFK_PolymerOutOfRange
      * if it can't find it.
      */
-    MonomerType *get(const KeyType& key)
+    MonomerType& get(unsigned int threadId, const KeyType& key)
     {
         size_t hash = wring(hasher(key));
         MonomerType *monomer = nullptr;
-        if (!retrieveMonomer(key, hash, &monomer)) throw AFK_PolymerOutOfRange();
-        return monomer;
+        if (!retrieveMonomer(threadId, key, hash, &monomer)) throw AFK_PolymerOutOfRange();
+        return *monomer;
     }
 
-    /* Returns a pointer to a map entry.  Inserts a new one if
+    /* Returns a reference to a map entry.  Inserts a new one if
      * it couldn't find one.
      * This will occasionally generate duplicates.  That should be
      * okay.
      */
-    MonomerType *insert(const KeyType& key)
+    MonomerType& insert(unsigned int threadId, const KeyType& key)
     {
         size_t hash = wring(hasher(key));
         MonomerType *monomer = nullptr;
@@ -417,13 +417,13 @@ public:
         /* I'm going to assume it's probably there already, and first
          * just do a basic search.
          */
-        if (!retrieveMonomer(key, hash, &monomer))
+        if (!retrieveMonomer(threadId, key, hash, &monomer))
         {
             /* Make a new one. */
-            insertMonomer(key, hash, &monomer);
+            insertMonomer(threadId, key, hash, &monomer);
         }
 
-        return monomer;
+        return *monomer;
     }
 
     /* For accessing the chain slots directly.  Use carefully (it's really
@@ -435,10 +435,10 @@ public:
         return chains->getCount() * CHAIN_SIZE;
     }
 
-    bool getSlot(size_t slot, MonomerType **o_monomerPtr)
+    bool getSlot(unsigned int threadId, size_t slot, MonomerType **o_monomerPtr)
     {
         /* Don't return unassigneds */
-        return (chains->atSlot(slot, o_monomerPtr) &&
+        return (chains->atSlot(threadId, slot, o_monomerPtr) &&
             (*o_monomerPtr)->key.load() != unassigned);
     }
 
@@ -450,9 +450,9 @@ public:
      * suchlike.
      * *DON'T HAVE MORE THAN ONE THREAD CALLING THIS PER POLYMER*
      */
-    bool eraseSlot(size_t slot, const KeyType& key)
+    bool eraseSlot(unsigned int threadId, size_t slot, const KeyType& key)
     {
-        bool success = chains->eraseSlot(slot, key);
+        bool success = chains->eraseSlot(threadId, slot, key);
         if (success) stats.erasedOne();
         return success;
     }
