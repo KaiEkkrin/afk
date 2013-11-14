@@ -15,12 +15,12 @@ Progress videos at:         https://www.youtube.com/user/KaiEkkrin
 
 To build AFK you will currently need:
  - a GNU/Linux distribution
- - GNU G++ (recent enough to support C++11)
+ - GNU G++ 4.8 or later
  - a modern OpenGL implementation (supporting OpenGL 4.0) and its development libraries
  - a modern OpenCL implementation (supporting OpenCL 1.1) and its development libraries
  - GLX
  - GLEW
- - Boost >=1.5x (AFK currently links with boost_atomic, boost_chrono, boost_random, boost_regex, boost_system and boost_thread.)
+ - Boost >=1.5x (AFK currently links with boost_random, boost_regex, boost_system and boost_thread.)
  - SConstruct, the python build system.
 
 See COMPATIBILITY.txt.

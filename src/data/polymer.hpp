@@ -19,11 +19,10 @@
 #define _AFK_DATA_POLYMER_H_
 
 #include <array>
+#include <atomic>
 #include <cassert>
 #include <exception>
 #include <sstream>
-
-#include <boost/atomic.hpp>
 
 #include "claimable.hpp"
 #include "stats.hpp"
@@ -175,7 +174,7 @@ protected:
     // world: 22 or above
     // landscape and others: maybe 16.
     std::array<AFK_Monomer<KeyType, ValueType, unassigned>, CHAIN_SIZE> chain;
-    boost::atomic<PolymerChain*> nextChain;
+    std::atomic<PolymerChain*> nextChain; /* TODO change for a shared_ptr, when atomic shared_ptr operations supported? */
 
     /* What position in the sequence we appear to be.  Used for
      * swizzling the chain offset around so that different chains

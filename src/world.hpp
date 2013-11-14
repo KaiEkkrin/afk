@@ -20,10 +20,9 @@
 
 #include "afk.hpp"
 
+#include <atomic>
 #include <sstream>
 #include <vector>
-
-#include <boost/atomic.hpp>
 
 #include "3d_edge_compute_queue.hpp"
 #include "3d_edge_shape_base.hpp"
@@ -94,27 +93,27 @@ protected:
 
     /* Gather statistics.  (Useful.)
      */
-    boost::atomic<uint64_t> cellsInvisible;
-    boost::atomic<uint64_t> cellsResumed;
-    boost::atomic<uint64_t> tilesQueued;
-    boost::atomic<uint64_t> tilesResumed;
-    boost::atomic<uint64_t> tilesComputed;
-    boost::atomic<uint64_t> tilesRecomputedAfterSweep;
-    boost::atomic<uint64_t> entitiesQueued;
-    boost::atomic<uint64_t> entitiesMoved;
+    std::atomic_uint_fast64_t cellsInvisible;
+    std::atomic_uint_fast64_t cellsResumed;
+    std::atomic_uint_fast64_t tilesQueued;
+    std::atomic_uint_fast64_t tilesResumed;
+    std::atomic_uint_fast64_t tilesComputed;
+    std::atomic_uint_fast64_t tilesRecomputedAfterSweep;
+    std::atomic_uint_fast64_t entitiesQueued;
+    std::atomic_uint_fast64_t entitiesMoved;
 
     /* These ones are updated by the shape worker. */
-    boost::atomic<uint64_t> shapeCellsInvisible;
-    boost::atomic<uint64_t> shapeCellsResumed;
-    boost::atomic<uint64_t> shapeVapoursComputed;
-    boost::atomic<uint64_t> shapeEdgesComputed;
+    std::atomic_uint_fast64_t shapeCellsInvisible;
+    std::atomic_uint_fast64_t shapeCellsResumed;
+    std::atomic_uint_fast64_t shapeVapoursComputed;
+    std::atomic_uint_fast64_t shapeEdgesComputed;
 
     /* ... and this by that little vapour descriptor worker */
-    boost::atomic<uint64_t> separateVapoursComputed;
+    std::atomic_uint_fast64_t separateVapoursComputed;
 
     /* Concurrency stats */
-    boost::atomic<uint64_t> dependenciesFollowed;
-    boost::atomic<uint64_t> threadEscapes;
+    std::atomic_uint_fast64_t dependenciesFollowed;
+    std::atomic_uint_fast64_t threadEscapes;
 
     /* Landscape shader details. */
     AFK_ShaderProgram *landscape_shaderProgram;
