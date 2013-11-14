@@ -421,14 +421,15 @@ public:
     bool match(unsigned int threadId, const T& other) noexcept
     {
         bool equals = false;
+        bool claimed = claimInternal(threadId, AFK_CL_SHARED);
 
-        bool claimed = claimInternal(threadId, AFK_CL_SPIN | AFK_CL_SHARED);
-        assert(claimed);
-
-        boost::atomic_thread_fence(boost::memory_order_seq_cst);
-        equals = afk_equalsShared<T>(&obj, &other);
-        boost::atomic_thread_fence(boost::memory_order_seq_cst);
-        releaseShared(threadId);
+        if (claimed)
+        {
+            boost::atomic_thread_fence(boost::memory_order_seq_cst);
+            equals = afk_equalsShared<T>(&obj, &other);
+            boost::atomic_thread_fence(boost::memory_order_seq_cst);
+            releaseShared(threadId);
+        }
 
         return equals;
     }

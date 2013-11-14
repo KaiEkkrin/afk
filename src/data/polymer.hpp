@@ -87,7 +87,7 @@ public:
     {
         try
         {
-            auto keyClaim = key.claim(threadId, AFK_CL_SHARED | AFK_CL_SPIN);
+            auto keyClaim = key.claim(threadId, AFK_CL_SHARED);
             if (acceptUnassigned || !(keyClaim.getShared() == unassigned))
             {
                 *o_key = keyClaim.getShared();
@@ -98,8 +98,7 @@ public:
         }
         catch (AFK_ClaimException)
         {
-            /* Should be impossible */
-            assert(false);
+            return false;
         }
     }
 
@@ -117,7 +116,7 @@ public:
     {
         try
         {
-            auto keyClaim = key.claim(threadId, AFK_CL_SPIN);
+            auto keyClaim = key.claim(threadId, 0);
             if (keyClaim.getShared() == unassigned)
             {
                 keyClaim.get() = _key;
@@ -128,8 +127,7 @@ public:
         }
         catch (AFK_ClaimException)
         {
-            /* Should be impossible */
-            assert(false);
+            return false;
         }
     }
 
@@ -137,8 +135,8 @@ public:
     {
         try
         {
-            auto keyClaim = key.claim(threadId, AFK_CL_SPIN);
-            if (keyClaim.getShared() == _key)
+            auto keyClaim = key.claim(threadId, 0);
+            if (keyClaim.get() == _key)
             {
                 keyClaim.get() = unassigned;
                 return true;
@@ -147,8 +145,7 @@ public:
         }
         catch (AFK_ClaimException)
         {
-            /* Should be impossible */
-            assert(false);
+            return false;
         }
     }
 };

@@ -32,8 +32,8 @@
 
 
 #define TEST_ASYNC 0
-#define TEST_CACHE 1
-#define TEST_HASH 1
+#define TEST_CACHE 0
+#define TEST_HASH 0
 #define TEST_JIGSAW_FAKE3D 0
 #define TEST_RNGS 0
 #define TEST_SUBSTRATE 0

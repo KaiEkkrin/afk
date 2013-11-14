@@ -72,11 +72,26 @@ bool afk_generateWorldCells(
      * trying"; in those cases I don't want an exclusive claim, and
      * I won't do a recursive search.
      */
-    unsigned int claimFlags = AFK_CL_LOOP;
+    unsigned int claimFlags = 0;
     if (!renderTerrain && !resume) claimFlags |= AFK_CL_EXCLUSIVE;
-    auto worldCellClaim = world->worldCache->insert(threadId, cell).claimable.claim(threadId, claimFlags);
-    retval = world->generateClaimedWorldCell(
-        worldCellClaim, threadId, param.world, queue);
+
+    try
+    {
+        auto worldCellClaim = world->worldCache->insert(threadId, cell).claimable.claim(threadId, claimFlags);
+        retval = world->generateClaimedWorldCell(
+            worldCellClaim, threadId, param.world, queue);
+    }
+    catch (AFK_ClaimException)
+    {
+        /* This cell is busy, try again in a moment */
+        AFK_WorldWorkQueue::WorkItem resumeItem;
+        resumeItem.func = afk_generateWorldCells;
+        resumeItem.param.world = param.world;
+
+        if (param.world.dependency) param.world.dependency->retain();
+        queue.push(resumeItem);
+        world->cellsResumed.fetch_add(1);
+    }
 
     /* If this cell had a dependency ... */
     if (param.world.dependency)
@@ -270,6 +285,8 @@ bool AFK_World::generateClaimedWorldCell(
     }
     else /* if (cell.coord.v[1] == 0) */
     {
+        bool needsResume = false;
+
         /* We display geometry at a cell if its detail pitch is at the
          * target detail pitch, or if it's already the smallest
          * possible cell.
@@ -289,12 +306,13 @@ bool AFK_World::generateClaimedWorldCell(
          */
         float landscapeTileUpperYBound = FLT_MAX;
 
+        try
         {
             /* We always at least touch the landscape.  Higher detailed
              * landscape tiles are dependent on lower detailed ones for their
              * terrain description.
              */
-            auto landscapeClaim = landscapeCache->insert(threadId, tile).claimable.claim(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
+            auto landscapeClaim = landscapeCache->insert(threadId, tile).claimable.claim(threadId, AFK_CL_SHARED);
             landscapeTileUpperYBound = landscapeClaim.getShared().getYBoundUpper();
         
             if (!landscapeClaim.getShared().hasTerrainDescriptor() ||
@@ -314,22 +332,7 @@ bool AFK_World::generateClaimedWorldCell(
                 }
                 else
                 {
-                    /* Uh oh.  Having an un-generated tile here is not
-                     * an option.  Queue a resume of this cell.
-                     * Some thread or other will have got the upgradable
-                     * claim and will fix it so that when we come back
-                     * here, the tile will be generated.
-                     */
-                    landscapeClaim.release();
-
-                    AFK_WorldWorkQueue::WorkItem resumeItem;
-                    resumeItem.func = afk_generateWorldCells;
-                    resumeItem.param.world = param;
-                    resumeItem.param.world.flags |= AFK_WCG_FLAG_RESUME;
-        
-                    if (param.dependency) param.dependency->retain();
-                    queue.push(resumeItem);
-                    tilesResumed.fetch_add(1);
+                    needsResume = true;
                 }
             }
             else if (display)
@@ -337,63 +340,82 @@ bool AFK_World::generateClaimedWorldCell(
                 displayLandscapeTile(cell, tile, landscapeClaim.getShared(), threadId);
             }
         }
-
-        /* Now that I've done all that, I can get to the
-         * business of handling the entities within the cell.
-         * Firstly, so long as it's above the landscape, give it
-         * some starting entities if it hasn't got them
-         * already.
-         */
-
-        /* TODO: This RNG will make the same set of entities every
-         * time the cell is re-displayed.  This is fine for probably
-         * static, landscape decoration type objects.  But I'm also
-         * going to want to have transient objects popping into
-         * existence, and those should be done with a different,
-         * long-period RNG that I retain (in thread local storage),
-         * perhaps a Mersenne Twister.
-         */
-        AFK_Boost_Taus88_RNG staticRng;
-        staticRng.seed(cell.rngSeed());
-
-        if (worldCell.getRealCoord().v[1] >= landscapeTileUpperYBound)
+        catch (AFK_ClaimException)
         {
-            int startingEntityCount = worldCell.getStartingEntitiesWanted(
-                staticRng, entitySparseness);
-
-            for (int e = 0; e < startingEntityCount; ++e)
-            {
-                int shapeKey = worldCell.getStartingEntityShapeKey(staticRng);
-                generateStartingEntity(shapeKey, worldCell, threadId, staticRng);
-            }
+            needsResume = true;
         }
 
-        for (int eI = 0; eI < worldCell.getEntityCount(); ++eI)
+        /* If I need a resume for the landscape tile, push it in */
+        if (needsResume)
         {
-            AFK_Entity& e = worldCell.getEntityAt(eI);
-            if (e.notProcessedYet(afk_core.computingFrame))
-            {
-                /* Make sure everything I need in that shape
-                 * has been computed ...
-                 */
-                AFK_WorldWorkQueue::WorkItem shapeCellItem;
-                shapeCellItem.func                          = afk_generateEntity;
-                shapeCellItem.param.shape.cell              = afk_keyedCell(afk_vec4<int64_t>(
-                                                                0, 0, 0, SHAPE_CELL_MAX_DISTANCE), e.shapeKey);
-                shapeCellItem.param.shape.transformation    = e.getTransformation();
-                shapeCellItem.param.shape.viewerLocation    = viewerLocation;
-                shapeCellItem.param.shape.flags             = 0;
+            AFK_WorldWorkQueue::WorkItem resumeItem;
+            resumeItem.func = afk_generateWorldCells;
+            resumeItem.param.world = param;
+            resumeItem.param.world.flags |= AFK_WCG_FLAG_RESUME;
 
-#if AFK_SHAPE_ENUM_DEBUG
-                shapeCellItem.param.shape.asedWorldCell     = cell;
-                shapeCellItem.param.shape.asedCounter       = eI;
-                AFK_DEBUG_PRINTL("ASED: Enqueued entity: worldCell=" << cell << ", entity counter=" << eI)
-#endif
+            if (param.dependency) param.dependency->retain();
+            queue.push(resumeItem);
+            tilesResumed.fetch_add(1);
+        }
 
-                shapeCellItem.param.shape.dependency        = nullptr;
-                queue.push(shapeCellItem);
+        if (!resume)
+        {
+            /* Now that I've done all that, I can get to the
+             * business of handling the entities within the cell.
+             * Firstly, so long as it's above the landscape, give it
+             * some starting entities if it hasn't got them
+             * already.
+             */
         
-                entitiesQueued.fetch_add(1);
+            if (worldCell.getRealCoord().v[1] >= landscapeTileUpperYBound)
+            {
+                /* TODO: This RNG will make the same set of entities every
+                 * time the cell is re-displayed.  This is fine for probably
+                 * static, landscape decoration type objects.  But I'm also
+                 * going to want to have transient objects popping into
+                 * existence, and those should be done with a different,
+                 * long-period RNG that I retain (in thread local storage),
+                 * perhaps a Mersenne Twister.
+                 */
+                AFK_Boost_Taus88_RNG staticRng;
+                staticRng.seed(cell.rngSeed());
+                int startingEntityCount = worldCell.getStartingEntitiesWanted(
+                    staticRng, entitySparseness);
+        
+                for (int e = 0; e < startingEntityCount; ++e)
+                {
+                    int shapeKey = worldCell.getStartingEntityShapeKey(staticRng);
+                    generateStartingEntity(shapeKey, worldCell, threadId, staticRng);
+                }
+            }
+        
+            for (int eI = 0; eI < worldCell.getEntityCount(); ++eI)
+            {
+                AFK_Entity& e = worldCell.getEntityAt(eI);
+                if (e.notProcessedYet(afk_core.computingFrame))
+                {
+                    /* Make sure everything I need in that shape
+                     * has been computed ...
+                     */
+                    AFK_WorldWorkQueue::WorkItem shapeCellItem;
+                    shapeCellItem.func                          = afk_generateEntity;
+                    shapeCellItem.param.shape.cell              = afk_keyedCell(afk_vec4<int64_t>(
+                                                                    0, 0, 0, SHAPE_CELL_MAX_DISTANCE), e.shapeKey);
+                    shapeCellItem.param.shape.transformation    = e.getTransformation();
+                    shapeCellItem.param.shape.viewerLocation    = viewerLocation;
+                    shapeCellItem.param.shape.flags             = 0;
+        
+#if AFK_SHAPE_ENUM_DEBUG
+                    shapeCellItem.param.shape.asedWorldCell     = cell;
+                    shapeCellItem.param.shape.asedCounter       = eI;
+                    AFK_DEBUG_PRINTL("ASED: Enqueued entity: worldCell=" << cell << ", entity counter=" << eI)
+#endif
+        
+                    shapeCellItem.param.shape.dependency        = nullptr;
+                    queue.push(shapeCellItem);
+            
+                    entitiesQueued.fetch_add(1);
+                }
             }
         }
 
@@ -647,6 +669,7 @@ AFK_World::AFK_World(
 
     /* Initialise the statistics. */
     cellsInvisible.store(0);
+    cellsResumed.store(0);
     tilesQueued.store(0);
     tilesResumed.store(0);
     tilesComputed.store(0);
@@ -958,6 +981,7 @@ void AFK_World::checkpoint(afk_duration_mfl& timeSinceLastCheckpoint)
 #if PRINT_CHECKPOINTS
     std::cout << "Detail pitch:                 " << detailPitch << std::endl;
     PRINT_RATE_AND_RESET("Cells found invisible:        ", cellsInvisible)
+    PRINT_RATE_AND_RESET("Cells resumed:                ", cellsResumed)
     PRINT_RATE_AND_RESET("Tiles queued:                 ", tilesQueued)
     PRINT_RATE_AND_RESET("Tiles resumed:                ", tilesResumed)
     PRINT_RATE_AND_RESET("Tiles computed:               ", tilesComputed)

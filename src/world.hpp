@@ -95,6 +95,7 @@ protected:
     /* Gather statistics.  (Useful.)
      */
     boost::atomic<uint64_t> cellsInvisible;
+    boost::atomic<uint64_t> cellsResumed;
     boost::atomic<uint64_t> tilesQueued;
     boost::atomic<uint64_t> tilesResumed;
     boost::atomic<uint64_t> tilesComputed;
