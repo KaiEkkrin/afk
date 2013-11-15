@@ -23,11 +23,10 @@
 #include <algorithm>
 #include <cstring>
 #include <map>
+#include <mutex>
 #include <sstream>
 #include <vector>
 
-#include <boost/lockfree/queue.hpp>
-#include <boost/thread/shared_mutex.hpp>
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
@@ -111,8 +110,14 @@ enum AFK_JigsawPieceGrabStatus
 class AFK_Jigsaw
 {
 protected:
-    std::vector<AFK_JigsawImage*> images;
     const Vec3<int> jigsawSize; /* number of pieces in each dimension */
+    const std::vector<AFK_JigsawImageDescriptor>& desc;
+
+    /* The images are made in time for the first render; a new
+     * jigsaw might be created by a worker thread that doesn't have
+     * GL / CL contexts.
+     */
+    std::vector<AFK_JigsawImage*> images;
 
     /* Each row of the jigsaw has a timestamp.  When the sweep
      * comes around and updates it, that indicates that any old
@@ -154,9 +159,9 @@ protected:
      */
     const unsigned int concurrency;
     std::vector<AFK_JigsawCuboid> cuboids[2];
-    unsigned int updateCs;
-    unsigned int drawCs;
-    boost::upgrade_mutex cuboidMuts[2];
+    boost::atomic_uint updateCs;
+    boost::atomic_uint drawCs;
+    std::mutex cuboidMuts[2];
 
     /* This maps caller thread IDs (declared to us in the constructor)
      * to numbers 0..concurrency.
@@ -245,11 +250,20 @@ public:
         const std::vector<unsigned int>& _threadIds);
     virtual ~AFK_Jigsaw();
 
+    /* Jigsaw is externally locked.  Before you use it, you
+     * should call one of these functions to lock the update
+     * cuboids (if you're a worker wanting to grab a piece)
+     * or the draw cuboids (if you're the renderer trying to
+     * push jigsaw data to the GPU).
+     */
+    std::unique_lock<std::mutex> lockUpdate();
+    std::unique_lock<std::mutex> lockDraw();
+
+    /* --- Functions that need the update lock --- */
+
     /* Acquires a new piece for your thread.
      * If this function returns false, this jigsaw has run out of
      * space and the JigsawCollection needs to use a different one.
-     * This function should be thread safe so long as you don't
-     * lie about your thread ID
      */
     bool grab(unsigned int threadId, Vec3<int>& o_uvw, AFK_Frame *o_timestamp);
 
@@ -259,7 +273,9 @@ public:
      */
     AFK_Frame getTimestamp(const AFK_JigsawPiece& piece) const;
 
-    unsigned int getTexCount(void) const;
+    /* --- These functions can be called without a lock --- */
+
+    unsigned int getTexCount(void) const { return desc.size(); }
 
     /* Returns the (s, t) texture co-ordinates for a given piece
      * within the jigsaw.  These will be in the range (0, 1).
@@ -276,6 +292,13 @@ public:
 
     /* Returns the (s, t, r) dimensions of one piece within the jigsaw. */
     Vec3<float> getPiecePitchSTR(void) const;
+
+    /* --- Functions that need the draw lock --- */
+
+    /* Ensures this jigsaw has images set up.  Call the first time
+     * you lock the jigsaw for draw.
+     */
+    void setupImages(AFK_Computer *computer);
 
     /* Get fake 3D info for the jigsaw in a format suitable for
      * sending to the CL.  (-1s will be returned if fake 3D is
@@ -306,8 +329,11 @@ public:
      */
     void bindTexture(unsigned int tex);
 
+    /* --- */
+
     /* Signals to the jigsaw to flip the cuboids over and start off
      * a new update cuboid.
+     * This function acquires both locks internally
      */
     void flipCuboids(const AFK_Frame& currentFrame);
 

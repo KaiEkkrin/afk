@@ -122,10 +122,10 @@ enum AFK_JigsawPieceGrabStatus AFK_Jigsaw::grabPieceFromCuboid(
 
         /* If I just gave the cuboid another column, update its columns
          * field to match
-         * (I can do this atomically and don't need a lock)
          */
-        int cuboidColumns = o_uvw.v[1] - cuboid.c;
-        cuboid.columns.compare_exchange_strong(cuboidColumns, cuboidColumns + 1);
+        int thisRowCuboidColumns = o_uvw.v[1] - cuboid.c;
+        if (cuboid.columns == thisRowCuboidColumns)
+            cuboid.columns = thisRowCuboidColumns + 1;
 
 #if GRAB_DEBUG
         AFK_DEBUG_PRINTL("  grabbed: " << o_uvw)
@@ -167,13 +167,13 @@ bool AFK_Jigsaw::startNewCuboid(const AFK_JigsawCuboid& lastCuboid, bool startNe
 #endif
 
     /* Update the column counts with the last cuboid's. */
-    columnCounts.push(lastCuboid.columns.load());
+    columnCounts.push(lastCuboid.columns);
 
     /* Cuboids are always the same size right now, which makes things easier: */
     int newRowCount = concurrency;
     int newSliceCount = 1;
 
-    int nextFreeColumn = lastCuboid.c + lastCuboid.columns.load();
+    int nextFreeColumn = lastCuboid.c + lastCuboid.columns;
 
     if (startNewRow ||
         newRowCount > (jigsawSize.v[1] - nextFreeColumn) ||
@@ -216,7 +216,7 @@ bool AFK_Jigsaw::startNewCuboid(const AFK_JigsawCuboid& lastCuboid, bool startNe
          * This operation also closes down the last cuboid (if you add columns to
          * it you'll trample the new one).
          */
-        pushNewCuboid(AFK_JigsawCuboid(lastCuboid.r, lastCuboid.c + lastCuboid.columns.load(), lastCuboid.s, newRowCount, newSliceCount));
+        pushNewCuboid(AFK_JigsawCuboid(lastCuboid.r, lastCuboid.c + lastCuboid.columns, lastCuboid.s, newRowCount, newSliceCount));
     }
 
     cuboidsStarted.fetch_add(1);
@@ -314,11 +314,13 @@ AFK_Jigsaw::AFK_Jigsaw(
     const std::vector<AFK_JigsawImageDescriptor>& _desc,
     const std::vector<unsigned int>& _threadIds):
         jigsawSize(_jigsawSize),
+        desc(_desc),
         concurrency(_threadIds.size()),
-        updateCs(0),
-        drawCs(1),
         columnCounts(8, 0)
 {
+    updateCs.store(0);
+    drawCs.store(1);
+
     /* Sort out the mapping from the supplied jigsaw user thread IDs
      * to 0..concurrency.
      */
@@ -327,8 +329,6 @@ AFK_Jigsaw::AFK_Jigsaw(
         threadIdMap[id] = threadIdInternal++;
 
     /* Make the images. */
-    for (auto d : _desc)
-        images.push_back(new AFK_JigsawImage(_computer, jigsawSize, d));
 
     /* Now that I've got the textures, fill out the jigsaw state. */
     rowTimestamp = new AFK_Frame*[jigsawSize.v[0]];
@@ -382,13 +382,18 @@ AFK_Jigsaw::~AFK_Jigsaw()
     delete[] rowTimestamp;
 }
 
+std::unique_lock<std::mutex> AFK_Jigsaw::lockUpdate()
+{
+    return std::unique_lock<std::mutex>(cuboidMuts[updateCs]);
+}
+
+std::unique_lock<std::mutex> AFK_Jigsaw::lockDraw()
+{
+    return std::unique_lock<std::mutex>(cuboidMuts[drawCs]);
+}
+
 bool AFK_Jigsaw::grab(unsigned int threadId, Vec3<int>& o_uvw, AFK_Frame *o_timestamp)
 {
-    bool grabSuccessful = false;
-    bool gotUpgradeLock = false;
-    if (cuboidMuts[updateCs].try_lock_upgrade()) gotUpgradeLock = true;
-    else cuboidMuts[updateCs].lock_shared();
-
     /* Let's see if I can use an existing cuboid. */
     unsigned int cI;
     for (cI = 0; cI < cuboids[updateCs].size(); ++cI)
@@ -403,8 +408,7 @@ bool AFK_Jigsaw::grab(unsigned int threadId, Vec3<int>& o_uvw, AFK_Frame *o_time
 
         case AFK_JIGSAW_CUBOID_GRABBED:
             /* I got one! */
-            grabSuccessful = true;
-            goto grab_return;
+            return true;
 
         default:
             /* Keep looking. */
@@ -413,42 +417,19 @@ bool AFK_Jigsaw::grab(unsigned int threadId, Vec3<int>& o_uvw, AFK_Frame *o_time
     }
 
     /* I ran out of cuboids.  Try to start a new one. */
-    if (cI == 0) goto grab_return;
+    bool retry = true;
+    if (cI == cuboids[updateCs].size())
+        retry = startNewCuboid(cuboids[updateCs][cI-1], true);
 
-    if (!gotUpgradeLock)
-    {
-        cuboidMuts[updateCs].unlock_shared();
-        cuboidMuts[updateCs].lock_upgrade();
-        gotUpgradeLock = true;
-    }
-
-    cuboidMuts[updateCs].unlock_upgrade_and_lock();
-
-    {
-        bool retry = true;
-        if (cI == cuboids[updateCs].size())
-            retry = startNewCuboid(cuboids[updateCs][cI-1], true);
-
-        cuboidMuts[updateCs].unlock();
-        if (!retry) return false;
-    }
-
-    return grab(threadId, o_uvw, o_timestamp);
-
-grab_return:
-    if (gotUpgradeLock) cuboidMuts[updateCs].unlock_upgrade();
-    else cuboidMuts[updateCs].unlock_shared();
-    return grabSuccessful;
+    if (retry)
+        return grab(threadId, o_uvw, o_timestamp);
+    else
+        return false;
 }
 
 AFK_Frame AFK_Jigsaw::getTimestamp(const AFK_JigsawPiece& piece) const
 {
     return rowTimestamp[piece.u][piece.w];
-}
-
-unsigned int AFK_Jigsaw::getTexCount(void) const
-{
-    return images.size();
 }
 
 Vec2<float> AFK_Jigsaw::getTexCoordST(const AFK_JigsawPiece& piece) const
@@ -481,6 +462,15 @@ Vec3<float> AFK_Jigsaw::getPiecePitchSTR(void) const
         1.0f / (float)jigsawSize.v[2]);
 }
 
+void AFK_Jigsaw::setupImages(AFK_Computer *computer)
+{
+    if (images.size() == 0)
+    {
+        for (auto d : desc)
+            images.push_back(new AFK_JigsawImage(computer, jigsawSize, d));
+    }
+}
+
 Vec2<int> AFK_Jigsaw::getFake3D_size(unsigned int tex) const
 {
     return images.at(tex)->getFake3D_size();
@@ -493,19 +483,16 @@ int AFK_Jigsaw::getFake3D_mult(unsigned int tex) const
 
 cl_mem AFK_Jigsaw::acquireForCl(unsigned int tex, AFK_ComputeDependency& o_dep)
 {
-    boost::upgrade_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
     return images.at(tex)->acquireForCl(o_dep);
 }
 
 void AFK_Jigsaw::releaseFromCl(unsigned int tex, const AFK_ComputeDependency& dep)
 {
-    boost::upgrade_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
     images.at(tex)->releaseFromCl(cuboids[drawCs], dep);
 }
 
 void AFK_Jigsaw::bindTexture(unsigned int tex)
 {
-    boost::upgrade_lock<boost::upgrade_mutex> lock(cuboidMuts[drawCs]);
     images.at(tex)->bindTexture(cuboids[drawCs]);
 }
 
@@ -513,17 +500,14 @@ void AFK_Jigsaw::bindTexture(unsigned int tex)
 
 void AFK_Jigsaw::flipCuboids(const AFK_Frame& currentFrame)
 {
+    std::unique_lock<std::mutex> lock1(cuboidMuts[0]);
+    std::unique_lock<std::mutex> lock2(cuboidMuts[1]);
+
     /* Make sure any changes are really, properly finished */
     for (auto image : images) image->waitForAll();
 
-    boost::upgrade_lock<boost::upgrade_mutex> ulock0(cuboidMuts[0]);
-    boost::upgrade_to_unique_lock<boost::upgrade_mutex> utoulock0(ulock0);
-
-    boost::upgrade_lock<boost::upgrade_mutex> ulock1(cuboidMuts[1]);
-    boost::upgrade_to_unique_lock<boost::upgrade_mutex> utoulock1(ulock0);
-
-    updateCs = (updateCs == 0 ? 1 : 0);
-    drawCs = (drawCs == 0 ? 1 : 0);
+    updateCs.fetch_xor(1);
+    drawCs.fetch_xor(1);
 
     /* Clear out the old draw cuboids, and create a new update
      * cuboid following on from the last one.

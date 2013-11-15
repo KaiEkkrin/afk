@@ -62,6 +62,13 @@ public:
         unsigned int _maxPuzzles /* 0 for no maximum */);
     virtual ~AFK_JigsawCollection();
 
+    /* TODO: The below needs to change in accordance with the
+     * new externally locked jigsaw interface.
+     * I think I need to pare down JigsawCollection into a simple
+     * chain of jigsaws.
+     * (I might even not need a lock.)
+     */
+
     /* Gives you a some pieces.  This will usually be quick,
      * but it may stall if we need to add a new jigsaw
      * to the collection.

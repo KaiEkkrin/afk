@@ -22,8 +22,6 @@
 
 #include <sstream>
 
-#include <boost/atomic.hpp>
-
 /* This class encapsulates a cuboid within the jigsaw that
  * contains all the updates from a frame (we write to it) or all
  * the draws (we use it to sort out rectangular reads and writes
@@ -36,8 +34,7 @@ public:
      * During usage, a cuboid can't grow in rows or slices, but it
      * can grow in columns.
      */
-    int r, c, s, rows, slices;
-    boost::atomic_int columns;
+    int r, c, s, rows, columns, slices;
 
     AFK_JigsawCuboid(int _r, int _c, int _s, int _rows, int _slices);
 

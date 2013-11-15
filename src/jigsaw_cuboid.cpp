@@ -23,15 +23,14 @@
 /* AFK_JigsawCuboid implementation */
 
 AFK_JigsawCuboid::AFK_JigsawCuboid(int _r, int _c, int _s, int _rows, int _slices):
-    r(_r), c(_c), s(_s), rows(_rows), slices(_slices)
+    r(_r), c(_c), s(_s), rows(_rows), columns(0), slices(_slices)
 {
-    columns.store(0);
 }
 
 AFK_JigsawCuboid::AFK_JigsawCuboid(const AFK_JigsawCuboid& other):
-    r(other.r), c(other.c), s(other.s), rows(other.rows), slices(other.slices)
+    r(other.r), c(other.c), s(other.s),
+    rows(other.rows), columns(other.columns), slices(other.slices)
 {
-    columns.store(other.columns.load());
 }
 
 AFK_JigsawCuboid& AFK_JigsawCuboid::operator=(const AFK_JigsawCuboid& other)
@@ -40,7 +39,7 @@ AFK_JigsawCuboid& AFK_JigsawCuboid::operator=(const AFK_JigsawCuboid& other)
     c = other.c;
     s = other.s;
     rows = other.rows;
-    columns.store(other.columns.load());
+    columns = other.columns;
     slices = other.slices;
     return *this;
 }
@@ -52,7 +51,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_JigsawCuboid& sr)
     os << ", c=" << sr.c;
     os << ", s=" << sr.s;
     os << ", rows=" << sr.rows;
-    os << ", columns=" << sr.columns.load();
+    os << ", columns=" << sr.columns;
     os << ", slices=" << sr.slices << ")";
     return os;
 }
