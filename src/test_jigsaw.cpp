@@ -79,7 +79,7 @@ void afk_testJigsaw(
 
     AFK_Frame frame;
     frame.increment();
-    testCollection.flipCuboids(computer, frame);
+    testCollection.flipCuboids(frame);
 
     for (int i = 0; i < testIterations; ++i)
     {
@@ -97,7 +97,7 @@ void afk_testJigsaw(
                 AFK_Frame pieceFrame;
     
                 testCollection.grab(rand() % config->concurrency, 0, &jigsawPiece, &pieceFrame, 1);
-                //std::cout << "Grabbed piece " << jigsawPiece << " with frame " << pieceFrame << std::endl;
+                std::cout << "Grabbed piece " << jigsawPiece << " with frame " << pieceFrame << std::endl;
 
                 auto existing = piecesMap.find(jigsawPiece);
                 if (existing != piecesMap.end()) assert(existing->second != pieceFrame);
@@ -118,7 +118,8 @@ void afk_testJigsaw(
         }
 
         frame.increment();
-        testCollection.flipCuboids(computer, frame);
+        testCollection.flipCuboids(frame);
+        testCollection.printStats(std::cout, "Test jigsaw");
     }
 
     std::cout << "Jigsaw test completed" << std::endl;

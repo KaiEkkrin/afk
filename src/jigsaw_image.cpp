@@ -770,7 +770,7 @@ void AFK_JigsawImage::resizeChangeData(const std::vector<AFK_JigsawCuboid>& draw
     {
         changeDataSize += (pieceSizeInBytes *
             drawCuboids[cI].rows *
-            drawCuboids[cI].columns.load() *
+            drawCuboids[cI].columns *
             drawCuboids[cI].slices);
     }
 
@@ -789,7 +789,7 @@ void AFK_JigsawImage::getClChangeData(
     {
         size_t cuboidSizeInBytes = pieceSizeInBytes *
             drawCuboids[cI].rows *
-            drawCuboids[cI].columns.load() *
+            drawCuboids[cI].columns *
             drawCuboids[cI].slices;
   
         if (cuboidSizeInBytes == 0) continue;
@@ -802,7 +802,7 @@ void AFK_JigsawImage::getClChangeData(
         origin[2] = drawCuboids[cI].s * desc.pieceSize.v[2];
   
         region[0] = drawCuboids[cI].rows * desc.pieceSize.v[0];
-        region[1] = drawCuboids[cI].columns.load() * desc.pieceSize.v[1];
+        region[1] = drawCuboids[cI].columns * desc.pieceSize.v[1];
         region[2] = drawCuboids[cI].slices * desc.pieceSize.v[2];
   
         AFK_CLCHK(computer->oclShim.EnqueueReadImage()(
@@ -831,7 +831,7 @@ void AFK_JigsawImage::getClChangeDataFake3D(
     {
         size_t cuboidSliceSizeInBytes = pieceSliceSizeInBytes *
             drawCuboids[cI].rows *
-            drawCuboids[cI].columns.load();
+            drawCuboids[cI].columns;
 
         if (cuboidSliceSizeInBytes == 0) continue;
 
@@ -855,7 +855,7 @@ void AFK_JigsawImage::getClChangeDataFake3D(
                 origin[2] = 0;
 
                 region[0] = drawCuboids[cI].rows * desc.pieceSize.v[0];
-                region[1] = drawCuboids[cI].columns.load() * desc.pieceSize.v[1];
+                region[1] = drawCuboids[cI].columns * desc.pieceSize.v[1];
                 region[2] = 1;
 
                 AFK_CLCHK(computer->oclShim.EnqueueReadImage()(
@@ -877,7 +877,7 @@ void AFK_JigsawImage::putClChangeData(const std::vector<AFK_JigsawCuboid>& drawC
     {
         size_t cuboidSizeInBytes = pieceSizeInBytes *
             drawCuboids[cI].rows *
-            drawCuboids[cI].columns.load() *
+            drawCuboids[cI].columns *
             drawCuboids[cI].slices;
 
         if (cuboidSizeInBytes == 0) continue;
@@ -890,7 +890,7 @@ void AFK_JigsawImage::putClChangeData(const std::vector<AFK_JigsawCuboid>& drawC
                 drawCuboids[cI].r * desc.pieceSize.v[0],
                 drawCuboids[cI].c * desc.pieceSize.v[1],
                 drawCuboids[cI].rows * desc.pieceSize.v[0],
-                drawCuboids[cI].columns.load() * desc.pieceSize.v[1],
+                drawCuboids[cI].columns * desc.pieceSize.v[1],
                 desc.format.glFormat,
                 desc.format.glDataType,
                 &changeData[changeDataOffset]);
@@ -903,7 +903,7 @@ void AFK_JigsawImage::putClChangeData(const std::vector<AFK_JigsawCuboid>& drawC
                 drawCuboids[cI].c * desc.pieceSize.v[1],
                 drawCuboids[cI].s * desc.pieceSize.v[2],
                 drawCuboids[cI].rows * desc.pieceSize.v[0],
-                drawCuboids[cI].columns.load() * desc.pieceSize.v[1],
+                drawCuboids[cI].columns * desc.pieceSize.v[1],
                 drawCuboids[cI].slices * desc.pieceSize.v[2],
                 desc.format.glFormat,
                 desc.format.glDataType,

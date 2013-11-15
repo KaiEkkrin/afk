@@ -163,6 +163,8 @@ void AFK_TerrainComputeQueue::computeStart(
     /* Set up the rest of the terrain parameters */
     Vec4<float> baseColour4 = afk_vec4<float>(baseColour, 0.0f);
 
+    auto jigsawLock = jigsaw->lockDraw();
+    jigsaw->setupImages(computer);
     AFK_ComputeDependency preTerrainDep(computer);
     cl_mem jigsawYDispMem = jigsaw->acquireForCl(0, preTerrainDep);
     cl_mem jigsawColourMem = jigsaw->acquireForCl(1, preTerrainDep);
@@ -247,6 +249,8 @@ void AFK_TerrainComputeQueue::computeFinish(unsigned int threadId, AFK_Jigsaw *j
     if (unitCount == 0) return;
 
     /* Release the images. */
+    auto jigsawLock = jigsaw->lockDraw();
+
     assert(postTerrainDep && yReduce);
     jigsaw->releaseFromCl(0, *postTerrainDep);
     jigsaw->releaseFromCl(1, *postTerrainDep);

@@ -48,14 +48,18 @@ AFK_ShapeCell::AFK_ShapeCell()
 
 bool AFK_ShapeCell::hasVapour(AFK_JigsawCollection *vapourJigsaws) const
 {
-    return (vapourJigsawPiece != AFK_JigsawPiece() &&
-        vapourJigsaws->getPuzzle(vapourJigsawPiece)->getTimestamp(vapourJigsawPiece) == vapourJigsawPieceTimestamp);
+    if (!vapourJigsawPiece) return false;
+    AFK_Jigsaw *jigsaw = vapourJigsaws->getPuzzle(vapourJigsawPiece);
+    auto lock = jigsaw->lockUpdate();
+    return jigsaw->getTimestamp(vapourJigsawPiece) == vapourJigsawPieceTimestamp;
 }
 
 bool AFK_ShapeCell::hasEdges(AFK_JigsawCollection *edgeJigsaws) const
 {
-    return (edgeJigsawPiece != AFK_JigsawPiece() &&
-        edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTimestamp(edgeJigsawPiece) == edgeJigsawPieceTimestamp);
+    if (!edgeJigsawPiece) return false;
+    AFK_Jigsaw *jigsaw = edgeJigsaws->getPuzzle(edgeJigsawPiece);
+    auto lock = jigsaw->lockUpdate();
+    return jigsaw->getTimestamp(edgeJigsawPiece) == edgeJigsawPieceTimestamp;
 }
 
 #define SHAPE_COMPUTE_DEBUG 0

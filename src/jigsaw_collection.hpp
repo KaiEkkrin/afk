@@ -20,8 +20,30 @@
 
 #include "afk.hpp"
 
+#include <memory>
+
+#include "data/chain.hpp"
 #include "jigsaw.hpp"
 #include "jigsaw_image.hpp"
+
+/* How to make a new Jigsaw. */
+class AFK_JigsawFactory
+{
+protected:
+    AFK_Computer *computer;
+    Vec3<int> jigsawSize;
+    std::vector<AFK_JigsawImageDescriptor> desc;
+    std::vector<unsigned int> threadIds;
+
+public:
+    AFK_JigsawFactory(
+        AFK_Computer *_computer,
+        const Vec3<int>& _jigsawSize,
+        const std::vector<AFK_JigsawImageDescriptor>& _desc,
+        const std::vector<unsigned int>& _threadIds);
+
+    AFK_Jigsaw *operator()() const;
+};
 
 /* This encapsulates a collection of jigsawed textures, which are used
  * to give out pieces of the same size and usage.
@@ -30,28 +52,11 @@
 class AFK_JigsawCollection
 {
 protected:
-    std::vector<AFK_JigsawImageDescriptor> desc;
-
-    Vec3<int> jigsawSize;
-    std::vector<unsigned int> threadIds;
     const unsigned int maxPuzzles;
 
-    std::vector<AFK_Jigsaw*> puzzles;
-    AFK_Jigsaw *spare;
-
-    boost::upgrade_mutex mut;
-
-    /* Internal helpers. */
-    bool grabPieceFromPuzzle(
-        unsigned int threadId,
-        int puzzle,
-        AFK_JigsawPiece *o_piece,
-        AFK_Frame *o_timestamp);
-
-    AFK_Jigsaw *makeNewJigsaw(AFK_Computer *computer) const;
-
-    /* For stats. */
-    boost::atomic_uint_fast64_t spills;
+    std::shared_ptr<AFK_JigsawFactory> jigsawFactory;
+    typedef AFK_Chain<AFK_Jigsaw, AFK_JigsawFactory> Puzzle;
+    Puzzle *puzzles;
 
 public:
     AFK_JigsawCollection(
@@ -89,7 +94,7 @@ public:
         int minJigsaw,
         AFK_JigsawPiece *o_pieces,
         AFK_Frame *o_timestamps,
-        size_t count);
+        int count);
 
     /* These next functions will throw std::out_of_range if they
      * can't find a particular puzzle...
@@ -105,13 +110,17 @@ public:
      * Complains if there are more than `count' puzzles.
      * If there are fewer puzzles, fills out the remaining
      * fields of the array with the first one.
-     * Fills out the given compute dependency as required.
+     * Fills out the given compute dependency as required,
+     * and also the fake 3D info.
      * Returns the actual number of puzzles acquired.
      */
     int acquireAllForCl(
+        AFK_Computer *computer,
         unsigned int tex,
         cl_mem *allMem,
         int count,
+        Vec2<int>& o_fake3D_size,
+        int& o_fake3D_mult,
         AFK_ComputeDependency& o_dep);
 
     /* Releases all puzzles from the CL, when acquired with the above.
@@ -124,7 +133,7 @@ public:
         const AFK_ComputeDependency& dep);
 
     /* Flips the cuboids in all the jigsaws. */
-    void flipCuboids(AFK_Computer *computer, const AFK_Frame& currentFrame);
+    void flipCuboids(const AFK_Frame& currentFrame);
 
     void printStats(std::ostream& os, const std::string& prefix);
 };

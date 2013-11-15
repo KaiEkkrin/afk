@@ -32,9 +32,9 @@
 #include "world_cell.hpp"
 
 
-#define PRINT_CHECKPOINTS 1
+#define PRINT_CHECKPOINTS 0
 #define PRINT_CACHE_STATS 0
-#define PRINT_JIGSAW_STATS 0
+#define PRINT_JIGSAW_STATS 1
 
 #define PROTAGONIST_CELL_DEBUG 0
 
@@ -157,7 +157,7 @@ bool AFK_World::checkClaimedLandscapeTile(
 
 
 /* Don't enable these unless you want mega spam */
-#define DEBUG_JIGSAW_ASSOCIATION 0
+#define DEBUG_JIGSAW_ASSOCIATION 1
 #define DEBUG_JIGSAW_ASSOCIATION_GL 0
 
 #define DEBUG_TERRAIN_COMPUTE_QUEUE 0
@@ -218,6 +218,9 @@ void AFK_World::displayLandscapeTile(
     const AFK_LandscapeTile& landscapeTile,
     unsigned int threadId)
 {
+#if DEBUG_JIGSAW_ASSOCIATION
+    AFK_DEBUG_PRINTL("Display: " << tile << " (" << landscapeTile << ")")
+#endif
     assert(landscapeTile.artworkState(landscapeJigsaws) == AFK_LANDSCAPE_TILE_HAS_ARTWORK);
 
     /* Get it to make us a unit to
@@ -233,7 +236,7 @@ void AFK_World::displayLandscapeTile(
     if (reallyDisplayThisTile)
     {
 #if DEBUG_JIGSAW_ASSOCIATION
-        AFK_DEBUG_PRINTL("Display: " << tile << " -> " << jigsawPiece << " -> " << unit)
+        AFK_DEBUG_PRINTL("Display: " << tile << " -> " << landscapeTile << " -> " << unit)
 #endif
         std::shared_ptr<AFK_LandscapeDisplayQueue> ldq =
             landscapeDisplayFair.getUpdateQueue(jigsawPiece.puzzle);
@@ -736,19 +739,19 @@ void AFK_World::flipRenderQueues(const AFK_Frame& newFrame)
     /* Verify that the concurrency control business has done
      * its job correctly.
      */
-    if (!genGang->noQueuedWork())
-        threadEscapes.fetch_add(1);
-    //assert(genGang->noQueuedWork());
+    //if (!genGang->noQueuedWork())
+    //    threadEscapes.fetch_add(1);
+    assert(genGang->noQueuedWork());
 
     landscapeComputeFair.flipQueues();
     landscapeDisplayFair.flipQueues();
-    landscapeJigsaws->flipCuboids(afk_core.computer, newFrame);
+    landscapeJigsaws->flipCuboids(newFrame);
 
     vapourComputeFair.flipQueues();
     edgeComputeFair.flipQueues();
     entityDisplayFair.flipQueues();
-    vapourJigsaws->flipCuboids(afk_core.computer, newFrame);
-    edgeJigsaws->flipCuboids(afk_core.computer, newFrame);
+    vapourJigsaws->flipCuboids(newFrame);
+    edgeJigsaws->flipCuboids(newFrame);
 }
 
 void AFK_World::alterDetail(float adjustment)
@@ -836,6 +839,9 @@ void AFK_World::doComputeTasks(unsigned int threadId)
 
     /* The fair's queues are in the same order as the puzzles in
      * the jigsaw collection.
+     * Convention: the queue functions lock the jigsaws.  (Those locks aren't
+     * directly interdicting the jigsaws from the update threads, the queue
+     * flip is doing that.  This is more of a make-sure.)
      */
     for (unsigned int puzzle = 0; puzzle < terrainComputeQueues.size(); ++puzzle)
     {

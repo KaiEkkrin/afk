@@ -77,6 +77,8 @@ void AFK_EntityDisplayQueue::draw(
     }
 
     /* Jigsaw initialisation. */
+    auto vapourJigsawLock = vapourJigsaw->lockDraw();
+    auto edgeJigsawLock = edgeJigsaw->lockDraw();
     Vec3<float> vapourJigsawPiecePitchSTR = vapourJigsaw->getPiecePitchSTR();
     Vec2<float> edgeJigsawPiecePitchST = edgeJigsaw->getPiecePitchST();
 

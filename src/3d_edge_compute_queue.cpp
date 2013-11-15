@@ -18,6 +18,7 @@
 #include "afk.hpp"
 
 #include <algorithm>
+#include <cassert>
 
 #include "3d_edge_compute_queue.hpp"
 #include "debug.hpp"
@@ -110,6 +111,11 @@ void AFK_3DEdgeComputeQueue::computeStart(
     if (!postEdgeDep) postEdgeDep = new AFK_ComputeDependency(computer);
     assert(postEdgeDep->getEventCount() == 0);
 
+    auto vapourLock = vapourJigsaw->lockDraw();
+    auto edgeLock = edgeJigsaw->lockDraw();
+    vapourJigsaw->setupImages(computer);
+    edgeJigsaw->setupImages(computer);
+
     cl_mem vapourJigsawDensityMem = vapourJigsaw->acquireForCl(0, preEdgeDep);
     cl_mem edgeJigsawOverlapMem = edgeJigsaw->acquireForCl(0, preEdgeDep);
 
@@ -154,6 +160,9 @@ void AFK_3DEdgeComputeQueue::computeFinish(
     assert(postEdgeDep || units.size() == 0);
     if (units.size() > 0)
     {
+        auto vapourLock = vapourJigsaw->lockDraw();
+        auto edgeLock = edgeJigsaw->lockDraw();
+
         vapourJigsaw->releaseFromCl(0, *postEdgeDep);
         edgeJigsaw->releaseFromCl(0, *postEdgeDep);
         edgeJigsaw->releaseFromCl(1, *postEdgeDep);

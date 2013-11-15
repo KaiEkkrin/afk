@@ -148,9 +148,11 @@ AFK_JigsawPiece AFK_LandscapeTile::getJigsawPiece(unsigned int threadId, int min
 enum AFK_LandscapeTileArtworkState AFK_LandscapeTile::artworkState(
     AFK_JigsawCollection *jigsaws) const
 {
-    if (!hasTerrainDescriptor() || jigsawPiece == AFK_JigsawPiece()) return AFK_LANDSCAPE_TILE_NO_PIECE_ASSIGNED;
+    if (!hasTerrainDescriptor() || !jigsawPiece) return AFK_LANDSCAPE_TILE_NO_PIECE_ASSIGNED;
 
-    AFK_Frame rowTimestamp = jigsaws->getPuzzle(jigsawPiece)->getTimestamp(jigsawPiece);
+    AFK_Jigsaw *jigsaw = jigsaws->getPuzzle(jigsawPiece);
+    auto lock = jigsaw->lockUpdate();
+    AFK_Frame rowTimestamp = jigsaw->getTimestamp(jigsawPiece);
 #if 0
     if (rowTimestamp != jigsawPieceTimestamp)
     {
@@ -232,7 +234,7 @@ void AFK_LandscapeTile::evict(void)
 
 std::ostream& operator<<(std::ostream& os, const AFK_LandscapeTile& t)
 {
-    os << "Landscape tile";
+    os << "Landscape tile with jigsaw piece " << t.jigsawPiece;
     if (t.haveTerrainDescriptor) os << " (Terrain)";
     os << " (With bounds: " << t.yBoundLower << " - " << t.yBoundUpper << ")";
     return os;

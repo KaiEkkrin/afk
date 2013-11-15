@@ -53,6 +53,11 @@ AFK_JigsawPiece::AFK_JigsawPiece(const Vec3<int>& _piece, int _puzzle):
 {
 }
 
+AFK_JigsawPiece::operator bool() const
+{
+    return operator!=(AFK_JigsawPiece());
+}
+
 bool AFK_JigsawPiece::operator==(const AFK_JigsawPiece& other) const
 {
     return (u == other.u && v == other.v && w == other.w && puzzle == other.puzzle);
@@ -318,6 +323,9 @@ AFK_Jigsaw::AFK_Jigsaw(
         concurrency(_threadIds.size()),
         columnCounts(8, 0)
 {
+    std::unique_lock<std::mutex> lock1(cuboidMuts[0]);
+    std::unique_lock<std::mutex> lock2(cuboidMuts[1]);
+
     updateCs.store(0);
     drawCs.store(1);
 

@@ -27,6 +27,7 @@
 #include <sstream>
 #include <vector>
 
+#include <boost/atomic.hpp>
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
@@ -76,6 +77,8 @@ public:
 
     AFK_JigsawPiece(int _u, int _v, int _w, int _puzzle);
     AFK_JigsawPiece(const Vec3<int>& _piece, int _puzzle);
+
+    operator bool() const;
 
     bool operator==(const AFK_JigsawPiece& other) const;
     bool operator!=(const AFK_JigsawPiece& other) const;
@@ -301,8 +304,7 @@ public:
     void setupImages(AFK_Computer *computer);
 
     /* Get fake 3D info for the jigsaw in a format suitable for
-     * sending to the CL.  (-1s will be returned if fake 3D is
-     * not in use.)
+     * sending to the CL.  Return -1s in the case of no fake 3D.
      */
     Vec2<int> getFake3D_size(unsigned int tex) const;
     int getFake3D_mult(unsigned int tex) const;
