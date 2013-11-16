@@ -769,9 +769,9 @@ void AFK_JigsawImage::resizeChangeData(const std::vector<AFK_JigsawCuboid>& draw
     for (unsigned int cI = 0; cI < drawCuboids.size(); ++cI)
     {
         changeDataSize += (pieceSizeInBytes *
-            drawCuboids[cI].rows *
-            drawCuboids[cI].columns *
-            drawCuboids[cI].slices);
+            drawCuboids[cI].size.v[0] *
+            drawCuboids[cI].size.v[1] *
+            drawCuboids[cI].size.v[2]);
     }
 
     changeData.resize(changeDataSize);
@@ -788,22 +788,22 @@ void AFK_JigsawImage::getClChangeData(
     for (unsigned int cI = 0; cI < drawCuboids.size(); ++cI)
     {
         size_t cuboidSizeInBytes = pieceSizeInBytes *
-            drawCuboids[cI].rows *
-            drawCuboids[cI].columns *
-            drawCuboids[cI].slices;
+            drawCuboids[cI].size.v[0] *
+            drawCuboids[cI].size.v[1] *
+            drawCuboids[cI].size.v[2];
   
         if (cuboidSizeInBytes == 0) continue;
   
         size_t origin[3];
         size_t region[3];
   
-        origin[0] = drawCuboids[cI].r * desc.pieceSize.v[0];
-        origin[1] = drawCuboids[cI].c * desc.pieceSize.v[1];
-        origin[2] = drawCuboids[cI].s * desc.pieceSize.v[2];
+        origin[0] = drawCuboids[cI].location.v[0] * desc.pieceSize.v[0];
+        origin[1] = drawCuboids[cI].location.v[1] * desc.pieceSize.v[1];
+        origin[2] = drawCuboids[cI].location.v[2] * desc.pieceSize.v[2];
   
-        region[0] = drawCuboids[cI].rows * desc.pieceSize.v[0];
-        region[1] = drawCuboids[cI].columns * desc.pieceSize.v[1];
-        region[2] = drawCuboids[cI].slices * desc.pieceSize.v[2];
+        region[0] = drawCuboids[cI].size.v[0] * desc.pieceSize.v[0];
+        region[1] = drawCuboids[cI].size.v[1] * desc.pieceSize.v[1];
+        region[2] = drawCuboids[cI].size.v[2] * desc.pieceSize.v[2];
   
         AFK_CLCHK(computer->oclShim.EnqueueReadImage()(
             q, clTex, CL_FALSE, origin, region, 0, 0, &changeData[changeDataOffset],
@@ -830,13 +830,13 @@ void AFK_JigsawImage::getClChangeDataFake3D(
     for (unsigned int cI = 0; cI < drawCuboids.size(); ++cI)
     {
         size_t cuboidSliceSizeInBytes = pieceSliceSizeInBytes *
-            drawCuboids[cI].rows *
-            drawCuboids[cI].columns;
+            drawCuboids[cI].size.v[0] *
+            drawCuboids[cI].size.v[1];
 
         if (cuboidSliceSizeInBytes == 0) continue;
 
         /* I need to individually transfer each cuboid slice: */
-        for (int slice = 0; slice < drawCuboids[cI].slices; ++slice)
+        for (int slice = 0; slice < drawCuboids[cI].size.v[2]; ++slice)
         {
             /* ... and within that, I also need a separate transfer
              * for each piece slice
@@ -847,15 +847,15 @@ void AFK_JigsawImage::getClChangeDataFake3D(
                 size_t region[3];
 
                 Vec2<int> clOrigin = desc.fake3D.fake3DTo2D(afk_vec3<int>(
-                    drawCuboids[cI].r * desc.pieceSize.v[0],
-                    drawCuboids[cI].c * desc.pieceSize.v[1],
-                    (drawCuboids[cI].s + slice) * desc.pieceSize.v[2] + pieceSlice));
+                    drawCuboids[cI].location.v[0] * desc.pieceSize.v[0],
+                    drawCuboids[cI].location.v[1] * desc.pieceSize.v[1],
+                    (drawCuboids[cI].location.v[2] + slice) * desc.pieceSize.v[2] + pieceSlice));
                 origin[0] = clOrigin.v[0];
                 origin[1] = clOrigin.v[1];
                 origin[2] = 0;
 
-                region[0] = drawCuboids[cI].rows * desc.pieceSize.v[0];
-                region[1] = drawCuboids[cI].columns * desc.pieceSize.v[1];
+                region[0] = drawCuboids[cI].size.v[0] * desc.pieceSize.v[0];
+                region[1] = drawCuboids[cI].size.v[1] * desc.pieceSize.v[1];
                 region[2] = 1;
 
                 AFK_CLCHK(computer->oclShim.EnqueueReadImage()(
@@ -876,9 +876,9 @@ void AFK_JigsawImage::putClChangeData(const std::vector<AFK_JigsawCuboid>& drawC
     for (unsigned int cI = 0; cI < drawCuboids.size(); ++cI)
     {
         size_t cuboidSizeInBytes = pieceSizeInBytes *
-            drawCuboids[cI].rows *
-            drawCuboids[cI].columns *
-            drawCuboids[cI].slices;
+            drawCuboids[cI].size.v[0] *
+            drawCuboids[cI].size.v[1] *
+            drawCuboids[cI].size.v[2];
 
         if (cuboidSizeInBytes == 0) continue;
 
@@ -887,10 +887,10 @@ void AFK_JigsawImage::putClChangeData(const std::vector<AFK_JigsawCuboid>& drawC
         case AFK_JigsawDimensions::TWO:
             glTexSubImage2D(
                 desc.getGlTarget(), 0,
-                drawCuboids[cI].r * desc.pieceSize.v[0],
-                drawCuboids[cI].c * desc.pieceSize.v[1],
-                drawCuboids[cI].rows * desc.pieceSize.v[0],
-                drawCuboids[cI].columns * desc.pieceSize.v[1],
+                drawCuboids[cI].location.v[0] * desc.pieceSize.v[0],
+                drawCuboids[cI].location.v[1] * desc.pieceSize.v[1],
+                drawCuboids[cI].size.v[0] * desc.pieceSize.v[0],
+                drawCuboids[cI].size.v[1] * desc.pieceSize.v[1],
                 desc.format.glFormat,
                 desc.format.glDataType,
                 &changeData[changeDataOffset]);
@@ -899,12 +899,12 @@ void AFK_JigsawImage::putClChangeData(const std::vector<AFK_JigsawCuboid>& drawC
         case AFK_JigsawDimensions::THREE:
             glTexSubImage3D(
                 desc.getGlTarget(), 0,
-                drawCuboids[cI].r * desc.pieceSize.v[0],
-                drawCuboids[cI].c * desc.pieceSize.v[1],
-                drawCuboids[cI].s * desc.pieceSize.v[2],
-                drawCuboids[cI].rows * desc.pieceSize.v[0],
-                drawCuboids[cI].columns * desc.pieceSize.v[1],
-                drawCuboids[cI].slices * desc.pieceSize.v[2],
+                drawCuboids[cI].location.v[0] * desc.pieceSize.v[0],
+                drawCuboids[cI].location.v[1] * desc.pieceSize.v[1],
+                drawCuboids[cI].location.v[2] * desc.pieceSize.v[2],
+                drawCuboids[cI].size.v[0] * desc.pieceSize.v[0],
+                drawCuboids[cI].size.v[1] * desc.pieceSize.v[1],
+                drawCuboids[cI].size.v[2] * desc.pieceSize.v[2],
                 desc.format.glFormat,
                 desc.format.glDataType,
                 &changeData[changeDataOffset]);

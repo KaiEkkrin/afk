@@ -67,19 +67,15 @@ void afk_testJigsaw(
         1.0f,
         computer->getFirstDeviceProps());
 
-    std::vector<unsigned int> threadIds;
-    for (unsigned int t = 0; t < config->concurrency; ++t) threadIds.push_back(t);
-
     AFK_JigsawCollection testCollection(
         computer,
         testAllocation.at(0),
         computer->getFirstDeviceProps(),
-        threadIds,
         0);
 
     AFK_Frame frame;
     frame.increment();
-    testCollection.flipCuboids(frame);
+    testCollection.flip(frame);
 
     for (int i = 0; i < testIterations; ++i)
     {
@@ -96,7 +92,7 @@ void afk_testJigsaw(
                 AFK_JigsawPiece jigsawPiece;
                 AFK_Frame pieceFrame;
     
-                testCollection.grab(rand() % config->concurrency, 0, &jigsawPiece, &pieceFrame, 1);
+                testCollection.grab(0, &jigsawPiece, &pieceFrame, 1);
                 std::cout << "Grabbed piece " << jigsawPiece << " with frame " << pieceFrame << std::endl;
 
                 auto existing = piecesMap.find(jigsawPiece);
@@ -118,7 +114,7 @@ void afk_testJigsaw(
         }
 
         frame.increment();
-        testCollection.flipCuboids(frame);
+        testCollection.flip(frame);
         testCollection.printStats(std::cout, "Test jigsaw");
     }
 

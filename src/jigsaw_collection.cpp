@@ -29,12 +29,10 @@
 AFK_JigsawFactory::AFK_JigsawFactory(
     AFK_Computer *_computer,
     const Vec3<int>& _jigsawSize,
-    const std::vector<AFK_JigsawImageDescriptor>& _desc,
-    const std::vector<unsigned int>& _threadIds):
+    const std::vector<AFK_JigsawImageDescriptor>& _desc):
         computer(_computer),
         jigsawSize(_jigsawSize),
-        desc(_desc),
-        threadIds(_threadIds)
+        desc(_desc)
 {
 }
 
@@ -43,8 +41,7 @@ AFK_Jigsaw *AFK_JigsawFactory::operator()() const
     return new AFK_Jigsaw(
         computer,
         jigsawSize,
-        desc,
-        threadIds);
+        desc);
 }
 
 /* AFK_JigsawCollection implementation */
@@ -53,7 +50,6 @@ AFK_JigsawCollection::AFK_JigsawCollection(
     AFK_Computer *_computer,
     const AFK_JigsawMemoryAllocation::Entry& _e,
     const AFK_ClDeviceProperties& _clDeviceProps,
-    const std::vector<unsigned int>& _threadIds,
     unsigned int _maxPuzzles):
         maxPuzzles(_maxPuzzles)
 {
@@ -64,7 +60,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
         desc.push_back(*d);
 
     jigsawFactory = std::make_shared<AFK_JigsawFactory>(
-        _computer, _e.getJigsawSize(), desc, _threadIds);
+        _computer, _e.getJigsawSize(), desc);
 
     /* There should always be at least one puzzle. */
     assert(_e.getPuzzleCount() > 0);
@@ -79,7 +75,6 @@ AFK_JigsawCollection::~AFK_JigsawCollection()
 }
 
 void AFK_JigsawCollection::grab(
-    unsigned int threadId,
     int minJigsaw,
     AFK_JigsawPiece *o_pieces,
     AFK_Frame *o_timestamps,
@@ -99,12 +94,11 @@ void AFK_JigsawCollection::grab(
         for (Puzzle *chain = start; numGrabbed < count; chain = chain->extend(), ++puzzle)
         {
             AFK_Jigsaw *jigsaw = chain->get();
-            auto lock = jigsaw->lockUpdate();
 
             while (numGrabbed < count)
             {
                 Vec3<int> uvw;
-                if (jigsaw->grab(threadId, uvw, &o_timestamps[numGrabbed]))
+                if (jigsaw->grab(uvw, &o_timestamps[numGrabbed]))
                 {
                     o_pieces[numGrabbed] = AFK_JigsawPiece(uvw, puzzle);
                     ++numGrabbed;
@@ -143,7 +137,6 @@ int AFK_JigsawCollection::acquireAllForCl(
     for (Puzzle *chain = puzzles; chain; chain = chain->next(), ++i)
     {
         AFK_Jigsaw *jigsaw = chain->get();
-        auto lock = jigsaw->lockDraw();
         jigsaw->setupImages(computer);
         allMem[i] = jigsaw->acquireForCl(tex, o_dep);
 
@@ -189,17 +182,16 @@ void AFK_JigsawCollection::releaseAllFromCl(
     for (Puzzle *chain = puzzles; chain && i < count; chain = chain->next(), ++i)
     {
         AFK_Jigsaw *jigsaw = chain->get();
-        auto lock = jigsaw->lockDraw();
         jigsaw->releaseFromCl(tex, dep);
     }
 
     assert(i == count);
 }
 
-void AFK_JigsawCollection::flipCuboids(const AFK_Frame& currentFrame)
+void AFK_JigsawCollection::flip(const AFK_Frame& currentFrame)
 {
     for (Puzzle *chain = puzzles; chain; chain = chain->next())
-        chain->get()->flipCuboids(currentFrame); /* This one is internally locked */
+        chain->get()->flip(currentFrame); /* This one is internally locked */
 }
 
 void AFK_JigsawCollection::printStats(std::ostream& os, const std::string& prefix)

@@ -20,31 +20,22 @@
 
 #include "afk.hpp"
 
-#include <sstream>
+#include "def.hpp"
 
-/* This class encapsulates a cuboid within the jigsaw that
- * contains all the updates from a frame (we write to it) or all
- * the draws (we use it to sort out rectangular reads and writes
- * of the texture itself).
+/* A JigsawCuboid is a simple spatial subdivision of a jigsaw, in
+ * piece units.
  */
 class AFK_JigsawCuboid
 {
 public:
-    /* These co-ordinates are in piece units.
-     * During usage, a cuboid can't grow in rows or slices, but it
-     * can grow in columns.
-     */
-    int r, c, s, rows, columns, slices;
+    Vec3<int> location;
+    Vec3<int> size;
 
-    AFK_JigsawCuboid(int _r, int _c, int _s, int _rows, int _slices);
+    AFK_JigsawCuboid();
+    AFK_JigsawCuboid(const Vec3<int>& _location, const Vec3<int>& _size);
 
-    AFK_JigsawCuboid(const AFK_JigsawCuboid& other);
-    AFK_JigsawCuboid& operator=(const AFK_JigsawCuboid& other);
-
-    friend std::ostream& operator<<(std::ostream& os, const AFK_JigsawCuboid& sr);
+    operator bool() const;
 };
-
-std::ostream& operator<<(std::ostream& os, const AFK_JigsawCuboid& sr);
 
 #endif /* _AFK_JIGSAW_CUBOID_H_ */
 

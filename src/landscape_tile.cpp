@@ -141,7 +141,7 @@ void AFK_LandscapeTile::buildTerrainList(
 AFK_JigsawPiece AFK_LandscapeTile::getJigsawPiece(unsigned int threadId, int minJigsaw, AFK_JigsawCollection *jigsaws)
 {
     if (artworkState(jigsaws) == AFK_LANDSCAPE_TILE_HAS_ARTWORK) throw AFK_Exception("Tried to overwrite a tile's artwork");
-    jigsaws->grab(threadId, minJigsaw, &jigsawPiece, &jigsawPieceTimestamp, 1);
+    jigsaws->grab(minJigsaw, &jigsawPiece, &jigsawPieceTimestamp, 1);
     return jigsawPiece;
 }
 
@@ -151,7 +151,6 @@ enum AFK_LandscapeTileArtworkState AFK_LandscapeTile::artworkState(
     if (!hasTerrainDescriptor() || !jigsawPiece) return AFK_LANDSCAPE_TILE_NO_PIECE_ASSIGNED;
 
     AFK_Jigsaw *jigsaw = jigsaws->getPuzzle(jigsawPiece);
-    auto lock = jigsaw->lockUpdate();
     AFK_Frame rowTimestamp = jigsaw->getTimestamp(jigsawPiece);
 #if 0
     if (rowTimestamp != jigsawPieceTimestamp)

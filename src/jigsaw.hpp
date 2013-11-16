@@ -20,23 +20,18 @@
 
 #include "afk.hpp"
 
-#include <algorithm>
-#include <cstring>
-#include <map>
-#include <mutex>
 #include <sstream>
 #include <vector>
 
-#include <boost/atomic.hpp>
-#include <boost/type_traits/has_trivial_assign.hpp>
-#include <boost/type_traits/has_trivial_destructor.hpp>
+#include <boost/type_traits.hpp>
 
-#include "compute_dependency.hpp"
 #include "computer.hpp"
 #include "data/frame.hpp"
-#include "data/moving_average.hpp"
+#include "def.hpp"
 #include "jigsaw_cuboid.hpp"
 #include "jigsaw_image.hpp"
+#include "jigsaw_map.hpp"
+
 
 /* This module encapsulates the idea of having a large, "heapified"
  * texture (collection of textures in fact) that I feed to the shaders
@@ -94,17 +89,6 @@ BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_JigsawPiece>::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_JigsawPiece>::value));
 
 
-/* This is an internal thing for indicating whether we grabbed a
- * cuboid.
- */
-enum AFK_JigsawPieceGrabStatus
-{
-    AFK_JIGSAW_CUBOID_OUT_OF_COLUMNS,
-    AFK_JIGSAW_CUBOID_OUT_OF_SPACE,
-    AFK_JIGSAW_CUBOID_GRABBED
-};
-
-
 /* This encapsulates a single jigsawed texture, which may contain
  * multiple textures, one for each format in the list: they will all
  * have identical layouts and be referenced with the same jigsaw
@@ -122,161 +106,31 @@ protected:
      */
     std::vector<AFK_JigsawImage*> images;
 
-    /* Each row of the jigsaw has a timestamp.  When the sweep
-     * comes around and updates it, that indicates that any old
-     * tiles holding pieces with an old timestamp should drop them
-     * and re-generate their tiles: the row is about to be re-used.
-     * (If I don't do forced eviction from the jigsaw like this,
-     * I'll end up with jigsaw fragmentation problems.)
-     */
-    AFK_Frame **rowTimestamp;
+    /* The Map tracks piece assignment. */
+    AFK_JigsawMap map;
 
-    /* We fill each jigsaw row left to right, and only ever clear
-     * an entire row at a time.  This stops me from having to track
-     * the occupancy of individual pieces.  This list associates
-     * each row of the jigsaw with the number of pieces in it that
-     * are occupied, starting from the left.
-     * In order to make neat cuboids, the flipCuboids() function
-     * needs to add pretend usage to all short rows that were in the
-     * most recent update's cuboid, of course...
-     * Anyway, this is (row, slice).
-     */
-    int **rowUsage;
-
-    /* Each frame, we assign new pieces out of cuboids cut from
-     * the jigsaw.  We try to make it `concurrency' rows high and deep
-     * (or just `concurrency' high by 1 deep for a 2D jigsaw) by
-     * as many columns wide as is necessary.  (Hopefully the multi-
-     * threading model will cause the rows to be of similar widths.)
-     * These are the current updating and drawing cuboids in piece
-     * units.
-     * Note that all the protected utility functions assume that
-     * the right `cuboidMut' has already been acquired appropriately.
-     * There's one each for the update and draw cuboids, flipping just
-     * like the cuboid vectors themselves.
-     *
-     * ... TODO: The mutex here.  Try instead instituting a regular
-     * mutex per cuboid vector?  The shared stuff is probably slow given
-     * the few operations we do here; the important thing is to lock
-     * these operations away from the render phase.
-     */
-    const unsigned int concurrency;
-    std::vector<AFK_JigsawCuboid> cuboids[2];
-    boost::atomic_uint updateCs;
-    boost::atomic_uint drawCs;
-    std::mutex cuboidMuts[2];
-
-    /* This maps caller thread IDs (declared to us in the constructor)
-     * to numbers 0..concurrency.
-     * All internal protected functions that take a thread ID parameter
-     * will take one that has already been looked up in the map.
-     */
-    std::map<unsigned int, unsigned int> threadIdMap;
-
-    /* This is the sweep position, which tracks ahead of the update
-     * cuboids.  Every flip, we should move the sweep position up and back
-     * and re-timestamp all the rows it passes, telling the enumerators
-     * to-regenerate the pieces of any tiles that still have pieces
-     * within the sweep.
-     */
-    Vec2<int> sweepPosition;
-
-    /* This is the average number of columns that cuboids seem to
-     * be using.  It's used as a heuristic to decide whether to start
-     * cuboids on new rows or not.
-     * Update it in flipCuboids().
-     */
-    AFK_MovingAverage<int> columnCounts;
-
-    /* This utility function attempts to assign a piece out of the
-     * current cuboid.
-     * It returns:
-     * - AFK_JIGSAW_CUBOID_OUT_OF_COLUMNS if it ran out of columns
-     * (you should start a new cuboid)
-     * - AFK_JIGSAW_CUBOID_OUT_OF_SPACE if it ran out of rows to use
-     * (you should give up and tell the collection to use the next
-     * jigsaw)
-     * - AFK_JIGSAW_CUBOID_GRABBED if it succeeded.
-     */
-    enum AFK_JigsawPieceGrabStatus grabPieceFromCuboid(
-        AFK_JigsawCuboid& cuboid,
-        unsigned int threadId,
-        Vec3<int>& o_uvw,
-        AFK_Frame *o_timestamp);
-
-    /* Helper for the below -- having picked a new cuboid,
-     * pushes it onto the update list and sets the row usage
-     * properly.
-     */
-    void pushNewCuboid(AFK_JigsawCuboid cuboid);
-
-    /* This utility function attempts to start a new cuboid,
-     * pushing it back onto cuboids[updateCs], evicting anything
-     * if required.
-     * Set `startNewRow' to false if you'd like it to try to
-     * continue the row that has the last cuboid on it.  You
-     * should probably only be setting that if you're the flipCuboids()
-     * call trying to pack the texture nicely, rather than if you're
-     * a grab() call that's just run out of room!
-     * May return fewer rows than `rowsRequired' if it hits the top.
-     * Only actually returns an error if it can't get any rows at all.
-     * Returns true on success, else false.
-     */
-    bool startNewCuboid(const AFK_JigsawCuboid& lastCuboid, bool startNewRow);
-
-    int roundUpToConcurrency(int r) const;
-    Vec2<int> getSweepTarget(const Vec2<int>& latest) const;
-
-    /* Helper for the below -- sweeps one slice. */
-    void sweepOneSlice(int sweepRowTarget, const AFK_Frame& currentFrame);
-
-    /* Actually performs the sweep up to the given target row.
-     */
-    void sweep(const Vec2<int>& sweepTarget, const AFK_Frame& currentFrame);
-
-    /* This utility function sweeps in front of the given next
-     * free row, hoping to keep far enough ahead of the
-     * grabber to not be caught up on.
-     */
-    void doSweep(const Vec2<int>& nextFreeRow, const AFK_Frame& currentFrame);
-
-    /* Some internal stats: */
-    boost::atomic_uint_fast64_t piecesGrabbed;
-    boost::atomic_uint_fast64_t cuboidsStarted;
-    boost::atomic_uint_fast64_t piecesSwept;
+    /* I shall write the push list for the frame here. */
+    std::vector<AFK_JigsawCuboid> pushList;
+    bool havePushList;
 
 public:
     AFK_Jigsaw(
         AFK_Computer *_computer,
         const Vec3<int>& _jigsawSize,
-        const std::vector<AFK_JigsawImageDescriptor>& _desc,
-        const std::vector<unsigned int>& _threadIds);
+        const std::vector<AFK_JigsawImageDescriptor>& _desc);
     virtual ~AFK_Jigsaw();
 
-    /* Jigsaw is externally locked.  Before you use it, you
-     * should call one of these functions to lock the update
-     * cuboids (if you're a worker wanting to grab a piece)
-     * or the draw cuboids (if you're the renderer trying to
-     * push jigsaw data to the GPU).
-     */
-    std::unique_lock<std::mutex> lockUpdate();
-    std::unique_lock<std::mutex> lockDraw();
-
-    /* --- Functions that need the update lock --- */
-
-    /* Acquires a new piece for your thread.
+    /* Acquires a new piece.
      * If this function returns false, this jigsaw has run out of
      * space and the JigsawCollection needs to use a different one.
      */
-    bool grab(unsigned int threadId, Vec3<int>& o_uvw, AFK_Frame *o_timestamp);
+    bool grab(Vec3<int>& o_uvw, AFK_Frame *o_timestamp);
 
     /* Returns the time your piece was last swept.
      * If you retrieved it at that time or later, you're OK and you
      * can hang on to it.
      */
     AFK_Frame getTimestamp(const AFK_JigsawPiece& piece) const;
-
-    /* --- These functions can be called without a lock --- */
 
     unsigned int getTexCount(void) const { return desc.size(); }
 
@@ -296,10 +150,10 @@ public:
     /* Returns the (s, t, r) dimensions of one piece within the jigsaw. */
     Vec3<float> getPiecePitchSTR(void) const;
 
-    /* --- Functions that need the draw lock --- */
+    /* --- These next functions should always be called from the render thread --- */
 
     /* Ensures this jigsaw has images set up.  Call the first time
-     * you lock the jigsaw for draw.
+     * you draw.
      */
     void setupImages(AFK_Computer *computer);
 
@@ -331,13 +185,10 @@ public:
      */
     void bindTexture(unsigned int tex);
 
-    /* --- */
-
-    /* Signals to the jigsaw to flip the cuboids over and start off
-     * a new update cuboid.
-     * This function acquires both locks internally
+    /* Signals to the jigsaw that the update and draw phases are
+     * finished, and to prepare for the next frame.
      */
-    void flipCuboids(const AFK_Frame& currentFrame);
+    void flip(const AFK_Frame& currentFrame);
 
     void printStats(std::ostream& os, const std::string& prefix);
 };

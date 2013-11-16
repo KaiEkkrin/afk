@@ -606,7 +606,6 @@ AFK_World::AFK_World(
         computer,
         jigsawAlloc.at(0),
         computer->getFirstDeviceProps(),
-        genGang->getThreadIds(),
         0);
 
     std::cout << "AFK_World: Configuring vapour jigsaws with: " << jigsawAlloc.at(1) << std::endl;
@@ -614,7 +613,6 @@ AFK_World::AFK_World(
         computer,
         jigsawAlloc.at(1),
         computer->getFirstDeviceProps(),
-        genGang->getThreadIds(),
         AFK_MAX_VAPOUR);
 
     std::cout << "AFK_World: Configuring edge jigsaws with: " << jigsawAlloc.at(2) << std::endl;
@@ -622,7 +620,6 @@ AFK_World::AFK_World(
         computer,
         jigsawAlloc.at(2),
         computer->getFirstDeviceProps(),
-        genGang->getThreadIds(),
         0);
 
     /* Set up the jigsaws (which need to be aware of which thread IDs
@@ -745,13 +742,13 @@ void AFK_World::flipRenderQueues(const AFK_Frame& newFrame)
 
     landscapeComputeFair.flipQueues();
     landscapeDisplayFair.flipQueues();
-    landscapeJigsaws->flipCuboids(newFrame);
+    landscapeJigsaws->flip(newFrame);
 
     vapourComputeFair.flipQueues();
     edgeComputeFair.flipQueues();
     entityDisplayFair.flipQueues();
-    vapourJigsaws->flipCuboids(newFrame);
-    edgeJigsaws->flipCuboids(newFrame);
+    vapourJigsaws->flip(newFrame);
+    edgeJigsaws->flip(newFrame);
 }
 
 void AFK_World::alterDetail(float adjustment)

@@ -33,14 +33,12 @@ protected:
     AFK_Computer *computer;
     Vec3<int> jigsawSize;
     std::vector<AFK_JigsawImageDescriptor> desc;
-    std::vector<unsigned int> threadIds;
 
 public:
     AFK_JigsawFactory(
         AFK_Computer *_computer,
         const Vec3<int>& _jigsawSize,
-        const std::vector<AFK_JigsawImageDescriptor>& _desc,
-        const std::vector<unsigned int>& _threadIds);
+        const std::vector<AFK_JigsawImageDescriptor>& _desc);
 
     AFK_Jigsaw *operator()() const;
 };
@@ -63,7 +61,6 @@ public:
         AFK_Computer *_computer,
         const AFK_JigsawMemoryAllocation::Entry& _e,
         const AFK_ClDeviceProperties& _clDeviceProps,
-        const std::vector<unsigned int>& _threadIds,
         unsigned int _maxPuzzles /* 0 for no maximum */);
     virtual ~AFK_JigsawCollection();
 
@@ -90,7 +87,6 @@ public:
      * to re-create them the same.
      */
     void grab(
-        unsigned int threadId,
         int minJigsaw,
         AFK_JigsawPiece *o_pieces,
         AFK_Frame *o_timestamps,
@@ -133,7 +129,7 @@ public:
         const AFK_ComputeDependency& dep);
 
     /* Flips the cuboids in all the jigsaws. */
-    void flipCuboids(const AFK_Frame& currentFrame);
+    void flip(const AFK_Frame& currentFrame);
 
     void printStats(std::ostream& os, const std::string& prefix);
 };

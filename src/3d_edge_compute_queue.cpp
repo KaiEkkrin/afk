@@ -111,8 +111,6 @@ void AFK_3DEdgeComputeQueue::computeStart(
     if (!postEdgeDep) postEdgeDep = new AFK_ComputeDependency(computer);
     assert(postEdgeDep->getEventCount() == 0);
 
-    auto vapourLock = vapourJigsaw->lockDraw();
-    auto edgeLock = edgeJigsaw->lockDraw();
     vapourJigsaw->setupImages(computer);
     edgeJigsaw->setupImages(computer);
 
@@ -160,9 +158,6 @@ void AFK_3DEdgeComputeQueue::computeFinish(
     assert(postEdgeDep || units.size() == 0);
     if (units.size() > 0)
     {
-        auto vapourLock = vapourJigsaw->lockDraw();
-        auto edgeLock = edgeJigsaw->lockDraw();
-
         vapourJigsaw->releaseFromCl(0, *postEdgeDep);
         edgeJigsaw->releaseFromCl(0, *postEdgeDep);
         edgeJigsaw->releaseFromCl(1, *postEdgeDep);

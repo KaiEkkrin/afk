@@ -50,7 +50,6 @@ bool AFK_ShapeCell::hasVapour(AFK_JigsawCollection *vapourJigsaws) const
 {
     if (!vapourJigsawPiece) return false;
     AFK_Jigsaw *jigsaw = vapourJigsaws->getPuzzle(vapourJigsawPiece);
-    auto lock = jigsaw->lockUpdate();
     return jigsaw->getTimestamp(vapourJigsawPiece) == vapourJigsawPieceTimestamp;
 }
 
@@ -58,7 +57,6 @@ bool AFK_ShapeCell::hasEdges(AFK_JigsawCollection *edgeJigsaws) const
 {
     if (!edgeJigsawPiece) return false;
     AFK_Jigsaw *jigsaw = edgeJigsaws->getPuzzle(edgeJigsawPiece);
-    auto lock = jigsaw->lockUpdate();
     return jigsaw->getTimestamp(edgeJigsawPiece) == edgeJigsawPieceTimestamp;
 }
 
@@ -75,7 +73,7 @@ void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
     unsigned int& o_cubeOffset,
     unsigned int& o_cubeCount)
 {
-    vapourJigsaws->grab(threadId, 0, &vapourJigsawPiece, &vapourJigsawPieceTimestamp, 1);
+    vapourJigsaws->grab(0, &vapourJigsawPiece, &vapourJigsawPieceTimestamp, 1);
 
     /* There's only ever one update queue and one draw queue;
      * all vapours are computed by the same kernel, so that
@@ -108,7 +106,7 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
     AFK_JigsawCollection *vapourJigsaws,
     AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair)
 {
-    vapourJigsaws->grab(threadId, 0, &vapourJigsawPiece, &vapourJigsawPieceTimestamp, 1);
+    vapourJigsaws->grab(0, &vapourJigsawPiece, &vapourJigsawPieceTimestamp, 1);
 
     std::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
         vapourComputeFair.getUpdateQueue(0);
@@ -134,7 +132,7 @@ void AFK_ShapeCell::enqueueEdgeComputeUnit(
     AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
     const AFK_Fair2DIndex& entityFair2DIndex)
 {
-    edgeJigsaws->grab(threadId, 0, &edgeJigsawPiece, &edgeJigsawPieceTimestamp, 1);
+    edgeJigsaws->grab(0, &edgeJigsawPiece, &edgeJigsawPieceTimestamp, 1);
 
     std::shared_ptr<AFK_3DEdgeComputeQueue> edgeComputeQueue =
         edgeComputeFair.getUpdateQueue(

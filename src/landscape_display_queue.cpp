@@ -135,7 +135,6 @@ void AFK_LandscapeDisplayQueue::draw(
     /* Fill out ye olde uniform variable with the jigsaw
      * piece pitch.
      */
-    auto jigsawLock = jigsaw->lockDraw();
     Vec2<float> jigsawPiecePitchST = jigsaw->getPiecePitchST();
     glUniform2fv(jigsawPiecePitchLocation, 1, &jigsawPiecePitchST.v[0]);
 
