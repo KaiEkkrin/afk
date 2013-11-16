@@ -58,7 +58,11 @@ public:
 
     /* This clears the place and applies a new timestamp. */
     void clear(const AFK_Frame& newTimestamp);
+
+    friend std::ostream& operator<<(std::ostream& os, const AFK_JigsawPlace& place);
 };
+
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawPlace& place);
 
 /* A JigsawMap describes how the jigsaw is split up into Places, each
  * being a unit of copying to the GPU containing many Pieces.
@@ -69,7 +73,9 @@ protected:
     /* Access to the Map is internally synchronized. */
     mutable std::mutex mut;
 
-    /* The map dimensions, in place units. */
+    /* The map dimensions, in place units.
+     * These go (rows, columns, slices), because I'm confusing.
+     */
     Vec3<int> placeDim;
     Vec3<int> placeSize;
     Vec3<int> endPlaceSize;
@@ -78,9 +84,9 @@ protected:
     int minCleared;
     int maxCleared;
 
-    /* All the places in the map, in a 3D array (rows, columns, slices).
+    /* All the places in the map, in a 3D array (slices, columns, rows).
      * These will all be the same size, apart from possibly the final
-     * ones along each row/column/slice.
+     * ones along each slice/column/row.
      */
     AFK_JigsawPlace ***places;
 
@@ -117,6 +123,9 @@ protected:
      * end place sizes.
      */
     void getPlaceDimension(int jigsawDim, int& o_placeDim, int& o_placeSize, int& o_endPlaceSize) const;
+
+    /* Another initialisation useful. */
+    int getPlaceSizeToUse(int dim, int idx) const;
 
     /* This one gets a pointer to the place a piece is in. */
     AFK_JigsawPlace *findPiece(const Vec3<int>& piece) const;

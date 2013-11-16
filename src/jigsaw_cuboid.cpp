@@ -50,3 +50,9 @@ AFK_JigsawCuboid::operator bool() const
     return isSet;
 }
 
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawCuboid& cuboid)
+{
+    os << "Cuboid(location=" << cuboid.location << ", size=" << cuboid.size << ")";
+    return os;
+}
+

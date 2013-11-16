@@ -20,6 +20,8 @@
 
 #include "afk.hpp"
 
+#include <sstream>
+
 #include "def.hpp"
 
 /* A JigsawCuboid is a simple spatial subdivision of a jigsaw, in
@@ -35,7 +37,11 @@ public:
     AFK_JigsawCuboid(const Vec3<int>& _location, const Vec3<int>& _size);
 
     operator bool() const;
+
+    friend std::ostream& operator<<(std::ostream& os, const AFK_JigsawCuboid& cuboid);
 };
+
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawCuboid& cuboid);
 
 #endif /* _AFK_JIGSAW_CUBOID_H_ */
 

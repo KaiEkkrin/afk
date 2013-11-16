@@ -40,17 +40,19 @@ AFK_JigsawPlace::AFK_JigsawPlace(const AFK_JigsawCuboid& _cuboid):
 
 bool AFK_JigsawPlace::grab(Vec3<int>& o_piece, AFK_Frame *o_timestamp)
 {
+    assert(cuboid);
+
     if (next.v[2] < cuboid.size.v[2])
     {
         o_piece = cuboid.location + next;
         ++(next.v[0]);
         if (next.v[0] == cuboid.size.v[0])
         {
-            next.v[0] = cuboid.size.v[0];
+            next.v[0] = 0;
             ++(next.v[1]);
             if (next.v[1] == cuboid.size.v[1])
             {
-                next.v[1] = cuboid.size.v[1];
+                next.v[1] = 0;
                 ++(next.v[2]);
             }
         }
@@ -64,6 +66,12 @@ void AFK_JigsawPlace::clear(const AFK_Frame& newTimestamp)
 {
     next = afk_vec3<int>(0, 0, 0);
     timestamp = newTimestamp;
+}
+
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawPlace& place)
+{
+    os << "Place(" << place.cuboid << ", timestamp " << place.timestamp << ", next " << place.next << ")";
+    return os;
 }
 
 
@@ -81,26 +89,25 @@ void AFK_JigsawMap::getPlaceDimension(int jigsawDim, int& o_placeDim, int& o_pla
     if (placeSize == 0)
     {
         /* Oh dear.  Output just one place. */
-        o_placeDim = jigsawDim;
-        o_placeSize = jigsawDim;
+        o_placeDim = 1;
+        o_placeSize = 0;
         o_endPlaceSize = jigsawDim;
     }
     else
     {
+        /* TODO After this is working, finesse for no tiny end
+         * places?
+         */
         int endPlaceSize = jigsawDim % placeSize;
         if (endPlaceSize == 0)
         {
-            /* Beautifully aligned. */
             o_placeDim = placeDim;
             o_placeSize = placeSize;
             o_endPlaceSize = placeSize;
         }
         else
         {
-            /* TODO After this is working, finesse for no tiny end
-             * places?
-             */
-            o_placeDim = placeDim;
+            o_placeDim = placeDim + 1;
             o_placeSize = placeSize;
             o_endPlaceSize = endPlaceSize;
         }
@@ -108,6 +115,12 @@ void AFK_JigsawMap::getPlaceDimension(int jigsawDim, int& o_placeDim, int& o_pla
 
     /* This is what I intended */
     assert(((o_placeDim - 1) * o_placeSize + o_endPlaceSize) == jigsawDim);
+}
+
+int AFK_JigsawMap::getPlaceSizeToUse(int dim, int idx) const
+{
+    if (dim == (placeDim.v[idx] - 1)) return endPlaceSize.v[idx];
+    else return placeSize.v[idx];
 }
 
 AFK_JigsawPlace *AFK_JigsawMap::findPiece(const Vec3<int>& piece) const
@@ -143,43 +156,45 @@ AFK_JigsawMap::AFK_JigsawMap(const Vec3<int>& _jigsawSize):
     if (maxCleared == 0) maxCleared = 1;
 
     /* Now I can make and initialise it! */
-    places = new AFK_JigsawPlace**[placeDim.v[0]];
-    int rLoc = 0;
-    for (int r = 0; r < placeDim.v[0]; ++r)
+    places = new AFK_JigsawPlace**[placeDim.v[2]];
+    int sLoc = 0;
+    for (int s = 0; s < placeDim.v[2]; ++s)
     {
-        places[r] = new AFK_JigsawPlace*[placeDim.v[1]];
+        places[s] = new AFK_JigsawPlace*[placeDim.v[1]];
 
         int cLoc = 0;
         for (int c = 0; c < placeDim.v[1]; ++c)
         {
-            places[r][c] = new AFK_JigsawPlace[placeDim.v[2]];
+            places[s][c] = new AFK_JigsawPlace[placeDim.v[0]];
 
-            int sLoc = 0;
-            for (int s = 0; s < placeDim.v[2]; ++s)
+            int rLoc = 0;
+            for (int r = 0; r < placeDim.v[0]; ++r)
             {
                 Vec3<int> location = afk_vec3<int>(rLoc, cLoc, sLoc);
                 Vec3<int> size = afk_vec3<int>(
-                    r == (placeDim.v[0] - 1) ? endPlaceSize.v[0] : placeSize.v[0],
-                    c == (placeDim.v[1] - 1) ? endPlaceSize.v[1] : placeSize.v[1],
-                    s == (placeDim.v[2] - 1) ? endPlaceSize.v[2] : placeSize.v[2]);
+                    getPlaceSizeToUse(r, 0),
+                    getPlaceSizeToUse(c, 1),
+                    getPlaceSizeToUse(s, 2));
 
-                /* TODO remove debug */
                 std::cout << "AFK_JigsawMap: Making place at location " << location << ", size " << size << std::endl;
                 AFK_JigsawCuboid cuboid(location, size);
-                places[r][c][s] = AFK_JigsawPlace(cuboid);
+                places[s][c][r] = AFK_JigsawPlace(cuboid);
 
                 /* To begin with, all places are in the cleared state
                  * (yeah, despite maxCleared :) )
                  */
-                cleared.push_back(&places[r][c][s]);
+                cleared.push_back(&places[s][c][r]);
 
-                sLoc += placeSize.v[2];
+                rLoc += getPlaceSizeToUse(r, 0);
+                assert(rLoc <= _jigsawSize.v[0]);
             }
 
-            cLoc += placeSize.v[1];
+            cLoc += getPlaceSizeToUse(c, 1);
+            assert(cLoc <= _jigsawSize.v[1]);
         }
 
-        rLoc += placeSize.v[0];
+        sLoc += getPlaceSizeToUse(s, 2);
+        assert(sLoc <= _jigsawSize.v[2]);
     }
 }
 
@@ -187,14 +202,14 @@ AFK_JigsawMap::~AFK_JigsawMap()
 {
     std::unique_lock<std::mutex> lock(mut);
 
-    for (int r = 0; r < placeDim.v[0]; ++r)
+    for (int s = 0; s < placeDim.v[2]; ++s)
     {
         for (int c = 0; c < placeDim.v[1]; ++c)
         {
-            delete[] places[r][c];
+            delete[] places[s][c];
         }
 
-        delete[] places[r];
+        delete[] places[s];
     }
 
     delete[] places;
@@ -231,6 +246,7 @@ bool AFK_JigsawMap::grab(Vec3<int>& o_piece, AFK_Frame *o_timestamp)
             assert(success);
 
             /* Make it the currently updating place */
+            std::cout << "Using new place: " << *newPlace << std::endl;
             updating.push_back(newPlace);
             cleared.pop_front();
 
@@ -336,11 +352,11 @@ void AFK_JigsawMap::flip(const AFK_Frame& frame)
 void AFK_JigsawMap::printStats(std::ostream& os, const std::string& prefix)
 {
     std::unique_lock<std::mutex> lock(mut);
-    os << prefix << ": Pieces grabbed:  " << piecesGrabbed;
-    os << prefix << ": Places updated:  " << placesUpdated;
-    os << prefix << ": Places cleared:  " << placesCleared;
-    os << prefix << ": Cuboids squashed:" << cuboidsSquashed;
-    os << prefix << ": Cuboids pushed:  " << cuboidsPushed;
+    os << prefix << ": Pieces grabbed:  " << piecesGrabbed      << std::endl;
+    os << prefix << ": Places updated:  " << placesUpdated      << std::endl;
+    os << prefix << ": Places cleared:  " << placesCleared      << std::endl;
+    os << prefix << ": Cuboids squashed:" << cuboidsSquashed    << std::endl;
+    os << prefix << ": Cuboids pushed:  " << cuboidsPushed      << std::endl;
     piecesGrabbed = 0;
     placesUpdated = 0;
     placesCleared = 0;
