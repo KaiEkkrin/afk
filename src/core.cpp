@@ -42,7 +42,7 @@
 #define FRAME_REFRESH_TIME_MILLIS 15.5f
 
 
-#define JIGSAW_TEST 1
+#define JIGSAW_TEST 0
 
 
 #define CALIBRATION_INTERVAL_MILLIS (afk_core.config->targetFrameTimeMillis * afk_core.config->framesPerCalibration)

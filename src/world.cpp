@@ -157,7 +157,7 @@ bool AFK_World::checkClaimedLandscapeTile(
 
 
 /* Don't enable these unless you want mega spam */
-#define DEBUG_JIGSAW_ASSOCIATION 1
+#define DEBUG_JIGSAW_ASSOCIATION 0
 #define DEBUG_JIGSAW_ASSOCIATION_GL 0
 
 #define DEBUG_TERRAIN_COMPUTE_QUEUE 0
