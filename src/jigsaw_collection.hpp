@@ -21,10 +21,19 @@
 #include "afk.hpp"
 
 #include <memory>
+#include <mutex>
+#include <vector>
 
 #include "data/chain.hpp"
 #include "jigsaw.hpp"
 #include "jigsaw_image.hpp"
+
+
+/* I'm deeply suspicious of the chain, so I'm going to make
+ * it on/off to see what happens...
+ */
+#define AFK_JIGSAW_COLLECTION_CHAIN 0
+
 
 /* How to make a new Jigsaw. */
 class AFK_JigsawFactory
@@ -40,8 +49,13 @@ public:
         const Vec3<int>& _jigsawSize,
         const std::vector<AFK_JigsawImageDescriptor>& _desc);
 
+#if AFK_JIGSAW_COLLECTION_CHAIN
     AFK_Jigsaw *operator()() const;
+#else
+    std::shared_ptr<AFK_Jigsaw> operator()() const;
+#endif
 };
+
 
 /* This encapsulates a collection of jigsawed textures, which are used
  * to give out pieces of the same size and usage.
@@ -53,8 +67,13 @@ protected:
     const unsigned int maxPuzzles;
 
     std::shared_ptr<AFK_JigsawFactory> jigsawFactory;
+#if AFK_JIGSAW_COLLECTION_CHAIN
     typedef AFK_Chain<AFK_Jigsaw, AFK_JigsawFactory> Puzzle;
     Puzzle *puzzles;
+#else
+    std::vector<std::shared_ptr<AFK_Jigsaw> > puzzles;
+    std::mutex mut;
+#endif
 
 public:
     AFK_JigsawCollection(
@@ -63,13 +82,6 @@ public:
         const AFK_ClDeviceProperties& _clDeviceProps,
         unsigned int _maxPuzzles /* 0 for no maximum */);
     virtual ~AFK_JigsawCollection();
-
-    /* TODO: The below needs to change in accordance with the
-     * new externally locked jigsaw interface.
-     * I think I need to pare down JigsawCollection into a simple
-     * chain of jigsaws.
-     * (I might even not need a lock.)
-     */
 
     /* Gives you a some pieces.  This will usually be quick,
      * but it may stall if we need to add a new jigsaw

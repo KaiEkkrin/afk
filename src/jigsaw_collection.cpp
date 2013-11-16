@@ -36,6 +36,7 @@ AFK_JigsawFactory::AFK_JigsawFactory(
 {
 }
 
+#if AFK_JIGSAW_COLLECTION_CHAIN
 AFK_Jigsaw *AFK_JigsawFactory::operator()() const
 {
     return new AFK_Jigsaw(
@@ -43,6 +44,15 @@ AFK_Jigsaw *AFK_JigsawFactory::operator()() const
         jigsawSize,
         desc);
 }
+#else
+std::shared_ptr<AFK_Jigsaw> AFK_JigsawFactory::operator()() const
+{
+    return std::make_shared<AFK_Jigsaw>(
+        computer,
+        jigsawSize,
+        desc);
+}
+#endif
 
 /* AFK_JigsawCollection implementation */
 
@@ -64,14 +74,21 @@ AFK_JigsawCollection::AFK_JigsawCollection(
 
     /* There should always be at least one puzzle. */
     assert(_e.getPuzzleCount() > 0);
+#if AFK_JIGSAW_COLLECTION_CHAIN
     puzzles = new Puzzle(jigsawFactory);
     for (unsigned int j = 1; j < _e.getPuzzleCount(); ++j)
         puzzles->extend();
+#else
+    for (unsigned int j = 0; j < _e.getPuzzleCount(); ++j)
+        puzzles.push_back((*jigsawFactory)());
+#endif
 }
 
 AFK_JigsawCollection::~AFK_JigsawCollection()
 {
+#if AFK_JIGSAW_COLLECTION_CHAIN
     delete puzzles;
+#endif
 }
 
 void AFK_JigsawCollection::grab(
@@ -80,6 +97,7 @@ void AFK_JigsawCollection::grab(
     AFK_Frame *o_timestamps,
     int count)
 {
+#if AFK_JIGSAW_COLLECTION_CHAIN
     Puzzle *start = puzzles;
     while (minJigsaw-- > 0) start = start->extend();
 
@@ -107,6 +125,40 @@ void AFK_JigsawCollection::grab(
             }
         }
     }
+#else
+    /* TODO Can I make this better? */
+    std::unique_lock<std::mutex> lock(mut);
+
+    auto puzzleIt = puzzles.begin();
+    int numGrabbed = 0;
+    int puzzleIdx = 0;
+    while (numGrabbed < count)
+    {
+        if (puzzleIt != puzzles.end())
+        {
+            /* Grab as many pieces from this puzzle as I can. */
+            while (numGrabbed < count)
+            {
+                Vec3<int> uvw;
+                if ((*puzzleIt)->grab(uvw, &o_timestamps[numGrabbed]))
+                {
+                    o_pieces[numGrabbed] = AFK_JigsawPiece(uvw, puzzleIdx);
+                    ++numGrabbed;
+                }
+                else break; /* this puzzle couldn't give us a piece */
+            }
+
+            ++puzzleIt;
+            ++puzzleIdx;
+        }
+        else
+        {
+            /* If I get here, I need to add another puzzle. */
+            std::shared_ptr<AFK_Jigsaw> newPuzzle = (*jigsawFactory)();
+            puzzleIt = puzzles.insert(puzzles.end(), newPuzzle);
+        }
+    }
+#endif
 }
 
 AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(const AFK_JigsawPiece& piece)
@@ -116,10 +168,15 @@ AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(const AFK_JigsawPiece& piece)
 
 AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(int puzzle)
 {
+#if AFK_JIGSAW_COLLECTION_CHAIN
     for (Puzzle *chain = puzzles; chain; chain = chain->next())
         if (puzzle-- == 0) return chain->get();
 
     return nullptr;
+#else
+    std::unique_lock<std::mutex> lock(mut);
+    return puzzles.at(puzzle).get();
+#endif
 }
 
 int AFK_JigsawCollection::acquireAllForCl(
@@ -134,9 +191,15 @@ int AFK_JigsawCollection::acquireAllForCl(
     assert(count > 0);
 
     int i = 0;
+#if AFK_JIGSAW_COLLECTION_CHAIN
     for (Puzzle *chain = puzzles; chain; chain = chain->next(), ++i)
     {
         AFK_Jigsaw *jigsaw = chain->get();
+#else
+    std::unique_lock<std::mutex> lock(mut);
+    for (auto jigsaw : puzzles)
+    {
+#endif
         jigsaw->setupImages(computer);
         allMem[i] = jigsaw->acquireForCl(tex, o_dep);
 
@@ -179,9 +242,15 @@ void AFK_JigsawCollection::releaseAllFromCl(
     const AFK_ComputeDependency& dep)
 {
     int i = 0;
+#if AFK_JIGSAW_COLLECTION_CHAIN
     for (Puzzle *chain = puzzles; chain && i < count; chain = chain->next(), ++i)
     {
         AFK_Jigsaw *jigsaw = chain->get();
+#else
+    std::unique_lock<std::mutex> lock(mut);
+    for (auto jigsaw : puzzles)
+    {
+#endif
         jigsaw->releaseFromCl(tex, dep);
     }
 
@@ -190,18 +259,33 @@ void AFK_JigsawCollection::releaseAllFromCl(
 
 void AFK_JigsawCollection::flip(const AFK_Frame& currentFrame)
 {
+#if AFK_JIGSAW_COLLECTION_CHAIN
     for (Puzzle *chain = puzzles; chain; chain = chain->next())
         chain->get()->flip(currentFrame); /* This one is internally locked */
+#else
+    std::unique_lock<std::mutex> lock(mut);
+    for (auto jigsaw : puzzles)
+        jigsaw->flip(currentFrame);
+#endif
 }
 
 void AFK_JigsawCollection::printStats(std::ostream& os, const std::string& prefix)
 {
     int i = 0;
+#if AFK_JIGSAW_COLLECTION_CHAIN
     for (Puzzle *chain = puzzles; chain; chain = chain->next(), ++i)
     {
         std::ostringstream puzPf;
         puzPf << prefix << " " << std::dec << i;
         chain->get()->printStats(os, puzPf.str());
     }
+#else
+    for (auto jigsaw : puzzles)
+    {
+        std::ostringstream puzPf;
+        puzPf << prefix << " " << std::dec << i;
+        jigsaw->printStats(os, puzPf.str());
+    }
+#endif
 }
 
