@@ -222,8 +222,8 @@ int AFK_JigsawCollection::acquireAllForCl(
 
         if (i == 0)
         {
-            o_fake3D_size = jigsaw->getFake3D_size(0);
-            o_fake3D_mult = jigsaw->getFake3D_mult(0);
+            o_fake3D_size = jigsaw->getFake3D_size(tex);
+            o_fake3D_mult = jigsaw->getFake3D_mult(tex);
         }
         else
         {
@@ -231,8 +231,8 @@ int AFK_JigsawCollection::acquireAllForCl(
              * images in the same jigsaw.  Make sure this is the
              * case.
              */
-            assert(o_fake3D_size == jigsaw->getFake3D_size(i));
-            assert(o_fake3D_mult == jigsaw->getFake3D_mult(i));
+            assert(o_fake3D_size == jigsaw->getFake3D_size(tex));
+            assert(o_fake3D_mult == jigsaw->getFake3D_mult(tex));
         }
     }
 
