@@ -21,6 +21,7 @@
 #include <cmath>
 #include <iostream>
 
+#include "debug.hpp"
 #include "jigsaw_map.hpp"
 
 
@@ -147,7 +148,7 @@ AFK_JigsawMap::AFK_JigsawMap(const Vec3<int>& _jigsawSize):
     for (int i = 0; i < 3; ++i)
         getPlaceDimension(_jigsawSize.v[i], placeDim.v[i], placeSize.v[i], endPlaceSize.v[i]);
 
-    std::cout << "AFK_JigsawMap: Mapping jigsaw size " << _jigsawSize << " to " << placeDim << " places" << std::endl;
+    AFK_DEBUG_PRINTL("AFK_JigsawMap: Mapping jigsaw size " << _jigsawSize << " to " << placeDim << " places")
 
     int placeCount = placeDim.v[0] * placeDim.v[1] * placeDim.v[2];
     minCleared = placeCount / 8;

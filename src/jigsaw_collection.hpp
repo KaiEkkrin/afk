@@ -31,8 +31,27 @@
 
 /* I'm deeply suspicious of the chain, so I'm going to make
  * it on/off to see what happens...
+ *
+ * ... TODO: Okay, so it mostly works.  However, "mostly" isn't "entirely".
+ * Occasionally I get an uninitialised Jigsaw appear in the render thread
+ * (uninitialised as in bad `images' vector -- constructor's memory changes
+ * not synchronized to the core the render thread is on).  I need to think
+ * about how to deal with this.  Maybe even get rid of Jigsaw as a construct
+ * and have the Chain be entirely of JigsawMaps, with a simple vector of
+ * JigsawImages managed entirely by the render thread?
+ *
+ * Here's a hack to try for situations like that: include a mutex in the
+ * object that's used by one thread but constructed by another.  Acquire
+ * it on construction, of course.  When the user thread gets to the object,
+ * lock that mutex and never unlock it (except in the object's destructor,
+ * controlled by a flag).  That ought to sort things out, assuming there isn't
+ * a penalty for holding a few extra mutexes the whole time...!
+ *
+ * TODO *2: With the locked version enabled, when flying very close to an
+ * object (something I wasn't really able to try out with the chain version)
+ * all shape renders became corrupt afterwards...
  */
-#define AFK_JIGSAW_COLLECTION_CHAIN 0
+#define AFK_JIGSAW_COLLECTION_CHAIN 1
 
 
 /* How to make a new Jigsaw. */
@@ -64,7 +83,7 @@ public:
 class AFK_JigsawCollection
 {
 protected:
-    const unsigned int maxPuzzles;
+    const int maxPuzzles;
 
     std::shared_ptr<AFK_JigsawFactory> jigsawFactory;
 #if AFK_JIGSAW_COLLECTION_CHAIN
@@ -80,7 +99,7 @@ public:
         AFK_Computer *_computer,
         const AFK_JigsawMemoryAllocation::Entry& _e,
         const AFK_ClDeviceProperties& _clDeviceProps,
-        unsigned int _maxPuzzles /* 0 for no maximum */);
+        int _maxPuzzles /* 0 for no maximum */);
     virtual ~AFK_JigsawCollection();
 
     /* Gives you a some pieces.  This will usually be quick,

@@ -60,10 +60,10 @@ AFK_JigsawCollection::AFK_JigsawCollection(
     AFK_Computer *_computer,
     const AFK_JigsawMemoryAllocation::Entry& _e,
     const AFK_ClDeviceProperties& _clDeviceProps,
-    unsigned int _maxPuzzles):
+    int _maxPuzzles):
         maxPuzzles(_maxPuzzles)
 {
-    assert(maxPuzzles == 0 || maxPuzzles >= _e.getPuzzleCount());
+    assert(maxPuzzles == 0 || maxPuzzles >= (int)_e.getPuzzleCount());
 
     std::vector<AFK_JigsawImageDescriptor> desc;
     for (auto d = _e.beginDescriptors(); d != _e.endDescriptors(); ++d)
@@ -99,7 +99,6 @@ void AFK_JigsawCollection::grab(
 {
 #if AFK_JIGSAW_COLLECTION_CHAIN
     Puzzle *start = puzzles;
-    while (minJigsaw-- > 0) start = start->extend();
 
     int numGrabbed = 0;
     while (numGrabbed < count)
@@ -107,21 +106,31 @@ void AFK_JigsawCollection::grab(
         /* Grab pieces from this puzzle or any puzzle after it,
          * creating as necessary.
          */
-        int puzzle = minJigsaw + 1; /* the above logic ends with minJigsaw == -1 */
+        int puzzleIdx = 0;
 
-        for (Puzzle *chain = start; numGrabbed < count; chain = chain->extend(), ++puzzle)
+        for (Puzzle *chain = start; numGrabbed < count; chain = chain->extend())
         {
             AFK_Jigsaw *jigsaw = chain->get();
 
-            while (numGrabbed < count)
+            while (puzzleIdx >= minJigsaw && numGrabbed < count)
             {
                 Vec3<int> uvw;
                 if (jigsaw->grab(uvw, &o_timestamps[numGrabbed]))
                 {
-                    o_pieces[numGrabbed] = AFK_JigsawPiece(uvw, puzzle);
+                    o_pieces[numGrabbed] = AFK_JigsawPiece(uvw, puzzleIdx);
                     ++numGrabbed;
                 }
                 else break; /* this puzzle couldn't give us a piece */
+            }
+
+            ++puzzleIdx;
+            if (maxPuzzles > 0 && puzzleIdx >= maxPuzzles &&
+                numGrabbed < count)
+            {
+                /* Oh dear, we've actually hit a wall. */
+                std::ostringstream ss;
+                ss << "AFK_JigsawCollection: Jigsaw hit maxPuzzles " << maxPuzzles;
+                throw AFK_Exception(ss.str());
             }
         }
     }
@@ -137,7 +146,7 @@ void AFK_JigsawCollection::grab(
         if (puzzleIt != puzzles.end())
         {
             /* Grab as many pieces from this puzzle as I can. */
-            while (numGrabbed < count)
+            while (puzzleIdx >= minJigsaw && numGrabbed < count)
             {
                 Vec3<int> uvw;
                 if ((*puzzleIt)->grab(uvw, &o_timestamps[numGrabbed]))
@@ -150,6 +159,14 @@ void AFK_JigsawCollection::grab(
 
             ++puzzleIt;
             ++puzzleIdx;
+            if (maxPuzzles > 0 && puzzleIdx >= maxPuzzles &&
+                numGrabbed < count)
+            {
+                /* Oh dear, we've actually hit a wall. */
+                std::ostringstream ss;
+                ss << "AFK_JigsawCollection: Jigsaw hit maxPuzzles " << maxPuzzles;
+                throw AFK_Exception(ss.str());
+            }
         }
         else
         {
@@ -285,6 +302,7 @@ void AFK_JigsawCollection::printStats(std::ostream& os, const std::string& prefi
         std::ostringstream puzPf;
         puzPf << prefix << " " << std::dec << i;
         jigsaw->printStats(os, puzPf.str());
+        ++i;
     }
 #endif
 }

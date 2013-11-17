@@ -18,6 +18,7 @@
 #ifndef _AFK_DATA_CHAIN_H_
 #define _AFK_DATA_CHAIN_H_
 
+#include <cassert>
 #include <memory>
 
 #include <boost/atomic.hpp>
@@ -45,15 +46,29 @@ protected:
     Link *const link; /* TODO make this a shared_ptr ? */
     boost::atomic<AFK_Chain*> chain;
 
+    /* Hack: To avoid multiple allocations (the factory might be slow)
+     * upon a contended chain extend, we swap in the placeholder pointer
+     * first.
+     * This pointer totally does not point to a real Link.
+     */
+    AFK_Chain *placeholder;
+    int *placeholderBase;
+
 public:
     AFK_Chain(std::shared_ptr<LinkFactory> _linkFactory):
-        linkFactory(_linkFactory), link((*_linkFactory)()), chain(nullptr) {}
+        linkFactory(_linkFactory), link((*_linkFactory)()), chain(nullptr)
+    {
+        placeholderBase = new int();
+        placeholder = reinterpret_cast<AFK_Chain*>(placeholderBase);
+    }
 
     virtual ~AFK_Chain()
     {
         AFK_Chain *ch = chain.exchange(nullptr);
-        if (ch) delete ch;
+        if (ch && ch != placeholder) delete ch;
         delete link;
+
+        delete placeholder;
     }
 
     Link *get(void) const noexcept
@@ -63,33 +78,36 @@ public:
 
     AFK_Chain *next(void) const noexcept
     {
-        return chain.load();
+        AFK_Chain *nextChain;
+        do
+        {
+            nextChain = chain.load();
+        } while (nextChain == placeholder);
+        return nextChain;
     }
 
     /* Extends an end-of-chain by one link, returning next.
-     * Tries not to cause chain proliferation at the expense of
-     * occasional redundant creates.
      */
     AFK_Chain *extend(void)
     {
-        AFK_Chain *ch = chain.load();
+        AFK_Chain *ch = next();
         if (ch)
         {
             return ch;
         }
         else
         {
+            /* Avoid proliferation, as above. */
             AFK_Chain *expected = nullptr;
-            AFK_Chain *newChain = new AFK_Chain(linkFactory);
-            if (chain.compare_exchange_strong(expected, newChain))
+            if (chain.compare_exchange_strong(expected, placeholder))
             {
+                /* I won the toss, make the real new chain. */
+                AFK_Chain *newChain = new AFK_Chain(linkFactory);
+                bool success = chain.compare_exchange_strong(placeholder, newChain);
+                assert(success);
                 return newChain;
             }
-            else
-            {
-                delete newChain;
-                return extend();
-            }
+            else return extend();
         }
     }
 
@@ -98,7 +116,7 @@ public:
         if (index == 0) return link;
         else
         {
-            AFK_Chain *ch = chain.load();
+            AFK_Chain *ch = next();
             if (ch) return ch->at(index - 1);
             else return nullptr;
         }
