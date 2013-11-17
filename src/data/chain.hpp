@@ -38,6 +38,9 @@ public:
     }
 };
 
+/* The placeholder (see below). */
+extern int placeholderBase;
+
 template<typename Link, typename LinkFactory = AFK_BasicLinkFactory<Link> >
 class AFK_Chain
 {
@@ -52,14 +55,12 @@ protected:
      * This pointer totally does not point to a real Link.
      */
     AFK_Chain *placeholder;
-    int *placeholderBase;
 
 public:
     AFK_Chain(std::shared_ptr<LinkFactory> _linkFactory):
         linkFactory(_linkFactory), link((*_linkFactory)()), chain(nullptr)
     {
-        placeholderBase = new int();
-        placeholder = reinterpret_cast<AFK_Chain*>(placeholderBase);
+        placeholder = reinterpret_cast<AFK_Chain*>(&placeholderBase);
     }
 
     virtual ~AFK_Chain()
@@ -67,8 +68,6 @@ public:
         AFK_Chain *ch = chain.exchange(nullptr);
         if (ch && ch != placeholder) delete ch;
         delete link;
-
-        delete placeholder;
     }
 
     Link *get(void) const noexcept
