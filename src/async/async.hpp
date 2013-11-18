@@ -104,18 +104,20 @@ protected:
      * bit to indicate it got it.  It then waits on the variable
      * again until all bits become 0, indicating all workers are
      * sync'd up and ready to go
-     * - After everything has started once, when work has finished,
-     * all the workers will find a zero `workReady' value and just
-     * block until the process is begun again.
+     * - To latch the workers out, I use `workRunning' with the
+     * same scheme: when the workers start, they set their bit
+     * of `workRunning'.  When they decide things are finished, they
+     * clear their bit and wait until all the bits become zero.
      */
     std::condition_variable workCond;
     std::mutex workMut;
     uint64_t workReady;
+    uint64_t workRunning;
     bool quit; /* Tells the workers to instead quit out entirely */
 
 public:
     AFK_AsyncControls(const std::vector<unsigned int>& _workerIds):
-        workerIds(_workerIds), allWorkerMask(0), workReady(0), quit(false)
+        workerIds(_workerIds), allWorkerMask(0), workReady(0), workRunning(0), quit(false)
     {
         for (auto id : _workerIds) allWorkerMask |= (1ull << id);
     }
@@ -125,6 +127,10 @@ public:
 
     /* Returns true if there is work to be done, false for quit */
     bool worker_waitForWork(unsigned int id);
+
+    /* Blocks until all workers are latched out.
+     */
+    void worker_waitForFinished(unsigned int id);
 };
 
 
@@ -178,6 +184,9 @@ void afk_asyncWorker(
             }
         }
 
+        /* I think I've finished.  Sync up. */
+        controls.worker_waitForFinished(id);
+
 #if ASYNC_WORKER_DEBUG
         std::cout << "X";
 #endif
@@ -189,9 +198,6 @@ void afk_asyncWorker(
          */
         if (first)
         {
-#if ASYNC_DEBUG_SPAM
-            ASYNC_DEBUG("busy field: " << std::hex << controls.workersBusy.load())
-#endif
             promise->set_value(retval);
 #if ASYNC_DEBUG_SPAM
             ASYNC_DEBUG("fulfilling promise " << std::hex << (void *)promise)
