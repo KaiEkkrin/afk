@@ -115,7 +115,7 @@ void AFK_AsyncControls::worker_waitForFinished(unsigned int id)
      * hop along and grab it too.  Everyone will wait before re-entry
      * to the work loop. (in worker_waitForWork() ).
      */
-    while (workReady == 0 && workRunning != 0)
+    while (workReady == 0 && workRunning != 0 && !quit)
     {
         ASYNC_CONTROL_DEBUG("worker_waitForFinished: " << std::hex << workRunning << " still running (quit=" << quit << ")")
         workCond.wait(lock);
@@ -125,5 +125,11 @@ void AFK_AsyncControls::worker_waitForFinished(unsigned int id)
      * ready the next batch
      */
     workCond.notify_all();
+}
+
+bool AFK_AsyncControls::control_workFinished(void)
+{
+    std::unique_lock<std::mutex> lock(workMut);
+    return (workRunning == 0);
 }
 

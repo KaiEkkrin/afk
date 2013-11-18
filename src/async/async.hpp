@@ -128,13 +128,20 @@ public:
     /* Returns true if there is work to be done, false for quit */
     bool worker_waitForWork(unsigned int id);
 
-    /* Blocks until all workers are latched out.
-     */
+    /* Blocks until all workers are latched out. */
     void worker_waitForFinished(unsigned int id);
+
+    /* Checks whether all work is finished or not. */
+    bool control_workFinished(void);
 };
 
 
-template<class ParameterType, class ReturnType>
+/* TODO: Parameter for this function, to stop it from having
+ * to reference globals?
+ */
+typedef std::function<bool (void)> AFK_AsyncTaskFinishedFunc;
+
+template<class ParameterType, class ReturnType, AFK_AsyncTaskFinishedFunc& taskFinished>
 void afk_asyncWorker(
     AFK_AsyncControls& controls,
     unsigned int id,
@@ -161,21 +168,19 @@ void afk_asyncWorker(
                 break;
 
             case AFK_WQ_WAITING:
-#if WORK_QUEUE_CONDITION_WAIT
-                /* I don't expect this. */
-                throw AFK_AsyncException();
-#else
-                /* Give way so I don't cram the CPU with busy-waits.
-                 * This is really important -- the whole system chokes
-                 * if I don't do it.
-                 */
-                std::this_thread::yield();
-#endif
-                break;
-
-            case AFK_WQ_FINISHED:
-                /* Nothing left. */
-                finished = true;
+                /* Check for finished. */
+                if (taskFinished())
+                {
+                    finished = true;
+                }
+                else
+                {
+                    /* Give way so I don't cram the CPU with busy-waits.
+                     * This is really important -- the whole system chokes
+                     * if I don't do it.
+                     */
+                    std::this_thread::yield();
+                }
                 break;
 
             default:
@@ -207,7 +212,7 @@ void afk_asyncWorker(
 }
 
 
-template<class ParameterType, class ReturnType>
+template<class ParameterType, class ReturnType, AFK_AsyncTaskFinishedFunc& taskFinished>
 class AFK_AsyncGang
 {
 protected:
@@ -227,7 +232,7 @@ protected:
         for (auto id : threadIds)
         { 
             std::thread *t = new std::thread(
-                afk_asyncWorker<ParameterType, ReturnType>,
+                afk_asyncWorker<ParameterType, ReturnType, taskFinished>,
                 std::ref(*controls),
                 id,
                 first,
@@ -282,7 +287,11 @@ public:
 
     bool noQueuedWork(void)
     {
-        return queue.finished();
+        /* Use as a sanity check.  Makes sure that all current
+         * work is finished and we've gated the worker threads
+         * out of the inner work loop.
+         */
+        return taskFinished() && controls->control_workFinished();
     }
 
     /* Push initial work items into the gang.  Call before calling

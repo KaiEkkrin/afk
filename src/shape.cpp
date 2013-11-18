@@ -74,6 +74,9 @@ bool afk_generateEntity(
             while (shapeCells.hasNext())
             {
                 AFK_KeyedCell nextCell = shapeCells.next();
+
+                /* Track the volume I'm enumerating here */
+                world->volumeLeftToEnumerate.fetch_add(CUBE(nextCell.c.coord.v[3]));
         
                 /* Enqueue this shape cell. */
                 /* TODO I think I've actually forgotten to do the
@@ -104,6 +107,9 @@ bool afk_generateEntity(
 
     if (needsResume)
     {
+        /* I'm about to want to enumerate this volume again */
+        world->volumeLeftToEnumerate.fetch_add(CUBE(cell.c.coord.v[3]));
+
         AFK_WorldWorkQueue::WorkItem resumeItem;
         resumeItem.func = afk_generateEntity;
         resumeItem.param = param;
@@ -122,6 +128,9 @@ bool afk_generateEntity(
             delete param.shape.dependency;
         }
     }
+
+    /* I've finished with this cell */
+    world->volumeLeftToEnumerate.fetch_sub(CUBE(cell.c.coord.v[3]));
 
     return true;
 }
@@ -236,6 +245,9 @@ bool afk_generateShapeCells(
                     else
                     {
                         DEBUG_VISIBLE_CELL("recursing into subcells")
+
+                        /* I'm about to enumerate this cell's volume in subcells */
+                        world->volumeLeftToEnumerate.fetch_add(CUBE(cell.c.coord.v[3]));
      
                         size_t subcellsSize = CUBE(world->sSizes.subdivisionFactor);
                         AFK_Cell *subcells = new AFK_Cell[subcellsSize];
@@ -282,6 +294,9 @@ bool afk_generateShapeCells(
 
     if (needsResume)
     {
+        /* Add the resume volume to the amount left */
+        world->volumeLeftToEnumerate.fetch_add(CUBE(cell.c.coord.v[3]));
+
         AFK_WorldWorkQueue::WorkItem resumeItem;
         resumeItem.func = afk_generateShapeCells;
         resumeItem.param = param;
@@ -300,6 +315,9 @@ bool afk_generateShapeCells(
             delete param.shape.dependency;
         }
     }
+
+    /* I have finished this cell and can check its volume off */
+    world->volumeLeftToEnumerate.fetch_sub(CUBE(cell.c.coord.v[3]));
 
     return true;
 }

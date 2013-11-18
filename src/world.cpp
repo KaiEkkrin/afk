@@ -83,7 +83,11 @@ bool afk_generateWorldCells(
     }
     catch (AFK_ClaimException)
     {
-        /* This cell is busy, try again in a moment */
+        /* This cell is busy, try again in a moment --
+         * and track its volume again
+         */
+        world->volumeLeftToEnumerate.fetch_add(CUBE(cell.coord.v[3]));
+
         AFK_WorldWorkQueue::WorkItem resumeItem;
         resumeItem.func = afk_generateWorldCells;
         resumeItem.param.world = param.world;
@@ -103,8 +107,19 @@ bool afk_generateWorldCells(
         }
     }
 
+    /* I enumerated this cell */
+    world->volumeLeftToEnumerate.fetch_sub(CUBE(cell.coord.v[3]));
+
     return retval;
 }
+
+/* The cell-generation-finished check. */
+bool afk_worldGenerationFinished(void)
+{
+    return (afk_core.world->volumeLeftToEnumerate.load() == 0);
+}
+
+AFK_AsyncTaskFinishedFunc afk_worldGenerationFinishedFunc = afk_worldGenerationFinished;
 
 
 /* AFK_World implementation */
@@ -351,6 +366,11 @@ bool AFK_World::generateClaimedWorldCell(
         /* If I need a resume for the landscape tile, push it in */
         if (needsResume)
         {
+            /* Because I'm doing a resume, I need to account for it in the
+             * remaining volume counter
+             */
+            volumeLeftToEnumerate.fetch_add(CUBE(cell.coord.v[3]));
+
             AFK_WorldWorkQueue::WorkItem resumeItem;
             resumeItem.func = afk_generateWorldCells;
             resumeItem.param.world = param;
@@ -397,6 +417,9 @@ bool AFK_World::generateClaimedWorldCell(
                 AFK_Entity& e = worldCell.getEntityAt(eI);
                 if (e.notProcessedYet(afk_core.computingFrame))
                 {
+                    /* Account for this shape in the volume left to enumerate */
+                    volumeLeftToEnumerate.fetch_add(CUBE(SHAPE_CELL_MAX_DISTANCE));
+
                     /* Make sure everything I need in that shape
                      * has been computed ...
                      */
@@ -430,6 +453,9 @@ bool AFK_World::generateClaimedWorldCell(
          */
         if (!display && !renderTerrain && someVisible && !resume)
         {
+            /* I'm about to enumerate this cell's volume in subcells */
+            volumeLeftToEnumerate.fetch_add(CUBE(cell.coord.v[3]));
+
             size_t subcellsSize = CUBE(subdivisionFactor);
             AFK_Cell *subcells = new AFK_Cell[subcellsSize]; /* TODO avoid heap thrashing somehow.  Maybe make it an iterator */
             unsigned int subcellsCount = cell.subdivide(subcells, subcellsSize, subdivisionFactor);
@@ -598,8 +624,9 @@ AFK_World::AFK_World(
     // in a huge mess)
     //unsigned int shapeCacheEntries = shapeCacheSize / (32 * SQUARE(sSizes.eDim) * 6 + 16 * CUBE(sSizes.tDim));
 
-    genGang = new AFK_AsyncGang<union AFK_WorldWorkParam, bool>(
+    genGang = new AFK_AsyncGang<union AFK_WorldWorkParam, bool, afk_worldGenerationFinishedFunc>(
         100, threadAlloc, config->concurrency);
+    volumeLeftToEnumerate.store(0);
 
     std::cout << "AFK_World: Configuring landscape jigsaws with: " << jigsawAlloc.at(0) << std::endl;
     landscapeJigsaws = new AFK_JigsawCollection(
@@ -721,6 +748,9 @@ void AFK_World::enqueueSubcells(
         cell.coord.v[1] + cell.coord.v[3] * modifier.v[1],
         cell.coord.v[2] + cell.coord.v[3] * modifier.v[2],
         cell.coord.v[3]));
+
+    /* Submit the volume I'm about to generate to the enumeration tracker */
+    volumeLeftToEnumerate.fetch_add(CUBE(cell.coord.v[3]));
 
     AFK_WorldWorkQueue::WorkItem cellItem;
     cellItem.func                        = afk_generateWorldCells;

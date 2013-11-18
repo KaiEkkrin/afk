@@ -15,7 +15,10 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
+#include <cassert>
 #include <iostream>
+
+#include <boost/atomic.hpp>
 
 #include "async.hpp"
 #include "thread_allocation.hpp"
@@ -42,6 +45,11 @@ struct primeFilterParam
     unsigned int max;
 };
 
+/* To decide when we've finished, this global tracks the number
+ * of individual filters currently running.
+ */
+boost::atomic_uint filtersInFlight;
+
 bool primeFilter(unsigned int id, const struct primeFilterParam& param, AFK_WorkQueue<struct primeFilterParam, bool>& queue);
 
 /* Helper. */
@@ -57,6 +65,8 @@ void enqueueFilter(struct primeFilterParam param, AFK_WorkQueue<struct primeFilt
 
     if (!isEnqueued)
     {
+        filtersInFlight.fetch_add(1);
+
         AFK_WorkQueue<struct primeFilterParam, bool>::WorkItem workItem;
         workItem.func = primeFilter;
         workItem.param = param;
@@ -96,8 +106,16 @@ bool primeFilter(unsigned int id, const struct primeFilterParam& param, AFK_Work
     }
 
     /* I finished successfully! */
+    filtersInFlight.fetch_sub(1);
     return true;
 }
+
+bool filtersFinished(void)
+{
+    return (filtersInFlight.load() == 0);
+}
+
+AFK_AsyncTaskFinishedFunc filtersFinishedFunc = filtersFinished;
 
 void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<unsigned int>& primes)
 {
@@ -116,6 +134,9 @@ void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<
     startTime = afk_clock::now();
 
     {
+        /* I'm starting with one filter */
+        filtersInFlight.store(1);
+
         AFK_WorkQueue<struct primeFilterParam, bool>::WorkItem i;
         i.func              = primeFilter;
         i.param.start       = 2;
@@ -124,7 +145,7 @@ void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<
 
         AFK_ThreadAllocation threadAlloc;
 
-        AFK_AsyncGang<struct primeFilterParam, bool> primeFilterGang(
+        AFK_AsyncGang<struct primeFilterParam, bool, filtersFinishedFunc> primeFilterGang(
             primeMax / 100, threadAlloc, concurrency);
         primeFilterGang << i;
         std::future<bool> finished = primeFilterGang.start(); 
@@ -132,6 +153,9 @@ void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<
         finished.wait();
         std::cout << std::endl << std::endl;
         std::cout << "Finished with " << finished.get() << std::endl;
+
+        /* Obligatory sanity check */
+        assert(primeFilterGang.noQueuedWork());
     }
 
     endTime = afk_clock::now();

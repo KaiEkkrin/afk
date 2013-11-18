@@ -15,11 +15,13 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
+#include <cassert>
 #include <cmath>
 #include <functional>
 #include <future>
 #include <iostream>
 
+#include <boost/atomic.hpp>
 #include <boost/random/random_device.hpp>
 #include <boost/random/taus88.hpp>
 
@@ -66,6 +68,9 @@ struct insertSqrtParam
     boost::random::taus88 *rng;
 };
 
+/* This tracks how many of the workers are still running. */
+boost::atomic_uint stillRunning;
+
 #define CACHE_TEST_ITERATIONS 400000
 
 bool testCacheWorker(unsigned int id, const struct insertSqrtParam& param, AFK_WorkQueue<struct insertSqrtParam, bool>& queue)
@@ -83,8 +88,16 @@ bool testCacheWorker(unsigned int id, const struct insertSqrtParam& param, AFK_W
         param.cache->insert(id, num & 0xff).v += bitcount;
     }
 
+    stillRunning.fetch_sub(1);
     return true;
 }
+
+bool testCacheFinished(void)
+{
+    return (stillRunning.load() == 0);
+}
+
+AFK_AsyncTaskFinishedFunc testCacheFinishedFunc = testCacheFinished;
 
 #define CACHE_TEST_THREAD_COUNT 16
 
@@ -109,8 +122,10 @@ void test_cache(void)
     std::future<bool> result;
 
     AFK_ThreadAllocation threadAlloc;
-    AFK_AsyncGang<struct insertSqrtParam, bool> gang(
+    AFK_AsyncGang<struct insertSqrtParam, bool, testCacheFinishedFunc> gang(
         CACHE_TEST_THREAD_COUNT, threadAlloc, CACHE_TEST_THREAD_COUNT);       
+
+    stillRunning.store(CACHE_TEST_THREAD_COUNT);
 
     AFK_WorkQueue<struct insertSqrtParam, bool>::WorkItem items[CACHE_TEST_THREAD_COUNT];
     for (unsigned int i = 0; i < CACHE_TEST_THREAD_COUNT; ++i)
@@ -126,6 +141,7 @@ void test_cache(void)
     result = gang.start();
     result.wait();
     endTime = afk_clock::now();
+    assert(gang.noQueuedWork());
     timeTaken = std::chrono::duration_cast<afk_duration_mfl>(endTime - startTime);
     std::cout << "Map cache finished after " << timeTaken.count() << " millis" << std::endl;
 
@@ -143,6 +159,8 @@ void test_cache(void)
     std::function<size_t (const int&)> hashFunc = expensivelyHashInt();
     AFK_PolymerCache<int, IntStartingAtZero, std::function<size_t (const int&)>, afk_cacheTestUnassignedKey, 16> polymerCache(4, hashFunc);
 
+    stillRunning.store(CACHE_TEST_THREAD_COUNT);
+
     for (unsigned int i = 0; i < CACHE_TEST_THREAD_COUNT; ++i)
     {
         items[i].param.cache = &polymerCache;
@@ -154,6 +172,7 @@ void test_cache(void)
     result = gang.start();
     result.wait();
     endTime = afk_clock::now();
+    assert(gang.noQueuedWork());
     timeTaken = std::chrono::duration_cast<afk_duration_mfl>(endTime - startTime);
     std::cout << "Polymer cache finished after " << timeTaken.count() << " millis" << std::endl;
     polymerCache.printStats(std::cout, "Polymer stats");

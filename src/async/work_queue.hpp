@@ -20,17 +20,16 @@
 
 #include <exception>
 
-#include <boost/atomic.hpp>
 #include <boost/lockfree/queue.hpp>
-#include <boost/memory_order.hpp>
 
 /* An async work queue encompasses the concept of repeatedly
  * queueing up work items to be fed to a worker function.
- * It tracks the number of work items *either queued or being
- * worked on*, and notifies when work has run out entirely.
  *
  * The worker function's signature is of the form,
  * (threadId, ParameterType, queue ref) -> ReturnType .
+ *
+ * I no longer try to detect whether the overall task is finished
+ * here: that's now done by the async worker function (see async.hpp).
  */
 
 class AFK_WorkQueueException: public std::exception {};
@@ -38,8 +37,7 @@ class AFK_WorkQueueException: public std::exception {};
 enum AFK_WorkQueueStatus
 {
     AFK_WQ_BUSY,        /* Means I just consumed a work item synchronously */
-    AFK_WQ_WAITING,     /* Means I didn't get a work item, but work is still going on */
-    AFK_WQ_FINISHED     /* Means work is finished */
+    AFK_WQ_WAITING      /* Means I didn't get a work item and am still waiting */
 };
 
 template<typename ParameterType, typename ReturnType>
@@ -63,10 +61,9 @@ public:
 
 protected:
     boost::lockfree::queue<WorkItem> q;
-    boost::atomic_uint count;
 
 public:
-    AFK_WorkQueue(): q(100) /* arbitrary */, count(0) {}
+    AFK_WorkQueue(): q(100) /* arbitrary */ {}
 
     /* Consumes one item from the queue via its function.
      * If an item was consumed, fills out `retval' with the
@@ -79,45 +76,20 @@ public:
     {
         WorkItem nextItem;
 
-        boost::atomic_thread_fence(boost::memory_order_seq_cst);
-        if (count.load() > 0)
+        if (q.pop(nextItem))
         {
-            if (q.pop(nextItem))
-            {
-                retval = (*(nextItem.func))(threadId, nextItem.param, *this);
-                /* TODO: It's hugely important that the following fetch_sub()
-                 * doesn't get reordered with the fetch_add() inside the
-                 * function call, or with the load() above.
-                 * These fences have no basis in rational thought, but I put them
-                 * in and haven't seen a thread fall out early for a while ... :-/
-                 */
-                boost::atomic_thread_fence(boost::memory_order_seq_cst);
-                count.fetch_sub(1);
-                boost::atomic_thread_fence(boost::memory_order_seq_cst);
-                return AFK_WQ_BUSY;
-            }
-            else
-            {
-                return AFK_WQ_WAITING;
-            }
+            retval = (*(nextItem.func))(threadId, nextItem.param, *this);
+            return AFK_WQ_BUSY;
         }
         else
         {
-            return AFK_WQ_FINISHED;
+            return AFK_WQ_WAITING;
         }
     }
 
     void push(WorkItem parameter)
     {
         if (!q.push(parameter)) throw AFK_WorkQueueException(); /* TODO can that happen? */
-        count.fetch_add(1);
-        boost::atomic_thread_fence(boost::memory_order_seq_cst);
-    }
-
-    bool finished(void)
-    {
-        boost::atomic_thread_fence(boost::memory_order_seq_cst);
-        return (count.load() == 0);
     }
 };
 

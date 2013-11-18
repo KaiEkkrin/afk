@@ -67,6 +67,10 @@ bool afk_generateWorldCells(
     const union AFK_WorldWorkParam& param,
     AFK_WorldWorkQueue& queue);
 
+/* This is the cell-generation-finished check */
+bool afk_worldGenerationFinished(void);
+extern AFK_AsyncTaskFinishedFunc afk_worldGenerationFinishedFunc;
+
 /* This is the world.  AFK_Core will have one of these.
  */
 class AFK_World
@@ -91,6 +95,11 @@ protected:
     /* Let's try averaging it for the render.
      */
     AFK_MovingAverage<float> averageDetailPitch;
+
+    /* This is my means of tracking whether the current world (and shape)
+     * enumeration is finished or not.
+     */
+    boost::atomic_uint_fast64_t volumeLeftToEnumerate;
 
     /* Gather statistics.  (Useful.)
      */
@@ -195,7 +204,7 @@ protected:
     AFK_3DEdgeShapeBase *edgeShapeBase;
 
     /* The cell generating gang */
-    AFK_AsyncGang<union AFK_WorldWorkParam, bool> *genGang;
+    AFK_AsyncGang<union AFK_WorldWorkParam, bool, afk_worldGenerationFinishedFunc> *genGang;
 
     /* Cell generation worker delegates. */
 
@@ -352,6 +361,8 @@ public:
         unsigned int threadId,
         const union AFK_WorldWorkParam& param,
         AFK_WorldWorkQueue& queue);
+
+    friend bool afk_worldGenerationFinished(void);
 };
 
 #endif /* _AFK_WORLD_H_ */
