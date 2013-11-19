@@ -143,12 +143,12 @@ void afk_idle(void)
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_ROLL_LEFT))
             afk_core.axisDisplacement.v[2] += afk_core.config->rotateButtonSensitivity;
 
-        afk_core.camera->driveAndUpdateProjection(afk_core.velocity, afk_core.axisDisplacement);
+        afk_core.camera.driveAndUpdateProjection(afk_core.velocity, afk_core.axisDisplacement);
 
         /* Protagonist follow camera.  (To make it look more
          * natural, at some point I want a stretchy leash)
          */
-        afk_core.protagonist->object.drive(afk_core.velocity, afk_core.axisDisplacement);
+        afk_core.protagonist.object.drive(afk_core.velocity, afk_core.axisDisplacement);
 
         /* Swallow the axis displacement after it's been applied
          * so that I don't get a strange mouse acceleration effect
@@ -162,7 +162,8 @@ void afk_idle(void)
         /* Update the world, deciding which bits of it I'm going
          * to draw.
          */
-        afk_core.computingUpdate = afk_core.world->updateWorld();
+        afk_core.computingUpdate = afk_core.world->updateWorld(
+            afk_core.camera, afk_core.protagonist.object);
 
         /* Meanwhile, draw the previous frame */
         afk_display(afk_core.masterThreadId);
@@ -254,9 +255,7 @@ AFK_Core::AFK_Core():
     computer(nullptr),
     window(nullptr),
     rng(nullptr),
-    camera(nullptr),
-    world(nullptr),
-    protagonist(nullptr)
+    world(nullptr)
 {
     masterThreadId = threadAlloc.getNewId();
 }
@@ -269,8 +268,6 @@ AFK_Core::~AFK_Core()
     if (window) afk_core.window->closeWindow();
     if (world) delete world;
     if (rng) delete rng;
-    if (protagonist) delete protagonist;
-    if (camera) delete camera;
 
     if (computer) delete computer; /* Should close CL contexts */
     if (window) delete window; /* Should close GL contexts */
@@ -308,7 +305,7 @@ void AFK_Core::configure(int *argcp, char **argv)
     /* TODO Make the viewpoint configurable?  Right now I have a
      * fixed 3rd person view here.
      */
-    camera = new AFK_Camera(afk_vec3<float>(0.0f, -1.5f, 3.0f));
+    camera.setSeparation(afk_vec3<float>(0.0f, -1.5f, 3.0f));
 
     /* Set up the sun.  (TODO: Make configurable?  Randomly
      * generated?  W/e :) )
@@ -368,10 +365,9 @@ void AFK_Core::loop(void)
         ctxt,
         rng);
     computer->unlock();
-    protagonist = new AFK_DisplayedProtagonist();
 
     /* Make sure that camera is configured to match the window. */
-    camera->setWindowDimensions(
+    camera.setWindowDimensions(
         window->getWindowWidth(), window->getWindowHeight());
 
     /* TODO: Move the camera to somewhere above the landscape to
@@ -380,8 +376,8 @@ void AFK_Core::loop(void)
      */
     Vec3<float> startingMovement = afk_vec3<float>(0.0f, 8192.0f, 0.0f);
     Vec3<float> startingRotation = afk_vec3<float>(0.0f, 0.0f, 0.0f);
-    protagonist->object.drive(startingMovement, startingRotation);
-    camera->driveAndUpdateProjection(startingMovement, startingRotation);
+    protagonist.object.drive(startingMovement, startingRotation);
+    camera.driveAndUpdateProjection(startingMovement, startingRotation);
 
     /* First checkpoint */
     startOfFrameTime = lastFrameTime = lastCheckpoint = lastCalibration =

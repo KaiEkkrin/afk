@@ -152,7 +152,7 @@ void afk_display(unsigned int threadId)
 {
     afk_core.world->doComputeTasks(threadId);
 
-    Mat4<float> projection = afk_core.camera->getProjection();
+    Mat4<float> projection = afk_core.camera.getProjection();
 
     /* Make sure the display size is right */
     static unsigned int lastWindowWidth = 0, lastWindowHeight = 0;
@@ -161,12 +161,12 @@ void afk_display(unsigned int threadId)
     if (windowWidth != lastWindowWidth || windowHeight != lastWindowHeight)
     {
         glViewport(0, 0, windowWidth, windowHeight);
-        afk_core.camera->setWindowDimensions(windowWidth, windowHeight);
+        afk_core.camera.setWindowDimensions(windowWidth, windowHeight);
         lastWindowWidth = windowWidth;
         lastWindowHeight = windowHeight;
     }
 
-    Vec2<float> windowSize = afk_core.camera->getWindowSize();
+    Vec2<float> windowSize = afk_core.camera.getWindowSize();
 
     glClearColor(afk_core.skyColour.v[0], afk_core.skyColour.v[1], afk_core.skyColour.v[2], 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -185,7 +185,7 @@ void afk_display(unsigned int threadId)
      * (jimmied to be a suitable size and shape to fly around
      * in the company of.)
      */
-    afk_core.protagonist->display(projection);
+    afk_core.protagonist.display(projection);
 
     /* glFinish here behaves *very* badly along with vsync,
      * entirely screws up the detail calibrator

@@ -40,7 +40,7 @@ enum AFK_WorkQueueStatus
     AFK_WQ_WAITING      /* Means I didn't get a work item and am still waiting */
 };
 
-template<typename ParameterType, typename ReturnType>
+template<typename ParameterType, typename ReturnType, typename ThreadLocalType>
 class AFK_WorkQueue
 {
 public:
@@ -50,7 +50,8 @@ public:
     typedef ReturnType (*WorkFunc)(
         unsigned int,
         const ParameterType&,
-        AFK_WorkQueue<ParameterType, ReturnType>&);
+        const ThreadLocalType&,
+        AFK_WorkQueue<ParameterType, ReturnType, ThreadLocalType>&);
 
     class WorkItem
     {
@@ -72,13 +73,14 @@ public:
      */
     enum AFK_WorkQueueStatus consume(
         unsigned int threadId,
+        ThreadLocalType& threadLocal,
         ReturnType& retval)
     {
         WorkItem nextItem;
 
         if (q.pop(nextItem))
         {
-            retval = (*(nextItem.func))(threadId, nextItem.param, *this);
+            retval = (*(nextItem.func))(threadId, nextItem.param, threadLocal, *this);
             return AFK_WQ_BUSY;
         }
         else

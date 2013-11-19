@@ -28,6 +28,7 @@
 #include "landscape_tile.hpp"
 #include "rng/boost_taus88.hpp"
 #include "rng/rng.hpp"
+#include "work.hpp"
 #include "world.hpp"
 #include "world_cell.hpp"
 
@@ -54,6 +55,7 @@
 bool afk_generateWorldCells(
     unsigned int threadId,
     const union AFK_WorldWorkParam& param,
+    const struct AFK_WorldWorkThreadLocal& threadLocal,
     AFK_WorldWorkQueue& queue)
 {
     const AFK_Cell cell                 = param.world.cell;
@@ -79,7 +81,7 @@ bool afk_generateWorldCells(
     {
         auto worldCellClaim = world->worldCache->insert(threadId, cell).claimable.claim(threadId, claimFlags);
         retval = world->generateClaimedWorldCell(
-            worldCellClaim, threadId, param.world, queue);
+            worldCellClaim, threadId, param.world, threadLocal, queue);
     }
     catch (AFK_ClaimException)
     {
@@ -277,11 +279,12 @@ bool AFK_World::generateClaimedWorldCell(
     AFK_CLAIM_OF(WorldCell)& claim,
     unsigned int threadId,
     const struct AFK_WorldWorkParam::World& param,
+    const struct AFK_WorldWorkThreadLocal& threadLocal,
     AFK_WorldWorkQueue& queue)
 {
     const AFK_Cell& cell                = param.cell;
-    const Vec3<float>& viewerLocation   = param.viewerLocation;
-    AFK_Camera *camera                  = afk_core.camera;
+    const Vec3<float>& viewerLocation   = threadLocal.viewerLocation;
+    const AFK_Camera& camera            = threadLocal.camera;
 
     bool entirelyVisible                = ((param.flags & AFK_WCG_FLAG_ENTIRELY_VISIBLE) != 0);
     bool renderTerrain                  = ((param.flags & AFK_WCG_FLAG_TERRAIN_RENDER) != 0);
@@ -296,7 +299,7 @@ bool AFK_World::generateClaimedWorldCell(
     bool someVisible = entirelyVisible;
     bool allVisible = entirelyVisible;
 
-    if (!entirelyVisible) worldCell.testVisibility(*camera, someVisible, allVisible);
+    if (!entirelyVisible) worldCell.testVisibility(camera, someVisible, allVisible);
     if (!someVisible && !renderTerrain)
     {
         cellsInvisible.fetch_add(1);
@@ -313,7 +316,7 @@ bool AFK_World::generateClaimedWorldCell(
          * be at +/- 0.5).
          */
         bool display = (cell.coord.v[3] == 2 ||
-            worldCell.testDetailPitch(getLandscapeDetailPitch(), *camera, viewerLocation));
+            worldCell.testDetailPitch(threadLocal.detailPitch, camera, viewerLocation));
 
         /* Find the tile where any landscape at this cell would be
          * homed
@@ -428,7 +431,6 @@ bool AFK_World::generateClaimedWorldCell(
                     shapeCellItem.param.shape.cell              = afk_keyedCell(afk_vec4<int64_t>(
                                                                     0, 0, 0, SHAPE_CELL_MAX_DISTANCE), e.shapeKey);
                     shapeCellItem.param.shape.transformation    = e.getTransformation();
-                    shapeCellItem.param.shape.viewerLocation    = viewerLocation;
                     shapeCellItem.param.shape.flags             = 0;
         
 #if AFK_SHAPE_ENUM_DEBUG
@@ -466,7 +468,6 @@ bool AFK_World::generateClaimedWorldCell(
                 AFK_WorldWorkQueue::WorkItem subcellItem;
                 subcellItem.func                     = afk_generateWorldCells;
                 subcellItem.param.world.cell         = subcells[i];
-                subcellItem.param.world.viewerLocation = viewerLocation;
                 subcellItem.param.world.flags        = (allVisible ? AFK_WCG_FLAG_ENTIRELY_VISIBLE : 0);
                 subcellItem.param.world.dependency   = nullptr;
                 queue.push(subcellItem);
@@ -624,7 +625,7 @@ AFK_World::AFK_World(
     // in a huge mess)
     //unsigned int shapeCacheEntries = shapeCacheSize / (32 * SQUARE(sSizes.eDim) * 6 + 16 * CUBE(sSizes.tDim));
 
-    genGang = new AFK_AsyncGang<union AFK_WorldWorkParam, bool, afk_worldGenerationFinishedFunc>(
+    genGang = new AFK_AsyncGang<union AFK_WorldWorkParam, bool, struct AFK_WorldWorkThreadLocal, afk_worldGenerationFinishedFunc>(
         100, threadAlloc, config->concurrency);
     volumeLeftToEnumerate.store(0);
 
@@ -740,8 +741,7 @@ AFK_World::~AFK_World()
 
 void AFK_World::enqueueSubcells(
     const AFK_Cell& cell,
-    const Vec3<int64_t>& modifier,
-    const Vec3<float>& viewerLocation)
+    const Vec3<int64_t>& modifier)
 {
     AFK_Cell modifiedCell = afk_cell(afk_vec4<int64_t>(
         cell.coord.v[0] + cell.coord.v[3] * modifier.v[0],
@@ -755,7 +755,6 @@ void AFK_World::enqueueSubcells(
     AFK_WorldWorkQueue::WorkItem cellItem;
     cellItem.func                        = afk_generateWorldCells;
     cellItem.param.world.cell            = modifiedCell;
-    cellItem.param.world.viewerLocation  = viewerLocation;
     cellItem.param.world.flags           = 0;
     cellItem.param.world.dependency      = nullptr;
     (*genGang) << cellItem;
@@ -796,13 +795,13 @@ float AFK_World::getLandscapeDetailPitch(void) const
     return averageDetailPitch.get();
 }
 
-float AFK_World::getEntityDetailPitch(void) const
+float AFK_World::getEntityDetailPitch(float landscapeDetailPitch) const
 {
-    return averageDetailPitch.get() *
+    return landscapeDetailPitch *
         (float)sSizes.pointSubdivisionFactor / (float)lSizes.pointSubdivisionFactor;
 }
 
-std::future<bool> AFK_World::updateWorld(void)
+std::future<bool> AFK_World::updateWorld(const AFK_Camera& camera, const AFK_Object& protagonistObj)
 {
     /* Maintenance. */
     landscapeCache->doEvictionIfNecessary();
@@ -812,7 +811,7 @@ std::future<bool> AFK_World::updateWorld(void)
     /* First, transform the protagonist location and its facing
      * into integer cell-space.
      */
-    Mat4<float> protagonistTransformation = afk_core.protagonist->object.getTransformation();
+    Mat4<float> protagonistTransformation = protagonistObj.getTransformation();
     Vec4<float> hgProtagonistLocation = protagonistTransformation *
         afk_vec4<float>(0.0f, 0.0f, 0.0f, 1.0f);
     Vec3<float> protagonistLocation = afk_vec3<float>(
@@ -850,9 +849,14 @@ std::future<bool> AFK_World::updateWorld(void)
     for (int64_t i = -1; i <= 1; ++i)
         for (int64_t j = -1; j <= 1; ++j)
             for (int64_t k = -1; k <= 1; ++k)
-                enqueueSubcells(cell, afk_vec3<int64_t>(i, j, k), protagonistLocation);
+                enqueueSubcells(cell, afk_vec3<int64_t>(i, j, k));
 
-    return genGang->start();
+    struct AFK_WorldWorkThreadLocal threadLocal;
+    threadLocal.camera = camera;
+    threadLocal.viewerLocation = protagonistLocation;
+    threadLocal.detailPitch = getLandscapeDetailPitch();
+
+    return genGang->start(threadLocal);
 }
 
 void AFK_World::doComputeTasks(unsigned int threadId)

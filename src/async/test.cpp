@@ -42,6 +42,10 @@ struct primeFilterParam
 {
     unsigned int start;
     unsigned int step;
+};
+
+struct primeFilterThreadLocal
+{
     unsigned int max;
 };
 
@@ -50,10 +54,14 @@ struct primeFilterParam
  */
 boost::atomic_uint filtersInFlight;
 
-bool primeFilter(unsigned int id, const struct primeFilterParam& param, AFK_WorkQueue<struct primeFilterParam, bool>& queue);
+bool primeFilter(
+    unsigned int id,
+    const struct primeFilterParam& param,
+    const struct primeFilterThreadLocal& threadLocal,
+    AFK_WorkQueue<struct primeFilterParam, bool, struct primeFilterThreadLocal>& queue);
 
 /* Helper. */
-void enqueueFilter(struct primeFilterParam param, AFK_WorkQueue<struct primeFilterParam, bool>& queue)
+void enqueueFilter(struct primeFilterParam param, AFK_WorkQueue<struct primeFilterParam, bool, struct primeFilterThreadLocal>& queue)
 {
     bool gotIt = false;
     bool isEnqueued = false;
@@ -67,7 +75,7 @@ void enqueueFilter(struct primeFilterParam param, AFK_WorkQueue<struct primeFilt
     {
         filtersInFlight.fetch_add(1);
 
-        AFK_WorkQueue<struct primeFilterParam, bool>::WorkItem workItem;
+        AFK_WorkQueue<struct primeFilterParam, bool, struct primeFilterThreadLocal>::WorkItem workItem;
         workItem.func = primeFilter;
         workItem.param = param;
         queue.push(workItem);
@@ -85,22 +93,25 @@ void enqueueFilter(struct primeFilterParam param, AFK_WorkQueue<struct primeFilt
  * It will be interesting to see how well it does compared to this version here
  * (so be sure to keep this original version lying around).
  */
-bool primeFilter(unsigned int id, const struct primeFilterParam& param, AFK_WorkQueue<struct primeFilterParam, bool>& queue)
+bool primeFilter(
+    unsigned int id,
+    const struct primeFilterParam& param,
+    const struct primeFilterThreadLocal& threadLocal,
+    AFK_WorkQueue<struct primeFilterParam, bool, struct primeFilterThreadLocal>& queue)
 {
     /* optional verbose debug */
     //std::cout << param.start << "+" << param.step << " ";
 
-    for (unsigned int factor = param.start; factor < param.max; factor += param.step)
+    for (unsigned int factor = param.start; factor < threadLocal.max; factor += param.step)
     {
         factors[factor].fetch_add(1);
 
         /* Go through all the numbers between `factor' and `factor+step' */
-        for (unsigned int num = factor + 1; num < (factor + param.step) && num < param.max; ++num)
+        for (unsigned int num = factor + 1; num < (factor + param.step) && num < threadLocal.max; ++num)
         {
             struct primeFilterParam numFilter;
             numFilter.start = num;
             numFilter.step = num;
-            numFilter.max = param.max;
             enqueueFilter(numFilter, queue);
         }
     }
@@ -137,18 +148,20 @@ void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<
         /* I'm starting with one filter */
         filtersInFlight.store(1);
 
-        AFK_WorkQueue<struct primeFilterParam, bool>::WorkItem i;
+        AFK_WorkQueue<struct primeFilterParam, bool, struct primeFilterThreadLocal>::WorkItem i;
         i.func              = primeFilter;
         i.param.start       = 2;
         i.param.step        = 2;
-        i.param.max         = primeMax;
+
+        struct primeFilterThreadLocal tl;
+        tl.max = primeMax;
 
         AFK_ThreadAllocation threadAlloc;
 
-        AFK_AsyncGang<struct primeFilterParam, bool, filtersFinishedFunc> primeFilterGang(
+        AFK_AsyncGang<struct primeFilterParam, bool, struct primeFilterThreadLocal, filtersFinishedFunc> primeFilterGang(
             primeMax / 100, threadAlloc, concurrency);
         primeFilterGang << i;
-        std::future<bool> finished = primeFilterGang.start(); 
+        std::future<bool> finished = primeFilterGang.start(tl); 
 
         finished.wait();
         std::cout << std::endl << std::endl;

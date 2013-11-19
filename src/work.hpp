@@ -44,11 +44,11 @@ union AFK_WorldWorkParam;
  * back of some other work items until they're done, and then
  * get enqueued by means of check().
  */
-template<typename ParameterType, typename ReturnType>
+template<typename ParameterType, typename ReturnType, typename ThreadLocalType>
 class AFK_WorkDependency
 {
 public:
-    typedef typename AFK_WorkQueue<ParameterType, ReturnType>::WorkItem WorkItem;
+    typedef typename AFK_WorkQueue<ParameterType, ReturnType, ThreadLocalType>::WorkItem WorkItem;
 
 protected:
     boost::atomic_uint count;
@@ -76,7 +76,7 @@ public:
      * you responsible for deleting the object).
      * Else, returns false.
      */
-    bool check(AFK_WorkQueue<ParameterType, ReturnType>& queue)
+    bool check(AFK_WorkQueue<ParameterType, ReturnType, ThreadLocalType>& queue)
     {
         if (count.fetch_sub(1) == 1)
         {
@@ -92,17 +92,24 @@ public:
 };
 
 
+/* The thread-local parameter is quite simple for now: */
+struct AFK_WorldWorkThreadLocal
+{
+    AFK_Camera camera;
+    Vec3<float> viewerLocation;
+    float detailPitch;
+};
+
 /* The work parameter type is a union of all possible
  * ones :
  */
 union AFK_WorldWorkParam
 {
-    typedef AFK_WorkDependency<union AFK_WorldWorkParam, bool> Dependency;
+    typedef AFK_WorkDependency<union AFK_WorldWorkParam, bool, struct AFK_WorldWorkThreadLocal> Dependency;
 
     struct World
     {
         AFK_Cell cell;
-        Vec3<float> viewerLocation;
         unsigned int flags;
         Dependency *dependency;  /* TODO: I suspect this is wrong and I should have a
                                   * separate dependency heap to query.  But I'm not
@@ -126,7 +133,7 @@ union AFK_WorldWorkParam
     } shape;
 };
 
-typedef AFK_WorkQueue<union AFK_WorldWorkParam, bool> AFK_WorldWorkQueue;
+typedef AFK_WorkQueue<union AFK_WorldWorkParam, bool, struct AFK_WorldWorkThreadLocal> AFK_WorldWorkQueue;
 
 #endif /* _AFK_WORK_H_ */
 

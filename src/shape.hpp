@@ -57,6 +57,7 @@ enum AFK_ShapeArtworkState
 bool afk_generateEntity(
     unsigned int threadId,
     const union AFK_WorldWorkParam& param,
+    const struct AFK_WorldWorkThreadLocal& threadLocal,
     AFK_WorldWorkQueue& queue);
 
 /* Queued into the world work queue, this function generates
@@ -67,6 +68,7 @@ bool afk_generateEntity(
 bool afk_generateShapeCells(
     unsigned int threadId,
     const union AFK_WorldWorkParam& param,
+    const struct AFK_WorldWorkThreadLocal& threadLocal,
     AFK_WorldWorkQueue& queue);
 
 /* This class has changed, and now describes all shapes.
@@ -109,16 +111,13 @@ public:
     friend bool afk_generateEntity(
         unsigned int threadId,
         const union AFK_WorldWorkParam& param,
-        AFK_WorldWorkQueue& queue);
-
-    friend bool afk_generateVapourDescriptor(
-        unsigned int threadId,
-        const union AFK_WorldWorkParam& param,
+        const struct AFK_WorldWorkThreadLocal& threadLocal,
         AFK_WorldWorkQueue& queue);
 
     friend bool afk_generateShapeCells(
         unsigned int threadId,
         const union AFK_WorldWorkParam& param,
+        const struct AFK_WorldWorkThreadLocal& threadLocal,
         AFK_WorldWorkQueue& queue);
 };
 

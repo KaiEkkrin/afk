@@ -38,6 +38,7 @@
 bool afk_generateEntity(
     unsigned int threadId,
     const union AFK_WorldWorkParam& param,
+    const struct AFK_WorldWorkThreadLocal& threadLocal,
     AFK_WorldWorkQueue& queue)
 {
     AFK_KeyedCell cell                      = param.shape.cell;
@@ -148,14 +149,15 @@ bool afk_generateEntity(
 bool afk_generateShapeCells(
     unsigned int threadId,
     const union AFK_WorldWorkParam& param,
+    const struct AFK_WorldWorkThreadLocal& threadLocal,
     AFK_WorldWorkQueue& queue)
 {
     const AFK_KeyedCell cell                = param.shape.cell;
     Mat4<float> worldTransform              = param.shape.transformation;
-    const Vec3<float>& viewerLocation       = param.shape.viewerLocation;
+    const AFK_Camera& camera                = threadLocal.camera;
+    const Vec3<float>& viewerLocation       = threadLocal.viewerLocation;
 
     AFK_World *world                        = afk_core.world;
-    AFK_Camera *camera                      = afk_core.camera;
 
     bool entirelyVisible                    = ((param.shape.flags & AFK_SCG_FLAG_ENTIRELY_VISIBLE) != 0);
 
@@ -170,7 +172,7 @@ bool afk_generateShapeCells(
     visibleCell.bindToCell(cell, SHAPE_CELL_WORLD_SCALE, worldTransform);
 
     if (!entirelyVisible) visibleCell.testVisibility(
-        *camera, someVisible, allVisible);
+        camera, someVisible, allVisible);
     if (!someVisible)
     {
 #if AFK_SHAPE_ENUM_DEBUG
@@ -184,7 +186,7 @@ bool afk_generateShapeCells(
     {
         bool display = (
             cell.c.coord.v[3] == 1 || visibleCell.testDetailPitch(
-                world->getEntityDetailPitch(), *camera, viewerLocation));
+                world->getEntityDetailPitch(threadLocal.detailPitch), camera, viewerLocation));
 
         /* Always build the vapour descriptor, because other cells
          * will need it.

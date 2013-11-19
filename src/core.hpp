@@ -107,8 +107,8 @@ public:
      */
     AFK_Frame           computingFrame;
 
-    /* The camera.  This gets shared with the worker threads. */
-    AFK_Camera          *camera;
+    /* The camera.  This goes to the worker threads as a thread-local. */
+    AFK_Camera          camera;
 
     /* The world.  This does too. */
     AFK_World           *world;
@@ -120,7 +120,7 @@ public:
     Vec3<float>         skyColour;
 
     /* To track various special objects. */
-    AFK_DisplayedProtagonist        *protagonist;
+    AFK_DisplayedProtagonist        protagonist;
 
     /* Input state. */
     /* This vector is (right thrusters, up thrusters, throttle). */

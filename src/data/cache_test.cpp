@@ -73,7 +73,7 @@ boost::atomic_uint stillRunning;
 
 #define CACHE_TEST_ITERATIONS 400000
 
-bool testCacheWorker(unsigned int id, const struct insertSqrtParam& param, AFK_WorkQueue<struct insertSqrtParam, bool>& queue)
+bool testCacheWorker(unsigned int id, const struct insertSqrtParam& param, const int& unused, AFK_WorkQueue<struct insertSqrtParam, bool, int>& queue)
 {
     for (unsigned int i = 0; i < CACHE_TEST_ITERATIONS; ++i)
     {
@@ -122,12 +122,12 @@ void test_cache(void)
     std::future<bool> result;
 
     AFK_ThreadAllocation threadAlloc;
-    AFK_AsyncGang<struct insertSqrtParam, bool, testCacheFinishedFunc> gang(
+    AFK_AsyncGang<struct insertSqrtParam, bool, int, testCacheFinishedFunc> gang(
         CACHE_TEST_THREAD_COUNT, threadAlloc, CACHE_TEST_THREAD_COUNT);       
 
     stillRunning.store(CACHE_TEST_THREAD_COUNT);
 
-    AFK_WorkQueue<struct insertSqrtParam, bool>::WorkItem items[CACHE_TEST_THREAD_COUNT];
+    AFK_WorkQueue<struct insertSqrtParam, bool, int>::WorkItem items[CACHE_TEST_THREAD_COUNT];
     for (unsigned int i = 0; i < CACHE_TEST_THREAD_COUNT; ++i)
     {
         items[i].func           = testCacheWorker;
@@ -138,7 +138,7 @@ void test_cache(void)
     }
 
     startTime = afk_clock::now();
-    result = gang.start();
+    result = gang.start(0);
     result.wait();
     endTime = afk_clock::now();
     assert(gang.noQueuedWork());
@@ -169,7 +169,7 @@ void test_cache(void)
     }
 
     startTime = afk_clock::now();
-    result = gang.start();
+    result = gang.start(0);
     result.wait();
     endTime = afk_clock::now();
     assert(gang.noQueuedWork());

@@ -65,6 +65,7 @@ class AFK_WorldCell;
 bool afk_generateWorldCells(
     unsigned int threadId,
     const union AFK_WorldWorkParam& param,
+    const struct AFK_WorldWorkThreadLocal& threadLocal,
     AFK_WorldWorkQueue& queue);
 
 /* This is the cell-generation-finished check */
@@ -155,7 +156,6 @@ protected:
      * I'm going to get a bit of overload?
      */
     AFK_LANDSCAPE_CACHE *landscapeCache;
-    unsigned int tileCacheEntries;
 
     /* The terrain computation fair.  Yeah, yeah. */
     AFK_Fair<AFK_TerrainComputeQueue> landscapeComputeFair;
@@ -204,7 +204,7 @@ protected:
     AFK_3DEdgeShapeBase *edgeShapeBase;
 
     /* The cell generating gang */
-    AFK_AsyncGang<union AFK_WorldWorkParam, bool, afk_worldGenerationFinishedFunc> *genGang;
+    AFK_AsyncGang<union AFK_WorldWorkParam, bool, struct AFK_WorldWorkThreadLocal, afk_worldGenerationFinishedFunc> *genGang;
 
     /* Cell generation worker delegates. */
 
@@ -245,6 +245,7 @@ protected:
         AFK_CLAIM_OF(WorldCell)& claim,
         unsigned int threadId,
         const struct AFK_WorldWorkParam::World& param,
+        const struct AFK_WorldWorkThreadLocal& threadLocal,
         AFK_WorldWorkQueue& queue);
 
 public:
@@ -297,8 +298,7 @@ public:
      */
     void enqueueSubcells(
         const AFK_Cell& cell,
-        const Vec3<int64_t>& modifier,
-        const Vec3<float>& viewerLocation);
+        const Vec3<int64_t>& modifier);
 
     /* Call when we're about to start a new frame. */
     void flipRenderQueues(const AFK_Frame& newFrame);
@@ -313,14 +313,15 @@ public:
     void alterDetail(float adjustment);
 
     float getLandscapeDetailPitch(void) const;
-    float getEntityDetailPitch(void) const;
+    float getEntityDetailPitch(float landscapeDetailPitch) const;
 
     /* This function drives the cell generating worker to
      * update the world cache and enqueue visible
      * cells.  Returns a future that becomes available
      * when we're done.
      */
-    std::future<bool> updateWorld(void);
+    std::future<bool> updateWorld(
+        const AFK_Camera& camera, const AFK_Object& protagonistObj);
 
     /* CL-tasks-at-start-of-frame function. */
     void doComputeTasks(unsigned int threadId);
@@ -345,21 +346,19 @@ public:
     friend bool afk_generateEntity(
         unsigned int threadId,
         const union AFK_WorldWorkParam& param,
-        AFK_WorldWorkQueue& queue);
-
-    friend bool afk_generateVapourDescriptor(
-        unsigned int threadId,
-        const union AFK_WorldWorkParam& param,
+        const struct AFK_WorldWorkThreadLocal& threadLocal,
         AFK_WorldWorkQueue& queue);
 
     friend bool afk_generateShapeCells(
         unsigned int threadId,
         const union AFK_WorldWorkParam& param,
+        const struct AFK_WorldWorkThreadLocal& threadLocal,
         AFK_WorldWorkQueue& queue);
 
     friend bool afk_generateWorldCells(
         unsigned int threadId,
         const union AFK_WorldWorkParam& param,
+        const struct AFK_WorldWorkThreadLocal& threadLocal,
         AFK_WorldWorkQueue& queue);
 
     friend bool afk_worldGenerationFinished(void);

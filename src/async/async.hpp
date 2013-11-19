@@ -85,8 +85,8 @@ private:
     /* It's really important this thing doesn't get accidentally
      * duplicated
      */
-    AFK_AsyncControls(const AFK_AsyncControls& controls) { assert(false); }
-    AFK_AsyncControls& operator=(const AFK_AsyncControls& controls) { assert(false); return *this; }
+    AFK_AsyncControls(const AFK_AsyncControls& controls) = delete;
+    AFK_AsyncControls& operator=(const AFK_AsyncControls& controls) = delete;
 
 protected:
     /* Here's the list of thread IDs of the workers (the size of this
@@ -136,21 +136,55 @@ public:
 };
 
 
+/* A wrapper for the thread-local type (below) to control copying
+ * it around.
+ */
+template<typename ThreadLocalType>
+class AFK_ThreadLocalWrapper
+{
+public:
+    ThreadLocalType inner;
+    std::mutex mut;
+};
+
 /* TODO: Parameter for this function, to stop it from having
  * to reference globals?
  */
 typedef std::function<bool (void)> AFK_AsyncTaskFinishedFunc;
 
-template<class ParameterType, class ReturnType, AFK_AsyncTaskFinishedFunc& taskFinished>
+/* Here's how it works:
+ * - ParameterType is the type of the work queue parameter, which
+ * includes each function to call along with its arguments (see
+ * work_queue).
+ * - ReturnType is the type the called function should return.
+ * (Barely used; I've been sticking to bool.)
+ * - ThreadLocalType is the type of a field whose contents
+ * should be copied into thread-local storage at the start of each
+ * run, and a const reference passed to the called function.
+ * (It should be quite small, because it goes on the stack, and
+ * have a trivial constructor, and be copy constructable and
+ * assignable.  It doesn't need its own concurrency control.)
+ * - AsyncTaskFinishedFunc is called periodically (not on any
+ * deterministic schedule) to decide when things are finished.
+ */
+template<typename ParameterType, typename ReturnType, typename ThreadLocalType, AFK_AsyncTaskFinishedFunc& taskFinished>
 void afk_asyncWorker(
     AFK_AsyncControls& controls,
+    AFK_ThreadLocalWrapper<ThreadLocalType>& threadLocalSource,
     unsigned int id,
     bool first,
-    AFK_WorkQueue<ParameterType, ReturnType>& queue,
+    AFK_WorkQueue<ParameterType, ReturnType, ThreadLocalType>& queue,
     std::promise<ReturnType>*& promise)
 {
     while (controls.worker_waitForWork(id))
     {
+        /* Copy out the thread-local values for this run. */
+        ThreadLocalType tl;
+
+        threadLocalSource.mut.lock();
+        tl = threadLocalSource.inner; /* that seriously shouldn't throw an exception */
+        threadLocalSource.mut.unlock();
+
         /* TODO Do something sane with the return values rather
          * than just accumulating the last one!
          */
@@ -160,7 +194,7 @@ void afk_asyncWorker(
 
         while (!finished)
         {
-            status = queue.consume(id, retval);
+            status = queue.consume(id, tl, retval);
             switch (status)
             {
             case AFK_WQ_BUSY:
@@ -212,7 +246,7 @@ void afk_asyncWorker(
 }
 
 
-template<class ParameterType, class ReturnType, AFK_AsyncTaskFinishedFunc& taskFinished>
+template<typename ParameterType, typename ReturnType, typename ThreadLocalType, AFK_AsyncTaskFinishedFunc& taskFinished>
 class AFK_AsyncGang
 {
 protected:
@@ -221,7 +255,13 @@ protected:
     AFK_AsyncControls *controls;
 
     /* The queue of functions and parameters. */
-    AFK_WorkQueue<ParameterType, ReturnType> queue;
+    AFK_WorkQueue<ParameterType, ReturnType, ThreadLocalType> queue;
+
+    /* The thread-local values get put into this known field by the control
+     * thread so that the workers can access it without needing a thread
+     * restart.
+     */
+    AFK_ThreadLocalWrapper<ThreadLocalType> threadLocalSource;
 
     /* The promised return value. */
     std::promise<ReturnType> *promise;
@@ -232,8 +272,9 @@ protected:
         for (auto id : threadIds)
         { 
             std::thread *t = new std::thread(
-                afk_asyncWorker<ParameterType, ReturnType, taskFinished>,
+                afk_asyncWorker<ParameterType, ReturnType, ThreadLocalType, taskFinished>,
                 std::ref(*controls),
+                std::ref(threadLocalSource),
                 id,
                 first,
                 std::ref(queue),
@@ -299,7 +340,7 @@ public:
      * Er, or while it's running, if you feel brave.  It should
      * be fine...
      */
-    AFK_AsyncGang& operator<<(typename AFK_WorkQueue<ParameterType, ReturnType>::WorkItem workItem)
+    AFK_AsyncGang& operator<<(typename AFK_WorkQueue<ParameterType, ReturnType, ThreadLocalType>::WorkItem workItem)
     {
         queue.push(workItem);
         return *this;
@@ -309,7 +350,7 @@ public:
      * result.
      * The caller should wait on that future, no doubt.
      */
-    std::future<ReturnType> start(void)
+    std::future<ReturnType> start(const ThreadLocalType& _tl)
     {
 #if ASYNC_DEBUG_SPAM
         ASYNC_DEBUG("deleting promise " << std::hex << (void *)promise)
@@ -320,6 +361,11 @@ public:
 #if ASYNC_DEBUG_SPAM
         ASYNC_DEBUG("making new promise " << std::hex << (void *)promise)
 #endif
+
+        /* Copy out that thread-local value */
+        threadLocalSource.mut.lock();
+        threadLocalSource.inner = _tl;
+        threadLocalSource.mut.unlock();
 
         /* Set things off */
         controls->control_workReady();
