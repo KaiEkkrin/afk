@@ -28,12 +28,34 @@
 
     <div class="container">
       <section id="main_content">
-        <p>18 November 2013</p>
+        <h3>
+<a name="a-little-background" class="anchor" href="#a-little-background"><span class="octicon octicon-link"></span></a>A little background</h3>
+
+<p>How much art can you make without making any art?</p>
+
+<p>Well, that's what I figured I'd explore with AFK.  It uses a pseudo-random number generator (the rather nice <code>boost::random::taus88</code>) and splits the world into cubic cells.  The seed that determines the contents of each cell is a combination of the cell co-ordinates and a master seed generated or supplied at start-up.</p>
+
+<p>And the results: <a href="https://www.youtube.com/user/KaiEkkrin">https://www.youtube.com/user/KaiEkkrin</a></p>
+
+<p>There's plenty of scope for tweaking what is done with the random numbers, but all the actual detail you see is generated on the fly.  It's cached, rather than built up front (because AFK's worlds are much too large to hold in memory), or wholly generated for each frame (because that would be too slow).</p>
+
+<p>Along the way AFK does some other interesting things:</p>
+
+<ul>
+<li>Rather than having fixed detail settings, it measures how long it's taking to generate each frame and adjusts the detail accordingly, aiming for a frame rate between 30-60 frames/second.  (The algorithm is a little over-damped right now, causing the frame rate and level of detail to oscillate.  I'm working on it.)</li>
+<li>The amount of detail is theoretically infinite, although in practice it's limited by the amount of precision that can be represented by the int64_t world co-ordinates (and their conversion to float).</li>
+<li>The world enumeration runs across many CPU threads (currently up to 64), using a queueing system in place of a recursive call to drill down through the world tree.</li>
+<li>Because OpenGL implementations (especially AMD's) run slowly when fed a large number of draw calls, AFK draws the landscape and all the visible shapes in just a couple of calls, using instancing with a large buffer texture to produce the desired geometry.</li>
+<li>Random world features are generated in OpenCL, then passed to OpenGL for drawing.  AFK supports CL-GL buffer sharing, but it's disabled by default, because I've yet to find a GPU on which it's a performance improvement.  Instead, I allocate a small number of very large textures mirrored between the OpenCL and OpenGL (the "jigsaws").  Each frame, rectangular areas are allocated to contain the new computation tasks for the OpenCL, and these rectangles are copied to the OpenGL after completion.  (Again, for performance, the number of calls needs to be minimised.)</li>
+<li>Generated world detail is cached in the lockless hash map structure <code>AFK_Polymer</code>.  I created this structure rather than using <code>std::unordered_map</code> with a lock because each frame, the world enumeration needs to do a very large number of concurrent lookups.  In this situation, my custom structure's benefit (I measured a 10x higher lookup rate vs. <code>std::unordered_map</code> with a lock on an 8-thread system) outweighs its drawback (it occasionally generates more than one value for the same key).</li>
+</ul><p>The small blue chevron that serves as "protagonist" right now is a cheat, because I encoded its geometry by hand.  I'll remove it as soon as I can generate a random shape that fits its place nicely.</p>
+
+<hr><p>18 November 2013</p>
 
 <h3>
 <a name="stability-fixes" class="anchor" href="#stability-fixes"><span class="octicon octicon-link"></span></a>Stability fixes</h3>
 
-<p>I haven't had so much chance to work on AFK this month, so there's nothing new in right now, but I've reworked a lot of the CPU code to try to improve its stability.  Async, jigsaw, caches and the Claim stuff should all be more reliable now.  Lessons learned, etc etc.</p>
+<p>I haven't had so much chance to work on AFK this month, so there's nothing new in right now, but I've reworked a lot of the CPU code to try to improve its stability.  Async, jigsaw, caches and the Claim stuff should all be more reliable now, and the "Polymer" cache structure is currently entirely lockless, using atomics and fences to synchronize.  Lessons learned, etc etc.</p>
 
 <hr><p>22 October 2013</p>
 
@@ -61,34 +83,7 @@
 
 <hr><p>11 October 2013</p>
 
-<h3>
-<a name="video-footage" class="anchor" href="#video-footage"><span class="octicon octicon-link"></span></a>Video footage</h3>
-
-<p>For demo videos of AFK, showing its progress.  <a href="https://www.youtube.com/user/KaiEkkrin">https://www.youtube.com/user/KaiEkkrin</a></p>
-
-<hr><p>11 October 2013</p>
-
-<h3>
-<a name="a-little-background" class="anchor" href="#a-little-background"><span class="octicon octicon-link"></span></a>A little background</h3>
-
-<p>How much art can you make without making any art?</p>
-
-<p>Well, that's what I figured I'd explore with AFK.  It uses a pseudo-random number generator (the rather nice <code>boost::random::taus88</code>) and splits the world into cubic cells.  The seed that determines the contents of each cell is a combination of the cell co-ordinates and a master seed generated or supplied at start-up.</p>
-
-<p>There's plenty of scope for tweaking what is done with the random numbers, but all the actual detail you see is generated on the fly.  It's cached, rather than built up front (because AFK's worlds are much too large to hold in memory), or wholly generated for each frame (because that would be too slow).</p>
-
-<p>Along the way AFK does some other interesting things:</p>
-
-<ul>
-<li>Rather than having fixed detail settings, it measures how long it's taking to generate each frame and adjusts the detail accordingly, aiming for a frame rate between 30-60 frames/second.  (The algorithm is a little over-damped right now, causing the frame rate and level of detail to oscillate.  I'm working on it.)</li>
-<li>The amount of detail is theoretically infinite, although in practice it's limited by the amount of precision that can be represented by the int64_t world co-ordinates (and their conversion to float).</li>
-<li>The world enumeration runs across many CPU threads (currently up to 64), using a queueing system in place of a recursive call to drill down through the world tree.</li>
-<li>Because OpenGL implementations (especially AMD's) run slowly when fed a large number of draw calls, AFK draws the landscape and all the visible shapes in just a couple of calls, using instancing with a large buffer texture to produce the desired geometry.</li>
-<li>Random world features are generated in OpenCL, then passed to OpenGL for drawing.  AFK supports CL-GL buffer sharing, but it's disabled by default, because I've yet to find a GPU on which it's a performance improvement.  Instead, I allocate a small number of very large textures mirrored between the OpenCL and OpenGL (the "jigsaws").  Each frame, rectangular areas are allocated to contain the new computation tasks for the OpenCL, and these rectangles are copied to the OpenGL after completion.  (Again, for performance, the number of calls needs to be minimised.)</li>
-<li>Generated world detail is cached in the lockless hash map structure <code>AFK_Polymer</code>.  I created this structure rather than using <code>std::unordered_map</code> with a lock because each frame, the world enumeration needs to do a very large number of concurrent lookups.  In this situation, my custom structure's benefit (I measured a 10x higher lookup rate vs. <code>std::unordered_map</code> with a lock on an 8-thread system) outweighs its drawback (it occasionally generates more than one value for the same key).</li>
-</ul><p>The small blue chevron that serves as "protagonist" right now is a cheat, because I encoded its geometry by hand.  I'll remove it as soon as I can generate a random shape that fits its place nicely.</p>
-
-<hr><p>11 October 2013</p>
+<p>11 October 2013</p>
 
 <h3>
 <a name="afks-first-upload" class="anchor" href="#afks-first-upload"><span class="octicon octicon-link"></span></a>AFK's first upload</h3>
