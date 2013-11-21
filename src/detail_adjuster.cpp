@@ -19,10 +19,22 @@
 
 #include <cassert>
 #include <cfloat>
+#include <cmath>
 #include <iostream>
 
 #include "detail_adjuster.hpp"
 
+
+/* Let's define a "k" in terms of the detail pitch. */
+constexpr float kFromDetailPitch(float detailPitch)
+{
+    return 1.0f / (detailPitch * detailPitch);
+}
+
+constexpr float detailPitchFromK(float k)
+{
+    return sqrt(1.0f / k);
+}
 
 /* AFK_DetailAdjuster implementation */
 
@@ -33,7 +45,8 @@ AFK_DetailAdjuster::AFK_DetailAdjuster(const AFK_Config *config):
     haveFirstMeasurement(false),
     haveLastFrameTime(false),
     lastV(-FLT_MAX),
-    detailPitch(config->startingDetailPitch)
+    detailPitch(config->startingDetailPitch),
+    k(kFromDetailPitch(config->startingDetailPitch))
 {
 }
 
@@ -52,12 +65,50 @@ void AFK_DetailAdjuster::startOfFrame(void)
         lastFrameTime = std::chrono::duration_cast<afk_duration_mfl>(
             startOfFrame - lastStartOfFrame);
         haveLastFrameTime = true;
-        x = 1.0f / lastFrameTime.count(); 
+        x = (1.0f / lastFrameTime.count()) - xTarget;
 
         lastV = v;
         v = x - lastX;
 
         a = v - lastV;
+
+        /* ... and update the detail pitch.
+         * To test: I'm going to set m=1, and try to solve the
+         * equation for a value of k satisfying c^2-4mk=0.
+         * Firstly, from the formula ma + cv + kx = 0,
+         * find the current c:
+         * o c = -(ma + kx) / v
+         */
+        c = -(m * a + k * x) / v;
+
+        /* Now, make a new value for k such that c^2-4mk=0,
+         * i.e. k = (c * c) / (4 * m)
+         */
+        k = (c * c) / (4.0f * m);
+
+        /* The above isn't doing anything like what I hoped,
+         * although that's not surprising, because I was
+         * fumbling in the dark.
+         * Let's mess with updating the DP as an independent
+         * entity, like so:
+         */
+        detailPitch -= x;
+
+        /* TODO:
+         * Of course, I can't govern the detail pitch like
+         * that, because it ends up ruled by single-frame
+         * glitches.
+         * What I should try doing is push in a system for
+         * governing the detail pitch on an averaged basis
+         * (just like the oscillation-prone current one),
+         * and then try seeing the detail pitch change factor
+         * as `k' and optimising it with the above logic.?
+         * Also it would be really useful to be able to remove
+         * the frame rate cap, which makes adjustment much harder
+         * (is it still present in full screen mode?  Can I
+         * create a switchable overlay to print my checkpoint
+         * messages so I can see them fullscreen?)
+         */
     }
 
     lastStartOfFrame = startOfFrame;
@@ -109,12 +160,14 @@ float AFK_DetailAdjuster::getDetailPitch(void) const
      * at the kind of problem I'm dealing with, and of course
      * make sure the code infrastructure changes are OK.
      */
+    //return 512.0f; //detailPitchFromK(k);
     return detailPitch;
 }
 
 void AFK_DetailAdjuster::checkpoint(const afk_duration_mfl& sinceLastCheckpoint)
 {
     std::cout << "AFK Detail Adjuster: x=" << x << ", v=" << v << ", a=" << a << std::endl;
-    std::cout << "AFK Detail Adjuster: Detail pitch: " << detailPitch << std::endl;
+    std::cout << "AFK Detail Adjuster: k=" << k << ", c=" << c << ", m=" << m << std::endl;
+    std::cout << "AFK Detail Adjuster: detail pitch: " << getDetailPitch() << std::endl;
 }
 

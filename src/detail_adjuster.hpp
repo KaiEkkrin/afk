@@ -63,7 +63,7 @@ protected:
     afk_duration_mfl lastFrameTime;
     bool haveLastFrameTime;
 
-    /* Instantaneous measurements of frame rate, and its first and
+    /* Instantaneous measurements of frame rate deviation, and its first and
      * second order derivatives (rate of change == "speed", rate of
      * change of change == "acceleration").
      * These numbers are in units of 1/milliseconds
@@ -73,8 +73,13 @@ protected:
 
     /* ... TODO ... */
 
-    /* The detail pitch number I currently want to try */
     float detailPitch;
+
+    /* Here are my variables for the damping formula */
+    float k, c;
+
+    /* Again; this is tweakable, I think */
+    const float m = 1.0f;
 
 public:
     AFK_DetailAdjuster(const AFK_Config *config);
