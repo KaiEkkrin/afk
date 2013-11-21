@@ -35,6 +35,7 @@
 #include "data/evictable_cache.hpp"
 #include "data/frame.hpp"
 #include "def.hpp"
+#include "detail_adjuster.hpp"
 #include "display.hpp"
 #include "light.hpp"
 #include "window.hpp"
@@ -65,19 +66,22 @@ protected:
      */
     std::future<bool> computingUpdate;
     bool computingUpdateDelayed;
-    unsigned int computeDelaysSinceLastCheckpoint;
-    unsigned int graphicsDelaysSinceLastCheckpoint;
+    //unsigned int computeDelaysSinceLastCheckpoint;
+    //unsigned int graphicsDelaysSinceLastCheckpoint;
 
-    afk_clock::time_point startOfFrameTime;
-    afk_clock::time_point lastFrameTime;
-    afk_clock::time_point lastCalibration;
-    unsigned int graphicsDelaysSinceLastCalibration;
+    //afk_clock::time_point startOfFrameTime;
+    //afk_clock::time_point lastFrameTime;
+    //afk_clock::time_point lastCalibration;
+    //unsigned int graphicsDelaysSinceLastCalibration;
 
     /* The calibration error is the number of milliseconds away
      * I was from filling all the frame time with calculation.
      * Negative means I finished early, positive means late.
      */
-    float calibrationError;
+    //float calibrationError;
+
+    /* Replacing the above timing stuff, WIP: */
+    AFK_DetailAdjuster *detailAdjuster;
 
     /* This stuff is for the OpenGL buffer cleanup, glBuffersForDeletion()
      * etc.
@@ -157,9 +161,6 @@ public:
     
     void loop(void);
 
-    /* For object updates. */
-    const afk_clock::time_point& getStartOfFrameTime(void) const;
-
     /* This utility function prints a message at checkpoints,
      * so that I can usefully debug-print
      * engine state without spamming stdout.
@@ -174,7 +175,7 @@ public:
      * checkpoint interval unless `definitely' is set
      * in which case it happens right away.
      */
-    void checkpoint(afk_clock::time_point& now, bool definitely);
+    void checkpoint(const afk_clock::time_point& now, bool definitely);
 
     /* TODO NASTY -- Share GL context between all threads and remove
      * Deletes of GL objects from other threads go into here so that

@@ -91,11 +91,6 @@ protected:
      */
     const float startingDetailPitch;
     const float maxDetailPitch;
-    float detailPitch;
-
-    /* Let's try averaging it for the render.
-     */
-    AFK_MovingAverage<float> averageDetailPitch;
 
     /* This is my means of tracking whether the current world (and shape)
      * enumeration is finished or not.
@@ -303,6 +298,10 @@ public:
     /* Call when we're about to start a new frame. */
     void flipRenderQueues(const AFK_Frame& newFrame);
 
+    /* TODO: I'm moving the detail pitch calculation out to the
+     * DetailAdjuster object ...
+     */
+#if 0
     /* For changing the level of detail.  Values >1 decrease
      * it.  Values <1 increase it.
      * I'm not entirely sure what the correlation between the
@@ -313,6 +312,7 @@ public:
     void alterDetail(float adjustment);
 
     float getLandscapeDetailPitch(void) const;
+#endif
     float getEntityDetailPitch(float landscapeDetailPitch) const;
 
     /* This function drives the cell generating worker to
@@ -321,7 +321,7 @@ public:
      * when we're done.
      */
     std::future<bool> updateWorld(
-        const AFK_Camera& camera, const AFK_Object& protagonistObj);
+        const AFK_Camera& camera, const AFK_Object& protagonistObj, float detailPitch);
 
     /* CL-tasks-at-start-of-frame function. */
     void doComputeTasks(unsigned int threadId);

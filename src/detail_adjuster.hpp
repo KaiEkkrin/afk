@@ -20,6 +20,7 @@
 
 #include "afk.hpp"
 
+#include "clock.hpp"
 #include "config.hpp"
 
 /* This module is a new place to implement AFK's dynamic detail
@@ -45,24 +46,68 @@
 class AFK_DetailAdjuster
 {
 protected:
+    /* The target frame time. */
+    const float frameTimeTarget;
+    const float wiggle;
+
+    /* The target frame rate. */
+    const float xTarget;
+
+    /* The current sequence of times we're tracking. */
+    afk_clock::time_point lastStartOfFrame;
+    afk_clock::time_point lastComputeWait;
+    afk_clock::time_point lastComputeFinish;
+    bool haveFirstMeasurement;
+
+    /* The amount of time the last frame took (for simulation delay.) */
+    afk_duration_mfl lastFrameTime;
+    bool haveLastFrameTime;
+
+    /* Instantaneous measurements of frame rate, and its first and
+     * second order derivatives (rate of change == "speed", rate of
+     * change of change == "acceleration").
+     * These numbers are in units of 1/milliseconds
+     */
+    float x, v, a;
+    float lastV; /* -FLT_MAX for "no measurement yet" */
+
     /* ... TODO ... */
+
+    /* The detail pitch number I currently want to try */
+    float detailPitch;
 
 public:
     AFK_DetailAdjuster(const AFK_Config *config);
+    virtual ~AFK_DetailAdjuster();
 
     /* Call these functions to tell the detail adjuster to take a
      * time measurement.
      */
     void startOfFrame(void);
     void computeFinished(void);
-    void graphicsTimedOut(void);
-    void graphicsFinished(void);
+    void computeTimedOut(void);
 
-    /* Output a measured delay time to use for the simulation. */
-    float getLastDelay(void) const;
+    /* For reference. */
+    const afk_clock::time_point getStartOfFrameTime(void) const;
+
+    /* Output a measured delay time to use for the simulation,
+     * in millis, of course.
+     * Returns false if we don't yet have enough measurements
+     * (at start of simulation only).
+     */
+    bool getFrameInterval(float& o_interval) const;
+
+    /* Call this when deciding how long to wait for the compute
+     * phase before timing it out and passing control back to the
+     * window.
+     */
+    afk_duration_mfl getComputeWaitTime(void);
 
     /* Output detail pitch for the world to use. */
     float getDetailPitch(void) const;
+
+    /* Print a checkpoint. */
+    void checkpoint(const afk_duration_mfl& sinceLastCheckpoint);
 };
 
 #endif /* _AFK_DETAIL_ADJUSTER_H_ */

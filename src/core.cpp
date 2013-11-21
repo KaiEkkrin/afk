@@ -53,6 +53,8 @@ void afk_displayInit(void)
 
 void afk_idle(void)
 {
+    afk_core.detailAdjuster->startOfFrame();
+#if 0
     afk_clock::time_point startOfFrameTime = afk_clock::now();
 
     /* If we just took less than FRAME_REFRESH_TIME for the entire
@@ -88,9 +90,11 @@ void afk_idle(void)
     }
 
     afk_core.startOfFrameTime = startOfFrameTime;
+#endif
 
-    afk_core.checkpoint(startOfFrameTime, false);
+    afk_core.checkpoint(afk_core.detailAdjuster->getStartOfFrameTime(), false);
 
+#if 0
     /* Check whether I need to recalibrate. */
     /* TODO Make the time between calibrations configurable */
     afk_duration_mfl sinceLastCalibration = std::chrono::duration_cast<afk_duration_mfl>(
@@ -113,57 +117,69 @@ void afk_idle(void)
         afk_core.calibrationError = 0.0f;
         afk_core.graphicsDelaysSinceLastCalibration = 0;
     }
+#endif
 
-    if (!afk_core.computingUpdateDelayed)
+    /* Always update the controls: I think that things ought
+     * to feel smoother if they continue registering movement
+     * changes during glitches (worth a try, anyway).
+     * The compute phase gets its own copies of the camera and
+     * protagonist, so I'm not about to mess them about.
+     */
+    float frameInterval;
+    if (afk_core.detailAdjuster->getFrameInterval(frameInterval))
     {
-        /* Apply the current controls */
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_THRUST_RIGHT))
-            afk_core.velocity.v[0] += afk_core.config->thrustButtonSensitivity;
+            afk_core.velocity.v[0] += afk_core.config->thrustButtonSensitivity * frameInterval;
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_THRUST_LEFT))
-            afk_core.velocity.v[0] -= afk_core.config->thrustButtonSensitivity;
+            afk_core.velocity.v[0] -= afk_core.config->thrustButtonSensitivity * frameInterval;
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_THRUST_UP))
-            afk_core.velocity.v[1] += afk_core.config->thrustButtonSensitivity;
+            afk_core.velocity.v[1] += afk_core.config->thrustButtonSensitivity * frameInterval;
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_THRUST_DOWN))
-            afk_core.velocity.v[1] -= afk_core.config->thrustButtonSensitivity;
+            afk_core.velocity.v[1] -= afk_core.config->thrustButtonSensitivity * frameInterval;
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_THRUST_FORWARD))
-            afk_core.velocity.v[2] += afk_core.config->thrustButtonSensitivity;
+            afk_core.velocity.v[2] += afk_core.config->thrustButtonSensitivity * frameInterval;
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_THRUST_BACKWARD))
-            afk_core.velocity.v[2] -= afk_core.config->thrustButtonSensitivity;
-
+            afk_core.velocity.v[2] -= afk_core.config->thrustButtonSensitivity * frameInterval;
+        
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_PITCH_UP))
-            afk_core.axisDisplacement.v[0] -= afk_core.config->rotateButtonSensitivity;
+            afk_core.axisDisplacement.v[0] -= afk_core.config->rotateButtonSensitivity * frameInterval;
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_PITCH_DOWN))
-            afk_core.axisDisplacement.v[0] += afk_core.config->rotateButtonSensitivity;
+            afk_core.axisDisplacement.v[0] += afk_core.config->rotateButtonSensitivity * frameInterval;
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_YAW_RIGHT))
-            afk_core.axisDisplacement.v[1] -= afk_core.config->rotateButtonSensitivity;
+            afk_core.axisDisplacement.v[1] -= afk_core.config->rotateButtonSensitivity * frameInterval;
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_YAW_LEFT))
-            afk_core.axisDisplacement.v[1] += afk_core.config->rotateButtonSensitivity;
+            afk_core.axisDisplacement.v[1] += afk_core.config->rotateButtonSensitivity * frameInterval;
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_ROLL_RIGHT))
-            afk_core.axisDisplacement.v[2] -= afk_core.config->rotateButtonSensitivity;
+            afk_core.axisDisplacement.v[2] -= afk_core.config->rotateButtonSensitivity * frameInterval;
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_ROLL_LEFT))
-            afk_core.axisDisplacement.v[2] += afk_core.config->rotateButtonSensitivity;
-
-        afk_core.camera.driveAndUpdateProjection(afk_core.velocity, afk_core.axisDisplacement);
-
+            afk_core.axisDisplacement.v[2] += afk_core.config->rotateButtonSensitivity * frameInterval;
+        
+        afk_core.camera.driveAndUpdateProjection(
+            afk_core.velocity * frameInterval, afk_core.axisDisplacement);
+        
         /* Protagonist follow camera.  (To make it look more
          * natural, at some point I want a stretchy leash)
          */
-        afk_core.protagonist.object.drive(afk_core.velocity, afk_core.axisDisplacement);
-
+        afk_core.protagonist.object.drive(
+            afk_core.velocity * frameInterval, afk_core.axisDisplacement);
+        
         /* Swallow the axis displacement after it's been applied
          * so that I don't get a strange mouse acceleration effect
          */
         afk_core.axisDisplacement = afk_vec3<float>(0.0f, 0.0f, 0.0f);
-
+        
         /* Manage the other objects.
          * TODO A call-through to AI stuff probably goes here?
          */
+    }
 
+    if (!afk_core.computingUpdateDelayed)
+    {
         /* Update the world, deciding which bits of it I'm going
          * to draw.
          */
         afk_core.computingUpdate = afk_core.world->updateWorld(
-            afk_core.camera, afk_core.protagonist.object);
+            afk_core.camera, afk_core.protagonist.object, afk_core.detailAdjuster->getDetailPitch());
 
         /* Meanwhile, draw the previous frame */
         afk_display(afk_core.masterThreadId);
@@ -176,16 +192,20 @@ void afk_idle(void)
     afk_core.deleteGlGarbageBufs();
 
     /* Wait until it's about time to display the next frame. */
+#if 0
     afk_clock::time_point waitTime = afk_clock::now();
     afk_duration_mfl frameTimeTakenSoFar = std::chrono::duration_cast<afk_duration_mfl>(
-        waitTime - startOfFrameTime);
+        waitTime - afk_core.detailAdjuster->getStartOfFrameTime());
     float frameTimeLeft = FRAME_REFRESH_TIME_MILLIS - frameTimeTakenSoFar.count();
     std::future_status status = afk_core.computingUpdate.wait_for(afk_duration_mfl(frameTimeLeft));
+#endif
+    std::future_status status = afk_core.computingUpdate.wait_for(afk_core.detailAdjuster->getComputeWaitTime());
 
     switch (status)
     {
     case std::future_status::ready:
         {
+#if 0
             /* Work out how much time there is left on the clock */
             afk_clock::time_point afterWaitTime = afk_clock::now();
             afk_duration_mfl frameTimeTaken = std::chrono::duration_cast<afk_duration_mfl>(
@@ -193,6 +213,8 @@ void afk_idle(void)
             float timeLeftAfterFinish = FRAME_REFRESH_TIME_MILLIS - frameTimeTaken.count();
             afk_core.calibrationError -= timeLeftAfterFinish;
             afk_core.lastFrameTime = afterWaitTime;
+#endif
+            afk_core.detailAdjuster->computeFinished();
 
             /* Flip the buffers and bump the computing frame */
             afk_core.window->swapBuffers();
@@ -214,13 +236,16 @@ void afk_idle(void)
 
     case std::future_status::timeout:
         {
+#if 0
             /* Add the required amount of time to the calibration error */
             afk_core.calibrationError += frameTimeLeft;
+#endif
 
             /* Flag this update as delayed. */
             afk_core.computingUpdateDelayed = true;
-            ++afk_core.computeDelaysSinceLastCheckpoint;
+            //++afk_core.computeDelaysSinceLastCheckpoint;
 
+            afk_core.detailAdjuster->computeTimedOut();
             break;
         }
 
@@ -246,10 +271,7 @@ void AFK_Core::deleteGlGarbageBufs(void)
 
 AFK_Core::AFK_Core():
     computingUpdateDelayed(false),
-    computeDelaysSinceLastCheckpoint(0),
-    graphicsDelaysSinceLastCheckpoint(0),
-    graphicsDelaysSinceLastCalibration(0),
-    calibrationError(0),
+    detailAdjuster(nullptr),
     glGarbageBufs(1000),
     config(nullptr),
     computer(nullptr),
@@ -270,6 +292,7 @@ AFK_Core::~AFK_Core()
     if (rng) delete rng;
 
     if (computer) delete computer; /* Should close CL contexts */
+    if (detailAdjuster) delete detailAdjuster;
     if (window) delete window; /* Should close GL contexts */
     if (config) delete config;
 
@@ -341,6 +364,9 @@ void AFK_Core::loop(void)
     afk_testJigsaw(computer, config);
 #endif
 
+    /* I'll want this when I start running. */
+    detailAdjuster = new AFK_DetailAdjuster(config);
+
     /* Now that I've set that stuff up, find out how much memory
      * I have to play with ...
      */
@@ -379,13 +405,6 @@ void AFK_Core::loop(void)
     protagonist.object.drive(startingMovement, startingRotation);
     camera.driveAndUpdateProjection(startingMovement, startingRotation);
 
-    /* First checkpoint */
-    startOfFrameTime = lastFrameTime = lastCheckpoint = lastCalibration =
-        afk_clock::now();
-    computeDelaysSinceLastCheckpoint =
-        graphicsDelaysSinceLastCheckpoint =
-        graphicsDelaysSinceLastCalibration = 0;
-
     /* Branch the main thread into the window event handling loop. */
     window->loopOnEvents(
         afk_idle,
@@ -396,17 +415,12 @@ void AFK_Core::loop(void)
         afk_motion);
 }
 
-const afk_clock::time_point& AFK_Core::getStartOfFrameTime(void) const
-{
-    return startOfFrameTime;
-}
-
 void AFK_Core::occasionallyPrint(const std::string& message)
 {
     occasionalPrints << "AFK Frame " << renderingFrame.get() << ": " << message << std::endl;
 }
 
-void AFK_Core::checkpoint(afk_clock::time_point& now, bool definitely)
+void AFK_Core::checkpoint(const afk_clock::time_point& now, bool definitely)
 {
     afk_duration_mfl sinceLastCheckpoint = std::chrono::duration_cast<afk_duration_mfl>(
         now - lastCheckpoint);
@@ -419,15 +433,13 @@ void AFK_Core::checkpoint(afk_clock::time_point& now, bool definitely)
         std::cout << "AFK: Checkpoint" << std::endl;
         std::cout << "AFK: Since last checkpoint: " << std::dec << renderingFrame - frameAtLastCheckpoint << " frames";
         float fps = (float)(renderingFrame - frameAtLastCheckpoint) * 1000.0f / sinceLastCheckpoint.count();
-        std::cout << " (" << fps << " frames/second)";
-        std::cout << " (" << computeDelaysSinceLastCheckpoint * 100 / (renderingFrame - frameAtLastCheckpoint) << "\% compute delay, ";
-        std::cout << graphicsDelaysSinceLastCheckpoint * 100 / (renderingFrame - frameAtLastCheckpoint) << "\% graphics delay)" << std::endl;
+        std::cout << " (" << fps << " frames/second)" << std::endl;
 
-        frameAtLastCheckpoint = renderingFrame;
-        computeDelaysSinceLastCheckpoint = 0;
-        graphicsDelaysSinceLastCheckpoint = 0;
+        assert(detailAdjuster);
+        detailAdjuster->checkpoint(sinceLastCheckpoint);
 
-        if (world) world->checkpoint(sinceLastCheckpoint);
+        assert(world);
+        world->checkpoint(sinceLastCheckpoint);
 
         /* BODGE. This can cause a SIGSEGV when we do the final print upon
          * catching an exception, it looks like the destructors are
@@ -440,6 +452,8 @@ void AFK_Core::checkpoint(afk_clock::time_point& now, bool definitely)
         }
 
         std::cout << occasionalPrints.str();
+
+        frameAtLastCheckpoint = renderingFrame;
     }
 
     occasionalPrints.str(std::string());

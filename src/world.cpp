@@ -492,8 +492,6 @@ AFK_World::AFK_World(
     AFK_RNG *setupRng):
         startingDetailPitch         (config->startingDetailPitch),
         maxDetailPitch              (config->maxDetailPitch),
-        detailPitch                 (config->startingDetailPitch), /* This is a starting point */
-        averageDetailPitch          (config->framesPerCalibration, config->startingDetailPitch),
         shape                       (config, threadAlloc, shapeCacheSize),
         entityFair2DIndex           (AFK_MAX_VAPOUR),
         maxDistance                 (_maxDistance),
@@ -780,6 +778,7 @@ void AFK_World::flipRenderQueues(const AFK_Frame& newFrame)
     edgeJigsaws->flip(newFrame);
 }
 
+#if 0
 void AFK_World::alterDetail(float adjustment)
 {
     float adj = std::max(std::min(adjustment, 1.2f), 0.85f);
@@ -794,6 +793,7 @@ float AFK_World::getLandscapeDetailPitch(void) const
 {
     return averageDetailPitch.get();
 }
+#endif
 
 float AFK_World::getEntityDetailPitch(float landscapeDetailPitch) const
 {
@@ -801,7 +801,10 @@ float AFK_World::getEntityDetailPitch(float landscapeDetailPitch) const
         (float)sSizes.pointSubdivisionFactor / (float)lSizes.pointSubdivisionFactor;
 }
 
-std::future<bool> AFK_World::updateWorld(const AFK_Camera& camera, const AFK_Object& protagonistObj)
+std::future<bool> AFK_World::updateWorld(
+    const AFK_Camera& camera,
+    const AFK_Object& protagonistObj,
+    float detailPitch)
 {
     /* Maintenance. */
     landscapeCache->doEvictionIfNecessary();
@@ -854,7 +857,7 @@ std::future<bool> AFK_World::updateWorld(const AFK_Camera& camera, const AFK_Obj
     struct AFK_WorldWorkThreadLocal threadLocal;
     threadLocal.camera = camera;
     threadLocal.viewerLocation = protagonistLocation;
-    threadLocal.detailPitch = getLandscapeDetailPitch();
+    threadLocal.detailPitch = detailPitch;
 
     return genGang->start(threadLocal);
 }
@@ -1016,7 +1019,6 @@ static float toRatePerSecond(uint64_t quantity, const afk_duration_mfl& interval
 void AFK_World::checkpoint(afk_duration_mfl& timeSinceLastCheckpoint)
 {
 #if PRINT_CHECKPOINTS
-    std::cout << "Detail pitch:                 " << detailPitch << std::endl;
     PRINT_RATE_AND_RESET("Cells found invisible:        ", cellsInvisible)
     PRINT_RATE_AND_RESET("Cells resumed:                ", cellsResumed)
     PRINT_RATE_AND_RESET("Tiles queued:                 ", tilesQueued)

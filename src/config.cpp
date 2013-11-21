@@ -92,7 +92,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     zFar        = (float)(1 << 20);
 
     rotateButtonSensitivity     = 0.01f;
-    thrustButtonSensitivity     = 0.01f;
+    thrustButtonSensitivity     = 0.001f;
     mouseAxisSensitivity        = 0.001f;
     axisInversionMap = 0uLL;
     AFK_SET_BIT(axisInversionMap, CTRL_AXIS_PITCH);
