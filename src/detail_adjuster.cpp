@@ -138,10 +138,12 @@ void AFK_DetailAdjuster::computeFinished(void)
 
     /* Push the time left before the end of this frame into
      * the "deviation" figure.
-     * TODO: I'm going to need logic that's a bit different
-     * (probably simpler -- just use lastFrameTime?) in the
-     * non-vsync case.  But I don't appear to be able to    
-     * turn vsync off, even fullscreen, right now? :(
+     * This logic works remarkably well with vsync on or off,
+     * target frame times matching or not matching the vsync,
+     * etc.  Wow!
+     * (To get vsync actually switched off on nvidia, use
+     * nvidia-settings, "X Screen <number>" -> "OpenGL Settings"
+     * -> "Sync to VBlank".)
      */
     afk_duration_mfl lastFrameComputeTime = std::chrono::duration_cast<afk_duration_mfl>(
         lastComputeFinish - lastStartOfFrame);
