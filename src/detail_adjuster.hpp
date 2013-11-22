@@ -22,6 +22,7 @@
 
 #include "clock.hpp"
 #include "config.hpp"
+#include "data/moving_average.hpp"
 
 /* This module is a new place to implement AFK's dynamic detail
  * adjustment system.
@@ -53,6 +54,14 @@ protected:
     /* The target frame rate. */
     const float xTarget;
 
+    /* Keep this flag.
+     * TODO: Effective vsync forcing in windowed mode?
+     */
+    const bool vsync;
+
+    const float detailPitchMax;
+    const float detailPitchMin;
+
     /* The current sequence of times we're tracking. */
     afk_clock::time_point lastStartOfFrame;
     afk_clock::time_point lastComputeWait;
@@ -80,6 +89,13 @@ protected:
 
     /* Again; this is tweakable, I think */
     const float m = 1.0f;
+
+    /* TODO: Retro-fitting averaged detail adjustment code,
+     * in the hope that the above stuff might give me some
+     * insight into how to stabilise it
+     */
+    AFK_MovingAverage<float> deviation;
+    AFK_MovingAverage<float> consistency; /* This gets a 0 when a frame is dropped, otherwise a 1 */
 
 public:
     AFK_DetailAdjuster(const AFK_Config *config);

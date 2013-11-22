@@ -22,6 +22,7 @@
 #include <cmath>
 #include <iostream>
 
+#include "debug.hpp"
 #include "detail_adjuster.hpp"
 
 
@@ -42,11 +43,16 @@ AFK_DetailAdjuster::AFK_DetailAdjuster(const AFK_Config *config):
     frameTimeTarget(config->targetFrameTimeMillis),
     wiggle(0.9f),
     xTarget(1.0f / config->targetFrameTimeMillis),
+    vsync(config->vsync),
+    detailPitchMax(config->maxDetailPitch),
+    detailPitchMin(config->minDetailPitch),
     haveFirstMeasurement(false),
     haveLastFrameTime(false),
     lastV(-FLT_MAX),
     detailPitch(config->startingDetailPitch),
-    k(kFromDetailPitch(config->startingDetailPitch))
+    k(kFromDetailPitch(config->startingDetailPitch)),
+    deviation(config->framesPerCalibration, 0.0f),
+    consistency(config->framesPerCalibration, 1.0f)
 {
 }
 
@@ -86,6 +92,7 @@ void AFK_DetailAdjuster::startOfFrame(void)
          */
         k = (c * c) / (4.0f * m);
 
+#if 0
         /* The above isn't doing anything like what I hoped,
          * although that's not surprising, because I was
          * fumbling in the dark.
@@ -109,6 +116,16 @@ void AFK_DetailAdjuster::startOfFrame(void)
          * create a switchable overlay to print my checkpoint
          * messages so I can see them fullscreen?)
          */
+#endif
+        /* TODO: With non-vsync, deal with lastFrameTime as a
+         * whole
+         */
+
+        /* Now, adjust the detail pitch to match... */
+        float boundedError = std::max(std::min(deviation.get() / 240.0f, 1.0f), -1.0f);
+        float detailFactor = -(1.0f / (boundedError / 2.0f - 1.0f)); /* between 0.5 and 2 */
+        //AFK_DEBUG_PRINTL("Detail factor: " << detailFactor)
+        detailPitch = std::max(std::min(detailPitch * detailFactor, detailPitchMax), detailPitchMin);
     }
 
     lastStartOfFrame = startOfFrame;
@@ -118,11 +135,26 @@ void AFK_DetailAdjuster::startOfFrame(void)
 void AFK_DetailAdjuster::computeFinished(void)
 {
     lastComputeFinish = afk_clock::now();
+
+    /* Push the time left before the end of this frame into
+     * the "deviation" figure.
+     * TODO: I'm going to need logic that's a bit different
+     * (probably simpler -- just use lastFrameTime?) in the
+     * non-vsync case.  But I don't appear to be able to    
+     * turn vsync off, even fullscreen, right now? :(
+     */
+    afk_duration_mfl lastFrameComputeTime = std::chrono::duration_cast<afk_duration_mfl>(
+        lastComputeFinish - lastStartOfFrame);
+    deviation.push(lastFrameComputeTime.count() - frameTimeTarget);
+    consistency.push(1.0f);
 }
 
 void AFK_DetailAdjuster::computeTimedOut(void)
 {
-    /* TODO ? */
+    afk_duration_mfl timeoutTime = std::chrono::duration_cast<afk_duration_mfl>(
+        afk_clock::now() - lastStartOfFrame);
+    deviation.push(timeoutTime.count());
+    consistency.push(0.0f);
 }
 
 const afk_clock::time_point AFK_DetailAdjuster::getStartOfFrameTime(void) const
@@ -168,6 +200,7 @@ void AFK_DetailAdjuster::checkpoint(const afk_duration_mfl& sinceLastCheckpoint)
 {
     std::cout << "AFK Detail Adjuster: x=" << x << ", v=" << v << ", a=" << a << std::endl;
     std::cout << "AFK Detail Adjuster: k=" << k << ", c=" << c << ", m=" << m << std::endl;
+    std::cout << "AFK Detail Adjuster: deviation=" << deviation.get() << ", consistency=" << consistency.get() << std::endl;
     std::cout << "AFK Detail Adjuster: detail pitch: " << getDetailPitch() << std::endl;
 }
 

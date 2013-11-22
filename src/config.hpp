@@ -112,6 +112,7 @@ public:
     /* World setup */
     float startingDetailPitch;
     float maxDetailPitch;
+    float minDetailPitch;
     float minCellSize;
     unsigned int subdivisionFactor;
     unsigned int entitySubdivisionFactor;

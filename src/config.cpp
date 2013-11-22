@@ -120,7 +120,8 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     jigsawUsageFactor           = 0.5f;
 
     startingDetailPitch         = 512.0f;
-    maxDetailPitch              = 4096.0f;
+    maxDetailPitch              = 1536.0f;
+    minDetailPitch              = 64.0f;
     minCellSize                 = 1.0f;
     subdivisionFactor           = 2;
     entitySubdivisionFactor     = 4;
@@ -230,6 +231,11 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         {
             REQUIRE_ARGUMENT("--max-detail-pitch")
             maxDetailPitch = strtof(argv[argi], NULL);
+        }
+        else if (strcmp(argv[argi], "--min-detail-pitch") == 0)
+        {
+            REQUIRE_ARGUMENT("--min-detail-pitch")
+            minDetailPitch = strtof(argv[argi], NULL);
         }
         else if (strcmp(argv[argi], "--min-cell-size") == 0)
         {
