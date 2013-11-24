@@ -26,22 +26,17 @@
 
 /* This module is a new place to implement AFK's dynamic detail
  * adjustment system.
- * 
- * Thought: Can I use critical damping of springs as a model?
- * e.g. http://hyperphysics.phy-astr.gsu.edu/hbase/oscda.html
- * `x' is the difference between the measured frame time and the
- * target (e.g. 16ms)
- * `v' is the rate of change of frame time
- * `a' is the rate of change of that rate of change :P
- * `c', `k' and `m' are constants of the model (try to arrange for
- * c*c-4mk=0)
- * The question is: what do I adjust in order to get good
- * behaviour?  What does the detail pitch represent?  Since that's
- * the thing that needs to keep changing...
  *
- * Also consider the behaviour of suspension systems, where the
- * detail pitch might be the road surface (similar?  closer
- * analogy?)
+ * I was going to try to do something complicated involving a
+ * model of a damped spring system to fix the oscillation I saw
+ * with the old detail pitch model; however, with some tweaking and
+ * updates every frame here, I find the oscillation is gone anyway.
+ * So no extra complexity.
+ *
+ * The detail pitch adjuster is a compromise between getting close
+ * to the frame time target, and getting close to no flicker or
+ * distracting random detail changes.  I don't think it's possible
+ * to get perfect both.
  */
 
 class AFK_DetailAdjuster
@@ -51,19 +46,18 @@ protected:
     const float frameTimeTarget;
     const float wiggle;
 
-    /* The target frame rate. */
-    const float xTarget;
-
-    /* Keep this flag.
-     * TODO: Effective vsync forcing in windowed mode?
-     */
-    const bool vsync;
-
     const float detailPitchMax;
     const float detailPitchMin;
 
-    /* This affects how coarsely we round the detail pitch. */
-    const float detailPitchStepSmall;
+    /* This divides out the deviation figure to create an error
+     * value.
+     */
+    const float errorPerDeviation;
+
+    /* This value determines the detail pitch sticky threshold
+     * by the log of the detail pitch.
+     */
+    const float stickiness;
 
     /* The current sequence of times we're tracking. */
     afk_clock::time_point lastStartOfFrame;
@@ -75,32 +69,11 @@ protected:
     afk_duration_mfl lastFrameTime;
     bool haveLastFrameTime;
 
-    /* Instantaneous measurements of frame rate deviation, and its first and
-     * second order derivatives (rate of change == "speed", rate of
-     * change of change == "acceleration").
-     * These numbers are in units of 1/milliseconds
-     */
-    float x, v, a;
-    float lastV; /* -FLT_MAX for "no measurement yet" */
-
-    /* ... TODO ... */
-
     float detailPitch;
     float lastDetailPitch;
     float logLastDetailPitch;
 
-    /* Here are my variables for the damping formula */
-    float k, c;
-
-    /* Again; this is tweakable, I think */
-    const float m = 1.0f;
-
-    /* TODO: Retro-fitting averaged detail adjustment code,
-     * in the hope that the above stuff might give me some
-     * insight into how to stabilise it
-     */
     AFK_MovingAverage<float> deviation;
-    AFK_MovingAverage<float> consistency; /* This gets a 0 when a frame is dropped, otherwise a 1 */
 
 public:
     AFK_DetailAdjuster(const AFK_Config *config);

@@ -54,70 +54,7 @@ void afk_displayInit(void)
 void afk_idle(void)
 {
     afk_core.detailAdjuster->startOfFrame();
-#if 0
-    afk_clock::time_point startOfFrameTime = afk_clock::now();
-
-    /* If we just took less than FRAME_REFRESH_TIME for the entire
-     * cycle, we're showing too little detail if we're not on a
-     * Vsync system.
-     */
-    afk_duration_mfl wholeFrameTime = std::chrono::duration_cast<afk_duration_mfl>(
-        startOfFrameTime - afk_core.startOfFrameTime);
-    if (!afk_core.config->vsync && wholeFrameTime.count() < FRAME_REFRESH_TIME_MILLIS)
-    {
-        afk_core.calibrationError -= (FRAME_REFRESH_TIME_MILLIS - wholeFrameTime.count());
-    }
-    else
-    {
-        /* Work out what the graphics delay was. */
-        afk_duration_mfl bufferFlipTime = std::chrono::duration_cast<afk_duration_mfl>(
-            startOfFrameTime - afk_core.lastFrameTime);
-
-        /* If it's been dropping frames, there will be more than a whole
-         * number of `targetFrameTimeMicros' here.
-         */
-        float framesDropped = std::floor(bufferFlipTime.count() / afk_core.config->targetFrameTimeMillis);
-        afk_core.graphicsDelaysSinceLastCheckpoint += framesDropped;
-        afk_core.graphicsDelaysSinceLastCalibration += framesDropped;
-    
-        /* I'm going to tolerate one random graphics delay per calibration
-         * point.  Glitches happen.
-         */
-        if (afk_core.graphicsDelaysSinceLastCalibration > 1)
-        {
-            afk_core.calibrationError += afk_core.config->targetFrameTimeMillis * framesDropped;
-        }
-    }
-
-    afk_core.startOfFrameTime = startOfFrameTime;
-#endif
-
     afk_core.checkpoint(afk_core.detailAdjuster->getStartOfFrameTime(), false);
-
-#if 0
-    /* Check whether I need to recalibrate. */
-    /* TODO Make the time between calibrations configurable */
-    afk_duration_mfl sinceLastCalibration = std::chrono::duration_cast<afk_duration_mfl>(
-        startOfFrameTime - afk_core.lastCalibration);
-    if (sinceLastCalibration.count() > CALIBRATION_INTERVAL_MILLIS)
-    {
-        /* Work out an error factor, and apply it to the LoD */
-        float normalisedError = afk_core.calibrationError / CALIBRATION_INTERVAL_MILLIS; /* between -1 and 1? */
-
-        /* Cap the normalised error: occasionally the graphics can
-         * hang for ages and produce a spurious value which would
-         * otherwise result in a negative detail factor, making us
-         * crash
-         */
-        normalisedError = 0.5f * std::max(std::min(normalisedError, 1.0f), -1.0f);
-        float detailFactor = -(1.0f / (normalisedError / 2.0f - 1.0f)); /* between 0.5 and 2? */
-        afk_core.world->alterDetail(detailFactor);
-
-        afk_core.lastCalibration = startOfFrameTime;
-        afk_core.calibrationError = 0.0f;
-        afk_core.graphicsDelaysSinceLastCalibration = 0;
-    }
-#endif
 
     /* Always update the controls: I think that things ought
      * to feel smoother if they continue registering movement
@@ -192,28 +129,12 @@ void afk_idle(void)
     afk_core.deleteGlGarbageBufs();
 
     /* Wait until it's about time to display the next frame. */
-#if 0
-    afk_clock::time_point waitTime = afk_clock::now();
-    afk_duration_mfl frameTimeTakenSoFar = std::chrono::duration_cast<afk_duration_mfl>(
-        waitTime - afk_core.detailAdjuster->getStartOfFrameTime());
-    float frameTimeLeft = FRAME_REFRESH_TIME_MILLIS - frameTimeTakenSoFar.count();
-    std::future_status status = afk_core.computingUpdate.wait_for(afk_duration_mfl(frameTimeLeft));
-#endif
     std::future_status status = afk_core.computingUpdate.wait_for(afk_core.detailAdjuster->getComputeWaitTime());
 
     switch (status)
     {
     case std::future_status::ready:
         {
-#if 0
-            /* Work out how much time there is left on the clock */
-            afk_clock::time_point afterWaitTime = afk_clock::now();
-            afk_duration_mfl frameTimeTaken = std::chrono::duration_cast<afk_duration_mfl>(
-                afterWaitTime - startOfFrameTime);
-            float timeLeftAfterFinish = FRAME_REFRESH_TIME_MILLIS - frameTimeTaken.count();
-            afk_core.calibrationError -= timeLeftAfterFinish;
-            afk_core.lastFrameTime = afterWaitTime;
-#endif
             afk_core.detailAdjuster->computeFinished();
 
             /* Flip the buffers and bump the computing frame */
@@ -236,15 +157,8 @@ void afk_idle(void)
 
     case std::future_status::timeout:
         {
-#if 0
-            /* Add the required amount of time to the calibration error */
-            afk_core.calibrationError += frameTimeLeft;
-#endif
-
             /* Flag this update as delayed. */
             afk_core.computingUpdateDelayed = true;
-            //++afk_core.computeDelaysSinceLastCheckpoint;
-
             afk_core.detailAdjuster->computeTimedOut();
             break;
         }

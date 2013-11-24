@@ -66,21 +66,7 @@ protected:
      */
     std::future<bool> computingUpdate;
     bool computingUpdateDelayed;
-    //unsigned int computeDelaysSinceLastCheckpoint;
-    //unsigned int graphicsDelaysSinceLastCheckpoint;
 
-    //afk_clock::time_point startOfFrameTime;
-    //afk_clock::time_point lastFrameTime;
-    //afk_clock::time_point lastCalibration;
-    //unsigned int graphicsDelaysSinceLastCalibration;
-
-    /* The calibration error is the number of milliseconds away
-     * I was from filling all the frame time with calculation.
-     * Negative means I finished early, positive means late.
-     */
-    //float calibrationError;
-
-    /* Replacing the above timing stuff, WIP: */
     AFK_DetailAdjuster *detailAdjuster;
 
     /* This stuff is for the OpenGL buffer cleanup, glBuffersForDeletion()
