@@ -195,7 +195,25 @@ float AFK_DetailAdjuster::getDetailPitch(void) const
      * make sure the code infrastructure changes are OK.
      */
     //return 512.0f; //detailPitchFromK(k);
-    return detailPitch;
+
+    /* Let's try rounding that detail pitch to the nearest
+     * ln(detailPitch) - something...
+     * ...TODO: Okay, so it's doing the kind of thing that I'd
+     * like, but it's hard to tell how good this is on the optimus
+     * system (flicker -- probably need triple buffering to fix?).
+     * Try this on a system that doesn't have screwed up display output.
+     * This may produce a regular interval oscillation artifact: if so,
+     * consider changing the logarithm base at random intervals
+     * (which ought to shuffle the rounding steps about without
+     * significantly changing the step size).
+     * Also, that `3' should become a `detailPitchStepSmallness' or
+     * something in config.
+     */
+    float roundTo = std::max(std::floor(log(detailPitch)) - 3, 1.0);
+    float roundDP = std::floor(detailPitch / exp(roundTo)) * exp(roundTo);
+    AFK_DEBUG_PRINTL("detail pitch " << detailPitch << " -> " << roundDP)
+    return roundDP;
+    //return detailPitch;
 }
 
 void AFK_DetailAdjuster::checkpoint(const afk_duration_mfl& sinceLastCheckpoint)
