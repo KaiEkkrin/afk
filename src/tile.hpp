@@ -34,6 +34,7 @@ public:
     Vec3<int64_t> coord;
 
     bool operator==(const AFK_Tile& _tile) const;
+    bool operator==(const AFK_Tile& _tile) const volatile;
     bool operator!=(const AFK_Tile& _tile) const;
 
     AFK_RNG_Value rngSeed() const;

@@ -125,51 +125,14 @@ void afk_returnShared(const T *mine, volatile T *shared) noexcept
     }
 }
 
-template<typename T, typename I>
-bool afk_equalsSharedIntegral(const volatile T *mine, const T *other, size_t& offset) noexcept
-{
-    bool equals = (*(reinterpret_cast<const volatile I*>(mine) + offset / sizeof(I)) ==
-        *(reinterpret_cast<const I*>(other) + offset / sizeof(I)));
-    offset += sizeof(I);
-    return equals;
-}
-
 template<typename T>
-bool afk_equalsShared(const volatile T *mine, const T *other) noexcept
-{
-    bool equals = true;
-    size_t offset = 0;
-    while (equals && offset < sizeof(T))
-    {
-        switch (sizeof(T) - offset)
-        {
-        case 1:
-            equals &= afk_equalsSharedIntegral<T, uint8_t>(mine, other, offset);
-            break;
-
-        case 2: case 3:
-            equals &= afk_equalsSharedIntegral<T, uint16_t>(mine, other, offset);
-            break;
-
-        case 4: case 5: case 6: case 7:
-            equals &= afk_equalsSharedIntegral<T, uint32_t>(mine, other, offset);
-            break;
-
-        default:
-            equals &= afk_equalsSharedIntegral<T, uint64_t>(mine, other, offset);
-            break;
-        }
-    }
-
-    return equals;   
-}
-
+class AFK_Claim;
 
 template<typename T>
 class AFK_Claimable;
 
 template<typename T>
-class AFK_Claim
+class AFK_InplaceClaim
 {
 protected:
     unsigned int threadId; /* TODO change all thread IDs to 64-bit */
@@ -177,21 +140,23 @@ protected:
     bool shared;
     bool released;
 
-    T obj;
+    /* I need to be able to make a "blank", for the benefit of
+     * Claim below.
+     */
+    AFK_InplaceClaim() noexcept: released(true) {}
 
-    AFK_Claim(unsigned int _threadId, AFK_Claimable<T> *_claimable, bool _shared) noexcept:
+    AFK_InplaceClaim(unsigned int _threadId, AFK_Claimable<T> *_claimable, bool _shared) noexcept:
         threadId(_threadId), claimable(_claimable), shared(_shared), released(false)
     {
         boost::atomic_thread_fence(boost::memory_order_seq_cst);
-        afk_grabShared<T>(&obj, claimable->objPtr());
     }
 
 public:
     /* No reference counting is performed, so I must never copy a
      * claim around
      */
-    AFK_Claim(const AFK_Claim& _c) = delete;
-    AFK_Claim& operator=(const AFK_Claim& _c) = delete;
+    AFK_InplaceClaim(const AFK_InplaceClaim& _c) = delete;
+    AFK_InplaceClaim& operator=(const AFK_InplaceClaim& _c) = delete;
 
     /* I need a move constructor in order to return a claim from
      * the claimable's claim method.  (Although for whatever
@@ -200,49 +165,48 @@ public:
      * Hmm.
      * ...I wonder how prone to creating bugs this might be...
      */ 
-    AFK_Claim(AFK_Claim&& _claim) noexcept:
-        threadId(_claim.threadId), claimable(_claim.claimable), shared(_claim.shared), released(_claim.released),
-        obj(_claim.obj)
+    AFK_InplaceClaim(AFK_InplaceClaim&& _claim) noexcept:
+        threadId(_claim.threadId), claimable(_claim.claimable), shared(_claim.shared), released(_claim.released)
     {
-        AFK_DEBUG_PRINTL_CLAIMABLE("copy moving claim for " << std::hex << claimable << ": " << obj)
+        AFK_DEBUG_PRINTL_CLAIMABLE("copy moving inplace claim for " << std::hex << claimable << ": " << obj)
         _claim.released = true;
     }
 
     /* ...likewise... */
-    AFK_Claim& operator=(AFK_Claim&& _claim) noexcept
+    AFK_InplaceClaim& operator=(AFK_InplaceClaim&& _claim) noexcept
     {
-        AFK_DEBUG_PRINTL_CLAIMABLE("assign moving claim for " << std::hex << claimable << ": " << obj)
+        AFK_DEBUG_PRINTL_CLAIMABLE("assign moving inplace claim for " << std::hex << claimable << ": " << obj)
 
         threadId        = _claim.threadId;
         claimable       = _claim.claimable;
         shared          = _claim.shared;
         released        = _claim.released;
-        obj             = _claim.obj;
         _claim.released = true;
         return *this;
     }
 
-    virtual ~AFK_Claim() noexcept
+    virtual ~AFK_InplaceClaim() noexcept
     {
-        AFK_DEBUG_PRINTL_CLAIMABLE("destructing claim for " << std::hex << claimable << ": " << obj << "(released: " << released << ")")
+        AFK_DEBUG_PRINTL_CLAIMABLE("destructing inplace claim for " << std::hex << claimable << ": " << obj << "(released: " << released << ")")
         if (!released) release();
-     }
-
-    const T& getShared(void) const noexcept
-    {
-        assert(!released);
-        return obj;
     }
 
-    T& get(void) noexcept
+    const volatile T& getShared(void) const noexcept
+    {
+        assert(!released);
+        return claimable->obj;
+    }
+
+    volatile T& get(void) noexcept
     {
         assert(!shared);
         assert(!released);
-        return obj;
+        return claimable->obj;
     }
 
     bool upgrade(void) noexcept
     {
+        assert(!released);
         if (!shared) return true;
 
         if (claimable->tryUpgradeShared(threadId))
@@ -263,7 +227,6 @@ public:
         }
         else
         {
-            afk_returnShared<T>(&obj, claimable->objPtr());
             boost::atomic_thread_fence(boost::memory_order_seq_cst);
             claimable->release(threadId);
         }
@@ -280,6 +243,126 @@ public:
         if (shared) claimable->releaseShared(threadId);
         else claimable->release(threadId);
         released = true;
+    }
+
+    friend class AFK_Claim<T>;
+    friend class AFK_Claimable<T>;
+};
+
+template<typename T>
+class AFK_Claim
+{
+protected:
+    AFK_InplaceClaim<T> inplace;
+    T obj;
+
+    AFK_Claim(unsigned int _threadId, AFK_Claimable<T> *_claimable, bool _shared) noexcept:
+        inplace(_threadId, _claimable, _shared)
+    {
+        afk_grabShared<T>(&obj, inplace.claimable->objPtr());
+    }
+
+public:
+    /* I can make a Claim out of an inplace one (which invalidates
+     * the inplace one).
+     */
+    AFK_Claim(AFK_InplaceClaim<T>& _inplace) noexcept
+    {
+        inplace.threadId    = _inplace.threadId;
+        inplace.claimable   = _inplace.claimable;
+        inplace.shared      = _inplace.shared;
+        inplace.released    = _inplace.released;
+
+        if (!_inplace.released)
+        {
+            afk_grabShared<T>(&obj, inplace.claimable->objPtr());
+
+            /* Flag the old inplace claim as released.  It will be
+             * unusable now!
+             */
+            _inplace.released = true;        
+        }
+    }
+
+    /* No reference counting is performed, so I must never copy a
+     * claim around
+     */
+    AFK_Claim(const AFK_Claim& _c) = delete;
+    AFK_Claim& operator=(const AFK_Claim& _c) = delete;
+
+    /* I need a move constructor in order to return a claim from
+     * the claimable's claim method.  (Although for whatever
+     * reason, this and the move assign don't seem to get called
+     * when acquiring world cell and landscape tile claims.
+     * Hmm.
+     * ...I wonder how prone to creating bugs this might be...
+     */ 
+    AFK_Claim(AFK_Claim&& _claim) noexcept
+    {
+        AFK_DEBUG_PRINTL_CLAIMABLE("copy moving claim for " << std::hex << claimable << ": " << obj)
+
+        inplace.threadId    = _claim.inplace.threadId;
+        inplace.claimable   = _claim.inplace.claimable;
+        inplace.shared      = _claim.inplace.shared;
+        inplace.released    = _claim.inplace.released;
+        if (!inplace.released) obj = _claim.obj;
+        _claim.inplace.released = true;
+    }
+
+    /* ...likewise... */
+    AFK_Claim& operator=(AFK_Claim&& _claim) noexcept
+    {
+        AFK_DEBUG_PRINTL_CLAIMABLE("assign moving claim for " << std::hex << claimable << ": " << obj)
+
+        inplace.threadId    = _claim.inplace.threadId;
+        inplace.claimable   = _claim.inplace.claimable;
+        inplace.shared      = _claim.inplace.shared;
+        inplace.released    = _claim.inplace.released;
+        if (!inplace.released) obj = _claim.obj;
+        _claim.inplace.released = true;
+        return *this;
+    }
+
+    virtual ~AFK_Claim() noexcept
+    {
+        AFK_DEBUG_PRINTL_CLAIMABLE("destructing claim for " << std::hex << claimable << ": " << obj << "(released: " << released << ")")
+        if (!inplace.released) release();
+    }
+
+    const T& getShared(void) const noexcept
+    {
+        assert(!inplace.released);
+        return obj;
+    }
+
+    T& get(void) noexcept
+    {
+        assert(!inplace.shared);
+        assert(!inplace.released);
+        return obj;
+    }
+
+    bool upgrade(void) noexcept
+    {
+        return inplace.upgrade();
+    }
+
+    void release(void) noexcept
+    {
+        if (!inplace.released && !inplace.shared)
+        {
+            afk_returnShared<T>(&obj, inplace.claimable->objPtr());
+        }
+
+        inplace.release();
+    }
+
+    /* This function releases the claim without swapping the object
+     * back, discarding any changes.
+     */
+    void invalidate(void) noexcept
+    {
+        inplace.invalidate();
     }
 
     friend class AFK_Claimable<T>;
@@ -406,6 +489,12 @@ public:
         return AFK_Claim<T>(threadId, this, flags & AFK_CL_SHARED);
     }
 
+    /* As above, but returns an inplace claim. */
+    AFK_InplaceClaim<T> getInplaceClaimable(unsigned int threadId, unsigned int flags) noexcept
+    {
+        return AFK_InplaceClaim<T>(threadId, this, flags & AFK_CL_SHARED);
+    }
+
     /* Gets you a claim of the desired type.
      * The `exclusive' flag causes the `lastSeenExclusively'
      * field to be incremented if it's not already equal to
@@ -419,24 +508,15 @@ public:
         return getClaimable(threadId, flags);
     }
 
-    /* This is a shortcut that avoids making AFK_Claim objects.
-     */
-    bool match(unsigned int threadId, const T& other) noexcept
+    /* As above, but gets an inplace claim. */
+    AFK_InplaceClaim<T> claimInplace(unsigned int threadId, unsigned int flags)
     {
-        bool equals = false;
-        bool claimed = claimInternal(threadId, AFK_CL_SHARED);
-
-        if (claimed)
-        {
-            boost::atomic_thread_fence(boost::memory_order_seq_cst);
-            equals = afk_equalsShared<T>(&obj, &other);
-            boost::atomic_thread_fence(boost::memory_order_seq_cst);
-            releaseShared(threadId);
-        }
-
-        return equals;
+        bool claimed = claimInternal(threadId, flags);
+        if (!claimed) throw AFK_ClaimException();
+        return getInplaceClaimable(threadId, flags);
     }
 
+    friend class AFK_InplaceClaim<T>;
     friend class AFK_Claim<T>;
 
     template<typename _T>
@@ -463,6 +543,33 @@ protected:
     boost::atomic_uint_fast64_t lastSeen;
     boost::atomic_uint_fast64_t lastSeenExclusively;
 
+    /* This utility method verifies that it's okay to claim ths object,
+     * based on the last seen fields and the given flags.
+     */
+    bool watch(unsigned int flags) noexcept
+    {
+        int64_t computingFrameNum = getComputingFrame().get();
+
+        /* Help the evictor out a little */
+        if (flags & AFK_CL_EVICTOR)
+        {
+            assert(!(flags & AFK_CL_SHARED));
+            if (lastSeen.load() == computingFrameNum) return false;
+        }
+        else
+        {
+            lastSeen.store(computingFrameNum);
+        
+            if (flags & AFK_CL_EXCLUSIVE)
+            {
+                assert(!(flags & AFK_CL_SHARED));
+                if (lastSeenExclusively.exchange(computingFrameNum) == computingFrameNum) return false;
+            }
+        }
+
+        return true;
+    }
+
 public:
     AFK_WatchedClaimable(): claimable(), lastSeen(-1), lastSeenExclusively(-1) {}
 
@@ -484,35 +591,26 @@ public:
     {
         bool claimed = claimable.claimInternal(threadId, flags);
         if (!claimed) throw AFK_ClaimException();
-
-        int64_t computingFrameNum = getComputingFrame().get();
-
-        /* Help the evictor out a little */
-        if (flags & AFK_CL_EVICTOR)
+        if (!watch(flags))
         {
-            assert(!(flags & AFK_CL_SHARED));
-            if (lastSeen.load() == computingFrameNum)
-            {
-                claimable.release(threadId);
-                throw AFK_ClaimException();
-            }
-        }
-        else
-        {
-            lastSeen.store(computingFrameNum);
-        
-            if (flags & AFK_CL_EXCLUSIVE)
-            {
-                assert(!(flags & AFK_CL_SHARED));
-                if (lastSeenExclusively.exchange(computingFrameNum) == computingFrameNum)
-                {
-                    claimable.release(threadId);
-                    throw AFK_ClaimException();
-                }
-            }
+            claimable.release(threadId);
+            throw AFK_ClaimException();
         }
 
         return claimable.getClaimable(threadId, flags);
+    }
+
+    AFK_InplaceClaim<T> claimInplace(unsigned int threadId, unsigned int flags)
+    {
+        bool claimed = claimable.claimInternal(threadId, flags);
+        if (!claimed) throw AFK_ClaimException();
+        if (!watch(flags))
+        {
+            claimable.release(threadId);
+            throw AFK_ClaimException();
+        }
+
+        return claimable.getInplaceClaimable(threadId, flags);
     }
 
     int64_t getLastSeen(void) const { return lastSeen.load(); }

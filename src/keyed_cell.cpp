@@ -27,6 +27,11 @@ bool AFK_KeyedCell::operator==(const AFK_KeyedCell& _cell) const
     return (c == _cell.c && key == _cell.key);
 }
 
+bool AFK_KeyedCell::operator==(const AFK_KeyedCell& _cell) const volatile
+{
+    return (c == _cell.c && key == _cell.key);
+}
+
 bool AFK_KeyedCell::operator!=(const AFK_KeyedCell& _cell) const
 {
     return (c != _cell.c || key != _cell.key);

@@ -49,7 +49,7 @@ class AFK_PolymerOutOfRange: public std::exception {};
  * have had a hash conflict.
  *
  * Requirements are:
- * - KeyType: should be copy constructable, assignable, comparable
+ * - KeyType: should be copy constructable and assignable, *volatile* comparable
  * (with ==) and hashable (with a non-member hash_value() function,
  * `size_t hash_value(const KeyType&)'.
  * - ValueType: needs to have a default constructor so that the
@@ -104,12 +104,20 @@ public:
 
     bool get(unsigned int threadId, const KeyType& _key, ValueType **o_valuePtr) noexcept
     {
-        if (key.match(threadId, _key))
+        try
         {
-            *o_valuePtr = &value;
-            return true;
+            auto keyClaim = key.claimInplace(threadId, AFK_CL_SHARED);
+            if (keyClaim.getShared() == _key)
+            {
+                *o_valuePtr = &value;
+                return true;
+            }
+            else return false;
         }
-        else return false;
+        catch (AFK_ClaimException)
+        {
+            return false;
+        }
     }
 
     bool insert(unsigned int threadId, const KeyType& _key, ValueType **o_valuePtr) noexcept

@@ -39,6 +39,11 @@ bool AFK_Tile::operator==(const AFK_Tile& _tile) const
     return coord == _tile.coord;
 }
 
+bool AFK_Tile::operator==(const AFK_Tile& _tile) const volatile
+{
+    return coord == _tile.coord;
+}
+
 bool AFK_Tile::operator!=(const AFK_Tile& _tile) const
 {
     return coord != _tile.coord;

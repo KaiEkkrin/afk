@@ -41,6 +41,11 @@ public:
         return v[0] == p.v[0] && v[1] == p.v[1];
     }
 
+    bool operator==(const Vec2<F>& p) const volatile
+    {
+        return v[0] == p.v[0] && v[1] == p.v[1];
+    }
+
     bool operator!=(const Vec2<F>& p) const
     {
         return v[0] != p.v[0] || v[1] != p.v[1];
@@ -107,6 +112,11 @@ public:
     F v[4];
 
     bool operator==(const Vec3<F>& p) const
+    {
+        return v[0] == p.v[0] && v[1] == p.v[1] && v[2] == p.v[2];
+    }
+
+    bool operator==(const Vec3<F>& p) const volatile
     {
         return v[0] == p.v[0] && v[1] == p.v[1] && v[2] == p.v[2];
     }
@@ -248,6 +258,11 @@ public:
     F v[4];
 
     bool operator==(const Vec4<F>& p) const
+    {
+        return v[0] == p.v[0] && v[1] == p.v[1] && v[2] == p.v[2] && v[3] == p.v[3];
+    }
+
+    bool operator==(const Vec4<F>& p) const volatile
     {
         return v[0] == p.v[0] && v[1] == p.v[1] && v[2] == p.v[2] && v[3] == p.v[3];
     }

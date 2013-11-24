@@ -35,6 +35,7 @@ public:
     int64_t key;
 
     bool operator==(const AFK_KeyedCell& _cell) const;
+    bool operator==(const AFK_KeyedCell& _cell) const volatile;
     bool operator!=(const AFK_KeyedCell& _cell) const;
 
     AFK_RNG_Value rngSeed() const;

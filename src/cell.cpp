@@ -35,6 +35,11 @@ bool AFK_Cell::operator==(const AFK_Cell& _cell) const
     return coord == _cell.coord;
 }
 
+bool AFK_Cell::operator==(const AFK_Cell& _cell) const volatile
+{
+    return coord == _cell.coord;
+}
+
 bool AFK_Cell::operator!=(const AFK_Cell& _cell) const
 {
     return coord != _cell.coord;

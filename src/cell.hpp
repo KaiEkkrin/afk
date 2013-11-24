@@ -82,6 +82,7 @@ public:
 
     /* Obligatory thingies. */
     bool operator==(const AFK_Cell& _cell) const;
+    bool operator==(const AFK_Cell& _cell) const volatile;
     bool operator!=(const AFK_Cell& _cell) const;
 
     /* Gives the RNG seed value that matches this cell. */
