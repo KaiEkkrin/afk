@@ -62,6 +62,9 @@ protected:
     const float detailPitchMax;
     const float detailPitchMin;
 
+    /* This affects how coarsely we round the detail pitch. */
+    const float detailPitchStepSmall;
+
     /* The current sequence of times we're tracking. */
     afk_clock::time_point lastStartOfFrame;
     afk_clock::time_point lastComputeWait;
@@ -83,6 +86,8 @@ protected:
     /* ... TODO ... */
 
     float detailPitch;
+    float lastDetailPitch;
+    float logLastDetailPitch;
 
     /* Here are my variables for the damping formula */
     float k, c;
@@ -125,7 +130,7 @@ public:
     afk_duration_mfl getComputeWaitTime(void);
 
     /* Output detail pitch for the world to use. */
-    float getDetailPitch(void) const;
+    float getDetailPitch(void);
 
     /* Print a checkpoint. */
     void checkpoint(const afk_duration_mfl& sinceLastCheckpoint);

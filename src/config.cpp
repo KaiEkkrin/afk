@@ -122,6 +122,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     startingDetailPitch         = 512.0f;
     maxDetailPitch              = 1536.0f;
     minDetailPitch              = 64.0f;
+    detailPitchStepSmall        = 2.5f;
     minCellSize                 = 1.0f;
     subdivisionFactor           = 2;
     entitySubdivisionFactor     = 4;
@@ -236,6 +237,11 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         {
             REQUIRE_ARGUMENT("--min-detail-pitch")
             minDetailPitch = strtof(argv[argi], NULL);
+        }
+        else if (strcmp(argv[argi], "--detail-pitch-step-small") == 0)
+        {
+            REQUIRE_ARGUMENT("--detail-pitch-step-small")
+            detailPitchStepSmall = strtof(argv[argi], NULL);
         }
         else if (strcmp(argv[argi], "--min-cell-size") == 0)
         {

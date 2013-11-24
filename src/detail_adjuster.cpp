@@ -46,10 +46,13 @@ AFK_DetailAdjuster::AFK_DetailAdjuster(const AFK_Config *config):
     vsync(config->vsync),
     detailPitchMax(config->maxDetailPitch),
     detailPitchMin(config->minDetailPitch),
+    detailPitchStepSmall(config->detailPitchStepSmall),
     haveFirstMeasurement(false),
     haveLastFrameTime(false),
     lastV(-FLT_MAX),
     detailPitch(config->startingDetailPitch),
+    lastDetailPitch(config->startingDetailPitch),
+    logLastDetailPitch(log(config->startingDetailPitch)),
     k(kFromDetailPitch(config->startingDetailPitch)),
     deviation(config->framesPerCalibration, 0.0f),
     consistency(config->framesPerCalibration, 1.0f)
@@ -187,7 +190,7 @@ afk_duration_mfl AFK_DetailAdjuster::getComputeWaitTime(void)
     return afk_duration_mfl((frameTimeTarget - frameTimeSoFar.count()) * wiggle);
 }
 
-float AFK_DetailAdjuster::getDetailPitch(void) const
+float AFK_DetailAdjuster::getDetailPitch(void)
 {
     /* TODO: Adjustment! :P
      * But first, I want to take some measurements and look
@@ -206,14 +209,31 @@ float AFK_DetailAdjuster::getDetailPitch(void) const
      * consider changing the logarithm base at random intervals
      * (which ought to shuffle the rounding steps about without
      * significantly changing the step size).
-     * Also, that `3' should become a `detailPitchStepSmallness' or
-     * something in config.
      */
-    float roundTo = std::max(std::floor(log(detailPitch)) - 3, 1.0);
+#if 0
+    float roundTo = std::max(std::floor(log(detailPitch)) - detailPitchStepSmall, 1.0);
     float roundDP = std::floor(detailPitch / exp(roundTo)) * exp(roundTo);
     AFK_DEBUG_PRINTL("detail pitch " << detailPitch << " -> " << roundDP)
     return roundDP;
-    //return detailPitch;
+#else
+    /* As an alternative to the above, let's try applying a "stickiness",
+     * by which the detail pitch returned is the previous one unless the
+     * difference is larger by a log-based threshold
+     */
+    float logDetailPitch = log(detailPitch);
+    if (fabs(logDetailPitch - logLastDetailPitch) > detailPitchStepSmall)
+    {
+        AFK_DEBUG_PRINTL("detail pitch " << detailPitch << "; using new")
+        lastDetailPitch = detailPitch;
+        logLastDetailPitch = logDetailPitch;
+        return detailPitch;
+    }
+    else
+    {
+        AFK_DEBUG_PRINTL("detail pitch " << detailPitch << ": using last, " << lastDetailPitch)
+        return lastDetailPitch;
+    }
+#endif
 }
 
 void AFK_DetailAdjuster::checkpoint(const afk_duration_mfl& sinceLastCheckpoint)

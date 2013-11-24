@@ -113,6 +113,7 @@ public:
     float startingDetailPitch;
     float maxDetailPitch;
     float minDetailPitch;
+    float detailPitchStepSmall;
     float minCellSize;
     unsigned int subdivisionFactor;
     unsigned int entitySubdivisionFactor;
