@@ -22,6 +22,8 @@
  * usable things and back again.
  */
 
+#include <cassert>
+
 template<typename T, typename I>
 void afk_grabSharedIntegral(T *mine, const volatile T *shared, size_t& offset) noexcept
 {
@@ -55,6 +57,8 @@ void afk_grabShared(T *mine, const volatile T *shared) noexcept
             break;
         }
     }
+
+    assert(offset == sizeof(T) * count);
 }
 
 template<typename T, typename I>
@@ -90,6 +94,8 @@ void afk_returnShared(const T *mine, volatile T *shared) noexcept
             break;
         }
     }
+
+    assert(offset == sizeof(T) * count);
 }
 
 #endif /* _AFK_DATA_VOLATILE_H_ */
