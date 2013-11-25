@@ -283,7 +283,6 @@ public:
         unsigned int worldCacheSize, /* in bytes */
         unsigned int tileCacheSize, /* also in bytes */
         unsigned int shapeCacheSize, /* likewise */
-        cl_context ctxt,
         AFK_RNG *setupRng);
     virtual ~AFK_World();
 

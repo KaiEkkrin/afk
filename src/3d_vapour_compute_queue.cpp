@@ -21,6 +21,7 @@
 
 #include "3d_vapour_compute_queue.hpp"
 #include "compute_dependency.hpp"
+#include "compute_queue.hpp"
 #include "debug.hpp"
 #include "exception.hpp"
 
@@ -132,7 +133,6 @@ void AFK_3DVapourComputeQueue::computeStart(
     const AFK_ShapeSizes& sSizes)
 {
     std::unique_lock<std::mutex> lock(mut);
-    cl_int error;
 
     /* Check there's something to do */
     unsigned int unitCount = units.size();
@@ -147,84 +147,67 @@ void AFK_3DVapourComputeQueue::computeStart(
         if (!computer->findKernel("makeShape3DVapourNormal", vapourNormalKernel))
             throw AFK_Exception("Cannot find 3D vapour normal kernel");
 
-    cl_context ctxt;
-    cl_command_queue q;
-    computer->lock(ctxt, q);
+    auto kernelQueue = computer->getKernelQueue();
+    auto writeQueue = computer->getWriteQueue();
 
     /* Copy the vapour inputs to CL buffers. */
-    cl_mem vapourBufs[3];
+    AFK_ComputeDependency noDep(computer);
+    AFK_ComputeDependency preVapourDep(computer);
 
-    vapourBufs[0] = computer->oclShim.CreateBuffer()(
-        ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        f.size() * sizeof(AFK_3DVapourFeature),
-        f.data(), &error);
-    AFK_HANDLE_CL_ERROR(error);
-
-    vapourBufs[1] = computer->oclShim.CreateBuffer()(
-        ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        c.size() * sizeof(AFK_3DVapourCube),
-        c.data(), &error);
-    AFK_HANDLE_CL_ERROR(error);
-
-    vapourBufs[2] = computer->oclShim.CreateBuffer()(
-        ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        units.size() * sizeof(AFK_3DVapourComputeUnit),
-        units.data(), &error);
-    AFK_HANDLE_CL_ERROR(error);
+    cl_mem vapourBufs[3] = {
+        writeQueue->newReadOnlyBuffer(f.data(), f.size() * sizeof(AFK_3DVapourFeature), noDep, preVapourDep),
+        writeQueue->newReadOnlyBuffer(c.data(), c.size() * sizeof(AFK_3DVapourCube), noDep, preVapourDep),
+        writeQueue->newReadOnlyBuffer(units.data(), units.size() * sizeof(AFK_3DVapourComputeUnit), noDep, preVapourDep)
+    };
 
     /* Set up the rest of the vapour parameters */
-    AFK_ComputeDependency preVapourDep(computer);
     cl_mem vapourJigsawsDensityMem[4];
     Vec2<int> fake3D_size;
     int fake3D_mult;
     jpDCount = vapourJigsaws->acquireAllForCl(computer, 0, vapourJigsawsDensityMem, 4, fake3D_size, fake3D_mult, preVapourDep);
 
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourFeatureKernel, 0, sizeof(cl_mem), &vapourBufs[0]))
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourFeatureKernel, 1, sizeof(cl_mem), &vapourBufs[1]))
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourFeatureKernel, 2, sizeof(cl_mem), &vapourBufs[2]))
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourFeatureKernel, 3, sizeof(cl_int2), &fake3D_size.v[0]))
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourFeatureKernel, 4, sizeof(cl_int), &fake3D_mult))
+    kernelQueue->kernel(vapourFeatureKernel);
+
+    for (int vbI = 0; vbI < 3; ++vbI)
+        kernelQueue->kernelArg(sizeof(cl_mem), &vapourBufs[vbI]);
+
+    kernelQueue->kernelArg(sizeof(cl_int2), &fake3D_size.v[0]);
+    kernelQueue->kernelArg(sizeof(cl_int), &fake3D_mult);
 
     for (int jpI = 0; jpI < 4; ++jpI)
-        AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourFeatureKernel, jpI + 5, sizeof(cl_mem), &vapourJigsawsDensityMem[jpI]))
+        kernelQueue->kernelArg(sizeof(cl_mem), &vapourJigsawsDensityMem[jpI]);
 
     size_t vapourDim[3];
     vapourDim[0] = sSizes.tDim * unitCount;
     vapourDim[1] = vapourDim[2] = sSizes.tDim;
 
     AFK_ComputeDependency preNormalDep(computer);
-
-    AFK_CLCHK(computer->oclShim.EnqueueNDRangeKernel()(q, vapourFeatureKernel, 3, nullptr, &vapourDim[0], nullptr,
-        preVapourDep.getEventCount(),
-        preVapourDep.getEvents(),
-        preNormalDep.addEvent()))
+    kernelQueue->kernel3D(vapourDim, nullptr, preVapourDep, preNormalDep);
 
     /* Next, compute the vapour normals. */
     cl_mem vapourJigsawsNormalMem[4];
     jpNCount = vapourJigsaws->acquireAllForCl(computer, 1, vapourJigsawsNormalMem, 4, fake3D_size, fake3D_mult, preNormalDep);
     assert(jpNCount == jpDCount);
 
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourNormalKernel, 0, sizeof(cl_mem), &vapourBufs[2]))
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourNormalKernel, 1, sizeof(cl_int2), &fake3D_size.v[0]))
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourNormalKernel, 2, sizeof(cl_int), &fake3D_mult))
+    kernelQueue->kernel(vapourNormalKernel);
+    kernelQueue->kernelArg(sizeof(cl_mem), &vapourBufs[2]);
+    kernelQueue->kernelArg(sizeof(cl_int2), &fake3D_size.v[0]);
+    kernelQueue->kernelArg(sizeof(cl_int), &fake3D_mult);
+
     for (int jpI = 0; jpI < 4; ++jpI)
-    {
-        AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourNormalKernel, jpI + 3, sizeof(cl_mem), &vapourJigsawsDensityMem[jpI]))
-        AFK_CLCHK(computer->oclShim.SetKernelArg()(vapourNormalKernel, jpI + 7, sizeof(cl_mem), &vapourJigsawsNormalMem[jpI])) /* normal */
-    }
+        kernelQueue->kernelArg(sizeof(cl_mem), &vapourJigsawsDensityMem[jpI]);
+
+    for (int jpI = 0; jpI < 4; ++jpI)
+        kernelQueue->kernelArg(sizeof(cl_mem), &vapourJigsawsNormalMem[jpI]);
 
     if (!preReleaseDep) preReleaseDep = new AFK_ComputeDependency(computer);
     assert(preReleaseDep->getEventCount() == 0);
-
-    AFK_CLCHK(computer->oclShim.EnqueueNDRangeKernel()(q, vapourNormalKernel, 3, NULL, &vapourDim[0], NULL,
-        preNormalDep.getEventCount(), preNormalDep.getEvents(), preReleaseDep->addEvent()))
+    kernelQueue->kernel3D(vapourDim, nullptr, preNormalDep, *preReleaseDep);
 
     for (unsigned int i = 0; i < 3; ++i)
     {
         AFK_CLCHK(computer->oclShim.ReleaseMemObject()(vapourBufs[i]))
     }
-
-    computer->unlock();
 }
 
 void AFK_3DVapourComputeQueue::computeFinish(AFK_JigsawCollection *vapourJigsaws)

@@ -49,9 +49,9 @@ void AFK_YReduce::compute(
 {
     cl_int error;
 
-    cl_context ctxt;
-    cl_command_queue q;
-    computer->lock(ctxt, q);
+    cl_context ctxt = computer->getContext();
+    auto kernelQueue = computer->getKernelQueue();
+    auto readQueue = computer->getReadQueue();
 
     /* The buffer needs to be big enough for 2 floats per
      * unit.
@@ -71,10 +71,11 @@ void AFK_YReduce::compute(
         bufSize = requiredSize;
     }
 
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(yReduceKernel, 0, sizeof(cl_mem), units))
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(yReduceKernel, 1, sizeof(cl_mem), jigsawYDisp))
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(yReduceKernel, 2, sizeof(cl_sampler), yDispSampler))
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(yReduceKernel, 3, sizeof(cl_mem), &buf))
+    kernelQueue->kernel(yReduceKernel);
+    kernelQueue->kernelArg(sizeof(cl_mem), units);
+    kernelQueue->kernelArg(sizeof(cl_mem), jigsawYDisp);
+    kernelQueue->kernelArg(sizeof(cl_sampler), yDispSampler);
+    kernelQueue->kernelArg(sizeof(cl_mem), &buf);
 
     size_t yReduceGlobalDim[2];
     yReduceGlobalDim[0] = (1 << lSizes.getReduceOrder());
@@ -84,8 +85,7 @@ void AFK_YReduce::compute(
     yReduceLocalDim[0] = (1 << lSizes.getReduceOrder());
     yReduceLocalDim[1] = 1;
 
-    AFK_CLCHK(computer->oclShim.EnqueueNDRangeKernel()(q, yReduceKernel, 2, 0, &yReduceGlobalDim[0], &yReduceLocalDim[0],
-        preDep.getEventCount(), preDep.getEvents(), o_postDep.addEvent()))
+    kernelQueue->kernel2D(yReduceGlobalDim, yReduceLocalDim, preDep, o_postDep);
 
     size_t requiredReadbackSize = requiredSize / sizeof(float);
     if (readbackSize < requiredReadbackSize)
@@ -95,17 +95,7 @@ void AFK_YReduce::compute(
         readbackSize = requiredReadbackSize;
     }
 
-    /* TODO If I make this asynchronous (change CL_TRUE to CL_FALSE), I get
-     * kersplode on AMD.
-     * I think what's going on is the OpenGL memory management gets
-     * confused in the presence of buffers; try making the readback
-     * an image instead and see if it's happier.
-     */
-    AFK_CLCHK(computer->oclShim.EnqueueReadBuffer()(q, buf,
-        afk_core.computer->isAMD() ? CL_TRUE : CL_FALSE,
-        0, requiredSize, readback, o_postDep.getEventCount(), o_postDep.getEvents(), readbackDep.addEvent()))
-
-    computer->unlock();
+    readQueue->readBuffer(buf, requiredSize, readback, o_postDep, readbackDep);
 }
 
 void AFK_YReduce::readBack(

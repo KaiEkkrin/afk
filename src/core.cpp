@@ -139,13 +139,9 @@ void afk_idle(void)
 
             /* Flip the buffers and bump the computing frame */
             afk_core.window->swapBuffers();
-            cl_context ctxt;
-            cl_command_queue q;
-            afk_core.computer->lock(ctxt, q);
             afk_core.renderingFrame = afk_core.computingFrame;
             afk_core.computingFrame.increment();
             afk_core.world->flipRenderQueues(afk_core.computingFrame);
-            afk_core.computer->unlock();
             afk_core.computingUpdateDelayed = false;
 
 #if FRAME_NUMBER_DEBUG || AFK_SHAPE_ENUM_DEBUG
@@ -291,9 +287,6 @@ void AFK_Core::loop(void)
     /* Initialise the starting objects. */
     float worldMaxDistance = config->zFar / 2.0f;
 
-    cl_context ctxt;
-    cl_command_queue q;
-    computer->lock(ctxt, q);
     world = new AFK_World(
         config,
         computer,
@@ -302,9 +295,7 @@ void AFK_Core::loop(void)
         clGlMaxAllocSize / 4,
         clGlMaxAllocSize / 4,
         clGlMaxAllocSize / 4,
-        ctxt,
         rng);
-    computer->unlock();
 
     /* Make sure that camera is configured to match the window. */
     camera.setWindowDimensions(

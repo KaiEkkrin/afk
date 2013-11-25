@@ -21,6 +21,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/tokenizer.hpp>
 
+#include "compute_queue.hpp"
 #include "computer.hpp"
 #include "exception.hpp"
 #include "file/readfile.hpp"
@@ -379,7 +380,9 @@ AFK_Computer::AFK_Computer(const AFK_Config *config):
     devicesSize(0),
     firstDeviceProps(NULL),
     ctxt(0),
-    q(0),
+    kernelQueue(nullptr),
+    readQueue(nullptr),
+    writeQueue(nullptr),
     oclShim(config)
 {
     cl_platform_id *platforms;
@@ -407,30 +410,39 @@ AFK_Computer::AFK_Computer(const AFK_Config *config):
 
     if (!devices) throw AFK_Exception("No cl_gl devices found");
 
-    /* TODO Multiple queues for multiple devices?
-     * TODO *2: Split the queue out into a separate class and
-     * try to nicely wrap the queued functions ...?
-     */
-    cl_int error;
-    q = oclShim.CreateCommandQueue()(
-        ctxt,
-        devices[0],
-        async ? CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE : 0,
-        &error);
-    AFK_HANDLE_CL_ERROR(error);
+    /* Make my compute queues. */
+    if (async)
+    {
+        kernelQueue = std::make_shared<AFK_ComputeQueue>(
+            &oclShim, ctxt, devices[0], true, AFK_ComputeQueue::KernelCommandSet);
+        readQueue = std::make_shared<AFK_ComputeQueue>(
+            &oclShim, ctxt, devices[0], true, AFK_ComputeQueue::ReadCommandSet);
+        writeQueue = std::make_shared<AFK_ComputeQueue>(
+            &oclShim, ctxt, devices[0], true, AFK_ComputeQueue::WriteCommandSet);
+    }
+    else
+    {
+        kernelQueue = readQueue = writeQueue =
+            std::make_shared<AFK_ComputeQueue>(
+                &oclShim, ctxt, devices[0], false,
+                AFK_ComputeQueue::KernelCommandSet | AFK_ComputeQueue::ReadCommandSet | AFK_ComputeQueue::WriteCommandSet);
+    }
 }
 
 AFK_Computer::~AFK_Computer()
 {
     if (devices)
     {
+        kernelQueue.reset();
+        readQueue.reset();
+        writeQueue.reset();
+
         for (auto k : kernels)
             if (k.kernel) oclShim.ReleaseKernel()(k.kernel);
 
         for (auto p : programs)
             if (p.program) oclShim.ReleaseProgram()(p.program);
 
-        if (q) oclShim.ReleaseCommandQueue()(q);
         if (ctxt) oclShim.ReleaseContext()(ctxt);
         if (firstDeviceProps) delete firstDeviceProps;
 
@@ -520,19 +532,5 @@ bool AFK_Computer::useFake3DImages(const AFK_Config *config) const
 {
     return (config->forceFake3DImages ||
         !firstDeviceProps->supportsExtension("cl_khr_3d_image_writes"));
-}
-
-void AFK_Computer::lock(cl_context& o_ctxt, cl_command_queue& o_q)
-{
-    /* TODO Multiple devices and queues: can I identify
-     * the least busy device here, and pass out its
-     * queue?
-     */
-    o_ctxt = ctxt;
-    o_q = q;
-}
-
-void AFK_Computer::unlock(void)
-{
 }
 

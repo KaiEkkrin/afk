@@ -236,6 +236,17 @@ public:
         cl_uint num_events_in_wait_list,
         const cl_event *event_wait_list,
         cl_event *event);
+
+    AFK_OCL_FUNC(cl_int, EnqueueWriteBuffer,
+        cl_command_queue command_queue,
+        cl_mem buffer,
+        cl_bool blocking_write,
+        size_t offset,
+        size_t cb,
+        const void *ptr,
+        cl_uint num_events_in_wait_list,
+        const cl_event *event_wait_list,
+        cl_event *event);
         
     AFK_OCL_FUNC(cl_int, GetDeviceIDs,
         cl_platform_id platform,

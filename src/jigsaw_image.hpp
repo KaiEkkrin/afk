@@ -25,6 +25,7 @@
 
 #include "def.hpp"
 #include "compute_dependency.hpp"
+#include "compute_queue.hpp"
 #include "computer.hpp"
 #include "jigsaw_cuboid.hpp"
 
@@ -285,10 +286,10 @@ protected:
     void resizeChangeData(const std::vector<AFK_JigsawCuboid>& drawCuboids);
     void getClChangeData(
         const std::vector<AFK_JigsawCuboid>& drawCuboids,
-        cl_command_queue q);
+        std::shared_ptr<AFK_ComputeQueue> readQueue);
     void getClChangeDataFake3D(
         const std::vector<AFK_JigsawCuboid>& drawCuboids,
-        cl_command_queue q);
+        std::shared_ptr<AFK_ComputeQueue> readQueue);
     void putClChangeData(const std::vector<AFK_JigsawCuboid>& drawCuboids);
 
 public:

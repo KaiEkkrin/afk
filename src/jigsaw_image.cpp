@@ -22,6 +22,7 @@
 #include <cstdlib>
 #include <sstream>
 
+#include "compute_queue.hpp"
 #include "computer.hpp"
 #include "core.hpp"
 #include "display.hpp"
@@ -575,10 +576,7 @@ void AFK_JigsawImage::initClImage(const Vec3<int>& _jigsawSize)
 {
     cl_int error;
 
-    cl_context ctxt;
-    cl_command_queue q;
-    computer->lock(ctxt, q);
-
+    cl_context ctxt = computer->getContext();
     cl_mem_object_type clImageType = desc.getClObjectType();
 
     Vec3<int> clImageSize;
@@ -650,7 +648,6 @@ void AFK_JigsawImage::initClImage(const Vec3<int>& _jigsawSize)
     }
 
     AFK_HANDLE_CL_ERROR(error);
-    computer->unlock();
 }
 
 void AFK_JigsawImage::initGlImage(const Vec3<int>& _jigsawSize)
@@ -710,9 +707,7 @@ void AFK_JigsawImage::initClImageFromGlImage(const Vec3<int>& _jigsawSize)
 {
     cl_int error;
 
-    cl_context ctxt;
-    cl_command_queue q;
-    computer->lock(ctxt, q);
+    cl_context ctxt = computer->getContext();
 
     GLuint texTarget = desc.getGlTarget();
     glBindTexture(texTarget, glTex);
@@ -759,7 +754,6 @@ void AFK_JigsawImage::initClImageFromGlImage(const Vec3<int>& _jigsawSize)
     }
 
     AFK_HANDLE_CL_ERROR(error);
-    computer->unlock();
 }
 
 void AFK_JigsawImage::resizeChangeData(const std::vector<AFK_JigsawCuboid>& drawCuboids)
@@ -779,7 +773,7 @@ void AFK_JigsawImage::resizeChangeData(const std::vector<AFK_JigsawCuboid>& draw
 
 void AFK_JigsawImage::getClChangeData(
     const std::vector<AFK_JigsawCuboid>& drawCuboids,
-    cl_command_queue q)
+    std::shared_ptr<AFK_ComputeQueue> readQueue)
 {
     resizeChangeData(drawCuboids);
 
@@ -805,9 +799,7 @@ void AFK_JigsawImage::getClChangeData(
         region[1] = drawCuboids[cI].size.v[1] * desc.pieceSize.v[1];
         region[2] = drawCuboids[cI].size.v[2] * desc.pieceSize.v[2];
   
-        AFK_CLCHK(computer->oclShim.EnqueueReadImage()(
-            q, clTex, CL_FALSE, origin, region, 0, 0, &changeData[changeDataOffset],
-                postClDep.getEventCount(), postClDep.getEvents(), changeDep.addEvent()))
+        readQueue->readImage(clTex, origin, region, &changeData[changeDataOffset], postClDep, changeDep);
         changeDataOffset += cuboidSizeInBytes;
     }
 
@@ -816,7 +808,7 @@ void AFK_JigsawImage::getClChangeData(
 
 void AFK_JigsawImage::getClChangeDataFake3D(
     const std::vector<AFK_JigsawCuboid>& drawCuboids,
-    cl_command_queue q)
+    std::shared_ptr<AFK_ComputeQueue> readQueue)
 {
     /* I should be moving exactly the same amount of data as
      * if it were a real 3D image.
@@ -858,9 +850,7 @@ void AFK_JigsawImage::getClChangeDataFake3D(
                 region[1] = drawCuboids[cI].size.v[1] * desc.pieceSize.v[1];
                 region[2] = 1;
 
-                AFK_CLCHK(computer->oclShim.EnqueueReadImage()(
-                    q, clTex, CL_FALSE, origin, region, 0, 0, &changeData[changeDataOffset],
-                        postClDep.getEventCount(), postClDep.getEvents(), changeDep.addEvent()))
+                readQueue->readImage(clTex, origin, region, &changeData[changeDataOffset], postClDep, changeDep);
                 changeDataOffset += cuboidSliceSizeInBytes;
             }
         }
@@ -994,9 +984,7 @@ int AFK_JigsawImage::getFake3D_mult(void) const
 
 cl_mem AFK_JigsawImage::acquireForCl(AFK_ComputeDependency& o_dep)
 {
-    cl_context ctxt;
-    cl_command_queue q;
-    computer->lock(ctxt, q);
+    auto readQueue = computer->getReadQueue();
 
     /* I mustn't be doing this while there are outstanding dependencies
      * from the last compute cycle.
@@ -1018,23 +1006,20 @@ cl_mem AFK_JigsawImage::acquireForCl(AFK_ComputeDependency& o_dep)
     case AFK_JigsawBufferUsage::CL_GL_SHARED:
         if (clUserCount == 0) /* First user */
         {
-            AFK_CLCHK(computer->oclShim.EnqueueAcquireGLObjects()(q, 1, &clTex, 0, NULL, preClDep.addEvent()))
+            AFK_ComputeDependency noDep(computer);
+            readQueue->acquireGlObjects(&clTex, 1, noDep, preClDep);
         }
         o_dep += preClDep;
         break;
     }
 
     ++clUserCount;
-
-    computer->unlock();
     return clTex;
 }
 
 void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCuboids, const AFK_ComputeDependency& dep)
 {
-    cl_context ctxt;
-    cl_command_queue q;
-    computer->lock(ctxt, q);
+    auto readQueue = computer->getReadQueue();
 
     postClDep += dep;
     if (--clUserCount == 0)
@@ -1056,18 +1041,16 @@ void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCub
              * will be okay!
              */
             if (desc.fake3D.getUseFake3D())
-                getClChangeDataFake3D(drawCuboids, q);
+                getClChangeDataFake3D(drawCuboids, readQueue);
             else
-                getClChangeData(drawCuboids, q);
+                getClChangeData(drawCuboids, readQueue);
             break;
         
         case AFK_JigsawBufferUsage::CL_GL_SHARED:
-            AFK_CLCHK(computer->oclShim.EnqueueReleaseGLObjects()(q, 1, &clTex, postClDep.getEventCount(), postClDep.getEvents(), changeDep.addEvent()))
+            readQueue->releaseGlObjects(&clTex, 1, postClDep, changeDep);
             break;
         }
     }
-
-    computer->unlock();
 }
 
 void AFK_JigsawImage::bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboids)

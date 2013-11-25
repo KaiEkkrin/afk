@@ -488,7 +488,6 @@ AFK_World::AFK_World(
     unsigned int worldCacheSize,
     unsigned int tileCacheSize,
     unsigned int shapeCacheSize,
-    cl_context ctxt,
     AFK_RNG *setupRng):
         startingDetailPitch         (config->startingDetailPitch),
         maxDetailPitch              (config->maxDetailPitch),

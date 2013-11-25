@@ -22,6 +22,7 @@
 
 #include <condition_variable>
 #include <iostream>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -31,6 +32,7 @@
 #include "exception.hpp"
 #include "ocl_shim.hpp"
 
+class AFK_ComputeQueue;
 class AFK_Computer;
 
 /* This defines a list of programs that I know about. */
@@ -181,7 +183,10 @@ protected:
     unsigned int stillBuilding;
 
     cl_context ctxt;
-    cl_command_queue q;
+    //cl_command_queue q;
+    std::shared_ptr<AFK_ComputeQueue> kernelQueue;
+    std::shared_ptr<AFK_ComputeQueue> readQueue;
+    std::shared_ptr<AFK_ComputeQueue> writeQueue;
 
     /* Helper functions */
     bool findClGlDevices(cl_platform_id platform);
@@ -247,19 +252,13 @@ public:
         }
     }
 
-    /* Locks the CL and gives you back the context and
-     * queue.  Be quick, enqueue your thing and release
-     * it!
-     * TODO: Really just a convenient way of accessing the
-     * context and queue right now: see comment at top of
-     * class description.  Also, current usage implies
-     * re-entrancy of any actual lock that might be here.
-     * I really ought to overhaul this interface.
+    /* For now, the CL is only accessible from one thread, and
+     * there is no concurrency control here.  Just accessors.
      */
-    void lock(cl_context& o_ctxt, cl_command_queue& o_q);
-
-    /* Release it when you're done with this. */
-    void unlock(void);
+    cl_context getContext(void) const { return ctxt; }
+    std::shared_ptr<AFK_ComputeQueue> getKernelQueue(void) const { return kernelQueue; }
+    std::shared_ptr<AFK_ComputeQueue> getReadQueue(void) const { return readQueue; }
+    std::shared_ptr<AFK_ComputeQueue> getWriteQueue(void) const { return writeQueue; }
 
     friend void afk_programBuiltNotify(cl_program program, void *user_data);
 };
