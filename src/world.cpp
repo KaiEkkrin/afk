@@ -74,7 +74,7 @@ bool afk_generateWorldCells(
      * trying"; in those cases I don't want an exclusive claim, and
      * I won't do a recursive search.
      */
-    unsigned int claimFlags = 0;
+    unsigned int claimFlags = AFK_CL_BLOCK;
     if (!renderTerrain && !resume) claimFlags |= AFK_CL_EXCLUSIVE;
 
     try
@@ -333,7 +333,7 @@ bool AFK_World::generateClaimedWorldCell(
              * landscape tiles are dependent on lower detailed ones for their
              * terrain description.
              */
-            auto landscapeClaim = landscapeCache->insert(threadId, tile).claimable.claim(threadId, AFK_CL_UPGRADE);
+            auto landscapeClaim = landscapeCache->insert(threadId, tile).claimable.claim(threadId, AFK_CL_BLOCK | AFK_CL_UPGRADE);
             landscapeTileUpperYBound = landscapeClaim.getShared().getYBoundUpper();
         
             if (!landscapeClaim.getShared().hasTerrainDescriptor() ||

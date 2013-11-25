@@ -24,13 +24,13 @@
 
 #if AFK_MONOMER_CLAIMABLE
 
-#include "claimable.hpp"
+#include "claimable_volatile.hpp"
 
 template<typename KeyType, typename ValueType, const KeyType& unassigned>
 class AFK_Monomer
 {
 protected:
-    AFK_Claimable<KeyType> key;
+    AFK_VolatileClaimable<KeyType> key;
     ValueType value;
 
 public:

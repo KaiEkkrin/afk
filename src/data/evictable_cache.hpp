@@ -25,9 +25,24 @@
 #include <thread>
 
 #include "cache.hpp"
-#include "claimable.hpp"
 #include "frame.hpp"
 #include "polymer.hpp"
+
+#define AFK_EC_LOCKED_CLAIMABLE 0
+
+#if AFK_EC_LOCKED_CLAIMABLE
+#include "claimable_locked.hpp"
+#define AFK_EVICTABLE_CLAIMABLE_TYPE(Value) AFK_LockedClaimable<Value>
+#define AFK_EVICTABLE_INPLACE_CLAIM_TYPE(Value) AFK_LockedClaim<Value>
+#define AFK_EVICTABLE_CLAIM_TYPE(Value) AFK_LockedClaim<Value>
+#else
+#include "claimable_volatile.hpp"
+#define AFK_EVICTABLE_CLAIMABLE_TYPE(Value) AFK_VolatileClaimable<Value>
+#define AFK_EVICTABLE_INPLACE_CLAIM_TYPE(Value) AFK_VolatileInplaceClaim<Value>
+#define AFK_EVICTABLE_CLAIM_TYPE(Value) AFK_VolatileClaim<Value>
+#endif
+
+#include "watched_claimable.hpp"
 
 /* An evictable cache is a polymer cache that can run an
  * eviction thread to remove old entries.  (It's not actually
@@ -45,7 +60,11 @@ template<
 class AFK_Evictable
 {
 public:
-    AFK_WatchedClaimable<Value, getComputingFrame> claimable;
+    AFK_WatchedClaimable<
+        AFK_EVICTABLE_CLAIMABLE_TYPE(Value),
+        AFK_EVICTABLE_INPLACE_CLAIM_TYPE(Value),
+        AFK_EVICTABLE_CLAIM_TYPE(Value),
+        getComputingFrame> claimable;
 
     AFK_Evictable(): claimable() {}
 
@@ -191,8 +210,8 @@ protected:
 
 public:
     /* Use this to refer to claims of values in the cache. */
-    typedef AFK_InplaceClaim<Value> InplaceClaim;
-    typedef AFK_Claim<Value> Claim;
+    typedef AFK_EVICTABLE_INPLACE_CLAIM_TYPE(Value) InplaceClaim;
+    typedef AFK_EVICTABLE_CLAIM_TYPE(Value) Claim;
 
     void evictionWorker(void) noexcept
     {
