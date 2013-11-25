@@ -26,6 +26,7 @@
 #include <boost/atomic.hpp>
 
 #include "claimable.hpp"
+#include "monomer.hpp"
 #include "stats.hpp"
 
 /* The get() function throws this when there's nothing at the
@@ -67,96 +68,6 @@ class AFK_PolymerOutOfRange: public std::exception {};
 #else
 #define AFK_DEBUG_PRINTL_POLYMER(expr)
 #endif
-
-/* This is a single value along with its key for checking. */
-template<typename KeyType, typename ValueType, const KeyType& unassigned>
-class AFK_Monomer
-{
-protected:
-    AFK_Claimable<KeyType> key;
-    ValueType value;
-
-public:
-    AFK_Monomer(): key(), value()
-    {
-        auto keyClaim = key.claim(1, 0);
-        keyClaim.get() = unassigned;
-    }
-
-    bool here(unsigned int threadId, bool acceptUnassigned, KeyType *o_key, ValueType **o_valuePtr) noexcept
-    {
-        try
-        {
-            auto keyClaim = key.claim(threadId, AFK_CL_SHARED);
-            if (acceptUnassigned || !(keyClaim.getShared() == unassigned))
-            {
-                *o_key = keyClaim.getShared();
-                *o_valuePtr = &value;
-                return true;
-            }
-            else return false;
-        }
-        catch (AFK_ClaimException)
-        {
-            return false;
-        }
-    }
-
-    bool get(unsigned int threadId, const KeyType& _key, ValueType **o_valuePtr) noexcept
-    {
-        try
-        {
-            auto keyClaim = key.claimInplace(threadId, AFK_CL_SHARED);
-            if (keyClaim.getShared() == _key)
-            {
-                *o_valuePtr = &value;
-                return true;
-            }
-            else return false;
-        }
-        catch (AFK_ClaimException)
-        {
-            return false;
-        }
-    }
-
-    bool insert(unsigned int threadId, const KeyType& _key, ValueType **o_valuePtr) noexcept
-    {
-        try
-        {
-            auto keyClaim = key.claim(threadId, 0);
-            if (keyClaim.getShared() == unassigned)
-            {
-                keyClaim.get() = _key;
-                *o_valuePtr = &value;
-                return true;
-            }
-            else return false;
-        }
-        catch (AFK_ClaimException)
-        {
-            return false;
-        }
-    }
-
-    bool erase(unsigned int threadId, const KeyType& _key) noexcept
-    {
-        try
-        {
-            auto keyClaim = key.claim(threadId, 0);
-            if (keyClaim.get() == _key)
-            {
-                keyClaim.get() = unassigned;
-                return true;
-            }
-            else return false;
-        }
-        catch (AFK_ClaimException)
-        {
-            return false;
-        }
-    }
-};
 
 /* A forward declaration or two */
 template<typename KeyType, typename ValueType, const KeyType& unassigned, unsigned int hashBits, bool debug>

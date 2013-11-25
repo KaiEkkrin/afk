@@ -181,6 +181,13 @@ public:
 
     void extend(const AFK_TerrainList& list);
 
+    /* Extends the landscape by a single landscape tile's
+     * features, from inplace.
+     */
+    void extendInplaceTiles(
+        const volatile AFK_TerrainFeature *features,
+        const volatile AFK_TerrainTile *tiles);
+
     unsigned int featureCount(void) const;
     unsigned int tileCount(void) const;
 };
