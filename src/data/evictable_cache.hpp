@@ -138,9 +138,9 @@ protected:
                 /* Make sure to sanity check this stuff.  The polymer needs
                  * to be initialising its monomer keys properly
                  */
-                assert(newChain->atSlot(threadId, slot, true, &key, &value));
-                assert(key == unassigned);
-                value->claimable.claim(threadId, AFK_CL_LOOP).get() = Value();
+                bool gotIt = newChain->atSlot(threadId, slot, true, &key, &value);
+                assert(gotIt && key == unassigned);
+                if (gotIt) value->claimable.claim(threadId, AFK_CL_LOOP).get() = Value();
             }
 
             rp->set_value(newChain);

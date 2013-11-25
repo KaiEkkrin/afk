@@ -355,8 +355,12 @@ protected:
 
     void releaseShared(unsigned int threadId) noexcept
     {
+#ifdef NDEBUG
+        id.fetch_and(AFK_CL_THREAD_ID_SHARED_MASK(threadId));
+#else
         uint64_t old = id.fetch_and(AFK_CL_THREAD_ID_SHARED_MASK(threadId));
         assert(!(old & AFK_CL_NONSHARED));
+#endif
     }
 
 public:

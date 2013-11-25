@@ -193,7 +193,12 @@ void afk_display(unsigned int threadId)
     glFlush();
 
     GLenum glErr = glGetError();
-    /* TODO Non-fatal errors? (How should I handle out-of-memory?) */
-    assert(glErr == GL_NO_ERROR);
+    if (glErr != GL_NO_ERROR)
+    {
+        /* TODO Non-fatal errors? (How should I handle out-of-memory?) */
+        std::ostringstream ss;
+        ss << "GL error: " << glErr << ": " << gluErrorString(glErr);
+        throw AFK_Exception(ss.str());
+    }
 }
 

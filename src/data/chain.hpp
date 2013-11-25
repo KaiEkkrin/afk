@@ -102,8 +102,7 @@ public:
             {
                 /* I won the toss, make the real new chain. */
                 AFK_Chain *newChain = new AFK_Chain(linkFactory);
-                bool success = chain.compare_exchange_strong(placeholder, newChain);
-                assert(success);
+                while (!chain.compare_exchange_strong(placeholder, newChain));
                 return newChain;
             }
             else return extend();
