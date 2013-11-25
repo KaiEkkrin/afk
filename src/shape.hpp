@@ -86,8 +86,8 @@ protected:
         unsigned int threadId,
         const AFK_KeyedCell& vc,
         const AFK_KeyedCell& cell,
-        AFK_CLAIM_OF(VapourCell)& vapourCellClaim,
-        AFK_CLAIM_OF(ShapeCell)& shapeCellClaim,
+        AFK_VAPOUR_CELL_CACHE::Claim& vapourCellClaim,
+        AFK_SHAPE_CELL_CACHE::Claim& shapeCellClaim,
         const Mat4<float>& worldTransform);
 
     /* TODO: Try to move the shape-dependent stuff out of

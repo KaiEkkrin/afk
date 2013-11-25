@@ -51,7 +51,7 @@ bool afk_generateEntity(
     AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
     try
     {
-        auto claim = shape.vapourCellCache->insert(threadId, vc).claimable.claim(threadId, AFK_CL_SHARED);
+        auto claim = shape.vapourCellCache->insert(threadId, vc).claimable.claim(threadId, AFK_CL_UPGRADE);
         
         if (!claim.getShared().hasDescriptor())
         {
@@ -196,7 +196,7 @@ bool afk_generateShapeCells(
         AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
         try
         {
-            auto vapourCellClaim = shape.vapourCellCache->insert(threadId, vc).claimable.claim(threadId, AFK_CL_SHARED);
+            auto vapourCellClaim = shape.vapourCellCache->insert(threadId, vc).claimable.claim(threadId, AFK_CL_UPGRADE);
             const AFK_VapourCell& vapourCell = vapourCellClaim.getShared();
      
             if (!vapourCell.hasDescriptor())
@@ -209,7 +209,7 @@ bool afk_generateShapeCells(
                      */
                     AFK_KeyedCell upperVC = vc.parent(world->sSizes.subdivisionFactor);
                     auto upperVapourCellClaim =
-                        shape.vapourCellCache->get(threadId, upperVC).claimable.claim(threadId, AFK_CL_SHARED);
+                        shape.vapourCellCache->get(threadId, upperVC).claimable.claim(threadId, AFK_CL_UPGRADE);
                     vapourCellClaim.get().makeDescriptor(vc, upperVC, upperVapourCellClaim.getShared(), world->sSizes);
                 }
             }
@@ -229,7 +229,7 @@ bool afk_generateShapeCells(
                     if (display) 
                     {
                         /* I want that shape cell now ... */
-                        auto shapeCellClaim = shape.shapeCellCache->insert(threadId, cell).claimable.claim(threadId, AFK_CL_SHARED);
+                        auto shapeCellClaim = shape.shapeCellCache->insert(threadId, cell).claimable.claim(threadId, AFK_CL_UPGRADE);
                         if (!shape.generateClaimedShapeCell(
                             threadId, vc, cell, vapourCellClaim, shapeCellClaim, worldTransform))
                         {
@@ -331,8 +331,8 @@ bool AFK_Shape::generateClaimedShapeCell(
     unsigned int threadId,
     const AFK_KeyedCell& vc,
     const AFK_KeyedCell& cell,
-    AFK_CLAIM_OF(VapourCell)& vapourCellClaim,
-    AFK_CLAIM_OF(ShapeCell)& shapeCellClaim,
+    AFK_VAPOUR_CELL_CACHE::Claim& vapourCellClaim,
+    AFK_SHAPE_CELL_CACHE::Claim& shapeCellClaim,
     const Mat4<float>& worldTransform)
 {
     AFK_World *world                        = afk_core.world;

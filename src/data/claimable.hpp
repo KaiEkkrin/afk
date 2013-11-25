@@ -300,6 +300,9 @@ public:
 #define AFK_CL_EXCLUSIVE    4
 #define AFK_CL_EVICTOR      8
 #define AFK_CL_SHARED      16
+#define AFK_CL_UPGRADE     32
+
+#define AFK_CL_IS_SHARED(flags) ((flags & AFK_CL_SHARED) || (flags & AFK_CL_UPGRADE))
 
 template<typename T>
 class AFK_Claimable
@@ -402,7 +405,7 @@ public:
 
         do
         {
-            if (flags & AFK_CL_SHARED) claimed = tryClaimShared(threadId);
+            if (AFK_CL_IS_SHARED(flags)) claimed = tryClaimShared(threadId);
             else claimed = tryClaim(threadId);
             if (flags & AFK_CL_LOOP) std::this_thread::yield();
         }
@@ -417,13 +420,13 @@ public:
      */
     AFK_Claim<T> getClaimable(unsigned int threadId, unsigned int flags) noexcept
     {
-        return AFK_Claim<T>(threadId, this, flags & AFK_CL_SHARED);
+        return AFK_Claim<T>(threadId, this, AFK_CL_IS_SHARED(flags));
     }
 
     /* As above, but returns an inplace claim. */
     AFK_InplaceClaim<T> getInplaceClaimable(unsigned int threadId, unsigned int flags) noexcept
     {
-        return AFK_InplaceClaim<T>(threadId, this, flags & AFK_CL_SHARED);
+        return AFK_InplaceClaim<T>(threadId, this, AFK_CL_IS_SHARED(flags));
     }
 
     /* Gets you a claim of the desired type.
@@ -484,7 +487,7 @@ protected:
         /* Help the evictor out a little */
         if (flags & AFK_CL_EVICTOR)
         {
-            assert(!(flags & AFK_CL_SHARED));
+            assert(!(AFK_CL_IS_SHARED(flags)));
             if (lastSeen.load() == computingFrameNum) return false;
         }
         else
@@ -493,7 +496,7 @@ protected:
         
             if (flags & AFK_CL_EXCLUSIVE)
             {
-                assert(!(flags & AFK_CL_SHARED));
+                assert(!(AFK_CL_IS_SHARED(flags)));
                 if (lastSeenExclusively.exchange(computingFrameNum) == computingFrameNum) return false;
             }
         }

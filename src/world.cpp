@@ -276,7 +276,7 @@ void AFK_World::generateStartingEntity(
 }
 
 bool AFK_World::generateClaimedWorldCell(
-    AFK_CLAIM_OF(WorldCell)& claim,
+    AFK_WORLD_CACHE::Claim& claim,
     unsigned int threadId,
     const struct AFK_WorldWorkParam::World& param,
     const struct AFK_WorldWorkThreadLocal& threadLocal,
@@ -333,7 +333,7 @@ bool AFK_World::generateClaimedWorldCell(
              * landscape tiles are dependent on lower detailed ones for their
              * terrain description.
              */
-            auto landscapeClaim = landscapeCache->insert(threadId, tile).claimable.claim(threadId, AFK_CL_SHARED);
+            auto landscapeClaim = landscapeCache->insert(threadId, tile).claimable.claim(threadId, AFK_CL_UPGRADE);
             landscapeTileUpperYBound = landscapeClaim.getShared().getYBoundUpper();
         
             if (!landscapeClaim.getShared().hasTerrainDescriptor() ||

@@ -237,7 +237,7 @@ protected:
 
     /* Generates this world cell, as necessary. */
     bool generateClaimedWorldCell(
-        AFK_CLAIM_OF(WorldCell)& claim,
+        AFK_WORLD_CACHE::Claim& claim,
         unsigned int threadId,
         const struct AFK_WorldWorkParam::World& param,
         const struct AFK_WorldWorkThreadLocal& threadLocal,

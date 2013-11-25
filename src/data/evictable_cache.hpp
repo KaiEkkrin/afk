@@ -190,6 +190,10 @@ protected:
     unsigned int runsOverlapped;
 
 public:
+    /* Use this to refer to claims of values in the cache. */
+    typedef AFK_InplaceClaim<Value> InplaceClaim;
+    typedef AFK_Claim<Value> Claim;
+
     void evictionWorker(void) noexcept
     {
         unsigned int entriesEvicted = 0;
