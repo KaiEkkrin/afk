@@ -51,6 +51,10 @@ enum AFK_LandscapeTileArtworkState
     AFK_LANDSCAPE_TILE_HAS_ARTWORK
 };
 
+/* Utilities. */
+ptrdiff_t afk_getLandscapeTileFeaturesOffset(void);
+ptrdiff_t afk_getLandscapeTileTilesOffset(void);
+
 /* Describes a landscape tile, including managing its rendered vertex
  * and index buffers.
  */
@@ -110,6 +114,17 @@ public:
         float maxDistance,
         AFK_LANDSCAPE_CACHE *cache) const;
 
+    /* This version so that I can use an inplace claim and
+     * save a copy.
+     */
+    void buildTerrainList(
+        unsigned int threadId,
+        AFK_TerrainList& list,
+        const AFK_Tile& tile,
+        unsigned int subdivisionFactor,
+        float maxDistance,
+        AFK_LANDSCAPE_CACHE *cache) const volatile;
+
     /* Assigns a jigsaw piece to this tile. */
     AFK_JigsawPiece getJigsawPiece(unsigned int threadId, int minJigsaw, AFK_JigsawCollection *_jigsaws);
 
@@ -142,6 +157,8 @@ public:
     /* For handling claiming and eviction. */
     void evict(void);
 
+    friend ptrdiff_t afk_getLandscapeTileFeaturesOffset(void);
+    friend ptrdiff_t afk_getLandscapeTileTilesOffset(void);
     friend std::ostream& operator<<(std::ostream& os, const AFK_LandscapeTile& t);
 };
 

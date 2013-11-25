@@ -20,6 +20,7 @@
 #include <sstream>
 
 #include "computer.hpp"
+#include "data/volatile.hpp"
 #include "debug.hpp"
 #include "exception.hpp"
 #include "terrain.hpp"
@@ -56,6 +57,22 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainTile& tile)
 void AFK_TerrainList::extend(const AFK_TerrainList& list)
 {
     extend<std::vector<AFK_TerrainFeature>, std::vector<AFK_TerrainTile> >(list.f, list.t);
+}
+
+void AFK_TerrainList::extendInplaceTiles(
+    const volatile AFK_TerrainFeature *features,
+    const volatile AFK_TerrainTile *tiles)
+{
+    size_t oldTileCount = t.size();
+    size_t oldFeatureCount = oldTileCount * afk_terrainFeatureCountPerTile;
+
+    t.resize(oldTileCount + afk_terrainTilesPerTile);
+    f.resize(oldFeatureCount + afk_terrainTilesPerTile * afk_terrainFeatureCountPerTile);
+
+    afk_grabShared<AFK_TerrainTile, afk_terrainTilesPerTile>(
+        &t[oldTileCount], tiles);
+    afk_grabShared<AFK_TerrainFeature, afk_terrainTilesPerTile * afk_terrainFeatureCountPerTile>(
+        &f[oldFeatureCount], features);
 }
 
 unsigned int AFK_TerrainList::featureCount(void) const
