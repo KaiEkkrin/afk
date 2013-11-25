@@ -145,7 +145,7 @@ void AFK_LandscapeTile::buildTerrainList(
 
         try
         {
-            auto parentLandscapeTileClaim = cache->get(threadId, parentTile).claimable.claimInplace(threadId, AFK_CL_LOOP);
+            auto parentLandscapeTileClaim = cache->get(threadId, parentTile).claimable.claimInplace(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
             parentLandscapeTileClaim.getShared().buildTerrainList(threadId, list, parentTile, subdivisionFactor, maxDistance, cache);
         }
         catch (AFK_PolymerOutOfRange e)
@@ -184,7 +184,7 @@ void AFK_LandscapeTile::buildTerrainList(
 
         try
         {
-            auto parentLandscapeTileClaim = cache->get(threadId, parentTile).claimable.claimInplace(threadId, AFK_CL_LOOP);
+            auto parentLandscapeTileClaim = cache->get(threadId, parentTile).claimable.claimInplace(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
             parentLandscapeTileClaim.getShared().buildTerrainList(threadId, list, parentTile, subdivisionFactor, maxDistance, cache);
         }
         catch (AFK_PolymerOutOfRange e)
@@ -250,6 +250,17 @@ void AFK_LandscapeTile::setYBounds(float _yBoundLower, float _yBoundUpper)
 }
 
 bool AFK_LandscapeTile::realCellWithinYBounds(const Vec4<float>& coord) const
+{
+    float cellBoundLower = coord.v[1];
+    float cellBoundUpper = coord.v[1] + coord.v[3];
+
+    /* The `<=' operator here: someone needs to own the 0-plane.  I'm
+     * going to declare it to be the cell above not the cell below.
+     */
+    return (cellBoundLower <= yBoundUpper && cellBoundUpper > yBoundLower);
+}
+
+bool AFK_LandscapeTile::realCellWithinYBounds(const Vec4<float>& coord) const volatile
 {
     float cellBoundLower = coord.v[1];
     float cellBoundUpper = coord.v[1] + coord.v[3];

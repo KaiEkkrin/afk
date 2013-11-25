@@ -141,6 +141,7 @@ public:
      * are within y bounds, else false.
      */
     bool realCellWithinYBounds(const Vec4<float>& coord) const;
+    bool realCellWithinYBounds(const Vec4<float>& coord) const volatile;
 
     /* Checks whether this landscape tile has anything to render in
      * the given cell (by y-bounds).  If not, returns false.  If so,
