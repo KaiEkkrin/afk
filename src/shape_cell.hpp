@@ -66,6 +66,10 @@ protected:
     AFK_JigsawPiece edgeJigsawPiece;
     AFK_Frame edgeJigsawPieceTimestamp;
 
+    /* These are this cell's computed min and max densities. */
+    float minDensity;
+    float maxDensity;
+
     Vec4<float> getBaseColour(int64_t key) const;
 
 public:
@@ -73,6 +77,9 @@ public:
 
     bool hasVapour(AFK_JigsawCollection *vapourJigsaws) const;
     bool hasEdges(AFK_JigsawCollection *edgeJigsaws) const;
+
+    float getDMin() const { return minDensity; }
+    float getDMax() const { return maxDensity; }
 
     /* Enqueues the compute units.  Both these functions overwrite
      * the relevant jigsaw pieces with new ones.
@@ -129,6 +136,11 @@ public:
         AFK_JigsawCollection *edgeJigsaws,
         AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair,
         const AFK_Fair2DIndex& entityFair2DIndex) const;
+
+    /* Updates this cell's density information (call from
+     * dreduce)
+     */
+    void setDMinMax(float _minDensity, float _maxDensity);
 
     /* For handling claiming and eviction. */
     void evict(void);

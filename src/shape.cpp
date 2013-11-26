@@ -226,52 +226,66 @@ bool afk_generateShapeCells(
                  */
                 if (vapourCell.withinSkeleton(vc, cell, world->sSizes))
                 {
-                    if (display) 
+                    /* I want that shape cell now ... */
+                    auto shapeCellClaim = shape.shapeCellCache->insert(threadId, cell).claimable.claim(threadId, AFK_CL_BLOCK | AFK_CL_UPGRADE);
+                    if (shapeCellClaim.getShared().getDMin() < 0.0f &&
+                        shapeCellClaim.getShared().getDMax() > 0.0f)
                     {
-                        /* I want that shape cell now ... */
-                        auto shapeCellClaim = shape.shapeCellCache->insert(threadId, cell).claimable.claim(threadId, AFK_CL_BLOCK | AFK_CL_UPGRADE);
-                        if (!shape.generateClaimedShapeCell(
-                            threadId, vc, cell, vapourCellClaim, shapeCellClaim, worldTransform))
+                        /* There is something interesting here -- it's not empty
+                         * or solid
+                         */
+                        if (display) 
                         {
-                            DEBUG_VISIBLE_CELL("needs resume")
-                            needsResume = true;
+                            if (!shape.generateClaimedShapeCell(
+                                threadId, vc, cell, vapourCellClaim, shapeCellClaim, worldTransform))
+                            {
+                                DEBUG_VISIBLE_CELL("needs resume")
+                                needsResume = true;
+                            }
+                            else
+                            {
+                                DEBUG_VISIBLE_CELL("generated")
+#if AFK_SHAPE_ENUM_DEBUG
+                                AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " generated")
+#endif
+                            }
                         }
                         else
                         {
-                            DEBUG_VISIBLE_CELL("generated")
+                            DEBUG_VISIBLE_CELL("recursing into subcells")
+
+                            /* I can drop this before adding to the queue */
+                            shapeCellClaim.release();
+        
+                            /* I'm about to enumerate this cell's volume in subcells */
+                            world->volumeLeftToEnumerate.fetch_add(CUBE(cell.c.coord.v[3]));
+         
+                            size_t subcellsSize = CUBE(world->sSizes.subdivisionFactor);
+                            AFK_Cell *subcells = new AFK_Cell[subcellsSize];
+                            unsigned int subcellsCount = cell.c.subdivide(subcells, subcellsSize, world->sSizes.subdivisionFactor);
+                            assert(subcellsCount == subcellsSize);
+         
+                            for (unsigned int i = 0; i < subcellsCount; ++i)
+                            {
+                                AFK_WorldWorkQueue::WorkItem subcellItem;
+                                subcellItem.func                            = afk_generateShapeCells;
+                                subcellItem.param                           = param;
+                                subcellItem.param.shape.cell                = afk_keyedCell(subcells[i], cell.key);
+                                subcellItem.param.shape.flags               = (allVisible ? AFK_SCG_FLAG_ENTIRELY_VISIBLE : 0);
+                                subcellItem.param.shape.dependency          = nullptr;
+                                queue.push(subcellItem);
+         
 #if AFK_SHAPE_ENUM_DEBUG
-                            AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " generated")
+                                AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " recursed")
 #endif
+                            }
+                    
+                            delete[] subcells;
                         }
                     }
                     else
                     {
-                        DEBUG_VISIBLE_CELL("recursing into subcells")
-
-                        /* I'm about to enumerate this cell's volume in subcells */
-                        world->volumeLeftToEnumerate.fetch_add(CUBE(cell.c.coord.v[3]));
-     
-                        size_t subcellsSize = CUBE(world->sSizes.subdivisionFactor);
-                        AFK_Cell *subcells = new AFK_Cell[subcellsSize];
-                        unsigned int subcellsCount = cell.c.subdivide(subcells, subcellsSize, world->sSizes.subdivisionFactor);
-                        assert(subcellsCount == subcellsSize);
-     
-                        for (unsigned int i = 0; i < subcellsCount; ++i)
-                        {
-                            AFK_WorldWorkQueue::WorkItem subcellItem;
-                            subcellItem.func                            = afk_generateShapeCells;
-                            subcellItem.param                           = param;
-                            subcellItem.param.shape.cell                = afk_keyedCell(subcells[i], cell.key);
-                            subcellItem.param.shape.flags               = (allVisible ? AFK_SCG_FLAG_ENTIRELY_VISIBLE : 0);
-                            subcellItem.param.shape.dependency          = nullptr;
-                            queue.push(subcellItem);
-     
-#if AFK_SHAPE_ENUM_DEBUG
-                            AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " recursed")
-#endif
-                        }
-                
-                        delete[] subcells;
+                        DEBUG_VISIBLE_CELL("empty or solid")
                     }
                 }
                 else

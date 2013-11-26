@@ -17,6 +17,7 @@
 
 #include "afk.hpp"
 
+#include <cfloat>
 #include <memory>
 
 #include "core.hpp"
@@ -42,7 +43,8 @@ Vec4<float> AFK_ShapeCell::getBaseColour(int64_t key) const
         rng.frand(), rng.frand(), rng.frand(), 0.0f);
 }
 
-AFK_ShapeCell::AFK_ShapeCell()
+AFK_ShapeCell::AFK_ShapeCell():
+    minDensity(-FLT_MAX), maxDensity(FLT_MAX)
 {
 }
 
@@ -173,6 +175,12 @@ void AFK_ShapeCell::enqueueEdgeDisplayUnit(
             hgCoord,
             vapourJigsaws->getPuzzle(vapourJigsawPiece)->getTexCoordSTR(vapourJigsawPiece),
             edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTexCoordST(edgeJigsawPiece)));
+}
+
+void AFK_ShapeCell::setDMinMax(float _minDensity, float _maxDensity)
+{
+    minDensity = _minDensity;
+    maxDensity = _maxDensity;
 }
 
 void AFK_ShapeCell::evict(void)

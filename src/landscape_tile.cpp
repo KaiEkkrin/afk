@@ -232,16 +232,6 @@ enum AFK_LandscapeTileArtworkState AFK_LandscapeTile::artworkState(
     return (rowTimestamp == jigsawPieceTimestamp) ? AFK_LANDSCAPE_TILE_HAS_ARTWORK : AFK_LANDSCAPE_TILE_PIECE_SWEPT;
 }
 
-float AFK_LandscapeTile::getYBoundLower() const
-{
-    return yBoundLower;
-}
-
-float AFK_LandscapeTile::getYBoundUpper() const
-{
-    return yBoundUpper;
-}
-
 void AFK_LandscapeTile::setYBounds(float _yBoundLower, float _yBoundUpper)
 {
     if (haveTerrainDescriptor)

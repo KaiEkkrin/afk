@@ -133,8 +133,8 @@ public:
     AFK_JigsawPiece getJigsawPiece(unsigned int threadId, int minJigsaw, AFK_JigsawCollection *_jigsaws);
 
     enum AFK_LandscapeTileArtworkState artworkState(AFK_JigsawCollection *jigsaws) const;
-    float getYBoundLower() const;
-    float getYBoundUpper() const;
+    float getYBoundLower() const { return yBoundLower; }
+    float getYBoundUpper() const { return yBoundUpper; }
 
     /* Supply new y bounds _in tile space_ (that's easiest
      * for the yReduce kernel)

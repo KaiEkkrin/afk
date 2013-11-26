@@ -21,41 +21,6 @@
  * It requires fake3d and shape_3dvapour.
  */
 
-__constant sampler_t vapourSampler = CLK_NORMALIZED_COORDS_FALSE |
-    CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
-
-float4 readVapourPoint(
-    __read_only AFK_IMAGE3D vapourFeature0,
-    __read_only AFK_IMAGE3D vapourFeature1,
-    __read_only AFK_IMAGE3D vapourFeature2,
-    __read_only AFK_IMAGE3D vapourFeature3,
-    const int2 fake3D_size,
-    const int fake3D_mult,
-    __global const struct AFK_3DVapourComputeUnit *units,
-    int unitOffset,
-    int4 pieceCoord)
-{
-    int4 myVapourPiece = units[unitOffset].vapourPiece;
-    switch (myVapourPiece.w) /* This identifies the jigsaw */
-    {
-    case 0:
-        return read_imagef(vapourFeature0, vapourSampler, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult));
-
-    case 1:
-        return read_imagef(vapourFeature1, vapourSampler, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult));
-
-    case 2:
-        return read_imagef(vapourFeature2, vapourSampler, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult));
-
-    case 3:
-        return read_imagef(vapourFeature3, vapourSampler, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult));
-
-    default:
-        /* This really oughtn't to happen, of course... */
-        return (float4)(0.0f, 0.0f, 0.0f, 0.0f);
-    }
-}
-
 void writeVapourPoint(
     __write_only AFK_IMAGE3D vapourNormal0,
     __write_only AFK_IMAGE3D vapourNormal1,
