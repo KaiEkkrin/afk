@@ -24,6 +24,8 @@
 #include "computer.hpp"
 #include "core.hpp"
 #include "keyed_cell.hpp"
+#include "shape_cell.hpp"
+#include "shape_sizes.hpp"
 
 /* This object is like yreduce, but manages the reduction of the
  * density bounds out of the vapour.
@@ -51,6 +53,8 @@ public:
     void compute(
         unsigned int unitCount,
         cl_mem *units,
+        const Vec2<int>& fake3D_size,
+        int fake3D_mult,
         cl_mem *vapourJigsawsDensityMem, /* all 4 */
         const AFK_ShapeSizes& sSizes,
         const AFK_ComputeDependency& preDep,

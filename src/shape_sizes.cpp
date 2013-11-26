@@ -47,6 +47,8 @@ AFK_ShapeSizes::AFK_ShapeSizes(
     featureMinSize(1.0f / (2.0f * (float)afk_shapeSkeletonFlagGridDim * (float)config->subdivisionFactor)),
     edgeThreshold(config->shape_edgeThreshold)
 {
+    for (reduceOrder = 1; (1u << reduceOrder) < tDim; ++reduceOrder);
+
     for (layerBitness = 3; /* minimum bits for expressing overlap */
         (1u<<layerBitness) < (pointSubdivisionFactor+1);
         ++layerBitness);

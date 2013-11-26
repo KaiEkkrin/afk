@@ -34,7 +34,7 @@ const unsigned int afk_terrainTilesPerTile                  = 5; /* Describes th
 class AFK_LandscapeSizes
 {
 protected:
-    unsigned int reduceOrder; /* 1<<reduceOrder is the power of two above tDim*tDim */
+    unsigned int reduceOrder; /* 1<<reduceOrder is the power of two above tDim */
 
 public:
     const unsigned int subdivisionFactor;
@@ -50,7 +50,7 @@ public:
 
     AFK_LandscapeSizes(const AFK_Config *config);
 
-    unsigned int getReduceOrder(void) const;
+    unsigned int getReduceOrder(void) const { return reduceOrder; }
 };
 
 #endif /* _AFK_LANDSCAPE_SIZES_H_ */

@@ -114,5 +114,12 @@ __kernel void makeShapeDReduce(
             }
         }
     }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+    if (xdim == 0 && ydim == 0 && zdim == 0)
+    {
+        vapourBounds[2 * unitOffset] = dMin[0][0][0];
+        vapourBounds[2 * unitOffset + 1] = dMax[0][0][0];
+    }
 }
 

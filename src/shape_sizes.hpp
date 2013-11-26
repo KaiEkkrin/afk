@@ -32,6 +32,9 @@ const unsigned int afk_shapeSkeletonFlagGridDim         = 8;
  */
 class AFK_ShapeSizes
 {
+protected:
+    unsigned int reduceOrder;
+
 public:
     const unsigned int subdivisionFactor; /* same as in landscape_sizes and the world ? */
     const unsigned int entitySubdivisionFactor; /* ratio of cell size to the size of an
@@ -60,6 +63,8 @@ public:
                                  */
 
     AFK_ShapeSizes(const AFK_Config *config);
+
+    unsigned int getReduceOrder(void) const { return reduceOrder; }
 };
 
 #endif /* _AFK_SHAPE_SIZES_H_ */

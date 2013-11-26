@@ -17,33 +17,30 @@
 
 #include "afk.hpp"
 
-#include <thread>
+#include "dreduce.hpp"
 
-#include "core.hpp"
-#include "exception.hpp"
-#include "landscape_tile.hpp"
-#include "world.hpp"
-#include "yreduce.hpp"
+/* AFK_DReduce implementation */
 
-AFK_YReduce::AFK_YReduce(AFK_Computer *_computer):
+AFK_DReduce::AFK_DReduce(AFK_Computer *_computer):
     computer(_computer), buf(0), bufSize(0), readback(nullptr), readbackSize(0), readbackDep(computer)
 {
-    if (!computer->findKernel("makeLandscapeYReduce", yReduceKernel))
-        throw AFK_Exception("Cannot find Y-reduce kernel");
+    if (!computer->findKernel("makeLandscapeDReduce", dReduceKernel))
+        throw AFK_Exception("Cannot find D-reduce kernel");
 }
 
-AFK_YReduce::~AFK_YReduce()
+AFK_DReduce::~AFK_DReduce()
 {
     if (buf) computer->oclShim.ReleaseMemObject()(buf);
     if (readback) delete[] readback;
 }
 
-void AFK_YReduce::compute(
+void AFK_DReduce::compute(
     unsigned int unitCount,
     cl_mem *units,
-    cl_mem *jigsawYDisp,
-    cl_sampler *yDispSampler,
-    const AFK_LandscapeSizes& lSizes,
+    const Vec2<int>& fake3D_size,
+    int fake3D_mult,
+    cl_mem *vapourJigsawsDensityMem,
+    const AFK_ShapeSizes& sSizes,
     const AFK_ComputeDependency& preDep,
     AFK_ComputeDependency& o_postDep)
 {
@@ -53,9 +50,6 @@ void AFK_YReduce::compute(
     auto kernelQueue = computer->getKernelQueue();
     auto readQueue = computer->getReadQueue();
 
-    /* The buffer needs to be big enough for 2 floats per
-     * unit.
-     */
     size_t requiredSize = unitCount * 2 * sizeof(float);
     if (bufSize < requiredSize)
     {
@@ -71,21 +65,25 @@ void AFK_YReduce::compute(
         bufSize = requiredSize;
     }
 
-    kernelQueue->kernel(yReduceKernel);
+    kernelQueue->kernel(dReduceKernel);
     kernelQueue->kernelArg(sizeof(cl_mem), units);
-    kernelQueue->kernelArg(sizeof(cl_mem), jigsawYDisp);
-    kernelQueue->kernelArg(sizeof(cl_sampler), yDispSampler);
+    kernelQueue->kernelArg(sizeof(cl_int2), &fake3D_size.v[0]);
+    kernelQueue->kernelArg(sizeof(cl_int), &fake3D_mult);
+
+    for (int vfI = 0; vfI < 4; ++vfI)
+        kernelQueue->kernelArg(sizeof(cl_mem), &vapourJigsawsDensityMem[vfI]);
+
     kernelQueue->kernelArg(sizeof(cl_mem), &buf);
 
-    size_t yReduceGlobalDim[2];
-    yReduceGlobalDim[0] = (1 << lSizes.getReduceOrder());
-    yReduceGlobalDim[1] = unitCount;
+    size_t dReduceGlobalDim[3];
+    dReduceGlobalDim[0] = (1 << sSizes.getReduceOrder()) * unitCount;
+    dReduceGlobalDim[1] = dReduceGlobalDim[2] = (1 << sSizes.getReduceOrder());
 
-    size_t yReduceLocalDim[2];
-    yReduceLocalDim[0] = (1 << lSizes.getReduceOrder());
-    yReduceLocalDim[1] = 1;
+    size_t dReduceLocalDim[3];
+    dReduceLocalDim[0] = dReduceLocalDim[1] = dReduceLocalDim[2] =
+        (1 << sSizes.getReduceOrder());
 
-    kernelQueue->kernel2D(yReduceGlobalDim, yReduceLocalDim, preDep, o_postDep);
+    kernelQueue->kernel3D(dReduceGlobalDim, dReduceLocalDim, preDep, o_postDep);
 
     size_t requiredReadbackSize = requiredSize / sizeof(float);
     if (readbackSize < requiredReadbackSize)
@@ -98,45 +96,33 @@ void AFK_YReduce::compute(
     readQueue->readBuffer(buf, requiredSize, readback, o_postDep, readbackDep);
 }
 
-void AFK_YReduce::readBack(
+void AFK_DReduce::readBack(
     unsigned int threadId,
     unsigned int unitCount,
-    const std::vector<AFK_Tile>& landscapeTiles,
-    AFK_LANDSCAPE_CACHE *cache)
+    const std::vector<AFK_KeyedCell>& shapeCells,
+    AFK_SHAPE_CELL_CACHE *cache)
 {
     readbackDep.waitFor();
-#if 0
-    std::cout << "Computed y bounds: ";
-    for (unsigned int i = 0; i < 4 && i < unitCount; ++i)
-    {
-        if (i > 0) std::cout << ", ";
-        std::cout << "(" << readback[i * 2] << ", " << readback[i * 2 + 1] << ")";
-    }
-    std::cout << std::endl;
-#endif
 
-    /* Push all those tile bounds into the cache, so long as an
-     * entry can be found.
-     * TODO This logic is almost the same as that found in
-     * landscape_display_queue to cull the draw list.  Can I make
-     * it into a template algorithm?
+    /* TODO: Here's that logic again, as in yreduce...
+     * algorithm-ify?
      */
     bool allPushed = false;
     static thread_local std::vector<bool> pushed;
     pushed.clear();
-    for (unsigned int i = 0; i < landscapeTiles.size(); ++i) pushed.push_back(false);
+    for (unsigned int i = 0; i < shapeCells.size(); ++i) pushed.push_back(false);
 
     do
     {
         allPushed = true;
-        for (unsigned int i = 0; i < landscapeTiles.size(); ++i)
+        for (unsigned int i = 0; i < shapeCells.size(); ++i)
         {
             if (pushed[i]) continue;
 
             try
             {
-                auto claim = cache->get(threadId, landscapeTiles[i]).claimable.claim(threadId, 0);
-                claim.get().setYBounds(readback[i * 2], readback[i * 2 + 1]);
+                auto claim = cache->get(threadId, shapeCells[i]).claimable.claim(threadId, 0);
+                claim.get().setDMinMax(readback[i * 2], readback[i * 2 + 1]);
                 pushed[i] = true;
             }
             catch (AFK_PolymerOutOfRange) { pushed[i] = true; /* Ignore, no entry any more */ }

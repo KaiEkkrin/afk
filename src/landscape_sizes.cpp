@@ -35,8 +35,3 @@ AFK_LandscapeSizes::AFK_LandscapeSizes(const AFK_Config *config):
     for (reduceOrder = 1; (1u << reduceOrder) < tDim; ++reduceOrder);
 }
 
-unsigned int AFK_LandscapeSizes::getReduceOrder(void) const
-{
-    return reduceOrder;
-}
-
