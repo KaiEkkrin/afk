@@ -24,8 +24,9 @@
 #include "computer.hpp"
 #include "core.hpp"
 #include "keyed_cell.hpp"
-#include "shape_cell.hpp"
 #include "shape_sizes.hpp"
+
+class AFK_ShapeCell;
 
 /* This object is like yreduce, but manages the reduction of the
  * density bounds out of the vapour.

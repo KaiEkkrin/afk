@@ -286,6 +286,7 @@ bool afk_generateShapeCells(
                     else
                     {
                         DEBUG_VISIBLE_CELL("empty or solid")
+                        world->shapeCellsReducedOut.fetch_add(1);
                     }
                 }
                 else

@@ -95,7 +95,8 @@ void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
         vapourJigsawPiece,
         adjacency,
         o_cubeOffset,
-        o_cubeCount);
+        o_cubeCount,
+        cell);
 }
 
 void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
@@ -123,7 +124,8 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
         vapourJigsawPiece,
         adjacency,
         cubeOffset,
-        cubeCount);
+        cubeCount,
+        cell);
 }
 
 void AFK_ShapeCell::enqueueEdgeComputeUnit(

@@ -739,6 +739,7 @@ AFK_World::AFK_World(
     entitiesQueued.store(0);
     entitiesMoved.store(0);
     shapeCellsInvisible.store(0);
+    shapeCellsReducedOut.store(0);
     shapeCellsResumed.store(0);
     shapeVapoursComputed.store(0);
     shapeEdgesComputed.store(0);
@@ -954,7 +955,7 @@ void AFK_World::doComputeTasks(unsigned int threadId)
     }
 
     if (vapourComputeQueues.size() == 1)
-        vapourComputeQueues.at(0)->computeFinish(vapourJigsaws);
+        vapourComputeQueues.at(0)->computeFinish(threadId, vapourJigsaws, shape.shapeCellCache);
 
     for (unsigned int i = 0; i < edgeComputeQueues.size(); ++i)
     {
@@ -1064,6 +1065,7 @@ void AFK_World::checkpoint(afk_duration_mfl& timeSinceLastCheckpoint)
     PRINT_RATE_AND_RESET("Entities queued:              ", entitiesQueued)
     PRINT_RATE_AND_RESET("Entities moved:               ", entitiesMoved)
     PRINT_RATE_AND_RESET("Shape cells found invisible:  ", shapeCellsInvisible)
+    PRINT_RATE_AND_RESET("Shape cells reduced out:      ", shapeCellsReducedOut)
     PRINT_RATE_AND_RESET("Shape cells resumed:          ", shapeCellsResumed)
     PRINT_RATE_AND_RESET("Shape vapours computed:       ", shapeVapoursComputed)
     PRINT_RATE_AND_RESET("Shape edges computed:         ", shapeEdgesComputed)

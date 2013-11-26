@@ -40,6 +40,8 @@
 #include "visible_cell.hpp"
 #include "work.hpp"
 
+class AFK_World;
+
 enum AFK_ShapeArtworkState
 {
     AFK_SHAPE_NO_PIECE_ASSIGNED,
@@ -119,6 +121,8 @@ public:
         const union AFK_WorldWorkParam& param,
         const struct AFK_WorldWorkThreadLocal& threadLocal,
         AFK_WorldWorkQueue& queue);
+
+    friend class AFK_World;
 };
 
 

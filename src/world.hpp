@@ -110,6 +110,7 @@ protected:
 
     /* These ones are updated by the shape worker. */
     boost::atomic_uint_fast64_t shapeCellsInvisible;
+    boost::atomic_uint_fast64_t shapeCellsReducedOut;
     boost::atomic_uint_fast64_t shapeCellsResumed;
     boost::atomic_uint_fast64_t shapeVapoursComputed;
     boost::atomic_uint_fast64_t shapeEdgesComputed;

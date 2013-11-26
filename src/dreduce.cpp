@@ -18,13 +18,14 @@
 #include "afk.hpp"
 
 #include "dreduce.hpp"
+#include "shape_cell.hpp"
 
 /* AFK_DReduce implementation */
 
 AFK_DReduce::AFK_DReduce(AFK_Computer *_computer):
     computer(_computer), buf(0), bufSize(0), readback(nullptr), readbackSize(0), readbackDep(computer)
 {
-    if (!computer->findKernel("makeLandscapeDReduce", dReduceKernel))
+    if (!computer->findKernel("makeShape3DVapourDReduce", dReduceKernel))
         throw AFK_Exception("Cannot find D-reduce kernel");
 }
 
@@ -76,12 +77,12 @@ void AFK_DReduce::compute(
     kernelQueue->kernelArg(sizeof(cl_mem), &buf);
 
     size_t dReduceGlobalDim[3];
-    dReduceGlobalDim[0] = (1 << sSizes.getReduceOrder()) * unitCount;
+    dReduceGlobalDim[0] = unitCount;
     dReduceGlobalDim[1] = dReduceGlobalDim[2] = (1 << sSizes.getReduceOrder());
 
     size_t dReduceLocalDim[3];
-    dReduceLocalDim[0] = dReduceLocalDim[1] = dReduceLocalDim[2] =
-        (1 << sSizes.getReduceOrder());
+    dReduceLocalDim[0] = 1;
+    dReduceLocalDim[1] = dReduceLocalDim[2] = (1 << sSizes.getReduceOrder());
 
     kernelQueue->kernel3D(dReduceGlobalDim, dReduceLocalDim, preDep, o_postDep);
 

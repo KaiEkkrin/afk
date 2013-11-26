@@ -29,8 +29,11 @@
 
 #include "3d_solid.hpp"
 #include "computer.hpp"
+#include "core.hpp"
 #include "def.hpp"
+#include "dreduce.hpp"
 #include "jigsaw_collection.hpp"
+#include "keyed_cell.hpp"
 #include "shape_sizes.hpp"
 
 /* This module marshals 3D object compute data through the
@@ -102,6 +105,13 @@ protected:
 
     /* ...and the events we need to wait for before releasing them */
     AFK_ComputeDependency *preReleaseDep;
+
+    AFK_DReduce *dReduce;
+
+    /* Here we store the in-order list of source shape cell keys,
+     * so that the dreduce can feed back its results easily.
+     */
+    std::vector<AFK_KeyedCell> shapeCells;
     
 public:
     AFK_3DVapourComputeQueue();
@@ -128,16 +138,17 @@ public:
         const AFK_JigsawPiece& vapourJigsawPiece,
         int adjacencies,
         unsigned int cubeOffset,
-        unsigned int cubeCount);
+        unsigned int cubeCount,
+        const AFK_KeyedCell& cell);
 
-    /* Starts computing the vapour.
-     */
     void computeStart(
         AFK_Computer *computer,
         AFK_JigsawCollection *vapourJigsaws,
         const AFK_ShapeSizes& sSizes);
     void computeFinish(
-        AFK_JigsawCollection *vapourJigsaws);
+        unsigned int threadId,
+        AFK_JigsawCollection *vapourJigsaws,
+        AFK_SHAPE_CELL_CACHE *cache);
 
     /* To be part of a Fair. */
     bool empty(void);
