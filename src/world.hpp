@@ -213,11 +213,15 @@ protected:
         AFK_LandscapeTile& landscapeTile,
         bool display);
 
-    /* Generates a landscape tile's geometry. */
-    void generateLandscapeArtwork(
+    /* Generates a landscape tile's geometry.
+     * Returns true if we found missing tiles and you need to
+     * render them and resume, else false.
+     */
+    bool generateLandscapeArtwork(
         const AFK_Tile& tile,
         AFK_LandscapeTile& landscapeTile,
-        unsigned int threadId);
+        unsigned int threadId,
+        std::vector<AFK_Tile>& missingTiles);
 
     /* Pushes a landscape tile into the display queue. */
     void displayLandscapeTile(

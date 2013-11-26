@@ -126,32 +126,41 @@ void AFK_LandscapeTile::buildTerrainList(
     const AFK_Tile& tile,
     unsigned int subdivisionFactor,
     float maxDistance,
-    AFK_LANDSCAPE_CACHE *cache) const
+    AFK_LANDSCAPE_CACHE *cache,
+    std::vector<AFK_Tile>& missing) const
 {
     AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): adding local terrain for " << tile << " (terrain tiles " << AFK_InnerDebug<TileArray>(&terrainTiles) << ")")
 
-    /* Add the local terrain tiles to the list. */
-    list.extend<FeatureArray, TileArray>(terrainFeatures, terrainTiles);
+    /* Add the local terrain tiles to the list,
+     * but only if there aren't any missing already
+     * (otherwise it's a waste of time)
+     */
+    if (missing.empty())
+        list.extend<FeatureArray, TileArray>(terrainFeatures, terrainTiles);
 
     /* If this isn't the top level tile... */
-    if (tile.coord.v[2] < maxDistance)
+    AFK_Tile thisTile = tile;
+    while (thisTile.coord.v[2] < maxDistance)
     {
-        /* Find the parent tile in the cache.
-         * If it's not here I'll throw an exception -- that would be a bug.
-         */
-        AFK_Tile parentTile = tile.parent(subdivisionFactor);
+        /* Find the parent tile in the cache. */
+        AFK_Tile parentTile = thisTile.parent(subdivisionFactor);
 
         AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): looking for terrain for " << parentTile)
 
         try
         {
             auto parentLandscapeTileClaim = cache->get(threadId, parentTile).claimable.claimInplace(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
-            parentLandscapeTileClaim.getShared().buildTerrainList(threadId, list, parentTile, subdivisionFactor, maxDistance, cache);
+            parentLandscapeTileClaim.getShared().buildTerrainList(threadId, list, parentTile, subdivisionFactor, maxDistance, cache, missing);
+            return;
         }
         catch (AFK_PolymerOutOfRange e)
         {
-            AFK_DEBUG_PRINTL("buildTerrainList(): can't find terrain for " << parentTile)
-            throw e;
+            /* That tile is missing.  Continue looking for
+             * higher level tiles anyway.
+             */
+            AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): tile " << parentTile << " missing")
+            missing.push_back(parentTile);
+            thisTile = parentTile;
         }
     }
 }
@@ -162,22 +171,21 @@ void AFK_LandscapeTile::buildTerrainList(
     const AFK_Tile& tile,
     unsigned int subdivisionFactor,
     float maxDistance,
-    AFK_LANDSCAPE_CACHE *cache) const volatile
+    AFK_LANDSCAPE_CACHE *cache,
+    std::vector<AFK_Tile>& missing) const volatile
 {
     AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): adding local terrain for volatile tile " << tile)
 
-    list.extendInplaceTiles(
-        reinterpret_cast<const volatile AFK_TerrainFeature *>(
-            reinterpret_cast<const volatile char *>(this) + afk_getLandscapeTileFeaturesOffset()),
-        reinterpret_cast<const volatile AFK_TerrainTile *>(
-            reinterpret_cast<const volatile char *>(this) + afk_getLandscapeTileTilesOffset()));
+    if (missing.empty())
+        list.extendInplaceTiles(
+            reinterpret_cast<const volatile AFK_TerrainFeature *>(
+                reinterpret_cast<const volatile char *>(this) + afk_getLandscapeTileFeaturesOffset()),
+            reinterpret_cast<const volatile AFK_TerrainTile *>(
+                reinterpret_cast<const volatile char *>(this) + afk_getLandscapeTileTilesOffset()));
 
-    /* If this isn't the top level tile... */
-    if (tile.coord.v[2] < maxDistance)
+    AFK_Tile thisTile = tile;
+    while (thisTile.coord.v[2] < maxDistance)
     {
-        /* Find the parent tile in the cache.
-         * If it's not here I'll throw an exception -- that would be a bug.
-         */
         AFK_Tile parentTile = tile.parent(subdivisionFactor);
 
         AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): looking for terrain for " << parentTile)
@@ -185,12 +193,17 @@ void AFK_LandscapeTile::buildTerrainList(
         try
         {
             auto parentLandscapeTileClaim = cache->get(threadId, parentTile).claimable.claimInplace(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
-            parentLandscapeTileClaim.getShared().buildTerrainList(threadId, list, parentTile, subdivisionFactor, maxDistance, cache);
+            parentLandscapeTileClaim.getShared().buildTerrainList(threadId, list, parentTile, subdivisionFactor, maxDistance, cache, missing);
+            return;
         }
         catch (AFK_PolymerOutOfRange e)
         {
-            AFK_DEBUG_PRINTL("buildTerrainList(): can't find terrain for " << parentTile)
-            throw e;
+            /* That tile is missing.  Continue looking for
+             * higher level tiles anyway.
+             */
+            AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): tile " << parentTile << " missing")
+            missing.push_back(parentTile);
+            thisTile = parentTile;
         }
     }
 }

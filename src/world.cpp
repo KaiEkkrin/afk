@@ -179,10 +179,11 @@ bool AFK_World::checkClaimedLandscapeTile(
 
 #define DEBUG_TERRAIN_COMPUTE_QUEUE 0
 
-void AFK_World::generateLandscapeArtwork(
+bool AFK_World::generateLandscapeArtwork(
     const AFK_Tile& tile,
     AFK_LandscapeTile& landscapeTile,
-    unsigned int threadId)
+    unsigned int threadId,
+    std::vector<AFK_Tile>& missingTiles)
 {
     /* Create the terrain list, which is composed out of
      * the terrain descriptor for this landscape tile, and
@@ -196,7 +197,13 @@ void AFK_World::generateLandscapeArtwork(
         tile,
         subdivisionFactor,
         maxDistance,
-        landscapeCache);
+        landscapeCache,
+        missingTiles);
+
+    /* If we have any missing, we need to return with a `needsResume'
+     * status right away
+     */
+    if (!missingTiles.empty()) return true;
 
     /* Assign a jigsaw piece for this tile, so that the
      * compute phase has somewhere to paint.
@@ -227,6 +234,7 @@ void AFK_World::generateLandscapeArtwork(
 #endif
 
     tilesComputed.fetch_add(1);
+    return false;
 }
 
 void AFK_World::displayLandscapeTile(
@@ -307,6 +315,8 @@ bool AFK_World::generateClaimedWorldCell(
     else /* if (cell.coord.v[1] == 0) */
     {
         bool needsResume = false;
+        static thread_local std::vector<AFK_Tile> missingTiles;
+        missingTiles.clear();
 
         /* We display geometry at a cell if its detail pitch is at the
          * target detail pitch, or if it's already the smallest
@@ -346,9 +356,9 @@ bool AFK_World::generateClaimedWorldCell(
                 {
                     AFK_LandscapeTile& landscapeTile = landscapeClaim.get();
                     if (checkClaimedLandscapeTile(tile, landscapeTile, display))
-                        generateLandscapeArtwork(tile, landscapeTile, threadId);
+                        needsResume = generateLandscapeArtwork(tile, landscapeTile, threadId, missingTiles);
         
-                    if (display)
+                    if (!needsResume && display)
                         displayLandscapeTile(cell, tile, landscapeTile, threadId);
                 }
                 else
@@ -378,13 +388,40 @@ bool AFK_World::generateClaimedWorldCell(
             resumeItem.func = afk_generateWorldCells;
             resumeItem.param.world = param;
             resumeItem.param.world.flags |= AFK_WCG_FLAG_RESUME;
-
             if (param.dependency) param.dependency->retain();
-            queue.push(resumeItem);
+
+            /* If we have missing tiles, that resume needs to be a
+             * dependency of those missing tiles:
+             */
+            if (!missingTiles.empty())
+            {
+                AFK_WorldWorkParam::Dependency *dep = new AFK_WorldWorkParam::Dependency(resumeItem);
+                dep->retain(missingTiles.size());
+
+                for (auto m : missingTiles)
+                {
+                    volumeLeftToEnumerate.fetch_add(CUBE(m.coord.v[2]));
+
+                    AFK_WorldWorkQueue::WorkItem missingItem;
+                    missingItem.func = afk_generateWorldCells;
+                    missingItem.param.world.cell        = afk_cell(m, 0);
+                    missingItem.param.world.flags       = AFK_WCG_FLAG_ENTIRELY_VISIBLE | AFK_WCG_FLAG_TERRAIN_RENDER;
+                    missingItem.param.world.dependency  = dep;
+                    queue.push(missingItem);
+                }
+
+                tilesResumed.fetch_add(missingTiles.size());
+            }
+            else
+            {
+                /* We enqueue the resume directly */
+                queue.push(resumeItem);
+            }
+
             tilesResumed.fetch_add(1);
         }
 
-        if (!resume)
+        if (!resume && !renderTerrain)
         {
             /* Now that I've done all that, I can get to the
              * business of handling the entities within the cell.

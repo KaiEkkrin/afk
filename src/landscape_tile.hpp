@@ -105,6 +105,8 @@ public:
 
     /* Builds the terrain list for this tile.  Call it with
      * an empty list.
+     * If tiles are missing, fills out the `missing' list:
+     * you'll need to render all those tiles then resume.
      */
     void buildTerrainList(
         unsigned int threadId,
@@ -112,7 +114,8 @@ public:
         const AFK_Tile& tile,
         unsigned int subdivisionFactor,
         float maxDistance,
-        AFK_LANDSCAPE_CACHE *cache) const;
+        AFK_LANDSCAPE_CACHE *cache,
+        std::vector<AFK_Tile>& missing) const;
 
     /* This version so that I can use an inplace claim and
      * save a copy.
@@ -123,7 +126,8 @@ public:
         const AFK_Tile& tile,
         unsigned int subdivisionFactor,
         float maxDistance,
-        AFK_LANDSCAPE_CACHE *cache) const volatile;
+        AFK_LANDSCAPE_CACHE *cache,
+        std::vector<AFK_Tile>& missing) const volatile;
 
     /* Assigns a jigsaw piece to this tile. */
     AFK_JigsawPiece getJigsawPiece(unsigned int threadId, int minJigsaw, AFK_JigsawCollection *_jigsaws);
