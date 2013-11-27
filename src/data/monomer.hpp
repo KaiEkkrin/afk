@@ -53,7 +53,7 @@ public:
             }
             else return false;
         }
-        catch (AFK_ClaimException)
+        catch (AFK_ClaimException&)
         {
             return false;
         }
@@ -71,7 +71,7 @@ public:
             }
             else return false;
         }
-        catch (AFK_ClaimException)
+        catch (AFK_ClaimException&)
         {
             return false;
         }
@@ -90,7 +90,7 @@ public:
             }
             else return false;
         }
-        catch (AFK_ClaimException)
+        catch (AFK_ClaimException&)
         {
             return false;
         }
@@ -108,7 +108,7 @@ public:
             }
             else return false;
         }
-        catch (AFK_ClaimException)
+        catch (AFK_ClaimException&)
         {
             return false;
         }

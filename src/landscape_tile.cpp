@@ -153,7 +153,7 @@ void AFK_LandscapeTile::buildTerrainList(
             parentLandscapeTileClaim.getShared().buildTerrainList(threadId, list, parentTile, subdivisionFactor, maxDistance, cache, missing);
             return;
         }
-        catch (AFK_PolymerOutOfRange e)
+        catch (AFK_PolymerOutOfRange&)
         {
             /* That tile is missing.  Continue looking for
              * higher level tiles anyway.
@@ -196,7 +196,7 @@ void AFK_LandscapeTile::buildTerrainList(
             parentLandscapeTileClaim.getShared().buildTerrainList(threadId, list, parentTile, subdivisionFactor, maxDistance, cache, missing);
             return;
         }
-        catch (AFK_PolymerOutOfRange e)
+        catch (AFK_PolymerOutOfRange&)
         {
             /* That tile is missing.  Continue looking for
              * higher level tiles anyway.

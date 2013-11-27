@@ -139,8 +139,8 @@ void AFK_YReduce::readBack(
                 claim.get().setYBounds(readback[i * 2], readback[i * 2 + 1]);
                 pushed[i] = true;
             }
-            catch (AFK_PolymerOutOfRange) { pushed[i] = true; /* Ignore, no entry any more */ }
-            catch (AFK_ClaimException) { allPushed = false; /* Want to retry */ }
+            catch (AFK_PolymerOutOfRange&) { pushed[i] = true; /* Ignore, no entry any more */ }
+            catch (AFK_ClaimException&) { allPushed = false; /* Want to retry */ }
         }
 
         if (!allPushed) std::this_thread::yield();

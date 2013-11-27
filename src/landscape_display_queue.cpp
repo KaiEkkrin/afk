@@ -107,8 +107,8 @@ void AFK_LandscapeDisplayQueue::draw(
                 /* If I got here, the tile has been checked successfully. */
                 checked[i] = true;
             }
-            catch (AFK_PolymerOutOfRange) { checked[i] = true; /* Ignore, this one shouldn't be drawn */ }
-            catch (AFK_ClaimException) { allChecked = false; /* Want to retry */ }
+            catch (AFK_PolymerOutOfRange&) { checked[i] = true; /* Ignore, this one shouldn't be drawn */ }
+            catch (AFK_ClaimException&) { allChecked = false; /* Want to retry */ }
         }
 
         if (!allChecked) std::this_thread::yield(); /* Give things a chance */

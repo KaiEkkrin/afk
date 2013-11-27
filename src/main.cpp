@@ -89,7 +89,7 @@ int main(int argc, char **argv)
         std::cout << "AFK starting loop" << std::endl;
         afk_core.loop();
     }
-    catch (AFK_Exception e)
+    catch (AFK_Exception& e)
     {
         retcode = 1;
         std::cerr << "AFK Error: " << e.what() << std::endl;

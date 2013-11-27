@@ -83,7 +83,7 @@ bool afk_generateWorldCells(
         retval = world->generateClaimedWorldCell(
             worldCellClaim, threadId, param.world, threadLocal, queue);
     }
-    catch (AFK_ClaimException)
+    catch (AFK_ClaimException&)
     {
         /* This cell is busy, try again in a moment --
          * and track its volume again
@@ -371,7 +371,7 @@ bool AFK_World::generateClaimedWorldCell(
                 displayLandscapeTile(cell, tile, landscapeClaim.getShared(), threadId);
             }
         }
-        catch (AFK_ClaimException)
+        catch (AFK_ClaimException&)
         {
             needsResume = true;
         }
@@ -940,7 +940,7 @@ void AFK_World::doComputeTasks(unsigned int threadId)
                 edgeJigsaws->getPuzzle(edgePuzzle),
                 sSizes);
         }
-        catch (std::out_of_range) {} /* slightly naughty, but it's normal for
+        catch (std::out_of_range&) {} /* slightly naughty, but it's normal for
                                       * the entityFair2DIndex to form gaps
                                       */
     }
@@ -967,7 +967,7 @@ void AFK_World::doComputeTasks(unsigned int threadId)
                 vapourJigsaws->getPuzzle(vapourPuzzle),
                 edgeJigsaws->getPuzzle(edgePuzzle));
         }
-        catch (std::out_of_range) {} /* likewise */
+        catch (std::out_of_range&) {} /* likewise */
     }
 }
 
@@ -1037,7 +1037,7 @@ void AFK_World::display(
                edgeShapeBase,
                sSizes);
         }
-        catch (std::out_of_range) {} /* see comment in doComputeTasks() */
+        catch (std::out_of_range&) {} /* see comment in doComputeTasks() */
     }
 
     glBindVertexArray(0);

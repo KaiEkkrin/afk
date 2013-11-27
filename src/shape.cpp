@@ -101,7 +101,7 @@ bool afk_generateEntity(
             needsResume = true;
         }
     }
-    catch (AFK_ClaimException)
+    catch (AFK_ClaimException&)
     {
         needsResume = true;
     }
@@ -303,7 +303,7 @@ bool afk_generateShapeCells(
                 needsResume = true;
             }
         }
-        catch (AFK_ClaimException)
+        catch (AFK_ClaimException&)
         {
             needsResume = true;
         }

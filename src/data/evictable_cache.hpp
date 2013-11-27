@@ -260,7 +260,7 @@ public:
                                 }
                             }
                         }
-                        catch (AFK_ClaimException) {}
+                        catch (AFK_ClaimException&) {}
                     }
                 }
             }

@@ -100,7 +100,7 @@ void afk_testJigsaw(
                 piecesMap[jigsawPiece] = pieceFrame;
             }
         }
-        catch (AFK_Exception e)
+        catch (AFK_Exception& e)
         {
             if (e.getMessage() == "Jigsaw ran out of room")
             {
