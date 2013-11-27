@@ -27,13 +27,12 @@
  * methods.
  */
 
+#define AFK_CQ_KERNEL_COMMAND_SET   1
+#define AFK_CQ_READ_COMMAND_SET     2
+#define AFK_CQ_WRITE_COMMAND_SET    4
+
 class AFK_ComputeQueue
 {
-public:
-    static constexpr unsigned int KernelCommandSet  = 1;
-    static constexpr unsigned int ReadCommandSet    = 2;
-    static constexpr unsigned int WriteCommandSet   = 4;
-
 protected:
     AFK_OclShim *oclShim;
     cl_context ctxt;

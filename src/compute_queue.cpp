@@ -48,7 +48,7 @@ AFK_ComputeQueue::~AFK_ComputeQueue()
 
 void AFK_ComputeQueue::kernel(cl_kernel _k)
 {
-    assert(commandSet & KernelCommandSet);
+    assert(commandSet & AFK_CQ_KERNEL_COMMAND_SET);
     assert(!k);
     k = _k;
     kernelArgCount = 0;
@@ -58,7 +58,7 @@ void AFK_ComputeQueue::kernelArg(
     size_t size,
     const void *arg)
 {
-    assert(commandSet & KernelCommandSet);
+    assert(commandSet & AFK_CQ_KERNEL_COMMAND_SET);
     assert(k);
     AFK_CLCHK(oclShim->SetKernelArg()(k, kernelArgCount++, size, arg))
 }
@@ -69,7 +69,7 @@ void AFK_ComputeQueue::kernel2D(
     const AFK_ComputeDependency& preDep,
     AFK_ComputeDependency& postDep)
 {
-    assert(commandSet & KernelCommandSet);
+    assert(commandSet & AFK_CQ_KERNEL_COMMAND_SET);
     assert(k);
     AFK_CLCHK(oclShim->EnqueueNDRangeKernel()(
         q, k, 2, nullptr, globalDim, localDim, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
@@ -82,7 +82,7 @@ void AFK_ComputeQueue::kernel3D(
     const AFK_ComputeDependency& preDep,
     AFK_ComputeDependency& postDep)
 {
-    assert(commandSet & KernelCommandSet);
+    assert(commandSet & AFK_CQ_KERNEL_COMMAND_SET);
     assert(k);
     AFK_CLCHK(oclShim->EnqueueNDRangeKernel()(
         q, k, 3, nullptr, globalDim, localDim, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
@@ -95,7 +95,7 @@ void AFK_ComputeQueue::acquireGlObjects(
     const AFK_ComputeDependency& preDep,
     AFK_ComputeDependency& postDep)
 {
-    assert(commandSet & ReadCommandSet);
+    assert(commandSet & AFK_CQ_READ_COMMAND_SET);
     AFK_CLCHK(oclShim->EnqueueAcquireGLObjects()(
         q, count, obj, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
 }
@@ -107,7 +107,7 @@ void AFK_ComputeQueue::readBuffer(
     const AFK_ComputeDependency& preDep,
     AFK_ComputeDependency& postDep)
 {
-    assert(commandSet & ReadCommandSet);
+    assert(commandSet & AFK_CQ_READ_COMMAND_SET);
     AFK_CLCHK(oclShim->EnqueueReadBuffer()(
         q, buf, async ? CL_FALSE : CL_TRUE, 0, size, target, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
 }
@@ -120,7 +120,7 @@ void AFK_ComputeQueue::readImage(
     const AFK_ComputeDependency& preDep,
     AFK_ComputeDependency& postDep)
 {
-    assert(commandSet & ReadCommandSet);
+    assert(commandSet & AFK_CQ_READ_COMMAND_SET);
     AFK_CLCHK(oclShim->EnqueueReadImage()(
         q, tex, async ? CL_FALSE : CL_TRUE, origin, region, 0, 0, target, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
 }
@@ -131,7 +131,7 @@ void AFK_ComputeQueue::releaseGlObjects(
     const AFK_ComputeDependency& preDep,
     AFK_ComputeDependency& postDep)
 {
-    assert(commandSet & ReadCommandSet);
+    assert(commandSet & AFK_CQ_READ_COMMAND_SET);
     AFK_CLCHK(oclShim->EnqueueReleaseGLObjects()(
         q, count, obj, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
 }
@@ -143,7 +143,7 @@ void AFK_ComputeQueue::writeBuffer(
     const AFK_ComputeDependency& preDep,
     AFK_ComputeDependency& postDep)
 {
-    assert(commandSet & WriteCommandSet);
+    assert(commandSet & AFK_CQ_WRITE_COMMAND_SET);
     AFK_CLCHK(oclShim->EnqueueWriteBuffer()(
         q, buf, async ? CL_FALSE : CL_TRUE, 0, size, source, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
 }
