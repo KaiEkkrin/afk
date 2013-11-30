@@ -25,6 +25,7 @@
 #include "display.hpp"
 #include "exception.hpp"
 #include "object.hpp"
+#include "world.hpp"
 
 
 void afk_displayedBufferGlBuffersForDeletion(GLuint *bufs, size_t bufsSize)
@@ -147,11 +148,11 @@ void AFK_DisplayedProtagonist::display(const Mat4<float>& projection)
 }
 
 
-void afk_display(void)
+void afk_display(unsigned int threadId)
 {
-    afk_core.world->doComputeTasks();
+    afk_core.world->doComputeTasks(threadId);
 
-    Mat4<float> projection = afk_core.camera->getProjection();
+    Mat4<float> projection = afk_core.camera.getProjection();
 
     /* Make sure the display size is right */
     static unsigned int lastWindowWidth = 0, lastWindowHeight = 0;
@@ -160,19 +161,23 @@ void afk_display(void)
     if (windowWidth != lastWindowWidth || windowHeight != lastWindowHeight)
     {
         glViewport(0, 0, windowWidth, windowHeight);
-        afk_core.camera->setWindowDimensions(windowWidth, windowHeight);
+        afk_core.camera.setWindowDimensions(windowWidth, windowHeight);
         lastWindowWidth = windowWidth;
         lastWindowHeight = windowHeight;
     }
+
+    Vec2<float> windowSize = afk_core.camera.getWindowSize();
 
     glClearColor(afk_core.skyColour.v[0], afk_core.skyColour.v[1], afk_core.skyColour.v[2], 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glEnable(GL_DEPTH_TEST);
+    glDepthRangef(afk_core.config->zNear, afk_core.config->zFar);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
+    glEnable(GL_PROGRAM_POINT_SIZE);
 
-    afk_core.world->display(projection, afk_core.sun);
+    afk_core.world->display(threadId, projection, windowSize, afk_core.sun);
 
     /* TODO: This placeholder protagonist is cheating, because
      * I created it manually.
@@ -180,7 +185,7 @@ void afk_display(void)
      * (jimmied to be a suitable size and shape to fly around
      * in the company of.)
      */
-    afk_core.protagonist->display(projection);
+    afk_core.protagonist.display(projection);
 
     /* glFinish here behaves *very* badly along with vsync,
      * entirely screws up the detail calibrator
@@ -188,7 +193,12 @@ void afk_display(void)
     glFlush();
 
     GLenum glErr = glGetError();
-    /* TODO Non-fatal errors? (How should I handle out-of-memory?) */
-    assert(glErr == GL_NO_ERROR);
+    if (glErr != GL_NO_ERROR)
+    {
+        /* TODO Non-fatal errors? (How should I handle out-of-memory?) */
+        std::ostringstream ss;
+        ss << "GL error: " << glErr << ": " << gluErrorString(glErr);
+        throw AFK_Exception(ss.str());
+    }
 }
 

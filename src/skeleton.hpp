@@ -79,11 +79,8 @@ public:
 class AFK_Skeleton
 {
 protected:
-    uint64_t **grid;
-    int gridDim;
+    uint64_t grid[afk_shapeSkeletonFlagGridDim][afk_shapeSkeletonFlagGridDim];
     int boneCount;
-
-    void initGrid(void);
 
     /* Simple queries. */
     enum AFK_SkeletonFlag testFlag(const AFK_SkeletonCube& where) const;
@@ -113,7 +110,6 @@ protected:
 
 public:
     AFK_Skeleton();
-    virtual ~AFK_Skeleton();
 
     /* This makes a fresh Skeleton from scratch -- a
      * top level one.
@@ -163,7 +159,7 @@ public:
 
     /* This is a device for enumerating the cells that are
      * set within the skeleton.  They come out in skeleton
-     * co-ordinates (between 0 and gridDim).
+     * co-ordinates (between 0 and afk_shapeSkeletonFlagGridDim).
      * It's not an iterator, because those are nasty and
      * I've had issues: I'm coming up with my own similar
      * paradigm instead (with less baggage).

@@ -32,13 +32,13 @@ public:
     /* Returns the number of elements in the cache. */
     virtual size_t size() const = 0;
 
+    /* Returns the value at this key. */
+    virtual Value& get(unsigned int threadId, const Key& key) = 0;
+
     /* Returns the value at this key, or inserts a new one and
      * returns that if there wasn't one.
      */
-    virtual Value& operator[](const Key& key) = 0;
-
-    /* For debugging. */
-    virtual void printEverything(std::ostream& os) const = 0;
+    virtual Value& insert(unsigned int threadId, const Key& key) = 0;
 
     /* TODO: I need a way of analysing the duplication rate.  Right now,
      * there isn't anything.

@@ -82,6 +82,7 @@ public:
 
     /* Obligatory thingies. */
     bool operator==(const AFK_Cell& _cell) const;
+    bool operator==(const AFK_Cell& _cell) const volatile;
     bool operator!=(const AFK_Cell& _cell) const;
 
     /* Gives the RNG seed value that matches this cell. */
@@ -146,11 +147,20 @@ public:
 
     /* Transforms this cell's co-ordinates to world space. */
     Vec4<float> toWorldSpace(float worldScale) const;
+
+    /* Transforms this cell's co-ordinates into homogeneous
+     * world space co-ordinates, such that 0-1 is the scale
+     * of the cell cube
+     */
+    Vec4<float> toHomogeneous(float worldScale) const;
 };
 
 /* Useful ways of making cells. */
 AFK_Cell afk_cell(const AFK_Cell& other);
 AFK_Cell afk_cell(const Vec4<int64_t>& _coord);
+
+/* An invalid "unassigned" cell value for polymer keying. */
+extern const AFK_Cell afk_unassignedCell;
 
 /* Returns the cell (of the requested scale) that contains this point. */
 AFK_Cell afk_cellContaining(const Vec3<float>& _coord, int64_t scale, float worldScale);

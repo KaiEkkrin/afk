@@ -24,371 +24,286 @@
 #include <iostream>
 
 
+/* AFK_JigsawFactory implementation */
 
-/* AFK_JigsawCollection implementation */
-
-GLuint AFK_JigsawCollection::getGlTextureTarget(void) const
+AFK_JigsawFactory::AFK_JigsawFactory(
+    AFK_Computer *_computer,
+    const Vec3<int>& _jigsawSize,
+    const std::vector<AFK_JigsawImageDescriptor>& _desc):
+        computer(_computer),
+        jigsawSize(_jigsawSize),
+        desc(_desc)
 {
-    std::ostringstream ss;
-
-    switch (dimensions)
-    {
-    case AFK_JIGSAW_2D:
-        return GL_TEXTURE_2D;
-
-    case AFK_JIGSAW_3D:
-        return GL_TEXTURE_3D;
-
-    default:
-        ss << "Unsupported jigsaw dimensions: " << dimensions;
-        throw AFK_Exception(ss.str());
-    }
 }
 
-std::string AFK_JigsawCollection::getDimensionalityStr(void) const
-{
-    std::ostringstream ss;
-
-    switch (dimensions)
-    {
-    case AFK_JIGSAW_2D:
-        ss << "2D";
-        break;
-
-    case AFK_JIGSAW_3D:
-        ss << "3D";
-        break;
-
-    default:
-        ss << "Unsupported jigsaw dimensions: " << dimensions;
-        throw AFK_Exception(ss.str());
-    }
-
-    return ss.str();
-}
-
-bool AFK_JigsawCollection::grabPieceFromPuzzle(
-    unsigned int threadId,
-    int puzzle,
-    AFK_JigsawPiece *o_piece,
-    AFK_Frame *o_timestamp)
-{
-    Vec3<int> uvw;
-    if (puzzles[puzzle]->grab(threadId, uvw, o_timestamp))
-    {
-        /* This check has caught a few bugs in the past... */
-        assert(uvw.v[0] >= 0 && uvw.v[0] < jigsawSize.v[0] &&
-            uvw.v[1] >= 0 && uvw.v[1] < jigsawSize.v[1] &&
-            uvw.v[2] >= 0 && uvw.v[2] < jigsawSize.v[2]);
-
-        *o_piece = AFK_JigsawPiece(uvw, puzzle);
-        return true;
-    }
-
-    return false;
-}
-
-AFK_Jigsaw *AFK_JigsawCollection::makeNewJigsaw(AFK_Computer *computer) const
+#if AFK_JIGSAW_COLLECTION_CHAIN
+AFK_Jigsaw *AFK_JigsawFactory::operator()() const
 {
     return new AFK_Jigsaw(
         computer,
-        pieceSize,
         jigsawSize,
-        &format[0],
-        dimensions == AFK_JIGSAW_2D ? GL_TEXTURE_2D : GL_TEXTURE_3D,
-        fake3D,
-        texCount,
-        bufferUsage,
-        concurrency);
+        desc);
 }
+#else
+std::shared_ptr<AFK_Jigsaw> AFK_JigsawFactory::operator()() const
+{
+    return std::make_shared<AFK_Jigsaw>(
+        computer,
+        jigsawSize,
+        desc);
+}
+#endif
+
+/* AFK_JigsawCollection implementation */
 
 AFK_JigsawCollection::AFK_JigsawCollection(
     AFK_Computer *_computer,
-    const Vec3<int>& _pieceSize,
-    int _pieceCount,
-    unsigned int minPuzzleCount,
-    enum AFK_JigsawDimensions _dimensions,
-    const std::vector<AFK_JigsawFormat>& texFormat,
+    const AFK_JigsawMemoryAllocation::Entry& _e,
     const AFK_ClDeviceProperties& _clDeviceProps,
-    enum AFK_JigsawBufferUsage _bufferUsage,
-    unsigned int _concurrency,
-    bool useFake3D,
-    unsigned int _maxPuzzles):
-        dimensions(_dimensions),
-        texCount(texFormat.size()),
-        pieceSize(_pieceSize),
-        pieceCount(_pieceCount),
-        bufferUsage(_bufferUsage),
-        concurrency(_concurrency),
+    int _maxPuzzles):
         maxPuzzles(_maxPuzzles)
 {
-    assert(maxPuzzles == 0 || maxPuzzles >= minPuzzleCount);
+    assert(maxPuzzles == 0 || maxPuzzles >= (int)_e.getPuzzleCount());
 
-    std::cout << "AFK_JigsawCollection: Requested " << getDimensionalityStr() << " jigsaw with " << std::dec << pieceCount << " pieces of size " << pieceSize << ": " << std::endl;
+    std::vector<AFK_JigsawImageDescriptor> desc;
+    for (auto d = _e.beginDescriptors(); d != _e.endDescriptors(); ++d)
+        desc.push_back(*d);
 
-    /* Figure out the texture formats. */
-    for (unsigned int tex = 0; tex < texCount; ++tex)
-        format.push_back(AFK_JigsawFormatDescriptor(texFormat[tex]));
+    jigsawFactory = std::make_shared<AFK_JigsawFactory>(
+        _computer, _e.getJigsawSize(), desc);
 
-    /* Figure out a jigsaw size.  I want the rows to always be a
-     * round multiple of `concurrency' to avoid breaking rectangles
-     * apart.
-     * For this I need to try all the formats: I stop testing
-     * when any one of the formats fails, because all the
-     * jigsaw textures need to be identical aside from their
-     * texels
-     */
-    Vec3<int> jigsawSizeIncrement = (
-        dimensions == AFK_JIGSAW_2D ? afk_vec3<int>(concurrency, concurrency, 0) :
-        afk_vec3<int>(concurrency, concurrency, concurrency));
-
-    jigsawSize = (
-        dimensions == AFK_JIGSAW_2D ? afk_vec3<int>(concurrency, concurrency, 1) :
-        afk_vec3<int>(concurrency, concurrency, concurrency));
-
-    GLuint proxyTexTarget = (dimensions == AFK_JIGSAW_2D ? GL_PROXY_TEXTURE_2D : GL_PROXY_TEXTURE_3D);
-    GLuint glProxyTex[texCount];
-    glGenTextures(texCount, glProxyTex);
-    GLint texWidth;
-    bool dimensionsOK = true;
-    for (Vec3<int> testJigsawSize = jigsawSize;
-        dimensionsOK && jigsawSize.v[0] * jigsawSize.v[1] < pieceCount;
-        testJigsawSize += jigsawSizeIncrement)
-    {
-        dimensionsOK = (
-            dimensions == AFK_JIGSAW_2D ?
-                (testJigsawSize.v[0] <= (int)_clDeviceProps.image2DMaxWidth &&
-                 testJigsawSize.v[1] <= (int)_clDeviceProps.image2DMaxHeight) :
-                (testJigsawSize.v[0] <= (int)_clDeviceProps.image3DMaxWidth &&
-                 testJigsawSize.v[1] <= (int)_clDeviceProps.image3DMaxHeight &&
-                 testJigsawSize.v[2] <= (int)_clDeviceProps.image3DMaxDepth));
-
-        /* Try to make pretend textures of the current jigsaw size */
-        for (unsigned int tex = 0; tex < texCount && dimensionsOK; ++tex)
-        {
-            dimensionsOK &= ((minPuzzleCount * testJigsawSize.v[0] * testJigsawSize.v[1] * testJigsawSize.v[2] * pieceSize.v[0] * pieceSize.v[1] * pieceSize.v[2] * format[tex].texelSize) < (_clDeviceProps.maxMemAllocSize / 2));
-            if (!dimensionsOK) break;
-
-            glBindTexture(proxyTexTarget, glProxyTex[tex]);
-            switch (dimensions)
-            {
-            case AFK_JIGSAW_2D:
-                glTexImage2D(
-                    proxyTexTarget,
-                    0,
-                    format[tex].glInternalFormat,
-                    pieceSize.v[0] * testJigsawSize.v[0],
-                    pieceSize.v[1] * testJigsawSize.v[1],
-                    0,
-                    format[tex].glFormat,
-                    format[tex].glDataType,
-                    nullptr);
-                break;
-
-            case AFK_JIGSAW_3D:
-                glTexImage3D(
-                    proxyTexTarget,
-                    0,
-                    format[tex].glInternalFormat,
-                    pieceSize.v[0] * testJigsawSize.v[0],
-                    pieceSize.v[1] * testJigsawSize.v[1],
-                    pieceSize.v[2] * testJigsawSize.v[2],
-					0,
-                    format[tex].glFormat,
-                    format[tex].glDataType,
-                    nullptr);
-                break;
-
-            default:
-                throw AFK_Exception("Unrecognised proxyTexTarget");
-            }
-
-            /* See if it worked */
-            glGetTexLevelParameteriv(
-                proxyTexTarget,
-                0,
-                GL_TEXTURE_WIDTH,
-                &texWidth);
-
-            dimensionsOK &= (texWidth != 0);
-        }
-
-        if (dimensionsOK) jigsawSize = testJigsawSize;
-    }
-
-    glDeleteTextures(texCount, glProxyTex);
-    glGetError(); /* Throw away any error that might have popped up */
-
-    /* Update the dimensions and actual piece count to reflect what I found */
-    unsigned int jigsawCount = pieceCount / (jigsawSize.v[0] * jigsawSize.v[1] * jigsawSize.v[2]) + 1;
-    if (jigsawCount < minPuzzleCount) jigsawCount = minPuzzleCount;
-    pieceCount = jigsawCount * jigsawSize.v[0] * jigsawSize.v[1] * jigsawSize.v[2];
-
-    std::cout << "AFK_JigsawCollection: Making " << jigsawCount << " jigsaws with " << jigsawSize << " pieces each (actually " << pieceCount << " pieces)" << std::endl;
-
-    if (useFake3D)
-    {
-        fake3D = AFK_JigsawFake3DDescriptor(true, afk_vec3<int>(
-            pieceSize.v[0] * jigsawSize.v[0],
-            pieceSize.v[1] * jigsawSize.v[1],
-            pieceSize.v[2] * jigsawSize.v[2]));
-        std::cout << "AFK_JigsawCollection: Using fake 3D size " << fake3D.get2DSize() << " for CL" << std::endl;
-
-        /* I won't try to execute the below jigsaw size calculation for the
-         * 2D piece separately.  Typical size limits are much lower for 3D
-         * textures, so it's very unlikely I'll run into a size limit on the
-         * 2D one when I didn't get one for 3D.
-         */
-    }
-
-    for (unsigned int j = 0; j < jigsawCount; ++j)
-    {
-        puzzles.push_back(makeNewJigsaw(_computer));
-    }
-
-    spare = makeNewJigsaw(_computer);
-
-    spills.store(0);
+    /* There should always be at least one puzzle. */
+    assert(_e.getPuzzleCount() > 0);
+#if AFK_JIGSAW_COLLECTION_CHAIN
+    puzzles = new Puzzle(jigsawFactory);
+    for (unsigned int j = 1; j < _e.getPuzzleCount(); ++j)
+        puzzles->extend();
+#else
+    for (unsigned int j = 0; j < _e.getPuzzleCount(); ++j)
+        puzzles.push_back((*jigsawFactory)());
+#endif
 }
 
 AFK_JigsawCollection::~AFK_JigsawCollection()
 {
-    for (auto p : puzzles) delete p;
-    if (spare) delete spare;
-}
-
-int AFK_JigsawCollection::getPieceCount(void) const
-{
-    return pieceCount;
+#if AFK_JIGSAW_COLLECTION_CHAIN
+    delete puzzles;
+#endif
 }
 
 void AFK_JigsawCollection::grab(
-    unsigned int threadId,
     int minJigsaw,
     AFK_JigsawPiece *o_pieces,
     AFK_Frame *o_timestamps,
-    size_t count)
+    int count)
 {
-    bool gotUpgradeLock = false;
-    if (mut.try_lock_upgrade()) gotUpgradeLock = true;
-    else mut.lock_shared();
+#if AFK_JIGSAW_COLLECTION_CHAIN
+    Puzzle *start = puzzles;
 
-    int puzzle;
-    AFK_JigsawPiece piece;
-    for (puzzle = minJigsaw; puzzle < (int)puzzles.size(); ++puzzle)
+    int numGrabbed = 0;
+    while (numGrabbed < count)
     {
-        bool haveAllPieces = true;
-        for (size_t pieceIdx = 0; haveAllPieces && pieceIdx < count; ++pieceIdx)
+        /* Grab pieces from this puzzle or any puzzle after it,
+         * creating as necessary.
+         */
+        int puzzleIdx = 0;
+
+        for (Puzzle *chain = start; numGrabbed < count; chain = chain->extend())
         {
-            haveAllPieces &= grabPieceFromPuzzle(threadId, puzzle, &o_pieces[pieceIdx], &o_timestamps[pieceIdx]);
-            
+            AFK_Jigsaw *jigsaw = chain->get();
+
+            while (puzzleIdx >= minJigsaw && numGrabbed < count)
+            {
+                Vec3<int> uvw;
+                if (jigsaw->grab(uvw, &o_timestamps[numGrabbed]))
+                {
+                    o_pieces[numGrabbed] = AFK_JigsawPiece(uvw, puzzleIdx);
+                    ++numGrabbed;
+                }
+                else break; /* this puzzle couldn't give us a piece */
+            }
+
+            ++puzzleIdx;
+            if (maxPuzzles > 0 && puzzleIdx >= maxPuzzles &&
+                numGrabbed < count)
+            {
+                /* Oh dear, we've actually hit a wall. */
+                std::ostringstream ss;
+                ss << "AFK_JigsawCollection: Jigsaw hit maxPuzzles " << maxPuzzles;
+                throw AFK_Exception(ss.str());
+            }
         }
-
-        if (haveAllPieces) goto grab_return;
     }
+#else
+    /* TODO Can I make this better? */
+    std::unique_lock<std::mutex> lock(mut);
 
-    /* If I get here I've run out of room entirely.  See if I have
-     * a spare jigsaw to push in.
-     */
-    if (!gotUpgradeLock)
+    auto puzzleIt = puzzles.begin();
+    int numGrabbed = 0;
+    int puzzleIdx = 0;
+    while (numGrabbed < count)
     {
-        mut.unlock_shared();
-        mut.lock_upgrade();
-        gotUpgradeLock = true;
+        if (puzzleIt != puzzles.end())
+        {
+            /* Grab as many pieces from this puzzle as I can. */
+            while (puzzleIdx >= minJigsaw && numGrabbed < count)
+            {
+                Vec3<int> uvw;
+                if ((*puzzleIt)->grab(uvw, &o_timestamps[numGrabbed]))
+                {
+                    o_pieces[numGrabbed] = AFK_JigsawPiece(uvw, puzzleIdx);
+                    ++numGrabbed;
+                }
+                else break; /* this puzzle couldn't give us a piece */
+            }
+
+            ++puzzleIt;
+            ++puzzleIdx;
+            if (maxPuzzles > 0 && puzzleIdx >= maxPuzzles &&
+                numGrabbed < count)
+            {
+                /* Oh dear, we've actually hit a wall. */
+                std::ostringstream ss;
+                ss << "AFK_JigsawCollection: Jigsaw hit maxPuzzles " << maxPuzzles;
+                throw AFK_Exception(ss.str());
+            }
+        }
+        else
+        {
+            /* If I get here, I need to add another puzzle. */
+            std::shared_ptr<AFK_Jigsaw> newPuzzle = (*jigsawFactory)();
+            puzzleIt = puzzles.insert(puzzles.end(), newPuzzle);
+        }
     }
-
-    mut.unlock_upgrade_and_lock();
-
-    if (spare)
-    {
-        puzzles.push_back(spare);
-        spare = nullptr;
-    }
-
-    if ((int)puzzles.size() == puzzle)
-    {
-        /* Properly out of room.  Failed. */
-        mut.unlock();
-        throw AFK_Exception("Jigsaw ran out of room");
-    }
-
-    mut.unlock();
-    return grab(threadId, puzzle, o_pieces, o_timestamps, count);
-
-grab_return:
-    if (gotUpgradeLock) mut.unlock_upgrade();
-    else mut.unlock_shared();
+#endif
 }
 
 AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(const AFK_JigsawPiece& piece)
 {
-    if (piece == AFK_JigsawPiece()) throw AFK_Exception("AFK_JigsawCollection: Called getPuzzle() with the null piece");
-    boost::shared_lock<boost::upgrade_mutex> lock(mut);
-    return puzzles[piece.puzzle];
+    return getPuzzle(piece.puzzle);
 }
 
 AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(int puzzle)
 {
-    boost::shared_lock<boost::upgrade_mutex> lock(mut);
-    return puzzles[puzzle];
+#if AFK_JIGSAW_COLLECTION_CHAIN
+    for (Puzzle *chain = puzzles; chain; chain = chain->next())
+        if (puzzle-- == 0) return chain->get();
+
+    return nullptr;
+#else
+    std::unique_lock<std::mutex> lock(mut);
+    return puzzles.at(puzzle).get();
+#endif
 }
 
 int AFK_JigsawCollection::acquireAllForCl(
+    AFK_Computer *computer,
     unsigned int tex,
     cl_mem *allMem,
     int count,
-    std::vector<cl_event>& o_events)
+    Vec2<int>& o_fake3D_size,
+    int& o_fake3D_mult,
+    AFK_ComputeDependency& o_dep)
 {
-    boost::shared_lock<boost::upgrade_mutex> lock(mut);
+    assert(count > 0);
 
-    int i;
-    int puzzleCount = (int)puzzles.size();
-    assert(puzzleCount <= count);
+    int i = 0;
+#if AFK_JIGSAW_COLLECTION_CHAIN
+    for (Puzzle *chain = puzzles; chain; chain = chain->next(), ++i)
+    {
+        AFK_Jigsaw *jigsaw = chain->get();
+#else
+    std::unique_lock<std::mutex> lock(mut);
+    for (auto jigsaw : puzzles)
+    {
+#endif
+        jigsaw->setupImages(computer);
+        allMem[i] = jigsaw->acquireForCl(tex, o_dep);
 
-    for (i = 0; i < puzzleCount; ++i)
-        allMem[i] = puzzles[i]->acquireForCl(tex, o_events);
-    for (int excess = i; excess < count; ++excess)
-        allMem[excess] = allMem[0];
+        if (i == 0)
+        {
+            o_fake3D_size = jigsaw->getFake3D_size(tex);
+            o_fake3D_mult = jigsaw->getFake3D_mult(tex);
+        }
+        else
+        {
+            /* Right now, the fake 3D info must be consistent across
+             * images in the same jigsaw.  Make sure this is the
+             * case.
+             */
+            assert(o_fake3D_size == jigsaw->getFake3D_size(tex));
+            assert(o_fake3D_mult == jigsaw->getFake3D_mult(tex));
+        }
+    }
 
+    /* If there's a smaller number of puzzles than the count
+     * requested, fill in the remaining memory references with
+     * copies of the first one -- it needs to be something valid,
+     * the OpenCL ought to not try to hit it (e.g. no jigsaw
+     * pieces referring to that puzzle)
+     */
+    for (int extra = i; extra < count; ++extra)
+    {
+        allMem[extra] = allMem[0];
+    }
+
+    /* However, only return `i' the number of puzzles that
+     * actually need releasing
+     */
     return i;
 }
 
 void AFK_JigsawCollection::releaseAllFromCl(
     unsigned int tex,
-    cl_mem *allMem,
     int count,
-    const std::vector<cl_event>& eventWaitList)
+    const AFK_ComputeDependency& dep)
 {
-    boost::shared_lock<boost::upgrade_mutex> lock(mut);
-    
-    for (int i = 0; i < count; ++i)
-        puzzles[i]->releaseFromCl(tex, eventWaitList);
+    int i = 0;
+#if AFK_JIGSAW_COLLECTION_CHAIN
+    for (Puzzle *chain = puzzles; chain && i < count; chain = chain->next(), ++i)
+    {
+        AFK_Jigsaw *jigsaw = chain->get();
+#else
+    std::unique_lock<std::mutex> lock(mut);
+    for (auto jigsaw : puzzles)
+    {
+#endif
+        jigsaw->releaseFromCl(tex, dep);
+    }
+
+    assert(i == count);
 }
 
-void AFK_JigsawCollection::flipCuboids(AFK_Computer *computer, const AFK_Frame& currentFrame)
+void AFK_JigsawCollection::flip(const AFK_Frame& currentFrame)
 {
-    boost::upgrade_lock<boost::upgrade_mutex> ulock(mut);
-    boost::upgrade_to_unique_lock<boost::upgrade_mutex> utoulock(ulock);
-
-    for (int puzzle = 0; puzzle < (int)puzzles.size(); ++puzzle)
-        puzzles[puzzle]->flipCuboids(currentFrame);
-
-    if (!spare && (maxPuzzles == 0 || puzzles.size() < maxPuzzles))
-    {
-        /* Make a new one to push along. */
-        spare = makeNewJigsaw(computer);
-    }
+#if AFK_JIGSAW_COLLECTION_CHAIN
+    for (Puzzle *chain = puzzles; chain; chain = chain->next())
+        chain->get()->flip(currentFrame); /* This one is internally locked */
+#else
+    std::unique_lock<std::mutex> lock(mut);
+    for (auto jigsaw : puzzles)
+        jigsaw->flip(currentFrame);
+#endif
 }
 
 void AFK_JigsawCollection::printStats(std::ostream& os, const std::string& prefix)
 {
-    boost::shared_lock<boost::upgrade_mutex> lock(mut);
-    std::cout << prefix << "\t: Spills:               " << spills.exchange(0) << std::endl;
-    for (int puzzle = 0; puzzle < (int)puzzles.size(); ++puzzle)
+    int i = 0;
+#if AFK_JIGSAW_COLLECTION_CHAIN
+    for (Puzzle *chain = puzzles; chain; chain = chain->next(), ++i)
     {
         std::ostringstream puzPf;
-        puzPf << prefix << " " << std::dec << puzzle;
-        puzzles[puzzle]->printStats(os, puzPf.str());
+        puzPf << prefix << " " << std::dec << i;
+        chain->get()->printStats(os, puzPf.str());
     }
+#else
+    for (auto jigsaw : puzzles)
+    {
+        std::ostringstream puzPf;
+        puzPf << prefix << " " << std::dec << i;
+        jigsaw->printStats(os, puzPf.str());
+        ++i;
+    }
+#endif
 }
 

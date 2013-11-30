@@ -34,6 +34,7 @@ public:
     Vec3<int64_t> coord;
 
     bool operator==(const AFK_Tile& _tile) const;
+    bool operator==(const AFK_Tile& _tile) const volatile;
     bool operator!=(const AFK_Tile& _tile) const;
 
     AFK_RNG_Value rngSeed() const;
@@ -57,6 +58,9 @@ public:
 AFK_Tile afk_tile(const AFK_Tile& other);
 AFK_Tile afk_tile(const Vec3<int64_t>& _coord);
 AFK_Tile afk_tile(const AFK_Cell& cell);
+
+/* An invalid "unassigned" tile value for polymer keying. */
+extern const AFK_Tile afk_unassignedTile;
 
 AFK_Cell afk_cell(const AFK_Tile& tile, int64_t yCoord);
 

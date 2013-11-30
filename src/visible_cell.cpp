@@ -110,8 +110,7 @@ bool AFK_VisibleCell::testDetailPitch(
         {
             for (int z = 0; z <= 1; ++z)
             {
-                float distanceToViewer = (vertices[x][y][z] - (viewerLocation - camera.separation)).magnitude();
-                accDP += camera.getDetailPitchAsSeen(scale, distanceToViewer);
+                accDP += camera.getDetailPitchAsSeen(scale, vertices[x][y][z], viewerLocation);
             }
         }
     }

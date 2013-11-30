@@ -27,7 +27,7 @@ elif GetOption('odbg'):
     extra_ccflags += ['-O3', '-g', '-DAFK_GL_DEBUG=1']
     variant_dir = 'build/odbg'
 else:
-    extra_ccflags += ['-O3']
+    extra_ccflags += ['-O3', '-DNDEBUG']
     variant_dir = 'build/release'
 
 if GetOption('pg'):

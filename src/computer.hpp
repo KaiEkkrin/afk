@@ -20,7 +20,10 @@
 
 #include "afk.hpp"
 
+#include <condition_variable>
 #include <iostream>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -29,6 +32,7 @@
 #include "exception.hpp"
 #include "ocl_shim.hpp"
 
+class AFK_ComputeQueue;
 class AFK_Computer;
 
 /* This defines a list of programs that I know about. */
@@ -70,7 +74,7 @@ public:
     unsigned int minorVersion;
 
     AFK_ClPlatformProperties(AFK_Computer *computer, cl_platform_id platform);
-    ~AFK_ClPlatformProperties();
+    virtual ~AFK_ClPlatformProperties();
 };
 
 class AFK_ClDeviceProperties
@@ -133,12 +137,40 @@ std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p);
  * doubt end up with separate contexts if I use several threads.
  */
 
+/* This utility wraps programBuilt() so that the CL can call it
+ * as a callback function.
+ */
+void afk_programBuiltNotify(cl_program program, void *user_data);
+
 class AFK_Computer
 {
 protected:
+    /* The set of known programs, just like the shaders doodah. */
+
+    std::vector<struct AFK_ClProgram> programs = {
+        {   0,  "landscape_surface",    { "landscape_surface.cl" }, },
+        {   0,  "landscape_terrain",    { "landscape_terrain.cl" }, },
+        {   0,  "landscape_yreduce",    { "landscape_yreduce.cl" }, },
+        {   0,  "shape_3dedge",         { "fake3d.cl", "shape_3dedge.cl" }, },
+        {   0,  "shape_3dvapour_dreduce",   { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_dreduce.cl" }, },
+        {   0,  "shape_3dvapour_feature",   { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_feature.cl" }, },
+        {   0,  "shape_3dvapour_normal",    { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_normal.cl" }, }
+    };
+
+    std::vector<struct AFK_ClKernel> kernels = { 
+        {   0,  "landscape_surface",        "makeLandscapeSurface"          },
+        {   0,  "landscape_terrain",        "makeLandscapeTerrain"          },
+        {   0,  "landscape_yreduce",        "makeLandscapeYReduce"          },
+        {   0,  "shape_3dedge",             "makeShape3DEdge"               },
+        {   0,  "shape_3dvapour_dreduce",   "makeShape3DVapourDReduce"      },
+        {   0,  "shape_3dvapour_feature",   "makeShape3DVapourFeature"      },
+        {   0,  "shape_3dvapour_normal",    "makeShape3DVapourNormal"       }
+    };
+
     cl_platform_id platform;
     AFK_ClPlatformProperties *platformProps;
     bool platformIsAMD;
+    bool async;
 
     /* The IDs of the devices that I'm using.
      */
@@ -147,13 +179,23 @@ protected:
 
     AFK_ClDeviceProperties *firstDeviceProps;
 
+    /* For tracking CL program compilation. */
+    std::condition_variable buildCond;
+    std::mutex buildMut;
+    unsigned int stillBuilding;
+
     cl_context ctxt;
-    cl_command_queue q;
+    //cl_command_queue q;
+    std::shared_ptr<AFK_ComputeQueue> kernelQueue;
+    std::shared_ptr<AFK_ComputeQueue> readQueue;
+    std::shared_ptr<AFK_ComputeQueue> writeQueue;
 
     /* Helper functions */
     bool findClGlDevices(cl_platform_id platform);
     void loadProgramFromFiles(const AFK_Config *config, std::vector<struct AFK_ClProgram>::iterator& p);
-    void printBuildLog(std::ostream& os, cl_program program, cl_device_id device);
+    void programBuilt(void);
+    void waitForBuild(void);
+    void printBuildLog(std::ostream& os, const struct AFK_ClProgram& p, cl_device_id device);
 public:
     /* TODO: Make this protected, and make a cleaner wrapper around the
      * OpenCL functions for the rest of AFK to use.
@@ -186,6 +228,11 @@ public:
     /* Returns true if on an AMD platform, else false. */
     bool isAMD(void) const;
 
+    /* Returns true if we should use asynchronous queueing,
+     * else false.
+     */
+    bool useAsync(void) const;
+
     /* Returns true if we should use fake 3D images,
      * else false.
      */
@@ -207,19 +254,15 @@ public:
         }
     }
 
-    /* Locks the CL and gives you back the context and
-     * queue.  Be quick, enqueue your thing and release
-     * it!
-     * TODO: Really just a convenient way of accessing the
-     * context and queue right now: see comment at top of
-     * class description.  Also, current usage implies
-     * re-entrancy of any actual lock that might be here.
-     * I really ought to overhaul this interface.
+    /* For now, the CL is only accessible from one thread, and
+     * there is no concurrency control here.  Just accessors.
      */
-    void lock(cl_context& o_ctxt, cl_command_queue& o_q);
+    cl_context getContext(void) const { return ctxt; }
+    std::shared_ptr<AFK_ComputeQueue> getKernelQueue(void) const { return kernelQueue; }
+    std::shared_ptr<AFK_ComputeQueue> getReadQueue(void) const { return readQueue; }
+    std::shared_ptr<AFK_ComputeQueue> getWriteQueue(void) const { return writeQueue; }
 
-    /* Release it when you're done with this. */
-    void unlock(void);
+    friend void afk_programBuiltNotify(cl_program program, void *user_data);
 };
 
 

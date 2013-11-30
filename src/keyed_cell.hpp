@@ -35,6 +35,7 @@ public:
     int64_t key;
 
     bool operator==(const AFK_KeyedCell& _cell) const;
+    bool operator==(const AFK_KeyedCell& _cell) const volatile;
     bool operator!=(const AFK_KeyedCell& _cell) const;
 
     AFK_RNG_Value rngSeed() const;
@@ -43,11 +44,15 @@ public:
     bool isParent(const AFK_KeyedCell& parent) const;
 
     Vec4<float> toWorldSpace(float worldScale) const { return c.toWorldSpace(worldScale); }
+    Vec4<float> toHomogeneous(float worldScale) const { return c.toHomogeneous(worldScale); }
 };
 
 AFK_KeyedCell afk_keyedCell(const AFK_KeyedCell& other);
 AFK_KeyedCell afk_keyedCell(const AFK_Cell& _baseCell, int64_t _key);
 AFK_KeyedCell afk_keyedCell(const Vec4<int64_t>& _coord, int64_t _key);
+
+/* A default "unassigned" keyed cell value for polymer keying. */
+extern const AFK_KeyedCell afk_unassignedKeyedCell;
 
 size_t hash_value(const AFK_KeyedCell& cell);
 

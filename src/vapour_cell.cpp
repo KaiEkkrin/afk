@@ -34,9 +34,14 @@ AFK_KeyedCell afk_shapeToVapourCell(const AFK_KeyedCell& cell, const AFK_ShapeSi
 
 /* AFK_VapourCell implementation. */
 
-void AFK_VapourCell::bind(const AFK_KeyedCell& _cell)
+AFK_VapourCell::AFK_VapourCell():
+    haveDescriptor(false)
 {
-    cell = _cell;
+}
+
+AFK_VapourCell::~AFK_VapourCell()
+{
+    evict();
 }
 
 bool AFK_VapourCell::hasDescriptor(void) const
@@ -45,6 +50,7 @@ bool AFK_VapourCell::hasDescriptor(void) const
 }
 
 void AFK_VapourCell::makeDescriptor(
+    const AFK_KeyedCell& cell,
     const AFK_ShapeSizes& sSizes)
 {
     if (!haveDescriptor)
@@ -54,25 +60,27 @@ void AFK_VapourCell::makeDescriptor(
         rng.seed(cell.rngSeed());
         skeleton.make(rng, sSizes);
 
-        AFK_3DVapourCube cube;
-        cube.make(
-            features,
+        auto featureIt = features.begin();
+        cubes[0].make(
+            featureIt,
             cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
             skeleton,
             sSizes,
             rng);
-        cubes.push_back(cube);
+        assert(featureIt == features.end());
 
         haveDescriptor = true;
     }
 }
 
 void AFK_VapourCell::makeDescriptor(
-    const AFK_VapourCell& upperCell,
+    const AFK_KeyedCell& cell,
+    const AFK_KeyedCell& upperCell,
+    const AFK_VapourCell& upperVapourCell,
     const AFK_ShapeSizes& sSizes)
 {
     /* Sanity check. */
-    if (!upperCell.hasDescriptor()) throw AFK_Exception("Vapour cell descriptors built in wrong order");
+    if (!upperVapourCell.hasDescriptor()) throw AFK_Exception("Vapour cell descriptors built in wrong order");
 
     if (!haveDescriptor)
     {
@@ -83,56 +91,60 @@ void AFK_VapourCell::makeDescriptor(
         Vec3<int64_t> thisCellShapeSpace = afk_vec3<int64_t>(
             cell.c.coord.v[0], cell.c.coord.v[1], cell.c.coord.v[2]);
         Vec3<int64_t> upperCellShapeSpace = afk_vec3<int64_t>(
-            upperCell.cell.c.coord.v[0], upperCell.cell.c.coord.v[1], upperCell.cell.c.coord.v[2]);
+            upperCell.c.coord.v[0], upperCell.c.coord.v[1], upperCell.c.coord.v[2]);
         Vec3<int64_t> upperOffset = (thisCellShapeSpace - upperCellShapeSpace) * (sSizes.skeletonFlagGridDim/2) / cell.c.coord.v[3];
 
         if (skeleton.make(
-            upperCell.skeleton,
+            upperVapourCell.skeleton,
             upperOffset,
             rng,
             sSizes) > 0)
         {
-            AFK_3DVapourCube cube;
-            cube.make(
-                features,
+            auto featureIt = features.begin();
+            cubes[0].make(
+                featureIt,
                 cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
                 skeleton,
                 sSizes,
                 rng);
-            cubes.push_back(cube);
+
+            assert(featureIt = features.end());
         }
 
         haveDescriptor = true;
     }
 }
 
-bool AFK_VapourCell::withinSkeleton(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const
+bool AFK_VapourCell::withinSkeleton(const AFK_KeyedCell& cell, const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const
 {
+    assert(haveDescriptor);
     assert(shapeCell.c.coord.v[3] == cell.c.coord.v[3] / sSizes.skeletonFlagGridDim);
 
     AFK_SkeletonCube cube(cell, shapeCell, sSizes);
     return skeleton.within(cube);
 }
 
-int AFK_VapourCell::skeletonAdjacency(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const
+int AFK_VapourCell::skeletonAdjacency(const AFK_KeyedCell& cell, const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const
 {
+    assert(haveDescriptor);
     assert(shapeCell.c.coord.v[3] == cell.c.coord.v[3] / sSizes.skeletonFlagGridDim);
 
     AFK_SkeletonCube cube(cell, shapeCell, sSizes);
     return skeleton.getAdjacency(cube);
 }
 
-int AFK_VapourCell::skeletonFullAdjacency(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const
+int AFK_VapourCell::skeletonFullAdjacency(const AFK_KeyedCell& cell, const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const
 {
+    assert(haveDescriptor);
     assert(shapeCell.c.coord.v[3] == cell.c.coord.v[3] / sSizes.skeletonFlagGridDim);
 
     AFK_SkeletonCube cube(cell, shapeCell, sSizes);
     return skeleton.getFullAdjacency(cube);
 }
 
-AFK_VapourCell::ShapeCells::ShapeCells(const AFK_VapourCell& _vapourCell, const AFK_ShapeSizes& _sSizes):
+AFK_VapourCell::ShapeCells::ShapeCells(const AFK_KeyedCell& _vc, const AFK_VapourCell& _vapourCell, const AFK_ShapeSizes& _sSizes):
     bones(AFK_Skeleton::Bones(_vapourCell.skeleton)),
-    vapourCell(_vapourCell),
+    vc(_vc),
     sSizes(_sSizes)
 {
 }
@@ -145,39 +157,30 @@ bool AFK_VapourCell::ShapeCells::hasNext(void)
 AFK_KeyedCell AFK_VapourCell::ShapeCells::next(void)
 {
     AFK_SkeletonCube nextSkeletonCube = bones.next();
-    AFK_KeyedCell nextCell = nextSkeletonCube.toShapeCell(vapourCell.cell, sSizes);
+    AFK_KeyedCell nextCell = nextSkeletonCube.toShapeCell(vc, sSizes);
 
     return nextCell;
 }
 
 void AFK_VapourCell::build3DList(
     unsigned int threadId,
+    const AFK_KeyedCell& cell,
     AFK_3DList& list,
     const AFK_ShapeSizes& sSizes,
-    const AFK_VAPOUR_CELL_CACHE *cache) const
+    AFK_VAPOUR_CELL_CACHE *cache) const
 {
     /* Add the local vapour to the list. */
-    list.extend(features, cubes);
-
-    AFK_KeyedCell currentCell = cell;
+    list.extend<FeatureArray, CubeArray>(features, cubes);
 
     /* If this isn't the top level cell... */
-    if (currentCell.c.coord.v[3] < (sSizes.skeletonFlagGridDim * SHAPE_CELL_MAX_DISTANCE))
+    if (cell.c.coord.v[3] < (sSizes.skeletonFlagGridDim * SHAPE_CELL_MAX_DISTANCE))
     {
         /* Pull the parent cell from the cache, and
          * include its list too
          */
-        AFK_KeyedCell parentCell = currentCell.parent(sSizes.subdivisionFactor);
-        AFK_VapourCell& parentVapourCell = cache->at(parentCell);
-        enum AFK_ClaimStatus claimStatus = parentVapourCell.claimYieldLoop(threadId, AFK_CLT_NONEXCLUSIVE_SHARED, afk_core.computingFrame);
-        if (claimStatus != AFK_CL_CLAIMED_SHARED && claimStatus != AFK_CL_CLAIMED_UPGRADABLE)
-        {
-            std::ostringstream ss;
-            ss << "Unable to claim VapourCell at " << parentCell << ": got status " << claimStatus;
-            throw AFK_Exception(ss.str());
-        }
-        parentVapourCell.build3DList(threadId, list, sSizes, cache);
-        parentVapourCell.release(threadId, claimStatus);
+        AFK_KeyedCell parentCell = cell.parent(sSizes.subdivisionFactor);
+        auto parentVapourCellClaim = cache->get(threadId, parentCell).claimable.claim(threadId, AFK_CL_SHARED);
+        parentVapourCellClaim.getShared().build3DList(threadId, parentCell, list, sSizes, cache);
     }
 }
 
@@ -207,15 +210,14 @@ void AFK_VapourCell::enqueued(
     computeCubeFrame = afk_core.computingFrame;
 }
 
-bool AFK_VapourCell::canBeEvicted(void) const
+void AFK_VapourCell::evict(void)
 {
-    bool canEvict = ((afk_core.computingFrame - lastSeen) > 10);
-    return canEvict;
+    haveDescriptor = false;
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_VapourCell& vapourCell)
 {
-    os << "Vapour cell with " << vapourCell.features.size() << " features and " << vapourCell.cubes.size() << " cubes";
+    os << "Vapour cell with descriptor " << vapourCell.haveDescriptor << ", cube offset " << vapourCell.computeCubeOffset << " and cube count " << vapourCell.computeCubeCount;
     return os;
 }
 

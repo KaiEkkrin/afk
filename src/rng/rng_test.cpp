@@ -15,11 +15,11 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
+#include <cstring>
 #include <functional>
 #include <iostream>
 #include <list>
 
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/random/random_device.hpp>
 
 #include "boost_mt19937.hpp"
@@ -27,6 +27,7 @@
 #include "rng_test.hpp"
 #include "../afk.hpp"
 #include "../cell.hpp"
+#include "../clock.hpp"
 
 
 /* TODO Add a test that tweaks each coord in an AFK_Cell in
@@ -59,7 +60,7 @@ static void evaluate_rng(AFK_RNG& rng, const std::string& name, const AFK_Cell* 
     float *manyFloats = new float[randsPerCell];
     float *sampleFloats = new float[testCellCount];
 
-    boost::posix_time::ptime ptestStartTime = boost::posix_time::microsec_clock::local_time();
+    afk_clock::time_point ptestStartTime = afk_clock::now();
     for (; i < testCellCount / 2; ++i)
     {
         rng.seed(testCells[i].rngSeed());
@@ -69,9 +70,11 @@ static void evaluate_rng(AFK_RNG& rng, const std::string& name, const AFK_Cell* 
         sampleFloats[i] = manyFloats[rng.rand().v.ui[0] % randsPerCell];
     }
     float sampleFloat = sampleFloats[rng.rand().v.ui[0] % testCellCount / 2];
-    boost::posix_time::ptime ptestEndTime = boost::posix_time::microsec_clock::local_time();
+    afk_clock::time_point ptestEndTime = afk_clock::now();
+    afk_duration_mfl timeTaken = std::chrono::duration_cast<afk_duration_mfl>(
+        ptestEndTime - ptestStartTime);
 
-    std::cout << "Test took " << (ptestEndTime - ptestStartTime) << " with " << name << std::endl;
+    std::cout << "Test took " << timeTaken.count() << " millis with " << name << std::endl;
     std::cout << "Smallest value: " << smallestValue << std::endl;
     std::cout << "Largest value: " << largestValue << std::endl;
     std::cout << "Random float from the set: " << sampleFloat << std::endl;
@@ -89,7 +92,7 @@ static void evaluate_rng(AFK_RNG& rng, const std::string& name, const AFK_Cell* 
     unsigned int hits[4][256];
     memset(hits, 0, 4 * 256 * sizeof(unsigned int));
 
-    ptestStartTime = boost::posix_time::microsec_clock::local_time();
+    ptestStartTime = afk_clock::now();
     for (; i < testCellCount; ++i)
     {
         rng.seed(testCells[i].rngSeed());
@@ -99,8 +102,10 @@ static void evaluate_rng(AFK_RNG& rng, const std::string& name, const AFK_Cell* 
             for (int k = 0; k < 4; ++k)
                 ++hits[k][val.v.b[j+k]];
     }
-    ptestEndTime = boost::posix_time::microsec_clock::local_time();
-    std::cout << "Hit count test took " << (ptestEndTime - ptestStartTime) << " with " << name << std::endl;
+    ptestEndTime = afk_clock::now();
+    timeTaken = std::chrono::duration_cast<afk_duration_mfl>(
+        ptestEndTime - ptestStartTime);
+    std::cout << "Hit count test took " << timeTaken.count() << " millis with " << name << std::endl;
 
     /* Do the analysis. */
     for (int j = 0; j < 4; ++j)

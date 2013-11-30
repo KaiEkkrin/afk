@@ -27,10 +27,11 @@
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
 #include "3d_solid.hpp"
+#include "async/thread_allocation.hpp"
+#include "core.hpp"
 #include "data/claimable.hpp"
 #include "data/evictable_cache.hpp"
 #include "data/fair.hpp"
-#include "data/frame.hpp"
 #include "entity_display_queue.hpp"
 #include "object.hpp"
 #include "jigsaw_collection.hpp"
@@ -39,20 +40,14 @@
 #include "visible_cell.hpp"
 #include "work.hpp"
 
+class AFK_World;
+
 enum AFK_ShapeArtworkState
 {
     AFK_SHAPE_NO_PIECE_ASSIGNED,
     AFK_SHAPE_PIECE_SWEPT,
     AFK_SHAPE_HAS_ARTWORK
 };
-
-#ifndef AFK_SHAPE_CELL_CACHE
-#define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell>
-#endif
-
-#ifndef AFK_VAPOUR_CELL_CACHE
-#define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashKeyedCell>
-#endif
 
 /* This is the top level entity worker.  It makes sure that
  * the top vapour cell has been made and then uses that to
@@ -64,6 +59,7 @@ enum AFK_ShapeArtworkState
 bool afk_generateEntity(
     unsigned int threadId,
     const union AFK_WorldWorkParam& param,
+    const struct AFK_WorldWorkThreadLocal& threadLocal,
     AFK_WorldWorkQueue& queue);
 
 /* Queued into the world work queue, this function generates
@@ -74,6 +70,7 @@ bool afk_generateEntity(
 bool afk_generateShapeCells(
     unsigned int threadId,
     const union AFK_WorldWorkParam& param,
+    const struct AFK_WorldWorkThreadLocal& threadLocal,
     AFK_WorldWorkQueue& queue);
 
 /* This class has changed, and now describes all shapes.
@@ -89,12 +86,11 @@ protected:
      */
     bool generateClaimedShapeCell(
         unsigned int threadId,
-        AFK_VapourCell& vapourCell,
-        AFK_ShapeCell& shapeCell,
-        enum AFK_ClaimStatus& vapourCellClaimStatus,
-        enum AFK_ClaimStatus& shapeCellClaimStatus,
-        const Mat4<float>& worldTransform,
-        AFK_World *world);
+        const AFK_KeyedCell& vc,
+        const AFK_KeyedCell& cell,
+        AFK_VAPOUR_CELL_CACHE::Claim& vapourCellClaim,
+        AFK_SHAPE_CELL_CACHE::Claim& shapeCellClaim,
+        const Mat4<float>& worldTransform);
 
     /* TODO: Try to move the shape-dependent stuff out of
      * `world' into here, so that I can stop sending along
@@ -107,6 +103,7 @@ protected:
 public:
     AFK_Shape(
         const AFK_Config *config,
+        AFK_ThreadAllocation& threadAlloc,
         unsigned int shapeCacheSize);
     virtual ~AFK_Shape();
 
@@ -116,17 +113,16 @@ public:
     friend bool afk_generateEntity(
         unsigned int threadId,
         const union AFK_WorldWorkParam& param,
-        AFK_WorldWorkQueue& queue);
-
-    friend bool afk_generateVapourDescriptor(
-        unsigned int threadId,
-        const union AFK_WorldWorkParam& param,
+        const struct AFK_WorldWorkThreadLocal& threadLocal,
         AFK_WorldWorkQueue& queue);
 
     friend bool afk_generateShapeCells(
         unsigned int threadId,
         const union AFK_WorldWorkParam& param,
+        const struct AFK_WorldWorkThreadLocal& threadLocal,
         AFK_WorldWorkQueue& queue);
+
+    friend class AFK_World;
 };
 
 

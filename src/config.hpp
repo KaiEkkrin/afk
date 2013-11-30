@@ -92,7 +92,7 @@ public:
     uint64_t    axisInversionMap; /* bitfield of axes that are inverted */
 
     /* Engine calibration */
-    unsigned int targetFrameTimeMicros;
+    float targetFrameTimeMillis;
     unsigned int framesPerCalibration;
     bool vsync;
 
@@ -106,22 +106,22 @@ public:
     unsigned int concurrency;
     char        *clProgramsDir;
     bool        clGlSharing;
+    bool        async;
     bool        forceFake3DImages;
+    float       jigsawUsageFactor; /* Proportion of available CL memory to
+                                    * use for jigsaws */
 
     /* World setup */
     float startingDetailPitch;
     float maxDetailPitch;
+    float minDetailPitch;
+    float detailPitchStickiness;
     float minCellSize;
     unsigned int subdivisionFactor;
     unsigned int entitySubdivisionFactor;
 
-    /* Terrain setup */
-    unsigned int terrain_pointSubdivisionFactor;
-
     /* Shape setup */
-    unsigned int shape_pointSubdivisionFactor;
     unsigned int shape_skeletonMaxSize;
-    unsigned int shape_skeletonFlagGridDim;
     float shape_edgeThreshold;
 
     /* Entities.
@@ -130,7 +130,6 @@ public:
      * that kind of thing; and have different configurations
      * each.)
      */
-    unsigned int maxEntitiesPerCell;
     unsigned int entitySparseness; /* 1 -- always an entity; 16 -- 1/16th chance of an entity, etc */
 
     /* Initialises AFK configuration, based on command line

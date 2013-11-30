@@ -20,8 +20,8 @@
 
 #include "afk.hpp"
 
+#include <array>
 #include <sstream>
-#include <vector>
 
 #include "3d_solid.hpp"
 #include "data/claimable.hpp"
@@ -30,10 +30,6 @@
 #include "keyed_cell.hpp"
 #include "shape_sizes.hpp"
 #include "skeleton.hpp"
-
-#ifndef AFK_VAPOUR_CELL_CACHE
-#define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashKeyedCell>
-#endif
 
 /* To access a vapour cell cache, use afk_shapeToVapourCell() to
  * translate cell co-ordinates.
@@ -45,16 +41,17 @@ AFK_KeyedCell afk_shapeToVapourCell(const AFK_KeyedCell& cell, const AFK_ShapeSi
  * because VapourCells exist at larger scales, crossing multiple
  * ShapeCells.
  */
-class AFK_VapourCell: public AFK_Claimable
+class AFK_VapourCell
 {
 protected:
-    AFK_KeyedCell cell;
-
     /* The actual features here. */
     bool haveDescriptor;
     AFK_Skeleton skeleton;
-    std::vector<AFK_3DVapourFeature> features;
-    std::vector<AFK_3DVapourCube> cubes;
+
+    typedef std::array<AFK_3DVapourFeature, afk_shapeFeatureCountPerCube> FeatureArray;
+    FeatureArray features;
+    typedef std::array<AFK_3DVapourCube, 1> CubeArray;
+    CubeArray cubes;
 
     /* These fields track whether this vapour cell has already
      * been pushed into the vapour compute queue this round,
@@ -66,8 +63,8 @@ protected:
     AFK_Frame computeCubeFrame;
 
 public:
-    /* Binds a shape cell to the shape. */
-    void bind(const AFK_KeyedCell& _cell);
+    AFK_VapourCell();
+    virtual ~AFK_VapourCell();
 
     bool hasDescriptor(void) const;
 
@@ -78,29 +75,33 @@ public:
      * so that the caller can turn these into shape cells
      * to enqueue.
      */
-    void makeDescriptor(const AFK_ShapeSizes& sSizes);
+    void makeDescriptor(
+        const AFK_KeyedCell& cell,
+        const AFK_ShapeSizes& sSizes);
 
     /* This one makes a finer detail vapour cell, whose
      * skeleton is derived from the upper cell.
      */
     void makeDescriptor(
-        const AFK_VapourCell& upperCell,
+        const AFK_KeyedCell& cell,
+        const AFK_KeyedCell& upperCell,
+        const AFK_VapourCell& upperVapourCell,
         const AFK_ShapeSizes& sSizes);
 
     /* You can check whether a specific ShapeCell is within
      * the skeleton, so long as a descriptor is present ...
      */
-    bool withinSkeleton(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const;
+    bool withinSkeleton(const AFK_KeyedCell& cell, const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const;
 
     /* ...and obtain its adjacency (flags; 0-5 inclusive; in the
      * usual order).
      */
-    int skeletonAdjacency(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const;
+    int skeletonAdjacency(const AFK_KeyedCell& cell, const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const;
 
     /* As above, but returns the full adjacency (see description
      * in skeleton.hpp)
      */
-    int skeletonFullAdjacency(const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const;
+    int skeletonFullAdjacency(const AFK_KeyedCell& cell, const AFK_KeyedCell& shapeCell, const AFK_ShapeSizes& sSizes) const;
 
     /* This enumerates the shape cells that compose the bones of
      * the skeleton here, so that they can be easily enqueued.
@@ -109,11 +110,11 @@ public:
     {
     protected:
         AFK_Skeleton::Bones bones;
-        const AFK_VapourCell& vapourCell;
+        const AFK_KeyedCell& vc;
         const AFK_ShapeSizes& sSizes;
 
     public:
-        ShapeCells(const AFK_VapourCell& _vapourCell, const AFK_ShapeSizes& _sSizes);
+        ShapeCells(const AFK_KeyedCell& _vc, const AFK_VapourCell& _vapourCell, const AFK_ShapeSizes& _sSizes);
 
         bool hasNext(void);
         AFK_KeyedCell next(void);
@@ -127,9 +128,10 @@ public:
      */
     void build3DList(
         unsigned int threadId,
+        const AFK_KeyedCell& cell,
         AFK_3DList& list,
         const AFK_ShapeSizes& sSizes,
-        const AFK_VAPOUR_CELL_CACHE *cache) const;
+        AFK_VAPOUR_CELL_CACHE *cache) const;
 
     /* Checks whether this vapour cell's features have
      * already gone into the compute queue this frame.
@@ -150,7 +152,7 @@ public:
         unsigned int cubeCount);
 
     /* For handling claiming and eviction. */
-    virtual bool canBeEvicted(void) const;
+    void evict(void);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_VapourCell& vapourCell);
 };

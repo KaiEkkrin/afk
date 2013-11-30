@@ -20,9 +20,12 @@
 
 #include "afk.hpp"
 
+#include <sstream>
 #include <vector>
 
 #include "def.hpp"
+#include "compute_dependency.hpp"
+#include "compute_queue.hpp"
 #include "computer.hpp"
 #include "jigsaw_cuboid.hpp"
 
@@ -33,25 +36,35 @@
 /* This enumeration describes the jigsaw's texture format.  I'll
  * need to add more here as I support more formats.
  */
-enum AFK_JigsawFormat
+enum class AFK_JigsawFormat : int
 {
-    AFK_JIGSAW_UINT32,
-    AFK_JIGSAW_2UINT32,
-    AFK_JIGSAW_FLOAT32,
-    AFK_JIGSAW_555A1,
-    AFK_JIGSAW_101010A2,
-    AFK_JIGSAW_4FLOAT8_UNORM,
-    AFK_JIGSAW_4FLOAT8_SNORM,
-    AFK_JIGSAW_4FLOAT32
+    UINT32          = 0,
+    UINT32_2        = 1,
+    FLOAT32         = 2,
+    FLOAT8_UNORM_4  = 3,
+    FLOAT8_SNORM_4  = 4,
+    FLOAT32_4       = 5
 };
 
 /* This enumeration describes what buffers we manage -- CL, GL, both. */
-enum AFK_JigsawBufferUsage
+enum class AFK_JigsawBufferUsage : int
 {
-    AFK_JIGSAW_BU_CL_ONLY,
-    AFK_JIGSAW_BU_CL_GL_COPIED,
-    AFK_JIGSAW_BU_CL_GL_SHARED
+    NO_IMAGE        = 0,    /* For debugging, pretty much. */
+    CL_ONLY         = 1,
+    GL_ONLY         = 2,
+    CL_GL_COPIED    = 3,
+    CL_GL_SHARED    = 4
 };
+
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawBufferUsage bufferUsage);
+
+enum class AFK_JigsawDimensions : int
+{
+    TWO     = 0,
+    THREE   = 1 
+};
+
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawDimensions dim);
 
 class AFK_JigsawFormatDescriptor
 {
@@ -61,9 +74,20 @@ public:
     GLenum glDataType;
     cl_image_format clFormat;
     size_t texelSize;
+    std::string str;
 
-    AFK_JigsawFormatDescriptor(enum AFK_JigsawFormat);
+    AFK_JigsawFormatDescriptor(AFK_JigsawFormat);
+
     AFK_JigsawFormatDescriptor(const AFK_JigsawFormatDescriptor& _fd);
+    AFK_JigsawFormatDescriptor& operator=(const AFK_JigsawFormatDescriptor& _fd);
+};
+
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawFormatDescriptor& _format);
+
+enum class AFK_Fake3D : int
+{
+    REAL_3D = 0,
+    FAKE_3D = 1
 };
 
 /* This class describes a fake 3D image that emulates 3D with a
@@ -89,7 +113,7 @@ public:
 
     AFK_JigsawFake3DDescriptor(bool _useFake3D, const Vec3<int>& _fakeSize);
     AFK_JigsawFake3DDescriptor(const AFK_JigsawFake3DDescriptor& _fake3D);
-    AFK_JigsawFake3DDescriptor operator=(const AFK_JigsawFake3DDescriptor& _fake3D);
+    AFK_JigsawFake3DDescriptor& operator=(const AFK_JigsawFake3DDescriptor& _fake3D);
 
     bool getUseFake3D(void) const;
     Vec3<int> get2DSize(void) const;
@@ -100,6 +124,120 @@ public:
     Vec2<int> fake3DTo2D(const Vec3<int>& _fake) const;
     Vec3<int> fake3DFrom2D(const Vec2<int>& _real) const;
 };
+
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawFake3DDescriptor& _fake3D);
+
+class AFK_JigsawImageDescriptor
+{
+public:
+    Vec3<int> pieceSize;
+    AFK_JigsawFormatDescriptor format;
+    AFK_JigsawDimensions dimensions;
+    AFK_JigsawBufferUsage bufferUsage;
+    AFK_JigsawFake3DDescriptor fake3D;
+
+    /* TODO: I wanted to use an initializer list here, but I get
+     * compile errors all over the shop :(
+     */
+    AFK_JigsawImageDescriptor(
+        const Vec3<int>& _pieceSize,
+        AFK_JigsawFormat _format,
+        AFK_JigsawDimensions _dimensions,
+        AFK_JigsawBufferUsage _bufferUsage);
+
+    AFK_JigsawImageDescriptor(const AFK_JigsawImageDescriptor& _desc);
+    AFK_JigsawImageDescriptor& operator=(const AFK_JigsawImageDescriptor& _desc);
+
+    /* This utility function checks whether a jigsaw size would be OK.
+     */
+    bool isJigsawSizeOK(
+        const Vec3<int>& jigsawSize,
+        const AFK_ClDeviceProperties& _clDeviceProps) const;
+
+    /* Enables fake 3D. */
+    void setUseFake3D(const Vec3<int>& _jigsawSize);
+
+    cl_mem_object_type getClObjectType(void) const;
+    GLuint getGlTarget(void) const;
+    GLuint getGlProxyTarget(void) const;
+    size_t getPieceSizeInBytes(void) const;
+    size_t getImageSizeInBytes(const Vec3<int>& _jigsawSize) const;
+};
+
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawImageDescriptor& _desc);
+
+/* This object helps split available memory between a collection of
+ * jigsaws, and assigns the fake 3D property.
+ */
+class AFK_JigsawMemoryAllocation
+{
+public:
+    class Entry
+    {
+    protected:
+        /* Initial entries. */
+        std::vector<AFK_JigsawImageDescriptor>   desc;
+        unsigned int                puzzleCount;
+        float                       ratio; /* ratio of *piece counts* */
+
+        /* Dimensions pull-out (these should be the same between descriptors
+         * in the same entry)
+         */
+        AFK_JigsawDimensions        dimensions;
+
+        /* This get computed. */
+        Vec3<int>                   jigsawSize;
+        bool                        jigsawSizeSet;
+
+    public:
+        Entry(
+            std::initializer_list<AFK_JigsawImageDescriptor> _desc,
+            unsigned int _puzzleCount,
+            float _ratio);
+
+        /* Gets a sum of all the piece sizes (so that bytewise ratios
+         * can be worked out)
+         */
+        size_t getTotalPieceSizeInBytes(void) const;
+
+        /* Gets a bytewise piece size ratio. */
+        float getBytewiseRatio(void) const;
+
+        /* Fills out a maximum jigsaw size that will fit all the
+         * descriptors here.
+         */
+        void makeJigsawSize(
+            unsigned int concurrency,
+            size_t maxSizeInBytes,
+            const AFK_ClDeviceProperties& _clDeviceProps);
+
+        void setUseFake3D(void);
+
+        unsigned int getPieceCount(void) const; /* per-puzzle */
+        unsigned int getPuzzleCount(void) const;
+        Vec3<int> getJigsawSize(void) const;
+
+        std::vector<AFK_JigsawImageDescriptor>::const_iterator beginDescriptors() const;
+        std::vector<AFK_JigsawImageDescriptor>::const_iterator endDescriptors() const;
+
+        friend std::ostream& operator<<(std::ostream& os, const Entry& _entry);
+    };
+
+protected:
+    std::vector<Entry> entries;
+
+public:
+    AFK_JigsawMemoryAllocation(
+        std::initializer_list<Entry> _entries,
+        unsigned int concurrency,
+        bool useFake3D,
+        float proportionOfMaxSizeToUse,
+        const AFK_ClDeviceProperties& _clDeviceProps);
+
+    const AFK_JigsawMemoryAllocation::Entry& at(unsigned int entry) const;
+};
+
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawMemoryAllocation::Entry& _entry);
 
 /* Note that AFK_JigsawImage is _not synchronized_: the synchronization is
  * done in the Jigsaw.
@@ -114,53 +252,55 @@ protected:
     cl_mem clTex;
 
     /* Descriptions of the format of this image. */
-    const AFK_JigsawFormatDescriptor format;
-    const GLuint texTarget;
-    const AFK_JigsawFake3DDescriptor fake3D;
-    const cl_mem_object_type clImageType;
+    const AFK_JigsawImageDescriptor desc;
 
-    /* How big the pieces are.
-     * TODO: I want to eventually vary this; but for now, keep
-     * them the same to make sure everything still works ...
+    /* Describes how many users have acquired this image for CL,
+     * what they need to wait for before they can use it, and what
+     * I need to wait for before I can release it from the CL.
      */
-    const Vec3<int> pieceSize;
-
-    /* How to handle the buffers (copy, share, etc.) */
-    const enum AFK_JigsawBufferUsage bufferUsage;
+    unsigned int clUserCount;
+    AFK_ComputeDependency preClDep;
+    AFK_ComputeDependency postClDep;
 
     /* If bufferUsage is cl gl copied, this is the cuboid data I've
      * read back from the CL and that needs to go into the GL.
      */
     std::vector<uint8_t> changeData;
 
-    /* If bufferUsage is cl gl copied, these are the events I need to
-     * wait on before I can push data to the GL.
+    /* This is the dependency to wait on before the change data is
+     * ready.
      */
-    std::vector<cl_event> changeEvents;
+    AFK_ComputeDependency changeDep;
+
+    /* ... And the number of GL users. */
+    unsigned int glUserCount;
+
+    /* These functions initialise the images in various ways. */
+    void initClImage(const Vec3<int>& _jigsawSize);
+    void initGlImage(const Vec3<int>& _jigsawSize);
+    void initClImageFromGlImage(const Vec3<int>& _jigsawSize);
 
     /* These functions help to pull changed data from the CL
      * textures and push them to the GL.
      */
+    void resizeChangeData(const std::vector<AFK_JigsawCuboid>& drawCuboids);
     void getClChangeData(
         const std::vector<AFK_JigsawCuboid>& drawCuboids,
-        cl_command_queue q,
-        const std::vector<cl_event>& eventWaitList);
+        std::shared_ptr<AFK_ComputeQueue> readQueue);
     void getClChangeDataFake3D(
         const std::vector<AFK_JigsawCuboid>& drawCuboids,
-        cl_command_queue q,
-        const std::vector<cl_event>& eventWaitList);
+        std::shared_ptr<AFK_ComputeQueue> readQueue);
     void putClChangeData(const std::vector<AFK_JigsawCuboid>& drawCuboids);
 
 public:
     AFK_JigsawImage(
         AFK_Computer *_computer,
-        const Vec3<int>& _pieceSize,
         const Vec3<int>& _jigsawSize,
-        const AFK_JigsawFormatDescriptor& _format,
-        GLuint _texTarget,
-        const AFK_JigsawFake3DDescriptor& _fake3D,
-        enum AFK_JigsawBufferUsage _bufferUsage);
+        const AFK_JigsawImageDescriptor& _desc);
     virtual ~AFK_JigsawImage();
+
+    Vec2<int> getFake3D_size(void) const;
+    int getFake3D_mult(void) const;
 
     /* TODO: For the next two functions -- I'm now going around re-
      * acquiring jigsaws for read after having first acquired them
@@ -170,15 +310,20 @@ public:
      */
 
     /* Acquires this image for the CL. */
-    cl_mem acquireForCl(std::vector<cl_event>& o_events);
+    cl_mem acquireForCl(AFK_ComputeDependency& o_dep);
 
-    /* Releases this image from the CL. */
-    void releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCuboids, const std::vector<cl_event>& eventWaitList);
+    /* Releases this image from the CL.
+     * All calls to acquireForCl() need to have been performed before
+     * you start calling releaseFromCl().
+     */
+    void releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCuboids, const AFK_ComputeDependency& dep);
 
     /* Binds this image to the GL as a texture. */
     void bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboids);
 
-    /* Makes sure all events are finished. */
+    /* Makes sure all events are finished.  Do this when CL/GL
+     * operations are finished for the frame.
+     */
     void waitForAll(void);
 };
 

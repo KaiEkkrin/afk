@@ -17,7 +17,8 @@
 
 #include "afk.hpp"
 
-#include <boost/functional/hash.hpp>
+#include <cfloat>
+#include <memory>
 
 #include "core.hpp"
 #include "debug.hpp"
@@ -28,7 +29,7 @@
 
 /* AFK_ShapeCell implementation. */
 
-Vec4<float> AFK_ShapeCell::getBaseColour(void) const
+Vec4<float> AFK_ShapeCell::getBaseColour(int64_t key) const
 {
     /* I think it's okay to recompute this, it's pretty quick. */
     AFK_Boost_Taus88_RNG rng;
@@ -36,32 +37,29 @@ Vec4<float> AFK_ShapeCell::getBaseColour(void) const
     AFK_RNG_Value shapeSeed(
         afk_core.config->masterSeed.v.ll[0],
         afk_core.config->masterSeed.v.ll[1],
-        cell.key * 0x0013001300130013ll);
+        key * 0x0013001300130013ll);
     rng.seed(shapeSeed);
     return afk_vec4<float>(
         rng.frand(), rng.frand(), rng.frand(), 0.0f);
 }
 
-void AFK_ShapeCell::bind(const AFK_KeyedCell& _cell)
+AFK_ShapeCell::AFK_ShapeCell():
+    minDensity(-FLT_MAX), maxDensity(FLT_MAX)
 {
-    cell = _cell;
-}
-
-const AFK_KeyedCell& AFK_ShapeCell::getCell(void) const
-{
-    return cell;
 }
 
 bool AFK_ShapeCell::hasVapour(AFK_JigsawCollection *vapourJigsaws) const
 {
-    return (vapourJigsawPiece != AFK_JigsawPiece() &&
-        vapourJigsaws->getPuzzle(vapourJigsawPiece)->getTimestamp(vapourJigsawPiece) == vapourJigsawPieceTimestamp);
+    if (!vapourJigsawPiece) return false;
+    AFK_Jigsaw *jigsaw = vapourJigsaws->getPuzzle(vapourJigsawPiece);
+    return jigsaw->getTimestamp(vapourJigsawPiece) == vapourJigsawPieceTimestamp;
 }
 
 bool AFK_ShapeCell::hasEdges(AFK_JigsawCollection *edgeJigsaws) const
 {
-    return (edgeJigsawPiece != AFK_JigsawPiece() &&
-        edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTimestamp(edgeJigsawPiece) == edgeJigsawPieceTimestamp);
+    if (!edgeJigsawPiece) return false;
+    AFK_Jigsaw *jigsaw = edgeJigsaws->getPuzzle(edgeJigsawPiece);
+    return jigsaw->getTimestamp(edgeJigsawPiece) == edgeJigsawPieceTimestamp;
 }
 
 #define SHAPE_COMPUTE_DEBUG 0
@@ -70,33 +68,35 @@ void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
     unsigned int threadId,
     int adjacency,
     const AFK_3DList& list,
+    const AFK_KeyedCell& cell,
     const AFK_ShapeSizes& sSizes,
     AFK_JigsawCollection *vapourJigsaws,
     AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair,
     unsigned int& o_cubeOffset,
     unsigned int& o_cubeCount)
 {
-    vapourJigsaws->grab(threadId, 0, &vapourJigsawPiece, &vapourJigsawPieceTimestamp, 1);
+    vapourJigsaws->grab(0, &vapourJigsawPiece, &vapourJigsawPieceTimestamp, 1);
 
     /* There's only ever one update queue and one draw queue;
      * all vapours are computed by the same kernel, so that
      * I don't need to worry about cross-vapour stuff.
      */
-    boost::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
+    std::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
         vapourComputeFair.getUpdateQueue(0);
 
 #if SHAPE_COMPUTE_DEBUG
-    AFK_DEBUG_PRINTL("Shape cell " << cell << ": Computing new vapour at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE) << " with adjacency: " << std::hex << adjacency << " and list " << list)
+    AFK_DEBUG_PRINTL("Shape cell : Computing new vapour: vapour jigsaw piece " << vapourJigsawPiece)
 #endif
 
     vapourComputeQueue->extend(list, o_cubeOffset, o_cubeCount);
     vapourComputeQueue->addUnit(
         cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
-        getBaseColour(),
+        getBaseColour(cell.key),
         vapourJigsawPiece,
         adjacency,
         o_cubeOffset,
-        o_cubeCount);
+        o_cubeCount,
+        cell);
 }
 
 void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
@@ -104,63 +104,61 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
     int adjacency,
     unsigned int cubeOffset,
     unsigned int cubeCount,
+    const AFK_KeyedCell& cell,
     const AFK_ShapeSizes& sSizes,
     AFK_JigsawCollection *vapourJigsaws,
     AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair)
 {
-    vapourJigsaws->grab(threadId, 0, &vapourJigsawPiece, &vapourJigsawPieceTimestamp, 1);
+    vapourJigsaws->grab(0, &vapourJigsawPiece, &vapourJigsawPieceTimestamp, 1);
 
-    boost::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
+    std::shared_ptr<AFK_3DVapourComputeQueue> vapourComputeQueue =
         vapourComputeFair.getUpdateQueue(0);
 
 #if SHAPE_COMPUTE_DEBUG
-    AFK_DEBUG_PRINTL("Shape cell " << cell << ": Computing existing vapour at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE) << " with adjacency: " << std::hex << adjacency)
+    AFK_DEBUG_PRINTL("Shape cell : Computing existing vapour with cube offset " << cubeOffset << ", cube count " << cubeCount << ": vapour jigsaw piece " << vapourJigsawPiece)
 #endif
 
     vapourComputeQueue->addUnit(
         cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
-        getBaseColour(),
+        getBaseColour(cell.key),
         vapourJigsawPiece,
         adjacency,
         cubeOffset,
-        cubeCount);
+        cubeCount,
+        cell);
 }
 
 void AFK_ShapeCell::enqueueEdgeComputeUnit(
     unsigned int threadId,
-    const AFK_SHAPE_CELL_CACHE *cache,
+    AFK_SHAPE_CELL_CACHE *cache,
     AFK_JigsawCollection *vapourJigsaws,
     AFK_JigsawCollection *edgeJigsaws,
     AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
     const AFK_Fair2DIndex& entityFair2DIndex)
 {
-    edgeJigsaws->grab(threadId, 0, &edgeJigsawPiece, &edgeJigsawPieceTimestamp, 1);
+    edgeJigsaws->grab(0, &edgeJigsawPiece, &edgeJigsawPieceTimestamp, 1);
 
-    boost::shared_ptr<AFK_3DEdgeComputeQueue> edgeComputeQueue =
+    std::shared_ptr<AFK_3DEdgeComputeQueue> edgeComputeQueue =
         edgeComputeFair.getUpdateQueue(
             entityFair2DIndex.get1D(vapourJigsawPiece.puzzle, edgeJigsawPiece.puzzle));
 
 #if SHAPE_COMPUTE_DEBUG
-     AFK_DEBUG_PRINTL("Computing edges at location: " << cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE))
+     AFK_DEBUG_PRINTL("Computing edges: vapour jigsaw piece " << vapourJigsawPiece << ", edge jigsaw piece " << edgeJigsawPiece)
 #endif
 
-     edgeComputeQueue->append(cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE),
-         vapourJigsawPiece, edgeJigsawPiece);
+     edgeComputeQueue->append(vapourJigsawPiece, edgeJigsawPiece);
 }
 
 #define SHAPE_DISPLAY_DEBUG 0
 
 void AFK_ShapeCell::enqueueEdgeDisplayUnit(
     const Mat4<float>& worldTransform,
+    const AFK_KeyedCell& cell,
     AFK_JigsawCollection *vapourJigsaws,
     AFK_JigsawCollection *edgeJigsaws,
     AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair,
     const AFK_Fair2DIndex& entityFair2DIndex) const
 {
-#if SHAPE_DISPLAY_DEBUG
-    AFK_DEBUG_PRINTL("Displaying edges at cell " << worldTransform * cell.toWorldSpace(SHAPE_CELL_WORLD_SCALE))
-#endif
-
     /* TODO Deal with multiple vapour jigsaws in this queue.
      * I think I'll want to decide I'm fed up with handling
      * vapour0 vapour1 vapour2 vapour3 everywhere, etc,
@@ -168,22 +166,32 @@ void AFK_ShapeCell::enqueueEdgeDisplayUnit(
      * a better scheme than the current one!)
      */
     unsigned int index = entityFair2DIndex.get1D(vapourJigsawPiece.puzzle, edgeJigsawPiece.puzzle);
+
+    Vec4<float> hgCoord = cell.toHomogeneous(SHAPE_CELL_WORLD_SCALE);
+#if SHAPE_DISPLAY_DEBUG
+    AFK_DEBUG_PRINTL("Displaying shape at hgCoord " << hgCoord << " with vapour jigsaw piece " << vapourJigsawPiece << ", edge jigsaw piece " << edgeJigsawPiece)
+#endif
     entityDisplayFair.getUpdateQueue(index)->add(
         AFK_EntityDisplayUnit(
             worldTransform,
+            hgCoord,
             vapourJigsaws->getPuzzle(vapourJigsawPiece)->getTexCoordSTR(vapourJigsawPiece),
             edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTexCoordST(edgeJigsawPiece)));
 }
 
-bool AFK_ShapeCell::canBeEvicted(void) const
+void AFK_ShapeCell::setDMinMax(float _minDensity, float _maxDensity)
 {
-    bool canEvict = ((afk_core.computingFrame - lastSeen) > 10);
-    return canEvict;
+    minDensity = _minDensity;
+    maxDensity = _maxDensity;
+}
+
+void AFK_ShapeCell::evict(void)
+{
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_ShapeCell& shapeCell)
 {
-    os << "Shape cell at " << shapeCell.cell;
+    os << "Shape cell";
     os << " (Vapour piece: " << shapeCell.vapourJigsawPiece << ")";
     os << " (Edge piece: " << shapeCell.edgeJigsawPiece << ")";
     return os;

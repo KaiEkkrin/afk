@@ -20,20 +20,20 @@
 
 #include "afk.hpp"
 
+#include <mutex>
 #include <sstream>
 #include <vector>
 
-#include <boost/thread/mutex.hpp>
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
 #include "computer.hpp"
+#include "core.hpp"
 #include "def.hpp"
 #include "landscape_sizes.hpp"
 #include "terrain.hpp"
+#include "tile.hpp"
 #include "yreduce.hpp"
-
-class AFK_LandscapeTile;
 
 /* This module make something like a render list, but rather more
  * complicated, for the purpose of queueing up the terrain
@@ -84,21 +84,18 @@ protected:
      * cell evaluator threads will be hitting a single one
      * of these.
      */
-    boost::mutex mut;
+    std::mutex mut;
 
     /* Compute stuff. */
     cl_kernel terrainKernel, surfaceKernel;
     AFK_YReduce *yReduce;
+    AFK_ComputeDependency *postTerrainDep;
 
-    /* In this vector, we store the in-order list of pointers
-     * to the source LandscapeTiles, so that the yreduce
-     * module can feed the computed y bounds back in easily.
+    /* In this vector, we store the in-order list of source tiles
+     * so that the yreduce module can feed the computed y bounds
+     * back in easily.
      */
-    std::vector<AFK_LandscapeTile*> landscapeTiles;
-
-    std::vector<cl_event> preTerrainWaitList;
-    std::vector<cl_event> preSurfaceWaitList;
-    std::vector<cl_event> postTerrainWaitList;
+    std::vector<AFK_Tile> landscapeTiles;
 
 public:
     AFK_TerrainComputeQueue();
@@ -108,7 +105,7 @@ public:
      * The Unit goes in too, but we return it as well so you can
      * instantly debug.
      */
-    AFK_TerrainComputeUnit extend(const AFK_TerrainList& list, const Vec2<int>& piece, AFK_LandscapeTile *landscapeTile, const AFK_LandscapeSizes& lSizes);
+    AFK_TerrainComputeUnit extend(const AFK_TerrainList& list, const Vec2<int>& piece, const AFK_Tile& tile, const AFK_LandscapeSizes& lSizes);
 
     /* This prints lots of debug info about the given terrain unit. */
     std::string debugTerrain(const AFK_TerrainComputeUnit& unit, const AFK_LandscapeSizes& lSizes) const;
@@ -116,7 +113,7 @@ public:
     /* Computes the terrain.
      */
     void computeStart(AFK_Computer *computer, AFK_Jigsaw *jigsaw, const AFK_LandscapeSizes& lSizes, const Vec3<float>& baseColour);
-    void computeFinish(void);
+    void computeFinish(unsigned int threadId, AFK_Jigsaw *jigsaw, AFK_LANDSCAPE_CACHE *cache);
 
     bool empty(void);
 

@@ -24,7 +24,6 @@
 #include <vector>
 
 #include <boost/atomic.hpp>
-#include <boost/thread/thread.hpp>
 
 #include "3d_edge_compute_queue.hpp"
 #include "3d_edge_shape_base.hpp"
@@ -33,8 +32,10 @@
 #include "async/work_queue.hpp"
 #include "camera.hpp"
 #include "cell.hpp"
+#include "clock.hpp"
 #include "computer.hpp"
 #include "config.hpp"
+#include "core.hpp"
 #include "data/evictable_cache.hpp"
 #include "data/fair.hpp"
 #include "data/moving_average.hpp"
@@ -52,19 +53,24 @@
 #include "terrain_compute_queue.hpp"
 #include "tile.hpp"
 #include "work.hpp"
-#include "world_cell.hpp"
 
 /* The world of AFK. */
 
 class AFK_LandscapeDisplayQueue;
 class AFK_LandscapeTile;
+class AFK_WorldCell;
 
 
 /* This is the cell generating worker function */
 bool afk_generateWorldCells(
     unsigned int threadId,
     const union AFK_WorldWorkParam& param,
+    const struct AFK_WorldWorkThreadLocal& threadLocal,
     AFK_WorldWorkQueue& queue);
+
+/* This is the cell-generation-finished check */
+bool afk_worldGenerationFinished(void);
+extern AFK_AsyncTaskFinishedFunc afk_worldGenerationFinishedFunc;
 
 /* This is the world.  AFK_Core will have one of these.
  */
@@ -85,34 +91,36 @@ protected:
      */
     const float startingDetailPitch;
     const float maxDetailPitch;
-    float detailPitch;
 
-    /* Let's try averaging it for the render.
+    /* This is my means of tracking whether the current world (and shape)
+     * enumeration is finished or not.
      */
-    AFK_MovingAverage<float> averageDetailPitch;
+    boost::atomic_uint_fast64_t volumeLeftToEnumerate;
 
     /* Gather statistics.  (Useful.)
      */
-    boost::atomic<uint64_t> cellsInvisible;
-    boost::atomic<uint64_t> tilesQueued;
-    boost::atomic<uint64_t> tilesResumed;
-    boost::atomic<uint64_t> tilesComputed;
-    boost::atomic<uint64_t> tilesRecomputedAfterSweep;
-    boost::atomic<uint64_t> entitiesQueued;
-    boost::atomic<uint64_t> entitiesMoved;
+    boost::atomic_uint_fast64_t cellsInvisible;
+    boost::atomic_uint_fast64_t cellsResumed;
+    boost::atomic_uint_fast64_t tilesQueued;
+    boost::atomic_uint_fast64_t tilesResumed;
+    boost::atomic_uint_fast64_t tilesComputed;
+    boost::atomic_uint_fast64_t tilesRecomputedAfterSweep;
+    boost::atomic_uint_fast64_t entitiesQueued;
+    boost::atomic_uint_fast64_t entitiesMoved;
 
     /* These ones are updated by the shape worker. */
-    boost::atomic<uint64_t> shapeCellsInvisible;
-    boost::atomic<uint64_t> shapeCellsResumed;
-    boost::atomic<uint64_t> shapeVapoursComputed;
-    boost::atomic<uint64_t> shapeEdgesComputed;
+    boost::atomic_uint_fast64_t shapeCellsInvisible;
+    boost::atomic_uint_fast64_t shapeCellsReducedOut;
+    boost::atomic_uint_fast64_t shapeCellsResumed;
+    boost::atomic_uint_fast64_t shapeVapoursComputed;
+    boost::atomic_uint_fast64_t shapeEdgesComputed;
 
     /* ... and this by that little vapour descriptor worker */
-    boost::atomic<uint64_t> separateVapoursComputed;
+    boost::atomic_uint_fast64_t separateVapoursComputed;
 
     /* Concurrency stats */
-    boost::atomic<uint64_t> dependenciesFollowed;
-    boost::atomic<uint64_t> threadEscapes;
+    boost::atomic_uint_fast64_t dependenciesFollowed;
+    boost::atomic_uint_fast64_t threadEscapes;
 
     /* Landscape shader details. */
     AFK_ShaderProgram *landscape_shaderProgram;
@@ -126,14 +134,12 @@ protected:
     AFK_ShaderProgram *entity_shaderProgram;
     AFK_ShaderLight *entity_shaderLight;
     GLuint entity_projectionTransformLocation;
+    GLuint entity_windowSizeLocation;
     GLuint entity_skyColourLocation;
     GLuint entity_farClipDistanceLocation;
 
     /* The cache of world cells we're tracking.
      */
-#ifndef AFK_WORLD_CACHE
-#define AFK_WORLD_CACHE AFK_EvictableCache<AFK_Cell, AFK_WorldCell, AFK_HashCell>
-#endif
     AFK_WORLD_CACHE *worldCache;
 
     /* These jigsaws form the computed landscape artwork. */
@@ -145,11 +151,7 @@ protected:
      * world) that handles the landscape, otherwise
      * I'm going to get a bit of overload?
      */
-#ifndef AFK_LANDSCAPE_CACHE
-#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile>
-#endif
     AFK_LANDSCAPE_CACHE *landscapeCache;
-    unsigned int tileCacheEntries;
 
     /* The terrain computation fair.  Yeah, yeah. */
     AFK_Fair<AFK_TerrainComputeQueue> landscapeComputeFair;
@@ -198,7 +200,7 @@ protected:
     AFK_3DEdgeShapeBase *edgeShapeBase;
 
     /* The cell generating gang */
-    AFK_AsyncGang<union AFK_WorldWorkParam, bool> *genGang;
+    AFK_AsyncGang<union AFK_WorldWorkParam, bool, struct AFK_WorldWorkThreadLocal, afk_worldGenerationFinishedFunc> *genGang;
 
     /* Cell generation worker delegates. */
 
@@ -212,10 +214,21 @@ protected:
         AFK_LandscapeTile& landscapeTile,
         bool display);
 
-    /* Generates a landscape tile's geometry. */
-    void generateLandscapeArtwork(
+    /* Generates a landscape tile's geometry.
+     * Returns true if we found missing tiles and you need to
+     * render them and resume, else false.
+     */
+    bool generateLandscapeArtwork(
         const AFK_Tile& tile,
         AFK_LandscapeTile& landscapeTile,
+        unsigned int threadId,
+        std::vector<AFK_Tile>& missingTiles);
+
+    /* Pushes a landscape tile into the display queue. */
+    void displayLandscapeTile(
+        const AFK_Cell& cell,
+        const AFK_Tile& tile,
+        const AFK_LandscapeTile& landscapeTile,
         unsigned int threadId);
 
     /* Makes one starting entity for a world cell, including generating
@@ -229,9 +242,10 @@ protected:
 
     /* Generates this world cell, as necessary. */
     bool generateClaimedWorldCell(
-        AFK_WorldCell& worldCell,
+        AFK_WORLD_CACHE::Claim& claim,
         unsigned int threadId,
         const struct AFK_WorldWorkParam::World& param,
+        const struct AFK_WorldWorkThreadLocal& threadLocal,
         AFK_WorldWorkQueue& queue);
 
 public:
@@ -263,18 +277,17 @@ public:
     /* These parameters define how to initially populate a world
      * cell with entities.
      */
-    const unsigned int maxEntitiesPerCell;
     const unsigned int entitySparseness;
 
 
     AFK_World(
         const AFK_Config *config,
         AFK_Computer *computer,
+        AFK_ThreadAllocation& threadAlloc,
         float _maxDistance,
         unsigned int worldCacheSize, /* in bytes */
         unsigned int tileCacheSize, /* also in bytes */
         unsigned int shapeCacheSize, /* likewise */
-        cl_context ctxt,
         AFK_RNG *setupRng);
     virtual ~AFK_World();
 
@@ -284,13 +297,15 @@ public:
      */
     void enqueueSubcells(
         const AFK_Cell& cell,
-        const Vec3<int64_t>& modifier,
-        const Vec3<float>& viewerLocation,
-        const AFK_Camera& camera);
+        const Vec3<int64_t>& modifier);
 
     /* Call when we're about to start a new frame. */
     void flipRenderQueues(const AFK_Frame& newFrame);
 
+    /* TODO: I'm moving the detail pitch calculation out to the
+     * DetailAdjuster object ...
+     */
+#if 0
     /* For changing the level of detail.  Values >1 decrease
      * it.  Values <1 increase it.
      * I'm not entirely sure what the correlation between the
@@ -301,25 +316,31 @@ public:
     void alterDetail(float adjustment);
 
     float getLandscapeDetailPitch(void) const;
-    float getEntityDetailPitch(void) const;
+#endif
+    float getEntityDetailPitch(float landscapeDetailPitch) const;
 
     /* This function drives the cell generating worker to
      * update the world cache and enqueue visible
      * cells.  Returns a future that becomes available
      * when we're done.
      */
-    boost::unique_future<bool> updateWorld(void);
+    std::future<bool> updateWorld(
+        const AFK_Camera& camera, const AFK_Object& protagonistObj, float detailPitch);
 
     /* CL-tasks-at-start-of-frame function. */
-    void doComputeTasks(void);
+    void doComputeTasks(unsigned int threadId);
 
     /* Draws the world in the current OpenGL context.
      * (There's no AFK_DisplayedObject for the world.)
      */
-    void display(const Mat4<float>& projection, const AFK_Light &globalLight);
+    void display(
+        unsigned int threadId,
+        const Mat4<float>& projection,
+        const Vec2<float>& windowSize,
+        const AFK_Light &globalLight);
 
     /* Takes a world checkpoint. */
-    void checkpoint(boost::posix_time::time_duration& timeSinceLastCheckpoint);
+    void checkpoint(afk_duration_mfl& timeSinceLastCheckpoint);
 
     void printCacheStats(std::ostream& ss, const std::string& prefix);
     void printJigsawStats(std::ostream& ss, const std::string& prefix);
@@ -329,22 +350,22 @@ public:
     friend bool afk_generateEntity(
         unsigned int threadId,
         const union AFK_WorldWorkParam& param,
-        AFK_WorldWorkQueue& queue);
-
-    friend bool afk_generateVapourDescriptor(
-        unsigned int threadId,
-        const union AFK_WorldWorkParam& param,
+        const struct AFK_WorldWorkThreadLocal& threadLocal,
         AFK_WorldWorkQueue& queue);
 
     friend bool afk_generateShapeCells(
         unsigned int threadId,
         const union AFK_WorldWorkParam& param,
+        const struct AFK_WorldWorkThreadLocal& threadLocal,
         AFK_WorldWorkQueue& queue);
 
     friend bool afk_generateWorldCells(
         unsigned int threadId,
         const union AFK_WorldWorkParam& param,
+        const struct AFK_WorldWorkThreadLocal& threadLocal,
         AFK_WorldWorkQueue& queue);
+
+    friend bool afk_worldGenerationFinished(void);
 };
 
 #endif /* _AFK_WORLD_H_ */

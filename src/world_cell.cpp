@@ -17,6 +17,7 @@
 
 #include "afk.hpp"
 
+#include <cassert>
 #include <cmath>
 
 #include "core.hpp"
@@ -25,23 +26,13 @@
 
 
 AFK_WorldCell::AFK_WorldCell():
-    AFK_Claimable(),
-    moveQueue(32) /* I don't expect very many */
+    entityCount(-1), entityAddI(0)
 {
 }
 
 AFK_WorldCell::~AFK_WorldCell()
 {
-    for (auto e : entities)
-    {
-        delete e;
-    }
-
-    /* I also own the contents of the move list.  All entries
-     * have already been removed from their old owner cells.
-     */
-    AFK_Entity *e;
-    while (moveQueue.pop(e)) delete e;
+    evict();
 }
 
 Vec4<float> AFK_WorldCell::getRealCoord(void) const
@@ -49,9 +40,8 @@ Vec4<float> AFK_WorldCell::getRealCoord(void) const
     return visibleCell.getRealCoord();
 }
 
-void AFK_WorldCell::bind(const AFK_Cell& _cell, float _worldScale)
+void AFK_WorldCell::bind(const AFK_Cell& cell, float _worldScale)
 {
-    cell = _cell;
     /* TODO If this actually *changes* something, I need to
      * clear the terrain so that it can be re-made.
      */
@@ -73,24 +63,26 @@ void AFK_WorldCell::testVisibility(const AFK_Camera& camera, bool& io_someVisibl
 
 unsigned int AFK_WorldCell::getStartingEntitiesWanted(
     AFK_RNG& rng,
-    unsigned int maxEntitiesPerCell,
-    unsigned int entitySparseness) const
+    unsigned int entitySparseness)
 {
-    unsigned int entityCount = 0;
-    if (entities.size() == 0)
+    if (entityCount == -1)
     {
+        assert(entityAddI == 0);
+        ++entityCount;
+
         /* I want more entities in larger cells */
         Vec4<float> realCoord = getRealCoord();
         float sparseMult = log(realCoord.v[3]);
 
-        for (unsigned int entitySlot = 0; entitySlot < maxEntitiesPerCell; ++entitySlot)
+        for (unsigned int entitySlot = 0; entitySlot < maxEntityCount; ++entitySlot)
         {
             if (rng.frand() < (sparseMult / ((float)entitySparseness)))
                 ++entityCount;
         }
-    }
 
-    return entityCount;
+        return entityCount;
+    }
+    else return 0; /* got all my entities already, don't make me any more! */
 }
 
 unsigned int AFK_WorldCell::getStartingEntityShapeKey(AFK_RNG& rng)
@@ -99,15 +91,21 @@ unsigned int AFK_WorldCell::getStartingEntityShapeKey(AFK_RNG& rng)
      * starting shapes to juggle -- but it's very dependent on
      * exactly what kind of world I'm trying to make!
      */
-    return (rng.uirand() & 0x3f);
+    return (rng.uirand() & 0xf);
 }
 
 void AFK_WorldCell::addStartingEntity(
+    unsigned int threadId,
     unsigned int shapeKey,
     const AFK_ShapeSizes& sSizes,
     AFK_RNG& rng)
 {
-    AFK_Entity *e = new AFK_Entity(shapeKey);
+    /* I'm going to fill out the next entity along my
+     * entity addition iterator element.
+     */
+    assert(entityCount != -1 && entityAddI < entityCount);
+    AFK_Entity& e = getEntityAt(entityAddI++);
+    e.shapeKey = shapeKey;
 
     Vec4<float> realCoord = getRealCoord();
 
@@ -164,57 +162,42 @@ void AFK_WorldCell::addStartingEntity(
     Vec3<float> entityRotation = afk_vec3<float>(0.0f, 0.0f, 0.0f);
 #endif
 
-    e->position(
+    e.position(
         afk_vec3<float>(entitySize, entitySize, entitySize),
         entityDisplacement,
         entityRotation);
+}
 
-    entities.push_back(e);
+#if 0
+bool AFK_WorldCell::hasEntities(void) const
+{
+    return (entities != nullptr);
 }
 
 AFK_ENTITY_LIST::iterator AFK_WorldCell::entitiesBegin(void)
 {
-    return entities.begin();
+    return entities->begin();
 }
 
 AFK_ENTITY_LIST::iterator AFK_WorldCell::entitiesEnd(void)
 {
-    return entities.end();
+    return entities->end();
 }
 
 AFK_ENTITY_LIST::iterator AFK_WorldCell::eraseEntity(AFK_ENTITY_LIST::iterator eIt)
 {
-    return entities.erase(eIt);
+    return entities->erase(eIt);
 }
+#endif
 
-void AFK_WorldCell::moveEntity(AFK_Entity *entity)
+void AFK_WorldCell::evict(void)
 {
-    moveQueue.push(entity);
-}
-
-void AFK_WorldCell::popMoveQueue(void)
-{
-    AFK_Entity *e;
-    while (moveQueue.pop(e))
-        entities.push_back(e);
-}
-
-bool AFK_WorldCell::canBeEvicted(void) const
-{
-    /* This is a tweakable value ... */
-    /* TODO Should I check contained entities too?  For now,
-     * I don't think so.  They'll always get hit along with the
-     * cell.
-     * However, when I get persistent entities, the cell homing
-     * them should always return false (or at least, be much
-     * more likely to return false ......)
-     */
-    bool canEvict = ((afk_core.computingFrame - lastSeen) > 60);
-    return canEvict;
+    entityCount = -1;
+    entityAddI = 0;
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_WorldCell& worldCell)
 {
-    return os << "World cell (last seen " << worldCell.lastSeen << ")";
+    return os << "World cell at " << worldCell.getRealCoord() << " with " << worldCell.entityCount << " entities";
 }
 

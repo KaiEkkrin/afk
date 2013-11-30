@@ -22,6 +22,8 @@
 
 #include "ocl_shim.hpp"
 
+#ifdef AFK_GLX
+
 void afk_handleDlError(const char *_file, const int _line)
 {
     char *error = dlerror();
@@ -54,3 +56,40 @@ AFK_OclShim::~AFK_OclShim()
     if (handle) dlclose(handle);
 }
 
+#endif /* AFK_GLX */
+
+#ifdef AFK_WGL
+
+void afk_handleDlError(const char *_file, const int _line)
+{
+    DWORD lastError = GetLastError();
+    if (lastError)
+    {
+        std::cerr << "AFK_OclShim: Error " << lastError << " occurred at " << _file << ":" << _line << std::endl;
+        assert(lastError == 0);
+    }
+}
+
+AFK_OclShim::AFK_OclShim(const AFK_Config *config) :
+handle(0)
+{
+    if (config->clLibDir)
+    {
+        std::stringstream ss;
+        ss << config->clLibDir << "\\OpenCL.dll";
+        handle = LoadLibraryA(ss.str().c_str());
+    }
+    else
+    {
+        handle = LoadLibraryA("OpenCL.dll");
+    }
+
+    if (!handle) AFK_HANDLE_DL_ERROR;
+}
+
+AFK_OclShim::~AFK_OclShim()
+{
+    if (handle) FreeLibrary(handle);
+}
+
+#endif /* AFK_WGL */

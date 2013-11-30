@@ -108,16 +108,45 @@ public:
     Vec3<float> getTileCoord(void) const;
 
     /* Assumes the RNG to have been seeded correctly for
-     * the tile.
+     * the tile.  Treats `featuresIt' as an iterator, and
+     * increments it as it writes features to it.
      * If `forcedTint' is non-NULL, uses that tint for all
      * features generated here; otherwise, gets a tint off
      * of the RNG.
      */
+    template<typename FeaturesIterator>
     void make(
-        std::vector<AFK_TerrainFeature>& features, /* We will append features to this */
+        FeaturesIterator& featuresIt,
         const Vec3<float>& _tileCoord,
         const AFK_LandscapeSizes &lSizes,
-        AFK_RNG& rng);
+        AFK_RNG& rng)
+    {
+        /* This establishes where our terrain cell actually lies. */
+        tileX = _tileCoord.v[0];
+        tileZ = _tileCoord.v[1];
+        tileScale = _tileCoord.v[2];
+        
+        /* For now I'm always going to apply `featureCountPerTile'
+         * features instead, to avoid having padding issues in the
+         * terrain compute queue.
+         */
+        for (unsigned int i = 0; i < lSizes.featureCountPerTile; ++i)
+        {
+            AFK_TerrainFeature feature;
+        
+            for (unsigned int j = 0; j < 7; ++j)
+            {
+                feature.f[j] = (uint8_t)(rng.frand() * 256.0f);
+            }
+        
+            /* For now, I'm going to include one spike per tile,
+             * and make the others humps.
+             */
+            feature.f[AFK_TFO_FTYPE] = (i == 0 ? AFK_TERRAIN_SPIKE : AFK_TERRAIN_HUMP);
+
+            *(featuresIt++) = feature;
+        }
+    }
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_TerrainTile& tile);
 };
@@ -142,8 +171,22 @@ public:
      * Make sure they're in order!  This function preserves the
      * mutual ordering.
      */
-    void extend(const std::vector<AFK_TerrainFeature>& features, const std::vector<AFK_TerrainTile>& tiles);
+
+    template<typename FeaturesIterable, typename TilesIterable>
+    void extend(const FeaturesIterable& features, const TilesIterable& tiles)
+    {
+        f.insert(f.end(), features.begin(), features.end());
+        t.insert(t.end(), tiles.begin(), tiles.end());
+    }
+
     void extend(const AFK_TerrainList& list);
+
+    /* Extends the landscape by a single landscape tile's
+     * features, from inplace.
+     */
+    void extendInplaceTiles(
+        const volatile AFK_TerrainFeature *features,
+        const volatile AFK_TerrainTile *tiles);
 
     unsigned int featureCount(void) const;
     unsigned int tileCount(void) const;

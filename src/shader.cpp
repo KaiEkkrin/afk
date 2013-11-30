@@ -30,6 +30,8 @@
 #include "shader.hpp"
 #include "shape_sizes.hpp"
 
+#define RENDER_SHAPE_AS_POINTS 1
+
 std::vector<struct AFK_ShaderSpec> shaders = {
     {   GL_FRAGMENT_SHADER, 0,  "landscape_fragment",   {   "landscape_fragment.glsl",  }, },
     {   GL_GEOMETRY_SHADER, 0,  "landscape_geometry",   {   "landscape_geometry.glsl",  }, },
@@ -37,7 +39,11 @@ std::vector<struct AFK_ShaderSpec> shaders = {
     {   GL_FRAGMENT_SHADER, 0,  "protagonist_fragment", {   "protagonist_fragment.glsl",}, },
     {   GL_VERTEX_SHADER,   0,  "protagonist_vertex",   {   "protagonist_vertex.glsl",  }, },
     {   GL_FRAGMENT_SHADER, 0,  "shape_fragment",       {   "shape_fragment.glsl",      }, },
-    {   GL_GEOMETRY_SHADER, 0,  "shape_geometry",       {   "shape_geometry.glsl",      }, },
+#if RENDER_SHAPE_AS_POINTS
+    {   GL_GEOMETRY_SHADER, 0,  "shape_geometry",       {   "shape_geometry_base.glsl", "shape_geometry_edgepoint.glsl",    }, },
+#else
+    {   GL_GEOMETRY_SHADER, 0,  "shape_geometry",       {   "shape_geometry_base.glsl", "shape_geometry_tri.glsl", }, },
+#endif
     {   GL_VERTEX_SHADER,   0,  "shape_vertex",         {   "shape_vertex.glsl",        }, },
 };
 
@@ -97,10 +103,10 @@ static void loadShaderFromFiles(
         throw AFK_Exception("Error compiling shader " + s->shaderName + ": " + infoLog);
     }
 
-    /* TODO I'm currently not cleaning up properly, add a cleanup
-     * function to the readfile module.
-     */
-
+    for (int i = 0; i < sourceCount; ++i)
+    {
+        free(sources[i]);
+    }
     delete[] sources;
     delete[] sourceLengths;
     delete[] sourceLengthsInt;
@@ -122,6 +128,8 @@ void afk_loadShaders(const AFK_Config *config)
         "\\bVDIM\\b",                       boost::lexical_cast<std::string>(sSizes.vDim),
         "\\bEDIM\\b",                       boost::lexical_cast<std::string>(sSizes.eDim),
         "\\bTDIM\\b",                       boost::lexical_cast<std::string>(sSizes.tDim),
+        "\\bLAYERS\\b",                     boost::lexical_cast<std::string>(sSizes.layers),
+        "\\bLAYER_BITNESS\\b",              boost::lexical_cast<std::string>(sSizes.layerBitness)
     };
 
     std::vector<std::pair<std::string, AFK_FileFilter *> > filters = {

@@ -20,13 +20,61 @@
 
 #include "afk.hpp"
 
-#include "jigsaw.hpp"
+#include <memory>
+#include <mutex>
+#include <vector>
 
-enum AFK_JigsawDimensions
+#include "data/chain.hpp"
+#include "jigsaw.hpp"
+#include "jigsaw_image.hpp"
+
+
+/* I'm deeply suspicious of the chain, so I'm going to make
+ * it on/off to see what happens...
+ *
+ * ... TODO: Okay, so it mostly works.  However, "mostly" isn't "entirely".
+ * Occasionally I get an uninitialised Jigsaw appear in the render thread
+ * (uninitialised as in bad `images' vector -- constructor's memory changes
+ * not synchronized to the core the render thread is on).  I need to think
+ * about how to deal with this.  Maybe even get rid of Jigsaw as a construct
+ * and have the Chain be entirely of JigsawMaps, with a simple vector of
+ * JigsawImages managed entirely by the render thread?
+ *
+ * Here's a hack to try for situations like that: include a mutex in the
+ * object that's used by one thread but constructed by another.  Acquire
+ * it on construction, of course.  When the user thread gets to the object,
+ * lock that mutex and never unlock it (except in the object's destructor,
+ * controlled by a flag).  That ought to sort things out, assuming there isn't
+ * a penalty for holding a few extra mutexes the whole time...!
+ *
+ * TODO *2: With the locked version enabled, when flying very close to an
+ * object (something I wasn't really able to try out with the chain version)
+ * all shape renders became corrupt afterwards...
+ */
+#define AFK_JIGSAW_COLLECTION_CHAIN 1
+
+
+/* How to make a new Jigsaw. */
+class AFK_JigsawFactory
 {
-    AFK_JIGSAW_2D,
-    AFK_JIGSAW_3D
+protected:
+    AFK_Computer *computer;
+    Vec3<int> jigsawSize;
+    std::vector<AFK_JigsawImageDescriptor> desc;
+
+public:
+    AFK_JigsawFactory(
+        AFK_Computer *_computer,
+        const Vec3<int>& _jigsawSize,
+        const std::vector<AFK_JigsawImageDescriptor>& _desc);
+
+#if AFK_JIGSAW_COLLECTION_CHAIN
+    AFK_Jigsaw *operator()() const;
+#else
+    std::shared_ptr<AFK_Jigsaw> operator()() const;
+#endif
 };
+
 
 /* This encapsulates a collection of jigsawed textures, which are used
  * to give out pieces of the same size and usage.
@@ -35,53 +83,24 @@ enum AFK_JigsawDimensions
 class AFK_JigsawCollection
 {
 protected:
-    enum AFK_JigsawDimensions dimensions;
-    std::vector<AFK_JigsawFormatDescriptor> format;
-    AFK_JigsawFake3DDescriptor fake3D;
-    const unsigned int texCount;
+    const int maxPuzzles;
 
-    Vec3<int> pieceSize;
-    Vec3<int> jigsawSize;
-    int pieceCount;
-    const enum AFK_JigsawBufferUsage bufferUsage;
-    const unsigned int concurrency;
-    const unsigned int maxPuzzles;
-
-    std::vector<AFK_Jigsaw*> puzzles;
-    AFK_Jigsaw *spare;
-
-    boost::upgrade_mutex mut;
-
-    /* Internal helpers. */
-    GLuint getGlTextureTarget(void) const;
-    std::string getDimensionalityStr(void) const;
-    bool grabPieceFromPuzzle(
-        unsigned int threadId,
-        int puzzle,
-        AFK_JigsawPiece *o_piece,
-        AFK_Frame *o_timestamp);
-
-    AFK_Jigsaw *makeNewJigsaw(AFK_Computer *computer) const;
-
-    /* For stats. */
-    boost::atomic<uint64_t> spills;
+    std::shared_ptr<AFK_JigsawFactory> jigsawFactory;
+#if AFK_JIGSAW_COLLECTION_CHAIN
+    typedef AFK_Chain<AFK_Jigsaw, AFK_JigsawFactory> Puzzle;
+    Puzzle *puzzles;
+#else
+    std::vector<std::shared_ptr<AFK_Jigsaw> > puzzles;
+    std::mutex mut;
+#endif
 
 public:
     AFK_JigsawCollection(
         AFK_Computer *_computer,
-        const Vec3<int>& _pieceSize,
-        int _pieceCount,
-        unsigned int minPuzzleCount,
-        enum AFK_JigsawDimensions _dimensions,
-        const std::vector<AFK_JigsawFormat>& texFormat,
+        const AFK_JigsawMemoryAllocation::Entry& _e,
         const AFK_ClDeviceProperties& _clDeviceProps,
-        enum AFK_JigsawBufferUsage _bufferUsage,
-        unsigned int concurrency,
-        bool useFake3D,
-        unsigned int _maxPuzzles /* 0 for no maximum */);
+        int _maxPuzzles /* 0 for no maximum */);
     virtual ~AFK_JigsawCollection();
-
-    int getPieceCount(void) const;
 
     /* Gives you a some pieces.  This will usually be quick,
      * but it may stall if we need to add a new jigsaw
@@ -99,11 +118,14 @@ public:
      * to re-create them the same.
      */
     void grab(
-        unsigned int threadId,
         int minJigsaw,
         AFK_JigsawPiece *o_pieces,
         AFK_Frame *o_timestamps,
-        size_t count);
+        int count);
+
+    /* These next functions will throw std::out_of_range if they
+     * can't find a particular puzzle...
+     */
 
     /* Gets you the puzzle that matches a particular piece. */
     AFK_Jigsaw *getPuzzle(const AFK_JigsawPiece& piece);
@@ -115,25 +137,30 @@ public:
      * Complains if there are more than `count' puzzles.
      * If there are fewer puzzles, fills out the remaining
      * fields of the array with the first one.
+     * Fills out the given compute dependency as required,
+     * and also the fake 3D info.
      * Returns the actual number of puzzles acquired.
      */
     int acquireAllForCl(
+        AFK_Computer *computer,
         unsigned int tex,
         cl_mem *allMem,
         int count,
-        std::vector<cl_event>& o_events);
+        Vec2<int>& o_fake3D_size,
+        int& o_fake3D_mult,
+        AFK_ComputeDependency& o_dep);
 
     /* Releases all puzzles from the CL, when acquired with the above.
      * `count' should be the number returned by acquireAllFromCl.
+     * Waits for the given compute dependency before proceeding.
      */
     void releaseAllFromCl(
         unsigned int tex,
-        cl_mem *allMem,
         int count,
-        const std::vector<cl_event>& eventWaitList);    
+        const AFK_ComputeDependency& dep);
 
     /* Flips the cuboids in all the jigsaws. */
-    void flipCuboids(AFK_Computer *computer, const AFK_Frame& currentFrame);
+    void flip(const AFK_Frame& currentFrame);
 
     void printStats(std::ostream& os, const std::string& prefix);
 };

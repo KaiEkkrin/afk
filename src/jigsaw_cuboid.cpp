@@ -17,43 +17,42 @@
 
 #include "afk.hpp"
 
-#include "jigsaw_cuboid.hpp"
+#include <cassert>
 
+#include "jigsaw_cuboid.hpp"
 
 /* AFK_JigsawCuboid implementation */
 
-AFK_JigsawCuboid::AFK_JigsawCuboid(int _r, int _c, int _s, int _rows, int _slices):
-    r(_r), c(_c), s(_s), rows(_rows), slices(_slices)
+AFK_JigsawCuboid::AFK_JigsawCuboid():
+    location(afk_vec3<int>(-1, -1, -1)), size(afk_vec3<int>(-1, -1, -1))
 {
-    columns.store(0);
 }
 
-AFK_JigsawCuboid::AFK_JigsawCuboid(const AFK_JigsawCuboid& other):
-    r(other.r), c(other.c), s(other.s), rows(other.rows), slices(other.slices)
+AFK_JigsawCuboid::AFK_JigsawCuboid(const Vec3<int>& _location, const Vec3<int>& _size):
+    location(_location), size(_size)
 {
-    columns.store(other.columns.load());
 }
 
-AFK_JigsawCuboid AFK_JigsawCuboid::operator=(const AFK_JigsawCuboid& other)
+AFK_JigsawCuboid::operator bool() const
 {
-    r = other.r;
-    c = other.c;
-    s = other.s;
-    rows = other.rows;
-    columns.store(other.columns.load());
-    slices = other.slices;
-    return *this;
+    bool isSet = (location.v[0] >= 0);
+
+    /* Sanity checking -- the negatives should only
+     * ever come together
+     */
+    if (!isSet)
+        assert(location.v[1] < 0 && location.v[2] < 0 &&
+            size.v[0] < 0 && size.v[1] < 0 && size.v[2] < 0);
+    else
+        assert(location.v[1] >= 0 && location.v[2] >= 0 &&
+            size.v[0] >= 0 && size.v[1] >= 0 && size.v[2] >= 0);
+
+    return isSet;
 }
 
-std::ostream& operator<<(std::ostream& os, const AFK_JigsawCuboid& sr)
+std::ostream& operator<<(std::ostream& os, const AFK_JigsawCuboid& cuboid)
 {
-    os << "JigsawCuboid(";
-    os << "r=" << std::dec << sr.r;
-    os << ", c=" << sr.c;
-    os << ", s=" << sr.s;
-    os << ", rows=" << sr.rows;
-    os << ", columns=" << sr.columns.load();
-    os << ", slices=" << sr.slices << ")";
+    os << "Cuboid(location=" << cuboid.location << ", size=" << cuboid.size << ")";
     return os;
 }
 

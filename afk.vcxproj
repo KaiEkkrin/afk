@@ -75,6 +75,9 @@
       <AdditionalIncludeDirectories>..\..\boost\boost_1_55_0b1;..\..\glew-1.10.0\include;..\..\opencl-1.2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -95,27 +98,39 @@
     <ClInclude Include="src\afk.hpp" />
     <ClInclude Include="src\async\async.hpp" />
     <ClInclude Include="src\async\async_test.hpp" />
+    <ClInclude Include="src\async\thread_allocation.hpp" />
     <ClInclude Include="src\async\work_queue.hpp" />
     <ClInclude Include="src\camera.hpp" />
     <ClInclude Include="src\cell.hpp" />
+    <ClInclude Include="src\clock.hpp" />
     <ClInclude Include="src\computer.hpp" />
+    <ClInclude Include="src\compute_dependency.hpp" />
+    <ClInclude Include="src\compute_queue.hpp" />
     <ClInclude Include="src\config.hpp" />
     <ClInclude Include="src\core.hpp" />
     <ClInclude Include="src\data\cache.hpp" />
     <ClInclude Include="src\data\cache_test.hpp" />
+    <ClInclude Include="src\data\chain.hpp" />
     <ClInclude Include="src\data\claimable.hpp" />
+    <ClInclude Include="src\data\claimable_locked.hpp" />
+    <ClInclude Include="src\data\claimable_volatile.hpp" />
     <ClInclude Include="src\data\evictable_cache.hpp" />
     <ClInclude Include="src\data\fair.hpp" />
     <ClInclude Include="src\data\frame.hpp" />
     <ClInclude Include="src\data\map_cache.hpp" />
+    <ClInclude Include="src\data\monomer.hpp" />
     <ClInclude Include="src\data\moving_average.hpp" />
     <ClInclude Include="src\data\polymer.hpp" />
     <ClInclude Include="src\data\polymer_cache.hpp" />
     <ClInclude Include="src\data\stage_timer.hpp" />
     <ClInclude Include="src\data\stats.hpp" />
+    <ClInclude Include="src\data\volatile.hpp" />
+    <ClInclude Include="src\data\watched_claimable.hpp" />
     <ClInclude Include="src\debug.hpp" />
     <ClInclude Include="src\def.hpp" />
+    <ClInclude Include="src\detail_adjuster.hpp" />
     <ClInclude Include="src\display.hpp" />
+    <ClInclude Include="src\dreduce.hpp" />
     <ClInclude Include="src\entity.hpp" />
     <ClInclude Include="src\entity_display_queue.hpp" />
     <ClInclude Include="src\event.hpp" />
@@ -127,6 +142,7 @@
     <ClInclude Include="src\jigsaw_collection.hpp" />
     <ClInclude Include="src\jigsaw_cuboid.hpp" />
     <ClInclude Include="src\jigsaw_image.hpp" />
+    <ClInclude Include="src\jigsaw_map.hpp" />
     <ClInclude Include="src\keyed_cell.hpp" />
     <ClInclude Include="src\landscape_display_queue.hpp" />
     <ClInclude Include="src\landscape_sizes.hpp" />
@@ -136,6 +152,7 @@
     <ClInclude Include="src\ocl_shim.hpp" />
     <ClInclude Include="src\rng\boost_mt19937.hpp" />
     <ClInclude Include="src\rng\boost_taus88.hpp" />
+    <ClInclude Include="src\rng\hash.hpp" />
     <ClInclude Include="src\rng\rng.hpp" />
     <ClInclude Include="src\rng\rng_test.hpp" />
     <ClInclude Include="src\shader.hpp" />
@@ -165,6 +182,7 @@
     <None Include="src\compute\landscape_yreduce.cl" />
     <None Include="src\compute\shape_3dedge.cl" />
     <None Include="src\compute\shape_3dvapour.cl" />
+    <None Include="src\compute\shape_3dvapour_dreduce.cl" />
     <None Include="src\compute\shape_3dvapour_feature.cl" />
     <None Include="src\compute\shape_3dvapour_normal.cl" />
     <None Include="src\shaders\landscape_fragment.glsl" />
@@ -173,7 +191,9 @@
     <None Include="src\shaders\protagonist_fragment.glsl" />
     <None Include="src\shaders\protagonist_vertex.glsl" />
     <None Include="src\shaders\shape_fragment.glsl" />
-    <None Include="src\shaders\shape_geometry.glsl" />
+    <None Include="src\shaders\shape_geometry_base.glsl" />
+    <None Include="src\shaders\shape_geometry_edgepoint.glsl" />
+    <None Include="src\shaders\shape_geometry_tri.glsl" />
     <None Include="src\shaders\shape_vertex.glsl" />
   </ItemGroup>
   <ItemGroup>
@@ -183,20 +203,26 @@
     <ClCompile Include="src\3d_vapour_compute_queue.cpp" />
     <ClCompile Include="src\async\async.cpp" />
     <ClCompile Include="src\async\async_test.cpp" />
+    <ClCompile Include="src\async\thread_allocation.cpp" />
     <ClCompile Include="src\camera.cpp" />
     <ClCompile Include="src\cell.cpp" />
+    <ClCompile Include="src\clock.cpp" />
     <ClCompile Include="src\computer.cpp" />
+    <ClCompile Include="src\compute_dependency.cpp" />
+    <ClCompile Include="src\compute_queue.cpp" />
     <ClCompile Include="src\config.cpp" />
     <ClCompile Include="src\core.cpp" />
     <ClCompile Include="src\data\cache_test.cpp" />
-    <ClCompile Include="src\data\claimable.cpp" />
+    <ClCompile Include="src\data\chain.cpp" />
     <ClCompile Include="src\data\fair.cpp" />
     <ClCompile Include="src\data\frame.cpp" />
     <ClCompile Include="src\data\polymer_cache.cpp" />
     <ClCompile Include="src\data\stage_timer.cpp" />
     <ClCompile Include="src\data\stats.cpp" />
     <ClCompile Include="src\debug.cpp" />
+    <ClCompile Include="src\detail_adjuster.cpp" />
     <ClCompile Include="src\display.cpp" />
+    <ClCompile Include="src\dreduce.cpp" />
     <ClCompile Include="src\entity.cpp" />
     <ClCompile Include="src\entity_display_queue.cpp" />
     <ClCompile Include="src\event.cpp" />
@@ -208,6 +234,7 @@
     <ClCompile Include="src\jigsaw_collection.cpp" />
     <ClCompile Include="src\jigsaw_cuboid.cpp" />
     <ClCompile Include="src\jigsaw_image.cpp" />
+    <ClCompile Include="src\jigsaw_map.cpp" />
     <ClCompile Include="src\keyed_cell.cpp" />
     <ClCompile Include="src\landscape_display_queue.cpp" />
     <ClCompile Include="src\landscape_sizes.cpp" />
@@ -218,6 +245,7 @@
     <ClCompile Include="src\ocl_shim.cpp" />
     <ClCompile Include="src\rng\boost_mt19937.cpp" />
     <ClCompile Include="src\rng\boost_taus88.cpp" />
+    <ClCompile Include="src\rng\hash.cpp" />
     <ClCompile Include="src\rng\rng.cpp" />
     <ClCompile Include="src\rng\rng_test.cpp" />
     <ClCompile Include="src\shader.cpp" />

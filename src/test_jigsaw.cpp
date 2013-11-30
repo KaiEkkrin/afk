@@ -47,32 +47,39 @@ void afk_testJigsaw(
      * texture -- verify that the values come out OK and don't
      * trample each other either.
      */
-    const int testIterations = 1000;
-    int startingPieceCount = 400;
+    const int testIterations = 50;
+
+    AFK_JigsawMemoryAllocation testAllocation(
+        {
+            AFK_JigsawMemoryAllocation::Entry(
+                {
+                    AFK_JigsawImageDescriptor(
+                        afk_vec3<int>(9, 9, 1),
+                        AFK_JigsawFormat::FLOAT32_4,
+                        AFK_JigsawDimensions::TWO,
+                        AFK_JigsawBufferUsage::CL_ONLY)
+                },
+                4,
+                1.0f),
+        },
+        config->concurrency,
+        computer->useFake3DImages(config),
+        1.0f,
+        computer->getFirstDeviceProps());
 
     AFK_JigsawCollection testCollection(
         computer,
-        afk_vec3<int>(9, 9, 1),
-        startingPieceCount,
-        4,
-        AFK_JIGSAW_2D,
-        { AFK_JIGSAW_4FLOAT32 },
+        testAllocation.at(0),
         computer->getFirstDeviceProps(),
-        AFK_JIGSAW_BU_CL_ONLY,
-        config->concurrency,
-        false,
         0);
-
-    int pieceCount = testCollection.getPieceCount();
-    assert(pieceCount >= startingPieceCount);
 
     AFK_Frame frame;
     frame.increment();
-    testCollection.flipCuboids(computer, frame);
+    testCollection.flip(frame);
 
     for (int i = 0; i < testIterations; ++i)
     {
-        int piecesThisFrame = rand() % (config->concurrency * pieceCount / 4);
+        int piecesThisFrame = rand() % (config->concurrency * testAllocation.at(0).getPieceCount() / 4);
         std::cout << "Test frame " << frame << ": Getting " << piecesThisFrame << " pieces" << std::endl;
 
         /* Here, I map each piece that I've drawn to its timestamp. */
@@ -85,8 +92,8 @@ void afk_testJigsaw(
                 AFK_JigsawPiece jigsawPiece;
                 AFK_Frame pieceFrame;
     
-                testCollection.grab(rand() % config->concurrency, 0, &jigsawPiece, &pieceFrame, 1);
-                //std::cout << "Grabbed piece " << jigsawPiece << " with frame " << pieceFrame << std::endl;
+                testCollection.grab(0, &jigsawPiece, &pieceFrame, 1);
+                std::cout << "Grabbed piece " << jigsawPiece << " with frame " << pieceFrame << std::endl;
 
                 auto existing = piecesMap.find(jigsawPiece);
                 if (existing != piecesMap.end()) assert(existing->second != pieceFrame);
@@ -107,7 +114,8 @@ void afk_testJigsaw(
         }
 
         frame.increment();
-        testCollection.flipCuboids(computer, frame);
+        testCollection.flip(frame);
+        testCollection.printStats(std::cout, "Test jigsaw");
     }
 
     std::cout << "Jigsaw test completed" << std::endl;

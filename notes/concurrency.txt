@@ -1,0 +1,18 @@
+Concurrency bugs, 28/10/13 -- Updated 18/11/13
+----------------------------------------------
+
+I'm still seeing:
+ - "Assertion `changeDataOffset == changeData.size()' failed".  This persists on an occasional basis after the jigsaw map rewrite.  I wonder what I've done wrong?
+ - Unfulfilled terrain dependencies (I expect I need to resume some higher level tiles, very occasionally, so I should put back the missing-list function; the same no doubt applies to shapes, although even harder to hit)
+ - Total freeze-ups.
+ - Segfaults in the video drivers (seen on both AMD and Nvidia).
+
+I _think_ that the rest of October's laundry list is now fixed.
+
+Obvious performance improvements:
+ - The Claimable polymer keys are quite slow.  Try finding out exactly what is happening when I use boost::atomic<KeyType> instead (which I observed to be faster when using the cache test as a benchmark).
+ - Related: Try providing an InplaceClaim that wraps a volatile, and volatile functions that do the obvious few things required of commonly used shared-only claims.  I'm thinking of higher level tiles and vapour cells for compute queueing here: volatile functions that checked for descriptors and copied the features into the compute queue would save on the current doubled-up copy operations.
+ - Vapour reduce: feed back info on whether a vapour cube is either all above the threshold (solid) or all below (empty) and in both cases, stop recursing.  (Right now shapes are very slow in close-up and this improvement ought to go a very long way towards fixing it).
+
+Somewhat associated: the LoD adjuster needs a rethink, I have a few ideas.
+

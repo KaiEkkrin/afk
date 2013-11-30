@@ -20,16 +20,13 @@
 
 #include "afk.hpp"
 
+#include <array>
 #include <exception>
 #include <iostream>
-#include <vector>
-
-#include <boost/atomic.hpp>
-#include <boost/shared_ptr.hpp>
 
 #include "data/claimable.hpp"
+#include "data/evictable_cache.hpp"
 #include "data/frame.hpp"
-#include "data/polymer_cache.hpp"
 #include "def.hpp"
 #include "display.hpp"
 #include "jigsaw_collection.hpp"
@@ -38,12 +35,6 @@
 #include "terrain.hpp"
 #include "tile.hpp"
 #include "world.hpp"
-
-#define TERRAIN_TILES_PER_TILE 5
-
-#ifndef AFK_LANDSCAPE_CACHE
-#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile>
-#endif
 
 class AFK_LandscapeDisplayUnit;
 
@@ -60,10 +51,14 @@ enum AFK_LandscapeTileArtworkState
     AFK_LANDSCAPE_TILE_HAS_ARTWORK
 };
 
+/* Utilities. */
+ptrdiff_t afk_getLandscapeTileFeaturesOffset(void);
+ptrdiff_t afk_getLandscapeTileTilesOffset(void);
+
 /* Describes a landscape tile, including managing its rendered vertex
  * and index buffers.
  */
-class AFK_LandscapeTile: public AFK_Claimable
+class AFK_LandscapeTile
 {
 protected:
     /* The structure that describes the terrain present at this
@@ -72,19 +67,16 @@ protected:
      * the terrain here and the terrain at all the ancestral tiles.)
      */
     bool haveTerrainDescriptor;
-    std::vector<AFK_TerrainFeature> terrainFeatures; /* landscapeSizes->featureCountPerTile features per tile, in order */
-    std::vector<AFK_TerrainTile> terrainTiles;
+
+    typedef std::array<AFK_TerrainFeature, afk_terrainFeatureCountPerTile * afk_terrainTilesPerTile> FeatureArray;
+    FeatureArray terrainFeatures;
+    typedef std::array<AFK_TerrainTile, afk_terrainTilesPerTile> TileArray;
+    TileArray terrainTiles;
 
     /* The jigsaw piece for this tile, or the null piece if it hasn't
      * been assigned yet.
      */
     AFK_JigsawPiece jigsawPiece;
-
-    /* What jigsaws that piece comes from.  (This is just a cross-
-     * reference, we don't own it.  But we need to be able to put
-     * our piece back upon delete.)
-     */
-    AFK_JigsawCollection *jigsaws;
 
     /* The frame when we got that jigsaw piece.  Jigsaw pieces expire
      * as the new-piece creation row rolls around; when we query the
@@ -113,6 +105,8 @@ public:
 
     /* Builds the terrain list for this tile.  Call it with
      * an empty list.
+     * If tiles are missing, fills out the `missing' list:
+     * you'll need to render all those tiles then resume.
      */
     void buildTerrainList(
         unsigned int threadId,
@@ -120,14 +114,27 @@ public:
         const AFK_Tile& tile,
         unsigned int subdivisionFactor,
         float maxDistance,
-        const AFK_LANDSCAPE_CACHE *cache) const;
+        AFK_LANDSCAPE_CACHE *cache,
+        std::vector<AFK_Tile>& missing) const;
+
+    /* This version so that I can use an inplace claim and
+     * save a copy.
+     */
+    void buildTerrainList(
+        unsigned int threadId,
+        AFK_TerrainList& list,
+        const AFK_Tile& tile,
+        unsigned int subdivisionFactor,
+        float maxDistance,
+        AFK_LANDSCAPE_CACHE *cache,
+        std::vector<AFK_Tile>& missing) const volatile;
 
     /* Assigns a jigsaw piece to this tile. */
     AFK_JigsawPiece getJigsawPiece(unsigned int threadId, int minJigsaw, AFK_JigsawCollection *_jigsaws);
 
-    enum AFK_LandscapeTileArtworkState artworkState() const;
-    float getYBoundLower() const;
-    float getYBoundUpper() const;
+    enum AFK_LandscapeTileArtworkState artworkState(AFK_JigsawCollection *jigsaws) const;
+    float getYBoundLower() const { return yBoundLower; }
+    float getYBoundUpper() const { return yBoundUpper; }
 
     /* Supply new y bounds _in tile space_ (that's easiest
      * for the yReduce kernel)
@@ -138,6 +145,7 @@ public:
      * are within y bounds, else false.
      */
     bool realCellWithinYBounds(const Vec4<float>& coord) const;
+    bool realCellWithinYBounds(const Vec4<float>& coord) const volatile;
 
     /* Checks whether this landscape tile has anything to render in
      * the given cell (by y-bounds).  If not, returns false.  If so,
@@ -147,12 +155,15 @@ public:
     bool makeDisplayUnit(
         const AFK_Cell& cell,
         float minCellSize,
+        AFK_JigsawCollection *jigsaws,
         AFK_JigsawPiece& o_jigsawPiece,
         AFK_LandscapeDisplayUnit& o_unit) const;
 
     /* For handling claiming and eviction. */
-    virtual bool canBeEvicted(void) const;
+    void evict(void);
 
+    friend ptrdiff_t afk_getLandscapeTileFeaturesOffset(void);
+    friend ptrdiff_t afk_getLandscapeTileTilesOffset(void);
     friend std::ostream& operator<<(std::ostream& os, const AFK_LandscapeTile& t);
 };
 

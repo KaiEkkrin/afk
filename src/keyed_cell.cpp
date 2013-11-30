@@ -17,14 +17,17 @@
 
 #include "afk.hpp"
 
-#include <boost/functional/hash.hpp>
-
 #include "core.hpp"
 #include "keyed_cell.hpp"
 
 /* AFK_KeyedCell implementation */
 
 bool AFK_KeyedCell::operator==(const AFK_KeyedCell& _cell) const
+{
+    return (c == _cell.c && key == _cell.key);
+}
+
+bool AFK_KeyedCell::operator==(const AFK_KeyedCell& _cell) const volatile
 {
     return (c == _cell.c && key == _cell.key);
 }
@@ -75,10 +78,12 @@ AFK_KeyedCell afk_keyedCell(const Vec4<int64_t>& _coord, int64_t _key)
     return cell;
 }
 
+const AFK_KeyedCell afk_unassignedKeyedCell = afk_keyedCell(afk_vec4<int64_t>(0, 0, 0, -1), -1);
+
 size_t hash_value(const AFK_KeyedCell& cell)
 {
     size_t hash = (size_t)cell.key;
-    boost::hash_combine(hash, hash_value(cell.c));
+    hash = afk_hash_swizzle(hash, hash_value(cell.c));
     return hash;
 }
 

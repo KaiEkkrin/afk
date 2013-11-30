@@ -255,6 +255,48 @@
     <ClInclude Include="src\rng\rng_test.hpp">
       <Filter>Header Files\rng</Filter>
     </ClInclude>
+    <ClInclude Include="src\async\thread_allocation.hpp">
+      <Filter>Header Files\async</Filter>
+    </ClInclude>
+    <ClInclude Include="src\clock.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\compute_dependency.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\compute_queue.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\chain.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\claimable_locked.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\claimable_volatile.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\monomer.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\volatile.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\data\watched_claimable.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\detail_adjuster.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\dreduce.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\jigsaw_map.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\rng\hash.hpp">
+      <Filter>Header Files\rng</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\compute\fake3d.cl">
@@ -299,10 +341,19 @@
     <None Include="src\shaders\shape_fragment.glsl">
       <Filter>Resource Files\shaders</Filter>
     </None>
-    <None Include="src\shaders\shape_geometry.glsl">
+    <None Include="src\shaders\shape_vertex.glsl">
       <Filter>Resource Files\shaders</Filter>
     </None>
-    <None Include="src\shaders\shape_vertex.glsl">
+    <None Include="src\compute\shape_3dvapour_dreduce.cl">
+      <Filter>Resource Files\compute</Filter>
+    </None>
+    <None Include="src\shaders\shape_geometry_base.glsl">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\shape_geometry_edgepoint.glsl">
+      <Filter>Resource Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\shape_geometry_tri.glsl">
       <Filter>Resource Files\shaders</Filter>
     </None>
   </ItemGroup>
@@ -448,9 +499,6 @@
     <ClCompile Include="src\data\cache_test.cpp">
       <Filter>Source Files\data</Filter>
     </ClCompile>
-    <ClCompile Include="src\data\claimable.cpp">
-      <Filter>Source Files\data</Filter>
-    </ClCompile>
     <ClCompile Include="src\data\fair.cpp">
       <Filter>Source Files\data</Filter>
     </ClCompile>
@@ -485,6 +533,33 @@
       <Filter>Source Files\async</Filter>
     </ClCompile>
     <ClCompile Include="src\rng\rng_test.cpp">
+      <Filter>Source Files\rng</Filter>
+    </ClCompile>
+    <ClCompile Include="src\async\thread_allocation.cpp">
+      <Filter>Source Files\async</Filter>
+    </ClCompile>
+    <ClCompile Include="src\clock.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\compute_dependency.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\compute_queue.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\data\chain.cpp">
+      <Filter>Source Files\data</Filter>
+    </ClCompile>
+    <ClCompile Include="src\detail_adjuster.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dreduce.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\jigsaw_map.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\rng\hash.cpp">
       <Filter>Source Files\rng</Filter>
     </ClCompile>
   </ItemGroup>

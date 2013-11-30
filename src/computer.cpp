@@ -21,32 +21,12 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/tokenizer.hpp>
 
+#include "compute_queue.hpp"
 #include "computer.hpp"
 #include "exception.hpp"
 #include "file/readfile.hpp"
 #include "landscape_sizes.hpp"
 #include "shape_sizes.hpp"
-
-
-/* The set of known programs, just like the shaders doodah. */
-
-std::vector<struct AFK_ClProgram> programs = {
-    {   0,  "landscape_surface",    { "landscape_surface.cl" }, },
-    {   0,  "landscape_terrain",    { "landscape_terrain.cl" }, },
-    {   0,  "landscape_yreduce",    { "landscape_yreduce.cl" }, },
-    {   0,  "shape_3dedge",         { "fake3d.cl", "shape_3dedge.cl" }, },
-    {   0,  "shape_3dvapour_feature",   { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_feature.cl" }, },
-    {   0,  "shape_3dvapour_normal",    { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_normal.cl" }, }
-};
-
-std::vector<struct AFK_ClKernel> kernels = { 
-    {   0,  "landscape_surface",        "makeLandscapeSurface"          },
-    {   0,  "landscape_terrain",        "makeLandscapeTerrain"          },
-    {   0,  "landscape_yreduce",        "makeLandscapeYReduce"          },
-    {   0,  "shape_3dedge",             "makeShape3DEdge"               },
-    {   0,  "shape_3dvapour_feature",   "makeShape3DVapourFeature"      },
-    {   0,  "shape_3dvapour_normal",    "makeShape3DVapourNormal"       }
-};
 
 
 void afk_handleClError(cl_int error, const char *_file, const int _line)
@@ -69,7 +49,8 @@ void afk_handleClError(cl_int error, const char *_file, const int _line)
 
 /* AFK_ClPlatformProperties implementation */
 
-AFK_ClPlatformProperties::AFK_ClPlatformProperties(AFK_Computer *computer, cl_platform_id platform)
+AFK_ClPlatformProperties::AFK_ClPlatformProperties(AFK_Computer *computer, cl_platform_id platform):
+    versionStr(nullptr)
 {
     AFK_CLCHK(computer->oclShim.GetPlatformInfo()(platform, CL_PLATFORM_VERSION, 0, NULL, &versionStrSize))
     versionStr = new char[versionStrSize];
@@ -83,10 +64,15 @@ AFK_ClPlatformProperties::AFK_ClPlatformProperties(AFK_Computer *computer, cl_pl
     }
 }
 
+AFK_ClPlatformProperties::~AFK_ClPlatformProperties()
+{
+    if (versionStr) delete[] versionStr;
+}
+
 /* AFK_ClDeviceProperties implementation. */
 
 AFK_ClDeviceProperties::AFK_ClDeviceProperties(AFK_Computer *computer, cl_device_id device):
-    maxWorkItemSizes(NULL)
+    maxWorkItemSizes(nullptr)
 {
     computer->getClDeviceInfoFixed<cl_ulong>(device, CL_DEVICE_GLOBAL_MEM_SIZE, &globalMemSize, 0);
     computer->getClDeviceInfoFixed<size_t>(device, CL_DEVICE_IMAGE2D_MAX_WIDTH, &image2DMaxWidth, 0);
@@ -144,7 +130,7 @@ bool AFK_ClDeviceProperties::supportsExtension(const std::string& ext) const
     boost::tokenizer<boost::char_separator<char> > extTok(extensions, spcSep);
     for (auto testExt : extTok)
     {
-        if (testExt == ext) return true;
+        //if (testExt == ext) return true;
     }
 
     return false;
@@ -185,6 +171,11 @@ std::ostream& operator<<(std::ostream& os, const AFK_ClDeviceProperties& p)
 
 
 /* AFK_Computer implementation */
+
+void afk_programBuiltNotify(cl_program program, void *user_data)
+{
+    ((AFK_Computer *)user_data)->programBuilt();
+}
 
 /* This helper is used to cram ostensibly-64 bit pointer types from GLX
  * into the 32-bit fields that they actually fit into without causing
@@ -297,6 +288,7 @@ void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<st
     p->program = oclShim.CreateProgramWithSource()(ctxt, sourceCount, (const char **)sources, sourceLengths, &error);
     AFK_HANDLE_CL_ERROR(error);
 
+    for (int s = 0; s < sourceCount; ++s) free(sources[s]);
     delete[] sources;
     delete[] sourceLengths;
 
@@ -325,6 +317,9 @@ void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<st
         args << "-D FEATURE_MAX_SIZE="          << sSizes.featureMaxSize         << " ";
         args << "-D FEATURE_MIN_SIZE="          << sSizes.featureMinSize         << " ";
         args << "-D THRESHOLD="                 << sSizes.edgeThreshold          << " ";
+        args << "-D REDUCE_ORDER="              << sSizes.getReduceOrder()       << " ";
+        args << "-D LAYERS="                    << sSizes.layers                 << " ";
+        args << "-D LAYER_BITNESS="             << sSizes.layerBitness           << " ";
         if (useFake3DImages(config))
             args << "-D AFK_FAKE3D=1 ";
         else
@@ -336,34 +331,59 @@ void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<st
     std::string argsStr = args.str();
     if (argsStr.size() > 0)
         std::cout << "AFK: Passing compiler arguments: " << argsStr << std::endl;
-    error = oclShim.BuildProgram()(p->program, devicesSize, devices, argsStr.size() > 0 ? argsStr.c_str() : NULL, NULL, NULL);
-    for (size_t dI = 0; dI < devicesSize; ++dI)
-        printBuildLog(std::cout, p->program, devices[dI]);
+    error = oclShim.BuildProgram()(
+        p->program,
+        devicesSize,
+        devices,
+        argsStr.size() > 0 ? argsStr.c_str() : NULL,
+        afk_programBuiltNotify,
+        this);
 
     AFK_HANDLE_CL_ERROR(error);
 }
 
-void AFK_Computer::printBuildLog(std::ostream& s, cl_program program, cl_device_id device)
+void AFK_Computer::programBuilt(void)
+{
+    std::unique_lock<std::mutex> lock(buildMut);
+    --stillBuilding;
+    buildCond.notify_all();
+}
+
+void AFK_Computer::waitForBuild(void)
+{
+    std::unique_lock<std::mutex> lock(buildMut);
+    while (stillBuilding > 0)
+    {
+        buildCond.wait(lock);
+    }
+}
+
+void AFK_Computer::printBuildLog(std::ostream& s, const struct AFK_ClProgram& p, cl_device_id device)
 {
     char *buildLog;
     size_t buildLogSize;
 
-    AFK_CLCHK(oclShim.GetProgramBuildInfo()(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &buildLogSize))
+    AFK_CLCHK(oclShim.GetProgramBuildInfo()(p.program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &buildLogSize))
     buildLog = new char[buildLogSize+1];
-    AFK_CLCHK(oclShim.GetProgramBuildInfo()(program, device, CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, NULL))
+    AFK_CLCHK(oclShim.GetProgramBuildInfo()(p.program, device, CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, NULL))
     buildLog[buildLogSize] = '\0'; /* paranoia */
-    s << buildLog << std::endl;
+
+    s << "--- Build log for " << p.programName << " ---" << std::endl;
+    s << buildLog << std::endl << std::endl;
     delete[] buildLog;
 }
 
 AFK_Computer::AFK_Computer(const AFK_Config *config):
     platform(0),
     platformProps(NULL),
+    async(config->async),
     devices(NULL),
     devicesSize(0),
     firstDeviceProps(NULL),
     ctxt(0),
-    q(0),
+    kernelQueue(nullptr),
+    readQueue(nullptr),
+    writeQueue(nullptr),
     oclShim(config)
 {
     cl_platform_id *platforms;
@@ -387,30 +407,50 @@ AFK_Computer::AFK_Computer(const AFK_Config *config):
         }
     }
 
+    free(platforms);
+
     if (!devices) throw AFK_Exception("No cl_gl devices found");
 
-    /* TODO Multiple queues for multiple devices? */
-    cl_int error;
-    q = oclShim.CreateCommandQueue()(ctxt, devices[0], CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &error);
-    AFK_HANDLE_CL_ERROR(error);
+    /* Make my compute queues. */
+    if (async)
+    {
+        kernelQueue = std::make_shared<AFK_ComputeQueue>(
+            &oclShim, ctxt, devices[0], true, AFK_CQ_KERNEL_COMMAND_SET);
+        readQueue = std::make_shared<AFK_ComputeQueue>(
+            &oclShim, ctxt, devices[0], true, AFK_CQ_READ_COMMAND_SET);
+        writeQueue = std::make_shared<AFK_ComputeQueue>(
+            &oclShim, ctxt, devices[0], true, AFK_CQ_WRITE_COMMAND_SET);
+    }
+    else
+    {
+        kernelQueue = readQueue = writeQueue =
+            std::make_shared<AFK_ComputeQueue>(
+                &oclShim, ctxt, devices[0], false,
+                AFK_CQ_KERNEL_COMMAND_SET | AFK_CQ_READ_COMMAND_SET | AFK_CQ_WRITE_COMMAND_SET);
+    }
 }
 
 AFK_Computer::~AFK_Computer()
 {
     if (devices)
     {
+        kernelQueue.reset();
+        readQueue.reset();
+        writeQueue.reset();
+
         for (auto k : kernels)
             if (k.kernel) oclShim.ReleaseKernel()(k.kernel);
 
         for (auto p : programs)
             if (p.program) oclShim.ReleaseProgram()(p.program);
 
-        if (q) oclShim.ReleaseCommandQueue()(q);
         if (ctxt) oclShim.ReleaseContext()(ctxt);
         if (firstDeviceProps) delete firstDeviceProps;
 
         delete[] devices;
     }
+
+    if (platformProps) delete platformProps;
 }
 
 void AFK_Computer::loadPrograms(const AFK_Config *config)
@@ -423,8 +463,13 @@ void AFK_Computer::loadPrograms(const AFK_Config *config)
         throw AFK_Exception("AFK_Computer: Unable to switch to programs dir: " + errStream.str());
 
     /* Load all the programs I know about. */
+    stillBuilding = programs.size();
     for (auto pIt = programs.begin(); pIt != programs.end(); ++pIt)
         loadProgramFromFiles(config, pIt);
+    waitForBuild();
+    for (auto p : programs)
+        for (size_t dI = 0; dI < devicesSize; ++dI)
+            printBuildLog(std::cout, p, devices[dI]);
 
     /* ...and all the kernels... */
     for (auto kIt = kernels.begin(); kIt != kernels.end(); ++kIt)
@@ -474,6 +519,11 @@ bool AFK_Computer::testVersion(unsigned int majorVersion, unsigned int minorVers
         (platformProps->majorVersion == majorVersion && platformProps->minorVersion >= minorVersion));
 }
 
+bool AFK_Computer::useAsync(void) const
+{
+    return async;
+}
+
 bool AFK_Computer::isAMD(void) const
 {
     return platformIsAMD;
@@ -483,19 +533,5 @@ bool AFK_Computer::useFake3DImages(const AFK_Config *config) const
 {
     return (config->forceFake3DImages ||
         !firstDeviceProps->supportsExtension("cl_khr_3d_image_writes"));
-}
-
-void AFK_Computer::lock(cl_context& o_ctxt, cl_command_queue& o_q)
-{
-    /* TODO Multiple devices and queues: can I identify
-     * the least busy device here, and pass out its
-     * queue?
-     */
-    o_ctxt = ctxt;
-    o_q = q;
-}
-
-void AFK_Computer::unlock(void)
-{
 }
 

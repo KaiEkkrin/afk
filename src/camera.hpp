@@ -30,6 +30,11 @@ protected:
     int     windowWidth;
     int     windowHeight;
 
+    /* The vector that separates the lens from the drive point.
+     * (0,0,0) gives first person perspective.  Something with
+     * negative z gives third person. */
+    Vec3<float> separation;
+
     /* Intermediate results I keep around. */
     float   ar;
     float   tanHalfFov;
@@ -39,30 +44,32 @@ protected:
      * I end up spending about 1/3 of my time just doing
      * matrix multiplication!
      */
+    Vec2<float> windowSize;
     Mat4<float> projection;
 
     void updateProjection(void);
 
 public:
-    /* The vector that separates the lens from the drive point.
-     * (0,0,0) gives first person perspective.  Something with
-     * negative z gives third person. */
-    const Vec3<float> separation;
-
-    AFK_Camera(Vec3<float> _separation);
+    AFK_Camera();
     virtual ~AFK_Camera();
 
-    /* Need to call this before the camera is properly set up */
+    /* Need to call these before the camera is properly set up */
+    void setSeparation(const Vec3<float>& _separation);
     void setWindowDimensions(int width, int height);
 
     /* For testing an object against a target detail pitch. */
-    float getDetailPitchAsSeen(float scale, float distanceToViewer) const;
+    /* TODO Why am I tracking viewer location by protagonist
+     * (with that separation hack !  clearly wrong) rather than having the
+     * Camera track the viewer location?
+     */
+    float getDetailPitchAsSeen(float objectScale, const Vec3<float>& objectLocation, const Vec3<float>& viewerLocation) const;
 
     /* Checks whether a projected point will be visible or not. */
     bool projectedPointIsVisible(const Vec4<float>& projectedPoint) const;
 
     void driveAndUpdateProjection(const Vec3<float>& velocity, const Vec3<float>& axisDisplacement);
-    Mat4<float> getProjection(void) const;
+    Vec2<float> getWindowSize(void) const { return windowSize; }
+    Mat4<float> getProjection(void) const { return projection; }
 };
 
 #endif /* _AFK_CAMERA_H_ */

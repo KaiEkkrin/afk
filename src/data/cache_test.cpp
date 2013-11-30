@@ -15,36 +15,46 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
+#include <cassert>
 #include <cmath>
 #include <functional>
+#include <future>
 #include <iostream>
 
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/atomic.hpp>
 #include <boost/random/random_device.hpp>
 #include <boost/random/taus88.hpp>
-#include <boost/thread/future.hpp>
 
 #include "cache_test.hpp"
 #include "map_cache.hpp"
 #include "polymer_cache.hpp"
 #include "../async/async.hpp"
+#include "../clock.hpp"
+#include "../rng/hash.hpp"
 
 struct expensivelyHashInt
 {
     size_t operator()(const int& v)
     {
+#if 0
         boost::random::taus88 rng;
         rng.seed(v);
         return rng() + (((uint64_t)rng()) << 32);
+#else
+        /* Exercise the hash_swizzle. */
+        return static_cast<size_t>(
+            afk_hash_swizzle(0ull, static_cast<uint64_t>(v)));
+#endif
     }
 };
+
+const int afk_cacheTestUnassignedKey = -1;
 
 class IntStartingAtZero
 {
 public:
     int v;
     IntStartingAtZero(): v(0) {}
-    IntStartingAtZero& operator+=(const int& o) { v += o; return *this; }
 };
 
 std::ostream& operator<<(std::ostream& os, const IntStartingAtZero& i)
@@ -58,9 +68,12 @@ struct insertSqrtParam
     boost::random::taus88 *rng;
 };
 
+/* This tracks how many of the workers are still running. */
+boost::atomic_uint stillRunning;
+
 #define CACHE_TEST_ITERATIONS 400000
 
-bool testCacheWorker(unsigned int id, const struct insertSqrtParam& param, AFK_WorkQueue<struct insertSqrtParam, bool>& queue)
+bool testCacheWorker(unsigned int id, const struct insertSqrtParam& param, const int& unused, AFK_WorkQueue<struct insertSqrtParam, bool, int>& queue)
 {
     for (unsigned int i = 0; i < CACHE_TEST_ITERATIONS; ++i)
     {
@@ -71,12 +84,20 @@ bool testCacheWorker(unsigned int id, const struct insertSqrtParam& param, AFK_W
         for (unsigned int biti = 0; biti < 32; ++biti)
             if (num & (1 << biti)) ++bitcount;
 
-        (*(param.cache))[bitcount] += 1;
-        (*(param.cache))[num % 0xff] += bitcount;
+        param.cache->insert(id, bitcount).v += 1;
+        param.cache->insert(id, num & 0xff).v += bitcount;
     }
 
+    stillRunning.fetch_sub(1);
     return true;
 }
+
+bool testCacheFinished(void)
+{
+    return (stillRunning.load() == 0);
+}
+
+AFK_AsyncTaskFinishedFunc testCacheFinishedFunc = testCacheFinished;
 
 #define CACHE_TEST_THREAD_COUNT 16
 
@@ -95,14 +116,18 @@ void test_cache(void)
      */
     AFK_MapCache<int, IntStartingAtZero> mapCache;
     boost::random::random_device rdev;
-    boost::posix_time::ptime startTime, endTime;
+    afk_clock::time_point startTime, endTime;
+    afk_duration_mfl timeTaken;
     int t;
-    boost::unique_future<bool> result;
+    std::future<bool> result;
 
-    AFK_AsyncGang<struct insertSqrtParam, bool> gang(
-        CACHE_TEST_THREAD_COUNT, CACHE_TEST_THREAD_COUNT);       
+    AFK_ThreadAllocation threadAlloc;
+    AFK_AsyncGang<struct insertSqrtParam, bool, int, testCacheFinishedFunc> gang(
+        CACHE_TEST_THREAD_COUNT, threadAlloc, CACHE_TEST_THREAD_COUNT);       
 
-    AFK_WorkQueue<struct insertSqrtParam, bool>::WorkItem items[CACHE_TEST_THREAD_COUNT];
+    stillRunning.store(CACHE_TEST_THREAD_COUNT);
+
+    AFK_WorkQueue<struct insertSqrtParam, bool, int>::WorkItem items[CACHE_TEST_THREAD_COUNT];
     for (unsigned int i = 0; i < CACHE_TEST_THREAD_COUNT; ++i)
     {
         items[i].func           = testCacheWorker;
@@ -112,15 +137,17 @@ void test_cache(void)
         gang << items[i];
     }
 
-    startTime = boost::posix_time::microsec_clock::local_time();
-    result = gang.start();
+    startTime = afk_clock::now();
+    result = gang.start(0);
     result.wait();
-    endTime = boost::posix_time::microsec_clock::local_time();
-    std::cout << "Map cache finished after " << endTime - startTime << std::endl;
+    endTime = afk_clock::now();
+    assert(gang.noQueuedWork());
+    timeTaken = std::chrono::duration_cast<afk_duration_mfl>(endTime - startTime);
+    std::cout << "Map cache finished after " << timeTaken.count() << " millis" << std::endl;
 
     for (int t = 0; t < 32; ++t)
     {
-        std::cout << t << " -> " << mapCache[t].v << "; ";
+        std::cout << t << " -> " << mapCache.get(1, t).v << "; ";
     }
     std::cout << std::endl;
 
@@ -130,7 +157,9 @@ void test_cache(void)
 
     /* Now let's try it again with the polymer cache */
     std::function<size_t (const int&)> hashFunc = expensivelyHashInt();
-    AFK_PolymerCache<int, IntStartingAtZero, std::function<size_t (const int&)> > polymerCache(16, 4, hashFunc);
+    AFK_PolymerCache<int, IntStartingAtZero, std::function<size_t (const int&)>, afk_cacheTestUnassignedKey, 16> polymerCache(4, hashFunc);
+
+    stillRunning.store(CACHE_TEST_THREAD_COUNT);
 
     for (unsigned int i = 0; i < CACHE_TEST_THREAD_COUNT; ++i)
     {
@@ -139,16 +168,18 @@ void test_cache(void)
         gang << items[i];
     }
 
-    startTime = boost::posix_time::microsec_clock::local_time();
-    result = gang.start();
+    startTime = afk_clock::now();
+    result = gang.start(0);
     result.wait();
-    endTime = boost::posix_time::microsec_clock::local_time();
-    std::cout << "Polymer cache finished after " << endTime - startTime << std::endl;
+    endTime = afk_clock::now();
+    assert(gang.noQueuedWork());
+    timeTaken = std::chrono::duration_cast<afk_duration_mfl>(endTime - startTime);
+    std::cout << "Polymer cache finished after " << timeTaken.count() << " millis" << std::endl;
     polymerCache.printStats(std::cout, "Polymer stats");
 
     for (t = 0; t < 32; ++t)
     {
-        std::cout << t << " -> " << polymerCache[t].v << "; ";
+        std::cout << t << " -> " << polymerCache.get(1, t).v << "; ";
     }
     std::cout << std::endl;
 

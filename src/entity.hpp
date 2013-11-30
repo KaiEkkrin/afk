@@ -20,24 +20,14 @@
 
 #include "afk.hpp"
 
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include <sstream>
 
-#include "cell.hpp"
-#include "data/claimable.hpp"
-#include "data/fair.hpp"
+#include "data/frame.hpp"
 #include "def.hpp"
-#include "entity_display_queue.hpp"
-#include "jigsaw_collection.hpp"
 #include "object.hpp"
-#include "rng/rng.hpp"
-#include "work.hpp"
 
 /* An Entity is a moveable object that exists within the
  * world cells.
- * An Entity is Claimable: the worker thread should take
- * out an exclusive claim on it to ensure each one is
- * only processed once per frame.  It isn't cached, though:
- * instead they are stored within the world cells.
  * An Entity does not have its own geometry.  Instead, it
  * refers to a Shape (which does).  The idea is that I'll
  * make many Entities with the same Shapes, and use
@@ -45,17 +35,24 @@
  * If I don't do that, I won't be able to produce the swarms
  * of Entities that I really want to be able to produce. :)
  */
-class AFK_Entity: public AFK_Claimable
+class AFK_Entity
 {
-protected:
+public:
     /* The shape key is used to vary the RNG output to generate
      * the shape, and keys the shape cell and vapour cell
      * caches.
      */
-    const unsigned int shapeKey;
+    unsigned int shapeKey;
 
+protected:
     /* Describes where this entity is located. */
     AFK_Object obj;
+
+    /* The last frame this entity was processed.
+     * This doesn't need to be an atomic or anything -- the caller
+     * will already have a claim on the containing WorldCell.
+     */
+    int64_t lastFrameId;
 
     /* TODO: I need to sort out entity movement.  This should
      * be done in OpenCL with a large queue of entities to
@@ -69,10 +66,7 @@ protected:
      */
 
 public:
-    AFK_Entity(unsigned int _shapeKey);
-    virtual ~AFK_Entity();
-
-    unsigned int getShapeKey(void) const;
+    AFK_Entity();
 
     /* Positions the entity.
      */
@@ -82,29 +76,17 @@ public:
         const Vec3<float>& rotation /* pitch, yaw, roll */
         );
 
-    /* AFK_Claimable implementation. */
-    virtual bool canBeEvicted(void) const;
-
-    /* The shape cell generating worker will need to access
-     * the fields here.
+    /* Checks whether it's been processed this frame -- if not,
+     * returns true and bumps the last frame processed.
      */
-    friend class AFK_Shape;
+    bool notProcessedYet(const AFK_Frame& currentFrame);
 
-    friend bool afk_generateEntity(
-        unsigned int threadId,
-        const union AFK_WorldWorkParam& param,
-        AFK_WorldWorkQueue& queue);
+    Mat4<float> getTransformation(void) const { return obj.getTransformation(); }
 
-    friend bool afk_generateVapourDescriptor(
-        unsigned int threadId,
-        const union AFK_WorldWorkParam& param,
-        AFK_WorldWorkQueue& queue);
-
-    friend bool afk_generateShapeCells(
-        unsigned int threadId,
-        const union AFK_WorldWorkParam& param,
-        AFK_WorldWorkQueue& queue);
+    friend std::ostream& operator<<(std::ostream& os, const AFK_Entity& _entity);
 };
+
+std::ostream& operator<<(std::ostream& os, const AFK_Entity& _entity);
 
 #endif /* _AFK_ENTITY_H_ */
 

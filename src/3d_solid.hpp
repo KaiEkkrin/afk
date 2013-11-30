@@ -22,8 +22,8 @@
  * 3D solid.
  */
 
+#include <array>
 #include <sstream>
-#include <vector>
 
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
@@ -63,15 +63,15 @@ protected:
     Vec4<float> coord;
 
     /* Worker functions for `make'. */
-    void addRandomFeatureAtAdjacencyBit(
-        std::vector<AFK_3DVapourFeature>& features,
+    bool addRandomFeatureAtAdjacencyBit(
+        AFK_3DVapourFeature& feature,
         int adjBit,
         const Vec3<float>& coordMid,
         float slide,
         AFK_RNG& rng);
 
-    void addRandomFeature(
-        std::vector<AFK_3DVapourFeature>& features,
+    bool addRandomFeature(
+        AFK_3DVapourFeature& feature,
         int thisAdj,
         const Vec3<float>& coordMid,
         float slide,
@@ -80,12 +80,84 @@ protected:
 public:
     Vec4<float> getCubeCoord(void) const;
 
+    template<typename FeaturesIterator>
     void make(
-        std::vector<AFK_3DVapourFeature>& features,
+        FeaturesIterator& featuresIt,
         const Vec4<float>& _coord,
         const AFK_Skeleton& skeleton,
         const AFK_ShapeSizes& sSizes,
-        AFK_RNG& rng);
+        AFK_RNG& rng)
+    {
+        coord = _coord;
+        
+        /* I want to locate features around the skeleton, not away from it
+         * (those would just get ignored).
+         * To do this, enumerate the skeleton's bones...
+         */
+        std::vector<AFK_SkeletonCube> bones;
+        std::vector<int> bonesCoAdjacency;
+        int boneCount = skeleton.getBoneCount();
+        
+        bones.reserve(boneCount);
+        bonesCoAdjacency.reserve(boneCount);
+        
+        AFK_Skeleton::Bones bonesEnum(skeleton);
+        while (bonesEnum.hasNext())
+        {
+            AFK_SkeletonCube nextBone = bonesEnum.next();
+            bones.push_back(nextBone);
+            bonesCoAdjacency.push_back(skeleton.getCoAdjacency(nextBone));
+        }
+        
+        int featuresAdded = 0;
+        while (featuresAdded < sSizes.featureCountPerCube)
+        {
+            unsigned int selector = rng.uirand();
+            unsigned int b = selector % bones.size();
+            selector = selector / bones.size();
+        
+            /* This defines the centre of the bone that I picked. */
+            Vec3<float> coordMid = afk_vec3<float>(
+                ((float)bones[b].coord.v[0]) + 0.5f,
+                ((float)bones[b].coord.v[1]) + 0.5f,
+                ((float)bones[b].coord.v[2]) + 0.5f) / (float)sSizes.skeletonFlagGridDim;
+        
+            /* This defines the maximum displacement in any direction,
+             * assuming suitable adjacency.
+             */
+            float slide = 0.5f / (float)sSizes.skeletonFlagGridDim;
+        
+            /* Go through each of the possible adjacencies to put a
+             * feature near.  I'll prefer the earlier ones, because
+             * they give me a wider range of movement, as it were.
+             */
+            const std::array<int, 4> tryFAdjArray = {
+                0505000505,
+                0252505252,
+                0020252020,
+                0000020000
+            };
+
+            for (int t : tryFAdjArray)
+            {
+                int thisAdj = (bonesCoAdjacency[b] & t);
+                if (thisAdj != 0)
+                {
+                    if (addRandomFeature(
+                        *featuresIt,
+                        thisAdj,
+                        coordMid,
+                        slide,
+                        rng))
+                    {
+                        ++featuresAdded;
+                        ++featuresIt;
+                        break;
+                    }
+                }
+            }
+        }
+    }
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_3DVapourCube& cube);
 };
@@ -108,7 +180,13 @@ protected:
     std::vector<AFK_3DVapourCube> c;
 
 public:
-    void extend(const std::vector<AFK_3DVapourFeature>& features, const std::vector<AFK_3DVapourCube>& cubes);
+    template<typename FeaturesIterable, typename CubesIterable>
+    void extend(const FeaturesIterable& features, const CubesIterable& cubes)
+    {
+        f.insert(f.end(), features.begin(), features.end());
+        c.insert(c.end(), cubes.begin(), cubes.end());
+    }
+
     void extend(const AFK_3DList& list);
 
     unsigned int featureCount(void) const;

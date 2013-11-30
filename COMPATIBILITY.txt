@@ -1,0 +1,26 @@
+Ubuntu 12.04 LTS
+----------------
+
+AMD graphics driver: Download the latest *beta* driver from www.amd.com.  To build an Ubuntu 12.04 package for it see
+https://help.ubuntu.com/community/BinaryDriverHowto/ATI
+
+Nvidia graphics driver: Again, download the latest from www.nvidia.com.
+
+Opensource graphics drivers for AMD or Nvidia: Unlikely, sadly.
+
+Intel: AFK requires Ivy Bridge (3rd-generation Core architecture) or better, because it needs OpenGL 4.  It ought to work, but I don't have one to test.
+
+
+G++: 12.04's default G++ is 4.6 (which doesn't support C++11).  Install a more recent version via, e.g.:
+
+ add-apt-repository ppa:ubuntu-toolchain-r/test
+ apt-get update
+ apt-get install g++-4.8
+ update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 20
+
+Boost: 12.04's Boost doesn't support lockfree queues.  There is a PPA for this too:
+
+ apt-add-repository ppa:boost-latest/ppa
+ apt-get update
+ apt-get install libboost1.54-all-dev
+

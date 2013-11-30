@@ -15,15 +15,18 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
+#include "debug.hpp"
 #include "display.hpp"
 #include "entity_display_queue.hpp"
 #include "jigsaw.hpp"
 
 AFK_EntityDisplayUnit::AFK_EntityDisplayUnit(
     const Mat4<float>& _transform,
+    const Vec4<float>& _location,
     const Vec3<float>& _vapourJigsawPieceSTR,
     const Vec2<float>& _edgeJigsawPieceST):
         transform(_transform),
+        location(_location),
         vapourJigsawPieceSTR(_vapourJigsawPieceSTR),
         edgeJigsawPieceST(_edgeJigsawPieceST)
 {
@@ -33,7 +36,6 @@ AFK_EntityDisplayQueue::AFK_EntityDisplayQueue():
     buf(0),
     vapourJigsawPiecePitchLocation(0),
     edgeJigsawPiecePitchLocation(0),
-    jigsawDispTexSamplerLocation(0),
     jigsawDensityTexSamplerLocation(0),
     jigsawNormalTexSamplerLocation(0),
     jigsawOverlapTexSamplerLocation(0),
@@ -49,7 +51,7 @@ AFK_EntityDisplayQueue::~AFK_EntityDisplayQueue()
 
 void AFK_EntityDisplayQueue::add(const AFK_EntityDisplayUnit& _unit)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     queue.push_back(_unit);
 }
@@ -68,7 +70,6 @@ void AFK_EntityDisplayQueue::draw(
     {
         vapourJigsawPiecePitchLocation = glGetUniformLocation(shaderProgram->program, "VapourJigsawPiecePitch");
         edgeJigsawPiecePitchLocation = glGetUniformLocation(shaderProgram->program, "EdgeJigsawPiecePitch");
-        jigsawDispTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawDispTex");
         jigsawDensityTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawDensityTex");
         jigsawNormalTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawNormalTex");
         jigsawOverlapTexSamplerLocation = glGetUniformLocation(shaderProgram->program, "JigsawOverlapTex");
@@ -92,44 +93,38 @@ void AFK_EntityDisplayQueue::draw(
     glUniform2fv(edgeJigsawPiecePitchLocation, 1, &edgeJigsawPiecePitchST.v[0]);
 
     glActiveTexture(GL_TEXTURE0);
-    edgeJigsaw->bindTexture(0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glUniform1i(jigsawDispTexSamplerLocation, 0);
-
-    glActiveTexture(GL_TEXTURE1);
     vapourJigsaw->bindTexture(0);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glUniform1i(jigsawDensityTexSamplerLocation, 1);
+    glUniform1i(jigsawDensityTexSamplerLocation, 0);
 
-    glActiveTexture(GL_TEXTURE2);
+    glActiveTexture(GL_TEXTURE1);
     vapourJigsaw->bindTexture(1);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glUniform1i(jigsawNormalTexSamplerLocation, 2);
+    glUniform1i(jigsawNormalTexSamplerLocation, 1);
 
-    glActiveTexture(GL_TEXTURE3);
-    edgeJigsaw->bindTexture(1);
+    glActiveTexture(GL_TEXTURE2);
+    edgeJigsaw->bindTexture(0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glUniform1i(jigsawOverlapTexSamplerLocation, 3);
+    glUniform1i(jigsawOverlapTexSamplerLocation, 2);
     
     /* Set up the entity display texbuf. */
-    glActiveTexture(GL_TEXTURE4);
+    glActiveTexture(GL_TEXTURE3);
     if (!buf) glGenBuffers(1, &buf);
     glBindBuffer(GL_TEXTURE_BUFFER, buf);
     glBufferData(
         GL_TEXTURE_BUFFER,
         queue.size() * ENTITY_DISPLAY_UNIT_SIZE,
-        &queue[0],
+        queue.data(),
         GL_STREAM_DRAW);
     glTexBuffer(
         GL_TEXTURE_BUFFER,
         GL_RGBA32F,
         buf);
     AFK_GLCHK("entity display queue texBuffer")
-    glUniform1i(displayTBOSamplerLocation, 4);
+    glUniform1i(displayTBOSamplerLocation, 3);
 
 #if AFK_GL_DEBUG
     shaderProgram->Validate();
@@ -140,14 +135,14 @@ void AFK_EntityDisplayQueue::draw(
 
 bool AFK_EntityDisplayQueue::empty(void)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     return queue.empty();
 }
 
 void AFK_EntityDisplayQueue::clear(void)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     queue.clear();
 }

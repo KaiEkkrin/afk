@@ -22,10 +22,11 @@
 
 #include <vector>
 
+#include "compute_dependency.hpp"
 #include "computer.hpp"
+#include "core.hpp"
 #include "landscape_sizes.hpp"
-
-class AFK_LandscapeTile;
+#include "tile.hpp"
 
 /* This object manages the reduction of the y-bounds out of the y-displacement
  * texture.
@@ -42,9 +43,7 @@ protected:
     size_t bufSize;
     float *readback;
     size_t readbackSize; /* in floats */
-
-    /* This event signals that the readback is ready. */
-    cl_event readbackEvent;
+    AFK_ComputeDependency readbackDep;
 
 public:
     AFK_YReduce(AFK_Computer *_computer);
@@ -56,13 +55,14 @@ public:
         cl_mem *jigsawYDisp,
         cl_sampler *yDispSampler,
         const AFK_LandscapeSizes& lSizes,
-        cl_uint eventsInWaitList,
-        const cl_event *eventWaitList,
-        cl_event *o_event);
+        const AFK_ComputeDependency& preDep,
+        AFK_ComputeDependency& o_postDep);
 
     void readBack(
+        unsigned int threadId,
         unsigned int unitCount,
-        std::vector<AFK_LandscapeTile*>& landscapeTiles);
+        const std::vector<AFK_Tile>& landscapeTiles,
+        AFK_LANDSCAPE_CACHE *cache);
 };
 
 #endif /* _AFK_YREDUCE_H_ */

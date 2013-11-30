@@ -20,6 +20,13 @@
 
 #include "config.hpp"
 
+/* Some of these will be hardwired, to support fixed-size structures
+ * within the code:
+ */
+const unsigned int afk_terrainPointSubdivisionFactor        = 8;
+const unsigned int afk_terrainFeatureCountPerTile           = SQUARE(afk_terrainPointSubdivisionFactor) / 2;
+const unsigned int afk_terrainTilesPerTile                  = 5; /* Describes the terrain tile and the 4 half-tiles */
+
 /* This utility returns the sizes of the various landscape
  * elements, so that I can configure the cache correctly, and correctly
  * drive the drawing functions.
@@ -27,7 +34,7 @@
 class AFK_LandscapeSizes
 {
 protected:
-    unsigned int reduceOrder; /* 1<<reduceOrder is the power of two above tDim*tDim */
+    unsigned int reduceOrder; /* 1<<reduceOrder is the power of two above tDim */
 
 public:
     const unsigned int subdivisionFactor;
@@ -43,7 +50,7 @@ public:
 
     AFK_LandscapeSizes(const AFK_Config *config);
 
-    unsigned int getReduceOrder(void) const;
+    unsigned int getReduceOrder(void) const { return reduceOrder; }
 };
 
 #endif /* _AFK_LANDSCAPE_SIZES_H_ */

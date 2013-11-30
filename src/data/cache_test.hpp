@@ -20,5 +20,8 @@
 
 void test_cache(void);
 
+/* This needs declaring here to give it external linkage */
+extern const int afk_cacheTestUnassignedKey;
+
 #endif /* _AFK_DATA_CACHE_TEST_H_ */
 

@@ -29,46 +29,46 @@ static unsigned int squash_to_int(uint64_t in)
     out = (unsigned int)(in & 0x00000000ffffffff);
     mid = (unsigned int)((in & 0xffffffff00000000) >> 32);
 
-    return out ^ LROTATE_UNSIGNED(mid, 19);
+    return out ^ AFK_LROTATE_UNSIGNED(mid, 19);
 }
 
-/* TODO: I think I should rework the below to use boost::hash_combine and
- * funky multipliers, like the hash_value function in cell.
- * It's better.
+/* TODO: I really should stop having a native 128-bit seed, now that I've
+ * decided not to go for any crypto RNGs.
+ * Humph
  */
 
 AFK_RNG_Value::AFK_RNG_Value(int64_t v0, int64_t v1, int64_t v2, int64_t v3)
 {
     v.ui[0] = v.ui[1] = v.ui[2] = v.ui[3] =
         squash_to_int(v0) ^
-        squash_to_int(LROTATE_UNSIGNED((uint64_t)v1, 17)) ^
-        squash_to_int(LROTATE_UNSIGNED((uint64_t)v2, 31)) ^
-        squash_to_int(LROTATE_UNSIGNED((uint64_t)v3, 47));
+        squash_to_int(AFK_LROTATE_UNSIGNED((uint64_t)v1, 17)) ^
+        squash_to_int(AFK_LROTATE_UNSIGNED((uint64_t)v2, 31)) ^
+        squash_to_int(AFK_LROTATE_UNSIGNED((uint64_t)v3, 47));
 
-    v.ui[0] = LROTATE_UNSIGNED(v.ui[0], 7);
-    v.ui[1] = LROTATE_UNSIGNED(v.ui[1], 13);
-    v.ui[2] = LROTATE_UNSIGNED(v.ui[2], 23);
-    v.ui[3] = LROTATE_UNSIGNED(v.ui[3], 29);
+    v.ui[0] = AFK_LROTATE_UNSIGNED(v.ui[0], 7);
+    v.ui[1] = AFK_LROTATE_UNSIGNED(v.ui[1], 13);
+    v.ui[2] = AFK_LROTATE_UNSIGNED(v.ui[2], 23);
+    v.ui[3] = AFK_LROTATE_UNSIGNED(v.ui[3], 29);
 }
 
 AFK_RNG_Value::AFK_RNG_Value(int64_t v0, int64_t v1, int64_t v2)
 {
     v.ui[0] = v.ui[1] = v.ui[2] = v.ui[3] =
         squash_to_int(v0) ^
-        squash_to_int(LROTATE_UNSIGNED((uint64_t)v1, 19)) ^
-        squash_to_int(LROTATE_UNSIGNED((uint64_t)v2, 41));
+        squash_to_int(AFK_LROTATE_UNSIGNED((uint64_t)v1, 19)) ^
+        squash_to_int(AFK_LROTATE_UNSIGNED((uint64_t)v2, 41));
 
-    v.ui[0] = LROTATE_UNSIGNED(v.ui[0], 7);
-    v.ui[1] = LROTATE_UNSIGNED(v.ui[1], 13);
-    v.ui[2] = LROTATE_UNSIGNED(v.ui[2], 23);
+    v.ui[0] = AFK_LROTATE_UNSIGNED(v.ui[0], 7);
+    v.ui[1] = AFK_LROTATE_UNSIGNED(v.ui[1], 13);
+    v.ui[2] = AFK_LROTATE_UNSIGNED(v.ui[2], 23);
 }
 
 AFK_RNG_Value::AFK_RNG_Value(int64_t v0)
 {
     v.ui[0] = squash_to_int(v0);
-    v.ui[1] = LROTATE_UNSIGNED(squash_to_int(v0), 7);
-    v.ui[2] = LROTATE_UNSIGNED(squash_to_int(v0), 13);
-    v.ui[3] = LROTATE_UNSIGNED(squash_to_int(v0), 23);
+    v.ui[1] = AFK_LROTATE_UNSIGNED(squash_to_int(v0), 7);
+    v.ui[2] = AFK_LROTATE_UNSIGNED(squash_to_int(v0), 13);
+    v.ui[3] = AFK_LROTATE_UNSIGNED(squash_to_int(v0), 23);
 }
 
 AFK_RNG_Value::AFK_RNG_Value(const std::string& s1, const std::string& s2)

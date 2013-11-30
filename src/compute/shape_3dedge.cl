@@ -31,7 +31,6 @@
 
 struct AFK_3DEdgeComputeUnit
 {
-    float4 location;
     int4 vapourPiece; /* Contains 1 texel adjacency on all sides */
     int2 edgePiece; /* Points to a 3x2 grid of face textures */
 };
@@ -209,68 +208,17 @@ int2 makeEdgeJigsawCoord(__global const struct AFK_3DEdgeComputeUnit *units, int
     return baseCoord;
 }
 
-float3 makeEdgeVertexBase(int face, int xdim, int zdim, int stepsBack)
-{
-    float3 baseVertex;
-
-    switch (face)
-    {
-    case AFK_SHF_BOTTOM:
-        baseVertex = (float3)((float)xdim, (float)stepsBack, (float)zdim);
-        break;
-
-    case AFK_SHF_LEFT:
-        baseVertex = (float3)((float)stepsBack, (float)xdim, (float)zdim);
-        break;
-
-    case AFK_SHF_FRONT:
-        baseVertex = (float3)((float)xdim, (float)zdim, (float)stepsBack);
-        break;
-
-    case AFK_SHF_BACK:
-        baseVertex = (float3)((float)xdim, (float)zdim, (float)(VDIM - stepsBack));
-        break;
-
-    case AFK_SHF_RIGHT:
-        baseVertex = (float3)((float)(VDIM - stepsBack), (float)xdim, (float)zdim);
-        break;
-
-    case AFK_SHF_TOP:
-        baseVertex = (float3)((float)xdim, (float)(VDIM - stepsBack), (float)zdim);
-        break;
-    }
-
-    baseVertex = baseVertex / (float)POINT_SUBDIVISION_FACTOR;
-    return baseVertex;
-}
-
-/* This function makes the displacement co-ordinate at a vapour point.
- */
-float4 makeEdgeVertex(int face, int xdim, int zdim, int stepsBack, float4 location)
-{
-    /* TODO: Writing the home vertex (0, 0, 0 point) here, and transforming
-     * in the geometry shader.  Change this to only have a single texel
-     * per piece in the jigsaw to save space ...
-     */
-#if 0
-    return (float4)(
-        makeEdgeVertexBase(face, xdim, zdim, stepsBack) + location.xyz / location.w,
-        1.0f / location.w);
-#else
-    return (float4)(
-        location.xyz / location.w,
-        1.0f / location.w);
-#endif
-}
-
 
 /* Follows stuff for resolving the faces and culling triangle overlaps. */
 
 /* In this array, we write how far back each edge point is from the face.
+ * The array is packed with LAYERS entries of LAYER_BITNESS each.
+ * The value 0 means no edge; non-zero values should be decremented by 1
+ * to find the real distance from the edge.
  */
 #define DECL_EDGE_STEPS_BACK(edgeStepsBack) __local int edgeStepsBack[EDIM][EDIM][6]
 
-#define NO_EDGE -127
+#define NO_EDGE 0
 
 void initEdgeStepsBack(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int zdim)
 {
@@ -278,6 +226,36 @@ void initEdgeStepsBack(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int zdim)
     {
         edgeStepsBack[xdim][zdim][i] = NO_EDGE;
     }
+}
+
+#define LAYER_MASK ((1<<LAYER_BITNESS)-1)
+
+void setEdgeStepsBack(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int zdim, int face, int layer, int esb)
+{
+    /* Clear this layer first... */
+    edgeStepsBack[xdim][zdim][face] &= ~(LAYER_MASK << (layer * LAYER_BITNESS));
+
+    /* ... then push the value in... */
+    edgeStepsBack[xdim][zdim][face] |= (((esb + 1) & LAYER_MASK) << (layer * LAYER_BITNESS));
+}
+
+bool getEdgeStepsBack(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int zdim, int face, int layer, int *esb)
+{
+    int esbVal = ((edgeStepsBack[xdim][zdim][face] >> (layer * LAYER_BITNESS)) & LAYER_MASK);
+    if (esbVal > 0)
+    {
+        *esb = esbVal - 1;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+bool noMoreEdges(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int zdim, int face, int layer)
+{
+    return (edgeStepsBack[xdim][zdim][face] >> (layer * LAYER_BITNESS)) == 0;
 }
 
 /* This enumeration identifies the different triangles that make up
@@ -317,7 +295,7 @@ enum AFK_TriangleId getSecondTriangleId(int face)
  * on its face coords and so forth.
  * Returns true if there is a triangle here, else false.
  */
-bool makeTriangleVapourCoord(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int zdim, int face, enum AFK_TriangleId id, int4 o_triCoord[3])
+bool makeTriangleVapourCoord(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int zdim, int face, int layer, enum AFK_TriangleId id, int4 o_triCoord[3])
 {
     /* Make an array of the 3 face co-ordinates that I'm
      * aiming for.
@@ -354,8 +332,8 @@ bool makeTriangleVapourCoord(DECL_EDGE_STEPS_BACK(edgeStepsBack), int xdim, int 
     /* Next, work out the vapour coords ... */
     for (int i = 0; i < 3; ++i)
     {
-        int esb = edgeStepsBack[faceCoord[i].x][faceCoord[i].y][face];
-        if (esb < 0) return false;
+        int esb;
+        if (!getEdgeStepsBack(edgeStepsBack, faceCoord[i].x, faceCoord[i].y, face, layer, &esb)) return false;
         o_triCoord[i] = makeVapourCoord(face, faceCoord[i].x, faceCoord[i].y, esb);
     }
 
@@ -544,10 +522,11 @@ bool tryOverlappingFace(
     int lowerXdim,
     int lowerZdim,
     int lowerFace,
+    int lowerLayer,
     enum AFK_TriangleId lowerId)
 {
     int4 lowerTriCoord[3];
-    if (makeTriangleVapourCoord(edgeStepsBack, lowerXdim, lowerZdim, lowerFace, lowerId, lowerTriCoord))
+    if (makeTriangleVapourCoord(edgeStepsBack, lowerXdim, lowerZdim, lowerFace, lowerLayer, lowerId, lowerTriCoord))
     {
         int4 lowerCubeCoord;
         if (triangleInSmallCube(lowerTriCoord, lowerFace, &lowerCubeCoord))
@@ -577,28 +556,32 @@ bool noOverlap(
     int xdim,
     int zdim,
     int face,
+    int layer,
     enum AFK_TriangleId id,
     int4 *o_cubeCoord)
 {
     /* Work out where this triangle is. */
     int4 triCoord[3];
-    if (!makeTriangleVapourCoord(edgeStepsBack, xdim, zdim, face, id, triCoord)) return false;
+    if (!makeTriangleVapourCoord(edgeStepsBack, xdim, zdim, face, layer, id, triCoord)) return false;
 
     int4 cubeCoord;
     if (!triangleInSmallCube(triCoord, face, &cubeCoord)) return false;
 
     for (int lowerFace = 0; lowerFace < face; ++lowerFace)
     {
-        /* Reconstruct the triangles emitted at this face and cube. */
-        int lowerXdim, lowerZdim, lowerStepsBack;
-        reverseVapourCoord(lowerFace, cubeCoord, &lowerXdim, &lowerZdim, &lowerStepsBack);
-
-        if (!tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST) ||
-            !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND) ||
-            !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_FIRST_FLIPPED) ||
-            !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, AFK_TRI_SECOND_FLIPPED))
+        for (int lowerLayer = 0; lowerLayer < LAYERS; ++lowerLayer)
         {
-            return false;
+            /* Reconstruct the triangles emitted at this face and cube. */
+            int lowerXdim, lowerZdim, lowerStepsBack;
+            reverseVapourCoord(lowerFace, cubeCoord, &lowerXdim, &lowerZdim, &lowerStepsBack);
+     
+            if (!tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, lowerLayer, AFK_TRI_FIRST) ||
+                !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, lowerLayer, AFK_TRI_SECOND) ||
+                !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, lowerLayer, AFK_TRI_FIRST_FLIPPED) ||
+                !tryOverlappingFace(edgeStepsBack, emittedTriangles, triCoord, cubeCoord, lowerXdim, lowerZdim, lowerFace, lowerLayer, AFK_TRI_SECOND_FLIPPED))
+            {
+                return false;
+            }
         }
     }
 
@@ -615,8 +598,6 @@ bool noOverlap(
  * the shader to instance more triangles on a case by case basis to fill
  * gaps, rather than needing several times the base geometry:
  * - Colour and normal are read from the vapour.
- * - jigsawDisp becomes a base displacement, pointing to the front of
- * the face.  (this needs to remain a 4-component float32.)
  * - jigsawOverlap is now two channels.  Each of these channels is a uint32
  * packed with a sequence of 4 bit lumps, from the little end up to the big
  * end, or zeroes if nothing is applicable:
@@ -631,7 +612,6 @@ __kernel void makeShape3DEdge(
     __global const struct AFK_3DEdgeComputeUnit *units,
     const int2 fake3D_size,
     const int fake3D_mult,
-    __write_only image2d_t jigsawDisp,
     __write_only image2d_t jigsawOverlap)
 {
     const int unitOffset = get_global_id(0);
@@ -643,7 +623,7 @@ __kernel void makeShape3DEdge(
     DECL_EDGE_STEPS_BACK(edgeStepsBack);
     initEdgeStepsBack(edgeStepsBack, xdim, zdim);
 
-    /* TODO: Plan for the layers system:
+    /* Plan for the layers system:
      * - Two new pre-calculated values (evaluate in shape_sizes, inject into this
      * file as preprocessor macros):
      *   o LAYERS: Number of layers to each edge.  Must be constructed such that
@@ -677,12 +657,13 @@ __kernel void makeShape3DEdge(
      * as much work now.)
      */
 
+    int layer[6]; /* one per face */
+    for (int face = 0; face < 6; ++face) layer[face] = 0;
+
     for (int stepsBack = 0; stepsBack < (EDIM-1); ++stepsBack)
     {
         for (int face = 0; face < 6; ++face)
         {
-            barrier(CLK_LOCAL_MEM_FENCE);
-
             /* Read the next points to compare with */
             int4 lastVapourPointCoord = makeVapourCoord(face, xdim, zdim, stepsBack - 1);
             float4 lastVapourPoint = readVapourPoint(vapour, fake3D_size, fake3D_mult, units, unitOffset, lastVapourPointCoord);
@@ -694,24 +675,15 @@ __kernel void makeShape3DEdge(
 
 #if FAKE_TEST_VAPOUR
             /* Always claiming right away should result in a cube. */
-            if (edgeStepsBack[xdim][zdim][face] == NO_EDGE)
+            if (stepsBack == 0)
             {
-                int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
-                float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
-
-                write_imagef(jigsawDisp, edgeCoord, edgeVertex);
-                edgeStepsBack[xdim][zdim][face] = stepsBack;
+                setEdgeStepsBack(edgeStepsBack, xdim, zdim, face, 0, stepsBack);
             }
 #else
-            if (edgeStepsBack[xdim][zdim][face] == NO_EDGE &&
-                lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f)
+            if (lastVapourPoint.w <= 0.0f && thisVapourPoint.w > 0.0f &&
+                layer[face] < LAYERS)
             {
-                /* This is an edge, write its coord. */
-                int2 edgeCoord = makeEdgeJigsawCoord(units, unitOffset, face, xdim, zdim);
-                float4 edgeVertex = makeEdgeVertex(face, xdim, zdim, stepsBack, units[unitOffset].location);
-
-                write_imagef(jigsawDisp, edgeCoord, edgeVertex);
-                edgeStepsBack[xdim][zdim][face] = stepsBack;
+                setEdgeStepsBack(edgeStepsBack, xdim, zdim, face, layer[face]++, stepsBack);
             }
 #endif /* FAKE_TEST_VAPOUR */
         }
@@ -749,55 +721,63 @@ __kernel void makeShape3DEdge(
 
     for (int face = 0; face < 6; ++face)
     {
-        barrier(CLK_LOCAL_MEM_FENCE);
-
-        if (xdim < VDIM && zdim < VDIM)
+        for (int layer = 0; layer < LAYERS; ++layer)
         {
-            /* Work out both flipped and non-flipped variants.  Choose the one that
-             * can emit the most triangles.
+            barrier(CLK_LOCAL_MEM_FENCE);
+
+            /* I still want to be hitting all the barriers even if I've run out
+             * of layers, to stop the kernel from going out of sync in a nasty
+             * kind of way
              */
-            int4 firstCubeCoord, secondCubeCoord, firstFlippedCubeCoord, secondFlippedCubeCoord;
-
-            /* This is a bit field: 1, 2, 4, 8 for the 4 triangles in the above order. */
-            int possibleEmits = 0;
-
-            int nonFlippedEmits = 0;
-            int flippedEmits = 0;
-
-            if (noOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_FIRST, &firstCubeCoord))
+            if (xdim < VDIM && zdim < VDIM &&
+                !noMoreEdges(edgeStepsBack, xdim, zdim, face, layer))
             {
-                possibleEmits |= 1;
-                ++nonFlippedEmits;
-            }
-
-            if (noOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_SECOND, &secondCubeCoord))
-            {
-                possibleEmits |= 2;
-                ++nonFlippedEmits;
-            }
-
-            if (noOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_FIRST_FLIPPED, &firstFlippedCubeCoord))
-            {
-                possibleEmits |= 4;
-                ++flippedEmits;
-            }
-
-            if (noOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, AFK_TRI_SECOND_FLIPPED, &secondFlippedCubeCoord))
-            {
-                possibleEmits |= 8;
-                ++flippedEmits;
-            }
-
-            if (nonFlippedEmits > flippedEmits)
-            {
-                if ((possibleEmits & 1) != 0) setTriangleEmitted(emittedTriangles, firstCubeCoord, face, AFK_TRI_FIRST);
-                if ((possibleEmits & 2) != 0) setTriangleEmitted(emittedTriangles, secondCubeCoord, face, AFK_TRI_SECOND);
-            }
-            else
-            {
-                if ((possibleEmits & 4) != 0) setTriangleEmitted(emittedTriangles, firstFlippedCubeCoord, face, AFK_TRI_FIRST_FLIPPED);
-                if ((possibleEmits & 8) != 0) setTriangleEmitted(emittedTriangles, secondFlippedCubeCoord, face, AFK_TRI_SECOND_FLIPPED);
-                flipped |= (1<<face);
+                /* Work out both flipped and non-flipped variants.  Choose the one that
+                 * can emit the most triangles.
+                 */
+                int4 firstCubeCoord, secondCubeCoord, firstFlippedCubeCoord, secondFlippedCubeCoord;
+     
+                /* This is a bit field: 1, 2, 4, 8 for the 4 triangles in the above order. */
+                int possibleEmits = 0;
+     
+                int nonFlippedEmits = 0;
+                int flippedEmits = 0;
+     
+                if (noOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, layer, AFK_TRI_FIRST, &firstCubeCoord))
+                {
+                    possibleEmits |= 1;
+                    ++nonFlippedEmits;
+                }
+     
+                if (noOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, layer, AFK_TRI_SECOND, &secondCubeCoord))
+                {
+                    possibleEmits |= 2;
+                    ++nonFlippedEmits;
+                }
+     
+                if (noOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, layer, AFK_TRI_FIRST_FLIPPED, &firstFlippedCubeCoord))
+                {
+                    possibleEmits |= 4;
+                    ++flippedEmits;
+                }
+     
+                if (noOverlap(edgeStepsBack, emittedTriangles, xdim, zdim, face, layer, AFK_TRI_SECOND_FLIPPED, &secondFlippedCubeCoord))
+                {
+                    possibleEmits |= 8;
+                    ++flippedEmits;
+                }
+     
+                if (nonFlippedEmits > flippedEmits)
+                {
+                    if ((possibleEmits & 1) != 0) setTriangleEmitted(emittedTriangles, firstCubeCoord, face, AFK_TRI_FIRST);
+                    if ((possibleEmits & 2) != 0) setTriangleEmitted(emittedTriangles, secondCubeCoord, face, AFK_TRI_SECOND);
+                }
+                else
+                {
+                    if ((possibleEmits & 4) != 0) setTriangleEmitted(emittedTriangles, firstFlippedCubeCoord, face, AFK_TRI_FIRST_FLIPPED);
+                    if ((possibleEmits & 8) != 0) setTriangleEmitted(emittedTriangles, secondFlippedCubeCoord, face, AFK_TRI_SECOND_FLIPPED);
+                    flipped |= (1<<face);
+                }
             }
         }
     }
@@ -814,40 +794,44 @@ __kernel void makeShape3DEdge(
     {
         uint overlap = 0;
 
-        if (xdim < VDIM && zdim < VDIM)
+        for (int layer = 0; layer < LAYERS; ++layer)
         {
-            enum AFK_TriangleId firstId, secondId;
-            bool haveFirstTriangle = false;
-            bool haveSecondTriangle = false;
-
-            if ((flipped & (1<<face)) != 0)
+            if (xdim < VDIM && zdim < VDIM &&
+                !noMoreEdges(edgeStepsBack, xdim, zdim, face, layer))
             {
-                firstId = AFK_TRI_FIRST_FLIPPED;
-                secondId = AFK_TRI_SECOND_FLIPPED;
-                overlap = 4;
-            }
-            else
-            {
-                firstId = AFK_TRI_FIRST;
-                secondId = AFK_TRI_SECOND;
-            }
-
-            int4 firstTriCoord[3];
-            int4 secondTriCoord[3];
-            haveFirstTriangle = makeTriangleVapourCoord(edgeStepsBack, xdim, zdim, face, firstId, firstTriCoord);
-            haveSecondTriangle = makeTriangleVapourCoord(edgeStepsBack, xdim, zdim, face, secondId, secondTriCoord);
-
-            int4 firstCubeCoord, secondCubeCoord;
-            if (haveFirstTriangle &&
-                triangleInSmallCube(firstTriCoord, face, &firstCubeCoord))
-            {
-                if (testTriangleEmitted(emittedTriangles, firstCubeCoord, face, firstId)) overlap |= 1;
-            }
-
-            if (haveSecondTriangle &&
-                triangleInSmallCube(secondTriCoord, face, &secondCubeCoord))
-            {
-                if (testTriangleEmitted(emittedTriangles, secondCubeCoord, face, secondId)) overlap |= 2;
+                enum AFK_TriangleId firstId, secondId;
+                bool haveFirstTriangle = false;
+                bool haveSecondTriangle = false;
+     
+                if ((flipped & (1<<face)) != 0)
+                {
+                    firstId = AFK_TRI_FIRST_FLIPPED;
+                    secondId = AFK_TRI_SECOND_FLIPPED;
+                    overlap |= (4 << (layer * LAYER_BITNESS));
+                }
+                else
+                {
+                    firstId = AFK_TRI_FIRST;
+                    secondId = AFK_TRI_SECOND;
+                }
+     
+                int4 firstTriCoord[3];
+                int4 secondTriCoord[3];
+                haveFirstTriangle = makeTriangleVapourCoord(edgeStepsBack, xdim, zdim, face, layer, firstId, firstTriCoord);
+                haveSecondTriangle = makeTriangleVapourCoord(edgeStepsBack, xdim, zdim, face, layer, secondId, secondTriCoord);
+     
+                int4 firstCubeCoord, secondCubeCoord;
+                if (haveFirstTriangle &&
+                    triangleInSmallCube(firstTriCoord, face, &firstCubeCoord))
+                {
+                    if (testTriangleEmitted(emittedTriangles, firstCubeCoord, face, firstId)) overlap |= (1 << (layer * LAYER_BITNESS));
+                }
+     
+                if (haveSecondTriangle &&
+                    triangleInSmallCube(secondTriCoord, face, &secondCubeCoord))
+                {
+                    if (testTriangleEmitted(emittedTriangles, secondCubeCoord, face, secondId)) overlap |= (2 << (layer * LAYER_BITNESS));
+                }
             }
         }
 

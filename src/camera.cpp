@@ -53,14 +53,18 @@ void AFK_Camera::updateProjection(void)
         reverseObject.getTranslationMatrix();
 }
 
-AFK_Camera::AFK_Camera(Vec3<float> _separation):
-    AFK_Object(),
-    separation(_separation)
+AFK_Camera::AFK_Camera():
+    AFK_Object()
 {
 }
 
 AFK_Camera::~AFK_Camera()
 {
+}
+
+void AFK_Camera::setSeparation(const Vec3<float>& _separation)
+{
+    separation = _separation;
 }
 
 void AFK_Camera::setWindowDimensions(int width, int height)
@@ -73,11 +77,17 @@ void AFK_Camera::setWindowDimensions(int width, int height)
      */
     tanHalfFov = tanf((afk_core.config->fov / 2.0f) * M_PI / 180.0f);
     ar = ((float)windowWidth) / ((float)windowHeight);
+
+    windowSize = afk_vec2<float>((float)windowWidth, (float)windowHeight);
 }
 
-float AFK_Camera::getDetailPitchAsSeen(float scale, float distanceToViewer) const
+float AFK_Camera::getDetailPitchAsSeen(
+    float objectScale,
+    const Vec3<float>& objectLocation,
+    const Vec3<float>& viewerLocation) const
 {
-    return windowHeight * scale / (tanHalfFov *
+    float distanceToViewer = (objectLocation - (viewerLocation - separation)).magnitude();
+    return windowHeight * objectScale / (tanHalfFov *
         std::max(std::min(distanceToViewer, zFar), zNear));
 }
 
@@ -94,10 +104,5 @@ void AFK_Camera::driveAndUpdateProjection(const Vec3<float>& velocity, const Vec
 {
     drive(velocity, axisDisplacement);
     updateProjection();
-}
-
-Mat4<float> AFK_Camera::getProjection(void) const
-{
-    return projection;
 }
 

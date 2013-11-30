@@ -26,6 +26,7 @@
 #include "3d_solid.hpp"
 #include "3d_vapour_compute_queue.hpp"
 #include "data/claimable.hpp"
+#include "data/evictable_cache.hpp"
 #include "data/fair.hpp"
 #include "data/frame.hpp"
 #include "def.hpp"
@@ -33,10 +34,6 @@
 #include "jigsaw_collection.hpp"
 #include "keyed_cell.hpp"
 #include "shape_sizes.hpp"
-
-#ifndef AFK_SHAPE_CELL_CACHE
-#define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell>
-#endif
 
 
 /* A ShapeCell has an artificial max distance set really
@@ -50,11 +47,10 @@
 /* A ShapeCell describes one level of detail in a 3D
  * shape, and is cached by the Shape.
  */
-class AFK_ShapeCell: public AFK_Claimable
+class AFK_ShapeCell
 {
 protected:
-    /* Location information in shape space.
-     * A VisibleCell will be used to test visibility and
+    /* A VisibleCell will be used to test visibility and
      * detail pitch, but it will be transient, because
      * these will be different for each Entity that
      * instances the shape.
@@ -62,7 +58,6 @@ protected:
      * `shape' module, I think, to create that VisibleCell
      * and perform the two tests upon it.
      */
-    AFK_KeyedCell cell;
 
     AFK_JigsawPiece vapourJigsawPiece;
     AFK_Frame vapourJigsawPieceTimestamp;
@@ -71,25 +66,37 @@ protected:
     AFK_JigsawPiece edgeJigsawPiece;
     AFK_Frame edgeJigsawPieceTimestamp;
 
-    Vec4<float> getBaseColour(void) const;
+    /* These are this cell's computed min and max densities. */
+    float minDensity;
+    float maxDensity;
+
+    Vec4<float> getBaseColour(int64_t key) const;
 
 public:
-    /* Binds a shape cell to the shape. */
-    void bind(const AFK_KeyedCell& _cell);
-    const AFK_KeyedCell& getCell(void) const;
+    AFK_ShapeCell();
 
     bool hasVapour(AFK_JigsawCollection *vapourJigsaws) const;
     bool hasEdges(AFK_JigsawCollection *edgeJigsaws) const;
+
+    float getDMin() const { return minDensity; }
+    float getDMax() const { return maxDensity; }
 
     /* Enqueues the compute units.  Both these functions overwrite
      * the relevant jigsaw pieces with new ones.
      * Use the matching VapourCell to build the 3D list required
      * here.
+     * In all these cases, `realCoord' should come from the VisibleCell
+     * you made for this shape cell (see above)...
+     * - TODO: Why is `realCoord' relevant at all?  Surely it shouldn't
+     * be (indeed it hardwires objects in place).  With the 3dnet changes
+     * I think I should remove it from here, and supply it only to the
+     * display queue.
      */
     void enqueueVapourComputeUnitWithNewVapour(
         unsigned int threadId,
         int adjacency,
         const AFK_3DList& list,
+        const AFK_KeyedCell& cell,
         const AFK_ShapeSizes& sSizes,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair,
@@ -101,6 +108,7 @@ public:
         int adjacency,
         unsigned int cubeOffset,
         unsigned int cubeCount,
+        const AFK_KeyedCell& cell,
         const AFK_ShapeSizes& sSizes,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair);
@@ -112,7 +120,7 @@ public:
      */
     void enqueueEdgeComputeUnit(
         unsigned int threadId,
-        const AFK_SHAPE_CELL_CACHE *cache,
+        AFK_SHAPE_CELL_CACHE *cache,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_JigsawCollection *edgeJigsaws,
         AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
@@ -123,13 +131,19 @@ public:
      */
     void enqueueEdgeDisplayUnit(
         const Mat4<float>& worldTransform,
+        const AFK_KeyedCell& cell,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_JigsawCollection *edgeJigsaws,
         AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair,
         const AFK_Fair2DIndex& entityFair2DIndex) const;
 
+    /* Updates this cell's density information (call from
+     * dreduce)
+     */
+    void setDMinMax(float _minDensity, float _maxDensity);
+
     /* For handling claiming and eviction. */
-    virtual bool canBeEvicted(void) const;
+    void evict(void);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_ShapeCell& shapeCell);
 };

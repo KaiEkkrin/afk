@@ -17,22 +17,24 @@
 
 #include "async.hpp"
 
+#include <cassert>
+
 #if ASYNC_DEBUG_SPAM
-boost::mutex debugSpamMut;
+std::mutex debugSpamMut;
 #endif
 
-static void afk_workerBusyBitAndMask(unsigned int id, size_t& o_busyBit, size_t& o_busyMask)
+static void afk_workerBusyBitAndMask(unsigned int id, uint64_t& o_busyBit, uint64_t& o_busyMask)
 {
-    o_busyBit = (size_t)1 << id;
+    o_busyBit = 1ull << id;
     o_busyMask = ~o_busyBit;
 }
 
 void AFK_AsyncControls::control_workReady(void)
 {
-    ASYNC_CONTROL_DEBUG("control_workReady: " << std::dec << workerCount << " workers")   
+    ASYNC_CONTROL_DEBUG("control_workReady: " << std::hex << allWorkerMask << " worker mask")   
 
-    boost::unique_lock<boost::mutex> lock(workMut);
-    while (workReady != 0)
+    std::unique_lock<std::mutex> lock(workMut);
+    while ((workReady != 0 || workRunning != 0) && !quit)
     {
         ASYNC_CONTROL_DEBUG("control_workReady: waiting")
 
@@ -40,11 +42,9 @@ void AFK_AsyncControls::control_workReady(void)
         workCond.wait(lock);
     }
 
-    workReady = ((size_t)1 << workerCount) - 1;
+    workReady = allWorkerMask;
+    assert(workRunning == 0);
     quit = false;
-
-    ASYNC_CONTROL_DEBUG("control_workReady: (workersBusy " <<
-        (workersBusy.is_lock_free() ? "is" : "is not") << " lock free)")
 
     workCond.notify_all();
 }
@@ -53,25 +53,19 @@ void AFK_AsyncControls::control_quit(void)
 {
     ASYNC_CONTROL_DEBUG("control_quit: sending quit")
 
-    boost::unique_lock<boost::mutex> lock(workMut);
-    while (workReady != 0)
-    {
-        ASYNC_CONTROL_DEBUG("control_quit: waiting")
+    std::unique_lock<std::mutex> lock(workMut);
 
-        /* Those workers are busy launching something else */
-        workCond.wait(lock);
-    }
-
-    workReady = ((size_t)1 << workerCount) - 1;
+    /* I should be able to just flag for quit right away. */
     quit = true;
     workCond.notify_all();
+    ASYNC_CONTROL_DEBUG("control_quit: flagged")
 }
 
 bool AFK_AsyncControls::worker_waitForWork(unsigned int id)
 {
     ASYNC_CONTROL_DEBUG("worker_waitForWork: entry")
 
-    boost::unique_lock<boost::mutex> lock(workMut);
+    std::unique_lock<std::mutex> lock(workMut);
     while (workReady == 0 && !quit)
     {
         ASYNC_CONTROL_DEBUG("worker_waitForWork: waiting")
@@ -82,21 +76,60 @@ bool AFK_AsyncControls::worker_waitForWork(unsigned int id)
     
     ASYNC_CONTROL_DEBUG("worker_waitForWork: syncing with other workers")
 
-    /* Wait for everyone else to be working on this task too */
-    while (workReady != 0)
-    {
-        /* Register this thread as working on the task */
-        size_t busyBit, busyMask;
-        afk_workerBusyBitAndMask(id, busyBit, busyMask);
-        workReady &= busyMask;
-        ASYNC_CONTROL_DEBUG("worker_waitForWork: " << std::hex << workReady << " left over (quit=" << quit << ")")
-        workCond.notify_all();
-
-        if (workReady != 0) workCond.wait(lock);
-    }
-
+    /* Register this thread as working on the task */
+    uint64_t busyBit, busyMask;
+    afk_workerBusyBitAndMask(id, busyBit, busyMask);
+    workReady &= busyMask;
+    workRunning |= busyBit;
     workCond.notify_all();
 
+    /* Wait for everyone else to be working on this task too. */
+    while (workReady != 0 && !quit)
+    {
+        ASYNC_CONTROL_DEBUG("worker_waitForWork: " << std::hex << workReady << " left over (quit=" << quit << ")")
+        workCond.wait(lock);
+    }
+
     return !quit;
+}
+
+void AFK_AsyncControls::worker_waitForFinished(unsigned int id)
+{
+    ASYNC_CONTROL_DEBUG("worker_waitForFinished: entry")
+
+    std::unique_lock<std::mutex> lock(workMut);
+
+    assert(workReady == 0); /* TODO, see above, I feel I ought not to need this */
+
+    /* Clear my running bit first... */
+    uint64_t busyBit, busyMask;
+    afk_workerBusyBitAndMask(id, busyBit, busyMask);
+    workRunning &= busyMask;
+
+    /* ... and now, wait for all the others.
+     * In this loop, we need to remember to check for
+     * work being ready too; if our thread is delayed at this point,
+     * the control thread may have found no work ready or running and
+     * added more, and a different thread may have grabbed some and
+     * declared itself running already, at which point we need to
+     * hop along and grab it too.  Everyone will wait before re-entry
+     * to the work loop. (in worker_waitForWork() ).
+     */
+    while (workReady == 0 && workRunning != 0 && !quit)
+    {
+        ASYNC_CONTROL_DEBUG("worker_waitForFinished: " << std::hex << workRunning << " still running (quit=" << quit << ")")
+        workCond.wait(lock);
+    }
+
+    /* This is needed to wake up the control thread and tell it it can
+     * ready the next batch
+     */
+    workCond.notify_all();
+}
+
+bool AFK_AsyncControls::control_workFinished(void)
+{
+    std::unique_lock<std::mutex> lock(workMut);
+    return (workRunning == 0);
 }
 

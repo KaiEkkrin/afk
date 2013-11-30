@@ -24,19 +24,7 @@
 
 /* AFK_Entity implementation */
 
-AFK_Entity::AFK_Entity(unsigned int _shapeKey):
-    shapeKey(_shapeKey)
-{
-}
-
-AFK_Entity::~AFK_Entity()
-{
-}
-
-unsigned int AFK_Entity::getShapeKey(void) const
-{
-    return shapeKey;
-}
+AFK_Entity::AFK_Entity(): shapeKey(0), obj(), lastFrameId(AFK_Frame().get()) {}
 
 void AFK_Entity::position(
     const Vec3<float>& scale,
@@ -50,12 +38,21 @@ void AFK_Entity::position(
     if (rotation.v[2] != 0.0f) obj.adjustAttitude(AXIS_ROLL, rotation.v[2]);
 }
 
-bool AFK_Entity::canBeEvicted(void) const
+bool AFK_Entity::notProcessedYet(const AFK_Frame& currentFrame)
 {
-    /* We shouldn't actually be calling this.  I'm using
-     * Claimable for the frame-tracking claim utility,
-     * not as an evictable thing.
-     */
-    throw AFK_Exception("Wanted to evict an Entity");
+    if (lastFrameId != currentFrame.get())
+    {
+        lastFrameId = currentFrame.get();
+        return true;
+    }
+    else return false;
+}
+
+std::ostream& operator<<(std::ostream& os, const AFK_Entity& _entity)
+{
+    // TODO give Object an operator<<
+    //os << "Entity(shapeKey=" << _entity.shapeKey << ", obj=" << _entity.obj << ")";
+    os << "Entity(shapeKey=" << _entity.shapeKey << ")";
+    return os;
 }
 

@@ -19,6 +19,12 @@
 #define _AFK_SHAPE_SIZES_H_
 
 #include "config.hpp"
+#include "def.hpp"
+
+/* Hardwired ones to support fixed-size structures in the code: */
+const unsigned int afk_shapePointSubdivisionFactor      = 6;
+const unsigned int afk_shapeFeatureCountPerCube         = CUBE(afk_shapePointSubdivisionFactor) / 2;
+const unsigned int afk_shapeSkeletonFlagGridDim         = 8;
 
 /* This utility returns the sizes of various parts of the
  * shape constructs.
@@ -26,6 +32,9 @@
  */
 class AFK_ShapeSizes
 {
+protected:
+    unsigned int reduceOrder;
+
 public:
     const unsigned int subdivisionFactor; /* same as in landscape_sizes and the world ? */
     const unsigned int entitySubdivisionFactor; /* ratio of cell size to the size of an
@@ -44,8 +53,18 @@ public:
     const float featureMaxSize; /* Max feature size in vapour cube space */
     const float featureMinSize; /* Min feature size in vapour cube space */
     const float edgeThreshold; /* The vapour number that needs to be hit to be called an edge */
+    unsigned int layerBitness; /* 1<<layerBitness is the next power of 2 above pointSubdivisionFactor+1.
+                                * This value determines the number of bits that each entry in the overlap
+                                * texture occupies.  The +1 is there to reserve the value 0 to mean "no edge";
+                                * the actual edgeStepsBack value should be decremented by 1 when used.
+                                */
+    unsigned int layers;        /* The number of layers per edge, i.e. the number of entries (of
+                                 * layerBitness size each) packed into the channels of the overlap texels.
+                                 */
 
     AFK_ShapeSizes(const AFK_Config *config);
+
+    unsigned int getReduceOrder(void) const { return reduceOrder; }
 };
 
 #endif /* _AFK_SHAPE_SIZES_H_ */

@@ -20,25 +20,37 @@
 
 #include "afk.hpp"
 
+#include <future>
 #include <iostream>
 #include <string>
 
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/lockfree/queue.hpp>
 
+#include "async/thread_allocation.hpp"
 #include "camera.hpp"
+#include "clock.hpp"
 #include "computer.hpp"
 #include "config.hpp"
+#include "data/claimable.hpp"
+#include "data/evictable_cache.hpp"
 #include "data/frame.hpp"
 #include "def.hpp"
+#include "detail_adjuster.hpp"
 #include "display.hpp"
 #include "light.hpp"
-#include "rng/rng.hpp"
 #include "window.hpp"
-#include "world.hpp"
 
 
-#define DISPLAY_THREAD_ID 0xdddddddd
+/* Forward declare a pile of stuff, to avoid this header file depending
+ * on everything in existence just because I'm declaring pointers to
+ * named classes
+ */
+class AFK_Camera;
+class AFK_Config;
+class AFK_Computer;
+class AFK_RNG;
+class AFK_World;
+
 
 void afk_idle(void);
 
@@ -52,21 +64,10 @@ protected:
     /* The result we're currently waiting on from the computing
      * side of things, if there is one.
      */
-    boost::unique_future<bool> computingUpdate;
+    std::future<bool> computingUpdate;
     bool computingUpdateDelayed;
-    unsigned int computeDelaysSinceLastCheckpoint;
-    unsigned int graphicsDelaysSinceLastCheckpoint;
 
-    boost::posix_time::ptime startOfFrameTime;
-    boost::posix_time::ptime lastFrameTime;
-    boost::posix_time::ptime lastCalibration;
-    unsigned int graphicsDelaysSinceLastCalibration;
-
-    /* The calibration error is the number of microseconds away
-     * I was from filling all the frame time with calculation.
-     * Negative means I finished early, positive means late.
-     */
-    int calibrationError;
+    AFK_DetailAdjuster *detailAdjuster;
 
     /* This stuff is for the OpenGL buffer cleanup, glBuffersForDeletion()
      * etc.
@@ -79,6 +80,8 @@ public:
     /* General things. */
     AFK_Config          *config;
     AFK_Computer        *computer;
+    unsigned int        masterThreadId;
+    AFK_ThreadAllocation    threadAlloc;
     AFK_Window          *window;
 
     /* This RNG is used only for setting things up. */
@@ -94,10 +97,10 @@ public:
      */
     AFK_Frame           computingFrame;
 
-    /* The camera. */
-    AFK_Camera          *camera;
+    /* The camera.  This goes to the worker threads as a thread-local. */
+    AFK_Camera          camera;
 
-    /* The world. */
+    /* The world.  This does too. */
     AFK_World           *world;
 
     /* Global lighting. */
@@ -107,7 +110,7 @@ public:
     Vec3<float>         skyColour;
 
     /* To track various special objects. */
-    AFK_DisplayedProtagonist        *protagonist;
+    AFK_DisplayedProtagonist        protagonist;
 
     /* Input state. */
     /* This vector is (right thrusters, up thrusters, throttle). */
@@ -129,7 +132,7 @@ public:
     /* For tracking and occasionally printing what the engine is
      * doing.
      */
-    boost::posix_time::ptime lastCheckpoint;
+    afk_clock::time_point   lastCheckpoint;
     AFK_Frame           frameAtLastCheckpoint;   
 
     AFK_Core();
@@ -143,9 +146,6 @@ public:
     void initGraphics(void);
     
     void loop(void);
-
-    /* For object updates. */
-    const boost::posix_time::ptime& getStartOfFrameTime(void) const;
 
     /* This utility function prints a message at checkpoints,
      * so that I can usefully debug-print
@@ -161,7 +161,7 @@ public:
      * checkpoint interval unless `definitely' is set
      * in which case it happens right away.
      */
-    void checkpoint(boost::posix_time::ptime& now, bool definitely);
+    void checkpoint(const afk_clock::time_point& now, bool definitely);
 
     /* TODO NASTY -- Share GL context between all threads and remove
      * Deletes of GL objects from other threads go into here so that
@@ -173,6 +173,26 @@ public:
 };
 
 extern AFK_Core afk_core;
+
+/* This function accesses the computing frame counter in the AFK core.
+ * Used by the caches to track entry age.
+ */
+extern AFK_GetComputingFrame afk_getComputingFrameFunc;
+
+/* I'll define the caches here, it's a nice central place to put them.
+ * I'm going to use plenty of hash bits for the world cache (many many
+ * small cells).  The others will have fewer.  These are hardwired
+ * tweakables; check the memory usage.
+ */
+
+/* TODO: To verify the initialisation stuff, making some of the caches
+ * temporarily really small.  Better hashBits values for world and
+ * landscape are 22 and 16 respectively
+ */
+#define AFK_WORLD_CACHE AFK_EvictableCache<AFK_Cell, AFK_WorldCell, AFK_HashCell, afk_unassignedCell, 20, 60, afk_getComputingFrameFunc>
+#define AFK_LANDSCAPE_CACHE AFK_EvictableCache<AFK_Tile, AFK_LandscapeTile, AFK_HashTile, afk_unassignedTile, 16, 10, afk_getComputingFrameFunc>
+#define AFK_SHAPE_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_ShapeCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 16, 10, afk_getComputingFrameFunc>
+#define AFK_VAPOUR_CELL_CACHE AFK_EvictableCache<AFK_KeyedCell, AFK_VapourCell, AFK_HashKeyedCell, afk_unassignedKeyedCell, 16, 10, afk_getComputingFrameFunc>
 
 #endif /* _AFK_CORE_H_ */
 

@@ -125,24 +125,12 @@ bool AFK_SkeletonCube::atEnd(int gridDim) const
 /* AFK_Skeleton implementation */
 
 #define WITHIN_SKELETON_FLAG_GRID(x, y, z) \
-    (((x) >= 0 && (x) < gridDim) && \
-    ((y) >= 0 && (y) < gridDim) && \
-    ((z) >= 0 && (z) < gridDim))
+    (((x) >= 0 && (x) < afk_shapeSkeletonFlagGridDim) && \
+    ((y) >= 0 && (y) < afk_shapeSkeletonFlagGridDim) && \
+    ((z) >= 0 && (z) < afk_shapeSkeletonFlagGridDim))
 
 #define SKELETON_FLAG_XY(x, y) grid[(x)][(y)]
 #define SKELETON_FLAG_Z(z) (1uLL << (z))
-
-void AFK_Skeleton::initGrid(void)
-{
-    if (grid) throw AFK_Exception("Tried to re-init grid");
-
-    grid = new uint64_t*[gridDim];
-    for (int x = 0; x < gridDim; ++x)
-    {
-        grid[x] = new uint64_t[gridDim];
-        memset(grid[x], 0, sizeof(uint64_t) * gridDim);
-    }
-}
 
 enum AFK_SkeletonFlag AFK_Skeleton::testFlag(const AFK_SkeletonCube& where) const
 {
@@ -219,7 +207,7 @@ int AFK_Skeleton::embellish(
     /* (1) Fill out a randomly morphed skeleton that sort of matches
      * the upper one.
      */
-    for (AFK_SkeletonCube cube = AFK_SkeletonCube(); !cube.atEnd(gridDim); cube.advance(gridDim))
+    for (AFK_SkeletonCube cube = AFK_SkeletonCube(); !cube.atEnd(afk_shapeSkeletonFlagGridDim); cube.advance(afk_shapeSkeletonFlagGridDim))
     {
         AFK_SkeletonCube upperCube = cube.upperCube(upperOffset, subdivisionFactor);
 
@@ -262,7 +250,7 @@ int AFK_Skeleton::embellish(
      * want to introduce too many holes!
      */
     for (AFK_SkeletonCube cube = AFK_SkeletonCube(upperOffset);
-        !cube.atEnd(gridDim); cube.advance(gridDim))
+        !cube.atEnd(afk_shapeSkeletonFlagGridDim); cube.advance(afk_shapeSkeletonFlagGridDim))
     {
         float chanceToNotPlug = 1.0f;
         for (int face = 0; face < 6; ++face)
@@ -283,31 +271,16 @@ int AFK_Skeleton::embellish(
 }
 
 AFK_Skeleton::AFK_Skeleton():
-    grid(nullptr)
+    boneCount(0)
 {
-}
-
-AFK_Skeleton::~AFK_Skeleton()
-{
-    if (grid)
-    {
-        for (int x = 0; x < gridDim; ++x)
-        {
-            delete[] grid[x];
-        }
-
-        delete[] grid;
-    }
+    memset(grid, 0, sizeof(uint64_t) * afk_shapeSkeletonFlagGridDim * afk_shapeSkeletonFlagGridDim);
 }
 
 int AFK_Skeleton::make(AFK_RNG& rng, const AFK_ShapeSizes& sSizes)
 {
-    gridDim = sSizes.skeletonFlagGridDim;
-    initGrid();
-
     /* Begin in the middle. */
     int skeletonSize = (int)sSizes.skeletonMaxSize;
-    boneCount = grow(AFK_SkeletonCube(afk_vec3<int64_t>(gridDim / 2, gridDim / 2, gridDim / 2)),
+    boneCount = grow(AFK_SkeletonCube(afk_vec3<int64_t>(afk_shapeSkeletonFlagGridDim / 2, afk_shapeSkeletonFlagGridDim / 2, afk_shapeSkeletonFlagGridDim / 2)),
         skeletonSize,
         rng,
         sSizes);
@@ -320,9 +293,6 @@ int AFK_Skeleton::make(
     AFK_RNG& rng,
     const AFK_ShapeSizes& sSizes)
 {
-    gridDim = sSizes.skeletonFlagGridDim;
-    initGrid();
-
     if (upper.getBoneCount() > 0)
     {
         /* Try embellishing that upper skeleton. */
@@ -424,8 +394,8 @@ bool AFK_Skeleton::Bones::hasNext(void)
     nextBone = thisBone;
     do
     {   
-        nextBone.advance(skeleton.gridDim);
-        if (nextBone.atEnd(skeleton.gridDim)) return false;
+        nextBone.advance(afk_shapeSkeletonFlagGridDim);
+        if (nextBone.atEnd(afk_shapeSkeletonFlagGridDim)) return false;
     } while (skeleton.testFlag(nextBone) != AFK_SKF_SET);
 
     return true;

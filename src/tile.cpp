@@ -17,12 +17,12 @@
 
 #include "afk.hpp"
 
-#include <boost/functional/hash.hpp>
 #include <sstream>
 
 #include "cell.hpp"
 #include "core.hpp"
 #include "exception.hpp"
+#include "rng/hash.hpp"
 #include "rng/rng.hpp"
 #include "tile.hpp"
 
@@ -35,6 +35,11 @@ AFK_Tile::AFK_Tile()
 }
 
 bool AFK_Tile::operator==(const AFK_Tile& _tile) const
+{
+    return coord == _tile.coord;
+}
+
+bool AFK_Tile::operator==(const AFK_Tile& _tile) const volatile
 {
     return coord == _tile.coord;
 }
@@ -136,12 +141,14 @@ AFK_Cell afk_cell(const AFK_Tile& tile, int64_t yCoord)
     return afk_cell(afk_vec4<int64_t>(tile.coord.v[0], yCoord, tile.coord.v[1], tile.coord.v[2]));
 }
 
+const AFK_Tile afk_unassignedTile = afk_tile(afk_vec3<int64_t>(0, 0, -1));
+
 size_t hash_value(const AFK_Tile &tile)
 {
     size_t hash = 0;
-    boost::hash_combine(hash, tile.coord.v[0] * 0x0001c0038007000ell);
-    boost::hash_combine(hash, tile.coord.v[1] * 0x00038007000e001cll);
-    boost::hash_combine(hash, tile.coord.v[2] * 0x0007000e001c0038ll);
+    hash = afk_hash_swizzle(hash, tile.coord.v[0]);
+    hash = afk_hash_swizzle(hash, tile.coord.v[1]);
+    hash = afk_hash_swizzle(hash, tile.coord.v[2]);
     return hash;
 }
 
@@ -150,6 +157,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_Tile& tile)
     return os << "Tile(" << std::dec <<
         tile.coord.v[0] << ", " <<
         tile.coord.v[1] << ", scale " <<
-        tile.coord.v[2] << ")";
+        tile.coord.v[2] << ", padding " <<
+        tile.coord.v[3] << ")";
 }
 

@@ -20,11 +20,10 @@
 
 #include "afk.hpp"
 
-#include <list>
+#include <array>
+#include <cassert>
 
-#include <boost/lockfree/queue.hpp>
-
-#include "data/claimable.hpp"
+#include "core.hpp"
 #include "entity.hpp"
 #include "rng/rng.hpp"
 #include "shape.hpp"
@@ -32,44 +31,33 @@
 #include "visible_cell.hpp"
 #include "world.hpp"
 
-
-#define AFK_ENTITY_LIST std::list<AFK_Entity*>
-#define AFK_ENTITY_MOVE_QUEUE boost::lockfree::queue<AFK_Entity*>
+/* TODO I wanted this to be a std::list for easy insertion and removal,
+ * and it can't be (issues with copies of atomics).  However, I expect
+ * once I'm actually moving entities about they'll be held in a jigsaw
+ * anyway so the OpenCL can process them...?
+ */
+#define AFK_ENTITY_LIST std::list<AFK_Entity>
 
 /* Describes one cell in the world.  This is the value that we
  * cache in the big ol' WorldCache.
  */
-class AFK_WorldCell: public AFK_Claimable
+class AFK_WorldCell
 {
-private:
-    /* These things shouldn't be going on */
-    AFK_WorldCell(const AFK_WorldCell& other) {}
-    AFK_WorldCell& operator=(const AFK_WorldCell& other) { return *this; }
-
 protected:
-    /* The obvious. */
-    AFK_Cell cell;
-
     /* Describes the cell's visibility in the world. */
     /* TODO: This needs to change upon a rebase ... */
     AFK_VisibleCell visibleCell;
 
     /* The list of Entities currently homed to this cell. */
-    AFK_ENTITY_LIST entities;
+    //AFK_ENTITY_LIST *entities;
+    static constexpr int maxEntityCount = 4;
+    std::array<AFK_Entity, maxEntityCount> entities;
+    int entityCount; /* -1 for not generated yet */
 
-    /* The queue of Entities that are supposed to be moved
-     * into this cell's list.  I've done it like this so
-     * that I don't need to worry about claiming a cell in
-     * order to move an entity into it (which would result
-     * in deadlock issues, I suspect).
-     * TODO: This is currently inactive.  I'm sure I'm going
-     * to want something similar after I've sorted out
-     * OpenCL entity movement, but it probably won't be
-     * exactly this, and I suspect I'll want to keep the
-     * entity list entirely in OpenCL buffers and not spread
-     * it back out to the CPU.
+    /* This tracks how far I've gotten along the whole business
+     * of adding entities.
      */
-    AFK_ENTITY_MOVE_QUEUE moveQueue;
+    int entityAddI;
 
     /* For generating the shapes for our starting entities. */
     bool checkClaimedShape(unsigned int shapeKey, AFK_Shape& shape, const AFK_ShapeSizes& sSizes);
@@ -79,14 +67,13 @@ public:
     AFK_WorldCell();
     virtual ~AFK_WorldCell();
 
-    const AFK_Cell& getCell(void) const { return cell; }
     Vec4<float> getRealCoord(void) const;
 
     /* Binds a world cell to the world.  Needs to be called
      * before anything else gets done, because WorldCells
      * are created uninitialised in the cache.
      */
-    void bind(const AFK_Cell& _cell, float worldScale);
+    void bind(const AFK_Cell& cell, float worldScale);
 
     /* Tests whether this cell is within the specified detail pitch
      * when viewed from the specified location.
@@ -107,15 +94,19 @@ public:
     /* For giving this cell a starting entity set. */
     unsigned int getStartingEntitiesWanted(
         AFK_RNG& rng,
-        unsigned int maxEntitiesPerCell,
-        unsigned int entitySparseness) const;
+        unsigned int entitySparseness);
 
     unsigned int getStartingEntityShapeKey(AFK_RNG& rng);
 
     void addStartingEntity(
+        unsigned int threadId,
         unsigned int shapeKey,
         const AFK_ShapeSizes& sSizes,
         AFK_RNG& rng);
+
+#if 0
+    /* Check this before iterating. */
+    bool hasEntities(void) const;
 
     /* Iterates through this cell's entities. */
     AFK_ENTITY_LIST::iterator entitiesBegin(void);
@@ -125,21 +116,13 @@ public:
      * calling moveEntity() on the new cell.
      */
     AFK_ENTITY_LIST::iterator eraseEntity(AFK_ENTITY_LIST::iterator eIt);
+#else
+    int getEntityCount() const { return entityCount; }
+    AFK_Entity& getEntityAt(int i) { assert(i < entityAddI); return entities[i]; }
+#endif
 
-    /* Pushes an entity into this cell's move queue.  It's okay
-     * to call this without having the claim.
-     */
-    void moveEntity(AFK_Entity *entity);
-
-    /* Pops the contents of the move queue into this cell's list.
-     */
-    void popMoveQueue(void);
-
-    /* AFK_Claimable implementation. */
-
-    /* Says whether this cell can be evicted from the cache.
-     */
-    virtual bool canBeEvicted(void) const;
+    /* Evicts the cell. */
+    void evict(void);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_WorldCell& worldCell);
 };

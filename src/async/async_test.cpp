@@ -15,12 +15,15 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
+#include <cassert>
 #include <iostream>
 
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/atomic.hpp>
 
 #include "async.hpp"
+#include "thread_allocation.hpp"
 #include "work_queue.hpp"
+#include "../clock.hpp"
 
 
 /* --- async test --- */
@@ -28,24 +31,37 @@
 /* The shared structure I'll use to record which numbers have
  * been seen
  */
-boost::atomic<unsigned int> *factors;
+boost::atomic_uint *factors;
 
 /* This structure flags which numbers have been enqueued in
  * the filter
  */
-boost::atomic<bool> *enqueued;
+boost::atomic_bool *enqueued;
 
 struct primeFilterParam
 {
     unsigned int start;
     unsigned int step;
+};
+
+struct primeFilterThreadLocal
+{
     unsigned int max;
 };
 
-bool primeFilter(unsigned int id, const struct primeFilterParam& param, AFK_WorkQueue<struct primeFilterParam, bool>& queue);
+/* To decide when we've finished, this global tracks the number
+ * of individual filters currently running.
+ */
+boost::atomic_uint filtersInFlight;
+
+bool primeFilter(
+    unsigned int id,
+    const struct primeFilterParam& param,
+    const struct primeFilterThreadLocal& threadLocal,
+    AFK_WorkQueue<struct primeFilterParam, bool, struct primeFilterThreadLocal>& queue);
 
 /* Helper. */
-void enqueueFilter(struct primeFilterParam param, AFK_WorkQueue<struct primeFilterParam, bool>& queue)
+void enqueueFilter(struct primeFilterParam param, AFK_WorkQueue<struct primeFilterParam, bool, struct primeFilterThreadLocal>& queue)
 {
     bool gotIt = false;
     bool isEnqueued = false;
@@ -57,7 +73,9 @@ void enqueueFilter(struct primeFilterParam param, AFK_WorkQueue<struct primeFilt
 
     if (!isEnqueued)
     {
-        AFK_WorkQueue<struct primeFilterParam, bool>::WorkItem workItem;
+        filtersInFlight.fetch_add(1);
+
+        AFK_WorkQueue<struct primeFilterParam, bool, struct primeFilterThreadLocal>::WorkItem workItem;
         workItem.func = primeFilter;
         workItem.param = param;
         queue.push(workItem);
@@ -75,36 +93,47 @@ void enqueueFilter(struct primeFilterParam param, AFK_WorkQueue<struct primeFilt
  * It will be interesting to see how well it does compared to this version here
  * (so be sure to keep this original version lying around).
  */
-bool primeFilter(unsigned int id, const struct primeFilterParam& param, AFK_WorkQueue<struct primeFilterParam, bool>& queue)
+bool primeFilter(
+    unsigned int id,
+    const struct primeFilterParam& param,
+    const struct primeFilterThreadLocal& threadLocal,
+    AFK_WorkQueue<struct primeFilterParam, bool, struct primeFilterThreadLocal>& queue)
 {
     /* optional verbose debug */
     //std::cout << param.start << "+" << param.step << " ";
 
-    for (unsigned int factor = param.start; factor < param.max; factor += param.step)
+    for (unsigned int factor = param.start; factor < threadLocal.max; factor += param.step)
     {
         factors[factor].fetch_add(1);
 
         /* Go through all the numbers between `factor' and `factor+step' */
-        for (unsigned int num = factor + 1; num < (factor + param.step) && num < param.max; ++num)
+        for (unsigned int num = factor + 1; num < (factor + param.step) && num < threadLocal.max; ++num)
         {
             struct primeFilterParam numFilter;
             numFilter.start = num;
             numFilter.step = num;
-            numFilter.max = param.max;
             enqueueFilter(numFilter, queue);
         }
     }
 
     /* I finished successfully! */
+    filtersInFlight.fetch_sub(1);
     return true;
 }
 
+bool filtersFinished(void)
+{
+    return (filtersInFlight.load() == 0);
+}
+
+AFK_AsyncTaskFinishedFunc filtersFinishedFunc = filtersFinished;
+
 void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<unsigned int>& primes)
 {
-    boost::posix_time::ptime startTime, endTime;
+    afk_clock::time_point startTime, endTime;
 
-    factors = new boost::atomic<unsigned int>[primeMax];
-    enqueued = new boost::atomic<bool>[primeMax];
+    factors = new boost::atomic_uint[primeMax];
+    enqueued = new boost::atomic_bool[primeMax];
     for (unsigned int i = 0; i < primeMax; ++i)
     {
         factors[i].store(0);
@@ -113,27 +142,38 @@ void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<
 
     std::cout << "Testing prime number filter with " << concurrency << " threads ..." << std::endl;
 
-    startTime = boost::posix_time::microsec_clock::local_time();
+    startTime = afk_clock::now();
 
     {
-        AFK_WorkQueue<struct primeFilterParam, bool>::WorkItem i;
+        /* I'm starting with one filter */
+        filtersInFlight.store(1);
+
+        AFK_WorkQueue<struct primeFilterParam, bool, struct primeFilterThreadLocal>::WorkItem i;
         i.func              = primeFilter;
         i.param.start       = 2;
         i.param.step        = 2;
-        i.param.max         = primeMax;
 
-        AFK_AsyncGang<struct primeFilterParam, bool> primeFilterGang(
-            primeMax / 100, concurrency);
+        struct primeFilterThreadLocal tl;
+        tl.max = primeMax;
+
+        AFK_ThreadAllocation threadAlloc;
+
+        AFK_AsyncGang<struct primeFilterParam, bool, struct primeFilterThreadLocal, filtersFinishedFunc> primeFilterGang(
+            primeMax / 100, threadAlloc, concurrency);
         primeFilterGang << i;
-        boost::unique_future<bool> finished = primeFilterGang.start(); 
+        std::future<bool> finished = primeFilterGang.start(tl); 
 
         finished.wait();
         std::cout << std::endl << std::endl;
         std::cout << "Finished with " << finished.get() << std::endl;
+
+        /* Obligatory sanity check */
+        assert(primeFilterGang.noQueuedWork());
     }
 
-    endTime = boost::posix_time::microsec_clock::local_time();
-    std::cout << concurrency << " threads finished after " << endTime - startTime << std::endl;
+    endTime = afk_clock::now();
+    afk_duration_mfl timeTaken = std::chrono::duration_cast<afk_duration_mfl>(endTime - startTime);
+    std::cout << concurrency << " threads finished after " << timeTaken.count() << " millis" << std::endl;
 
     for (unsigned int i = 0; i < primeMax; ++i)
         if (factors[i] == 1)
@@ -188,15 +228,15 @@ void test_async(void)
     check_result(primes[0], primes[2]);
     std::cout << std::endl;
 
-    test_pnFilter(boost::thread::hardware_concurrency(), primeMax, primes[3]);
+    test_pnFilter(std::thread::hardware_concurrency(), primeMax, primes[3]);
     check_result(primes[0], primes[3]);
     std::cout << std::endl;
 
-    test_pnFilter(boost::thread::hardware_concurrency() * 2, primeMax, primes[4]);
+    test_pnFilter(std::thread::hardware_concurrency() * 2, primeMax, primes[4]);
     check_result(primes[0], primes[4]);
     std::cout << std::endl;
 
-    test_pnFilter(boost::thread::hardware_concurrency() * 4, primeMax, primes[5]);
+    test_pnFilter(std::thread::hardware_concurrency() * 4, primeMax, primes[5]);
     check_result(primes[0], primes[5]);
     std::cout << std::endl;
 }

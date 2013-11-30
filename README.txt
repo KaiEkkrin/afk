@@ -14,24 +14,24 @@ Source code lives at:       https://github.com/KaiEkkrin/afk
 Progress videos at:         https://www.youtube.com/user/KaiEkkrin
 
 To build AFK you will currently need:
- - a C++11 compiler
+ - a C++11 compiler (G++ 4.8, MSVC++ 2013)
  - a modern OpenGL implementation (supporting OpenGL 4.0) and its development libraries
  - a modern OpenCL implementation (supporting OpenCL 1.1) and its development libraries
  - GLX
  - GLEW
- - Boost (AFK currently links with boost_chrono, boost_random, boost_regex,
-   boost_system and boost_thread.  On Windows, build it with address-model=64)
- - On Linux, SConstruct, the python build system.
+ - Boost >=1.5x (AFK currently links with boost_random, boost_regex,
+   and maybe boost_system and boost_thread.  On Windows, build it with
+   address-model=64, and use 1.55b0 or later for a successful MSVC++ 2013
+   build)
+ - On Linux, SConstruct, the python build system, or Eclipse.
  - On Windows, Visual Studio 2013.
 
-I have tested AFK on Nvidia Fermi based GPUs using the binary "nvidia" driver, and an AMD VLIW5 GPU using the binary "fglrx" driver. Some day I hope to make it run on a broader range of hardware and operating systems.
+See COMPATIBILITY.txt.
 
 Build and run example:
 
   scons -j 4
   ./build/release/afk
-
-AFK loads libOpenCL.so at runtime, as a DSO.  If your libOpenCL.so is in a strange place, you can try to get AFK to find it by passing `--cl-lib-dir /path/to/directory/with/libOpenCL.so/'.  But you shouldn't need to do that.  Hopefully.
 
 AFK is not currently self documenting.  Default key bindings are:
  - Middle mouse button to capture the mouse

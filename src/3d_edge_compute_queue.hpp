@@ -20,10 +20,10 @@
 
 #include "afk.hpp"
 
+#include <mutex>
 #include <sstream>
 #include <vector>
 
-#include <boost/thread/mutex.hpp>
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
@@ -44,14 +44,10 @@ _declspec(align(16))
 class AFK_3DEdgeComputeUnit
 {
 public:
-    /* Displacement and scale compared to the base cube. */
-    Vec4<float> location;
-
     Vec4<int> vapourPiece;
     Vec2<int> edgePiece;
 
     AFK_3DEdgeComputeUnit(
-        const Vec4<float>& _location,
         const AFK_JigsawPiece& _vapourJigsawPiece,
         const AFK_JigsawPiece& _edgeJigsawPiece);
 
@@ -76,12 +72,14 @@ protected:
     /* Describes each unit of computation in sequence. */
     std::vector<AFK_3DEdgeComputeUnit> units;
 
-    boost::mutex mut;
+    std::mutex mut;
 
     cl_kernel edgeKernel;
 
-    std::vector<cl_event> preEdgeWaitList;
-    std::vector<cl_event> postEdgeWaitList;
+    /* The events to wait for before we can release the vapour
+     * and edges
+     */
+    AFK_ComputeDependency *postEdgeDep;
     
 public:
     AFK_3DEdgeComputeQueue();
@@ -89,7 +87,6 @@ public:
 
     /* Adds the edges of a shape cube to the queue. */
     AFK_3DEdgeComputeUnit append(
-        const Vec4<float>& location,
         const AFK_JigsawPiece& vapourJigsawPiece,
         const AFK_JigsawPiece& edgeJigsawPiece);
 
@@ -100,7 +97,9 @@ public:
         AFK_Jigsaw *vapourJigsaw,
         AFK_Jigsaw *edgeJigsaw,
         const AFK_ShapeSizes& sSizes);
-    void computeFinish(void);
+    void computeFinish(
+        AFK_Jigsaw *vapourJigsaw,
+        AFK_Jigsaw *edgeJigsaw);
 
     /* To be part of a Fair. */
     bool empty(void);

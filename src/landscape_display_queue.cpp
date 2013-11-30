@@ -15,10 +15,15 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
+#include "afk.hpp"
+
+#include <thread>
+
 #include "display.hpp"
 #include "jigsaw.hpp"
 #include "landscape_display_queue.hpp"
 #include "landscape_tile.hpp"
+#include "world.hpp"
 
 AFK_LandscapeDisplayUnit::AFK_LandscapeDisplayUnit() {}
 
@@ -58,25 +63,56 @@ AFK_LandscapeDisplayQueue::~AFK_LandscapeDisplayQueue()
     if (buf) glDeleteBuffers(1, &buf);
 }
 
-void AFK_LandscapeDisplayQueue::add(const AFK_LandscapeDisplayUnit& _unit, const AFK_LandscapeTile *landscapeTile)
+void AFK_LandscapeDisplayQueue::add(const AFK_LandscapeDisplayUnit& _unit, const AFK_Tile& _tile)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     queue.push_back(_unit);
-    landscapeTiles.push_back(landscapeTile);
+    landscapeTiles.push_back(_tile);
 }
 
 #define COPY_TO_GL_CULLING 1
 
-void AFK_LandscapeDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsaw* jigsaw, const AFK_TerrainBaseTile *baseTile, const AFK_LandscapeSizes& lSizes)
+void AFK_LandscapeDisplayQueue::draw(
+    unsigned int threadId,
+    AFK_ShaderProgram *shaderProgram,
+    AFK_Jigsaw *jigsaw,
+    AFK_LANDSCAPE_CACHE *cache,
+    const AFK_TerrainBaseTile *baseTile,
+    const AFK_LandscapeSizes& lSizes)
 {
     /* First, check there's anything to draw at all ... */
 #if COPY_TO_GL_CULLING
-    for (unsigned int i = 0; i < queue.size(); ++i)
+    bool allChecked = false;
+    std::vector<bool> checked;
+    checked.reserve(queue.size());
+    for (unsigned int i = 0; i < queue.size(); ++i) checked.push_back(false);
+
+    do
     {
-        if (landscapeTiles[i]->realCellWithinYBounds(queue[i].cellCoord))
-            culledQueue.push_back(queue[i]);
-    }
+        allChecked = true;
+        for (unsigned int i = 0; i < queue.size(); ++i)
+        {
+            if (checked[i]) continue;
+
+            try
+            {
+                auto claim = cache->get(threadId, landscapeTiles[i]).claimable.claimInplace(threadId, AFK_CL_SHARED);
+                if (claim.getShared().realCellWithinYBounds(queue[i].cellCoord))
+                {
+                    /* I do want to draw this tile. */
+                    culledQueue.push_back(queue[i]);
+                }
+
+                /* If I got here, the tile has been checked successfully. */
+                checked[i] = true;
+            }
+            catch (AFK_PolymerOutOfRange) { checked[i] = true; /* Ignore, this one shouldn't be drawn */ }
+            catch (AFK_ClaimException) { allChecked = false; /* Want to retry */ }
+        }
+
+        if (!allChecked) std::this_thread::yield(); /* Give things a chance */
+    } while (!allChecked);
 
     unsigned int instanceCount = culledQueue.size();
 #else
@@ -156,14 +192,14 @@ void AFK_LandscapeDisplayQueue::draw(AFK_ShaderProgram *shaderProgram, AFK_Jigsa
 
 bool AFK_LandscapeDisplayQueue::empty(void)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     return queue.empty();
 }
 
 void AFK_LandscapeDisplayQueue::clear(void)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     queue.clear();
     landscapeTiles.clear();

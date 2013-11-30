@@ -28,18 +28,18 @@ class AFK_StructureStats
 {
 protected:
     /* The number of things in use in the structure. */
-    boost::atomic<unsigned int> size;
+    boost::atomic_uint size;
 
     /* Accumulated contention: the number of times we
      * had to retry to slot a new thing.
      */
-    boost::atomic<unsigned int> contention;
+    boost::atomic_uint contention;
 
     /* The number of things that have been accumulated into
      * the `contention' value.  Reset to re-begin
      * contention sampling
      */
-    boost::atomic<unsigned int> contentionSampleSize;
+    boost::atomic_uint contentionSampleSize;
 
 public:
     AFK_StructureStats();

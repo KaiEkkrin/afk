@@ -17,13 +17,13 @@
 
 #include "afk.hpp"
 
-#include <boost/functional/hash.hpp>
 #include <cmath>
 #include <sstream>
 
 #include "cell.hpp"
 #include "core.hpp"
 #include "exception.hpp"
+#include "rng/hash.hpp"
 #include "rng/rng.hpp"
 #include "terrain.hpp"
 
@@ -31,6 +31,11 @@
 /* AFK_Cell implementation */
 
 bool AFK_Cell::operator==(const AFK_Cell& _cell) const
+{
+    return coord == _cell.coord;
+}
+
+bool AFK_Cell::operator==(const AFK_Cell& _cell) const volatile
 {
     return coord == _cell.coord;
 }
@@ -49,8 +54,7 @@ AFK_RNG_Value AFK_Cell::rngSeed() const
 AFK_RNG_Value AFK_Cell::rngSeed(size_t combinant) const
 {
     size_t hash = combinant;
-    boost::hash_combine(hash, hash_value(*this));
-    return AFK_RNG_Value(hash) ^ afk_core.config->masterSeed;
+    return AFK_RNG_Value(afk_hash_swizzle(hash, hash_value(*this))) ^ afk_core.config->masterSeed;
 }
 
 unsigned int AFK_Cell::subdivide(
@@ -148,6 +152,12 @@ Vec4<float> AFK_Cell::toWorldSpace(float worldScale) const
         (float)coord.v[3] * worldScale);
 }
 
+Vec4<float> AFK_Cell::toHomogeneous(float worldScale) const
+{
+    Vec4<float> worldSpace = toWorldSpace(worldScale);
+    return afk_vec4<float>(worldSpace.v[0], worldSpace.v[1], worldSpace.v[2], 1.0f) / worldSpace.v[3];
+}
+
 AFK_Cell afk_cell(const AFK_Cell& other)
 {
     AFK_Cell cell;
@@ -161,6 +171,8 @@ AFK_Cell afk_cell(const Vec4<int64_t>& _coord)
     cell.coord = _coord;
     return cell;
 }
+
+const AFK_Cell afk_unassignedCell = afk_cell(afk_vec4<int64_t>(0, 0, 0, -1));
 
 AFK_Cell afk_cellContaining(const Vec3<float>& _coord, int64_t scale, float worldScale)
 {
@@ -188,10 +200,10 @@ size_t hash_value(const AFK_Cell& cell)
 {
     /* Getting this thing right is quite important... */
     size_t hash = 0;
-    boost::hash_combine(hash, cell.coord.v[0] * 0x0000c00180030006ll);
-    boost::hash_combine(hash, cell.coord.v[1] * 0x00180030006000c0ll);
-    boost::hash_combine(hash, cell.coord.v[2] * 0x00030006000c0018ll);
-    boost::hash_combine(hash, cell.coord.v[3] * 0x006000c001800300ll);
+    hash = afk_hash_swizzle(hash, cell.coord.v[0]);
+    hash = afk_hash_swizzle(hash, cell.coord.v[1]);
+    hash = afk_hash_swizzle(hash, cell.coord.v[2]);
+    hash = afk_hash_swizzle(hash, cell.coord.v[3]);
     return hash;
 }
 

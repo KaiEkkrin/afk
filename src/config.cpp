@@ -17,22 +17,60 @@
 
 #include "afk.hpp"
 
-#include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <sstream>
+#include <thread>
 #include <utility>
 
+#include <ctype.h>
+
 #include <boost/random/random_device.hpp>
-#include <boost/thread/thread.hpp>
 
 #include "config.hpp"
 #include "exception.hpp"
 
+
+/* Getting the CWD is system specific... */
+
+#ifdef AFK_GLX
+
+#include <unistd.h>
+
+static char *getCWD(void)
+{
+    return get_current_dir_name();
+}
+
+#endif /* AFK_GLX */
+
+#ifdef AFK_WGL
+
+static char *getCWD(void)
+{
+    unsigned int cwdLength = GetCurrentDirectoryA(0, nullptr);
+    if (cwdLength == 0)
+    {
+        std::ostringstream ss;
+        ss << "Unable to get current working directory: " << GetLastError();
+        throw AFK_Exception(ss.str());
+    }
+
+    char *cwd = static_cast<char*>(malloc(cwdLength + 1));
+    cwdLength = GetCurrentDirectoryA(cwdLength + 1, cwd);
+    if (cwdLength == 0)
+    {
+        std::ostringstream ss;
+        ss << "Unable to get current working directory: " << GetLastError();
+        throw AFK_Exception(ss.str());
+    }
+
+    return cwd;
+}
+
+#endif /* AFK_WGL */
 
 /* This utility function pulls AFK's executable path and names a directory
  * in the same location.
@@ -60,7 +98,7 @@ static char *getDirAtExecPath(const char *leafname, const char *execname)
         /* I can't find a lowest level directory path, use the CWD
          * instead.
          */
-        char *currentDir = get_current_dir_name();
+        char *currentDir = getCWD();
         size_t cwdDirnameMaxSize = strlen(currentDir) + strlen(leafname) + 2;
         if (cwdDirnameMaxSize > dirnameMaxSize) dirname = (char *)realloc(dirname, cwdDirnameMaxSize);
         sprintf(dirname, "%s/%s", currentDir, leafname);
@@ -92,7 +130,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     zFar        = (float)(1 << 20);
 
     rotateButtonSensitivity     = 0.01f;
-    thrustButtonSensitivity     = 0.01f;
+    thrustButtonSensitivity     = 0.001f;
     mouseAxisSensitivity        = 0.001f;
     axisInversionMap = 0uLL;
     AFK_SET_BIT(axisInversionMap, CTRL_AXIS_PITCH);
@@ -104,7 +142,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
      * from a few things like the seed which could do with being
      * command line based ...
      */
-    targetFrameTimeMicros       = 16500;
+    targetFrameTimeMillis       = 16.5f;
     framesPerCalibration        = 8;
     vsync                       = false;
 
@@ -112,24 +150,24 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     windowHeight                = 0;
 
     clLibDir                    = nullptr;
-    concurrency                 = boost::thread::hardware_concurrency() + 1;
+    concurrency                 = std::thread::hardware_concurrency() + 1;
     clProgramsDir               = nullptr;
     clGlSharing                 = false; /* TODO Find hardware this actually improves performance on and default-true for that */
+    async                       = true;
     forceFake3DImages           = false;
+    jigsawUsageFactor           = 0.5f;
 
     startingDetailPitch         = 512.0f;
-    maxDetailPitch              = 4096.0f;
+    maxDetailPitch              = 1536.0f;
+    minDetailPitch              = 64.0f;
+    detailPitchStickiness       = 0.08f;
     minCellSize                 = 1.0f;
     subdivisionFactor           = 2;
     entitySubdivisionFactor     = 4;
 
-    terrain_pointSubdivisionFactor      = 8;
-    shape_pointSubdivisionFactor        = 6;
     shape_skeletonMaxSize               = 24;
-    shape_skeletonFlagGridDim           = 8;
-    shape_edgeThreshold                 = 0.01f;
+    shape_edgeThreshold                 = 0.03f;
 
-    maxEntitiesPerCell          = 4;
     entitySparseness            = 1024;
     
 
@@ -164,10 +202,10 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
             REQUIRE_ARGUMENT("--zFar")
             zFar = strtof(argv[argi], NULL);
         }
-        else if (strcmp(argv[argi], "--target-frame-time-micros") == 0)
+        else if (strcmp(argv[argi], "--target-frame-time-millis") == 0)
         {
-            REQUIRE_ARGUMENT("--target-frame-time-micros")
-            targetFrameTimeMicros = strtoul(argv[argi], NULL, 0);
+            REQUIRE_ARGUMENT("--target-frame-time-millis")
+            targetFrameTimeMillis = strtof(argv[argi], NULL);
         }
         else if (strcmp(argv[argi], "--frames-per-calibration") == 0)
         {
@@ -207,9 +245,21 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         {
             clGlSharing = true;
         }
+        /* TODO: I could do with standard forms for command line
+         * args, a configuration file etc etc
+         */
+        else if (strcmp(argv[argi], "--cl-sync") == 0)
+        {
+            async = false;
+        }
         else if (strcmp(argv[argi], "--force-fake-3D-images") == 0)
         {
             forceFake3DImages = true;
+        }
+        else if (strcmp(argv[argi], "--jigsaw-usage-factor") == 0)
+        {
+            REQUIRE_ARGUMENT("--jigsaw-usage-factor")
+            jigsawUsageFactor = strtof(argv[argi], NULL);
         }
         else if (strcmp(argv[argi], "--starting-detail-pitch") == 0)
         {
@@ -220,6 +270,16 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         {
             REQUIRE_ARGUMENT("--max-detail-pitch")
             maxDetailPitch = strtof(argv[argi], NULL);
+        }
+        else if (strcmp(argv[argi], "--min-detail-pitch") == 0)
+        {
+            REQUIRE_ARGUMENT("--min-detail-pitch")
+            minDetailPitch = strtof(argv[argi], NULL);
+        }
+        else if (strcmp(argv[argi], "--detail-pitch-stickiness") == 0)
+        {
+            REQUIRE_ARGUMENT("--detail-pitch-stickiness")
+            detailPitchStickiness = strtof(argv[argi], NULL);
         }
         else if (strcmp(argv[argi], "--min-cell-size") == 0)
         {
@@ -236,35 +296,15 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
             REQUIRE_ARGUMENT("--entity-subdivision-factor")
             entitySubdivisionFactor = strtoul(argv[argi], NULL, 0);
         }
-        else if (strcmp(argv[argi], "--terrain-point-subdivision-factor") == 0)
-        {
-            REQUIRE_ARGUMENT("--terrain-point-subdivision-factor")
-            terrain_pointSubdivisionFactor = strtoul(argv[argi], NULL, 0);
-        }
-        else if (strcmp(argv[argi], "--shape-point-subdivision-factor") == 0)
-        {
-            REQUIRE_ARGUMENT("--shape-point-subdivision-factor")
-            shape_pointSubdivisionFactor = strtoul(argv[argi], NULL, 0);
-        }
         else if (strcmp(argv[argi], "--shape-skeleton-max-size") == 0)
         {
             REQUIRE_ARGUMENT("--shape-skeleton-max-size")
             shape_skeletonMaxSize = strtoul(argv[argi], NULL, 0);
         }
-        else if (strcmp(argv[argi], "--shape-skeleton-flag-grid-dim") == 0)
-        {
-            REQUIRE_ARGUMENT("--shape-skeleton-flag-grid-dim")
-            shape_skeletonFlagGridDim = strtoul(argv[argi], NULL, 0);
-        }
         else if (strcmp(argv[argi], "--shape-edge-threshold") == 0)
         {
             REQUIRE_ARGUMENT("--shape-edge-threshold")
             shape_edgeThreshold = strtof(argv[argi], NULL);
-        }
-        else if (strcmp(argv[argi], "--max-entities-per-cell") == 0)
-        {
-            REQUIRE_ARGUMENT("--max-entities-per-cell")
-            maxEntitiesPerCell = strtoul(argv[argi], NULL, 0);
         }
         else if (strcmp(argv[argi], "--entity-sparseness") == 0)
         {

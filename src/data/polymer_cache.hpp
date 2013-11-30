@@ -18,11 +18,6 @@
 #ifndef _AFK_DATA_POLYMER_CACHE_H_
 #define _AFK_DATA_POLYMER_CACHE_H_
 
-#include <boost/atomic.hpp>
-#include <boost/ref.hpp>
-#include <boost/thread/future.hpp>
-#include <boost/thread/thread.hpp>
-
 #include "cache.hpp"
 #include "polymer.hpp"
 
@@ -33,15 +28,15 @@ unsigned int afk_suggestCacheBitness(unsigned int entries);
 
 /* This defines the AFK cache as an unguarded polymer cache. */
 
-template<typename Key, typename Value, typename Hasher>
+template<typename Key, typename Value, typename Hasher, const Key& unassigned, unsigned int hashBits, bool debug = false>
 class AFK_PolymerCache: public AFK_Cache<Key, Value>
 {
 protected:
-    AFK_Polymer<Key, Value, Hasher> polymer;
+    AFK_Polymer<Key, Value, Hasher, unassigned, hashBits, debug> polymer;
 
 public:
-    AFK_PolymerCache(unsigned int hashBits, unsigned int targetContention, Hasher hasher):
-        polymer(hashBits, targetContention, hasher)
+    AFK_PolymerCache(unsigned int targetContention, Hasher hasher):
+        polymer(targetContention, hasher)
     {
     }
 
@@ -50,19 +45,14 @@ public:
         return polymer.size();
     }
 
-    virtual Value& at(const Key& key) const
+    virtual Value& get(unsigned int threadId, const Key& key)
     {
-        return polymer.at(key);
+        return polymer.get(threadId, key);
     }
 
-    virtual Value& operator[](const Key& key)
+    virtual Value& insert(unsigned int threadId, const Key& key)
     {
-        return polymer[key];
-    }
-
-    virtual bool erase(const Key& key)
-    {
-        return polymer.erase(key);
+        return polymer.insert(threadId, key);
     }
 
     /* I'll want to try this some day ? */
@@ -80,15 +70,6 @@ public:
         return false;
     }
 #endif
-
-    virtual void printEverything(std::ostream& os) const
-    {
-        for (auto monoIt = polymer.begin(); monoIt != polymer.end(); ++monoIt)
-        {
-            AFK_Monomer<Key, Value>* monomer = monoIt->load();
-            os << monomer->key << " -> " << monomer->value << std::endl;
-        }
-    }
 
     virtual void printStats(std::ostream& os, const std::string& prefix) const
     {

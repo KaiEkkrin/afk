@@ -15,13 +15,18 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
+#include "afk.hpp"
+
+#include <thread>
+
 #include "core.hpp"
 #include "exception.hpp"
 #include "landscape_tile.hpp"
+#include "world.hpp"
 #include "yreduce.hpp"
 
 AFK_YReduce::AFK_YReduce(AFK_Computer *_computer):
-    computer(_computer), buf(0), bufSize(0), readback(nullptr), readbackSize(0), readbackEvent(0)
+    computer(_computer), buf(0), bufSize(0), readback(nullptr), readbackSize(0), readbackDep(computer)
 {
     if (!computer->findKernel("makeLandscapeYReduce", yReduceKernel))
         throw AFK_Exception("Cannot find Y-reduce kernel");
@@ -30,8 +35,7 @@ AFK_YReduce::AFK_YReduce(AFK_Computer *_computer):
 AFK_YReduce::~AFK_YReduce()
 {
     if (buf) computer->oclShim.ReleaseMemObject()(buf);
-    if (readbackEvent) computer->oclShim.ReleaseEvent()(readbackEvent);
-    if (readback != nullptr) delete[] readback;
+    if (readback) delete[] readback;
 }
 
 void AFK_YReduce::compute(
@@ -40,15 +44,14 @@ void AFK_YReduce::compute(
     cl_mem *jigsawYDisp,
     cl_sampler *yDispSampler,
     const AFK_LandscapeSizes& lSizes,
-    cl_uint eventsInWaitList,
-    const cl_event *eventWaitList,
-    cl_event *o_event)
+    const AFK_ComputeDependency& preDep,
+    AFK_ComputeDependency& o_postDep)
 {
     cl_int error;
 
-    cl_context ctxt;
-    cl_command_queue q;
-    computer->lock(ctxt, q);
+    cl_context ctxt = computer->getContext();
+    auto kernelQueue = computer->getKernelQueue();
+    auto readQueue = computer->getReadQueue();
 
     /* The buffer needs to be big enough for 2 floats per
      * unit.
@@ -68,10 +71,11 @@ void AFK_YReduce::compute(
         bufSize = requiredSize;
     }
 
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(yReduceKernel, 0, sizeof(cl_mem), units))
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(yReduceKernel, 1, sizeof(cl_mem), jigsawYDisp))
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(yReduceKernel, 2, sizeof(cl_sampler), yDispSampler))
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(yReduceKernel, 3, sizeof(cl_mem), &buf))
+    kernelQueue->kernel(yReduceKernel);
+    kernelQueue->kernelArg(sizeof(cl_mem), units);
+    kernelQueue->kernelArg(sizeof(cl_mem), jigsawYDisp);
+    kernelQueue->kernelArg(sizeof(cl_sampler), yDispSampler);
+    kernelQueue->kernelArg(sizeof(cl_mem), &buf);
 
     size_t yReduceGlobalDim[2];
     yReduceGlobalDim[0] = (1 << lSizes.getReduceOrder());
@@ -81,8 +85,7 @@ void AFK_YReduce::compute(
     yReduceLocalDim[0] = (1 << lSizes.getReduceOrder());
     yReduceLocalDim[1] = 1;
 
-    AFK_CLCHK(computer->oclShim.EnqueueNDRangeKernel()(q, yReduceKernel, 2, 0, &yReduceGlobalDim[0], &yReduceLocalDim[0],
-        eventsInWaitList, eventWaitList, o_event))
+    kernelQueue->kernel2D(yReduceGlobalDim, yReduceLocalDim, preDep, o_postDep);
 
     size_t requiredReadbackSize = requiredSize / sizeof(float);
     if (readbackSize < requiredReadbackSize)
@@ -92,29 +95,16 @@ void AFK_YReduce::compute(
         readbackSize = requiredReadbackSize;
     }
 
-    /* TODO If I make this asynchronous (change CL_TRUE to CL_FALSE), I get
-     * kersplode on AMD.
-     * I think what's going on is the OpenGL memory management gets
-     * confused in the presence of buffers; try making the readback
-     * an image instead and see if it's happier.
-     */
-    AFK_CLCHK(computer->oclShim.EnqueueReadBuffer()(q, buf,
-        afk_core.computer->isAMD() ? CL_TRUE : CL_FALSE,
-        0, requiredSize, readback, 1, o_event, &readbackEvent))
-
-    computer->unlock();
+    readQueue->readBuffer(buf, requiredSize, readback, o_postDep, readbackDep);
 }
 
 void AFK_YReduce::readBack(
+    unsigned int threadId,
     unsigned int unitCount,
-    std::vector<AFK_LandscapeTile*>& landscapeTiles)
+    const std::vector<AFK_Tile>& landscapeTiles,
+    AFK_LANDSCAPE_CACHE *cache)
 {
-    if (!readbackEvent) return;
-
-    AFK_CLCHK(computer->oclShim.WaitForEvents()(1, &readbackEvent))
-    AFK_CLCHK(computer->oclShim.ReleaseEvent()(readbackEvent))
-    readbackEvent = 0;
-
+    readbackDep.waitFor();
 #if 0
     std::cout << "Computed y bounds: ";
     for (unsigned int i = 0; i < 4 && i < unitCount; ++i)
@@ -125,10 +115,35 @@ void AFK_YReduce::readBack(
     std::cout << std::endl;
 #endif
 
-    for (unsigned int i = 0; i < unitCount; ++i)
+    /* Push all those tile bounds into the cache, so long as an
+     * entry can be found.
+     * TODO This logic is almost the same as that found in
+     * landscape_display_queue to cull the draw list.  Can I make
+     * it into a template algorithm?
+     */
+    bool allPushed = false;
+    static thread_local std::vector<bool> pushed;
+    pushed.clear();
+    for (unsigned int i = 0; i < landscapeTiles.size(); ++i) pushed.push_back(false);
+
+    do
     {
-        landscapeTiles[i]->setYBounds(
-            readback[i * 2], readback[i * 2 + 1]);
-    }
+        allPushed = true;
+        for (unsigned int i = 0; i < landscapeTiles.size(); ++i)
+        {
+            if (pushed[i]) continue;
+
+            try
+            {
+                auto claim = cache->get(threadId, landscapeTiles[i]).claimable.claim(threadId, 0);
+                claim.get().setYBounds(readback[i * 2], readback[i * 2 + 1]);
+                pushed[i] = true;
+            }
+            catch (AFK_PolymerOutOfRange) { pushed[i] = true; /* Ignore, no entry any more */ }
+            catch (AFK_ClaimException) { allPushed = false; /* Want to retry */ }
+        }
+
+        if (!allPushed) std::this_thread::yield();
+    } while (!allPushed);
 }
 

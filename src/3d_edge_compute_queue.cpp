@@ -18,18 +18,19 @@
 #include "afk.hpp"
 
 #include <algorithm>
+#include <cassert>
 
 #include "3d_edge_compute_queue.hpp"
+#include "compute_queue.hpp"
+#include "debug.hpp"
 #include "exception.hpp"
 
 
 /* AFK_3DEdgeComputeUnit implementation */
 
 AFK_3DEdgeComputeUnit::AFK_3DEdgeComputeUnit(
-    const Vec4<float>& _location,
     const AFK_JigsawPiece& _vapourJigsawPiece,
-    const AFK_JigsawPiece& _edgeJigsawPiece):
-        location(_location)
+    const AFK_JigsawPiece& _edgeJigsawPiece)
 {
     vapourPiece = afk_vec4<int>(
         _vapourJigsawPiece.u,
@@ -45,8 +46,7 @@ AFK_3DEdgeComputeUnit::AFK_3DEdgeComputeUnit(
 std::ostream& operator<<(std::ostream& os, const AFK_3DEdgeComputeUnit& unit)
 {
     os << "(SCU: ";
-    os << "location=" << std::dec << unit.location;
-    os << ", vapourPiece=" << unit.vapourPiece;
+    os << "vapourPiece=" << unit.vapourPiece;
     os << ", edgePiece=" << unit.edgePiece;
     os << ")";
     return os;
@@ -56,23 +56,22 @@ std::ostream& operator<<(std::ostream& os, const AFK_3DEdgeComputeUnit& unit)
 /* AFK_3DEdgeComputeQueue implementation */
 
 AFK_3DEdgeComputeQueue::AFK_3DEdgeComputeQueue():
-    edgeKernel(0)
+    edgeKernel(0), postEdgeDep(nullptr)
 {
 }
 
 AFK_3DEdgeComputeQueue::~AFK_3DEdgeComputeQueue()
 {
+    if (postEdgeDep) delete postEdgeDep;
 }
 
 AFK_3DEdgeComputeUnit AFK_3DEdgeComputeQueue::append(
-    const Vec4<float>& location,
     const AFK_JigsawPiece& vapourJigsawPiece,
     const AFK_JigsawPiece& edgeJigsawPiece)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     AFK_3DEdgeComputeUnit newUnit(
-        location,
         vapourJigsawPiece,
         edgeJigsawPiece);
     units.push_back(newUnit);
@@ -85,8 +84,7 @@ void AFK_3DEdgeComputeQueue::computeStart(
     AFK_Jigsaw *edgeJigsaw,
     const AFK_ShapeSizes& sSizes)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
-    cl_int error;
+    std::unique_lock<std::mutex> lock(mut);
 
     /* Check there's something to do */
     unsigned int unitCount = units.size();
@@ -97,33 +95,41 @@ void AFK_3DEdgeComputeQueue::computeStart(
         if (!computer->findKernel("makeShape3DEdge", edgeKernel))
             throw AFK_Exception("Cannot find 3D edge kernel");
 
-    cl_context ctxt;
-    cl_command_queue q;
-    computer->lock(ctxt, q);
+    auto kernelQueue = computer->getKernelQueue();
+    auto writeQueue = computer->getWriteQueue();
 
     /* Copy the unit list to a CL buffer. */
-    cl_mem unitsBuf = computer->oclShim.CreateBuffer()(
-        ctxt, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        units.size() * sizeof(AFK_3DEdgeComputeUnit),
-        &units[0], &error);
-    AFK_HANDLE_CL_ERROR(error);
+    AFK_ComputeDependency noDep(computer);
+    AFK_ComputeDependency preEdgeDep(computer);
+    
+    cl_mem unitsBuf = writeQueue->newReadOnlyBuffer(
+        units.data(), units.size() * sizeof(AFK_3DEdgeComputeUnit), noDep, preEdgeDep);
 
     /* Set up the rest of the parameters */
-    preEdgeWaitList.clear();
-    cl_mem vapourJigsawDensityMem = vapourJigsaw->acquireForCl(0, preEdgeWaitList);
-    cl_mem edgeJigsawDispMem = edgeJigsaw->acquireForCl(0, preEdgeWaitList);
-    cl_mem edgeJigsawOverlapMem = edgeJigsaw->acquireForCl(1, preEdgeWaitList);
+    if (!postEdgeDep) postEdgeDep = new AFK_ComputeDependency(computer);
+    assert(postEdgeDep->getEventCount() == 0);
 
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 0, sizeof(cl_mem), &vapourJigsawDensityMem))
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 1, sizeof(cl_mem), &unitsBuf))
+    vapourJigsaw->setupImages(computer);
+    edgeJigsaw->setupImages(computer);
 
-    Vec2<int> fake3D_size = vapourJigsaw->getFake3D_size();
-    int fake3D_mult = vapourJigsaw->getFake3D_mult();
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 2, sizeof(cl_int2), &fake3D_size.v[0]))
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 3, sizeof(cl_int), &fake3D_mult))
+    cl_mem vapourJigsawDensityMem = vapourJigsaw->acquireForCl(0, preEdgeDep);
+    cl_mem edgeJigsawOverlapMem = edgeJigsaw->acquireForCl(0, preEdgeDep);
 
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 4, sizeof(cl_mem), &edgeJigsawDispMem))
-    AFK_CLCHK(computer->oclShim.SetKernelArg()(edgeKernel, 5, sizeof(cl_mem), &edgeJigsawOverlapMem))
+    kernelQueue->kernel(edgeKernel);
+    kernelQueue->kernelArg(sizeof(cl_mem), &vapourJigsawDensityMem);
+    kernelQueue->kernelArg(sizeof(cl_mem), &unitsBuf);
+
+    /* Note -- assuming all vapour shares a size for now
+     * (just like in 3d_vapour_compute_queue)
+     * If that changes the assert() in that module should remind
+     * me to make suitable edits.
+     */
+    Vec2<int> fake3D_size = vapourJigsaw->getFake3D_size(0);
+    int fake3D_mult = vapourJigsaw->getFake3D_mult(0);
+    kernelQueue->kernelArg(sizeof(cl_int2), &fake3D_size.v[0]);
+    kernelQueue->kernelArg(sizeof(cl_int), &fake3D_mult);
+
+    kernelQueue->kernelArg(sizeof(cl_mem), &edgeJigsawOverlapMem);
 
     size_t edgeGlobalDim[3];
     edgeGlobalDim[0] = unitCount;
@@ -133,49 +139,35 @@ void AFK_3DEdgeComputeQueue::computeStart(
     edgeLocalDim[0] = 1;
     edgeLocalDim[1] = edgeLocalDim[2] = sSizes.eDim;
 
-    cl_event edgeEvent;
-
-    AFK_CLCHK(computer->oclShim.EnqueueNDRangeKernel()(q, edgeKernel, 3, 0, &edgeGlobalDim[0],
-        &edgeLocalDim[0],
-        preEdgeWaitList.size(),
-        &preEdgeWaitList[0],
-        &edgeEvent))
-
-    for (auto ev : preEdgeWaitList)
-    {
-        AFK_CLCHK(computer->oclShim.ReleaseEvent()(ev))
-    }
-
+    kernelQueue->kernel3D(edgeGlobalDim, edgeLocalDim, preEdgeDep, *postEdgeDep);
     AFK_CLCHK(computer->oclShim.ReleaseMemObject()(unitsBuf))
-
-    postEdgeWaitList.clear();
-    postEdgeWaitList.push_back(edgeEvent);
-    vapourJigsaw->releaseFromCl(0, postEdgeWaitList);
-    edgeJigsaw->releaseFromCl(0, postEdgeWaitList);
-    edgeJigsaw->releaseFromCl(1, postEdgeWaitList);
-    AFK_CLCHK(computer->oclShim.ReleaseEvent()(edgeEvent))
-
-    computer->unlock();
 }
 
-void AFK_3DEdgeComputeQueue::computeFinish(void)
+void AFK_3DEdgeComputeQueue::computeFinish(
+    AFK_Jigsaw *vapourJigsaw,
+    AFK_Jigsaw *edgeJigsaw)
 {
-    /* This method is included for symmetry with TerrainComputeQueue.
-     * Right now it does nothing.
-     */
+    assert(postEdgeDep || units.size() == 0);
+    if (units.size() > 0)
+    {
+        vapourJigsaw->releaseFromCl(0, *postEdgeDep);
+        edgeJigsaw->releaseFromCl(0, *postEdgeDep);
+        edgeJigsaw->releaseFromCl(1, *postEdgeDep);
+    }
 }
 
 bool AFK_3DEdgeComputeQueue::empty(void)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
     return units.empty();
 }
 
 void AFK_3DEdgeComputeQueue::clear(void)
 {
-    boost::unique_lock<boost::mutex> lock(mut);
+    std::unique_lock<std::mutex> lock(mut);
 
+    if (postEdgeDep) postEdgeDep->waitFor();
     units.clear();
 }
 

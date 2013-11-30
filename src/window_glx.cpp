@@ -25,6 +25,7 @@
 #include "window_glx.hpp"
 
 
+typedef GLXContext (*glXCreateContextProc)(Display*, XVisualInfo*, GLXContext, Bool);
 typedef GLXContext (*glXCreateContextAttribsARBProc)(Display*, GLXFBConfig, GLXContext, Bool, const int*);
 typedef GLXFBConfig* (*glXChooseFBConfigProc)(Display*, int, const int*, int*);
 
@@ -118,32 +119,29 @@ AFK_WindowGlx::AFK_WindowGlx(unsigned int windowWidth, unsigned int windowHeight
     wmDeleteWindow = XInternAtom(dpy, "WM_DELETE_WINDOW", 0);
     XSetWMProtocols(dpy, w, &wmDeleteWindow, 1);
 
+    /* I need to make the GLX context without GLEW, because GLEW needs
+     * a valid context to load and initialise its other functions
+     * (how awkward).
+     * Remember that I must create the final context here and not a
+     * basic one to test, because AMD doesn't cope with creating
+     * more than one context (?) ...
+     */
     glXCreateContextAttribsARBProc ccProc = (glXCreateContextAttribsARBProc)
         glXGetProcAddressARB((const GLubyte *)"glXCreateContextAttribsARB");
-    
-    if (!ccProc)
-    {
-        throw AFK_Exception("Your GLX doesn't support GLX_ARB_create_context");
-    }
+    if (!ccProc) throw AFK_Exception("Your GLX doesn't support GLX_ARB_create_context");
 
     glXChooseFBConfigProc fbcProc = (glXChooseFBConfigProc)
         glXGetProcAddressARB((const GLubyte *)"glXChooseFBConfig");
-    if (!fbcProc)
-    {
-        throw AFK_Exception("Your GLX doesn't have glXChooseFBConfig");
-    }
+    if (!fbcProc) throw AFK_Exception("Your GLX doesn't have glXChooseFBConfig");
 
     glxFbConfig = (*fbcProc)(dpy, screen, nullptr, &numFbConfigElements);
     if (!glxFbConfig) throw AFK_Exception("Unable to get GLX framebuffer config");
 
     realGlxCtx = (*ccProc)(dpy, glxFbConfig[0], nullptr, true, glAttr);
+    if (!realGlxCtx) throw AFK_Exception("Can't create GLX context (no OpenGL 4.0?)");
+    if (!glXMakeCurrent(dpy, w, realGlxCtx)) throw AFK_Exception("Unable to make real GLX context current");
 
-    if (!glXMakeCurrent(dpy, w, realGlxCtx))
-        throw AFK_Exception("Unable to make real GLX context current");
-
-    /* Now, initialise GLEW, so I never have to do that
-     * awful glXGetProcAddressARB thing ever again
-     */
+    /* Now I can set up. */
     GLenum res = glewInit();
     if (res != GLEW_OK) throw AFK_Exception("Unable to initialise GLEW");
 
@@ -175,16 +173,17 @@ AFK_WindowGlx::~AFK_WindowGlx()
 
     if (dpy)
     {
-        shadowCtxMut.lock();
-        for (auto sgc : shadowGlxContexts)
         {
-            if (sgc.second != 0)
+            std::unique_lock<std::mutex> shadowCtxLock(shadowCtxMut);
+            for (auto sgc : shadowGlxContexts)
             {
-                glXDestroyContext(dpy, sgc.second);
-                sgc.second = 0;
+                if (sgc.second != 0)
+                {
+                    glXDestroyContext(dpy, sgc.second);
+                    sgc.second = 0;
+                }
             }
         }
-        shadowCtxMut.unlock();
 
         if (realGlxCtx) glXDestroyContext(dpy, realGlxCtx);
         if (visInfo) XFree(visInfo);
@@ -204,7 +203,7 @@ unsigned int AFK_WindowGlx::getWindowHeight(void) const
 
 void AFK_WindowGlx::shareGLContext(unsigned int threadId)
 {
-    shadowCtxMut.lock();
+    std::unique_lock<std::mutex> shadowCtxLock(shadowCtxMut);
 
     /* Try to cache and keep around per-thread GLX contexts
      * if I can.
@@ -217,12 +216,11 @@ void AFK_WindowGlx::shareGLContext(unsigned int threadId)
     }
 
     glXMakeCurrent(dpy, w, shadowGlxContexts[threadId]);
-    shadowCtxMut.unlock();
 }
 
 void AFK_WindowGlx::releaseGLContext(unsigned int threadId)
 {
-    shadowCtxMut.lock();
+    std::unique_lock<std::mutex> shadowCtxLock(shadowCtxMut);
 
     auto ctxtEntry = shadowGlxContexts.find(threadId);
     if (ctxtEntry != shadowGlxContexts.end())
@@ -230,8 +228,6 @@ void AFK_WindowGlx::releaseGLContext(unsigned int threadId)
         glXDestroyContext(dpy, ctxtEntry->second);
         shadowGlxContexts.erase(ctxtEntry);
     }
-
-    shadowCtxMut.unlock();
 }
 
 void AFK_WindowGlx::shareGLCLContext(AFK_Computer *computer)

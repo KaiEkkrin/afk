@@ -15,11 +15,12 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
+#include <iostream>
 #include <sstream>
 
 #include "stage_timer.hpp"
 
-AFK_StageTimer::AFK_StageTimer(const std::string& _timerName, const std::vector<std::string>& _stageNames, unsigned int _printFrequency):
+AFK_StageTimer::AFK_StageTimer(const std::string& _timerName, const std::vector<std::string>& _stageNames, int _printFrequency):
     timerName(_timerName),
     printFrequency(_printFrequency),
     roundsSincePrint(0)
@@ -27,7 +28,7 @@ AFK_StageTimer::AFK_StageTimer(const std::string& _timerName, const std::vector<
     unsigned int longestNameLength = 0;
     for (unsigned int i = 0; i < _stageNames.size(); ++i)
     {
-        timesInMicros.push_back(new AFK_MovingAverage<unsigned int>(_printFrequency, 0));
+        timesInMicros.push_back(new AFK_MovingAverage<int>(_printFrequency, 0));
         if (_stageNames[i].size() > longestNameLength) longestNameLength = _stageNames[i].size();
     }
 
@@ -44,7 +45,7 @@ AFK_StageTimer::AFK_StageTimer(const std::string& _timerName, const std::vector<
      * is called.
      */
     stageNames.push_back("Finish");
-    timesInMicros.push_back(new AFK_MovingAverage<unsigned int>(_printFrequency, 0));
+    timesInMicros.push_back(new AFK_MovingAverage<int>(_printFrequency, 0));
 }
 
 AFK_StageTimer::~AFK_StageTimer()
@@ -65,7 +66,7 @@ void AFK_StageTimer::restart(void)
         /* Work out a total time, so that I can display percentages
          * of each round that the various stages appear to take.
          */
-        unsigned int totalTime = 0;
+        int64_t totalTime = 0;
         for (auto t : timesInMicros)
         {
             totalTime += t->get();
@@ -74,19 +75,21 @@ void AFK_StageTimer::restart(void)
         std::cout << "  " << timerName << " stage timer: " << std::endl;
         for (unsigned int i = 0; i < stageNames.size(); ++i)
         {
-            unsigned int timeInMicros = timesInMicros[i]->get();
-            unsigned int timePercent = 100 * timeInMicros / totalTime;
-            std::cout << "    " << stageNames[i] << ": " << timeInMicros << " micros (" << timePercent << "% total)" << std::endl;
+            int64_t timeInMicros = timesInMicros[i]->get();
+            int64_t timePercent = 100 * timeInMicros / totalTime;
+            std::cout << "    " << stageNames[i] << ": " << timeInMicros << " micros (" << timePercent << "\% total)" << std::endl;
         }
 
         roundsSincePrint = 0;
     }
 }
 
-void AFK_StageTimer::hitStage(unsigned int stage)
+void AFK_StageTimer::hitStage(int stage)
 {
-    boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
-    timesInMicros[stage]->push((unsigned int)((now - lastStage).total_microseconds()));
+    afk_clock::time_point now = afk_clock::now();
+    std::chrono::microseconds timeInMicros =
+        std::chrono::duration_cast<std::chrono::microseconds>(now - lastStage);
+    timesInMicros[stage]->push(timeInMicros.count());
     lastStage = now;
 }
 

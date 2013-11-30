@@ -20,17 +20,20 @@
 
 #include "afk.hpp"
 
+#include <mutex>
 #include <sstream>
 #include <vector>
 
-#include <boost/thread/mutex.hpp>
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
 #include "3d_solid.hpp"
 #include "computer.hpp"
+#include "core.hpp"
 #include "def.hpp"
+#include "dreduce.hpp"
 #include "jigsaw_collection.hpp"
+#include "keyed_cell.hpp"
 #include "shape_sizes.hpp"
 
 /* This module marshals 3D object compute data through the
@@ -92,14 +95,23 @@ protected:
     /* Describes each unit of computation in sequence. */
     std::vector<AFK_3DVapourComputeUnit> units;
 
-    boost::mutex mut;
+    std::mutex mut;
 
     cl_kernel vapourFeatureKernel;
     cl_kernel vapourNormalKernel;
 
-    std::vector<cl_event> preVapourWaitList;
-    std::vector<cl_event> preNormalWaitList;
-    std::vector<cl_event> postVapourWaitList;
+    /* The number of vapour density and normal jigsaws we acquired... */
+    int jpDCount, jpNCount;
+
+    /* ...and the events we need to wait for before releasing them */
+    AFK_ComputeDependency *preReleaseDep;
+
+    AFK_DReduce *dReduce;
+
+    /* Here we store the in-order list of source shape cell keys,
+     * so that the dreduce can feed back its results easily.
+     */
+    std::vector<AFK_KeyedCell> shapeCells;
     
 public:
     AFK_3DVapourComputeQueue();
@@ -126,15 +138,17 @@ public:
         const AFK_JigsawPiece& vapourJigsawPiece,
         int adjacencies,
         unsigned int cubeOffset,
-        unsigned int cubeCount);
+        unsigned int cubeCount,
+        const AFK_KeyedCell& cell);
 
-    /* Starts computing the vapour.
-     */
     void computeStart(
         AFK_Computer *computer,
         AFK_JigsawCollection *vapourJigsaws,
         const AFK_ShapeSizes& sSizes);
-    void computeFinish(void);
+    void computeFinish(
+        unsigned int threadId,
+        AFK_JigsawCollection *vapourJigsaws,
+        AFK_SHAPE_CELL_CACHE *cache);
 
     /* To be part of a Fair. */
     bool empty(void);

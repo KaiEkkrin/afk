@@ -19,17 +19,14 @@
 #define _AFK_ASYNC_ASYNC_H_
 
 #include <exception>
+#include <future>
 #include <iostream>
+#include <memory>
+#include <mutex>
+#include <thread>
 #include <vector>
 
-#include <boost/atomic.hpp>
-#include <boost/chrono.hpp>
-#include <boost/ref.hpp>
-#include <boost/thread/condition.hpp>
-#include <boost/thread/future.hpp>
-#include <boost/thread/mutex.hpp>
-#include <boost/thread/thread.hpp>
-
+#include "thread_allocation.hpp"
 #include "work_queue.hpp"
 
 /* Don't enable this unless you want MAXIMAL SPAM */
@@ -37,29 +34,31 @@
 
 #define ASYNC_WORKER_DEBUG 0
 
-#include <iostream>
-#include <boost/date_time/posix_time/posix_time.hpp>
-
 #if ASYNC_DEBUG_SPAM
-extern boost::mutex debugSpamMut;
+#include <ctime>
+#include <iostream>
+#include "../clock.hpp"
+
+extern std::mutex debugSpamMut;
 
 #define ASYNC_DEBUG(chain) \
     { \
-        boost::unique_lock<boost::mutex> guard(debugSpamMut); \
-        boost::posix_time::ptime debugTime = boost::posix_time::microsec_clock::local_time(); \
-        std::cout << "in thread " << boost::this_thread::get_id() << " at " << debugTime << ": "; \
+        std::unique_lock<std::mutex> guard(debugSpamMut); \
+        afk_clock::time_point debugTime = \
+            afk_clock::now(); \
+        std::cout << "in thread " << std::this_thread::get_id() << " at " << debugTime.time_since_epoch().count() << ": "; \
         std::cout << chain << std::endl; \
     }
 
 #define ASYNC_CONTROL_DEBUG(chain) \
     { \
-        boost::unique_lock<boost::mutex> guard(debugSpamMut); \
-        boost::posix_time::ptime debugTime = boost::posix_time::microsec_clock::local_time(); \
+        std::unique_lock<std::mutex> guard(debugSpamMut); \
+        afk_clock::time_point debugTime = \
+            afk_clock::now(); \
         std::cout << "control " << this << " in thread "; \
-        std::cout << boost::this_thread::get_id() << " at " << debugTime << ": "; \
+        std::cout << std::this_thread::get_id() << " at " << debugTime.time_since_epoch().count() << ": "; \
         std::cout << chain << std::endl; \
     }
-
 
 #else
 #define ASYNC_DEBUG(chain)
@@ -86,11 +85,16 @@ private:
     /* It's really important this thing doesn't get accidentally
      * duplicated
      */
-    AFK_AsyncControls(const AFK_AsyncControls& controls): workerCount(controls.workerCount) {}
-    AFK_AsyncControls& operator=(const AFK_AsyncControls& controls) { return *this; }
+    AFK_AsyncControls(const AFK_AsyncControls& controls) = delete;
+    AFK_AsyncControls& operator=(const AFK_AsyncControls& controls) = delete;
 
 protected:
-    const unsigned int workerCount;
+    /* Here's the list of thread IDs of the workers (the size of this
+     * list is, of course, the worker count.)
+     */
+    std::vector<unsigned int> workerIds;
+
+    uint64_t allWorkerMask;
 
     /* The workers wait on this condition variable until things are
      * primed and they're ready to go. Here's how we do it:
@@ -100,36 +104,87 @@ protected:
      * bit to indicate it got it.  It then waits on the variable
      * again until all bits become 0, indicating all workers are
      * sync'd up and ready to go
-     * - After everything has started once, when work has finished,
-     * all the workers will find a zero `workReady' value and just
-     * block until the process is begun again.
+     * - To latch the workers out, I use `workRunning' with the
+     * same scheme: when the workers start, they set their bit
+     * of `workRunning'.  When they decide things are finished, they
+     * clear their bit and wait until all the bits become zero.
      */
-    boost::condition_variable workCond;
-    boost::mutex workMut;
-    size_t workReady;
+    std::condition_variable workCond;
+    std::mutex workMut;
+    uint64_t workReady;
+    uint64_t workRunning;
     bool quit; /* Tells the workers to instead quit out entirely */
 
 public:
-    AFK_AsyncControls(const unsigned int _workerCount):
-        workerCount(_workerCount), workReady(0), quit(false) {}
+    AFK_AsyncControls(const std::vector<unsigned int>& _workerIds):
+        workerIds(_workerIds), allWorkerMask(0), workReady(0), workRunning(0), quit(false)
+    {
+        for (auto id : _workerIds) allWorkerMask |= (1ull << id);
+    }
 
     void control_workReady(void);
     void control_quit(void);
 
     /* Returns true if there is work to be done, false for quit */
     bool worker_waitForWork(unsigned int id);
+
+    /* Blocks until all workers are latched out. */
+    void worker_waitForFinished(unsigned int id);
+
+    /* Checks whether all work is finished or not. */
+    bool control_workFinished(void);
 };
 
 
-template<class ParameterType, class ReturnType>
+/* A wrapper for the thread-local type (below) to control copying
+ * it around.
+ */
+template<typename ThreadLocalType>
+class AFK_ThreadLocalWrapper
+{
+public:
+    ThreadLocalType inner;
+    std::mutex mut;
+};
+
+/* TODO: Parameter for this function, to stop it from having
+ * to reference globals?
+ */
+typedef std::function<bool (void)> AFK_AsyncTaskFinishedFunc;
+
+/* Here's how it works:
+ * - ParameterType is the type of the work queue parameter, which
+ * includes each function to call along with its arguments (see
+ * work_queue).
+ * - ReturnType is the type the called function should return.
+ * (Barely used; I've been sticking to bool.)
+ * - ThreadLocalType is the type of a field whose contents
+ * should be copied into thread-local storage at the start of each
+ * run, and a const reference passed to the called function.
+ * (It should be quite small, because it goes on the stack, and
+ * have a trivial constructor, and be copy constructable and
+ * assignable.  It doesn't need its own concurrency control.)
+ * - AsyncTaskFinishedFunc is called periodically (not on any
+ * deterministic schedule) to decide when things are finished.
+ */
+template<typename ParameterType, typename ReturnType, typename ThreadLocalType, AFK_AsyncTaskFinishedFunc& taskFinished>
 void afk_asyncWorker(
     AFK_AsyncControls& controls,
+    AFK_ThreadLocalWrapper<ThreadLocalType>& threadLocalSource,
     unsigned int id,
-    AFK_WorkQueue<ParameterType, ReturnType>& queue,
-    boost::promise<ReturnType>*& promise)
+    bool first,
+    AFK_WorkQueue<ParameterType, ReturnType, ThreadLocalType>& queue,
+    std::promise<ReturnType>*& promise)
 {
     while (controls.worker_waitForWork(id))
     {
+        /* Copy out the thread-local values for this run. */
+        ThreadLocalType tl;
+
+        threadLocalSource.mut.lock();
+        tl = threadLocalSource.inner; /* that seriously shouldn't throw an exception */
+        threadLocalSource.mut.unlock();
+
         /* TODO Do something sane with the return values rather
          * than just accumulating the last one!
          */
@@ -139,7 +194,7 @@ void afk_asyncWorker(
 
         while (!finished)
         {
-            status = queue.consume(id, retval);
+            status = queue.consume(id, tl, retval);
             switch (status)
             {
             case AFK_WQ_BUSY:
@@ -147,21 +202,19 @@ void afk_asyncWorker(
                 break;
 
             case AFK_WQ_WAITING:
-#if WORK_QUEUE_CONDITION_WAIT
-                /* I don't expect this. */
-                throw AFK_AsyncException();
-#else
-                /* Give way so I don't cram the CPU with busy-waits.
-                 * This is really important -- the whole system chokes
-                 * if I don't do it.
-                 */
-                boost::this_thread::yield();
-#endif
-                break;
-
-            case AFK_WQ_FINISHED:
-                /* Nothing left. */
-                finished = true;
+                /* Check for finished. */
+                if (taskFinished())
+                {
+                    finished = true;
+                }
+                else
+                {
+                    /* Give way so I don't cram the CPU with busy-waits.
+                     * This is really important -- the whole system chokes
+                     * if I don't do it.
+                     */
+                    std::this_thread::yield();
+                }
                 break;
 
             default:
@@ -170,22 +223,20 @@ void afk_asyncWorker(
             }
         }
 
+        /* I think I've finished.  Sync up. */
+        controls.worker_waitForFinished(id);
+
 #if ASYNC_WORKER_DEBUG
         std::cout << "X";
 #endif
 
         /* At this point, everyone has finished.
-         * See TODO above: for expediency, if I'm worker
-         * 0, I'll populate the return value, otherwise
+         * See TODO above: for expediency, if I've got the `first' flag
+         * (only one worker has), I'll populate the return value, otherwise
          * I'll throw it away now
          */
-        if (id == 0)
+        if (first)
         {
-            
-
-#if ASYNC_DEBUG_SPAM
-            ASYNC_DEBUG("busy field: " << std::hex << controls.workersBusy.load())
-#endif
             promise->set_value(retval);
 #if ASYNC_DEBUG_SPAM
             ASYNC_DEBUG("fulfilling promise " << std::hex << (void *)promise)
@@ -195,68 +246,93 @@ void afk_asyncWorker(
 }
 
 
-template<class ParameterType, class ReturnType>
+template<typename ParameterType, typename ReturnType, typename ThreadLocalType, AFK_AsyncTaskFinishedFunc& taskFinished>
 class AFK_AsyncGang
 {
 protected:
-    std::vector<boost::thread*> workers;
-    AFK_AsyncControls controls;
+    std::vector<std::thread*> workers;
+    std::vector<unsigned int> threadIds;
+    AFK_AsyncControls *controls;
 
     /* The queue of functions and parameters. */
-    AFK_WorkQueue<ParameterType, ReturnType> queue;
+    AFK_WorkQueue<ParameterType, ReturnType, ThreadLocalType> queue;
+
+    /* The thread-local values get put into this known field by the control
+     * thread so that the workers can access it without needing a thread
+     * restart.
+     */
+    AFK_ThreadLocalWrapper<ThreadLocalType> threadLocalSource;
 
     /* The promised return value. */
-    boost::promise<ReturnType> *promise;
+    std::promise<ReturnType> *promise;
 
-    void initWorkers(unsigned int concurrency)
+    void initWorkers(void)
     {
-        for (unsigned int i = 0; i < concurrency; ++i)
+        bool first = true;
+        for (auto id : threadIds)
         { 
-            boost::thread *t = new boost::thread(
-                afk_asyncWorker<ParameterType, ReturnType>,
-                boost::ref(controls),
-                i,
-                boost::ref(queue),
-                boost::ref(promise));
+            std::thread *t = new std::thread(
+                afk_asyncWorker<ParameterType, ReturnType, ThreadLocalType, taskFinished>,
+                std::ref(*controls),
+                std::ref(threadLocalSource),
+                id,
+                first,
+                std::ref(queue),
+                std::ref(promise));
             workers.push_back(t);
+            first = false;
         }
     }
 
 public:
-    AFK_AsyncGang(size_t queueSize, unsigned int concurrency):
-        controls(concurrency), promise(nullptr)
+    AFK_AsyncGang(size_t queueSize, AFK_ThreadAllocation& threadAllocation, unsigned int concurrency):
+        promise(nullptr)
     {
-        /* Make sure the flags for this level of concurrency will fit
-         * into a size_t
+        /* Work out the actual maximum number of threads I can add
+         * to the thread allocation
          */
-        assert(concurrency < (sizeof(size_t) * 8));
+        unsigned int threadCount = std::min(concurrency, threadAllocation.getMaxNewIds());
 
-        initWorkers(concurrency);
+        threadIds.reserve(threadCount);
+        for (unsigned int t = 0; t < threadCount; ++t)
+            threadIds.push_back(threadAllocation.getNewId());
+
+        controls = new AFK_AsyncControls(threadIds);
+        initWorkers();
     }
 
-    AFK_AsyncGang(size_t queueSize):
-        controls(boost::thread::hardware_concurrency()), promise(nullptr)
+    AFK_AsyncGang(size_t queueSize, AFK_ThreadAllocation& threadAllocation):
+        AFK_AsyncGang(queueSize, threadAllocation, std::thread::hardware_concurrency() + 1)
     {
-        initWorkers(boost::thread::hardware_concurrency() + 1);
     }
 
     virtual ~AFK_AsyncGang()
     {
-        controls.control_quit();
+        controls->control_quit();
         for (auto w : workers) w->join();
         for (auto w : workers) delete w;
 
         if (promise) delete promise;
+        delete controls;
     }
 
-    size_t getConcurrency(void) const
+    unsigned int getConcurrency(void) const
     {
         return workers.size();
     }
 
-    bool assertNoQueuedWork(void)
+    const std::vector<unsigned int>& getThreadIds(void) const
     {
-        return queue.finished();
+        return threadIds;
+    }
+
+    bool noQueuedWork(void)
+    {
+        /* Use as a sanity check.  Makes sure that all current
+         * work is finished and we've gated the worker threads
+         * out of the inner work loop.
+         */
+        return taskFinished() && controls->control_workFinished();
     }
 
     /* Push initial work items into the gang.  Call before calling
@@ -264,7 +340,7 @@ public:
      * Er, or while it's running, if you feel brave.  It should
      * be fine...
      */
-    AFK_AsyncGang& operator<<(typename AFK_WorkQueue<ParameterType, ReturnType>::WorkItem workItem)
+    AFK_AsyncGang& operator<<(typename AFK_WorkQueue<ParameterType, ReturnType, ThreadLocalType>::WorkItem workItem)
     {
         queue.push(workItem);
         return *this;
@@ -274,20 +350,25 @@ public:
      * result.
      * The caller should wait on that future, no doubt.
      */
-    boost::unique_future<ReturnType> start(void)
+    std::future<ReturnType> start(const ThreadLocalType& _tl)
     {
 #if ASYNC_DEBUG_SPAM
         ASYNC_DEBUG("deleting promise " << std::hex << (void *)promise)
 #endif
         /* Reset that promise */
         if (promise) delete promise;
-        promise = new boost::promise<ReturnType>();
+        promise = new std::promise<ReturnType>();
 #if ASYNC_DEBUG_SPAM
         ASYNC_DEBUG("making new promise " << std::hex << (void *)promise)
 #endif
 
+        /* Copy out that thread-local value */
+        threadLocalSource.mut.lock();
+        threadLocalSource.inner = _tl;
+        threadLocalSource.mut.unlock();
+
         /* Set things off */
-        controls.control_workReady();
+        controls->control_workReady();
 
         /* Send back the future */
         return promise->get_future();

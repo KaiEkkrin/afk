@@ -15,6 +15,17 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
+
+/* Disable switch for the layers system, which will hopefully plug
+ * image gaps, but in its incomplete state it doesn't --
+ * with this, the compiled GPU code shouldn't be significantly more
+ * heavyweight than the old layer-less code
+ */
+#define AFK_SHAPE_LAYERS 1
+
+
+#include <cassert>
+
 #include "def.hpp"
 #include "shape_sizes.hpp"
 
@@ -23,19 +34,38 @@ AFK_ShapeSizes::AFK_ShapeSizes(
     const AFK_Config *config):
     subdivisionFactor(config->subdivisionFactor),
     entitySubdivisionFactor(config->entitySubdivisionFactor),
-    pointSubdivisionFactor(config->shape_pointSubdivisionFactor),
-    vDim(config->shape_pointSubdivisionFactor),
-    eDim(config->shape_pointSubdivisionFactor + 1), /* one extra vertex along the top and right sides to join with the adjacent tile */
-    tDim(config->shape_pointSubdivisionFactor + 3),
-    iDim(config->shape_pointSubdivisionFactor),
-    featureCountPerCube(CUBE(config->shape_pointSubdivisionFactor) / 2),
-    //featureCountPerCube(1),
+    pointSubdivisionFactor(afk_shapePointSubdivisionFactor),
+    vDim(afk_shapePointSubdivisionFactor),
+    eDim(afk_shapePointSubdivisionFactor + 1), /* one extra vertex along the top and right sides to join with the adjacent tile */
+    tDim(afk_shapePointSubdivisionFactor + 3),
+    iDim(afk_shapePointSubdivisionFactor),
+    featureCountPerCube(afk_shapeFeatureCountPerCube),
     skeletonMaxSize(config->shape_skeletonMaxSize),
-    skeletonFlagGridDim(config->shape_skeletonFlagGridDim),
+    skeletonFlagGridDim(afk_shapeSkeletonFlagGridDim),
     skeletonBushiness(1.0f / 4.0f),
-    featureMaxSize(1.0f / (2.0f * (float)config->shape_skeletonFlagGridDim)),
-    featureMinSize(1.0f / (2.0f * (float)config->shape_skeletonFlagGridDim * (float)config->subdivisionFactor)),
+    featureMaxSize(1.0f / (2.0f * (float)afk_shapeSkeletonFlagGridDim)),
+    featureMinSize(1.0f / (2.0f * (float)afk_shapeSkeletonFlagGridDim * (float)config->subdivisionFactor)),
     edgeThreshold(config->shape_edgeThreshold)
 {
+    for (reduceOrder = 1; (1u << reduceOrder) < tDim; ++reduceOrder);
+
+    for (layerBitness = 3; /* minimum bits for expressing overlap */
+        (1u<<layerBitness) < (pointSubdivisionFactor+1);
+        ++layerBitness);
+
+    assert(layerBitness < (8 * sizeof(uint32_t)));
+
+#if AFK_SHAPE_LAYERS
+    /* limiting layers to pointSubdivisionFactor isn't strictly necessary
+     * for the algorithm, but having more layers than that would be,
+     * you know, silly, because it wouldn't be possible to
+     * actually populate them all :P
+     */
+    for (layers = 0;
+        (layers + 1) * layerBitness < (8 * sizeof(uint32_t)) && (layers + 1) < pointSubdivisionFactor;
+        ++layers);
+#else
+    layers = 1;
+#endif
 }
 
