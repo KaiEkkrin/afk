@@ -30,7 +30,7 @@
 #ifdef __GNUC__
 #include <unistd.h>
 
-static std::string afk_strerror(errno_t e)
+static std::string afk_strerror(int e)
 {
     return std::string(strerror(e));
 }

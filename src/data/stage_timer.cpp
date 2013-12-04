@@ -63,9 +63,9 @@ void AFK_StageTimer::restart(void)
          * of each round that the various stages appear to take.
          */
         int64_t totalTime = 0;
-        for (auto t : timesInMicros)
+        for (auto timesIt = timesInMicros.begin(); timesIt != timesInMicros.end(); ++timesIt)
         {
-            totalTime += t.get();
+            totalTime += timesIt->get();
         }
 
         std::cout << "  " << timerName << " stage timer: " << std::endl;

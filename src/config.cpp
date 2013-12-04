@@ -60,7 +60,7 @@ static char *getDirAtExecPath(const char *leafname, const char *execname)
 #ifdef _WIN32
         strcpy_s(&dirname[i+1], dirnameMaxSize - (i+1), leafname);
 #else
-        strcpy(&dirname[i+1], dirnameMaxSize, leafname);
+        strcpy(&dirname[i+1], leafname);
 #endif
     }
     else
@@ -152,7 +152,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         if (strcmp(argv[argi], "--shaders-dir") == 0)
         {
             REQUIRE_ARGUMENT("--shaders-dir")
-            shadersDir = _strdup(argv[argi]);
+            shadersDir = afk_strdup(argv[argi]);
         }
         else if (strcmp(argv[argi], "--seed") == 0)
         {
@@ -203,7 +203,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         else if (strcmp(argv[argi], "--cl-lib-dir") == 0)
         {
             REQUIRE_ARGUMENT("--cl-lib-dir")
-            clProgramsDir = _strdup(argv[argi]);
+            clProgramsDir = afk_strdup(argv[argi]);
         }
         else if (strcmp(argv[argi], "--concurrency") == 0)
         {
@@ -213,7 +213,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         else if (strcmp(argv[argi], "--cl-programs-dir") == 0)
         {
             REQUIRE_ARGUMENT("--cl-programs-dir")
-            clProgramsDir = _strdup(argv[argi]);
+            clProgramsDir = afk_strdup(argv[argi]);
         }
         else if (strcmp(argv[argi], "--cl-gl-sharing") == 0)
         {

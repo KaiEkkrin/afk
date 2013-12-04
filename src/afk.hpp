@@ -53,6 +53,14 @@
 #endif
 #endif /* afk_align */
 
+#ifndef afk_strdup
+#ifdef _WIN32
+#define afk_strdup _strdup
+#else
+#define afk_strdup strdup
+#endif
+#endif /* afk_strdup */
+
 #ifndef afk_thread_local
 #ifdef __GNUC__
 #define afk_thread_local thread_local
