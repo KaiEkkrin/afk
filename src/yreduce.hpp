@@ -50,7 +50,7 @@ public:
     virtual ~AFK_YReduce();
 
     void compute(
-        unsigned int unitCount,
+        size_t unitCount,
         cl_mem *units,
         cl_mem *jigsawYDisp,
         cl_sampler *yDispSampler,
@@ -60,7 +60,7 @@ public:
 
     void readBack(
         unsigned int threadId,
-        unsigned int unitCount,
+        size_t unitCount,
         const std::vector<AFK_Tile>& landscapeTiles,
         AFK_LANDSCAPE_CACHE *cache);
 };

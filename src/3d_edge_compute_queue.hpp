@@ -38,6 +38,9 @@
 
 #define AFK_3DECU_VPCOUNT 7
 
+#ifdef _WIN32
+_declspec(align(16))
+#endif
 class AFK_3DEdgeComputeUnit
 {
 public:
@@ -49,7 +52,11 @@ public:
         const AFK_JigsawPiece& _edgeJigsawPiece);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_3DEdgeComputeUnit& unit);
-} __attribute__((aligned(16)));
+}
+#ifdef __GNUC__
+__attribute__((aligned(16)))
+#endif
+;
 
 std::ostream& operator<<(std::ostream& os, const AFK_3DEdgeComputeUnit& unit);
 

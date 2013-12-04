@@ -20,6 +20,8 @@
 
 #include <boost/thread.hpp>
 
+#include "data.hpp"
+
 /* This defines the same interface as Claimable, but using boost
  * upgrade mutexes.
  * There's no separate "InplaceClaim" here, but it handles `shared'
@@ -46,7 +48,7 @@ protected:
     AFK_LockedClaimable<T> *claimable;
     AFK_LockedClaimStatus status;
 
-    AFK_LockedClaim(AFK_LockedClaimable<T> *_claimable, bool _shared, bool _upgrade) noexcept:
+    AFK_LockedClaim(AFK_LockedClaimable<T> *_claimable, bool _shared, bool _upgrade) afk_noexcept:
         claimable(_claimable)
     {
         assert(!(_shared && _upgrade));
@@ -60,14 +62,14 @@ public:
     AFK_LockedClaim& operator=(const AFK_LockedClaim& _c) = delete;
 
     /* Move construction and assignment, just like volatile claims */
-    AFK_LockedClaim(AFK_LockedClaim&& _claim) noexcept:
+    AFK_LockedClaim(AFK_LockedClaim&& _claim) afk_noexcept:
         claimable(_claim.claimable), status(_claim.status)
     {
         AFK_DEBUG_PRINTL_CLAIMABLE("copy moving inplace claim for " << std::hex << claimable << ": " << obj)
         _claim.status   = AFK_LockedClaimStatus::Released;
     }
 
-    AFK_LockedClaim& operator=(AFK_LockedClaim&& _claim) noexcept
+    AFK_LockedClaim& operator=(AFK_LockedClaim&& _claim) afk_noexcept
     {
         AFK_DEBUG_PRINTL_CLAIMABLE("assign moving inplace claim for " << std::hex << claimable << ": " << obj)
 
@@ -77,25 +79,25 @@ public:
         return *this;
     }
 
-    virtual ~AFK_LockedClaim() noexcept
+    virtual ~AFK_LockedClaim() afk_noexcept
     {
         AFK_DEBUG_PRINTL_CLAIMABLE("destructing inplace claim for " << std::hex << claimable << ": " << obj << "(released: " << status == AFK_LockedClaimStatus::Released << ")")
         if (status != AFK_LockedClaimStatus::Released) release();
     }
 
-    const T& getShared(void) const noexcept
+    const T& getShared(void) const afk_noexcept
     {
         assert(status != AFK_LockedClaimStatus::Released);
         return claimable->obj;
     }
 
-    T& get(void) noexcept
+    T& get(void) afk_noexcept
     {
         assert(status == AFK_LockedClaimStatus::Unique);
         return claimable->obj;
     }
 
-    bool upgrade(void) noexcept
+    bool upgrade(void) afk_noexcept
     {
         switch (status)
         {
@@ -114,7 +116,7 @@ public:
         }
     }
 
-    void release(void) noexcept
+    void release(void) afk_noexcept
     {
         switch (status)
         {
@@ -138,7 +140,7 @@ public:
         status = AFK_LockedClaimStatus::Released;
     }
 
-    void invalidate(void) noexcept
+    void invalidate(void) afk_noexcept
     {
         /* In this case, the values have been changed already, nothing
          * we can do...
@@ -162,17 +164,17 @@ protected:
     boost::upgrade_mutex mut;
 
 public:
-    void release(unsigned int threadId) noexcept
+    void release(unsigned int threadId) afk_noexcept
     {
         mut.unlock();
     }
 
-    AFK_LockedClaimable() noexcept: obj()
+    AFK_LockedClaimable() afk_noexcept: obj()
     {
         boost::unique_lock<boost::upgrade_mutex> lock(mut);
     }
 
-    AFK_LockedClaimable(const AFK_LockedClaimable&& _claimable) noexcept
+    AFK_LockedClaimable(const AFK_LockedClaimable&& _claimable) afk_noexcept
     {
         boost::unique_lock<boost::upgrade_mutex> lock1(_claimable.mut);
         boost::unique_lock<boost::upgrade_mutex> lock2(mut);
@@ -180,7 +182,7 @@ public:
         obj = _claimable.obj;
     }
 
-    AFK_LockedClaimable& operator=(const AFK_LockedClaimable&& _claimable) noexcept
+    AFK_LockedClaimable& operator=(const AFK_LockedClaimable&& _claimable) afk_noexcept
     {
         boost::unique_lock<boost::upgrade_mutex> lock1(_claimable.mut);
         boost::unique_lock<boost::upgrade_mutex> lock2(mut);
@@ -189,7 +191,7 @@ public:
         return *this;
     }
 
-    bool claimInternal(unsigned int threadId, unsigned int flags) noexcept
+    bool claimInternal(unsigned int threadId, unsigned int flags) afk_noexcept
     {
         bool claimed = false;
 
@@ -211,12 +213,12 @@ public:
         return claimed;
     }
 
-    AFK_LockedClaim<T> getClaim(unsigned int threadId, unsigned int flags) noexcept
+    AFK_LockedClaim<T> getClaim(unsigned int threadId, unsigned int flags) afk_noexcept
     {
         return AFK_LockedClaim<T>(this, flags & AFK_CL_SHARED, flags & AFK_CL_UPGRADE);
     }
 
-    AFK_LockedClaim<T> getInplaceClaim(unsigned int threadId, unsigned int flags) noexcept
+    AFK_LockedClaim<T> getInplaceClaim(unsigned int threadId, unsigned int flags) afk_noexcept
     {
         return AFK_LockedClaim<T>(this, flags & AFK_CL_SHARED, flags & AFK_CL_UPGRADE);
     }

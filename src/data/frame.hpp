@@ -19,6 +19,7 @@
 #define _AFK_FRAME_H_
 
 #include <climits>
+#include <cstdint>
 #include <sstream>
 
 #include <boost/static_assert.hpp>

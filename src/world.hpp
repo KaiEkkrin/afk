@@ -53,6 +53,7 @@
 #include "terrain_compute_queue.hpp"
 #include "tile.hpp"
 #include "work.hpp"
+#include "world_cell.hpp"
 
 /* The world of AFK. */
 
@@ -285,9 +286,9 @@ public:
         AFK_Computer *computer,
         AFK_ThreadAllocation& threadAlloc,
         float _maxDistance,
-        unsigned int worldCacheSize, /* in bytes */
-        unsigned int tileCacheSize, /* also in bytes */
-        unsigned int shapeCacheSize, /* likewise */
+        size_t worldCacheSize, /* in bytes */
+        size_t tileCacheSize, /* also in bytes */
+        size_t shapeCacheSize, /* likewise */
         AFK_RNG *setupRng);
     virtual ~AFK_World();
 

@@ -38,6 +38,9 @@ class AFK_Jigsaw;
  * Each "bit" (`unit') is one face.
  */
 
+#ifdef _WIN32
+_declspec(align(16))
+#endif
 class AFK_EntityDisplayUnit
 {
 protected:
@@ -63,7 +66,11 @@ public:
         const Vec2<float>& _edgeJigsawPieceST);
 
     //friend std::ostream& operator<<(std::ostream& os, const AFK_EntityDisplayUnit& unit);
-} __attribute__((aligned(16)));
+}
+#ifdef __GNUC__
+__attribute__((aligned(16)))
+#endif
+;
 
 #define ENTITY_DISPLAY_UNIT_SIZE (28 * sizeof(float))
 static_assert(ENTITY_DISPLAY_UNIT_SIZE == sizeof(AFK_EntityDisplayUnit), "EDU size");

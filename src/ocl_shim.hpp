@@ -20,8 +20,6 @@
 
 #include "afk.hpp"
 
-#include <dlfcn.h>
-
 #include "config.hpp"
 
 /* This module is responsible for dynamically loading the OpenCL
@@ -31,6 +29,10 @@
 void afk_handleDlError(const char *_file, const int _line);
 
 #define AFK_HANDLE_DL_ERROR afk_handleDlError(__FILE__, __LINE__)
+
+#ifdef AFK_GLX
+
+#include <dlfcn.h>
 
 /* In OclShim, the CL functions are wrapped by member wrappers. They
  * share the same name minus the `cl' prefix.  wrapper()(cl parameters ...)
@@ -62,10 +64,44 @@ void afk_handleDlError(const char *_file, const int _line);
     }; \
     st_##name name = st_##name(&handle)
 
+#endif /* AFK_GLX */
+
+#ifdef AFK_WGL
+
+#define AFK_OCL_FUNC(rettype, name, ...) \
+    typedef rettype(*OCLFUNC_##name)(__VA_ARGS__); \
+    class st_##name \
+    { \
+    private: \
+        HMODULE *handlePtr; \
+        OCLFUNC_##name oclFunc_##name; \
+    public: \
+        st_##name(HMODULE *_handlePtr) : \
+            handlePtr(_handlePtr), oclFunc_##name(nullptr) {} \
+        OCLFUNC_##name operator()(void) \
+        { \
+            if (!oclFunc_##name) \
+            { \
+                oclFunc_##name = (OCLFUNC_##name)GetProcAddress(*handlePtr, "cl"#name); \
+                if (!oclFunc_##name) AFK_HANDLE_DL_ERROR; \
+            } \
+            return oclFunc_##name; \
+        } \
+    }; \
+    st_##name name = st_##name(&handle)
+
+#endif /* AFK_WGL */
+
 class AFK_OclShim
 {
 protected:
-    void *handle;   
+#ifdef AFK_GLX
+    void *handle;
+#endif
+
+#ifdef AFK_WGL
+    HMODULE handle;
+#endif
 
 public:
     AFK_OclShim(const AFK_Config *config);

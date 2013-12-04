@@ -17,11 +17,12 @@
 
 #include "afk.hpp"
 
+#include <cassert>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
 #include <errno.h>
 #include <iostream>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
 
 #include "clock.hpp"
 
@@ -36,6 +37,7 @@ afk_clock::time_point afk_clock::now()
     {
         /* This is fatal (and shouldn't happen.) */
         std::cerr << "afk_clock: error getting time: " << strerror(errno) << std::endl;
+        assert(false);
         exit(result);
     }
 
@@ -48,7 +50,36 @@ afk_clock::time_point afk_clock::now()
 
 #ifdef AFK_WGL
 
-/* TODO. See clock.hpp */
+afk_clock::time_point afk_clock::now()
+{
+    /* Keep hold of the frequency. */
+    static afk_thread_local bool haveFrequency = false;
+    static afk_thread_local LARGE_INTEGER frequency;
+    if (!haveFrequency)
+    {
+        if (!QueryPerformanceFrequency(&frequency))
+        {
+            /* This is fatal, and shouldn't happen. */
+            std::cerr << "afk_clock: error querying performance frequency: " << GetLastError();
+            assert(false);
+            exit(1);
+        }
+
+        haveFrequency = true;
+    }
+
+    LARGE_INTEGER counter;
+    if (!QueryPerformanceCounter(&counter))
+    {
+        /* This is also fatal, and shouldn't happen. */
+        std::cerr << "afk_clock: error querying performance counter: " << GetLastError();
+        assert(false);
+        exit(1);
+    }
+
+    return time_point(duration(static_cast<rep>(
+        (double)counter.QuadPart / (double)frequency.QuadPart * period::den / period::num)));
+}
 
 #endif /* AFK_WGL */
 

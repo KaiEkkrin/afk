@@ -18,6 +18,7 @@
 #ifndef _AFK_DATA_MOVING_AVERAGE_H_
 #define _AFK_DATA_MOVING_AVERAGE_H_
 
+#include <cassert>
 #include <vector>
 
 /* Does what it says on the tin. */
@@ -41,6 +42,33 @@ public:
 
         head = vals.begin();
         total = startingVal * count;
+    }
+
+    AFK_MovingAverage(const AFK_MovingAverage&& _av) :
+        vals(_av.vals),
+        count(_av.count)
+    {
+        assert(count == vals.size());
+
+        head = vals.begin();
+        total = 0;
+        for (auto val : vals)
+            total += val;
+    }
+
+    AFK_MovingAverage& operator=(const AFK_MovingAverage&& _av)
+    {
+        vals = _av.vals;
+        count = _av.count;
+
+        assert(count == vals.size());
+
+        head = vals.begin();
+        total = 0;
+        for (auto val : vals)
+            total += val;
+
+        return *this;
     }
 
     /* Pushes a new value into the moving average,

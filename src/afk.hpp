@@ -33,7 +33,42 @@
 #include <GL/glxew.h>
 #endif /* AFK_GLX */
 
+#ifdef AFK_WGL
+#include <GL/wglew.h>
+#endif /* AFK_WGL */
+
+#include <cstdint>
+
+
 /* Global compile-time settings */
+
+/* Work around some compiler differences... */
+
+#ifndef afk_align
+#ifdef __GNUC__
+#define afk_align(v) __attribute__((aligned(v)))
+#endif
+#ifdef _WIN32
+#define afk_align(v) __declspec(align(v))
+#endif
+#endif /* afk_align */
+
+#ifndef afk_thread_local
+#ifdef __GNUC__
+#define afk_thread_local thread_local
+#endif
+#ifdef _WIN32
+#define afk_thread_local __declspec(thread)
+#endif
+#endif /* afk_thread_local */
+
+#ifdef _WIN32
+/* If I don't do this, Visual Studio doesn't give me mathematical constants like M_PI */
+#define _USE_MATH_DEFINES
+
+/* TODO: This is naughty, but I don't want to spend time removing innocent strcpy() calls right now! */
+#define _CRT_SECURE_NO_WARNINGS
+#endif
 
 /* This appears to be the correct amount to `wiggle' texture samples
  * by, on both AMD and Nvidia, so that nearest-neighbour sampling

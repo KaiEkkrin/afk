@@ -39,7 +39,7 @@ AFK_YReduce::~AFK_YReduce()
 }
 
 void AFK_YReduce::compute(
-    unsigned int unitCount,
+    size_t unitCount,
     cl_mem *units,
     cl_mem *jigsawYDisp,
     cl_sampler *yDispSampler,
@@ -78,11 +78,11 @@ void AFK_YReduce::compute(
     kernelQueue->kernelArg(sizeof(cl_mem), &buf);
 
     size_t yReduceGlobalDim[2];
-    yReduceGlobalDim[0] = (1 << lSizes.getReduceOrder());
+    yReduceGlobalDim[0] = (1uLL << lSizes.getReduceOrder());
     yReduceGlobalDim[1] = unitCount;
 
     size_t yReduceLocalDim[2];
-    yReduceLocalDim[0] = (1 << lSizes.getReduceOrder());
+    yReduceLocalDim[0] = (1uLL << lSizes.getReduceOrder());
     yReduceLocalDim[1] = 1;
 
     kernelQueue->kernel2D(yReduceGlobalDim, yReduceLocalDim, preDep, o_postDep);
@@ -100,7 +100,7 @@ void AFK_YReduce::compute(
 
 void AFK_YReduce::readBack(
     unsigned int threadId,
-    unsigned int unitCount,
+    size_t unitCount,
     const std::vector<AFK_Tile>& landscapeTiles,
     AFK_LANDSCAPE_CACHE *cache)
 {
@@ -122,14 +122,14 @@ void AFK_YReduce::readBack(
      * it into a template algorithm?
      */
     bool allPushed = false;
-    static thread_local std::vector<bool> pushed;
-    pushed.clear();
-    for (unsigned int i = 0; i < landscapeTiles.size(); ++i) pushed.push_back(false);
+    std::vector<bool> pushed;
+    pushed.reserve(landscapeTiles.size());
+    for (size_t i = 0; i < landscapeTiles.size(); ++i) pushed.push_back(false);
 
     do
     {
         allPushed = true;
-        for (unsigned int i = 0; i < landscapeTiles.size(); ++i)
+        for (size_t i = 0; i < landscapeTiles.size(); ++i)
         {
             if (pushed[i]) continue;
 

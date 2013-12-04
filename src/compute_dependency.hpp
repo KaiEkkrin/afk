@@ -55,7 +55,7 @@ public:
     cl_event *addEvent(void);
 
     /* Accesses the events, so that they can be waited for. */
-    unsigned int getEventCount(void) const;
+    cl_uint getEventCount(void) const;
     const cl_event *getEvents(void) const;
 
     /* Handy wrapper -- wait for these events and clear them. */

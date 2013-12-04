@@ -23,6 +23,8 @@
 
 #include <boost/atomic.hpp>
 
+#include "data.hpp"
+
 /* A Chain is a simple single-linked list of atomic pointers.  It
  * provides lockless access at the expense of occasionally bumping the
  * list length a bit much!
@@ -70,12 +72,12 @@ public:
         delete link;
     }
 
-    Link *get(void) const noexcept
+    Link *get(void) const afk_noexcept
     {
         return link;
     }
 
-    AFK_Chain *next(void) const noexcept
+    AFK_Chain *next(void) const afk_noexcept
     {
         AFK_Chain *nextChain;
         do
@@ -109,7 +111,7 @@ public:
         }
     }
 
-    Link *at(unsigned int index) const noexcept
+    Link *at(unsigned int index) const afk_noexcept
     {
         if (index == 0) return link;
         else

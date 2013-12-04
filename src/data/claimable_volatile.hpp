@@ -25,6 +25,7 @@
 #include <boost/atomic.hpp>
 
 #include "claimable.hpp"
+#include "data.hpp"
 #include "volatile.hpp"
 
 /* This defines the Claimable interface, using atomics and
@@ -49,9 +50,9 @@ protected:
     /* I need to be able to make a "blank", for the benefit of
      * Claim below.
      */
-    AFK_VolatileInplaceClaim() noexcept: released(true) {}
+    AFK_VolatileInplaceClaim() afk_noexcept: released(true) {}
 
-    AFK_VolatileInplaceClaim(unsigned int _threadId, AFK_VolatileClaimable<T> *_claimable, bool _shared) noexcept:
+    AFK_VolatileInplaceClaim(unsigned int _threadId, AFK_VolatileClaimable<T> *_claimable, bool _shared) afk_noexcept:
         threadId(_threadId), claimable(_claimable), shared(_shared), released(false)
     {
         boost::atomic_thread_fence(boost::memory_order_seq_cst);
@@ -71,7 +72,7 @@ public:
      * Hmm.
      * ...I wonder how prone to creating bugs this might be...
      */ 
-    AFK_VolatileInplaceClaim(AFK_VolatileInplaceClaim&& _claim) noexcept:
+    AFK_VolatileInplaceClaim(AFK_VolatileInplaceClaim&& _claim) afk_noexcept:
         threadId(_claim.threadId), claimable(_claim.claimable), shared(_claim.shared), released(_claim.released)
     {
         AFK_DEBUG_PRINTL_CLAIMABLE("copy moving inplace claim for " << std::hex << claimable << ": " << obj)
@@ -79,7 +80,7 @@ public:
     }
 
     /* ...likewise... */
-    AFK_VolatileInplaceClaim& operator=(AFK_VolatileInplaceClaim&& _claim) noexcept
+    AFK_VolatileInplaceClaim& operator=(AFK_VolatileInplaceClaim&& _claim) afk_noexcept
     {
         AFK_DEBUG_PRINTL_CLAIMABLE("assign moving inplace claim for " << std::hex << claimable << ": " << obj)
 
@@ -91,25 +92,25 @@ public:
         return *this;
     }
 
-    virtual ~AFK_VolatileInplaceClaim() noexcept
+    virtual ~AFK_VolatileInplaceClaim() afk_noexcept
     {
         AFK_DEBUG_PRINTL_CLAIMABLE("destructing inplace claim for " << std::hex << claimable << ": " << obj << "(released: " << released << ")")
         if (!released) release();
     }
 
-    const volatile T& getShared(void) const noexcept
+    const volatile T& getShared(void) const afk_noexcept
     {
         assert(!released);
         return claimable->obj;
     }
 
-    volatile T& get(void) noexcept
+    volatile T& get(void) afk_noexcept
     {
         assert(!shared && !released);
         return claimable->obj;
     }
 
-    bool upgrade(void) noexcept
+    bool upgrade(void) afk_noexcept
     {
         assert(!released);
         if (!shared) return true;
@@ -123,7 +124,7 @@ public:
         return false;
     }
 
-    void release(void) noexcept
+    void release(void) afk_noexcept
     {
         assert(!released);
         if (shared)
@@ -142,7 +143,7 @@ public:
     /* This function releases the claim without swapping the object
      * back, discarding any changes.
      */
-    void invalidate(void) noexcept
+    void invalidate(void) afk_noexcept
     {
         assert(!released);
         if (shared) claimable->releaseShared(threadId);
@@ -161,7 +162,7 @@ protected:
     AFK_VolatileInplaceClaim<T> inplace;
     T obj;
 
-    AFK_VolatileClaim(unsigned int _threadId, AFK_VolatileClaimable<T> *_claimable, bool _shared) noexcept:
+    AFK_VolatileClaim(unsigned int _threadId, AFK_VolatileClaimable<T> *_claimable, bool _shared) afk_noexcept:
         inplace(_threadId, _claimable, _shared)
     {
         afk_grabShared<T>(&obj, inplace.claimable->objPtr());
@@ -171,7 +172,7 @@ public:
     /* I can make a Claim out of an inplace one (which invalidates
      * the inplace one).
      */
-    AFK_VolatileClaim(AFK_VolatileInplaceClaim<T>& _inplace) noexcept
+    AFK_VolatileClaim(AFK_VolatileInplaceClaim<T>& _inplace) afk_noexcept
     {
         inplace.threadId    = _inplace.threadId;
         inplace.claimable   = _inplace.claimable;
@@ -202,7 +203,7 @@ public:
      * Hmm.
      * ...I wonder how prone to creating bugs this might be...
      */ 
-    AFK_VolatileClaim(AFK_VolatileClaim&& _claim) noexcept
+    AFK_VolatileClaim(AFK_VolatileClaim&& _claim) afk_noexcept
     {
         AFK_DEBUG_PRINTL_CLAIMABLE("copy moving claim for " << std::hex << claimable << ": " << obj)
 
@@ -215,7 +216,7 @@ public:
     }
 
     /* ...likewise... */
-    AFK_VolatileClaim& operator=(AFK_VolatileClaim&& _claim) noexcept
+    AFK_VolatileClaim& operator=(AFK_VolatileClaim&& _claim) afk_noexcept
     {
         AFK_DEBUG_PRINTL_CLAIMABLE("assign moving claim for " << std::hex << claimable << ": " << obj)
 
@@ -228,31 +229,31 @@ public:
         return *this;
     }
 
-    virtual ~AFK_VolatileClaim() noexcept
+    virtual ~AFK_VolatileClaim() afk_noexcept
     {
         AFK_DEBUG_PRINTL_CLAIMABLE("destructing claim for " << std::hex << claimable << ": " << obj << "(released: " << released << ")")
         if (!inplace.released) release();
     }
 
-    const T& getShared(void) const noexcept
+    const T& getShared(void) const afk_noexcept
     {
         assert(!inplace.released);
         return obj;
     }
 
-    T& get(void) noexcept
+    T& get(void) afk_noexcept
     {
         assert(!inplace.shared);
         assert(!inplace.released);
         return obj;
     }
 
-    bool upgrade(void) noexcept
+    bool upgrade(void) afk_noexcept
     {
         return inplace.upgrade();
     }
 
-    void release(void) noexcept
+    void release(void) afk_noexcept
     {
         if (!inplace.released && !inplace.shared)
         {
@@ -265,7 +266,7 @@ public:
     /* This function releases the claim without swapping the object
      * back, discarding any changes.
      */
-    void invalidate(void) noexcept
+    void invalidate(void) afk_noexcept
     {
         inplace.invalidate();
     }
@@ -299,13 +300,13 @@ protected:
 #define AFK_CL_THREAD_ID_NONSHARED(id) (AFK_CL_THREAD_ID_SHARED(id) | AFK_CL_NONSHARED)
 #define AFK_CL_THREAD_ID_NONSHARED_MASK(id) (~AFK_CL_THREAD_ID_NONSHARED(id))
 
-    bool tryClaim(unsigned int threadId) noexcept
+    bool tryClaim(unsigned int threadId) afk_noexcept
     {
         uint64_t expected = AFK_CL_NO_THREAD;
         return id.compare_exchange_strong(expected, AFK_CL_THREAD_ID_NONSHARED(threadId));
     }
 
-    bool tryClaimShared(unsigned int threadId) noexcept
+    bool tryClaimShared(unsigned int threadId) afk_noexcept
     {
         if ((id.fetch_or(AFK_CL_THREAD_ID_SHARED(threadId)) & AFK_CL_NONSHARED) == AFK_CL_NONSHARED)
         {
@@ -319,13 +320,13 @@ protected:
         return true;
     }
 
-    bool tryUpgradeShared(unsigned int threadId) noexcept
+    bool tryUpgradeShared(unsigned int threadId) afk_noexcept
     {
         uint64_t expected = AFK_CL_THREAD_ID_SHARED(threadId);
         return id.compare_exchange_strong(expected, AFK_CL_THREAD_ID_NONSHARED(threadId));
     }
 
-    void releaseShared(unsigned int threadId) noexcept
+    void releaseShared(unsigned int threadId) afk_noexcept
     {
 #ifdef NDEBUG
         id.fetch_and(AFK_CL_THREAD_ID_SHARED_MASK(threadId));
@@ -336,12 +337,12 @@ protected:
     }
 
 public:
-    void release(unsigned int threadId) noexcept
+    void release(unsigned int threadId) afk_noexcept
     {
         id.fetch_and(AFK_CL_THREAD_ID_NONSHARED_MASK(threadId));
     }
 
-    AFK_VolatileClaimable() noexcept: id(AFK_CL_NO_THREAD), obj()
+    AFK_VolatileClaimable() afk_noexcept: id(AFK_CL_NO_THREAD), obj()
     {
         assert(id.is_lock_free());
     }
@@ -349,13 +350,13 @@ public:
     /* The move constructors are used to enable initialisation.
      * They essentially make a new Claimable.
      */
-    AFK_VolatileClaimable(const AFK_VolatileClaimable&& _claimable) noexcept:
+    AFK_VolatileClaimable(const AFK_VolatileClaimable&& _claimable) afk_noexcept:
         id(AFK_CL_NO_THREAD)
     {
         obj = _claimable.obj;
     }
 
-    AFK_VolatileClaimable& operator=(const AFK_VolatileClaimable&& _claimable) noexcept
+    AFK_VolatileClaimable& operator=(const AFK_VolatileClaimable&& _claimable) afk_noexcept
     {
         id.store(AFK_CL_NO_THREAD);
         obj = _claimable.obj;
@@ -368,7 +369,7 @@ public:
      * Instead this function returns true if successful, else false
      * If you are not WatchedClaimable DO NOT CALL THIS FUNCTION
      */
-    bool claimInternal(unsigned int threadId, unsigned int flags) noexcept
+    bool claimInternal(unsigned int threadId, unsigned int flags) afk_noexcept
     {
         bool claimed = false;
 
@@ -387,13 +388,13 @@ public:
      * Again, for the benefit of WatchedClaimable.
      * If you are not WatchedClaimable DO NOT CALL THIS FUNCTION
      */
-    AFK_VolatileClaim<T> getClaim(unsigned int threadId, unsigned int flags) noexcept
+    AFK_VolatileClaim<T> getClaim(unsigned int threadId, unsigned int flags) afk_noexcept
     {
         return AFK_VolatileClaim<T>(threadId, this, AFK_CL_IS_SHARED(flags));
     }
 
     /* As above, but returns an inplace claim. */
-    AFK_VolatileInplaceClaim<T> getInplaceClaim(unsigned int threadId, unsigned int flags) noexcept
+    AFK_VolatileInplaceClaim<T> getInplaceClaim(unsigned int threadId, unsigned int flags) afk_noexcept
     {
         return AFK_VolatileInplaceClaim<T>(threadId, this, AFK_CL_IS_SHARED(flags));
     }

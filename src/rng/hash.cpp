@@ -16,6 +16,7 @@
  */
 
 #include <array>
+#include <cstdint>
 #include <functional>
 
 #include "hash.hpp"

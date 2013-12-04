@@ -25,6 +25,7 @@
 #include <thread>
 
 #include "cache.hpp"
+#include "data.hpp"
 #include "frame.hpp"
 #include "polymer.hpp"
 
@@ -145,7 +146,7 @@ protected:
             return newChain;
         }
 
-        void worker(void) noexcept
+        void worker(void) afk_noexcept
         {
             PolymerChain *newChain = new PolymerChain();
             for (size_t slot = 0; slot < CHAIN_SIZE; ++slot)
@@ -213,7 +214,7 @@ public:
     typedef AFK_EVICTABLE_INPLACE_CLAIM_TYPE(Value) InplaceClaim;
     typedef AFK_EVICTABLE_CLAIM_TYPE(Value) Claim;
 
-    void evictionWorker(void) noexcept
+    void evictionWorker(void) afk_noexcept
     {
         unsigned int entriesEvicted = 0;
 

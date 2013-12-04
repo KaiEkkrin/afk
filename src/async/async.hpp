@@ -291,7 +291,7 @@ public:
         /* Work out the actual maximum number of threads I can add
          * to the thread allocation
          */
-        unsigned int threadCount = std::min(concurrency, threadAllocation.getMaxNewIds());
+        unsigned int threadCount = std::min<unsigned int>(concurrency, threadAllocation.getMaxNewIds());
 
         threadIds.reserve(threadCount);
         for (unsigned int t = 0; t < threadCount; ++t)

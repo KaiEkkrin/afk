@@ -29,7 +29,6 @@
 #include "shape.hpp"
 #include "shape_sizes.hpp"
 #include "visible_cell.hpp"
-#include "world.hpp"
 
 /* TODO I wanted this to be a std::list for easy insertion and removal,
  * and it can't be (issues with copies of atomics).  However, I expect
@@ -50,7 +49,7 @@ protected:
 
     /* The list of Entities currently homed to this cell. */
     //AFK_ENTITY_LIST *entities;
-    static constexpr int maxEntityCount = 4;
+    static const unsigned int maxEntityCount = 4;
     std::array<AFK_Entity, maxEntityCount> entities;
     int entityCount; /* -1 for not generated yet */
 

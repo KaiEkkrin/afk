@@ -18,6 +18,8 @@
 #ifndef _AFK_DATA_MONOMER_H_
 #define _AFK_DATA_MONOMER_H_
 
+#include "data.hpp"
+
 /* The Monomer is the single unit that goes into a Polymer. */
 
 #define AFK_MONOMER_CLAIMABLE 1
@@ -40,7 +42,7 @@ public:
         keyClaim.get() = unassigned;
     }
 
-    bool here(unsigned int threadId, bool acceptUnassigned, KeyType *o_key, ValueType **o_valuePtr) noexcept
+    bool here(unsigned int threadId, bool acceptUnassigned, KeyType *o_key, ValueType **o_valuePtr) afk_noexcept
     {
         try
         {
@@ -59,7 +61,7 @@ public:
         }
     }
 
-    bool get(unsigned int threadId, const KeyType& _key, ValueType **o_valuePtr) noexcept
+    bool get(unsigned int threadId, const KeyType& _key, ValueType **o_valuePtr) afk_noexcept
     {
         try
         {
@@ -77,7 +79,7 @@ public:
         }
     }
 
-    bool insert(unsigned int threadId, const KeyType& _key, ValueType **o_valuePtr) noexcept
+    bool insert(unsigned int threadId, const KeyType& _key, ValueType **o_valuePtr) afk_noexcept
     {
         try
         {
@@ -96,7 +98,7 @@ public:
         }
     }
 
-    bool erase(unsigned int threadId, const KeyType& _key) noexcept
+    bool erase(unsigned int threadId, const KeyType& _key) afk_noexcept
     {
         try
         {
@@ -129,7 +131,7 @@ protected:
 public:
     AFK_Monomer(): key(unassigned), value() {}
 
-    bool here(unsigned int threadId, bool acceptUnassigned, KeyType *o_key, ValueType **o_valuePtr) noexcept
+    bool here(unsigned int threadId, bool acceptUnassigned, KeyType *o_key, ValueType **o_valuePtr) afk_noexcept
     {
         if (acceptUnassigned)
         {
@@ -150,7 +152,7 @@ public:
         }
     }
 
-    bool get(unsigned int threadId, const KeyType& _key, ValueType **o_valuePtr) noexcept
+    bool get(unsigned int threadId, const KeyType& _key, ValueType **o_valuePtr) afk_noexcept
     {
         if (key.load() == _key)
         {
@@ -160,7 +162,7 @@ public:
         else return false;
     }
 
-    bool insert(unsigned int threadId, const KeyType& _key, ValueType **o_valuePtr) noexcept
+    bool insert(unsigned int threadId, const KeyType& _key, ValueType **o_valuePtr) afk_noexcept
     {
         KeyType expected = unassigned;
         if (key.compare_exchange_strong(expected, _key))
@@ -171,7 +173,7 @@ public:
         else return false;
     }
 
-    bool erase(unsigned int threadId, const KeyType& _key) noexcept
+    bool erase(unsigned int threadId, const KeyType& _key) afk_noexcept
     {
         KeyType expected = _key;
         return key.compare_exchange_strong(expected, unassigned);

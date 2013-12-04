@@ -81,8 +81,8 @@ protected:
     Vec3<int> endPlaceSize;
 
     /* The minimum and maximum numbers of cleared pieces I want. */
-    int minCleared;
-    int maxCleared;
+    size_t minCleared;
+    size_t maxCleared;
 
     /* All the places in the map, in a 3D array (slices, columns, rows).
      * These will all be the same size, apart from possibly the final

@@ -87,7 +87,7 @@ void AFK_3DEdgeComputeQueue::computeStart(
     std::unique_lock<std::mutex> lock(mut);
 
     /* Check there's something to do */
-    unsigned int unitCount = units.size();
+    size_t unitCount = units.size();
     if (unitCount == 0) return;
 
     /* Make sure the compute stuff is initialised... */

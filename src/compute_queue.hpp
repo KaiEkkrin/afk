@@ -86,7 +86,7 @@ public:
 
     void acquireGlObjects(
         cl_mem *obj,
-        size_t count,
+        cl_uint count,
         const AFK_ComputeDependency& preDep,
         AFK_ComputeDependency& postDep);
 
@@ -107,7 +107,7 @@ public:
 
     void releaseGlObjects(
         cl_mem *obj,
-        size_t count,
+        cl_uint count,
         const AFK_ComputeDependency& preDep,
         AFK_ComputeDependency& postDep);
 

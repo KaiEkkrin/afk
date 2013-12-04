@@ -51,7 +51,7 @@ public:
     typedef typename AFK_WorkQueue<ParameterType, ReturnType, ThreadLocalType>::WorkItem WorkItem;
 
 protected:
-    boost::atomic_uint count;
+    boost::atomic_uint_fast64_t count;
     WorkItem finalItem;
 
 public:
@@ -66,7 +66,7 @@ public:
         count.fetch_add(1);
     }
 
-    void retain(unsigned int times)
+    void retain(uint_fast64_t times)
     {
         count.fetch_add(times);
     }

@@ -75,12 +75,12 @@ void AFK_TerrainList::extendInplaceTiles(
         &f[oldFeatureCount], features);
 }
 
-unsigned int AFK_TerrainList::featureCount(void) const
+size_t AFK_TerrainList::featureCount(void) const
 {
     return f.size();
 }
 
-unsigned int AFK_TerrainList::tileCount(void) const
+size_t AFK_TerrainList::tileCount(void) const
 {
     return t.size();
 }

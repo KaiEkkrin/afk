@@ -188,8 +188,8 @@ public:
         const volatile AFK_TerrainFeature *features,
         const volatile AFK_TerrainTile *tiles);
 
-    unsigned int featureCount(void) const;
-    unsigned int tileCount(void) const;
+    size_t featureCount(void) const;
+    size_t tileCount(void) const;
 };
 
 #endif /* _AFK_TERRAIN_H_ */

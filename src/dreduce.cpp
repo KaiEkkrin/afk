@@ -36,7 +36,7 @@ AFK_DReduce::~AFK_DReduce()
 }
 
 void AFK_DReduce::compute(
-    unsigned int unitCount,
+    size_t unitCount,
     cl_mem *units,
     const Vec2<int>& fake3D_size,
     int fake3D_mult,
@@ -78,11 +78,11 @@ void AFK_DReduce::compute(
 
     size_t dReduceGlobalDim[3];
     dReduceGlobalDim[0] = unitCount;
-    dReduceGlobalDim[1] = dReduceGlobalDim[2] = (1 << sSizes.getReduceOrder());
+    dReduceGlobalDim[1] = dReduceGlobalDim[2] = (1uLL << sSizes.getReduceOrder());
 
     size_t dReduceLocalDim[3];
     dReduceLocalDim[0] = 1;
-    dReduceLocalDim[1] = dReduceLocalDim[2] = (1 << sSizes.getReduceOrder());
+    dReduceLocalDim[1] = dReduceLocalDim[2] = (1uLL << sSizes.getReduceOrder());
 
     kernelQueue->kernel3D(dReduceGlobalDim, dReduceLocalDim, preDep, o_postDep);
 
@@ -99,7 +99,7 @@ void AFK_DReduce::compute(
 
 void AFK_DReduce::readBack(
     unsigned int threadId,
-    unsigned int unitCount,
+    size_t unitCount,
     const std::vector<AFK_KeyedCell>& shapeCells,
     AFK_SHAPE_CELL_CACHE *cache)
 {
@@ -109,14 +109,14 @@ void AFK_DReduce::readBack(
      * algorithm-ify?
      */
     bool allPushed = false;
-    static thread_local std::vector<bool> pushed;
-    pushed.clear();
-    for (unsigned int i = 0; i < shapeCells.size(); ++i) pushed.push_back(false);
+    std::vector<bool> pushed;
+    pushed.reserve(shapeCells.size());
+    for (size_t i = 0; i < shapeCells.size(); ++i) pushed.push_back(false);
 
     do
     {
         allPushed = true;
-        for (unsigned int i = 0; i < shapeCells.size(); ++i)
+        for (size_t i = 0; i < shapeCells.size(); ++i)
         {
             if (pushed[i]) continue;
 

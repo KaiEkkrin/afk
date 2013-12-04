@@ -56,9 +56,9 @@ AFK_FileFilter::AFK_FileFilter(std::initializer_list<std::string> init)
     }
 }
 
-void AFK_FileFilter::filter(int count, char **sources, size_t *sourceLengths) const
+void AFK_FileFilter::filter(size_t count, char **sources, size_t *sourceLengths) const
 {
-    for (int i = 0; i < count; ++i)
+    for (size_t i = 0; i < count; ++i)
     {
         /* Split this string apart into its component lines, because
          * I want to replace line-by-line.
@@ -68,26 +68,31 @@ void AFK_FileFilter::filter(int count, char **sources, size_t *sourceLengths) co
 
         boost::char_separator<char> lineSep("\n");
         boost::tokenizer<boost::char_separator<char> > sourceTok(source, lineSep);
-        for (boost::tokenizer<boost::char_separator<char> >::iterator sourceIt = sourceTok.begin();
-            sourceIt != sourceTok.end(); ++sourceIt)
+        for (auto sourceLine : sourceTok)
         {
-            std::string sourceLine = *sourceIt;
-
+            std::string repLine = sourceLine;
             for (std::vector<FilterReplace>::const_iterator repIt = rep.begin(); repIt != rep.end(); ++repIt)
             {
-                sourceLine = repIt->replace(sourceLine);
+                repLine = repIt->replace(repLine);
             }
 
-            repss << sourceLine << "\n";
+            repss << repLine << "\n";
         }
 
         /* Now, splice the replaced string back into the source vector.
          */
         std::string repstr = repss.str();
         if (sourceLengths[i] < (repstr.size() + 1))
-            sources[i] = (char *)realloc(sources[i], repstr.size() + 1);
+        {
+            sourceLengths[i] = repstr.size() + 1;
+            sources[i] = (char *)realloc(sources[i], sourceLengths[i]);
+        }
 
+#ifdef _WIN32
+        strcpy_s(sources[i], sourceLengths[i], repstr.c_str());
+#else
         strcpy(sources[i], repstr.c_str());
+#endif
         sourceLengths[i] = repstr.size();
     }
 }

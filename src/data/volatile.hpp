@@ -24,8 +24,10 @@
 
 #include <cassert>
 
+#include "data.hpp"
+
 template<typename T, typename I>
-void afk_grabSharedIntegral(T *mine, const volatile T *shared, size_t& offset) noexcept
+void afk_grabSharedIntegral(T *mine, const volatile T *shared, size_t& offset) afk_noexcept
 {
     *(reinterpret_cast<I*>(mine) + offset / sizeof(I)) =
         *(reinterpret_cast<const volatile I*>(shared) + offset / sizeof(I));
@@ -33,7 +35,7 @@ void afk_grabSharedIntegral(T *mine, const volatile T *shared, size_t& offset) n
 }
 
 template<typename T, size_t count = 1>
-void afk_grabShared(T *mine, const volatile T *shared) noexcept
+void afk_grabShared(T *mine, const volatile T *shared) afk_noexcept
 {
     size_t offset = 0;
     while (offset < sizeof(T) * count)
@@ -62,7 +64,7 @@ void afk_grabShared(T *mine, const volatile T *shared) noexcept
 }
 
 template<typename T, typename I>
-void afk_returnSharedIntegral(const T *mine, volatile T *shared, size_t& offset) noexcept
+void afk_returnSharedIntegral(const T *mine, volatile T *shared, size_t& offset) afk_noexcept
 {
     *(reinterpret_cast<volatile I*>(shared) + offset / sizeof(I)) =
         *(reinterpret_cast<const I*>(mine) + offset / sizeof(I));
@@ -70,7 +72,7 @@ void afk_returnSharedIntegral(const T *mine, volatile T *shared, size_t& offset)
 }
 
 template<typename T, size_t count = 1>
-void afk_returnShared(const T *mine, volatile T *shared) noexcept
+void afk_returnShared(const T *mine, volatile T *shared) afk_noexcept
 {
     size_t offset = 0;
     while (offset < sizeof(T) * count)

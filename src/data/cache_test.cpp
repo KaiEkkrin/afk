@@ -48,7 +48,7 @@ struct expensivelyHashInt
     }
 };
 
-const int afk_cacheTestUnassignedKey = -1;
+int afk_cacheTestUnassignedKey = -1;
 
 class IntStartingAtZero
 {

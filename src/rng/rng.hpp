@@ -17,6 +17,7 @@
 #ifndef _AFK_RNG_RNG_H_
 #define _AFK_RNG_RNG_H_
 
+#include <cstdint>
 #include <iostream>
 
 #include "hash.hpp"
@@ -127,7 +128,7 @@ public:
     /* Returns a random float between 0.0 and 1.0 */
     float frand(void)
     {
-        return uirand() / 0x1.0p32;
+        return (float)uirand() / 4294967296.0f;
     }
 };
 

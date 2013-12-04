@@ -52,7 +52,7 @@ public:
     virtual ~AFK_DReduce();
 
     void compute(
-        unsigned int unitCount,
+        size_t unitCount,
         cl_mem *units,
         const Vec2<int>& fake3D_size,
         int fake3D_mult,
@@ -63,7 +63,7 @@ public:
 
     void readBack(
         unsigned int threadId,
-        unsigned int unitCount,
+        size_t unitCount,
         const std::vector<AFK_KeyedCell>& shapeCells,
         AFK_SHAPE_CELL_CACHE *cache);
 };

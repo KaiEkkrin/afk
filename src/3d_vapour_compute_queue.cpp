@@ -98,8 +98,9 @@ void AFK_3DVapourComputeQueue::extend(
     /* Sanity checks */
     assert(list.cubeCount() > 0);
 
-    o_cubeOffset = AFK_3DList::cubeCount();
-    o_cubeCount = list.cubeCount();
+    /* Avoiding massive 64-bit offset values here */
+    o_cubeOffset = static_cast<unsigned int>(AFK_3DList::cubeCount());
+    o_cubeCount = static_cast<unsigned int>(list.cubeCount());
     AFK_3DList::extend(list);
 }
 
@@ -139,7 +140,7 @@ void AFK_3DVapourComputeQueue::computeStart(
     std::unique_lock<std::mutex> lock(mut);
 
     /* Check there's something to do */
-    unsigned int unitCount = units.size();
+    size_t unitCount = units.size();
     if (unitCount == 0) return;
 
     /* Make sure the compute stuff is initialised... */
@@ -232,7 +233,7 @@ void AFK_3DVapourComputeQueue::computeFinish(unsigned int threadId, AFK_JigsawCo
 {
     std::unique_lock<std::mutex> lock(mut);
 
-    unsigned int unitCount = units.size();
+    size_t unitCount = units.size();
     if (unitCount == 0) return;
 
     assert(preReleaseDep && dReduce);

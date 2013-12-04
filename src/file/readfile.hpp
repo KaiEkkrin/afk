@@ -21,6 +21,20 @@
 #include <iostream>
 #include <string>
 
+/* Gets the current working directory. (Yes, this is platform specific!)
+ * This function allocates memory for its return value which you need
+ * to free with free() after use.
+ */
+char *afk_getCWD(void);
+
+/* Sets the current working directory.  Yes, this is platform specific
+ * too!
+ */
+bool afk_setCWD(const char *dir);
+
+/* Prints the last error in case of the above going wrong. */
+void afk_printCWDError(std::ostream& io_errStream);
+
 /* Pushes a directory onto a stack of directories we've switched into.
  * On failure, returns false and fills out `io_errStream' with the error
  * message.

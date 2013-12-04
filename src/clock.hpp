@@ -20,8 +20,6 @@
 
 #include <chrono>
 
-#ifdef AFK_GLX
-
 /* The default clock implementation is all naffed up, so here's a Linux
  * specific thing, matching the std::chrono interface.
  */
@@ -33,20 +31,16 @@ public:
     typedef duration::period                                period;
     typedef std::chrono::time_point<afk_clock, duration>    time_point;
 
-    static constexpr bool is_steady = true;
+    static const bool is_steady = true;
     static time_point now();
 };
 
 typedef std::chrono::duration<float, std::ratio<1, 1000> > afk_duration_mfl;
 
-#endif /* AFK_GLX */
-
-#ifdef AFK_WGL
 /* TODO: On Windows, the Visual Studio implementation of high_resolution_timer
  * is broken, and this will be slow and imprecise.
  * See http://stackoverflow.com/questions/13263277/difference-between-stdsystem-clock-and-stdsteady-clock
  */
-#endif /* AFK_WGL */
 
 #endif /* _AFK_CLOCK_H_ */
 

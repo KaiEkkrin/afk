@@ -56,7 +56,11 @@ AFK_ClPlatformProperties::AFK_ClPlatformProperties(AFK_Computer *computer, cl_pl
     versionStr = new char[versionStrSize];
     AFK_CLCHK(computer->oclShim.GetPlatformInfo()(platform, CL_PLATFORM_VERSION, versionStrSize, versionStr, &versionStrSize))
 
+#ifdef _WIN32
+    if (sscanf_s(versionStr, "OpenCL %d.%d", &majorVersion, &minorVersion) != 2)
+#else
     if (sscanf(versionStr, "OpenCL %d.%d", &majorVersion, &minorVersion) != 2)
+#endif
     {
         std::ostringstream ss;
         ss << "Incomprehensible OpenCL platform version: " << versionStr;
@@ -388,6 +392,26 @@ AFK_Computer::AFK_Computer(const AFK_Config *config):
 {
     cl_platform_id *platforms;
     unsigned int platformCount;
+
+    programs = {
+        { 0, "landscape_surface", { "landscape_surface.cl" }, },
+        { 0, "landscape_terrain", { "landscape_terrain.cl" }, },
+        { 0, "landscape_yreduce", { "landscape_yreduce.cl" }, },
+        { 0, "shape_3dedge", { "fake3d.cl", "shape_3dedge.cl" }, },
+        { 0, "shape_3dvapour_dreduce", { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_dreduce.cl" }, },
+        { 0, "shape_3dvapour_feature", { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_feature.cl" }, },
+        { 0, "shape_3dvapour_normal", { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_normal.cl" }, }
+    };
+
+    kernels = {
+        { 0, "landscape_surface", "makeLandscapeSurface" },
+        { 0, "landscape_terrain", "makeLandscapeTerrain" },
+        { 0, "landscape_yreduce", "makeLandscapeYReduce" },
+        { 0, "shape_3dedge", "makeShape3DEdge" },
+        { 0, "shape_3dvapour_dreduce", "makeShape3DVapourDReduce" },
+        { 0, "shape_3dvapour_feature", "makeShape3DVapourFeature" },
+        { 0, "shape_3dvapour_normal", "makeShape3DVapourNormal" }
+    };
 
     AFK_CLCHK(oclShim.GetPlatformIDs()(0, NULL, &platformCount))
     platforms = (cl_platform_id *)malloc(sizeof(cl_platform_id) * platformCount);

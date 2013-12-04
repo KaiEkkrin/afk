@@ -109,12 +109,13 @@ public:
             bonesCoAdjacency.push_back(skeleton.getCoAdjacency(nextBone));
         }
         
-        int featuresAdded = 0;
+        unsigned int featuresAdded = 0;
         while (featuresAdded < sSizes.featureCountPerCube)
         {
             unsigned int selector = rng.uirand();
-            unsigned int b = selector % bones.size();
-            selector = selector / bones.size();
+            unsigned int bonesSize = static_cast<unsigned int>(bones.size());
+            unsigned int b = selector % bonesSize;
+            selector = selector / bonesSize;
         
             /* This defines the centre of the bone that I picked. */
             Vec3<float> coordMid = afk_vec3<float>(
@@ -189,8 +190,8 @@ public:
 
     void extend(const AFK_3DList& list);
 
-    unsigned int featureCount(void) const;
-    unsigned int cubeCount(void) const;
+    size_t featureCount(void) const;
+    size_t cubeCount(void) const;
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_3DList& list);
 };

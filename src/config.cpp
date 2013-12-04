@@ -26,12 +26,12 @@
 #include <utility>
 
 #include <ctype.h>
-#include <unistd.h>
 
 #include <boost/random/random_device.hpp>
 
 #include "config.hpp"
 #include "exception.hpp"
+#include "file/readfile.hpp"
 
 
 /* This utility function pulls AFK's executable path and names a directory
@@ -41,9 +41,13 @@ static char *getDirAtExecPath(const char *leafname, const char *execname)
 {
     size_t dirnameMaxSize = strlen(execname) + strlen(leafname) + 2;
     char *dirname = (char *)malloc(dirnameMaxSize);
+#ifdef _WIN32
+    strcpy_s(dirname, dirnameMaxSize, execname);
+#else
     strcpy(dirname, execname);
+#endif
     int i;
-    for (i = strlen(execname) - 1; i >= 0; --i)
+    for (i = static_cast<int>(strlen(execname)) - 1; i >= 0; --i)
     {
         if (dirname[i] == '/' || dirname[i] == '\\') break;
     }
@@ -53,17 +57,25 @@ static char *getDirAtExecPath(const char *leafname, const char *execname)
         /* Found the lowest level directory path.  Copy the leafname
          * in here.
          */
-        strcpy(&dirname[i+1], leafname);
+#ifdef _WIN32
+        strcpy_s(&dirname[i+1], dirnameMaxSize - (i+1), leafname);
+#else
+        strcpy(&dirname[i+1], dirnameMaxSize, leafname);
+#endif
     }
     else
     {
         /* I can't find a lowest level directory path, use the CWD
          * instead.
          */
-        char *currentDir = get_current_dir_name();
+        char *currentDir = afk_getCWD();
         size_t cwdDirnameMaxSize = strlen(currentDir) + strlen(leafname) + 2;
         if (cwdDirnameMaxSize > dirnameMaxSize) dirname = (char *)realloc(dirname, cwdDirnameMaxSize);
+#ifdef _WIN32
+        sprintf_s(dirname, cwdDirnameMaxSize, "%s/%s", currentDir, leafname);
+#else
         sprintf(dirname, "%s/%s", currentDir, leafname);
+#endif
         free(currentDir);
     }
 
@@ -140,7 +152,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         if (strcmp(argv[argi], "--shaders-dir") == 0)
         {
             REQUIRE_ARGUMENT("--shaders-dir")
-            shadersDir = strdup(argv[argi]);
+            shadersDir = _strdup(argv[argi]);
         }
         else if (strcmp(argv[argi], "--seed") == 0)
         {
@@ -191,7 +203,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         else if (strcmp(argv[argi], "--cl-lib-dir") == 0)
         {
             REQUIRE_ARGUMENT("--cl-lib-dir")
-            clProgramsDir = strdup(argv[argi]);
+            clProgramsDir = _strdup(argv[argi]);
         }
         else if (strcmp(argv[argi], "--concurrency") == 0)
         {
@@ -201,7 +213,7 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         else if (strcmp(argv[argi], "--cl-programs-dir") == 0)
         {
             REQUIRE_ARGUMENT("--cl-programs-dir")
-            clProgramsDir = strdup(argv[argi]);
+            clProgramsDir = _strdup(argv[argi]);
         }
         else if (strcmp(argv[argi], "--cl-gl-sharing") == 0)
         {

@@ -19,6 +19,7 @@
 #define _AFK_HASH_H_
 
 #include <cmath>
+#include <cstdint>
 
 #define AFK_LROTATE_UNSIGNED(v, r) (((v) << (r)) | ((v) >> (sizeof((v)) * 8 - (r))))
 
@@ -26,6 +27,7 @@
  * Start it off with a==0 ?
  */
 
+static_assert(sizeof(size_t) == sizeof(uint64_t), "not a 64 bit system");
 uint64_t afk_hash_swizzle(uint64_t a, uint64_t b);
 
 #endif /* _AFK_HASH_H_ */

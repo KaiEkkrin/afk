@@ -31,13 +31,19 @@
 /* AFK_TerrainComputeUnit implementation */
 
 AFK_TerrainComputeUnit::AFK_TerrainComputeUnit(
-    int _tileOffset,
-    int _tileCount,
+    size_t _tileOffset,
+    size_t _tileCount,
     const Vec2<int>& _piece):
-        tileOffset(_tileOffset),
-        tileCount(_tileCount),
         piece(_piece)
 {
+    /* I don't want to use 64 bits for tile offset and count, would take up
+     * extra space for no good reason
+     */
+    assert(_tileOffset <= INT32_MAX);
+    assert(_tileCount <= INT32_MAX);
+
+    tileOffset = static_cast<int>(_tileOffset);
+    tileCount = static_cast<int>(_tileCount);
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_TerrainComputeUnit& unit)
@@ -121,7 +127,7 @@ void AFK_TerrainComputeQueue::computeStart(
     cl_int error;
 
     /* Check there's something to do */
-    unsigned int unitCount = units.size();
+    size_t unitCount = units.size();
     if (unitCount == 0) return;
 
     /* Make sure the compute stuff is initialised... */
@@ -228,7 +234,7 @@ void AFK_TerrainComputeQueue::computeFinish(unsigned int threadId, AFK_Jigsaw *j
 {
     std::unique_lock<std::mutex> lock(mut);
 
-    unsigned int unitCount = units.size();
+    size_t unitCount = units.size();
     if (unitCount == 0) return;
 
     /* Release the images. */

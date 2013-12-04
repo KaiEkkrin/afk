@@ -34,6 +34,9 @@
  * this module instead?
  * (Surely makes more sense)
  */
+#ifdef _WIN32
+_declspec(align(16))
+#endif
 class AFK_TerrainBaseTileVertex
 {
 public:
@@ -44,7 +47,11 @@ public:
         const Vec3<float>& _location,
         const Vec2<float>& _tileCoord);
 
-} __attribute__((aligned(16)));
+}
+#ifdef __GNUC__
+__attribute__((aligned(16)))
+#endif
+;
 
 /* I don't trust the `sizeof' builtin to work correctly with
  * the above `aligned' ...
@@ -74,7 +81,7 @@ public:
     void initGL(void);
 
     /* Assuming all the textures are set up, issues the draw call. */
-    void draw(unsigned int instanceCount) const;
+    void draw(size_t instanceCount) const;
 
     /* Tears down the VAO. */
     void teardownGL(void) const;

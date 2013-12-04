@@ -14,14 +14,16 @@ Source code lives at:       https://github.com/KaiEkkrin/afk
 Progress videos at:         https://www.youtube.com/user/KaiEkkrin
 
 To build AFK you will currently need:
- - a GNU/Linux distribution
- - GNU G++ 4.8 or later
+ - a C++11 compiler (G++ 4.8, MSVC++ 2013)
  - a modern OpenGL implementation (supporting OpenGL 4.0) and its development libraries
  - a modern OpenCL implementation (supporting OpenCL 1.1) and its development libraries
  - GLX
  - GLEW
- - Boost >=1.5x (AFK currently links with boost_atomic, boost_random, boost_regex, boost_system and boost_thread.)
- - SConstruct, the python build system.
+ - Boost >=1.5x (AFK currently links with boost_random, boost_regex,
+   and maybe boost_system and boost_thread.  On Windows, see
+   building-boost.txt
+ - On Linux, SConstruct, the python build system, or Eclipse.
+ - On Windows, Visual Studio 2013.
 
 See COMPATIBILITY.txt.
 

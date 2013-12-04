@@ -24,8 +24,7 @@
 
 #include "boost_mt19937.hpp"
 #include "boost_taus88.hpp"
-#include "c.hpp"
-#include "test.hpp"
+#include "rng_test.hpp"
 #include "../afk.hpp"
 #include "../cell.hpp"
 #include "../clock.hpp"
@@ -176,12 +175,10 @@ void test_rngs(void)
         testCells[i] = afk_cell(afk_vec4<int64_t>(rand(), rand(), rand(), randomScale));
     }
 
-    AFK_C_RNG                   c_rng;
     AFK_Boost_Taus88_RNG        boost_taus88_rng;
     AFK_Boost_MT19937_RNG       boost_mt19937_rng;
 
 #define RANDS_PER_CELL 100000
-    evaluate_rng(c_rng, "C", testCells, TEST_CELLS_SIZE, RANDS_PER_CELL);
     evaluate_rng(boost_taus88_rng, "boost_taus88", testCells, TEST_CELLS_SIZE, RANDS_PER_CELL);
     evaluate_rng(boost_mt19937_rng, "boost_mt19937", testCells, TEST_CELLS_SIZE, RANDS_PER_CELL);
 }

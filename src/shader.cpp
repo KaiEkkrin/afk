@@ -61,13 +61,13 @@ static void loadShaderFromFiles(
     int success = 0;
     std::ostringstream errStream;
 
-    int sourceCount = s->filenames.size();
+    size_t sourceCount = s->filenames.size();
 
-    assert(sourceCount > 0);
+    assert(sourceCount != 0);
     sources = new GLchar *[sourceCount];
     sourceLengths = new size_t[sourceCount];
 
-    for (int i = 0; i < sourceCount; ++i)
+    for (size_t i = 0; i < sourceCount; ++i)
     {
         std::cout << "AFK: Loading file for shader " << s->shaderName << ": " << s->filenames[i] << std::endl;
 
@@ -87,13 +87,13 @@ static void loadShaderFromFiles(
 
     /* Compile the shader */
     GLint *sourceLengthsInt = new GLint[sourceCount];
-    for (int i = 0; i < sourceCount; ++i)
+    for (size_t i = 0; i < sourceCount; ++i)
         sourceLengthsInt[i] = (GLint)sourceLengths[i];
 
     s->obj = glCreateShader(s->shaderType);
     if (!s->obj) throw AFK_Exception("Failed to create shader");
 
-    glShaderSource(s->obj, sourceCount, (const GLchar **)sources, sourceLengthsInt);
+    glShaderSource(s->obj, static_cast<GLsizei>(sourceCount), (const GLchar **)sources, sourceLengthsInt);
     glCompileShader(s->obj);
     glGetShaderiv(s->obj, GL_COMPILE_STATUS, &success);
     if (!success)
@@ -103,7 +103,7 @@ static void loadShaderFromFiles(
         throw AFK_Exception("Error compiling shader " + s->shaderName + ": " + infoLog);
     }
 
-    for (int i = 0; i < sourceCount; ++i)
+    for (size_t i = 0; i < sourceCount; ++i)
     {
         free(sources[i]);
     }

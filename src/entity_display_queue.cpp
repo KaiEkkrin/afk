@@ -63,7 +63,7 @@ void AFK_EntityDisplayQueue::draw(
     const AFK_3DEdgeShapeBase *baseShape,
     const AFK_ShapeSizes& sSizes)
 {
-    unsigned int instanceCount = queue.size();
+    size_t instanceCount = queue.size();
     if (instanceCount == 0) return;
 
     if (!displayTBOSamplerLocation)

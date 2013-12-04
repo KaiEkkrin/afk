@@ -79,8 +79,7 @@ public:
 class AFK_Skeleton
 {
 protected:
-    static constexpr int gridDim = afk_shapeSkeletonFlagGridDim;
-    uint64_t grid[gridDim][gridDim];
+    uint64_t grid[afk_shapeSkeletonFlagGridDim][afk_shapeSkeletonFlagGridDim];
     int boneCount;
 
     /* Simple queries. */
@@ -160,7 +159,7 @@ public:
 
     /* This is a device for enumerating the cells that are
      * set within the skeleton.  They come out in skeleton
-     * co-ordinates (between 0 and gridDim).
+     * co-ordinates (between 0 and afk_shapeSkeletonFlagGridDim).
      * It's not an iterator, because those are nasty and
      * I've had issues: I'm coming up with my own similar
      * paradigm instead (with less baggage).

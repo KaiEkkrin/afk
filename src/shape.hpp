@@ -104,7 +104,7 @@ public:
     AFK_Shape(
         const AFK_Config *config,
         AFK_ThreadAllocation& threadAlloc,
-        unsigned int shapeCacheSize);
+        size_t shapeCacheSize);
     virtual ~AFK_Shape();
 
     void updateWorld(void);
