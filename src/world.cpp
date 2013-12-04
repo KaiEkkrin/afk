@@ -630,7 +630,7 @@ AFK_World::AFK_World(
 
     /* Set up the caches and generator gang. */
 
-    unsigned int tileCacheEntries = tileCacheSize / lSizes.tSize;
+    size_t tileCacheEntries = tileCacheSize / lSizes.tSize;
 
     tileCacheEntries = jigsawAlloc.at(0).getPieceCount();
 
@@ -646,7 +646,7 @@ AFK_World::AFK_World(
      * But for now, just make a guess.
      */
     unsigned int worldCacheEntrySize = SQUARE(lSizes.pointSubdivisionFactor);
-    unsigned int worldCacheEntries = worldCacheSize / worldCacheEntrySize;
+    size_t worldCacheEntries = worldCacheSize / worldCacheEntrySize;
 
     worldCache = new AFK_WORLD_CACHE(
         8,

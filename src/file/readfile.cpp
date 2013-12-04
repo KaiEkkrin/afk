@@ -22,11 +22,18 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <sstream>
 
 #include <stack>
 
+
 #ifdef __GNUC__
 #include <unistd.h>
+
+static std::string afk_strerror(errno_t e)
+{
+    return std::string(strerror(e));
+}
 
 char *afk_getCWD(void)
 {
@@ -47,6 +54,23 @@ void afk_printCWDError(std::ostream& io_errStream)
 
 #ifdef _WIN32
 #include <Windows.h>
+
+static std::string afk_strerror(errno_t e)
+{
+    static __declspec(thread) char errbuf[256];
+    errno_t s = strerror_s<256>(errbuf, e);
+    if (s == 0)
+    {
+        return std::string(errbuf);
+    }
+    else
+    {
+        std::ostringstream ss;
+        ss << "(strerror_s failed with code " << s << ")";
+        return ss.str();
+    }
+}
+
 char *afk_getCWD(void)
 {
     unsigned int cwdLength = GetCurrentDirectoryA(0, nullptr);
@@ -127,27 +151,36 @@ bool afk_readFileContents(
     size_t *o_bufSize,
     std::ostream& io_errStream)
 {
-    FILE *f = NULL;
+    FILE *f = nullptr;
     int length = 0;
     bool success = false;
 
+#ifdef _WIN32
+    errno_t openErr = fopen_s(&f, filename.c_str(), "rb");
+    if (openErr != 0)
+    {
+        io_errStream << "Failed to open " << filename << ": " << afk_strerror(openErr);
+        goto finished;
+    }
+#else
     f = fopen(filename.c_str(), "rb");
     if (!f)
     {
-        io_errStream << "Failed to open " << filename << ": " << strerror(errno);
+        io_errStream << "Failed to open " << filename << ": " << afk_strerror(errno);
         goto finished;
     }
+#endif
 
     if (fseek(f, 0, SEEK_END) != 0)
     {
-        io_errStream << "Failed to seek to end of " << filename << ": " << strerror(errno);
+        io_errStream << "Failed to seek to end of " << filename << ": " << afk_strerror(errno);
         goto finished;
     }
 
     length = ftell(f);
     if (length < 0)
     {
-        io_errStream << "Failed to find size of " << filename << ": " << strerror(errno);
+        io_errStream << "Failed to find size of " << filename << ": " << afk_strerror(errno);
         goto finished;
     }
 
@@ -155,7 +188,7 @@ bool afk_readFileContents(
 
     if (fseek(f, 0, SEEK_SET) != 0)
     {
-        io_errStream << "Failed to seek to beginning of " << filename << ": " << strerror(errno);
+        io_errStream << "Failed to seek to beginning of " << filename << ": " << afk_strerror(errno);
         goto finished;
     }
 
@@ -177,7 +210,7 @@ bool afk_readFileContents(
             length_read = fread(read_pos, 1, length_left, f);
             if (length_read == 0 && ferror(f))
             {
-                io_errStream << "Failed to read from " << filename << ": " << strerror(errno);
+                io_errStream << "Failed to read from " << filename << ": " << afk_strerror(errno);
                 success = false;
                 break;
             }

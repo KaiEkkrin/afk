@@ -53,6 +53,7 @@
 #include "terrain_compute_queue.hpp"
 #include "tile.hpp"
 #include "work.hpp"
+#include "world_cell.hpp"
 
 /* The world of AFK. */
 

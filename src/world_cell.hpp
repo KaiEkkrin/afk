@@ -29,7 +29,6 @@
 #include "shape.hpp"
 #include "shape_sizes.hpp"
 #include "visible_cell.hpp"
-#include "world.hpp"
 
 /* TODO I wanted this to be a std::list for easy insertion and removal,
  * and it can't be (issues with copies of atomics).  However, I expect

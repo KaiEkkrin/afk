@@ -1,0 +1,19 @@
+Building Boost for AFK on Windows
+---------------------------------
+
+You will need boost 1.55 or later, to support MSVC 2013.
+
+Enter the boost_1_55_0 directory (or whatever later version)
+
+ .\bootstrap
+
+Edit user-config.jam and add the line
+
+ using mpi ;
+
+And then run
+
+ .\b2 -j 8 address-model=64 threading=multi link=static
+
+(Replace "-j 8" with whatever number suits your system)
+

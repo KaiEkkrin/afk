@@ -56,9 +56,9 @@ AFK_FileFilter::AFK_FileFilter(std::initializer_list<std::string> init)
     }
 }
 
-void AFK_FileFilter::filter(int count, char **sources, size_t *sourceLengths) const
+void AFK_FileFilter::filter(size_t count, char **sources, size_t *sourceLengths) const
 {
-    for (int i = 0; i < count; ++i)
+    for (size_t i = 0; i < count; ++i)
     {
         /* Split this string apart into its component lines, because
          * I want to replace line-by-line.
@@ -85,9 +85,16 @@ void AFK_FileFilter::filter(int count, char **sources, size_t *sourceLengths) co
          */
         std::string repstr = repss.str();
         if (sourceLengths[i] < (repstr.size() + 1))
-            sources[i] = (char *)realloc(sources[i], repstr.size() + 1);
+        {
+            sourceLengths[i] = repstr.size() + 1;
+            sources[i] = (char *)realloc(sources[i], sourceLengths[i]);
+        }
 
+#ifdef _WIN32
+        strcpy_s(sources[i], sourceLengths[i], repstr.c_str());
+#else
         strcpy(sources[i], repstr.c_str());
+#endif
         sourceLengths[i] = repstr.size();
     }
 }

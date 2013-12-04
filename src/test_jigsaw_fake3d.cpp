@@ -19,11 +19,11 @@
 
 #include <cstdlib>
 #include <iostream>
-#include <random>
 
 #include <boost/random/random_device.hpp>
 
 #include "jigsaw_collection.hpp"
+#include "rng/boost_taus88.hpp"
 
 static void tryConvert(
     const Vec3<int>& _fakeCoord,
@@ -40,7 +40,7 @@ static void tryConvert(
     std::cout << _fakeCoord << " -> " << realCoord << " -> " << convertedCoord << std::endl;
 }
 
-static void tryOneJigsaw(const Vec3<int>& testSize)
+static void tryOneJigsaw(const Vec3<int>& testSize, AFK_RNG& rng)
 {
     AFK_JigsawFake3DDescriptor testFake(true, testSize);
     Vec3<int> realSize = testFake.get2DSize();
@@ -62,9 +62,9 @@ static void tryOneJigsaw(const Vec3<int>& testSize)
     for (int i = 0; i < 10; ++i)
     {
         Vec3<int> testVal = afk_vec3<int>(
-            random() % testSize.v[0],
-            random() % testSize.v[1],
-            random() % testSize.v[2]);
+            rng.uirand() % testSize.v[0],
+            rng.uirand() % testSize.v[1],
+            rng.uirand() % testSize.v[2]);
         tryConvert(testVal, testFake);
     }
 
@@ -74,21 +74,22 @@ static void tryOneJigsaw(const Vec3<int>& testSize)
 void test_jigsawFake3D(void)
 {
     boost::random::random_device rdev;
-    srand(rdev());
+    AFK_Boost_Taus88_RNG rng;
+    rng.seed(AFK_RNG_Value(
+        (uint64_t)rdev() | ((uint64_t)rdev() << 32)));
 
     /* Try the degenerate case: */
-    tryOneJigsaw(afk_vec3<int>(1, 1, 1));
+    tryOneJigsaw(afk_vec3<int>(1, 1, 1), rng);
 
     /* Try the one I expect I'll actually need to use: */
-    tryOneJigsaw(afk_vec3<int>(7, 7, 7));
+    tryOneJigsaw(afk_vec3<int>(7, 7, 7), rng);
 
     /* And then a few randoms: */
     for (int i = 0; i < 4; ++i)
     {
         tryOneJigsaw(afk_vec3<int>(
-            (random() % 25) + 1,
-            (random() % 25) + 1,
-            (random() % 25) + 1));
+            (rng.uirand() % 25) + 1,
+            (rng.uirand() % 25) + 1,
+            (rng.uirand() % 25) + 1), rng);
     }
 }
-

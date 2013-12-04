@@ -20,9 +20,8 @@ To build AFK you will currently need:
  - GLX
  - GLEW
  - Boost >=1.5x (AFK currently links with boost_random, boost_regex,
-   and maybe boost_system and boost_thread.  On Windows, build it with
-   address-model=64, and use 1.55b0 or later for a successful MSVC++ 2013
-   build)
+   and maybe boost_system and boost_thread.  On Windows, see
+   building-boost.txt
  - On Linux, SConstruct, the python build system, or Eclipse.
  - On Windows, Visual Studio 2013.
 

@@ -93,7 +93,7 @@ static void loadShaderFromFiles(
     s->obj = glCreateShader(s->shaderType);
     if (!s->obj) throw AFK_Exception("Failed to create shader");
 
-    glShaderSource(s->obj, sourceCount, (const GLchar **)sources, sourceLengthsInt);
+    glShaderSource(s->obj, static_cast<GLsizei>(sourceCount), (const GLchar **)sources, sourceLengthsInt);
     glCompileShader(s->obj);
     glGetShaderiv(s->obj, GL_COMPILE_STATUS, &success);
     if (!success)

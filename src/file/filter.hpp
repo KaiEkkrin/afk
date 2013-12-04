@@ -64,7 +64,7 @@ public:
      * match, assuming that each element of `sources' was
      * allocated with `malloc'.
      */
-    void filter(int count, char **sources, size_t *sourceLengths) const;
+    void filter(size_t count, char **sources, size_t *sourceLengths) const;
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_FileFilter::FilterReplace& r);
     friend std::ostream& operator<<(std::ostream& os, const AFK_FileFilter& f);

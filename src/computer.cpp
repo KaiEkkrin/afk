@@ -56,7 +56,11 @@ AFK_ClPlatformProperties::AFK_ClPlatformProperties(AFK_Computer *computer, cl_pl
     versionStr = new char[versionStrSize];
     AFK_CLCHK(computer->oclShim.GetPlatformInfo()(platform, CL_PLATFORM_VERSION, versionStrSize, versionStr, &versionStrSize))
 
+#ifdef _WIN32
+    if (sscanf_s(versionStr, "OpenCL %d.%d", &majorVersion, &minorVersion) != 2)
+#else
     if (sscanf(versionStr, "OpenCL %d.%d", &majorVersion, &minorVersion) != 2)
+#endif
     {
         std::ostringstream ss;
         ss << "Incomprehensible OpenCL platform version: " << versionStr;
