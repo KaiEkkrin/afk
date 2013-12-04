@@ -24,6 +24,8 @@
 
 #include <cassert>
 
+#include "data.hpp"
+
 template<typename T, typename I>
 void afk_grabSharedIntegral(T *mine, const volatile T *shared, size_t& offset) afk_noexcept
 {

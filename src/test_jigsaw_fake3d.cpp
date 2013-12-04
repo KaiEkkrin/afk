@@ -19,6 +19,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <random>
 
 #include <boost/random/random_device.hpp>
 

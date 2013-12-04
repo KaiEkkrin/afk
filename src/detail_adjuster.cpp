@@ -17,6 +17,7 @@
 
 #include "afk.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cfloat>
 #include <cmath>
@@ -59,10 +60,10 @@ void AFK_DetailAdjuster::startOfFrame(void)
             startOfFrame - lastStartOfFrame);
         haveLastFrameTime = true;
 
-        float boundedError = std::max(std::min(deviation.get() / errorPerDeviation, 1.0f), -1.0f);
+        float boundedError = std::max<float>(std::min<float>(deviation.get() / errorPerDeviation, 1.0f), -1.0f);
         float detailFactor = -(1.0f / (boundedError / 2.0f - 1.0f)); /* between 0.5 and 2 */
         //AFK_DEBUG_PRINTL("Detail factor: " << detailFactor)
-        detailPitch = std::max(std::min(detailPitch * detailFactor, detailPitchMax), detailPitchMin);
+        detailPitch = std::max<float>(std::min<float>(detailPitch * detailFactor, detailPitchMax), detailPitchMin);
     }
 
     lastStartOfFrame = startOfFrame;

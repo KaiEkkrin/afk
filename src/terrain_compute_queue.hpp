@@ -54,8 +54,8 @@ public:
     Vec2<int> piece;
 
     AFK_TerrainComputeUnit(
-        int _tileOffset,
-        int _tileCount,
+        size_t _tileOffset,
+        size_t _tileCount,
         const Vec2<int>& _piece);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_TerrainComputeUnit& unit);

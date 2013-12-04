@@ -114,9 +114,9 @@ void AFK_LandscapeDisplayQueue::draw(
         if (!allChecked) std::this_thread::yield(); /* Give things a chance */
     } while (!allChecked);
 
-    unsigned int instanceCount = culledQueue.size();
+    size_t instanceCount = culledQueue.size();
 #else
-    unsigned int instanceCount = queue.size();
+    size_t instanceCount = queue.size();
 #endif
     if (instanceCount == 0) return;
 

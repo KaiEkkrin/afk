@@ -40,7 +40,7 @@
 
 ptrdiff_t afk_getLandscapeTileFeaturesOffset(void)
 {
-    static thread_local ptrdiff_t ltFeaturesOffset = 0;
+    static afk_thread_local ptrdiff_t ltFeaturesOffset = 0;
 
     if (ltFeaturesOffset == 0)
     {
@@ -55,7 +55,7 @@ ptrdiff_t afk_getLandscapeTileFeaturesOffset(void)
 
 ptrdiff_t afk_getLandscapeTileTilesOffset(void)
 {
-    static thread_local ptrdiff_t ltTilesOffset = 0;
+    static afk_thread_local ptrdiff_t ltTilesOffset = 0;
 
     if (ltTilesOffset == 0)
     {

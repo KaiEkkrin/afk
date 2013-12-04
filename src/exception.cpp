@@ -17,13 +17,18 @@
 
 #include "afk.hpp"
 
+#include <cstdio>
+#include <cstdlib>
 #include <iostream>
-#include <execinfo.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 #include "exception.hpp"
 
+#ifdef __GNUC__
+/* TODO: Right now this backtrace is completely unreadable and useless :(
+ * I'd like one, but...
+ * Maybe there are better ones to be found (on Windows, and on Linux?)
+ */
+#include <execinfo.h>
 #define BACKTRACE_BUF_SIZE 4096
 
 void AFK_Exception::getBacktrace(void)
@@ -31,6 +36,9 @@ void AFK_Exception::getBacktrace(void)
     backtraceBuf = (void **)malloc(BACKTRACE_BUF_SIZE);
     backtraceSize = backtrace(backtraceBuf, BACKTRACE_BUF_SIZE);
 }
+#else
+void AFK_Exception::getBacktrace(void) {}
+#endif /* __GNUC__ */
 
 AFK_Exception::AFK_Exception(const std::string& _message):
     backtraceBuf(nullptr)
@@ -52,7 +60,12 @@ AFK_Exception::AFK_Exception(const std::string& _message, const GLubyte *_glMess
     msgChars = (char *)malloc(msgCharsLength * sizeof(char));
     if (msgChars)
     {
+#ifdef __GNUC__
         snprintf(msgChars, msgCharsLength, "%s: %s", _message.c_str(), _glMessage);
+#endif
+#ifdef _WIN32
+        sprintf_s(msgChars, msgCharsLength, "%s: %s", _message.c_str(), _glMessage);
+#endif
         message = std::string(msgChars);
         free(msgChars);
     }
@@ -87,7 +100,8 @@ const std::string& AFK_Exception::getMessage() const
 
 void AFK_Exception::printBacktrace(void) const
 {
+#ifdef __GNUC__
     if (backtraceBuf)
         backtrace_symbols_fd(backtraceBuf, backtraceSize, fileno(stderr));
+#endif
 }
-

@@ -94,9 +94,9 @@ cl_event *AFK_ComputeDependency::addEvent(void)
     else return nullptr;
 }
 
-unsigned int AFK_ComputeDependency::getEventCount(void) const
+cl_uint AFK_ComputeDependency::getEventCount(void) const
 {
-    if (async) return e.size();
+    if (async) return static_cast<cl_uint>(e.size());
     else return 0;
 }
 
@@ -110,7 +110,7 @@ void AFK_ComputeDependency::waitFor(void)
 {
     if (async && e.size() > 0)
     {
-        AFK_CLCHK(computer->oclShim.WaitForEvents()(e.size(), &e[0]))
+        AFK_CLCHK(computer->oclShim.WaitForEvents()(static_cast<cl_uint>(e.size()), &e[0]))
         clearEvents();
     }
 }

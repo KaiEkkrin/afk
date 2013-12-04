@@ -20,6 +20,8 @@
 
 #include <boost/thread.hpp>
 
+#include "data.hpp"
+
 /* This defines the same interface as Claimable, but using boost
  * upgrade mutexes.
  * There's no separate "InplaceClaim" here, but it handles `shared'

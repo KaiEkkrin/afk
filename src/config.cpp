@@ -31,46 +31,8 @@
 
 #include "config.hpp"
 #include "exception.hpp"
+#include "file/readfile.hpp"
 
-
-/* Getting the CWD is system specific... */
-
-#ifdef AFK_GLX
-
-#include <unistd.h>
-
-static char *getCWD(void)
-{
-    return get_current_dir_name();
-}
-
-#endif /* AFK_GLX */
-
-#ifdef AFK_WGL
-
-static char *getCWD(void)
-{
-    unsigned int cwdLength = GetCurrentDirectoryA(0, nullptr);
-    if (cwdLength == 0)
-    {
-        std::ostringstream ss;
-        ss << "Unable to get current working directory: " << GetLastError();
-        throw AFK_Exception(ss.str());
-    }
-
-    char *cwd = static_cast<char*>(malloc(cwdLength + 1));
-    cwdLength = GetCurrentDirectoryA(cwdLength + 1, cwd);
-    if (cwdLength == 0)
-    {
-        std::ostringstream ss;
-        ss << "Unable to get current working directory: " << GetLastError();
-        throw AFK_Exception(ss.str());
-    }
-
-    return cwd;
-}
-
-#endif /* AFK_WGL */
 
 /* This utility function pulls AFK's executable path and names a directory
  * in the same location.
@@ -81,7 +43,7 @@ static char *getDirAtExecPath(const char *leafname, const char *execname)
     char *dirname = (char *)malloc(dirnameMaxSize);
     strcpy(dirname, execname);
     int i;
-    for (i = strlen(execname) - 1; i >= 0; --i)
+    for (i = static_cast<int>(strlen(execname)) - 1; i >= 0; --i)
     {
         if (dirname[i] == '/' || dirname[i] == '\\') break;
     }
@@ -98,7 +60,7 @@ static char *getDirAtExecPath(const char *leafname, const char *execname)
         /* I can't find a lowest level directory path, use the CWD
          * instead.
          */
-        char *currentDir = getCWD();
+        char *currentDir = afk_getCWD();
         size_t cwdDirnameMaxSize = strlen(currentDir) + strlen(leafname) + 2;
         if (cwdDirnameMaxSize > dirnameMaxSize) dirname = (char *)realloc(dirname, cwdDirnameMaxSize);
         sprintf(dirname, "%s/%s", currentDir, leafname);

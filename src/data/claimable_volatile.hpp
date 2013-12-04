@@ -25,6 +25,7 @@
 #include <boost/atomic.hpp>
 
 #include "claimable.hpp"
+#include "data.hpp"
 #include "volatile.hpp"
 
 /* This defines the Claimable interface, using atomics and

@@ -315,8 +315,7 @@ bool AFK_World::generateClaimedWorldCell(
     else /* if (cell.coord.v[1] == 0) */
     {
         bool needsResume = false;
-        static thread_local std::vector<AFK_Tile> missingTiles;
-        missingTiles.clear();
+        std::vector<AFK_Tile> missingTiles;
 
         /* We display geometry at a cell if its detail pitch is at the
          * target detail pitch, or if it's already the smallest
@@ -522,9 +521,9 @@ AFK_World::AFK_World(
     AFK_Computer *computer,
     AFK_ThreadAllocation& threadAlloc,
     float _maxDistance,
-    unsigned int worldCacheSize,
-    unsigned int tileCacheSize,
-    unsigned int shapeCacheSize,
+    size_t worldCacheSize,
+    size_t tileCacheSize,
+    size_t shapeCacheSize,
     AFK_RNG *setupRng):
         startingDetailPitch         (config->startingDetailPitch),
         maxDetailPitch              (config->maxDetailPitch),

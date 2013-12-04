@@ -26,6 +26,7 @@
 #include <boost/atomic.hpp>
 
 #include "claimable.hpp"
+#include "data.hpp"
 #include "monomer.hpp"
 #include "stats.hpp"
 
@@ -103,7 +104,7 @@ protected:
     unsigned int index;
 
     /* Calculates the chain index for a given hash. */
-    size_t chainOffset(unsigned int hops, size_t hash) const noexcept
+    size_t chainOffset(unsigned int hops, size_t hash) const afk_noexcept
     {
         size_t offset = ((hash + hops) & HASH_MASK);
         return offset;
@@ -122,7 +123,7 @@ public:
     }
     
     /* Appends a new chain. */
-    void extend(PolymerChain *newChain, unsigned int _index) noexcept
+    void extend(PolymerChain *newChain, unsigned int _index) afk_noexcept
     {
         assert(index == _index);
 
@@ -141,7 +142,7 @@ public:
     }
 
     /* Gets a monomer from a specific place. */
-    bool get(unsigned int threadId, unsigned int hops, size_t baseHash, const KeyType& key, ValueType **o_valuePtr) noexcept
+    bool get(unsigned int threadId, unsigned int hops, size_t baseHash, const KeyType& key, ValueType **o_valuePtr) afk_noexcept
     {
         size_t offset = chainOffset(hops, baseHash);
         if (chain[offset].get(threadId, key, o_valuePtr))
@@ -156,7 +157,7 @@ public:
      * Returns true if successful, else false.
      * `o_value' gets a reference to the monomer.
      */
-    bool insert(unsigned int threadId, unsigned int hops, size_t baseHash, const KeyType& key, ValueType **o_valuePtr) noexcept
+    bool insert(unsigned int threadId, unsigned int hops, size_t baseHash, const KeyType& key, ValueType **o_valuePtr) afk_noexcept
     {
         size_t offset = chainOffset(hops, baseHash);
         if (chain[offset].insert(threadId, key, o_valuePtr))
@@ -168,18 +169,18 @@ public:
     }
 
     /* Returns the next chain, or nullptr if we're at the end. */
-    PolymerChain *next(void) const noexcept
+    PolymerChain *next(void) const afk_noexcept
     {
         PolymerChain *nextCh = nextChain.load();
         return nextCh;
     }
 
-    unsigned int getIndex(void) const noexcept
+    unsigned int getIndex(void) const afk_noexcept
     {
         return index;
     }
 
-    unsigned int getCount(void) const noexcept
+    unsigned int getCount(void) const afk_noexcept
     {
         PolymerChain *next = nextChain.load();
         if (next)
@@ -190,7 +191,7 @@ public:
 
     /* Methods for supporting direct-slot access. */
 
-    bool atSlot(unsigned int threadId, size_t slot, bool acceptUnassigned, KeyType *o_key, ValueType **o_valuePtr) noexcept
+    bool atSlot(unsigned int threadId, size_t slot, bool acceptUnassigned, KeyType *o_key, ValueType **o_valuePtr) afk_noexcept
     {
         if (slot & ~HASH_MASK)
         {
@@ -206,7 +207,7 @@ public:
         }
     }
 
-    bool eraseSlot(unsigned int threadId, size_t slot, const KeyType& key) noexcept
+    bool eraseSlot(unsigned int threadId, size_t slot, const KeyType& key) afk_noexcept
     {
         if (slot & ~HASH_MASK)
         {
@@ -288,7 +289,7 @@ protected:
     /* This wrings as many bits out of a hash as I can
      * within the `hashBits' limit
      */
-    size_t wring(size_t hash) const noexcept
+    size_t wring(size_t hash) const afk_noexcept
     {
         /* Now that I've fixed the hash function, this
          * is properly unnecessary.
@@ -319,7 +320,7 @@ protected:
     }
 
     /* Retrieves an existing monomer. */
-    bool retrieveMonomer(unsigned int threadId, const KeyType& key, size_t hash, ValueType **o_valuePtr) noexcept
+    bool retrieveMonomer(unsigned int threadId, const KeyType& key, size_t hash, ValueType **o_valuePtr) afk_noexcept
     {
         /* Try a small number of hops first, then expand out.
          */
@@ -338,7 +339,7 @@ protected:
     /* Inserts a new monomer, creating a new chain
      * if necessary.
      */
-    void insertMonomer(unsigned int threadId, const KeyType& key, size_t hash, ValueType **o_valuePtr) noexcept
+    void insertMonomer(unsigned int threadId, const KeyType& key, size_t hash, ValueType **o_valuePtr) afk_noexcept
     {
         bool inserted = false;
         PolymerChain *startChain = chains;
@@ -427,7 +428,7 @@ public:
         return chains->getCount() * CHAIN_SIZE;
     }
 
-    bool getSlot(unsigned int threadId, size_t slot, KeyType *o_key, ValueType **o_valuePtr) noexcept
+    bool getSlot(unsigned int threadId, size_t slot, KeyType *o_key, ValueType **o_valuePtr) afk_noexcept
     {
         /* Don't return unassigneds */
         return (chains->atSlot(threadId, slot, false, o_key, o_valuePtr));
@@ -441,7 +442,7 @@ public:
      * suchlike.
      * *DON'T HAVE MORE THAN ONE THREAD CALLING THIS PER POLYMER*
      */
-    bool eraseSlot(unsigned int threadId, size_t slot, const KeyType& key) noexcept
+    bool eraseSlot(unsigned int threadId, size_t slot, const KeyType& key) afk_noexcept
     {
         bool success = chains->eraseSlot(threadId, slot, key);
         if (success) stats.erasedOne();

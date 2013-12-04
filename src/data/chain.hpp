@@ -23,6 +23,8 @@
 
 #include <boost/atomic.hpp>
 
+#include "data.hpp"
+
 /* A Chain is a simple single-linked list of atomic pointers.  It
  * provides lockless access at the expense of occasionally bumping the
  * list length a bit much!

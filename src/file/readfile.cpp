@@ -17,13 +17,69 @@
 
 #include "readfile.hpp"
 
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+#include <cassert>
+#include <cerrno>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include <stack>
+
+#ifdef __GNUC__
+#include <unistd.h>
+
+char *afk_getCWD(void)
+{
+    return get_current_dir_name();
+}
+
+bool afk_setCWD(const char *dir)
+{
+    return (chdir(dir) >= 0);
+}
+
+void afk_printCWDError(std::ostream& io_errStream)
+{
+    io_errStream << "Failed to set working directory: " << strerror(errno) << std::endl;
+}
+
+#endif /* __GNUC__ */
+
+#ifdef _WIN32
+#include <Windows.h>
+char *afk_getCWD(void)
+{
+    unsigned int cwdLength = GetCurrentDirectoryA(0, nullptr);
+    assert(cwdLength > 0);
+    if (cwdLength == 0)
+    {
+        std::cerr << "Failed to get current directory" << std::endl;
+        exit(1);
+    }
+
+    char *cwd = static_cast<char*>(malloc(cwdLength + 1));
+    cwdLength = GetCurrentDirectoryA(cwdLength + 1, cwd);
+    assert(cwdLength > 0);
+    if (cwdLength == 0)
+    {
+        std::cerr << "Failed to get current directory" << std::endl;
+        exit(1);
+    }
+
+    return cwd;
+}
+
+bool afk_setCWD(const char *dir)
+{
+    return (SetCurrentDirectoryA(dir) != FALSE);
+}
+
+void afk_printCWDError(std::ostream& io_errStream)
+{
+    /* TODO Pretty printed error string */
+    io_errStream << "Failed to set working directory: " << GetLastError() << std::endl;
+}
+#endif /* _WIN32 */
 
 /* The directory stack. */
 std::stack<std::string> dirStack;
@@ -33,11 +89,11 @@ bool afk_pushDir(const std::string& path, std::ostream& io_errStream)
     /* We switch into `path', first pushing the current directory
      * onto the stack.
      */
-    char *currentDir = get_current_dir_name();
+    char *currentDir = afk_getCWD();
     std::string currentDirStr(currentDir);
-    if (chdir(path.c_str()) == -1)
+    if (!afk_setCWD(path.c_str()))
     {
-        io_errStream << strerror(errno);
+        afk_printCWDError(io_errStream);
         return false;
     }
 
@@ -55,9 +111,9 @@ bool afk_popDir(std::ostream& io_errStream)
     }
 
     std::string newDir = dirStack.top();
-    if (chdir(newDir.c_str()) == -1)
+    if (!afk_setCWD(newDir.c_str()))
     {
-        io_errStream << strerror(errno);
+        afk_printCWDError(io_errStream);
         return false;
     }
 
@@ -112,11 +168,11 @@ bool afk_readFileContents(
 
     {
         char *read_pos = *o_buf;
-        int length_left = length;
-        int length_read;
+        size_t length_left = static_cast<size_t>(length);
+        size_t length_read;
         success = true;
 
-        while (!feof(f) && length_left > 0)
+        while (!feof(f) && length_left != 0)
         {
             length_read = fread(read_pos, 1, length_left, f);
             if (length_read == 0 && ferror(f))

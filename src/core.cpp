@@ -173,7 +173,7 @@ void AFK_Core::deleteGlGarbageBufs(void)
         bufs.push_back(buf);
 
     if (bufs.size() > 0)
-        glDeleteBuffers(bufs.size(), &bufs[0]);
+        glDeleteBuffers(static_cast<GLsizei>(bufs.size()), &bufs[0]);
     bufs.clear();
 }
 
@@ -256,7 +256,13 @@ void AFK_Core::configure(int *argcp, char **argv)
 
 void AFK_Core::initGraphics(void)
 {
+#ifdef AFK_GLX
     window = new AFK_WindowGlx(config->windowWidth, config->windowHeight, config->vsync);
+#endif
+
+#ifdef AFK_WGL
+    window = new AFK_WindowWgl(config->windowWidth, config->windowHeight, config->vsync);
+#endif
 }
 
 void AFK_Core::loop(void)
@@ -280,7 +286,7 @@ void AFK_Core::loop(void)
     /* Now that I've set that stuff up, find out how much memory
      * I have to play with ...
      */
-    unsigned int clGlMaxAllocSize = computer->getFirstDeviceProps().maxMemAllocSize;
+    size_t clGlMaxAllocSize = computer->getFirstDeviceProps().maxMemAllocSize;
     std::cout << "AFK: Using GPU with " << std::dec << clGlMaxAllocSize << " bytes available to cl_gl";
     std::cout << " (" << clGlMaxAllocSize / (1024 * 1024) << "MB) global memory" << std::endl;
 

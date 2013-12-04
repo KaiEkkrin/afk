@@ -18,6 +18,7 @@
 #include "afk.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 #include "camera.hpp"
 #include "config.hpp"
@@ -75,7 +76,7 @@ void AFK_Camera::setWindowDimensions(int width, int height)
     /* If we're setting up a window, this stuff must be
      * valid by now
      */
-    tanHalfFov = tanf((afk_core.config->fov / 2.0f) * M_PI / 180.0f);
+    tanHalfFov = tanf((afk_core.config->fov / 2.0f) * (float)M_PI / 180.0f);
     ar = ((float)windowWidth) / ((float)windowHeight);
 
     windowSize = afk_vec2<float>((float)windowWidth, (float)windowHeight);
@@ -88,7 +89,7 @@ float AFK_Camera::getDetailPitchAsSeen(
 {
     float distanceToViewer = (objectLocation - (viewerLocation - separation)).magnitude();
     return windowHeight * objectScale / (tanHalfFov *
-        std::max(std::min(distanceToViewer, zFar), zNear));
+        std::max<float>(std::min<float>(distanceToViewer, zFar), zNear));
 }
 
 bool AFK_Camera::projectedPointIsVisible(const Vec4<float>& projectedPoint) const

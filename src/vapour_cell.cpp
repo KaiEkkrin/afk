@@ -108,7 +108,7 @@ void AFK_VapourCell::makeDescriptor(
                 sSizes,
                 rng);
 
-            assert(featureIt = features.end());
+            assert(featureIt == features.end());
         }
 
         haveDescriptor = true;

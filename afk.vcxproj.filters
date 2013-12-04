@@ -297,6 +297,9 @@
     <ClInclude Include="src\rng\hash.hpp">
       <Filter>Header Files\rng</Filter>
     </ClInclude>
+    <ClInclude Include="src\data\data.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\compute\fake3d.cl">

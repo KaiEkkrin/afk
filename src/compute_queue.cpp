@@ -91,7 +91,7 @@ void AFK_ComputeQueue::kernel3D(
 
 void AFK_ComputeQueue::acquireGlObjects(
     cl_mem *obj,
-    size_t count,
+    cl_uint count,
     const AFK_ComputeDependency& preDep,
     AFK_ComputeDependency& postDep)
 {
@@ -127,7 +127,7 @@ void AFK_ComputeQueue::readImage(
 
 void AFK_ComputeQueue::releaseGlObjects(
     cl_mem *obj,
-    size_t count,
+    cl_uint count,
     const AFK_ComputeDependency& preDep,
     AFK_ComputeDependency& postDep)
 {

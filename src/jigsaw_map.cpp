@@ -335,10 +335,10 @@ void AFK_JigsawMap::flip(const AFK_Frame& frame)
     /* If the cleared list has fallen below minimum, clear
      * up to maximum.
      */
-    int clearedSize = cleared.size();
+    size_t clearedSize = cleared.size();
     if (clearedSize < minCleared)
     {
-        for (int i = clearedSize; i < maxCleared && !idle.empty(); ++i)
+        for (size_t i = clearedSize; i < maxCleared && !idle.empty(); ++i)
         {
             AFK_JigsawPlace *clearedPlace = idle.front();
             idle.pop_front();

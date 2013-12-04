@@ -189,8 +189,8 @@ public:
 
     void extend(const AFK_3DList& list);
 
-    unsigned int featureCount(void) const;
-    unsigned int cubeCount(void) const;
+    size_t featureCount(void) const;
+    size_t cubeCount(void) const;
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_3DList& list);
 };

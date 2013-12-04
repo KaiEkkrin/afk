@@ -31,7 +31,7 @@ class AFK_StageTimer
 {
 protected:
     /* The average times taken for each stage. */
-    std::vector<AFK_MovingAverage<int64_t>*> timesInMicros;
+    std::vector<AFK_MovingAverage<int64_t> > timesInMicros;
 
     /* When we hit the last stage. */
     afk_clock::time_point lastStage;
@@ -54,7 +54,7 @@ public:
     void restart(void);
 
     /* Tells the timer we just hit a stage. */
-    void hitStage(int stage);
+    void hitStage(size_t stage);
 };
 
 #endif /* _AFK_DATA_STAGE_TIMER_H_ */

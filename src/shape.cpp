@@ -449,7 +449,7 @@ bool AFK_Shape::generateClaimedShapeCell(
 AFK_Shape::AFK_Shape(
     const AFK_Config *config,
     AFK_ThreadAllocation& threadAlloc,
-    unsigned int shapeCacheSize)
+    size_t shapeCacheSize)
 {
     /* This is naughty, but I really want an auto-create
      * here.

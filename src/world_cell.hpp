@@ -50,7 +50,7 @@ protected:
 
     /* The list of Entities currently homed to this cell. */
     //AFK_ENTITY_LIST *entities;
-    static constexpr int maxEntityCount = 4;
+    static const unsigned int maxEntityCount = 4;
     std::array<AFK_Entity, maxEntityCount> entities;
     int entityCount; /* -1 for not generated yet */
 

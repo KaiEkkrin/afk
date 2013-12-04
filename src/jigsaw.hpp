@@ -132,7 +132,8 @@ public:
      */
     AFK_Frame getTimestamp(const AFK_JigsawPiece& piece) const;
 
-    unsigned int getTexCount(void) const { return desc.size(); }
+    /* TODO change this to a size_t ? */
+    unsigned int getTexCount(void) const { return static_cast<unsigned int>(desc.size()); }
 
     /* Returns the (s, t) texture co-ordinates for a given piece
      * within the jigsaw.  These will be in the range (0, 1).

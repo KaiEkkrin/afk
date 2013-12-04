@@ -94,9 +94,14 @@ void AFK_3DEdgeShapeBase::initGL()
     glPrimitiveRestartIndex(RESTART_INDEX);
 }
 
-void AFK_3DEdgeShapeBase::draw(unsigned int instanceCount) const
+void AFK_3DEdgeShapeBase::draw(size_t instanceCount) const
 {
-    glDrawElementsInstanced(GL_LINE_STRIP_ADJACENCY, indices.size(), GL_UNSIGNED_SHORT, 0, instanceCount);
+    glDrawElementsInstanced(
+        GL_LINE_STRIP_ADJACENCY,
+        static_cast<GLsizei>(indices.size()),
+        GL_UNSIGNED_SHORT,
+        0,
+        static_cast<GLsizei>(instanceCount));
     AFK_GLCHK("3d edge shape draw")
 }
 

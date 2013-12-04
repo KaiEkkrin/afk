@@ -19,6 +19,7 @@
 #define _AFK_DATA_WATCHED_CLAIMABLE_H_
 
 #include "claimable.hpp"
+#include "data.hpp"
 
 /* A WatchedClaimable wraps a Claimable and provides last seen,
  * per-frame exclusivity, and an exception for the evictor.
@@ -42,7 +43,7 @@ protected:
     /* This utility method verifies that it's okay to claim ths object,
      * based on the last seen fields and the given flags.
      */
-    bool watch(unsigned int flags) noexcept
+    bool watch(unsigned int flags) afk_noexcept
     {
         int64_t computingFrameNum = getComputingFrame().get();
 

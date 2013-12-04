@@ -217,12 +217,12 @@ void AFK_3DList::extend(const AFK_3DList& list)
     extend<std::vector<AFK_3DVapourFeature>, std::vector<AFK_3DVapourCube> >(list.f, list.c);
 }
 
-unsigned int AFK_3DList::featureCount(void) const
+size_t AFK_3DList::featureCount(void) const
 {
     return f.size();
 }
 
-unsigned int AFK_3DList::cubeCount(void) const
+size_t AFK_3DList::cubeCount(void) const
 {
     return c.size();
 }

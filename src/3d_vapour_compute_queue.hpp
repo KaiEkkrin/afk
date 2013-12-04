@@ -79,7 +79,7 @@ public:
     bool uninitialised(void) const;
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_3DVapourComputeUnit& unit);
-} __attribute__((aligned(16)));
+} afk_align(16);
 
 std::ostream& operator<<(std::ostream& os, const AFK_3DVapourComputeUnit& unit);
 
