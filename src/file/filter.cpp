@@ -68,17 +68,15 @@ void AFK_FileFilter::filter(size_t count, char **sources, size_t *sourceLengths)
 
         boost::char_separator<char> lineSep("\n");
         boost::tokenizer<boost::char_separator<char> > sourceTok(source, lineSep);
-        for (boost::tokenizer<boost::char_separator<char> >::iterator sourceIt = sourceTok.begin();
-            sourceIt != sourceTok.end(); ++sourceIt)
+        for (auto sourceLine : sourceTok)
         {
-            std::string sourceLine = *sourceIt;
-
+            std::string repLine = sourceLine;
             for (std::vector<FilterReplace>::const_iterator repIt = rep.begin(); repIt != rep.end(); ++repIt)
             {
-                sourceLine = repIt->replace(sourceLine);
+                repLine = repIt->replace(repLine);
             }
 
-            repss << sourceLine << "\n";
+            repss << repLine << "\n";
         }
 
         /* Now, splice the replaced string back into the source vector.

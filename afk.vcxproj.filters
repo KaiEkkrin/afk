@@ -300,6 +300,9 @@
     <ClInclude Include="src\data\data.hpp">
       <Filter>Header Files\data</Filter>
     </ClInclude>
+    <ClInclude Include="src\window_wgl.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\compute\fake3d.cl">
@@ -564,6 +567,9 @@
     </ClCompile>
     <ClCompile Include="src\rng\hash.cpp">
       <Filter>Source Files\rng</Filter>
+    </ClCompile>
+    <ClCompile Include="src\window_wgl.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

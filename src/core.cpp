@@ -32,6 +32,7 @@
 #include "rng/rng.hpp"
 #include "test_jigsaw.hpp"
 #include "window_glx.hpp"
+#include "window_wgl.hpp"
 #include "world.hpp"
 
 

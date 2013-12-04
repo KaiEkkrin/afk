@@ -246,6 +246,7 @@
     <ClInclude Include="src\visible_cell.hpp" />
     <ClInclude Include="src\window.hpp" />
     <ClInclude Include="src\window_glx.hpp" />
+    <ClInclude Include="src\window_wgl.hpp" />
     <ClInclude Include="src\work.hpp" />
     <ClInclude Include="src\world.hpp" />
     <ClInclude Include="src\world_cell.hpp" />
@@ -338,6 +339,7 @@
     <ClCompile Include="src\vapour_cell.cpp" />
     <ClCompile Include="src\visible_cell.cpp" />
     <ClCompile Include="src\window_glx.cpp" />
+    <ClCompile Include="src\window_wgl.cpp" />
     <ClCompile Include="src\world.cpp" />
     <ClCompile Include="src\world_cell.cpp" />
     <ClCompile Include="src\yreduce.cpp" />

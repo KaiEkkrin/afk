@@ -17,7 +17,9 @@
 
 #ifdef AFK_GLX
 
-#include <stdio.h>
+#include "afk.hpp"
+
+#include <cstdio>
 
 #include <boost/tokenizer.hpp>
 

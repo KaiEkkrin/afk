@@ -43,8 +43,63 @@
 AFK_Core afk_core;
 
 
+#ifdef _WIN32
+#include <vector>
+#include <boost/tokenizer.hpp>
+
+class AFK_ArgList
+{
+protected:
+    std::vector<char *> argVec;
+    int argc;
+    char **argv;
+
+public:
+    AFK_ArgList() : argc(0), argv(nullptr)
+    {
+        /* Turn that command line into a Unix style argc / argv, like AFK was written to expect. */
+        LPSTR fullCmdLine = GetCommandLineA();
+
+        boost::char_separator<char> argSep(" ");
+        boost::tokenizer<boost::char_separator<char> > argTok(std::string(fullCmdLine), argSep);
+
+        for (auto arg : argTok)
+        {
+            argVec.push_back(_strdup(arg.c_str()));
+        }
+
+        argv = new char *[argVec.size()];
+        for (auto arg : argVec)
+        {
+            argv[argc++] = arg;
+        }
+    }
+
+    virtual ~AFK_ArgList()
+    {
+        if (argv) delete[] argv;
+        for (auto arg : argVec) free(arg);
+    }
+
+    int getArgc(void) const { return argc; }
+    char **getArgv(void) const { return argv; }
+};
+
+int APIENTRY WinMain(
+    HINSTANCE   hInstance,
+    HINSTANCE   hPrevInstance,
+    LPSTR       lpCmdLine,
+    int         nCmdShow)
+{
+    AFK_ArgList argList;
+    int argc = argList.getArgc();
+    char **argv = argList.getArgv();
+#endif /* _WIN32 */
+
+#ifdef __GNUC__
 int main(int argc, char **argv)
 {
+#endif /* __GNUC__ */
     int retcode = 0;
 
 #if TEST_ASYNC
