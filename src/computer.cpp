@@ -235,8 +235,15 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
         CL_CONTEXT_PLATFORM,    (cl_context_properties)platform,
         0
     }; 
-#else
-#error "cl_gl for other platforms unimplemented"
+#endif
+
+#if AFK_WGL
+    cl_context_properties clGlProperties[] = {
+        CL_GL_CONTEXT_KHR, firstOf<HGLRC, cl_context_properties>(wglGetCurrentContext()),
+        CL_WGL_HDC_KHR, firstOf<HDC, cl_context_properties>(wglGetCurrentDC()),
+        CL_CONTEXT_PLATFORM, (cl_context_properties)platform,
+        0
+    };
 #endif
 
     AFK_CLCHK(oclShim.GetDeviceIDs()(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &devicesSize))
@@ -275,13 +282,13 @@ void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<st
     std::ostringstream errStream;
     cl_int error;
 
-    int sourceCount = p->filenames.size();
+    size_t sourceCount = p->filenames.size();
 
     assert(sourceCount > 0);
     sources = new char *[sourceCount];
     sourceLengths = new size_t[sourceCount];
 
-    for (int s = 0; s < sourceCount; ++s)
+    for (size_t s = 0; s < sourceCount; ++s)
     {
         std::cout << "AFK: Loading file for CL program " << p->programName << ": " << p->filenames[s] << std::endl;
 
@@ -289,10 +296,10 @@ void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<st
             throw AFK_Exception("AFK_Computer: " + errStream.str());
     }
 
-    p->program = oclShim.CreateProgramWithSource()(ctxt, sourceCount, (const char **)sources, sourceLengths, &error);
+    p->program = oclShim.CreateProgramWithSource()(ctxt, static_cast<cl_uint>(sourceCount), (const char **)sources, sourceLengths, &error);
     AFK_HANDLE_CL_ERROR(error);
 
-    for (int s = 0; s < sourceCount; ++s) free(sources[s]);
+    for (size_t s = 0; s < sourceCount; ++s) free(sources[s]);
     delete[] sources;
     delete[] sourceLengths;
 

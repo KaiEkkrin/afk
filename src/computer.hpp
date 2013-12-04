@@ -166,7 +166,7 @@ protected:
     /* For tracking CL program compilation. */
     std::condition_variable buildCond;
     std::mutex buildMut;
-    unsigned int stillBuilding;
+    size_t stillBuilding;
 
     cl_context ctxt;
     //cl_command_queue q;
