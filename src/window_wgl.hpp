@@ -48,10 +48,20 @@ protected:
     /* I retain a copy of the window dimensions here. */
     unsigned int width, height;
 
+    /* Also, its location, because mouse co-ordinates in Win32 are
+     * client viewport relative, not window relative.
+     */
+    int x, y;
+
+    bool pointerCaptured;
+    bool windowClosed;
+
     /* Functions triggered by afk_wndProc */
     void windowCreated(void);
     void windowDeleted(void);
     void windowResized(unsigned int windowWidth, unsigned int windowHeight);
+    void windowMoved(int windowX, int windowY);
+    void mouseMoved(int mouseX, int mouseY);
 
 public:
     /* Because of the mapping back from an HWND, no copying these around */

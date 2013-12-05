@@ -130,7 +130,18 @@ void afk_idle(void)
     afk_core.deleteGlGarbageBufs();
 
     /* Wait until it's about time to display the next frame. */
-    std::future_status status = afk_core.computingUpdate.wait_for(afk_core.detailAdjuster->getComputeWaitTime());
+    afk_duration_mfl computeWaitTime = afk_core.detailAdjuster->getComputeWaitTime();
+#ifdef _WIN32
+    /* TODO: There appears to be an issue with the Visual Studio 2013
+     * future implementation and this floating point duration value,
+     * convert it to integer micros
+     */
+    std::chrono::microseconds computeWaitTimeMicros =
+        std::chrono::duration_cast<std::chrono::microseconds>(computeWaitTime);
+    std::future_status status = afk_core.computingUpdate.wait_for(computeWaitTimeMicros);
+#else
+    std::future_status status = afk_core.computingUpdate.wait_for(computeWaitTime);
+#endif
 
     switch (status)
     {

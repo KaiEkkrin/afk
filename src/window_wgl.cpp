@@ -19,9 +19,12 @@
 
 #include "afk.hpp"
 
+#include <cassert>
 #include <map>
 #include <sstream>
 
+#include "core.hpp"
+#include "event.hpp"
 #include "exception.hpp"
 #include "window_wgl.hpp"
 
@@ -31,8 +34,55 @@
  */
 std::map<HWND, AFK_WindowWgl *> afk_wndMap;
 
+/* This utility handles the nasty case of keyboard input */
+static void handleCharInput(WPARAM wParam, LPARAM lParam)
+{
+    /* The "down" or "up" status is indicated a bit obscurely in a
+     * WM_CHAR message -- see http://msdn.microsoft.com/en-us/library/windows/desktop/ms646276(v=vs.85).aspx
+     * I want to process this first to save myself unnecessary calls
+     * to that nasty WideCharToMultiByte function
+     */
+    bool previouslyDown = ((lParam & (1 << 30)) != 0);
+    bool keyReleased = ((lParam & (1 << 31)) != 0);
+    if (previouslyDown == keyReleased)
+    {
+        /* Turn that wide char into a sensible string */
+        const int mchrSize = 16;
+        char mchr[mchrSize];
+
+        int count = WideCharToMultiByte(
+            CP_ACP,
+            0,
+            reinterpret_cast<LPWCH>(&wParam),
+            1,
+            mchr,
+            mchrSize - 1,
+            nullptr,
+            nullptr
+            );
+
+        if (count > 0)
+        {
+            mchr[count] = '\0';
+
+            if (!previouslyDown)
+            {
+                /* This is a "down" event. */
+                afk_keyboard(std::string(mchr));
+            }
+            else
+            {
+                /* This is an "up" event. */
+                afk_keyboardUp(std::string(mchr));
+            }
+        }
+    }
+}
+
 /* The global window callback function (which will go back into AFK_WindowWgl
  * for everything, of course.)
+ * TODO: Consider using DirectInput for this stuff instead.  It would
+ * probably work out better...
  */
 LRESULT CALLBACK afk_wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -49,6 +99,59 @@ LRESULT CALLBACK afk_wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
 
     case WM_SIZE:
         afk_wndMap[hwnd]->windowResized(LOWORD(lParam), HIWORD(lParam));
+        return 0;
+
+    case WM_MOVE:
+        /* This contortion to obtain the x and y from
+         * http://msdn.microsoft.com/en-us/library/windows/desktop/ms632631(v=vs.85).aspx
+         */
+        afk_wndMap[hwnd]->windowMoved(
+            (int)(short)LOWORD(lParam),
+            (int)(short)HIWORD(lParam)
+            );
+        return 0;
+
+    case WM_CHAR:
+        handleCharInput(wParam, lParam);
+        return 0;
+
+    case WM_LBUTTONDOWN:
+        afk_mouse(1);
+        return 0;
+
+    case WM_LBUTTONUP:
+        afk_mouseUp(1);
+        return 0;
+
+    case WM_MBUTTONDOWN:
+        afk_mouse(2);
+        return 0;
+
+    case WM_MBUTTONUP:
+        afk_mouseUp(2);
+        return 0;
+
+    case WM_RBUTTONDOWN:
+        afk_mouse(3);
+        return 0;
+
+    case WM_RBUTTONUP:
+        afk_mouseUp(3);
+
+    case WM_XBUTTONDOWN:
+        /* Button 4 or 5. */
+        afk_mouse(3 + GET_XBUTTON_WPARAM(wParam));
+        return 0;
+
+    case WM_XBUTTONUP:
+        afk_mouseUp(3 + GET_XBUTTON_WPARAM(wParam));
+        return 0;
+
+    case WM_MOUSEMOVE:
+        afk_wndMap[hwnd]->mouseMoved(
+            (int)(short)LOWORD(lParam),
+            (int)(short)HIWORD(lParam)
+            );
         return 0;
 
     default:
@@ -142,13 +245,45 @@ void AFK_WindowWgl::windowResized(unsigned int windowWidth, unsigned int windowH
     height = windowHeight;
 }
 
+void AFK_WindowWgl::windowMoved(int windowX, int windowY)
+{
+    x = windowX;
+    y = windowY;
+}
+
+void AFK_WindowWgl::mouseMoved(int mouseX, int mouseY)
+{
+    if (pointerCaptured)
+    {
+        /* Work out co-ordinates relative to the middle of the window */
+        int wMidX = (int)width / 2;
+        int wMidY = (int)height / 2;
+
+        int relX = mouseX - x - wMidX;
+        int relY = mouseY - y - wMidY;
+
+        if (relX != 0 || relY != 0)
+        {
+            /* There is a significant mouse displacement. */
+            afk_motion(relX, relY);
+
+            /* Reset to the middle of the window */
+            SetCursorPos(x + wMidX, y + wMidY);
+        }
+    }
+}
+
 AFK_WindowWgl::AFK_WindowWgl(unsigned int windowWidth, unsigned int windowHeight, bool vsync):
     hwnd(0),
     deviceContext(0),
     initialContext(0),
     renderContext(0),
     width(windowWidth),
-    height(windowHeight)
+    height(windowHeight),
+    x(0), /* TODO Try to place the window in a more friendly manner */
+    y(0),
+    pointerCaptured(false),
+    windowClosed(false)
 {
     WNDCLASSEXA windowClass;
     windowClass.cbSize = sizeof(windowClass);
@@ -176,7 +311,7 @@ AFK_WindowWgl::AFK_WindowWgl(unsigned int windowWidth, unsigned int windowHeight
         wClassName,
         wAppName,
         WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_SYSMENU,
-        0, 0, windowWidth, windowHeight,
+        x, y, windowWidth, windowHeight,
         nullptr,
         nullptr,
         GetModuleHandle(nullptr),
@@ -236,6 +371,99 @@ void AFK_WindowWgl::releaseGLContext(unsigned int threadId)
 void AFK_WindowWgl::shareGLCLContext(AFK_Computer *computer)
 {
     throw AFK_Exception("Unimplemented");
+}
+
+void AFK_WindowWgl::loopOnEvents(
+    std::function<void(void)> idleFunc,
+    std::function<void(const std::string&)> keyboardUpFunc,
+    std::function<void(const std::string&)> keyboardDownFunc,
+    std::function<void(unsigned int)> mouseUpFunc,
+    std::function<void(unsigned int)> mouseDownFunc,
+    std::function<void(int, int)> motionFunc)
+{
+    /* TODO: For now, I'm going to ignore those parameters.
+     * Given the structure of the Windows eventing system I
+     * don't think they're the right way to go.  Maybe just
+     * calling the functions in the event module directly
+     * is fine.  (Too much abstraction?)
+     */
+
+    /* Slurp all current events, without blocking for any. */
+    while (!windowClosed)
+    {
+        MSG message;
+        while (PeekMessageA(&message, hwnd, 0, 0, PM_REMOVE))
+        {
+            if (message.message == WM_QUIT)
+            {
+                windowClosed = true;
+            }
+            else
+            {
+                TranslateMessage(&message);
+                DispatchMessageA(&message);
+            }
+        }
+
+        afk_idle();
+    }
+}
+
+void AFK_WindowWgl::capturePointer(void)
+{
+    if (!pointerCaptured)
+    {
+        SetCapture(hwnd);
+        pointerCaptured = true;
+    }
+}
+
+void AFK_WindowWgl::letGoOfPointer(void)
+{
+    if (pointerCaptured)
+    {
+        BOOL result = ReleaseCapture();
+        if (result == FALSE)
+        {
+            /* Why can this fail, anyway? */
+            std::ostringstream ss;
+            ss << "Failed to release pointer: " << GetLastError();
+            throw AFK_Exception(ss.str());
+        }
+
+        pointerCaptured = false;
+    }
+}
+
+void AFK_WindowWgl::switchToFullScreen(void)
+{
+    /* TODO: This is a bit involved.  I'm not going to support it quite yet. */
+}
+
+void AFK_WindowWgl::switchAwayFromFullScreen(void)
+{
+    /* TODO as above. */
+}
+
+void AFK_WindowWgl::swapBuffers(void)
+{
+    if (SwapBuffers(deviceContext) == FALSE)
+    {
+        /* Really shouldn't happen: */
+        std::ostringstream ss;
+        ss << "SwapBuffers failed: " << GetLastError();
+        throw AFK_Exception(ss.str());
+    }
+}
+
+bool AFK_WindowWgl::windowClosing(void) const
+{
+    return windowClosed;
+}
+
+void AFK_WindowWgl::closeWindow(void)
+{
+    windowClosed = true;
 }
 
 #endif /* AFK_WGL */
