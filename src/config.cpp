@@ -17,6 +17,7 @@
 
 #include "afk.hpp"
 
+#include <cassert>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -32,6 +33,68 @@
 #include "config.hpp"
 #include "exception.hpp"
 #include "file/readfile.hpp"
+
+
+/* AFK_KeyboardMapping implementation */
+
+bool AFK_KeyboardMapping::replaceInList(char key, enum AFK_Controls control)
+{
+    auto keyIt = keyList.begin();
+    auto controlIt = controlList.begin();
+
+    while (keyIt != keyList.end())
+    {
+        if (*keyIt == key)
+        {
+            *controlIt = control;
+            return true;
+        }
+
+        ++keyIt;
+        ++controlIt;
+    }
+
+    assert(controlIt == controlList.end());
+    return false;
+}
+
+void AFK_KeyboardMapping::appendToList(char key, enum AFK_Controls control)
+{
+    keyList.push_back(key);
+    controlList.push_back(control);
+}
+
+void AFK_KeyboardMapping::updateMapping(void)
+{
+    std::ostringstream keySS;
+    for (auto key : keyList) keySS << key;
+    keys = keySS.str();
+
+    controls.clear();
+    controls.insert(controls.end(), controlList.begin(), controlList.end());
+
+    upToDate = true;
+}
+
+void AFK_KeyboardMapping::map(const std::string& keys, enum AFK_Controls control)
+{
+    for (char key : keys)
+    {
+        if (!replaceInList(key, control)) appendToList(key, control);
+    }
+
+    upToDate = false;
+}
+
+enum AFK_Controls AFK_KeyboardMapping::find(const std::string& key)
+{
+    if (!upToDate) updateMapping();
+    size_t pos = keys.find(key);
+    if (pos != std::string::npos)
+        return controls[pos];
+    else
+        return CTRL_NONE;
+}
 
 
 /* This utility function pulls AFK's executable path and names a directory
@@ -87,14 +150,16 @@ static char *getDirAtExecPath(const char *leafname, const char *execname)
     if (argi == *argcp)\
         throw AFK_Exception(std::string("AFK_Config: ") + option + " without argument");
 
-#define DEFAULT_KEYBOARD_CONTROL(code, ctrl) \
-    keyboardMapping.insert(std::pair<const int, enum AFK_Controls>((code), (ctrl)));
+#define DEFAULT_KEYBOARD_CONTROL(keys, ctrl) \
+    keyboardMapping.map(keys, ctrl);
 
 #define DEFAULT_MOUSE_CONTROL(button, ctrl) \
     mouseMapping.insert(std::pair<const int, enum AFK_Controls>((button), (ctrl)));
 
 #define DEFAULT_MOUSE_AXIS_CONTROL(axis, ctrl) \
     mouseAxisMapping.insert(std::pair<const enum AFK_Mouse_Axes, enum AFK_Control_Axes>((axis), (ctrl)));
+
+/* AFK_Config implementation */
 
 AFK_Config::AFK_Config(int *argcp, char **argv)
 {
@@ -310,21 +375,23 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     /* TODO: Come up with a way of inputting the control mapping.
      * (and editing it within AFK and saving it later!)
      */
-    if (keyboardMapping.empty())
     {
         /* TODO These are observed X keycodes.  I'll need different
          * ones for Windows at any rate ...
          */
-        DEFAULT_KEYBOARD_CONTROL(25 /* w */, CTRL_THRUST_FORWARD)
-        DEFAULT_KEYBOARD_CONTROL(39 /* s */, CTRL_THRUST_BACKWARD)
-        DEFAULT_KEYBOARD_CONTROL(40 /* d */, CTRL_THRUST_RIGHT)
-        DEFAULT_KEYBOARD_CONTROL(38 /* a */, CTRL_THRUST_LEFT)
-        DEFAULT_KEYBOARD_CONTROL(27 /* r */, CTRL_THRUST_UP)
-        DEFAULT_KEYBOARD_CONTROL(41 /* f */, CTRL_THRUST_DOWN)
-        DEFAULT_KEYBOARD_CONTROL(26 /* e */, CTRL_YAW_RIGHT)
-        DEFAULT_KEYBOARD_CONTROL(24 /* q */, CTRL_YAW_LEFT)
-        DEFAULT_KEYBOARD_CONTROL(58 /* m */, CTRL_MOUSE_CAPTURE)
-        DEFAULT_KEYBOARD_CONTROL(95 /* f11 */, CTRL_FULLSCREEN)
+        DEFAULT_KEYBOARD_CONTROL("wW", CTRL_THRUST_FORWARD)
+        DEFAULT_KEYBOARD_CONTROL("sS", CTRL_THRUST_BACKWARD)
+        DEFAULT_KEYBOARD_CONTROL("dD", CTRL_THRUST_RIGHT)
+        DEFAULT_KEYBOARD_CONTROL("aA", CTRL_THRUST_LEFT)
+        DEFAULT_KEYBOARD_CONTROL("rR", CTRL_THRUST_UP)
+        DEFAULT_KEYBOARD_CONTROL("fF", CTRL_THRUST_DOWN)
+        DEFAULT_KEYBOARD_CONTROL("eE", CTRL_YAW_RIGHT)
+        DEFAULT_KEYBOARD_CONTROL("qQ", CTRL_YAW_LEFT)
+        DEFAULT_KEYBOARD_CONTROL("mM", CTRL_MOUSE_CAPTURE)
+
+        /* TODO: Sort out the function key code.  (Localization?  Eww) */
+        //DEFAULT_KEYBOARD_CONTROL(95 /* f11 */, CTRL_FULLSCREEN)
+        DEFAULT_KEYBOARD_CONTROL("0)", CTRL_FULLSCREEN)
     }
 
     if (mouseMapping.empty())

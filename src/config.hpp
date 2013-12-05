@@ -20,7 +20,10 @@
 
 #include "afk.hpp"
 
+#include <list>
 #include <map>
+#include <sstream>
+#include <vector>
 
 #include "rng/rng.hpp"
 
@@ -69,6 +72,33 @@ enum AFK_Mouse_Axes
     MOUSE_AXIS_Y
 };
 
+/* The keyboard mapping is built as a single string that
+ * we search for the key, and a matchingly indexed list
+ * of the controls.
+ * Because really, there are few enough keys mapped that
+ * doing a full search each time should be no trouble.
+ */
+class AFK_KeyboardMapping
+{
+protected:
+    /* These are used to build the mapping. */
+    std::list<char> keyList;
+    std::list<enum AFK_Controls> controlList;
+
+    /* This is the "live mapping". */
+    std::string keys;
+    std::vector<enum AFK_Controls> controls;
+    bool upToDate = false;
+
+    bool replaceInList(char key, enum AFK_Controls control);
+    void appendToList(char key, enum AFK_Controls control);
+    void updateMapping(void);
+
+public:
+    void map(const std::string& keys, enum AFK_Controls control);
+    enum AFK_Controls find(const std::string& key);
+};
+
 class AFK_Config
 {
 public:
@@ -82,7 +112,8 @@ public:
     float   zFar;
 
     /* The controls */
-    std::map<const int, enum AFK_Controls> keyboardMapping;
+    //std::map<const int, enum AFK_Controls> keyboardMapping;
+    AFK_KeyboardMapping keyboardMapping;
     std::map<const int, enum AFK_Controls> mouseMapping;
     std::map<const enum AFK_Mouse_Axes, enum AFK_Control_Axes> mouseAxisMapping;
 

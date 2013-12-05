@@ -237,10 +237,28 @@ void AFK_WindowGlx::shareGLCLContext(AFK_Computer *computer)
     throw AFK_Exception("Unimplemented");
 }
 
+static std::string keycodeToString(XKeyEvent *keyEvent)
+{
+    const int bufLen = 16;
+    char buf[bufLen];
+
+    /* TODO: here, use the KeySym field to cope with keys that
+     * aren't mapped to ASCII (e.g. function keys), and work
+     * out a platform-independent way of eventing such keys.
+     */
+    int num = XLookupString(keyEvent, buf, bufLen - 1, nullptr, nullptr);
+    if (num > 0)
+    {
+        buf[num] = '\0';
+        return std::string(buf);
+    }
+    else return "";
+}
+
 void AFK_WindowGlx::loopOnEvents(
     std::function<void (void)> idleFunc,
-    std::function<void (unsigned int)> keyboardUpFunc,
-    std::function<void (unsigned int)> keyboardDownFunc,
+    std::function<void (const std::string&)> keyboardUpFunc,
+    std::function<void (const std::string&)> keyboardDownFunc,
     std::function<void (unsigned int)> mouseUpFunc,
     std::function<void (unsigned int)> mouseDownFunc,
     std::function<void (int, int)> motionFunc)
@@ -249,6 +267,8 @@ void AFK_WindowGlx::loopOnEvents(
     {
         while (XPending(dpy))
         {
+            std::string keyStr;
+
             XEvent e;
             XNextEvent(dpy, &e);
             switch (e.type)
@@ -262,11 +282,13 @@ void AFK_WindowGlx::loopOnEvents(
                 break;
 
             case KeyPress:
-                keyboardDownFunc(e.xkey.keycode);
+                keyStr = keycodeToString(&e.xkey);
+                if (!keyStr.empty()) keyboardDownFunc(keyStr);
                 break;
 
             case KeyRelease:
-                keyboardUpFunc(e.xkey.keycode);
+                keyStr = keycodeToString(&e.xkey);
+                if (!keyStr.empty()) keyboardUpFunc(keyStr);
                 break;
 
             case MotionNotify:
@@ -290,6 +312,17 @@ void AFK_WindowGlx::loopOnEvents(
             case MapNotify:
                 /* Update my copy of the window attributes. */
                 XGetWindowAttributes(dpy, w, &xwa);
+                break;
+
+            case MappingNotify:
+                if (e.xmapping.request == MappingModifier ||
+                    e.xmapping.request == MappingKeyboard)
+                {
+                    /* I need to service this to make sure that
+                     * XLookupString returns up to date results.
+                     */
+                    XRefreshKeyboardMapping(&e.xmapping);
+                }
                 break;
 
             case ClientMessage:

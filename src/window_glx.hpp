@@ -69,8 +69,8 @@ public:
     virtual void shareGLCLContext(AFK_Computer *computer);
     virtual void loopOnEvents(
         std::function<void (void)> idleFunc,
-        std::function<void (unsigned int)> keyboardUpFunc,
-        std::function<void (unsigned int)> keyboardDownFunc,
+        std::function<void (const std::string&)> keyboardUpFunc,
+        std::function<void (const std::string&)> keyboardDownFunc,
         std::function<void (unsigned int)> mouseUpFunc,
         std::function<void (unsigned int)> mouseDownFunc,
         std::function<void (int, int)> motionFunc);

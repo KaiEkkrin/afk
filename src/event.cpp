@@ -89,14 +89,14 @@ static void disableControl(enum AFK_Controls control)
     }
 }
 
-void afk_keyboard(unsigned int key)
+void afk_keyboard(const std::string& key)
 {
-    enableControl(afk_core.config->keyboardMapping[key]);
+    enableControl(afk_core.config->keyboardMapping.find(key));
 }
 
-void afk_keyboardUp(unsigned int key)
+void afk_keyboardUp(const std::string& key)
 {
-    disableControl(afk_core.config->keyboardMapping[key]);
+    disableControl(afk_core.config->keyboardMapping.find(key));
 }
 
 void afk_mouse(unsigned int button)
