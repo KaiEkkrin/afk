@@ -285,6 +285,23 @@ AFK_WindowWgl::AFK_WindowWgl(unsigned int windowWidth, unsigned int windowHeight
     pointerCaptured(false),
     windowClosed(false)
 {
+    if (windowWidth == 0 || windowHeight == 0)
+    {
+        /* Choose some sensible values based on the screen size */
+        int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+        int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+
+        if (screenWidth == 0 || screenHeight == 0)
+        {
+            std::ostringstream ss;
+            ss << "Failed to get screen dimensions: " << GetLastError();
+            throw AFK_Exception(ss.str());
+        }
+
+        windowWidth = screenWidth * 3 / 4;
+        windowHeight = screenHeight * 3 / 4;
+    }
+
     WNDCLASSEXA windowClass;
     windowClass.cbSize = sizeof(windowClass);
     windowClass.style = CS_HREDRAW | CS_VREDRAW;

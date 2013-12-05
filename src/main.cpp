@@ -17,6 +17,7 @@
 
 #include "afk.hpp"
 
+#include <cassert>
 #include <iostream>
 
 #include "async/async_test.hpp"
@@ -44,41 +45,84 @@ AFK_Core afk_core;
 
 
 #ifdef _WIN32
-#include <vector>
-#include <boost/tokenizer.hpp>
+#include <shellapi.h>
 
 class AFK_ArgList
 {
 protected:
-    std::vector<char *> argVec;
+    LPWSTR *argvw;
+
     int argc;
     char **argv;
 
 public:
-    AFK_ArgList() : argc(0), argv(nullptr)
+    AFK_ArgList() : argvw(nullptr), argc(0), argv(nullptr)
     {
-        /* Turn that command line into a Unix style argc / argv, like AFK was written to expect. */
-        LPSTR fullCmdLine = GetCommandLineA();
+        /* Using the shellapi, I can extract a Unix style argv, albeit only in wide char format: */
+        LPWSTR fullCmdLineW = GetCommandLineW();
+        assert(fullCmdLineW);
 
-        boost::char_separator<char> argSep(" ");
-        boost::tokenizer<boost::char_separator<char> > argTok(std::string(fullCmdLine), argSep);
-
-        for (auto arg : argTok)
+        argvw = CommandLineToArgvW(fullCmdLineW, &argc);
+        if (!argvw)
         {
-            argVec.push_back(_strdup(arg.c_str()));
+            std::ostringstream ss;
+            ss << "CommandLineToArgvW failed: " << GetLastError();
+            throw AFK_Exception(ss.str());
         }
 
-        argv = new char *[argVec.size()];
-        for (auto arg : argVec)
+        /* Convert those wide strings into something sane.
+         * TODO: Yes, I know, this means AFK isn't supporting unicode paths.
+         * I need to come up with something sensible, like converting to UTF-8
+         * here.
+         */
+        argv = new char *[argc];
+        for (int i = 0; i < argc; ++i)
         {
-            argv[argc++] = arg;
+            /* Work out how much space I need for this argument */
+            int requiredSize = WideCharToMultiByte(
+                CP_ACP,
+                0,
+                argvw[i],
+                -1, /* CommandLineToArgvW must produce null terminated strings */
+                nullptr,
+                0,
+                0,
+                0
+                );
+
+            if (requiredSize > 0)
+            {
+                argv[i] = new char[requiredSize];
+                requiredSize = WideCharToMultiByte(
+                    CP_ACP,
+                    0,
+                    argvw[i],
+                    -1,
+                    argv[i],
+                    requiredSize,
+                    0,
+                    0
+                    );
+            }
+
+            assert(requiredSize > 0);
+            if (requiredSize == 0)
+            {
+                argv[i] = new char[1];
+                argv[i][0] = '\0';
+            }
         }
     }
 
     virtual ~AFK_ArgList()
     {
-        if (argv) delete[] argv;
-        for (auto arg : argVec) free(arg);
+        if (argv)
+        {
+            for (int i = 0; i < argc; ++i) delete[] argv[i];
+            delete[] argv;
+        }
+
+        if (argvw) LocalFree(argvw);
     }
 
     int getArgc(void) const { return argc; }
