@@ -20,6 +20,7 @@
 
 #include "afk.hpp"
 
+#include <initializer_list>
 #include <string>
 #include <vector>
 
@@ -32,13 +33,29 @@
  * and then call Link() to get back a GLuint referring to
  * the program itself.
  */
-struct AFK_ShaderSpec
+class AFK_ShaderSpec
 {
+public:
     GLuint shaderType;
     GLuint obj;
     std::string shaderName; /* friendly name to ask for */
+
     std::vector<std::string> filenames;
+
+    AFK_ShaderSpec(
+        GLuint _shaderType,
+        const std::string& _shaderName,
+        const std::initializer_list<std::string>& _filenames);
+
+    AFK_ShaderSpec(const AFK_ShaderSpec& _ss) = default;
+    AFK_ShaderSpec& operator=(const AFK_ShaderSpec& _ss) = default;
 };
+
+/* Really sad: MSVC2013 can't cope with nested initializer lists for vectors,
+* the inner list ends up with all zeroes.
+* Hence this function for initialising the global shader spec.
+*/
+std::vector<AFK_ShaderSpec> afk_declareShaderSpec(AFK_ShaderSpec first, ...);
 
 
 /* Loads all the known shaders from disk and compiles them

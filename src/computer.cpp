@@ -29,6 +29,16 @@
 #include "shape_sizes.hpp"
 
 
+AFK_ClProgram::AFK_ClProgram(const std::string& _programName, const std::initializer_list<std::string>& _filenames) :
+program(0), programName(_programName), filenames(_filenames)
+{
+}
+
+AFK_ClKernel::AFK_ClKernel(const std::string& _programName, const std::string& _kernelName) :
+kernel(0), programName(_programName), kernelName(_kernelName)
+{
+}
+
 void afk_handleClError(cl_int error, const char *_file, const int _line)
 {
     if (error != CL_SUCCESS)
@@ -275,7 +285,7 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
     else return false;
 }
 
-void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<struct AFK_ClProgram>::iterator& p)
+void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<AFK_ClProgram>::iterator& p)
 {
     char **sources;
     size_t *sourceLengths;
@@ -369,7 +379,7 @@ void AFK_Computer::waitForBuild(void)
     }
 }
 
-void AFK_Computer::printBuildLog(std::ostream& s, const struct AFK_ClProgram& p, cl_device_id device)
+void AFK_Computer::printBuildLog(std::ostream& s, const AFK_ClProgram& p, cl_device_id device)
 {
     char *buildLog;
     size_t buildLogSize;
@@ -401,23 +411,23 @@ AFK_Computer::AFK_Computer(const AFK_Config *config):
     unsigned int platformCount;
 
     programs = {
-        { 0, "landscape_surface", { "landscape_surface.cl" }, },
-        { 0, "landscape_terrain", { "landscape_terrain.cl" }, },
-        { 0, "landscape_yreduce", { "landscape_yreduce.cl" }, },
-        { 0, "shape_3dedge", { "fake3d.cl", "shape_3dedge.cl" }, },
-        { 0, "shape_3dvapour_dreduce", { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_dreduce.cl" }, },
-        { 0, "shape_3dvapour_feature", { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_feature.cl" }, },
-        { 0, "shape_3dvapour_normal", { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_normal.cl" }, }
+        AFK_ClProgram("landscape_surface", { "landscape_surface.cl" }),
+        AFK_ClProgram("landscape_terrain", { "landscape_terrain.cl" }),
+        AFK_ClProgram("landscape_yreduce", { "landscape_yreduce.cl" }),
+        AFK_ClProgram("shape_3dedge", { "fake3d.cl", "shape_3dedge.cl" }),
+        AFK_ClProgram("shape_3dvapour_dreduce", { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_dreduce.cl" }),
+        AFK_ClProgram("shape_3dvapour_feature", { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_feature.cl" }),
+        AFK_ClProgram("shape_3dvapour_normal", { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_normal.cl" })
     };
 
     kernels = {
-        { 0, "landscape_surface", "makeLandscapeSurface" },
-        { 0, "landscape_terrain", "makeLandscapeTerrain" },
-        { 0, "landscape_yreduce", "makeLandscapeYReduce" },
-        { 0, "shape_3dedge", "makeShape3DEdge" },
-        { 0, "shape_3dvapour_dreduce", "makeShape3DVapourDReduce" },
-        { 0, "shape_3dvapour_feature", "makeShape3DVapourFeature" },
-        { 0, "shape_3dvapour_normal", "makeShape3DVapourNormal" }
+        AFK_ClKernel("landscape_surface", "makeLandscapeSurface"),
+        AFK_ClKernel("landscape_terrain", "makeLandscapeTerrain"),
+        AFK_ClKernel("landscape_yreduce", "makeLandscapeYReduce"),
+        AFK_ClKernel("shape_3dedge", "makeShape3DEdge"),
+        AFK_ClKernel("shape_3dvapour_dreduce", "makeShape3DVapourDReduce"),
+        AFK_ClKernel("shape_3dvapour_feature", "makeShape3DVapourFeature"),
+        AFK_ClKernel("shape_3dvapour_normal", "makeShape3DVapourNormal")
     };
 
     AFK_CLCHK(oclShim.GetPlatformIDs()(0, NULL, &platformCount))

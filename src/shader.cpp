@@ -18,6 +18,7 @@
 #include "afk.hpp"
 
 #include <cassert>
+#include <cstdarg>
 #include <iostream>
 #include <sstream>
 
@@ -32,19 +33,31 @@
 
 #define RENDER_SHAPE_AS_POINTS 1
 
-std::vector<struct AFK_ShaderSpec> shaders = {
-    {   GL_FRAGMENT_SHADER, 0,  "landscape_fragment",   {   "landscape_fragment.glsl",  }, },
-    {   GL_GEOMETRY_SHADER, 0,  "landscape_geometry",   {   "landscape_geometry.glsl",  }, },
-    {   GL_VERTEX_SHADER,   0,  "landscape_vertex",     {   "landscape_vertex.glsl",    }, },
-    {   GL_FRAGMENT_SHADER, 0,  "protagonist_fragment", {   "protagonist_fragment.glsl",}, },
-    {   GL_VERTEX_SHADER,   0,  "protagonist_vertex",   {   "protagonist_vertex.glsl",  }, },
-    {   GL_FRAGMENT_SHADER, 0,  "shape_fragment",       {   "shape_fragment.glsl",      }, },
+AFK_ShaderSpec::AFK_ShaderSpec(
+    GLuint _shaderType,
+    const std::string& _shaderName,
+    const std::initializer_list<std::string>& _filenames
+    ) :
+    shaderType(_shaderType),
+    obj(0),
+    shaderName(_shaderName),
+    filenames(_filenames)
+{
+}
+
+std::vector<AFK_ShaderSpec> shaders = {
+    AFK_ShaderSpec(GL_FRAGMENT_SHADER, "landscape_fragment", { "landscape_fragment.glsl" }),
+    AFK_ShaderSpec(GL_GEOMETRY_SHADER, "landscape_geometry", { "landscape_geometry.glsl" }),
+    AFK_ShaderSpec(GL_VERTEX_SHADER, "landscape_vertex", { "landscape_vertex.glsl" }),
+    AFK_ShaderSpec(GL_FRAGMENT_SHADER, "protagonist_fragment", { "protagonist_fragment.glsl" }),
+    AFK_ShaderSpec(GL_VERTEX_SHADER, "protagonist_vertex", { "protagonist_vertex.glsl" }),
+    AFK_ShaderSpec(GL_FRAGMENT_SHADER, "shape_fragment", { "shape_fragment.glsl" }),
 #if RENDER_SHAPE_AS_POINTS
-    {   GL_GEOMETRY_SHADER, 0,  "shape_geometry",       {   "shape_geometry_base.glsl", "shape_geometry_edgepoint.glsl",    }, },
+    AFK_ShaderSpec(GL_GEOMETRY_SHADER, "shape_geometry", { "shape_geometry_base.glsl", "shape_geometry_edgepoint.glsl" }),
 #else
-    {   GL_GEOMETRY_SHADER, 0,  "shape_geometry",       {   "shape_geometry_base.glsl", "shape_geometry_tri.glsl", }, },
+    AFK_ShaderSpec(GL_GEOMETRY_SHADER, "shape_geometry", {"shape_geometry_base.glsl", "shape_geometry_tri.glsl"}),
 #endif
-    {   GL_VERTEX_SHADER,   0,  "shape_vertex",         {   "shape_vertex.glsl",        }, },
+    AFK_ShaderSpec(GL_VERTEX_SHADER, "shape_vertex", { "shape_vertex.glsl" })
 };
 
 
@@ -52,7 +65,7 @@ std::vector<struct AFK_ShaderSpec> shaders = {
  * `filters' is a list of pairs (shader name prefix, FileFilter).
  */
 static void loadShaderFromFiles(
-    std::vector<struct AFK_ShaderSpec>::iterator& s,
+    std::vector<AFK_ShaderSpec>::iterator& s,
     const std::vector<std::pair<std::string, AFK_FileFilter *> >& filters)
 {
     GLchar **sources;

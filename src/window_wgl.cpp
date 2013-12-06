@@ -88,9 +88,11 @@ LRESULT CALLBACK afk_wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
 {
     switch (message)
     {
+#if 0
     case WM_CREATE:
         afk_wndMap[hwnd]->windowCreated();
         return 0;
+#endif
 
     case WM_CLOSE:
         afk_wndMap[hwnd]->windowDeleted();
@@ -224,6 +226,8 @@ void AFK_WindowWgl::windowCreated(void)
         throw AFK_Exception("Unable to make real WGL context current");
 
     if (wglDeleteContext(initialContext)) initialContext = 0;
+
+    std::cout << "AFK_WindowWgl: Initialised WGL render context" << std::endl;
 }
 
 void AFK_WindowWgl::windowDeleted(void)
@@ -354,6 +358,11 @@ AFK_WindowWgl::AFK_WindowWgl(unsigned int windowWidth, unsigned int windowHeight
 
     if (!UpdateWindow(hwnd))
         throw AFK_Exception("Unable to update window");
+
+    /* TODO: I don't seem to ever receive a WM_CREATE message.  I'm just going to
+     * initialise that damn WGL thing right away...
+     */
+    windowCreated();
 }
 
 AFK_WindowWgl::~AFK_WindowWgl()

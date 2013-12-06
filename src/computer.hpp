@@ -21,6 +21,7 @@
 #include "afk.hpp"
 
 #include <condition_variable>
+#include <initializer_list>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -37,19 +38,31 @@ class AFK_Computer;
 
 /* This defines a list of programs that I know about. */
 
-struct AFK_ClProgram
+class AFK_ClProgram
 {
+public:
     cl_program program;
     std::string programName; /* friendly name referred to below */
     std::vector<std::string> filenames;
+
+    AFK_ClProgram(const std::string& _programName, const std::initializer_list<std::string>& _filenames);
+
+    AFK_ClProgram(const AFK_ClProgram& _p) = default;
+    AFK_ClProgram& operator=(const AFK_ClProgram& _p) = default;
 };
 
 /* This defines a list of all the kernels I know about */
-struct AFK_ClKernel
+class AFK_ClKernel
 {
+public:
     cl_kernel kernel;
     std::string programName;
     std::string kernelName;
+
+    AFK_ClKernel(const std::string& _programName, const std::string& _kernelName);
+
+    AFK_ClKernel(const AFK_ClKernel& _k) = default;
+    AFK_ClKernel& operator=(const AFK_ClKernel& _k) = default;
 };
 
 /* Handles an OpenCL error. */
@@ -148,8 +161,8 @@ protected:
     /* The set of known programs, just like the shaders doodah.
      * They're initialised in the constructor.
      */
-    std::vector<struct AFK_ClProgram> programs;
-    std::vector<struct AFK_ClKernel> kernels;
+    std::vector<AFK_ClProgram> programs;
+    std::vector<AFK_ClKernel> kernels;
 
     cl_platform_id platform;
     AFK_ClPlatformProperties *platformProps;
@@ -176,10 +189,10 @@ protected:
 
     /* Helper functions */
     bool findClGlDevices(cl_platform_id platform);
-    void loadProgramFromFiles(const AFK_Config *config, std::vector<struct AFK_ClProgram>::iterator& p);
+    void loadProgramFromFiles(const AFK_Config *config, std::vector<AFK_ClProgram>::iterator& p);
     void programBuilt(void);
     void waitForBuild(void);
-    void printBuildLog(std::ostream& os, const struct AFK_ClProgram& p, cl_device_id device);
+    void printBuildLog(std::ostream& os, const AFK_ClProgram& p, cl_device_id device);
 public:
     /* TODO: Make this protected, and make a cleaner wrapper around the
      * OpenCL functions for the rest of AFK to use.
