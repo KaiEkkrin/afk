@@ -30,7 +30,7 @@ AFK_ComputeQueue::AFK_ComputeQueue(
     cl_device_id device,
     bool _async,
     unsigned int _commandSet):
-        oclShim(_oclShim), ctxt(_ctxt), async(_async), commandSet(_commandSet), kernelArgCount(0)
+        oclShim(_oclShim), ctxt(_ctxt), async(_async), commandSet(_commandSet), k(0), kernelArgCount(0)
 {
     cl_int error;
     q = oclShim->CreateCommandQueue()(

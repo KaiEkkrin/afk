@@ -918,6 +918,8 @@ void AFK_World::doComputeTasks(unsigned int threadId)
         terrainComputeQueues.at(puzzle)->computeStart(afk_core.computer, landscapeJigsaws->getPuzzle(puzzle), lSizes, landscape_baseColour);
     }
 
+    /* TODO: temporary shape render disable to test on windows */
+#if RENDER_ENTITIES
     std::vector<std::shared_ptr<AFK_3DVapourComputeQueue> > vapourComputeQueues;
     vapourComputeFair.getDrawQueues(vapourComputeQueues);
     assert(vapourComputeQueues.size() <= 1);
@@ -943,6 +945,7 @@ void AFK_World::doComputeTasks(unsigned int threadId)
                                       * the entityFair2DIndex to form gaps
                                       */
     }
+#endif
 
     /* If I finalise stuff now, the y-reduce information will
      * be in the landscape tiles in time for the display
@@ -953,6 +956,7 @@ void AFK_World::doComputeTasks(unsigned int threadId)
         terrainComputeQueues.at(puzzle)->computeFinish(threadId, landscapeJigsaws->getPuzzle(puzzle), landscapeCache);
     }
 
+#if RENDER_ENTITIES
     if (vapourComputeQueues.size() == 1)
         vapourComputeQueues.at(0)->computeFinish(threadId, vapourJigsaws, shape.shapeCellCache);
 
@@ -968,6 +972,7 @@ void AFK_World::doComputeTasks(unsigned int threadId)
         }
         catch (std::out_of_range&) {} /* likewise */
     }
+#endif
 }
 
 void AFK_World::display(
@@ -1008,6 +1013,7 @@ void AFK_World::display(
 
     glBindVertexArray(0);
 
+#if RENDER_ENTITIES
     /* Render the shapes */
     glUseProgram(entity_shaderProgram->program);
     entity_shaderLight->setupLight(globalLight);
@@ -1040,6 +1046,7 @@ void AFK_World::display(
     }
 
     glBindVertexArray(0);
+#endif
 }
 
 /* Worker for the below. */

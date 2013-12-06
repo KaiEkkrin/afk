@@ -24,6 +24,7 @@
 #include <sstream>
 
 #include "core.hpp"
+#include "display.hpp"
 #include "event.hpp"
 #include "exception.hpp"
 #include "window_wgl.hpp"
@@ -139,6 +140,7 @@ LRESULT CALLBACK afk_wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
 
     case WM_RBUTTONUP:
         afk_mouseUp(3);
+        return 0;
 
     case WM_XBUTTONDOWN:
         /* Button 4 or 5. */
@@ -154,6 +156,10 @@ LRESULT CALLBACK afk_wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
             (int)(short)LOWORD(lParam),
             (int)(short)HIWORD(lParam)
             );
+        return 0;
+
+    case WM_CAPTURECHANGED:
+        afk_wndMap[hwnd]->letGoOfPointer();
         return 0;
 
     default:
@@ -179,7 +185,7 @@ void AFK_WindowWgl::windowCreated(void)
     PIXELFORMATDESCRIPTOR pixelFormatDescriptor = {
         sizeof(PIXELFORMATDESCRIPTOR),
         1,
-        PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
+        PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER | PFD_SUPPORT_COMPOSITION,
         PFD_TYPE_RGBA,
         32,     /* cColorBits */
         0, 0, 0, 0, 0, 0,
@@ -202,10 +208,10 @@ void AFK_WindowWgl::windowCreated(void)
     /* Create an initial WGL context. */
     initialContext = wglCreateContext(deviceContext);
     if (!initialContext)
-        throw AFK_Exception("Unable to create initial WGL context");
+        AFK_GLCHK("initial WGL context create");
 
     if (!wglMakeCurrent(deviceContext, initialContext))
-        throw AFK_Exception("Unable to make initial WGL context current");
+        AFK_GLCHK("make initial WGL context current");
 
     GLenum err = glewInit();
     if (err != GLEW_OK)
@@ -220,10 +226,10 @@ void AFK_WindowWgl::windowCreated(void)
         0,
         glAttr);
     if (!renderContext)
-        throw AFK_Exception("Unable to create real WGL context");
+        AFK_GLCHK("render WGL context create");
 
     if (!wglMakeCurrent(deviceContext, renderContext))
-        throw AFK_Exception("Unable to make real WGL context current");
+        AFK_GLCHK("make render WGL context current");
 
     if (wglDeleteContext(initialContext)) initialContext = 0;
 
@@ -302,8 +308,8 @@ AFK_WindowWgl::AFK_WindowWgl(unsigned int windowWidth, unsigned int windowHeight
             throw AFK_Exception(ss.str());
         }
 
-        windowWidth = screenWidth * 3 / 4;
-        windowHeight = screenHeight * 3 / 4;
+        width = screenWidth * 3 / 4;
+        height = screenHeight * 3 / 4;
     }
 
     WNDCLASSEXA windowClass;
@@ -332,7 +338,7 @@ AFK_WindowWgl::AFK_WindowWgl(unsigned int windowWidth, unsigned int windowHeight
         wClassName,
         wAppName,
         WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_SYSMENU,
-        x, y, windowWidth, windowHeight,
+        x, y, width, height,
         nullptr,
         nullptr,
         GetModuleHandle(nullptr),
@@ -348,8 +354,6 @@ AFK_WindowWgl::AFK_WindowWgl(unsigned int windowWidth, unsigned int windowHeight
 
     /* Insert this window into the map so that the callback function knows
      * where to go back.
-     * TODO: Is there a potential concurrency issue here (CREATE message
-     * happening immediately on a different thread)?
      */
     afk_wndMap[hwnd] = this;
 

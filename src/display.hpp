@@ -22,18 +22,20 @@
 
 #include <vector>
 
+#include "exception.hpp"
 #include "light.hpp"
 #include "object.hpp"
 #include "shader.hpp"
 
 
-#define AFK_GLCHK(str) \
+#define AFK_GLCHK(message) \
     { \
         GLenum glErr = glGetError(); \
         if (glErr != GL_NO_ERROR) \
         { \
             std::ostringstream ss; \
-            ss << "AFK: Got GL error from " << str << ": " << gluErrorString(glErr); \
+            ss << "AFK: Got GL error from " << message << ": " << gluErrorString(glErr); \
+            throw AFK_Exception(ss.str()); \
         } \
     }
 
