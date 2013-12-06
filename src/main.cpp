@@ -40,94 +40,14 @@
 #define TEST_SUBSTRATE 0
 
 
-/* This is the AFK global core declared in core.h */
+/* This is the AFK global core declared in core.hpp */
 AFK_Core afk_core;
 
 
 #ifdef _WIN32
-#include <shellapi.h>
 
-class AFK_ArgList
-{
-protected:
-    LPWSTR *argvw;
-
-    int argc;
-    char **argv;
-
-public:
-    AFK_ArgList() : argvw(nullptr), argc(0), argv(nullptr)
-    {
-        /* Using the shellapi, I can extract a Unix style argv, albeit only in wide char format: */
-        LPWSTR fullCmdLineW = GetCommandLineW();
-        assert(fullCmdLineW);
-
-        argvw = CommandLineToArgvW(fullCmdLineW, &argc);
-        if (!argvw)
-        {
-            std::ostringstream ss;
-            ss << "CommandLineToArgvW failed: " << GetLastError();
-            throw AFK_Exception(ss.str());
-        }
-
-        /* Convert those wide strings into something sane.
-         * TODO: Yes, I know, this means AFK isn't supporting unicode paths.
-         * I need to come up with something sensible, like converting to UTF-8
-         * here.
-         */
-        argv = new char *[argc];
-        for (int i = 0; i < argc; ++i)
-        {
-            /* Work out how much space I need for this argument */
-            int requiredSize = WideCharToMultiByte(
-                CP_ACP,
-                0,
-                argvw[i],
-                -1, /* CommandLineToArgvW must produce null terminated strings */
-                nullptr,
-                0,
-                0,
-                0
-                );
-
-            if (requiredSize > 0)
-            {
-                argv[i] = new char[requiredSize];
-                requiredSize = WideCharToMultiByte(
-                    CP_ACP,
-                    0,
-                    argvw[i],
-                    -1,
-                    argv[i],
-                    requiredSize,
-                    0,
-                    0
-                    );
-            }
-
-            assert(requiredSize > 0);
-            if (requiredSize == 0)
-            {
-                argv[i] = new char[1];
-                argv[i][0] = '\0';
-            }
-        }
-    }
-
-    virtual ~AFK_ArgList()
-    {
-        if (argv)
-        {
-            for (int i = 0; i < argc; ++i) delete[] argv[i];
-            delete[] argv;
-        }
-
-        if (argvw) LocalFree(argvw);
-    }
-
-    int getArgc(void) const { return argc; }
-    char **getArgv(void) const { return argv; }
-};
+#include "win32/arglist.hpp"
+#include "win32/winconsole.hpp"
 
 int APIENTRY WinMain(
     HINSTANCE   hInstance,
@@ -135,6 +55,7 @@ int APIENTRY WinMain(
     LPSTR       lpCmdLine,
     int         nCmdShow)
 {
+    AFK_WinConsole winConsole;
     AFK_ArgList argList;
     int argc = argList.getArgc();
     char **argv = argList.getArgv();

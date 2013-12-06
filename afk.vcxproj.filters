@@ -43,6 +43,12 @@
     <Filter Include="Source Files\rng">
       <UniqueIdentifier>{165a7fa6-4061-4e4b-b4fc-ca2525d8b3bd}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\win32">
+      <UniqueIdentifier>{9c4eb478-93bb-4c50-b35b-7a66a8794c82}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\win32">
+      <UniqueIdentifier>{0861c2fe-4355-424e-99a0-6d979c173a03}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
@@ -302,6 +308,12 @@
     </ClInclude>
     <ClInclude Include="src\window_wgl.hpp">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\arglist.hpp">
+      <Filter>Header Files\win32</Filter>
+    </ClInclude>
+    <ClInclude Include="src\win32\winconsole.hpp">
+      <Filter>Header Files\win32</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -570,6 +582,12 @@
     </ClCompile>
     <ClCompile Include="src\window_wgl.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\arglist.cpp">
+      <Filter>Source Files\win32</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\winconsole.cpp">
+      <Filter>Source Files\win32</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

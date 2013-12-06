@@ -101,18 +101,19 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions);GLEW_STATIC;AFK_GL_DEBUG=1;AFK_WGL</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions);AFK_GL_DEBUG=1;AFK_WGL</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
       <AdditionalIncludeDirectories>..\..\boost\boost_1_55_0;..\..\glew-1.10.0\include;..\..\opencl-1.2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>..\..\boost\boost_1_55_0\stage\lib;..\..\glew-1.10.0\lib\Release\x64</AdditionalLibraryDirectories>
-      <AdditionalDependencies>OpenGL32.lib;glu32.lib;glew32s.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>OpenGL32.lib;glu32.lib;glew32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <CustomBuildStep>
       <Command>
@@ -154,7 +155,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions);GLEW_STATIC;AFK_WGL</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions);AFK_WGL</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
       <AdditionalIncludeDirectories>..\..\boost\boost_1_55_0;..\..\glew-1.10.0\include;..\..\opencl-1.2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -169,7 +170,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>..\..\boost\boost_1_55_0\stage\lib;..\..\glew-1.10.0\lib\Release\x64</AdditionalLibraryDirectories>
-      <AdditionalDependencies>OpenGL32.lib;glu32.lib;glew32s.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>OpenGL32.lib;glu32.lib;glew32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -254,6 +255,8 @@
     <ClInclude Include="src\tile.hpp" />
     <ClInclude Include="src\vapour_cell.hpp" />
     <ClInclude Include="src\visible_cell.hpp" />
+    <ClInclude Include="src\win32\arglist.hpp" />
+    <ClInclude Include="src\win32\winconsole.hpp" />
     <ClInclude Include="src\window.hpp" />
     <ClInclude Include="src\window_glx.hpp" />
     <ClInclude Include="src\window_wgl.hpp" />
@@ -348,6 +351,8 @@
     <ClCompile Include="src\tile.cpp" />
     <ClCompile Include="src\vapour_cell.cpp" />
     <ClCompile Include="src\visible_cell.cpp" />
+    <ClCompile Include="src\win32\arglist.cpp" />
+    <ClCompile Include="src\win32\winconsole.cpp" />
     <ClCompile Include="src\window_glx.cpp" />
     <ClCompile Include="src\window_wgl.cpp" />
     <ClCompile Include="src\world.cpp" />
