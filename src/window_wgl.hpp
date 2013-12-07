@@ -25,6 +25,7 @@
 #include "afk.hpp"
 
 #include <functional>
+#include <map>
 
 #include "window.hpp"
 
@@ -53,6 +54,12 @@ protected:
      */
     int x, y;
 
+    /* I'm going to maintain a cache of scan code -> key code, because
+     * it looks like I can't get WM_CHAR messages on key up (despite the
+     * documentation)
+     */
+    std::map<int, std::string> keycodes;
+
     bool pointerCaptured;
     bool windowClosed;
 
@@ -61,6 +68,9 @@ protected:
     void windowDeleted(void);
     void windowResized(unsigned int windowWidth, unsigned int windowHeight);
     void windowMoved(int windowX, int windowY);
+    void keyTranslated(int scancode, const std::string& key);
+    void keyDown(int scancode);
+    void keyUp(int scancode);
     void mouseMoved(int mouseX, int mouseY);
 
 public:

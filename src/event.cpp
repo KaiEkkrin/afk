@@ -19,8 +19,11 @@
 
 #include "config.hpp"
 #include "core.hpp"
+#include "debug.hpp"
 #include "display.hpp"
 #include "event.hpp"
+
+#define DEBUG_CONTROLS 0
 
 static void displaceAxis(enum AFK_Control_Axes axis, float displacement)
 {
@@ -91,21 +94,33 @@ static void disableControl(enum AFK_Controls control)
 
 void afk_keyboard(const std::string& key)
 {
+#if DEBUG_CONTROLS
+    AFK_DEBUG_PRINTL("keyboard down: " << key)
+#endif
     enableControl(afk_core.config->keyboardMapping.find(key));
 }
 
 void afk_keyboardUp(const std::string& key)
 {
+#if DEBUG_CONTROLS
+    AFK_DEBUG_PRINTL("keyboard up: " << key)
+#endif
     disableControl(afk_core.config->keyboardMapping.find(key));
 }
 
 void afk_mouse(unsigned int button)
 {
+#if DEBUG_CONTROLS
+    AFK_DEBUG_PRINTL("mouse down: " << std::dec << button)
+#endif
     enableControl(afk_core.config->mouseMapping[button]);
 }
 
 void afk_mouseUp(unsigned int button)
 {
+#if DEBUG_CONTROLS
+    AFK_DEBUG_PRINTL("mouse up: " << std::dec << button)
+#endif
     disableControl(afk_core.config->mouseMapping[button]);
 }
 

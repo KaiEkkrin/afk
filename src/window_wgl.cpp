@@ -35,48 +35,37 @@
  */
 std::map<HWND, AFK_WindowWgl *> afk_wndMap;
 
-/* This utility handles the nasty case of keyboard input */
-static void handleCharInput(WPARAM wParam, LPARAM lParam)
+/* Turns the lParam input of WM_CHAR, WM_KEYUP, WM_KEYDOWN into a scan code */
+static int convertScancode(LPARAM lParam)
 {
-    /* The "down" or "up" status is indicated a bit obscurely in a
-     * WM_CHAR message -- see http://msdn.microsoft.com/en-us/library/windows/desktop/ms646276(v=vs.85).aspx
-     * I want to process this first to save myself unnecessary calls
-     * to that nasty WideCharToMultiByte function
-     */
-    bool previouslyDown = ((lParam & (1 << 30)) != 0);
-    bool keyReleased = ((lParam & (1 << 31)) != 0);
-    if (previouslyDown == keyReleased)
+    return (((int)lParam >> 16) & ((1 << 8) - 1));
+}
+
+/* Keyboard input helper */
+static std::string convertInputChar(WPARAM wParam)
+{
+    const int mchrSize = 16;
+    char mchr[mchrSize];
+
+    int count = WideCharToMultiByte(
+        CP_ACP,
+        0,
+        reinterpret_cast<LPWCH>(&wParam),
+        1,
+        mchr,
+        mchrSize - 1,
+        nullptr,
+        nullptr
+        );
+
+    if (count > 0)
     {
-        /* Turn that wide char into a sensible string */
-        const int mchrSize = 16;
-        char mchr[mchrSize];
-
-        int count = WideCharToMultiByte(
-            CP_ACP,
-            0,
-            reinterpret_cast<LPWCH>(&wParam),
-            1,
-            mchr,
-            mchrSize - 1,
-            nullptr,
-            nullptr
-            );
-
-        if (count > 0)
-        {
-            mchr[count] = '\0';
-
-            if (!previouslyDown)
-            {
-                /* This is a "down" event. */
-                afk_keyboard(std::string(mchr));
-            }
-            else
-            {
-                /* This is an "up" event. */
-                afk_keyboardUp(std::string(mchr));
-            }
-        }
+        mchr[count] = '\0';
+        return std::string(mchr);
+    }
+    else
+    {
+        return "";
     }
 }
 
@@ -115,7 +104,21 @@ LRESULT CALLBACK afk_wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
         return 0;
 
     case WM_CHAR:
-        handleCharInput(wParam, lParam);
+        /* Convert that scan code and cache it, then interpret it as a "key down"
+        */
+    {
+        int scancode = convertScancode(lParam);
+        afk_wndMap[hwnd]->keyTranslated(scancode, convertInputChar(wParam));
+        afk_wndMap[hwnd]->keyDown(scancode);
+    }
+        return 0;
+
+    case WM_KEYDOWN:
+        afk_wndMap[hwnd]->keyDown(convertScancode(lParam));
+        return 0;
+
+    case WM_KEYUP:
+        afk_wndMap[hwnd]->keyUp(convertScancode(lParam));
         return 0;
 
     case WM_LBUTTONDOWN:
@@ -259,6 +262,29 @@ void AFK_WindowWgl::windowMoved(int windowX, int windowY)
 {
     x = windowX;
     y = windowY;
+}
+
+void AFK_WindowWgl::keyTranslated(int scancode, const std::string& key)
+{
+    keycodes[scancode] = key;
+}
+
+void AFK_WindowWgl::keyDown(int scancode)
+{
+    auto keyIt = keycodes.find(scancode);
+    if (keyIt != keycodes.end())
+    {
+        afk_keyboard(keyIt->second);
+    }
+}
+
+void AFK_WindowWgl::keyUp(int scancode)
+{
+    auto keyIt = keycodes.find(scancode);
+    if (keyIt != keycodes.end())
+    {
+        afk_keyboardUp(keyIt->second);
+    }
 }
 
 void AFK_WindowWgl::mouseMoved(int mouseX, int mouseY)
@@ -430,7 +456,18 @@ void AFK_WindowWgl::loopOnEvents(
             }
             else
             {
-                TranslateMessage(&message);
+                /* Translate keyboard messages, if I don't yet remember the string for the scancode.
+                 * TODO: Need to handle keyboard mapping changes (flush the `keycodes' structure)
+                 */
+                if (message.message == WM_KEYDOWN)
+                {
+                    int scancode = convertScancode(message.lParam);
+                    if (keycodes.find(scancode) == keycodes.end())
+                    {
+                        TranslateMessage(&message);
+                    }
+                }
+
                 DispatchMessageA(&message);
             }
         }
