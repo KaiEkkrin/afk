@@ -337,7 +337,7 @@ void AFK_WindowGlx::loopOnEvents(
             }
         }
 
-        idleFunc();
+        if (!windowClosed) idleFunc();
     }
 }
 

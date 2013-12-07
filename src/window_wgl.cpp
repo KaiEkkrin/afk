@@ -502,7 +502,7 @@ void AFK_WindowWgl::loopOnEvents(
 
         if (pointerCaptured) warpPointer();
 
-        afk_idle();
+        if (!windowClosed) afk_idle();
     }
 }
 
