@@ -60,6 +60,11 @@ protected:
      */
     std::map<int, std::string> keycodes;
 
+    /* These are the last mouse co-ordinates during a capture, so that
+     * I can calculate relative movement.
+     */
+    int lastMouseX, lastMouseY;
+
     bool pointerCaptured;
     bool windowClosed;
 
@@ -72,6 +77,12 @@ protected:
     void keyDown(int scancode);
     void keyUp(int scancode);
     void mouseMoved(int mouseX, int mouseY);
+
+    /* Warps the pointer to the middle of the window and resets the
+     * displacement.  It seems like we mustn't do this during movement
+     * handling or we get never-ending changes...
+     */
+    void warpPointer(void);
 
 public:
     /* Because of the mapping back from an HWND, no copying these around */

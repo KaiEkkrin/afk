@@ -27,21 +27,18 @@
 
 static void displaceAxis(enum AFK_Control_Axes axis, float displacement)
 {
-    if (AFK_TEST_BIT(afk_core.config->axisInversionMap, axis))
-        displacement = -displacement;
-
     switch (axis)
     {
     case CTRL_AXIS_PITCH:
-        afk_core.axisDisplacement.v[0] += displacement;
+        afk_core.axisDisplacement.v[0] += (displacement * afk_core.config->getAxisInversion(axis));
         break;
 
     case CTRL_AXIS_YAW:
-        afk_core.axisDisplacement.v[1] += displacement;
+        afk_core.axisDisplacement.v[1] += (displacement * afk_core.config->getAxisInversion(axis));
         break;
 
     case CTRL_AXIS_ROLL:
-        afk_core.axisDisplacement.v[2] += displacement;
+        afk_core.axisDisplacement.v[2] += (displacement * afk_core.config->getAxisInversion(axis));
         break;
 
     default:

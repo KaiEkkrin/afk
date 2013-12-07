@@ -80,17 +80,17 @@ void afk_idle(void)
             afk_core.velocity.v[2] -= afk_core.config->thrustButtonSensitivity * frameInterval;
         
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_PITCH_UP))
-            afk_core.axisDisplacement.v[0] -= afk_core.config->rotateButtonSensitivity * frameInterval;
+            afk_core.axisDisplacement.v[0] += afk_core.config->rotateButtonSensitivity * frameInterval * afk_core.config->getAxisInversion(CTRL_AXIS_PITCH);
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_PITCH_DOWN))
-            afk_core.axisDisplacement.v[0] += afk_core.config->rotateButtonSensitivity * frameInterval;
+            afk_core.axisDisplacement.v[0] -= afk_core.config->rotateButtonSensitivity * frameInterval * afk_core.config->getAxisInversion(CTRL_AXIS_PITCH);
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_YAW_RIGHT))
-            afk_core.axisDisplacement.v[1] -= afk_core.config->rotateButtonSensitivity * frameInterval;
+            afk_core.axisDisplacement.v[1] += afk_core.config->rotateButtonSensitivity * frameInterval * afk_core.config->getAxisInversion(CTRL_AXIS_YAW);
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_YAW_LEFT))
-            afk_core.axisDisplacement.v[1] += afk_core.config->rotateButtonSensitivity * frameInterval;
+            afk_core.axisDisplacement.v[1] -= afk_core.config->rotateButtonSensitivity * frameInterval * afk_core.config->getAxisInversion(CTRL_AXIS_YAW);
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_ROLL_RIGHT))
-            afk_core.axisDisplacement.v[2] -= afk_core.config->rotateButtonSensitivity * frameInterval;
+            afk_core.axisDisplacement.v[2] += afk_core.config->rotateButtonSensitivity * frameInterval * afk_core.config->getAxisInversion(CTRL_AXIS_ROLL);
         if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_ROLL_LEFT))
-            afk_core.axisDisplacement.v[2] += afk_core.config->rotateButtonSensitivity * frameInterval;
+            afk_core.axisDisplacement.v[2] -= afk_core.config->rotateButtonSensitivity * frameInterval * afk_core.config->getAxisInversion(CTRL_AXIS_ROLL);
         
         afk_core.camera.driveAndUpdateProjection(
             afk_core.velocity * frameInterval, afk_core.axisDisplacement);

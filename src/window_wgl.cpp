@@ -291,21 +291,40 @@ void AFK_WindowWgl::mouseMoved(int mouseX, int mouseY)
 {
     if (pointerCaptured)
     {
-        /* Work out co-ordinates relative to the middle of the window */
-        int wMidX = (int)width / 2;
-        int wMidY = (int)height / 2;
+        AFK_DEBUG_PRINTL("mouse at (" << mouseX << ", " << mouseY << ") from (" << lastMouseX << ", " << lastMouseY << ")")
 
-        int relX = mouseX - x - wMidX;
-        int relY = mouseY - y - wMidY;
+        /* Work out the mouse displacement. */
+        int dispX = lastMouseX - mouseX;
+        int dispY = lastMouseY - mouseY;
 
-        if (relX != 0 || relY != 0)
+        if (dispX != 0 || dispY != 0)
         {
-            /* There is a significant mouse displacement. */
-            afk_motion(relX, relY);
+            afk_motion(dispX, -dispY);
 
-            /* Reset to the middle of the window */
-            SetCursorPos(x + wMidX, y + wMidY);
+            lastMouseX = mouseX;
+            lastMouseY = mouseY;
         }
+    }
+}
+
+void AFK_WindowWgl::warpPointer(void)
+{
+    assert(pointerCaptured);
+
+    POINT middle{ width / 2, height / 2 };
+    BOOL success = ClientToScreen(hwnd, &middle);
+    if (success == TRUE)
+        success = SetCursorPos(middle.x, middle.y);
+    if (success == TRUE)
+    {
+        lastMouseX = width / 2;
+        lastMouseY = height / 2;
+    }
+    else
+    {
+        std::ostringstream ss;
+        ss << "Failed to move pointer: " << GetLastError();
+        throw AFK_Exception(ss.str());
     }
 }
 
@@ -318,6 +337,8 @@ AFK_WindowWgl::AFK_WindowWgl(unsigned int windowWidth, unsigned int windowHeight
     height(windowHeight),
     x(0), /* TODO Try to place the window in a more friendly manner */
     y(0),
+    lastMouseX(0),
+    lastMouseY(0),
     pointerCaptured(false),
     windowClosed(false)
 {
@@ -472,6 +493,8 @@ void AFK_WindowWgl::loopOnEvents(
             }
         }
 
+        if (pointerCaptured) warpPointer();
+
         afk_idle();
     }
 }
@@ -482,6 +505,7 @@ void AFK_WindowWgl::capturePointer(void)
     {
         SetCapture(hwnd);
         pointerCaptured = true;
+        warpPointer();
     }
 }
 

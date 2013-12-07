@@ -168,6 +168,9 @@ public:
     AFK_Config(int *argcp, char **argv);
 
     ~AFK_Config();
+
+    /* Returns 1.0f for a non-inverted axis and -1.0f for an inverted one */
+    float getAxisInversion(int axis) { return (AFK_TEST_BIT(axisInversionMap, axis) ? -1.0f : 1.0f); }
 };
 
 #endif /* _AFK_CONFIG_H_ */

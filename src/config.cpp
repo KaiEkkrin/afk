@@ -173,8 +173,8 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     mouseAxisSensitivity        = 0.001f;
     axisInversionMap = 0uLL;
     AFK_SET_BIT(axisInversionMap, CTRL_AXIS_PITCH);
-    AFK_SET_BIT(axisInversionMap, CTRL_AXIS_ROLL);
-    AFK_SET_BIT(axisInversionMap, CTRL_AXIS_YAW);
+    //AFK_SET_BIT(axisInversionMap, CTRL_AXIS_ROLL);
+    //AFK_SET_BIT(axisInversionMap, CTRL_AXIS_YAW);
 
     /* TODO Make all the random twiddlies configurable via a
      * settings file.  And in fact, all the rest I think, apart
