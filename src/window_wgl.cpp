@@ -291,8 +291,6 @@ void AFK_WindowWgl::mouseMoved(int mouseX, int mouseY)
 {
     if (pointerCaptured)
     {
-        AFK_DEBUG_PRINTL("mouse at (" << mouseX << ", " << mouseY << ") from (" << lastMouseX << ", " << lastMouseY << ")")
-
         /* Work out the mouse displacement. */
         int dispX = lastMouseX - mouseX;
         int dispY = lastMouseY - mouseY;
