@@ -299,7 +299,7 @@ void AFK_WindowGlx::loopOnEvents(
     
                     if (e.xmotion.x != wMidX || e.xmotion.y != wMidY)
                     {
-                        motionFunc(e.xmotion.x - wMidX, -(e.xmotion.y - wMidY));
+                        motionFunc(wMidX - e.xmotion.x, e.xmotion.y - wMidY);
     
                         XWarpPointer(dpy, w, w, 0, 0, 0, 0, xwa.width / 2, xwa.height / 2);
                         //XFlush(dpy);
