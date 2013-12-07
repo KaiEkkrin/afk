@@ -421,7 +421,14 @@ AFK_WindowWgl::~AFK_WindowWgl()
     if (hwnd)
     {
         DestroyWindow(hwnd);
-        afk_wndMap.erase(afk_wndMap.find(hwnd));
+
+        /* TODO: This crashes on exit.  It's very annoying.  I don't understand why; is
+         * it really freeing wndMap first ??
+         */
+#if 0
+        auto wndMapIt = afk_wndMap.find(hwnd);
+        if (wndMapIt != afk_wndMap.end()) afk_wndMap.erase(wndMapIt);
+#endif
     }
 }
 

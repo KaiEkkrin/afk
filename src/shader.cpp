@@ -25,6 +25,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/lexical_cast.hpp>
 
+#include "display.hpp"
 #include "exception.hpp"
 #include "file/filter.hpp"
 #include "file/readfile.hpp"
@@ -82,7 +83,7 @@ static void loadShaderFromFiles(
 
     for (size_t i = 0; i < sourceCount; ++i)
     {
-        std::cout << "AFK: Loading file for shader " << s->shaderName << ": " << s->filenames[i] << std::endl;
+        std::cout << "AFK: Loading file for shader " << s->shaderName << "( type " << s->shaderType << "): " << s->filenames[i] << std::endl;
 
         if (!afk_readFileContents(s->filenames[i], &sources[i], &sourceLengths[i], errStream))
             throw AFK_Exception("AFK_Shader: " + errStream.str());
@@ -104,7 +105,7 @@ static void loadShaderFromFiles(
         sourceLengthsInt[i] = (GLint)sourceLengths[i];
 
     s->obj = glCreateShader(s->shaderType);
-    if (!s->obj) throw AFK_Exception("Failed to create shader");
+    if (!s->obj) AFK_GLCHK("Create shader")
 
     glShaderSource(s->obj, static_cast<GLsizei>(sourceCount), (const GLchar **)sources, sourceLengthsInt);
     glCompileShader(s->obj);
