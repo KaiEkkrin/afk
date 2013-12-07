@@ -85,7 +85,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions);AFK_GL_DEBUG=1;AFK_WGL</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>..\..\boost\boost_1_55_0b1;..\..\glew-1.10.0\include;..\..\opencl-1.2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\boost\boost_1_55_0;..\..\glew-1.10.0\include;..\..\opencl-1.2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
@@ -133,7 +133,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions);AFK_WGL</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>..\..\boost\boost_1_55_0b1;..\..\glew-1.10.0\include;..\..\opencl-1.2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\boost\boost_1_55_0;..\..\glew-1.10.0\include;..\..\opencl-1.2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
