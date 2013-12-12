@@ -33,7 +33,7 @@
 #include "world_cell.hpp"
 
 
-#define PRINT_CHECKPOINTS 0
+#define PRINT_CHECKPOINTS 1
 #define PRINT_CACHE_STATS 0
 #define PRINT_JIGSAW_STATS 0
 
@@ -77,13 +77,13 @@ bool afk_generateWorldCells(
     unsigned int claimFlags = AFK_CL_BLOCK;
     if (!renderTerrain && !resume) claimFlags |= AFK_CL_EXCLUSIVE;
 
-    try
+    auto worldCellClaim = world->worldCache->insert(threadId, cell).claimable.claim(threadId, claimFlags);
+    if (worldCellClaim.isValid())
     {
-        auto worldCellClaim = world->worldCache->insert(threadId, cell).claimable.claim(threadId, claimFlags);
         retval = world->generateClaimedWorldCell(
             worldCellClaim, threadId, param.world, threadLocal, queue);
     }
-    catch (AFK_ClaimException&)
+    else
     {
         /* This cell is busy, try again in a moment --
          * and track its volume again
@@ -336,13 +336,13 @@ bool AFK_World::generateClaimedWorldCell(
          */
         float landscapeTileUpperYBound = FLT_MAX;
 
-        try
+        /* We always at least touch the landscape.  Higher detailed
+         * landscape tiles are dependent on lower detailed ones for their
+         * terrain description.
+         */
+        auto landscapeClaim = landscapeCache->insert(threadId, tile).claimable.claim(threadId, AFK_CL_BLOCK | AFK_CL_UPGRADE);
+        if (landscapeClaim.isValid())
         {
-            /* We always at least touch the landscape.  Higher detailed
-             * landscape tiles are dependent on lower detailed ones for their
-             * terrain description.
-             */
-            auto landscapeClaim = landscapeCache->insert(threadId, tile).claimable.claim(threadId, AFK_CL_BLOCK | AFK_CL_UPGRADE);
             landscapeTileUpperYBound = landscapeClaim.getShared().getYBoundUpper();
         
             if (!landscapeClaim.getShared().hasTerrainDescriptor() ||
@@ -370,7 +370,7 @@ bool AFK_World::generateClaimedWorldCell(
                 displayLandscapeTile(cell, tile, landscapeClaim.getShared(), threadId);
             }
         }
-        catch (AFK_ClaimException&)
+        else
         {
             needsResume = true;
         }

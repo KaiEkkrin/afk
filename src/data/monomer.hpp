@@ -44,76 +44,49 @@ public:
 
     bool here(unsigned int threadId, bool acceptUnassigned, KeyType *o_key, ValueType **o_valuePtr) afk_noexcept
     {
-        try
+        auto keyClaim = key.claim(threadId, AFK_CL_SHARED);
+        if (keyClaim.isValid() &&
+            (acceptUnassigned || !(keyClaim.getShared() == unassigned)))
         {
-            auto keyClaim = key.claim(threadId, AFK_CL_SHARED);
-            if (acceptUnassigned || !(keyClaim.getShared() == unassigned))
-            {
-                *o_key = keyClaim.getShared();
-                *o_valuePtr = &value;
-                return true;
-            }
-            else return false;
+            *o_key = keyClaim.getShared();
+            *o_valuePtr = &value;
+            return true;
         }
-        catch (AFK_ClaimException&)
-        {
-            return false;
-        }
+        else return false;
     }
 
     bool get(unsigned int threadId, const KeyType& _key, ValueType **o_valuePtr) afk_noexcept
     {
-        try
+        auto keyClaim = key.claimInplace(threadId, AFK_CL_SHARED);
+        if (keyClaim.isValid() && keyClaim.getShared() == _key)
         {
-            auto keyClaim = key.claimInplace(threadId, AFK_CL_SHARED);
-            if (keyClaim.getShared() == _key)
-            {
-                *o_valuePtr = &value;
-                return true;
-            }
-            else return false;
+            *o_valuePtr = &value;
+            return true;
         }
-        catch (AFK_ClaimException&)
-        {
-            return false;
-        }
+        else return false;
     }
 
     bool insert(unsigned int threadId, const KeyType& _key, ValueType **o_valuePtr) afk_noexcept
     {
-        try
+        auto keyClaim = key.claim(threadId, 0);
+        if (keyClaim.isValid() && keyClaim.getShared() == unassigned)
         {
-            auto keyClaim = key.claim(threadId, 0);
-            if (keyClaim.getShared() == unassigned)
-            {
-                keyClaim.get() = _key;
-                *o_valuePtr = &value;
-                return true;
-            }
-            else return false;
+            keyClaim.get() = _key;
+            *o_valuePtr = &value;
+            return true;
         }
-        catch (AFK_ClaimException&)
-        {
-            return false;
-        }
+        else return false;
     }
 
     bool erase(unsigned int threadId, const KeyType& _key) afk_noexcept
     {
-        try
+        auto keyClaim = key.claim(threadId, 0);
+        if (keyClaim.isValid() && keyClaim.get() == _key)
         {
-            auto keyClaim = key.claim(threadId, 0);
-            if (keyClaim.get() == _key)
-            {
-                keyClaim.get() = unassigned;
-                return true;
-            }
-            else return false;
+            keyClaim.get() = unassigned;
+            return true;
         }
-        catch (AFK_ClaimException&)
-        {
-            return false;
-        }
+        else return false;
     }
 };
 

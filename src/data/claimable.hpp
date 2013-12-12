@@ -44,12 +44,6 @@
 #define AFK_DEBUG_PRINTL_CLAIMABLE(expr)
 #endif
 
-/* This exception is thrown when you can't get something because
- * it's in use.  Try again.
- * Actual program errors are assert()ed instead.
- */
-class AFK_ClaimException: public std::exception {};
-
 #define AFK_CL_LOOP         1       /* yield loops volatile claimable; blocks locked claimable */
 #define AFK_CL_SPIN         2       /* tight loops volatile claimable; blocks locked claimable */
 #define AFK_CL_BLOCK        4       /* volatile claimable returns right away; blocks locked claimable */

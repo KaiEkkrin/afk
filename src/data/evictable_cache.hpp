@@ -240,9 +240,9 @@ public:
                          * Note that the evictor claim type never uses
                          * a real frame number and so the following is OK
                          */
-                        try
+                        auto claim = candidate->claimable.claim(threadId, AFK_CL_EVICTOR);
+                        if (claim.isValid())
                         {
-                            auto claim = candidate->claimable.claim(threadId, AFK_CL_EVICTOR);
                             if (candidate->canBeEvicted())
                             {
                                 Value& obj = claim.get();
@@ -261,7 +261,6 @@ public:
                                 }
                             }
                         }
-                        catch (AFK_ClaimException&) {}
                     }
                 }
             }

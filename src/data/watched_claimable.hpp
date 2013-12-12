@@ -68,15 +68,15 @@ protected:
     }
 
 public:
-    AFK_WatchedClaimable(): claimable(), lastSeen(-1), lastSeenExclusively(-1) {}
+    AFK_WatchedClaimable() afk_noexcept: claimable(), lastSeen(-1), lastSeenExclusively(-1) {}
 
     /* The move constructors are used to enable initialisation.
      * They essentially make a new Claimable.
      */
-    AFK_WatchedClaimable(const AFK_WatchedClaimable&& _wc):
+    AFK_WatchedClaimable(const AFK_WatchedClaimable&& _wc) afk_noexcept:
         claimable(_wc.claimable), lastSeen(-1), lastSeenExclusively(-1) {}
 
-    AFK_WatchedClaimable& operator=(const AFK_WatchedClaimable&& _wc)
+    AFK_WatchedClaimable& operator=(const AFK_WatchedClaimable&& _wc) afk_noexcept
     {
         claimable = _wc.claimable;
         lastSeen.store(-1);
@@ -84,34 +84,40 @@ public:
         return *this;
     }
 
-    Claim claim(unsigned int threadId, unsigned int flags)
+    Claim claim(unsigned int threadId, unsigned int flags) afk_noexcept
     {
         bool claimed = claimable.claimInternal(threadId, flags);
-        if (!claimed) throw AFK_ClaimException();
-        if (!watch(flags))
+        if (claimed)
         {
-            claimable.release(threadId);
-            throw AFK_ClaimException();
-        }
+            if (!watch(flags))
+            {
+                claimable.release(threadId);
+                return Claim();
+            }
 
-        return claimable.getClaim(threadId, flags);
+            return claimable.getClaim(threadId, flags);
+        }
+        else return Claim();
     }
 
-    InplaceClaim claimInplace(unsigned int threadId, unsigned int flags)
+    InplaceClaim claimInplace(unsigned int threadId, unsigned int flags) afk_noexcept
     {
         bool claimed = claimable.claimInternal(threadId, flags);
-        if (!claimed) throw AFK_ClaimException();
-        if (!watch(flags))
+        if (claimed)
         {
-            claimable.release(threadId);
-            throw AFK_ClaimException();
-        }
+            if (!watch(flags))
+            {
+                claimable.release(threadId);
+                return InplaceClaim();
+            }
 
-        return claimable.getInplaceClaim(threadId, flags);
+            return claimable.getInplaceClaim(threadId, flags);
+        }
+        else return InplaceClaim();
     }
 
-    int64_t getLastSeen(void) const { return lastSeen.load(); }
-    int64_t getLastSeenExclusively(void) const { return lastSeenExclusively.load(); }
+    int64_t getLastSeen(void) const afk_noexcept { return lastSeen.load(); }
+    int64_t getLastSeenExclusively(void) const afk_noexcept { return lastSeenExclusively.load(); }
 
     template<
         typename _Claimable,
