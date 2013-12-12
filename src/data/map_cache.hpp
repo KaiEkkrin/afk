@@ -46,16 +46,16 @@ public:
         return map.size();
     }
 
-    virtual Value *get(unsigned int threadId, const Key& key)
+    virtual Value& get(unsigned int threadId, const Key& key)
     {
         std::unique_lock<std::mutex> lock(mut);
-        return &map.at(key);
+        return map.at(key);
     }
 
-    virtual Value *insert(unsigned int threadId, const Key& key)
+    virtual Value& insert(unsigned int threadId, const Key& key)
     {
         std::unique_lock<std::mutex> lock(mut);
-        return &map[key];
+        return map[key];
     }
 
 #if 0

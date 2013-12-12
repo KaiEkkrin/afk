@@ -77,7 +77,7 @@ bool afk_generateWorldCells(
     unsigned int claimFlags = AFK_CL_BLOCK;
     if (!renderTerrain && !resume) claimFlags |= AFK_CL_EXCLUSIVE;
 
-    auto worldCellClaim = world->worldCache->insertAndClaim(threadId, cell, claimFlags);
+    auto worldCellClaim = world->worldCache->insert(threadId, cell).claimable.claim(threadId, claimFlags);
     if (worldCellClaim.isValid())
     {
         retval = world->generateClaimedWorldCell(
@@ -340,7 +340,7 @@ bool AFK_World::generateClaimedWorldCell(
          * landscape tiles are dependent on lower detailed ones for their
          * terrain description.
          */
-        auto landscapeClaim = landscapeCache->insertAndClaim(threadId, tile, AFK_CL_BLOCK | AFK_CL_UPGRADE);
+        auto landscapeClaim = landscapeCache->insert(threadId, tile).claimable.claim(threadId, AFK_CL_BLOCK | AFK_CL_UPGRADE);
         if (landscapeClaim.isValid())
         {
             landscapeTileUpperYBound = landscapeClaim.getShared().getYBoundUpper();

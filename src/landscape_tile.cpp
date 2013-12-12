@@ -147,13 +147,13 @@ void AFK_LandscapeTile::buildTerrainList(
 
         AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): looking for terrain for " << parentTile)
 
-        auto parentLandscapeTileClaim = cache->getAndClaimInplace(threadId, parentTile, AFK_CL_LOOP | AFK_CL_SHARED);
-        if (parentLandscapeTileClaim.isValid())
+        try
         {
+            auto parentLandscapeTileClaim = cache->get(threadId, parentTile).claimable.claimInplace(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
             parentLandscapeTileClaim.getShared().buildTerrainList(threadId, list, parentTile, subdivisionFactor, maxDistance, cache, missing);
             return;
         }
-        else
+        catch (AFK_PolymerOutOfRange&)
         {
             /* That tile is missing.  Continue looking for
              * higher level tiles anyway.
@@ -190,13 +190,13 @@ void AFK_LandscapeTile::buildTerrainList(
 
         AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): looking for terrain for " << parentTile)
 
-        auto parentLandscapeTileClaim = cache->getAndClaimInplace(threadId, parentTile, AFK_CL_LOOP | AFK_CL_SHARED);
-        if (parentLandscapeTileClaim.isValid())
+        try
         {
+            auto parentLandscapeTileClaim = cache->get(threadId, parentTile).claimable.claimInplace(threadId, AFK_CL_LOOP | AFK_CL_SHARED);
             parentLandscapeTileClaim.getShared().buildTerrainList(threadId, list, parentTile, subdivisionFactor, maxDistance, cache, missing);
             return;
         }
-        else
+        catch (AFK_PolymerOutOfRange&)
         {
             /* That tile is missing.  Continue looking for
              * higher level tiles anyway.
