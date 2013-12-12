@@ -179,7 +179,7 @@ bool AFK_VapourCell::build3DList(
          * include its list too
          */
         AFK_KeyedCell parentCell = cell.parent(sSizes.subdivisionFactor);
-        auto parentVapourCellClaim = cache->get(threadId, parentCell).claimable.claim(threadId, AFK_CL_SHARED);
+        auto parentVapourCellClaim = cache->getAndClaim(threadId, parentCell, AFK_CL_SHARED);
         if (parentVapourCellClaim.isValid())
             return parentVapourCellClaim.getShared().build3DList(threadId, parentCell, list, sSizes, cache);
         else return false;

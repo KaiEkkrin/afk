@@ -95,9 +95,10 @@ void AFK_LandscapeDisplayQueue::draw(
         {
             if (checked[i]) continue;
 
-            try
+            auto entry = cache->get(threadId, landscapeTiles[i]);
+            if (entry)
             {
-                auto claim = cache->get(threadId, landscapeTiles[i]).claimable.claimInplace(threadId, AFK_CL_SHARED);
+                auto claim = entry->claimable.claimInplace(threadId, AFK_CL_SHARED);
                 if (claim.isValid())
                 {
                     if (claim.getShared().realCellWithinYBounds(queue[i].cellCoord))
@@ -115,7 +116,11 @@ void AFK_LandscapeDisplayQueue::draw(
                     allChecked = false;
                 }
             }
-            catch (AFK_PolymerOutOfRange&) { checked[i] = true; /* Ignore, this one shouldn't be drawn */ }
+            else
+            {
+                /* Ignore, this one shouldn't be drawn */
+                checked[i] = true;
+            }
         }
 
         if (!allChecked) std::this_thread::yield(); /* Give things a chance */

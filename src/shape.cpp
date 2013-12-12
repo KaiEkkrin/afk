@@ -49,8 +49,7 @@ bool afk_generateEntity(
     bool needsResume = false;
 
     AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
-    auto claim = shape.vapourCellCache->insert(threadId, vc).claimable.claim(threadId, AFK_CL_BLOCK | AFK_CL_UPGRADE);
-    
+    auto claim = shape.vapourCellCache->insertAndClaim(threadId, vc, AFK_CL_BLOCK | AFK_CL_UPGRADE);
     if (claim.isValid())
     {    
         if (!claim.getShared().hasDescriptor())
@@ -194,7 +193,7 @@ bool afk_generateShapeCells(
          * cell, however.
          */
         AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
-        auto vapourCellClaim = shape.vapourCellCache->insert(threadId, vc).claimable.claim(threadId, AFK_CL_BLOCK | AFK_CL_UPGRADE);
+        auto vapourCellClaim = shape.vapourCellCache->insertAndClaim(threadId, vc, AFK_CL_BLOCK | AFK_CL_UPGRADE);
         if (vapourCellClaim.isValid())
         {
             const AFK_VapourCell& vapourCell = vapourCellClaim.getShared();
@@ -209,7 +208,7 @@ bool afk_generateShapeCells(
                      */
                     AFK_KeyedCell upperVC = vc.parent(world->sSizes.subdivisionFactor);
                     auto upperVapourCellClaim =
-                        shape.vapourCellCache->get(threadId, upperVC).claimable.claim(threadId, AFK_CL_BLOCK | AFK_CL_SHARED);
+                        shape.vapourCellCache->getAndClaim(threadId, upperVC, AFK_CL_BLOCK | AFK_CL_SHARED);
                     if (upperVapourCellClaim.isValid())
                         vapourCellClaim.get().makeDescriptor(vc, upperVC, upperVapourCellClaim.getShared(), world->sSizes);
                 }
@@ -228,7 +227,7 @@ bool afk_generateShapeCells(
                 if (vapourCell.withinSkeleton(vc, cell, world->sSizes))
                 {
                     /* I want that shape cell now ... */
-                    auto shapeCellClaim = shape.shapeCellCache->insert(threadId, cell).claimable.claim(threadId, AFK_CL_BLOCK | AFK_CL_UPGRADE);
+                    auto shapeCellClaim = shape.shapeCellCache->insertAndClaim(threadId, cell, AFK_CL_BLOCK | AFK_CL_UPGRADE);
                     if (shapeCellClaim.isValid())
                     {
                         if (shapeCellClaim.getShared().getDMin() < 0.0f &&

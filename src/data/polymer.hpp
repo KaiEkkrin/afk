@@ -30,11 +30,6 @@
 #include "monomer.hpp"
 #include "stats.hpp"
 
-/* The get() function throws this when there's nothing at the
- * requested cell.
- */
-class AFK_PolymerOutOfRange: public std::exception {};
-
 /* This is an atomically accessible hash map.  It should be quick to
  * add, retrieve and delete, cope with a lot of value turnover, and
  * be able to iterate through the entries (including randomly, with
@@ -386,23 +381,22 @@ public:
         return stats.getSize();
     }
 
-    /* Returns a reference to a map entry.  Throws AFK_PolymerOutOfRange
-     * if it can't find it.
+    /* Returns a pointer to a map entry, or nullptr if it can't find it.
      */
-    ValueType& get(unsigned int threadId, const KeyType& key)
+    ValueType *get(unsigned int threadId, const KeyType& key)
     {
         size_t hash = wring(hasher(key));
         ValueType *value = nullptr;
-        if (!retrieveMonomer(threadId, key, hash, &value)) throw AFK_PolymerOutOfRange();
-        return *value;
+        if (retrieveMonomer(threadId, key, hash, &value)) return value;
+        else return nullptr;
     }
 
-    /* Returns a reference to a map entry.  Inserts a new one if
+    /* Returns a pointer to a map entry.  Inserts a new one if
      * it couldn't find one.
      * This will occasionally generate duplicates.  That should be
      * okay.
      */
-    ValueType& insert(unsigned int threadId, const KeyType& key)
+    ValueType *insert(unsigned int threadId, const KeyType& key)
     {
         size_t hash = wring(hasher(key));
         ValueType *value = nullptr;
@@ -416,7 +410,7 @@ public:
             insertMonomer(threadId, key, hash, &value);
         }
 
-        return *value;
+        return value;
     }
 
     /* For accessing the chain slots directly.  Use carefully (it's really
