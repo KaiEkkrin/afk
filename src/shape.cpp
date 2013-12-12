@@ -49,10 +49,10 @@ bool afk_generateEntity(
     bool needsResume = false;
 
     AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
-    auto claim = shape.vapourCellCache->insert(threadId, vc).claimable.claim(threadId, AFK_CL_BLOCK | AFK_CL_UPGRADE);
-    
-    if (claim.isValid())
-    {    
+    try
+    {
+        auto claim = shape.vapourCellCache->insert(threadId, vc).claimable.claim(threadId, AFK_CL_BLOCK | AFK_CL_UPGRADE);
+        
         if (!claim.getShared().hasDescriptor())
         {
             /* Get an exclusive claim, and make its descriptor. */
@@ -101,7 +101,7 @@ bool afk_generateEntity(
             needsResume = true;
         }
     }
-    else
+    catch (AFK_ClaimException&)
     {
         needsResume = true;
     }
@@ -194,9 +194,9 @@ bool afk_generateShapeCells(
          * cell, however.
          */
         AFK_KeyedCell vc = afk_shapeToVapourCell(cell, world->sSizes);
-        auto vapourCellClaim = shape.vapourCellCache->insert(threadId, vc).claimable.claim(threadId, AFK_CL_BLOCK | AFK_CL_UPGRADE);
-        if (vapourCellClaim.isValid())
+        try
         {
+            auto vapourCellClaim = shape.vapourCellCache->insert(threadId, vc).claimable.claim(threadId, AFK_CL_BLOCK | AFK_CL_UPGRADE);
             const AFK_VapourCell& vapourCell = vapourCellClaim.getShared();
      
             if (!vapourCell.hasDescriptor())
@@ -210,8 +210,7 @@ bool afk_generateShapeCells(
                     AFK_KeyedCell upperVC = vc.parent(world->sSizes.subdivisionFactor);
                     auto upperVapourCellClaim =
                         shape.vapourCellCache->get(threadId, upperVC).claimable.claim(threadId, AFK_CL_BLOCK | AFK_CL_SHARED);
-                    if (upperVapourCellClaim.isValid())
-                        vapourCellClaim.get().makeDescriptor(vc, upperVC, upperVapourCellClaim.getShared(), world->sSizes);
+                    vapourCellClaim.get().makeDescriptor(vc, upperVC, upperVapourCellClaim.getShared(), world->sSizes);
                 }
             }
      
@@ -229,73 +228,65 @@ bool afk_generateShapeCells(
                 {
                     /* I want that shape cell now ... */
                     auto shapeCellClaim = shape.shapeCellCache->insert(threadId, cell).claimable.claim(threadId, AFK_CL_BLOCK | AFK_CL_UPGRADE);
-                    if (shapeCellClaim.isValid())
+                    if (shapeCellClaim.getShared().getDMin() < 0.0f &&
+                        shapeCellClaim.getShared().getDMax() > 0.0f)
                     {
-                        if (shapeCellClaim.getShared().getDMin() < 0.0f &&
-                            shapeCellClaim.getShared().getDMax() > 0.0f)
+                        /* There is something interesting here -- it's not empty
+                         * or solid
+                         */
+                        if (display) 
                         {
-                            /* There is something interesting here -- it's not empty
-                             * or solid
-                             */
-                            if (display) 
+                            if (!shape.generateClaimedShapeCell(
+                                threadId, vc, cell, vapourCellClaim, shapeCellClaim, worldTransform))
                             {
-                                if (!shape.generateClaimedShapeCell(
-                                    threadId, vc, cell, vapourCellClaim, shapeCellClaim, worldTransform))
-                                {
-                                    DEBUG_VISIBLE_CELL("needs resume")
-                                    needsResume = true;
-                                }
-                                else
-                                {
-                                    DEBUG_VISIBLE_CELL("generated")
-#if AFK_SHAPE_ENUM_DEBUG
-                                    AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " generated")
-#endif
-                                }
+                                DEBUG_VISIBLE_CELL("needs resume")
+                                needsResume = true;
                             }
                             else
                             {
-                                DEBUG_VISIBLE_CELL("recursing into subcells")
-        
-                                /* I can drop this before adding to the queue */
-                                shapeCellClaim.release();
-            
-                                /* I'm about to enumerate this cell's volume in subcells */
-                                world->volumeLeftToEnumerate.fetch_add(CUBE(cell.c.coord.v[3]));
-             
-                                size_t subcellsSize = CUBE(world->sSizes.subdivisionFactor);
-                                AFK_Cell *subcells = new AFK_Cell[subcellsSize];
-                                unsigned int subcellsCount = cell.c.subdivide(subcells, subcellsSize, world->sSizes.subdivisionFactor);
-                                assert(subcellsCount == subcellsSize);
-             
-                                for (unsigned int i = 0; i < subcellsCount; ++i)
-                                {
-                                    AFK_WorldWorkQueue::WorkItem subcellItem;
-                                    subcellItem.func                            = afk_generateShapeCells;
-                                    subcellItem.param                           = param;
-                                    subcellItem.param.shape.cell                = afk_keyedCell(subcells[i], cell.key);
-                                    subcellItem.param.shape.flags               = (allVisible ? AFK_SCG_FLAG_ENTIRELY_VISIBLE : 0);
-                                    subcellItem.param.shape.dependency          = nullptr;
-                                    queue.push(subcellItem);
-             
+                                DEBUG_VISIBLE_CELL("generated")
 #if AFK_SHAPE_ENUM_DEBUG
-                                    AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " recursed")
+                                AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " generated")
 #endif
-                                }
-                        
-                                delete[] subcells;
                             }
                         }
                         else
                         {
-                            DEBUG_VISIBLE_CELL("empty or solid")
-                            world->shapeCellsReducedOut.fetch_add(1);
+                            DEBUG_VISIBLE_CELL("recursing into subcells")
+
+                            /* I can drop this before adding to the queue */
+                            shapeCellClaim.release();
+        
+                            /* I'm about to enumerate this cell's volume in subcells */
+                            world->volumeLeftToEnumerate.fetch_add(CUBE(cell.c.coord.v[3]));
+         
+                            size_t subcellsSize = CUBE(world->sSizes.subdivisionFactor);
+                            AFK_Cell *subcells = new AFK_Cell[subcellsSize];
+                            unsigned int subcellsCount = cell.c.subdivide(subcells, subcellsSize, world->sSizes.subdivisionFactor);
+                            assert(subcellsCount == subcellsSize);
+         
+                            for (unsigned int i = 0; i < subcellsCount; ++i)
+                            {
+                                AFK_WorldWorkQueue::WorkItem subcellItem;
+                                subcellItem.func                            = afk_generateShapeCells;
+                                subcellItem.param                           = param;
+                                subcellItem.param.shape.cell                = afk_keyedCell(subcells[i], cell.key);
+                                subcellItem.param.shape.flags               = (allVisible ? AFK_SCG_FLAG_ENTIRELY_VISIBLE : 0);
+                                subcellItem.param.shape.dependency          = nullptr;
+                                queue.push(subcellItem);
+         
+#if AFK_SHAPE_ENUM_DEBUG
+                                AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " recursed")
+#endif
+                            }
+                    
+                            delete[] subcells;
                         }
                     }
                     else
                     {
-                        DEBUG_VISIBLE_CELL("can't claim shape cell")
-                        needsResume = true;
+                        DEBUG_VISIBLE_CELL("empty or solid")
+                        world->shapeCellsReducedOut.fetch_add(1);
                     }
                 }
                 else
@@ -312,7 +303,7 @@ bool afk_generateShapeCells(
                 needsResume = true;
             }
         }
-        else
+        catch (AFK_ClaimException&)
         {
             needsResume = true;
         }
@@ -399,17 +390,16 @@ bool AFK_Shape::generateClaimedShapeCell(
                     AFK_VapourCell& vapourCell = vapourCellClaim.get();
 
                     AFK_3DList list;
-                    if (vapourCell.build3DList(threadId, vc, list, world->sSizes, vapourCellCache))
-                    {
-                        int adjacency = vapourCell.skeletonFullAdjacency(vc, cell, world->sSizes);
-                        shapeCellClaim.get().enqueueVapourComputeUnitWithNewVapour(
-                            threadId, adjacency, list, cell, world->sSizes, vapourJigsaws, world->vapourComputeFair, cubeOffset, cubeCount);
-                        vapourCell.enqueued(cubeOffset, cubeCount);
-                        world->shapeVapoursComputed.fetch_add(1);
+                    vapourCell.build3DList(threadId, vc, list, world->sSizes, vapourCellCache);
+
+                    int adjacency = vapourCell.skeletonFullAdjacency(vc, cell, world->sSizes);
+                    shapeCellClaim.get().enqueueVapourComputeUnitWithNewVapour(
+                        threadId, adjacency, list, cell, world->sSizes, vapourJigsaws, world->vapourComputeFair, cubeOffset, cubeCount);
+                    vapourCell.enqueued(cubeOffset, cubeCount);
+                    world->shapeVapoursComputed.fetch_add(1);
 #if AFK_SHAPE_ENUM_DEBUG
-                        AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << ": generated new vapour with " << list.cubeCount() << " cubes at " << vc)
+                    AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << ": generated new vapour with " << list.cubeCount() << " cubes at " << vc)
 #endif
-                    }
                 }
             }
         }

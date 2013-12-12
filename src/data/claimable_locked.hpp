@@ -58,8 +58,6 @@ protected:
     }
 
 public:
-    AFK_LockedClaim() afk_noexcept: claimable(nullptr), status(AFK_LockedClaimStatus::Released) {}
-
     AFK_LockedClaim(const AFK_LockedClaim& _c) = delete;
     AFK_LockedClaim& operator=(const AFK_LockedClaim& _c) = delete;
 
@@ -85,11 +83,6 @@ public:
     {
         AFK_DEBUG_PRINTL_CLAIMABLE("destructing inplace claim for " << std::hex << claimable << ": " << obj << "(released: " << status == AFK_LockedClaimStatus::Released << ")")
         if (status != AFK_LockedClaimStatus::Released) release();
-    }
-
-    bool isValid(void) const afk_noexcept
-    {
-        return (status != AFK_LockedClaimStatus::Released);
     }
 
     const T& getShared(void) const afk_noexcept
@@ -230,18 +223,18 @@ public:
         return AFK_LockedClaim<T>(this, flags & AFK_CL_SHARED, flags & AFK_CL_UPGRADE);
     }
 
-    AFK_LockedClaim<T> claim(unsigned int threadId, unsigned int flags) afk_noexcept
+    AFK_LockedClaim<T> claim(unsigned int threadId, unsigned int flags)
     {
         bool claimed = claimInternal(threadId, flags);
-        if (claimed) return getClaim(threadId, flags);
-        else return AFK_LockedClaim<T>();
+        if (!claimed) throw AFK_ClaimException();
+        return getClaim(threadId, flags);
     }
 
-    AFK_LockedClaim<T> claimInplace(unsigned int threadId, unsigned int flags) afk_noexcept
+    AFK_LockedClaim<T> claimInplace(unsigned int threadId, unsigned int flags)
     {
         bool claimed = claimInternal(threadId, flags);
-        if (claimed) return getInplaceClaim(threadId, flags);
-        else return AFK_LockedClaim<T>();
+        if (!claimed) throw AFK_ClaimException();
+        return getInplaceClaim(threadId, flags);
     }
 
     friend class AFK_LockedClaim<T>;

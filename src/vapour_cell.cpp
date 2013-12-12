@@ -162,7 +162,7 @@ AFK_KeyedCell AFK_VapourCell::ShapeCells::next(void)
     return nextCell;
 }
 
-bool AFK_VapourCell::build3DList(
+void AFK_VapourCell::build3DList(
     unsigned int threadId,
     const AFK_KeyedCell& cell,
     AFK_3DList& list,
@@ -180,11 +180,8 @@ bool AFK_VapourCell::build3DList(
          */
         AFK_KeyedCell parentCell = cell.parent(sSizes.subdivisionFactor);
         auto parentVapourCellClaim = cache->get(threadId, parentCell).claimable.claim(threadId, AFK_CL_SHARED);
-        if (parentVapourCellClaim.isValid())
-            return parentVapourCellClaim.getShared().build3DList(threadId, parentCell, list, sSizes, cache);
-        else return false;
+        parentVapourCellClaim.getShared().build3DList(threadId, parentCell, list, sSizes, cache);
     }
-    else return true;
 }
 
 bool AFK_VapourCell::alreadyEnqueued(

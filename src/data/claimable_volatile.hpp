@@ -47,6 +47,11 @@ protected:
     bool shared;
     bool released;
 
+    /* I need to be able to make a "blank", for the benefit of
+     * Claim below.
+     */
+    AFK_VolatileInplaceClaim() afk_noexcept: released(true) {}
+
     AFK_VolatileInplaceClaim(unsigned int _threadId, AFK_VolatileClaimable<T> *_claimable, bool _shared) afk_noexcept:
         threadId(_threadId), claimable(_claimable), shared(_shared), released(false)
     {
@@ -54,11 +59,6 @@ protected:
     }
 
 public:
-    /* I need to be able to make a "blank", for the benefit of
-     * Claim below, and also to represent a claim failure.
-     */
-    AFK_VolatileInplaceClaim() afk_noexcept: released(true) {}
-
     /* No reference counting is performed, so I must never copy a
      * claim around
      */
@@ -96,11 +96,6 @@ public:
     {
         AFK_DEBUG_PRINTL_CLAIMABLE("destructing inplace claim for " << std::hex << claimable << ": " << obj << "(released: " << released << ")")
         if (!released) release();
-    }
-
-    bool isValid(void) const afk_noexcept
-    {
-        return !released;
     }
 
     const volatile T& getShared(void) const afk_noexcept
@@ -174,8 +169,6 @@ protected:
     }
 
 public:
-    AFK_VolatileClaim() afk_noexcept: inplace() {}
-
     /* I can make a Claim out of an inplace one (which invalidates
      * the inplace one).
      */
@@ -240,11 +233,6 @@ public:
     {
         AFK_DEBUG_PRINTL_CLAIMABLE("destructing claim for " << std::hex << claimable << ": " << obj << "(released: " << released << ")")
         if (!inplace.released) release();
-    }
-
-    bool isValid(void) const afk_noexcept
-    {
-        return !inplace.released;
     }
 
     const T& getShared(void) const afk_noexcept
@@ -411,26 +399,25 @@ public:
         return AFK_VolatileInplaceClaim<T>(threadId, this, AFK_CL_IS_SHARED(flags));
     }
 
-    /* Gets you a claim of the desired type.  If it fails,
-     * an released claim is returned.
+    /* Gets you a claim of the desired type.
      * The `exclusive' flag causes the `lastSeenExclusively'
      * field to be incremented if it's not already equal to
      * the current frame; this mechanism locks out an object
      * from being claimed more than once per frame.
      */
-    AFK_VolatileClaim<T> claim(unsigned int threadId, unsigned int flags) afk_noexcept
+    AFK_VolatileClaim<T> claim(unsigned int threadId, unsigned int flags) 
     {
         bool claimed = claimInternal(threadId, flags);
-        if (claimed) return getClaim(threadId, flags);
-        else return AFK_VolatileClaim<T>();
+        if (!claimed) throw AFK_ClaimException();
+        return getClaim(threadId, flags);
     }
 
     /* As above, but gets an inplace claim. */
-    AFK_VolatileInplaceClaim<T> claimInplace(unsigned int threadId, unsigned int flags) afk_noexcept
+    AFK_VolatileInplaceClaim<T> claimInplace(unsigned int threadId, unsigned int flags)
     {
         bool claimed = claimInternal(threadId, flags);
-        if (claimed) return getInplaceClaim(threadId, flags);
-        else return AFK_VolatileInplaceClaim<T>();
+        if (!claimed) throw AFK_ClaimException();
+        return getInplaceClaim(threadId, flags);
     }
 
     friend class AFK_VolatileInplaceClaim<T>;

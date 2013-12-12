@@ -98,24 +98,17 @@ void AFK_LandscapeDisplayQueue::draw(
             try
             {
                 auto claim = cache->get(threadId, landscapeTiles[i]).claimable.claimInplace(threadId, AFK_CL_SHARED);
-                if (claim.isValid())
+                if (claim.getShared().realCellWithinYBounds(queue[i].cellCoord))
                 {
-                    if (claim.getShared().realCellWithinYBounds(queue[i].cellCoord))
-                    {
-                        /* I do want to draw this tile. */
-                        culledQueue.push_back(queue[i]);
-                    }
-        
-                    /* If I got here, the tile has been checked successfully. */
-                    checked[i] = true;
+                    /* I do want to draw this tile. */
+                    culledQueue.push_back(queue[i]);
                 }
-                else
-                {
-                    /* want to retry */
-                    allChecked = false;
-                }
+
+                /* If I got here, the tile has been checked successfully. */
+                checked[i] = true;
             }
             catch (AFK_PolymerOutOfRange&) { checked[i] = true; /* Ignore, this one shouldn't be drawn */ }
+            catch (AFK_ClaimException&) { allChecked = false; /* Want to retry */ }
         }
 
         if (!allChecked) std::this_thread::yield(); /* Give things a chance */

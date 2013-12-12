@@ -123,18 +123,11 @@ void AFK_DReduce::readBack(
             try
             {
                 auto claim = cache->get(threadId, shapeCells[i]).claimable.claim(threadId, 0);
-                if (claim.isValid())
-                {
-                    claim.get().setDMinMax(readback[i * 2], readback[i * 2 + 1]);
-                    pushed[i] = true;
-                }
-                else
-                {
-                    /* Want to retry */
-                    allPushed = false;
-                }
+                claim.get().setDMinMax(readback[i * 2], readback[i * 2 + 1]);
+                pushed[i] = true;
             }
             catch (AFK_PolymerOutOfRange&) { pushed[i] = true; /* Ignore, no entry any more */ }
+            catch (AFK_ClaimException&) { allPushed = false; /* Want to retry */ }
         }
 
         if (!allPushed) std::this_thread::yield();

@@ -125,10 +125,8 @@ public:
      * whose vapour descriptor needs to be created first in
      * order to be able to make this list.  They go from
      * smallest to largest cell.
-     * Returns false if it fails (e.g. can't get claims), need to try again
-     * TODO: Like building the landscape list, fill out a missing vector?
      */
-    bool build3DList(
+    void build3DList(
         unsigned int threadId,
         const AFK_KeyedCell& cell,
         AFK_3DList& list,
