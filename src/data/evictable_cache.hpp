@@ -102,10 +102,11 @@ class AFK_EvictableCache:
         Key,
         AFK_Evictable<Value, framesBeforeEviction, getComputingFrame> >
 {
-protected:
+public:
     typedef AFK_Evictable<Value, framesBeforeEviction, getComputingFrame> EvictableValue;
     typedef AFK_PolymerChain<Key, EvictableValue, unassigned, hashBits, debug> PolymerChain;
 
+protected:
     class EvictableChainFactory
     {
     protected:
@@ -301,14 +302,39 @@ public:
         return polymer.size();
     }
 
-    virtual EvictableValue& get(unsigned int threadId, const Key& key)
+    virtual EvictableValue *get(unsigned int threadId, const Key& key)
     {
         return polymer.get(threadId, key);
     }
 
-    virtual EvictableValue& insert(unsigned int threadId, const Key& key)
+    virtual EvictableValue *insert(unsigned int threadId, const Key& key)
     {
         return polymer.insert(threadId, key);
+    }
+
+    /* These helpers do the relevant sort of claim as well. */
+    AFK_EVICTABLE_INPLACE_CLAIM_TYPE(Value) getAndClaimInplace(unsigned int threadId, const Key& key, unsigned int claimFlags)
+    {
+        EvictableValue *value = polymer.get(threadId, key);
+        if (value) return value->claimable.claimInplace(threadId, claimFlags);
+        else return AFK_EVICTABLE_INPLACE_CLAIM_TYPE(Value)();
+    }
+
+    AFK_EVICTABLE_CLAIM_TYPE(Value) getAndClaim(unsigned int threadId, const Key& key, unsigned int claimFlags)
+    {
+        EvictableValue *value = polymer.get(threadId, key);
+        if (value) return value->claimable.claim(threadId, claimFlags);
+        else return AFK_EVICTABLE_CLAIM_TYPE(Value)();
+    }
+
+    AFK_EVICTABLE_INPLACE_CLAIM_TYPE(Value) insertAndClaimInplace(unsigned int threadId, const Key& key, unsigned int claimFlags)
+    {
+        return polymer.insert(threadId, key)->claimable.claimInplace(threadId, claimFlags);
+    }
+
+    AFK_EVICTABLE_CLAIM_TYPE(Value) insertAndClaim(unsigned int threadId, const Key& key, unsigned int claimFlags)
+    {
+        return polymer.insert(threadId, key)->claimable.claim(threadId, claimFlags);
     }
 
     void doEvictionIfNecessary(void)

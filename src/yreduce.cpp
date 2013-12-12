@@ -133,9 +133,10 @@ void AFK_YReduce::readBack(
         {
             if (pushed[i]) continue;
 
-            try
+            auto entry = cache->get(threadId, landscapeTiles[i]);
+            if (entry)
             {
-                auto claim = cache->get(threadId, landscapeTiles[i]).claimable.claim(threadId, 0);
+                auto claim = entry->claimable.claim(threadId, 0);
                 if (claim.isValid())
                 {
                     claim.get().setYBounds(readback[i * 2], readback[i * 2 + 1]);
@@ -147,7 +148,11 @@ void AFK_YReduce::readBack(
                     allPushed = false;
                 }
             }
-            catch (AFK_PolymerOutOfRange&) { pushed[i] = true; /* Ignore, no entry any more */ }
+            else
+            {
+                /* Ignore, no entry any more */
+                pushed[i] = true;
+            }
         }
 
         if (!allPushed) std::this_thread::yield();

@@ -45,12 +45,12 @@ public:
         return polymer.size();
     }
 
-    virtual Value& get(unsigned int threadId, const Key& key)
+    virtual Value *get(unsigned int threadId, const Key& key)
     {
         return polymer.get(threadId, key);
     }
 
-    virtual Value& insert(unsigned int threadId, const Key& key)
+    virtual Value *insert(unsigned int threadId, const Key& key)
     {
         return polymer.insert(threadId, key);
     }
