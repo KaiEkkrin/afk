@@ -204,16 +204,16 @@ public:
 
         if (AFK_CL_IS_BLOCKING(flags))
         {
-            if (flags & AFK_CL_SHARED) mut.lock_shared();
-            else if (flags & AFK_CL_UPGRADE) mut.lock_upgrade();
+            if ((flags & AFK_CL_SHARED) != 0) mut.lock_shared();
+            else if ((flags & AFK_CL_UPGRADE) != 0) mut.lock_upgrade();
             else mut.lock();
 
             claimed = true;
         }
         else
         {
-            if (flags & AFK_CL_SHARED) claimed = mut.try_lock_shared();
-            else if (flags & AFK_CL_UPGRADE) claimed = mut.try_lock_upgrade();
+            if ((flags & AFK_CL_SHARED) != 0) claimed = mut.try_lock_shared();
+            else if ((flags & AFK_CL_UPGRADE) != 0) claimed = mut.try_lock_upgrade();
             else claimed = mut.try_lock();
         }
 
@@ -222,12 +222,12 @@ public:
 
     AFK_LockedClaim<T> getClaim(unsigned int threadId, unsigned int flags) afk_noexcept
     {
-        return AFK_LockedClaim<T>(this, flags & AFK_CL_SHARED, flags & AFK_CL_UPGRADE);
+        return AFK_LockedClaim<T>(this, (flags & AFK_CL_SHARED) != 0, (flags & AFK_CL_UPGRADE) != 0);
     }
 
     AFK_LockedClaim<T> getInplaceClaim(unsigned int threadId, unsigned int flags) afk_noexcept
     {
-        return AFK_LockedClaim<T>(this, flags & AFK_CL_SHARED, flags & AFK_CL_UPGRADE);
+        return AFK_LockedClaim<T>(this, (flags & AFK_CL_SHARED) != 0, (flags & AFK_CL_UPGRADE) != 0);
     }
 
     AFK_LockedClaim<T> claim(unsigned int threadId, unsigned int flags) afk_noexcept

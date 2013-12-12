@@ -29,7 +29,19 @@
 #include "frame.hpp"
 #include "polymer.hpp"
 
+/* TODO: Interestingly enough, on Linux, volatile claimable seems to be
+ * better, but on Windows, locked claimable is.  The opposite of what
+ * I expected in fact!
+ * Perhaps there's room to investigate using one for small things
+ * (WorldCell) and another for big ones (LandscapeTile...)?
+ */
+#ifdef __GNUC__
 #define AFK_EC_LOCKED_CLAIMABLE 0
+#endif
+
+#ifdef _WIN32
+#define AFK_EC_LOCKED_CLAIMABLE 1
+#endif
 
 #if AFK_EC_LOCKED_CLAIMABLE
 #include "claimable_locked.hpp"
