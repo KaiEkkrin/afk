@@ -152,7 +152,6 @@ void AFK_3DEdgeComputeQueue::computeFinish(
     {
         vapourJigsaw->releaseFromCl(0, *postEdgeDep);
         edgeJigsaw->releaseFromCl(0, *postEdgeDep);
-        edgeJigsaw->releaseFromCl(1, *postEdgeDep);
     }
 }
 

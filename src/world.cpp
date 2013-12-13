@@ -919,6 +919,8 @@ void AFK_World::doComputeTasks(unsigned int threadId)
     }
 
     /* TODO: temporary shape render disable to test on windows */
+#define RENDER_ENTITIES 1
+
 #if RENDER_ENTITIES
     std::vector<std::shared_ptr<AFK_3DVapourComputeQueue> > vapourComputeQueues;
     vapourComputeFair.getDrawQueues(vapourComputeQueues);
@@ -933,17 +935,16 @@ void AFK_World::doComputeTasks(unsigned int threadId)
     {
         unsigned int vapourPuzzle, edgePuzzle;
         entityFair2DIndex.get2D(i, vapourPuzzle, edgePuzzle);
-        try
+        AFK_Jigsaw *vapourJigsaw = vapourJigsaws->getPuzzle(vapourPuzzle);
+        AFK_Jigsaw *edgeJigsaw = edgeJigsaws->getPuzzle(edgePuzzle);
+        if (vapourJigsaw && edgeJigsaw)
         {
             edgeComputeQueues.at(i)->computeStart(
                 afk_core.computer,
-                vapourJigsaws->getPuzzle(vapourPuzzle),
-                edgeJigsaws->getPuzzle(edgePuzzle),
+                vapourJigsaw,
+                edgeJigsaw,
                 sSizes);
         }
-        catch (std::out_of_range&) {} /* slightly naughty, but it's normal for
-                                      * the entityFair2DIndex to form gaps
-                                      */
     }
 #endif
 
@@ -964,13 +965,14 @@ void AFK_World::doComputeTasks(unsigned int threadId)
     {
         unsigned int vapourPuzzle, edgePuzzle;
         entityFair2DIndex.get2D(i, vapourPuzzle, edgePuzzle);
-        try
+        AFK_Jigsaw *vapourJigsaw = vapourJigsaws->getPuzzle(vapourPuzzle);
+        AFK_Jigsaw *edgeJigsaw = edgeJigsaws->getPuzzle(edgePuzzle);
+        if (vapourJigsaw && edgeJigsaw)
         {
             edgeComputeQueues.at(i)->computeFinish(
-                vapourJigsaws->getPuzzle(vapourPuzzle),
-                edgeJigsaws->getPuzzle(edgePuzzle));
+                vapourJigsaw,
+                edgeJigsaw);
         }
-        catch (std::out_of_range&) {} /* likewise */
     }
 #endif
 }
@@ -1033,16 +1035,17 @@ void AFK_World::display(
     {
         unsigned int vapourPuzzle, edgePuzzle;
         entityFair2DIndex.get2D(i, vapourPuzzle, edgePuzzle);
-        try
+        AFK_Jigsaw *vapourJigsaw = vapourJigsaws->getPuzzle(vapourPuzzle);
+        AFK_Jigsaw *edgeJigsaw = edgeJigsaws->getPuzzle(edgePuzzle);
+        if (vapourJigsaw && edgeJigsaw)
         {
            entityDrawQueues.at(i)->draw(
                entity_shaderProgram,
-               vapourJigsaws->getPuzzle(vapourPuzzle),
-               edgeJigsaws->getPuzzle(edgePuzzle),
+               vapourJigsaw,
+               edgeJigsaw,
                edgeShapeBase,
                sSizes);
         }
-        catch (std::out_of_range&) {} /* see comment in doComputeTasks() */
     }
 
     glBindVertexArray(0);

@@ -192,7 +192,8 @@ AFK_Jigsaw *AFK_JigsawCollection::getPuzzle(int puzzle)
     return nullptr;
 #else
     std::unique_lock<std::mutex> lock(mut);
-    return puzzles.at(puzzle).get();
+    std::shared_ptr<AFK_Jigsaw> jigsaw = puzzles.at(puzzle);
+    return jigsaw ? jigsaw.get() : nullptr;
 #endif
 }
 

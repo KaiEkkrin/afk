@@ -123,7 +123,7 @@ public:
         AFK_Frame *o_timestamps,
         int count);
 
-    /* These next functions will throw std::out_of_range if they
+    /* These next functions will return nullptr if they
      * can't find a particular puzzle...
      */
 
