@@ -456,26 +456,26 @@ AFK_Computer::AFK_Computer(const AFK_Config *config):
     if (async)
     {
         kernelQueue = std::make_shared<AFK_ComputeQueue>(
-            &oclShim, ctxt, devices[0], true, AFK_CQ_KERNEL_COMMAND_SET);
+            &oclShim, ctxt, devices[0], async, AFK_CQ_KERNEL_COMMAND_SET);
         /* TODO Is there a benefit to having separate read and write queues?
          * The AMD presentation I saw didn't do that, and I got the impression
          * PCI-E is half-duplex
          */
 #if 0
         readQueue = std::make_shared<AFK_ComputeQueue>(
-            &oclShim, ctxt, devices[0], true, AFK_CQ_READ_COMMAND_SET);
+            &oclShim, ctxt, devices[0], async, AFK_CQ_READ_COMMAND_SET);
         writeQueue = std::make_shared<AFK_ComputeQueue>(
-            &oclShim, ctxt, devices[0], true, AFK_CQ_WRITE_COMMAND_SET);
+            &oclShim, ctxt, devices[0], async, AFK_CQ_WRITE_COMMAND_SET);
 #else
         readQueue = writeQueue = std::make_shared<AFK_ComputeQueue>(
-            &oclShim, ctxt, devices[0], true, AFK_CQ_READ_COMMAND_SET | AFK_CQ_WRITE_COMMAND_SET);
+            &oclShim, ctxt, devices[0], async, AFK_CQ_READ_COMMAND_SET | AFK_CQ_WRITE_COMMAND_SET);
 #endif
     }
     else
     {
         kernelQueue = readQueue = writeQueue =
             std::make_shared<AFK_ComputeQueue>(
-                &oclShim, ctxt, devices[0], false,
+                &oclShim, ctxt, devices[0], async,
                 AFK_CQ_KERNEL_COMMAND_SET | AFK_CQ_READ_COMMAND_SET | AFK_CQ_WRITE_COMMAND_SET);
     }
 }
