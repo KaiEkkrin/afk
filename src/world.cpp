@@ -919,7 +919,7 @@ void AFK_World::doComputeTasks(unsigned int threadId)
     }
 
     /* TODO: temporary shape render disable to test on windows */
-#define RENDER_ENTITIES 1
+#define RENDER_ENTITIES 0
 
 #if RENDER_ENTITIES
     std::vector<std::shared_ptr<AFK_3DVapourComputeQueue> > vapourComputeQueues;

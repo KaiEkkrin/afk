@@ -33,7 +33,20 @@
  * throw from the window callback function below.
  * Ick...
  */
-std::map<HWND, AFK_WindowWgl *> afk_wndMap;
+static std::map<HWND, AFK_WindowWgl *> afk_wndMap;
+
+/* Even more disgustingly, here I shall put the last window created,
+ * because sometimes, messages appear to be received before the
+ * CreateWindowExA call has returned.
+ */
+static AFK_WindowWgl *afk_wndInCreation;
+
+static AFK_WindowWgl *getWindowFor(HWND hwnd)
+{
+    auto window = afk_wndMap.find(hwnd);
+    if (window != afk_wndMap.end()) return window->second;
+    else return afk_wndInCreation;
+}
 
 /* Turns the lParam input of WM_CHAR, WM_KEYUP, WM_KEYDOWN into a scan code */
 static int convertScancode(LPARAM lParam)
@@ -80,24 +93,24 @@ LRESULT CALLBACK afk_wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
     {
 #if 0
     case WM_CREATE:
-        afk_wndMap[hwnd]->windowCreated();
+        getWindowFor(hwnd)->windowCreated();
         return 0;
 #endif
 
     case WM_CLOSE:
-        afk_wndMap[hwnd]->windowDeleted();
+        getWindowFor(hwnd)->windowDeleted();
         PostQuitMessage(0);
         return 0;
 
     case WM_SIZE:
-        afk_wndMap[hwnd]->windowResized(LOWORD(lParam), HIWORD(lParam));
+        getWindowFor(hwnd)->windowResized(LOWORD(lParam), HIWORD(lParam));
         return 0;
 
     case WM_MOVE:
         /* This contortion to obtain the x and y from
          * http://msdn.microsoft.com/en-us/library/windows/desktop/ms632631(v=vs.85).aspx
          */
-        afk_wndMap[hwnd]->windowMoved(
+        getWindowFor(hwnd)->windowMoved(
             (int)(short)LOWORD(lParam),
             (int)(short)HIWORD(lParam)
             );
@@ -107,18 +120,19 @@ LRESULT CALLBACK afk_wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
         /* Convert that scan code and cache it, then interpret it as a "key down"
         */
     {
+        AFK_WindowWgl *window = getWindowFor(hwnd);
         int scancode = convertScancode(lParam);
-        afk_wndMap[hwnd]->keyTranslated(scancode, convertInputChar(wParam));
-        afk_wndMap[hwnd]->keyDown(scancode);
+        window->keyTranslated(scancode, convertInputChar(wParam));
+        window->keyDown(scancode);
     }
         return 0;
 
     case WM_KEYDOWN:
-        afk_wndMap[hwnd]->keyDown(convertScancode(lParam));
+        getWindowFor(hwnd)->keyDown(convertScancode(lParam));
         return 0;
 
     case WM_KEYUP:
-        afk_wndMap[hwnd]->keyUp(convertScancode(lParam));
+        getWindowFor(hwnd)->keyUp(convertScancode(lParam));
         return 0;
 
     case WM_LBUTTONDOWN:
@@ -155,14 +169,14 @@ LRESULT CALLBACK afk_wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
         return 0;
 
     case WM_MOUSEMOVE:
-        afk_wndMap[hwnd]->mouseMoved(
+        getWindowFor(hwnd)->mouseMoved(
             (int)(short)LOWORD(lParam),
             (int)(short)HIWORD(lParam)
             );
         return 0;
 
     case WM_CAPTURECHANGED:
-        afk_wndMap[hwnd]->letGoOfPointer();
+        getWindowFor(hwnd)->letGoOfPointer();
         return 0;
 
     default:
@@ -378,6 +392,7 @@ AFK_WindowWgl::AFK_WindowWgl(unsigned int windowWidth, unsigned int windowHeight
         throw AFK_Exception(ss.str());
     }
 
+    afk_wndInCreation = this;
     hwnd = CreateWindowExA(
         0,
         wClassName,
@@ -401,6 +416,7 @@ AFK_WindowWgl::AFK_WindowWgl(unsigned int windowWidth, unsigned int windowHeight
      * where to go back.
      */
     afk_wndMap[hwnd] = this;
+    afk_wndInCreation = nullptr;
 
     if (!ShowWindow(hwnd, SW_SHOW))
         throw AFK_Exception("Unable to show window");
