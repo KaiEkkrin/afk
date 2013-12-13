@@ -124,6 +124,9 @@ public:
         size_t size,
         const AFK_ComputeDependency& preDep,
         AFK_ComputeDependency& postDep);
+
+    /* Issues a clFinish. */
+    void finish(void);
 };
 
 #endif /* _AFK_COMPUTE_QUEUE_H_ */

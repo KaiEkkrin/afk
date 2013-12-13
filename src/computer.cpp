@@ -457,10 +457,19 @@ AFK_Computer::AFK_Computer(const AFK_Config *config):
     {
         kernelQueue = std::make_shared<AFK_ComputeQueue>(
             &oclShim, ctxt, devices[0], true, AFK_CQ_KERNEL_COMMAND_SET);
+        /* TODO Is there a benefit to having separate read and write queues?
+         * The AMD presentation I saw didn't do that, and I got the impression
+         * PCI-E is half-duplex
+         */
+#if 0
         readQueue = std::make_shared<AFK_ComputeQueue>(
             &oclShim, ctxt, devices[0], true, AFK_CQ_READ_COMMAND_SET);
         writeQueue = std::make_shared<AFK_ComputeQueue>(
             &oclShim, ctxt, devices[0], true, AFK_CQ_WRITE_COMMAND_SET);
+#else
+        readQueue = writeQueue = std::make_shared<AFK_ComputeQueue>(
+            &oclShim, ctxt, devices[0], true, AFK_CQ_READ_COMMAND_SET | AFK_CQ_WRITE_COMMAND_SET);
+#endif
     }
     else
     {
@@ -576,3 +585,9 @@ bool AFK_Computer::useFake3DImages(const AFK_Config *config) const
         !firstDeviceProps->supportsExtension("cl_khr_3d_image_writes"));
 }
 
+void AFK_Computer::finish(void)
+{
+    kernelQueue->finish();
+    if (readQueue != kernelQueue) readQueue->finish();
+    if (writeQueue != kernelQueue && writeQueue != readQueue) writeQueue->finish();
+}

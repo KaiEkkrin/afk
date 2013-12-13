@@ -259,6 +259,9 @@ public:
     std::shared_ptr<AFK_ComputeQueue> getReadQueue(void) const { return readQueue; }
     std::shared_ptr<AFK_ComputeQueue> getWriteQueue(void) const { return writeQueue; }
 
+    /* Finishes on all queues. */
+    void finish(void);
+
     friend void afk_programBuiltNotify(cl_program program, void *user_data);
 };
 

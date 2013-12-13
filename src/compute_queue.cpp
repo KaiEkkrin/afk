@@ -167,3 +167,7 @@ cl_mem AFK_ComputeQueue::newReadOnlyBuffer(
     return buf;
 }
 
+void AFK_ComputeQueue::finish(void)
+{
+    AFK_CLCHK(oclShim->Finish()(q))
+}
