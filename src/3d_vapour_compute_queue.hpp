@@ -28,6 +28,7 @@
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
 #include "3d_solid.hpp"
+#include "compute_input.hpp"
 #include "computer.hpp"
 #include "core.hpp"
 #include "def.hpp"
@@ -97,6 +98,7 @@ protected:
 
     std::mutex mut;
 
+    AFK_ComputeInput featureInput, cubeInput, unitInput;
     cl_kernel vapourFeatureKernel;
     cl_kernel vapourNormalKernel;
 

@@ -118,13 +118,6 @@ public:
         const AFK_ComputeDependency& preDep,
         AFK_ComputeDependency& postDep);
 
-    /* This makes a new buffer and writes the given source to it. */
-    cl_mem newReadOnlyBuffer(
-        void *source,
-        size_t size,
-        const AFK_ComputeDependency& preDep,
-        AFK_ComputeDependency& postDep);
-
     /* Issues a clFinish. */
     void finish(void);
 };

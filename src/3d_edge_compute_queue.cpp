@@ -102,8 +102,8 @@ void AFK_3DEdgeComputeQueue::computeStart(
     AFK_ComputeDependency noDep(computer);
     AFK_ComputeDependency preEdgeDep(computer);
     
-    cl_mem unitsBuf = writeQueue->newReadOnlyBuffer(
-        units.data(), units.size() * sizeof(AFK_3DEdgeComputeUnit), noDep, preEdgeDep);
+    cl_mem unitsBuf = unitInput.bufferData(
+        units.data(), units.size() * sizeof(AFK_3DEdgeComputeUnit), computer, noDep, preEdgeDep);
 
     /* Set up the rest of the parameters */
     if (!postEdgeDep) postEdgeDep = new AFK_ComputeDependency(computer);
@@ -140,7 +140,6 @@ void AFK_3DEdgeComputeQueue::computeStart(
     edgeLocalDim[1] = edgeLocalDim[2] = sSizes.eDim;
 
     kernelQueue->kernel3D(edgeGlobalDim, edgeLocalDim, preEdgeDep, *postEdgeDep);
-    AFK_CLCHK(computer->oclShim.ReleaseMemObject()(unitsBuf))
 }
 
 void AFK_3DEdgeComputeQueue::computeFinish(

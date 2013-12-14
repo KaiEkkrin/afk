@@ -151,9 +151,9 @@ void AFK_TerrainComputeQueue::computeStart(
     AFK_ComputeDependency preTerrainDep(computer);
 
     cl_mem terrainBufs[3] = {
-        writeQueue->newReadOnlyBuffer(f.data(), f.size() * sizeof(AFK_TerrainFeature), noDep, preTerrainDep),
-        writeQueue->newReadOnlyBuffer(t.data(), t.size() * sizeof(AFK_TerrainTile), noDep, preTerrainDep),
-        writeQueue->newReadOnlyBuffer(units.data(), units.size() * sizeof(AFK_TerrainComputeUnit), noDep, preTerrainDep)
+        featureInput.bufferData(f.data(), f.size() * sizeof(AFK_TerrainFeature), computer, noDep, preTerrainDep),
+        tileInput.bufferData(t.data(), t.size() * sizeof(AFK_TerrainTile), computer, noDep, preTerrainDep),
+        unitInput.bufferData(units.data(), units.size() * sizeof(AFK_TerrainComputeUnit), computer, noDep, preTerrainDep)
     };
 
     /* Set up the rest of the terrain parameters */
@@ -223,11 +223,6 @@ void AFK_TerrainComputeQueue::computeStart(
 
     /* Release the things */
     AFK_CLCHK(computer->oclShim.ReleaseSampler()(jigsawYDispSampler))
-
-    for (unsigned int i = 0; i < 3; ++i)
-    {
-        AFK_CLCHK(computer->oclShim.ReleaseMemObject()(terrainBufs[i]))
-    }
 }
 
 void AFK_TerrainComputeQueue::computeFinish(unsigned int threadId, AFK_Jigsaw *jigsaw, AFK_LANDSCAPE_CACHE *cache)

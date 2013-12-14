@@ -27,6 +27,7 @@
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
+#include "compute_input.hpp"
 #include "computer.hpp"
 #include "def.hpp"
 #include "jigsaw.hpp"
@@ -74,6 +75,7 @@ protected:
 
     std::mutex mut;
 
+    AFK_ComputeInput unitInput;
     cl_kernel edgeKernel;
 
     /* The events to wait for before we can release the vapour

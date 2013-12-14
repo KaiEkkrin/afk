@@ -191,6 +191,7 @@
     <ClInclude Include="src\clock.hpp" />
     <ClInclude Include="src\computer.hpp" />
     <ClInclude Include="src\compute_dependency.hpp" />
+    <ClInclude Include="src\compute_input.hpp" />
     <ClInclude Include="src\compute_queue.hpp" />
     <ClInclude Include="src\config.hpp" />
     <ClInclude Include="src\core.hpp" />
@@ -299,6 +300,7 @@
     <ClCompile Include="src\clock.cpp" />
     <ClCompile Include="src\computer.cpp" />
     <ClCompile Include="src\compute_dependency.cpp" />
+    <ClCompile Include="src\compute_input.cpp" />
     <ClCompile Include="src\compute_queue.cpp" />
     <ClCompile Include="src\config.cpp" />
     <ClCompile Include="src\core.cpp" />

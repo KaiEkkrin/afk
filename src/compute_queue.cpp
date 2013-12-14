@@ -148,25 +148,6 @@ void AFK_ComputeQueue::writeBuffer(
         q, buf, async ? CL_FALSE : CL_TRUE, 0, size, source, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
 }
 
-cl_mem AFK_ComputeQueue::newReadOnlyBuffer(
-    void *source,
-    size_t size,
-    const AFK_ComputeDependency& preDep,
-    AFK_ComputeDependency& postDep)
-{
-    cl_int error;
-    cl_mem buf = oclShim->CreateBuffer()(
-        ctxt,
-        CL_MEM_READ_ONLY,
-        size,
-        nullptr,
-        &error);
-    AFK_HANDLE_CL_ERROR(error);
-
-    if (source) writeBuffer(source, buf, size, preDep, postDep);
-    return buf;
-}
-
 void AFK_ComputeQueue::finish(void)
 {
     AFK_CLCHK(oclShim->Finish()(q))

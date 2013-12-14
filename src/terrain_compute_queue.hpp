@@ -27,6 +27,7 @@
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
+#include "compute_input.hpp"
 #include "computer.hpp"
 #include "core.hpp"
 #include "def.hpp"
@@ -87,6 +88,7 @@ protected:
     std::mutex mut;
 
     /* Compute stuff. */
+    AFK_ComputeInput featureInput, tileInput, unitInput;
     cl_kernel terrainKernel, surfaceKernel;
     AFK_YReduce *yReduce;
     AFK_ComputeDependency *postTerrainDep;

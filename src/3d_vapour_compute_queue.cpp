@@ -163,9 +163,9 @@ void AFK_3DVapourComputeQueue::computeStart(
     AFK_ComputeDependency preVapourDep(computer);
 
     cl_mem vapourBufs[3] = {
-        writeQueue->newReadOnlyBuffer(f.data(), f.size() * sizeof(AFK_3DVapourFeature), noDep, preVapourDep),
-        writeQueue->newReadOnlyBuffer(c.data(), c.size() * sizeof(AFK_3DVapourCube), noDep, preVapourDep),
-        writeQueue->newReadOnlyBuffer(units.data(), units.size() * sizeof(AFK_3DVapourComputeUnit), noDep, preVapourDep)
+        featureInput.bufferData(f.data(), f.size() * sizeof(AFK_3DVapourFeature), computer, noDep, preVapourDep),
+        cubeInput.bufferData(c.data(), c.size() * sizeof(AFK_3DVapourCube), computer, noDep, preVapourDep),
+        unitInput.bufferData(units.data(), units.size() * sizeof(AFK_3DVapourComputeUnit), computer, noDep, preVapourDep)
     };
 
     /* Set up the rest of the vapour parameters */
@@ -225,11 +225,6 @@ void AFK_3DVapourComputeQueue::computeStart(
         preNormalDep,
         *preReleaseDep);
 #endif
-
-    for (unsigned int i = 0; i < 3; ++i)
-    {
-        AFK_CLCHK(computer->oclShim.ReleaseMemObject()(vapourBufs[i]))
-    }
 }
 
 void AFK_3DVapourComputeQueue::computeFinish(unsigned int threadId, AFK_JigsawCollection *vapourJigsaws, AFK_SHAPE_CELL_CACHE *cache)
