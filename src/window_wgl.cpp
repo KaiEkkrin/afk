@@ -194,6 +194,8 @@ int glAttr[] = {
     WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB
 };
 
+typedef HGLRC(*wglCreateContextAttribsARBFunc)(HDC, HGLRC, const int *);
+
 void AFK_WindowWgl::windowCreated(void)
 {
     deviceContext = GetDC(hwnd);
@@ -230,15 +232,13 @@ void AFK_WindowWgl::windowCreated(void)
     if (!wglMakeCurrent(deviceContext, initialContext))
         AFK_GLCHK("make initial WGL context current");
 
-    GLenum err = glewInit();
-    if (err != GLEW_OK)
-    {
-        std::ostringstream ss;
-        ss << "Unable to initialise GLEW: " << glewGetErrorString(err);
-        throw AFK_Exception(ss.str());
-    }
+    /* Using this context, fish out the address of the function for making the
+     * real context.
+     */
+    wglCreateContextAttribsARBFunc ccFunc = (wglCreateContextAttribsARBFunc)
+        wglGetProcAddress("wglCreateContextAttribsARB");
 
-    renderContext = wglCreateContextAttribsARB(
+    renderContext = (*ccFunc)(
         deviceContext,
         0,
         glAttr);
@@ -249,6 +249,15 @@ void AFK_WindowWgl::windowCreated(void)
         AFK_GLCHK("make render WGL context current");
 
     if (wglDeleteContext(initialContext)) initialContext = 0;
+
+    /* Now I can initialise GLEW */
+    GLenum err = glewInit();
+    if (err != GLEW_OK)
+    {
+        std::ostringstream ss;
+        ss << "Unable to initialise GLEW: " << glewGetErrorString(err);
+        throw AFK_Exception(ss.str());
+    }
 
     std::cout << "AFK_WindowWgl: Initialised WGL render context" << std::endl;
 }
