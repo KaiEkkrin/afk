@@ -169,3 +169,5 @@ core
 # The gprof helper, if you compiled it
 src/gprof-helper/gprof-helper.so
 
+# CodeXL workspaces (they're user specific)
+*.cxl
