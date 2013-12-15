@@ -42,15 +42,15 @@ void AFK_ComputeDependency::copyEvents(const std::vector<cl_event>& _e)
 
 AFK_ComputeDependency::AFK_ComputeDependency(AFK_Computer *_computer):
     computer(_computer),
-    async(_computer->useAsync())
+    useEvents(_computer->getUseEvents())
 {
 }
 
 AFK_ComputeDependency::AFK_ComputeDependency(const AFK_ComputeDependency& _dep):
     computer(_dep.computer),
-    async(_dep.async)
+    useEvents(_dep.useEvents)
 {
-    if (async)
+    if (useEvents)
     {
         clearEvents();
         copyEvents(_dep.e);
@@ -60,8 +60,8 @@ AFK_ComputeDependency::AFK_ComputeDependency(const AFK_ComputeDependency& _dep):
 AFK_ComputeDependency& AFK_ComputeDependency::operator=(const AFK_ComputeDependency& _dep)
 {
     assert(computer == _dep.computer);
-    assert(async == _dep.async);
-    if (async)
+    assert(useEvents == _dep.useEvents);
+    if (useEvents)
     {
         clearEvents();
         copyEvents(_dep.e);
@@ -73,19 +73,19 @@ AFK_ComputeDependency& AFK_ComputeDependency::operator=(const AFK_ComputeDepende
 AFK_ComputeDependency& AFK_ComputeDependency::operator+=(const AFK_ComputeDependency& _dep)
 {
     assert(computer == _dep.computer);
-    assert(async == _dep.async);
-    if (async) copyEvents(_dep.e);
+    assert(useEvents == _dep.useEvents);
+    if (useEvents) copyEvents(_dep.e);
     return *this;
 }
 
 AFK_ComputeDependency::~AFK_ComputeDependency()
 {
-    if (async) clearEvents();
+    if (useEvents) clearEvents();
 }
 
 cl_event *AFK_ComputeDependency::addEvent(void)
 {
-    if (async)
+    if (useEvents)
     {
         size_t oldSize = e.size();
         e.push_back(0);
@@ -96,19 +96,19 @@ cl_event *AFK_ComputeDependency::addEvent(void)
 
 cl_uint AFK_ComputeDependency::getEventCount(void) const
 {
-    if (async) return static_cast<cl_uint>(e.size());
+    if (useEvents) return static_cast<cl_uint>(e.size());
     else return 0;
 }
 
 const cl_event *AFK_ComputeDependency::getEvents(void) const
 {
-    if (async && e.size() > 0) return &e[0];
+    if (useEvents && e.size() > 0) return &e[0];
     else return nullptr;
 }
 
 void AFK_ComputeDependency::waitFor(void)
 {
-    if (async && e.size() > 0)
+    if (useEvents && e.size() > 0)
     {
         AFK_CLCHK(computer->oclShim.WaitForEvents()(static_cast<cl_uint>(e.size()), &e[0]))
         clearEvents();

@@ -167,7 +167,7 @@ protected:
     cl_platform_id platform;
     AFK_ClPlatformProperties *platformProps;
     bool platformIsAMD;
-    bool async;
+    bool useEvents;
 
     /* The IDs of the devices that I'm using.
      */
@@ -223,12 +223,9 @@ public:
     bool testVersion(unsigned int majorVersion, unsigned int minorVersion) const;
 
     /* Returns true if on an AMD platform, else false. */
-    bool isAMD(void) const;
+    bool isAMD(void) const { return platformIsAMD; }
 
-    /* Returns true if we should use asynchronous queueing,
-     * else false.
-     */
-    bool useAsync(void) const;
+    bool getUseEvents(void) const { return useEvents;  }
 
     /* Returns true if we should use fake 3D images,
      * else false.

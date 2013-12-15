@@ -131,13 +131,20 @@ public:
     unsigned int windowWidth;
     unsigned int windowHeight;
 
-    /* Computing setup */
+    /* Computing setup
+     * TODO Bools are particularly nasty with the current command line
+     * configuration system.  I really want to make a better arguments
+     * system for AFK, including configuration files, etc!
+     */
     char        *clLibDir; /* Place to find libOpenCL -- leave null to search
                             * standard library path */
     unsigned int concurrency;
     char        *clProgramsDir;
     bool        clGlSharing;
-    bool        async;
+    bool        clSeparateQueues;
+    bool        clOutOfOrder;
+    bool        clSyncReadWrite;
+    bool        clUseEvents;
     bool        forceFake3DImages;
     float       jigsawUsageFactor; /* Proportion of available CL memory to
                                     * use for jigsaws */

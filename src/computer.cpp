@@ -397,7 +397,7 @@ void AFK_Computer::printBuildLog(std::ostream& s, const AFK_ClProgram& p, cl_dev
 AFK_Computer::AFK_Computer(const AFK_Config *config):
     platform(0),
     platformProps(NULL),
-    async(config->async),
+    useEvents(config->clUseEvents),
     devices(NULL),
     devicesSize(0),
     firstDeviceProps(NULL),
@@ -457,29 +457,29 @@ AFK_Computer::AFK_Computer(const AFK_Config *config):
     if (!devices) throw AFK_Exception("No cl_gl devices found");
 
     /* Make my compute queues. */
-    if (async)
+    if (config->clSeparateQueues)
     {
         kernelQueue = std::make_shared<AFK_ComputeQueue>(
-            &oclShim, ctxt, devices[0], async, AFK_CQ_KERNEL_COMMAND_SET);
+            &oclShim, ctxt, devices[0], config, AFK_CQ_KERNEL_COMMAND_SET);
         /* TODO Is there a benefit to having separate read and write queues?
          * The AMD presentation I saw didn't do that, and I got the impression
          * PCI-E is half-duplex
          */
 #if 0
         readQueue = std::make_shared<AFK_ComputeQueue>(
-            &oclShim, ctxt, devices[0], async, AFK_CQ_READ_COMMAND_SET);
+            &oclShim, ctxt, devices[0], config, AFK_CQ_READ_COMMAND_SET);
         writeQueue = std::make_shared<AFK_ComputeQueue>(
-            &oclShim, ctxt, devices[0], async, AFK_CQ_WRITE_COMMAND_SET);
+            &oclShim, ctxt, devices[0], config, AFK_CQ_WRITE_COMMAND_SET);
 #else
         readQueue = writeQueue = std::make_shared<AFK_ComputeQueue>(
-            &oclShim, ctxt, devices[0], async, AFK_CQ_READ_COMMAND_SET | AFK_CQ_WRITE_COMMAND_SET);
+            &oclShim, ctxt, devices[0], config, AFK_CQ_READ_COMMAND_SET | AFK_CQ_WRITE_COMMAND_SET);
 #endif
     }
     else
     {
         kernelQueue = readQueue = writeQueue =
             std::make_shared<AFK_ComputeQueue>(
-                &oclShim, ctxt, devices[0], async,
+                &oclShim, ctxt, devices[0], config,
                 AFK_CQ_KERNEL_COMMAND_SET | AFK_CQ_READ_COMMAND_SET | AFK_CQ_WRITE_COMMAND_SET);
     }
 }
@@ -571,16 +571,6 @@ bool AFK_Computer::testVersion(unsigned int majorVersion, unsigned int minorVers
 {
     return (platformProps->majorVersion > majorVersion ||
         (platformProps->majorVersion == majorVersion && platformProps->minorVersion >= minorVersion));
-}
-
-bool AFK_Computer::useAsync(void) const
-{
-    return async;
-}
-
-bool AFK_Computer::isAMD(void) const
-{
-    return platformIsAMD;
 }
 
 bool AFK_Computer::useFake3DImages(const AFK_Config *config) const

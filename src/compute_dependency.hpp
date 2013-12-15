@@ -35,7 +35,7 @@ class AFK_ComputeDependency
 protected:
     std::vector<cl_event> e;
     AFK_Computer *computer;
-    const bool async;
+    const bool useEvents;
 
     void clearEvents(void);
     void copyEvents(const std::vector<cl_event>& _e);

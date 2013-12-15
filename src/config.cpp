@@ -192,7 +192,19 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
     concurrency                 = std::thread::hardware_concurrency() + 1;
     clProgramsDir               = nullptr;
     clGlSharing                 = false; /* TODO Find hardware this actually improves performance on and default-true for that */
-    async                       = true;
+
+    /* Working setups on AMD appear to be:
+     * - this default
+     * - --no-cl-sync-read-write --cl-use-events, and optionally --cl-separate-queues --cl-out-of-order
+     * (those two appear to cause my AMD system to hang increasingly often, though, for reasons
+     * not yet determined).
+     * Using --no-cl-sync-read-write and --no-cl-use-events together cause texture contents to be inconsistent
+     * --cl-gl-sharing also appears to not get updated texture contents correctly right now :(
+     */
+    clSeparateQueues            = false;
+    clOutOfOrder                = false;
+    clSyncReadWrite             = true;
+    clUseEvents                 = false;
     forceFake3DImages           = false;
     jigsawUsageFactor           = 0.5f;
 
@@ -284,12 +296,41 @@ AFK_Config::AFK_Config(int *argcp, char **argv)
         {
             clGlSharing = true;
         }
-        /* TODO: I could do with standard forms for command line
-         * args, a configuration file etc etc
-         */
-        else if (strcmp(argv[argi], "--cl-sync") == 0)
+        else if (strcmp(argv[argi], "--no-cl-gl-sharing") == 0)
         {
-            async = false;
+            clGlSharing = false;
+        }
+        else if (strcmp(argv[argi], "--cl-separate-queues") == 0)
+        {
+            clSeparateQueues = true;
+        }
+        else if (strcmp(argv[argi], "--no-cl-separate-queues") == 0)
+        {
+            clSeparateQueues = false;
+        }
+        else if (strcmp(argv[argi], "--cl-out-of-order") == 0)
+        {
+            clOutOfOrder = true;
+        }
+        else if (strcmp(argv[argi], "--no-cl-out-of-order") == 0)
+        {
+            clOutOfOrder = false;
+        }
+        else if (strcmp(argv[argi], "--cl-sync-read-write") == 0)
+        {
+            clSyncReadWrite = true;
+        }
+        else if (strcmp(argv[argi], "--no-cl-sync-read-write") == 0)
+        {
+            clSyncReadWrite = false;
+        }
+        else if (strcmp(argv[argi], "--cl-use-events") == 0)
+        {
+            clUseEvents = true;
+        }
+        else if (strcmp(argv[argi], "--no-cl-use-events") == 0)
+        {
+            clUseEvents = false;
         }
         else if (strcmp(argv[argi], "--force-fake-3D-images") == 0)
         {

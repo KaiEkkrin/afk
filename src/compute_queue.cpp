@@ -21,6 +21,7 @@
 
 #include "compute_queue.hpp"
 #include "computer.hpp"
+#include "config.hpp"
 
 /* AFK_ComputeQueue implementation */
 
@@ -28,15 +29,15 @@ AFK_ComputeQueue::AFK_ComputeQueue(
     AFK_OclShim *_oclShim,
     cl_context& _ctxt,
     cl_device_id device,
-    bool _async,
+    const AFK_Config *config,
     unsigned int _commandSet):
-        oclShim(_oclShim), ctxt(_ctxt), async(_async), commandSet(_commandSet), k(0), kernelArgCount(0)
+        oclShim(_oclShim), ctxt(_ctxt), blocking(config->clSyncReadWrite ? CL_TRUE : CL_FALSE), commandSet(_commandSet), k(0), kernelArgCount(0)
 {
     cl_int error;
     q = oclShim->CreateCommandQueue()(
         ctxt,
         device,
-        async ? CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE : 0,
+        config->clOutOfOrder ? CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE : 0,
         &error);
     AFK_HANDLE_CL_ERROR(error);
 }
@@ -109,7 +110,7 @@ void AFK_ComputeQueue::readBuffer(
 {
     assert(commandSet & AFK_CQ_READ_COMMAND_SET);
     AFK_CLCHK(oclShim->EnqueueReadBuffer()(
-        q, buf, async ? CL_FALSE : CL_TRUE, 0, size, target, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
+        q, buf, blocking, 0, size, target, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
 }
 
 void AFK_ComputeQueue::readImage(
@@ -122,7 +123,7 @@ void AFK_ComputeQueue::readImage(
 {
     assert(commandSet & AFK_CQ_READ_COMMAND_SET);
     AFK_CLCHK(oclShim->EnqueueReadImage()(
-        q, tex, async ? CL_FALSE : CL_TRUE, origin, region, 0, 0, target, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
+        q, tex, blocking, origin, region, 0, 0, target, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
 }
 
 void AFK_ComputeQueue::releaseGlObjects(
@@ -145,7 +146,7 @@ void AFK_ComputeQueue::writeBuffer(
 {
     assert(commandSet & AFK_CQ_WRITE_COMMAND_SET);
     AFK_CLCHK(oclShim->EnqueueWriteBuffer()(
-        q, buf, async ? CL_FALSE : CL_TRUE, 0, size, source, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
+        q, buf, blocking, 0, size, source, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
 }
 
 void AFK_ComputeQueue::finish(void)
