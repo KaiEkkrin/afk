@@ -92,5 +92,10 @@
  */
 #define AFK_SHAPE_ENUM_DEBUG 0
 
-#endif /* _AFK_AFK_H_ */
+/* Set this to 0 to stop AFK from rendering entities (which are
+ * a lot more buggy than the terrain, I think).  Or nonzero to enable
+ * them.
+ */
+#define AFK_RENDER_ENTITIES 0
 
+#endif /* _AFK_AFK_H_ */
