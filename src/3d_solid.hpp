@@ -190,8 +190,12 @@ public:
 
     void extend(const AFK_3DList& list);
 
-    size_t featureCount(void) const;
-    size_t cubeCount(void) const;
+    size_t featureCount(void) const { return f.size(); }
+    size_t cubeCount(void) const { return c.size(); }
+    std::vector<AFK_3DVapourFeature>::const_iterator featureStart(void) const { return f.cbegin(); }
+    std::vector<AFK_3DVapourFeature>::const_iterator featureEnd(void) const { return f.cend(); }
+    std::vector<AFK_3DVapourCube>::const_iterator cubeStart(void) const { return c.cbegin(); }
+    std::vector<AFK_3DVapourCube>::const_iterator cubeEnd(void) const { return c.cend(); }
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_3DList& list);
 };

@@ -230,6 +230,54 @@ public:
         const cl_event *event_wait_list,
         cl_event *event);
 
+    AFK_OCL_FUNC(cl_int, EnqueueCopyBuffer,
+        cl_command_queue command_queue,
+        cl_mem src_buffer,
+        cl_mem dst_buffer,
+        size_t src_offset,
+        size_t dst_offset,
+        size_t cb,
+        cl_uint num_events_in_wait_list,
+        const cl_event *event_wait_list,
+        cl_event *event);
+
+    AFK_OCL_FUNC(cl_int, EnqueueCopyImage,
+        cl_command_queue command_queue,
+        cl_mem src_image,
+        cl_mem dst_image,
+        const size_t src_origin[3],
+        const size_t dst_origin[3],
+        const size_t region[3],
+        cl_uint num_events_in_wait_list,
+        const cl_event *event_wait_list,
+        cl_event *event);
+
+    AFK_OCL_FUNC(void *, EnqueueMapBuffer,
+        cl_command_queue command_queue,
+        cl_mem buffer,
+        cl_bool blocking_map,
+        cl_map_flags map_flags,
+        size_t offset,
+        size_t cb,
+        cl_uint num_events_in_wait_list,
+        const cl_event *event_wait_list,
+        cl_event *event,
+        cl_int *errcode_ret);
+
+    AFK_OCL_FUNC(void *, EnqueueMapImage,
+        cl_command_queue command_queue,
+        cl_mem image,
+        cl_bool blocking_map,
+        cl_map_flags map_flags,
+        const size_t origin[3],
+        const size_t region[3],
+        size_t *image_row_pitch,
+        size_t *image_slice_pitch,
+        cl_uint num_events_in_wait_list,
+        const cl_event *event_wait_list,
+        cl_event *event,
+        cl_int *errcode_ret);
+
     AFK_OCL_FUNC(cl_int, EnqueueNDRangeKernel,
         cl_command_queue command_queue,
         cl_kernel kernel,
@@ -272,6 +320,15 @@ public:
         cl_uint num_events_in_wait_list,
         const cl_event *event_wait_list,
         cl_event *event);
+
+    AFK_OCL_FUNC(void *, EnqueueUnmapMemObject,
+        cl_command_queue command_queue,
+        cl_mem memobj,
+        void *mapped_ptr,
+        cl_uint num_events_in_wait_list,
+        const cl_event *event_wait_list,
+        cl_event *event,
+        cl_int *errcode_ret);
 
     AFK_OCL_FUNC(cl_int, EnqueueWriteBuffer,
         cl_command_queue command_queue,

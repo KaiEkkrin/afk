@@ -315,7 +315,7 @@
     <ClInclude Include="src\win32\winconsole.hpp">
       <Filter>Header Files\win32</Filter>
     </ClInclude>
-    <ClInclude Include="src\compute_input.hpp">
+    <ClInclude Include="src\compute_input_list.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -591,9 +591,6 @@
     </ClCompile>
     <ClCompile Include="src\win32\winconsole.cpp">
       <Filter>Source Files\win32</Filter>
-    </ClCompile>
-    <ClCompile Include="src\compute_input.cpp">
-      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

@@ -29,9 +29,14 @@ class AFK_Config;
  * methods.
  */
 
+/* The host command set here will contain the mapping functions, which
+ * I expect to be run only on host side allocated memory right now ...
+ */
+
 #define AFK_CQ_KERNEL_COMMAND_SET   1
 #define AFK_CQ_READ_COMMAND_SET     2
 #define AFK_CQ_WRITE_COMMAND_SET    4
+#define AFK_CQ_HOST_COMMAND_SET     8
 
 class AFK_ComputeQueue
 {
@@ -92,6 +97,45 @@ public:
         const AFK_ComputeDependency& preDep,
         AFK_ComputeDependency& postDep);
 
+    void copyBuffer(
+        cl_mem srcBuf,
+        cl_mem dstBuf,
+        size_t size,
+        const AFK_ComputeDependency& preDep,
+        AFK_ComputeDependency& o_postDep);
+
+    void copyImage(
+        cl_mem srcTex,
+        cl_mem dstTex,
+        const size_t origin[3],
+        const size_t region[3],
+        const AFK_ComputeDependency& preDep,
+        AFK_ComputeDependency& o_postDep);
+
+    void *mapBuffer(
+        cl_mem buf,
+        cl_map_flags flags,
+        size_t size,
+        const AFK_ComputeDependency& preDep,
+        AFK_ComputeDependency& o_postDep);
+
+    void *mapImage(
+        cl_mem tex,
+        cl_map_flags flags,
+        const size_t origin[3],
+        const size_t region[3],
+        size_t *imageRowPitch,
+        size_t *imageSlicePitch,
+        const AFK_ComputeDependency& preDep,
+        AFK_ComputeDependency& o_postDep);
+
+    void unmapObject(
+        cl_mem obj,
+        void *mapped,
+        const AFK_ComputeDependency& preDep,
+        AFK_ComputeDependency& o_postDep);
+
+#if 0
     void readBuffer(
         cl_mem buf,
         size_t size,
@@ -106,6 +150,7 @@ public:
         void *target,
         const AFK_ComputeDependency& preDep,
         AFK_ComputeDependency& postDep);
+#endif
 
     void releaseGlObjects(
         cl_mem *obj,
@@ -113,12 +158,14 @@ public:
         const AFK_ComputeDependency& preDep,
         AFK_ComputeDependency& postDep);
 
+#if 0
     void writeBuffer(
         const void *source,
         cl_mem buf,
         size_t size,
         const AFK_ComputeDependency& preDep,
         AFK_ComputeDependency& postDep);
+#endif
 
     /* Issues a clFinish. */
     void finish(void);

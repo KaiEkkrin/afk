@@ -22,6 +22,7 @@
 #include "3d_vapour_compute_queue.hpp"
 #include "compute_dependency.hpp"
 #include "compute_queue.hpp"
+#include "core.hpp"
 #include "debug.hpp"
 #include "exception.hpp"
 
@@ -75,10 +76,13 @@ std::ostream& operator<<(std::ostream& os, const AFK_3DVapourComputeUnit& unit)
 /* AFK_3DVapourComputeQueue implementation */
 
 AFK_3DVapourComputeQueue::AFK_3DVapourComputeQueue():
-    vapourFeatureKernel(0),
-    vapourNormalKernel(0),
-    preReleaseDep(nullptr),
-    dReduce(nullptr)
+featuresIn(afk_core.computer),
+cubesIn(afk_core.computer),
+unitsIn(afk_core.computer),
+vapourFeatureKernel(0),
+vapourNormalKernel(0),
+preReleaseDep(nullptr),
+dReduce(nullptr)
 {
 }
 
@@ -99,9 +103,11 @@ void AFK_3DVapourComputeQueue::extend(
     assert(list.cubeCount() > 0);
 
     /* Avoiding massive 64-bit offset values here */
-    o_cubeOffset = static_cast<unsigned int>(AFK_3DList::cubeCount());
+    o_cubeOffset = static_cast<unsigned int>(cubesIn.getCount());
     o_cubeCount = static_cast<unsigned int>(list.cubeCount());
-    AFK_3DList::extend(list);
+
+    featuresIn.extend(list.featureStart(), list.featureEnd());
+    cubesIn.extend(list.cubeStart(), list.cubeEnd());
 }
 
 AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::addUnit(
@@ -116,9 +122,10 @@ AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::addUnit(
     std::unique_lock<std::mutex> lock(mut);
 
     /* Sanity checks */
-    assert(cubeOffset >= 0 && cubeOffset < c.size());
+    size_t existingCubeCount = cubesIn.getCount();
+    assert(cubeOffset >= 0 && cubeOffset < existingCubeCount);
     assert(cubeCount > 0);
-    assert((cubeOffset + cubeCount) <= c.size());
+    assert((cubeOffset + cubeCount) <= existingCubeCount);
 
     AFK_3DVapourComputeUnit newUnit(
         location,
@@ -127,7 +134,7 @@ AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::addUnit(
         adjacencies,
         cubeOffset,
         cubeCount);
-    units.push_back(newUnit);
+    unitsIn.extend(newUnit);
     shapeCells.push_back(cell);
     return newUnit;
 }
@@ -140,7 +147,7 @@ void AFK_3DVapourComputeQueue::computeStart(
     std::unique_lock<std::mutex> lock(mut);
 
     /* Check there's something to do */
-    size_t unitCount = units.size();
+    size_t unitCount = unitsIn.getCount();
     if (unitCount == 0) return;
 
     /* Make sure the compute stuff is initialised... */
@@ -163,9 +170,9 @@ void AFK_3DVapourComputeQueue::computeStart(
     AFK_ComputeDependency preVapourDep(computer);
 
     cl_mem vapourBufs[3] = {
-        featureInput.bufferData(f.data(), f.size() * sizeof(AFK_3DVapourFeature), computer, noDep, preVapourDep),
-        cubeInput.bufferData(c.data(), c.size() * sizeof(AFK_3DVapourCube), computer, noDep, preVapourDep),
-        unitInput.bufferData(units.data(), units.size() * sizeof(AFK_3DVapourComputeUnit), computer, noDep, preVapourDep)
+        featuresIn.push(noDep, preVapourDep),
+        cubesIn.push(noDep, preVapourDep),
+        unitsIn.push(noDep, preVapourDep),
     };
 
     /* Set up the rest of the vapour parameters */
@@ -231,7 +238,7 @@ void AFK_3DVapourComputeQueue::computeFinish(unsigned int threadId, AFK_JigsawCo
 {
     std::unique_lock<std::mutex> lock(mut);
 
-    size_t unitCount = units.size();
+    size_t unitCount = unitsIn.getCount();
     if (unitCount == 0) return;
 
     assert(preReleaseDep && dReduce);
@@ -248,7 +255,7 @@ bool AFK_3DVapourComputeQueue::empty(void)
 {
     std::unique_lock<std::mutex> lock(mut);
 
-    return units.empty();
+    return unitsIn.empty();
 }
 
 void AFK_3DVapourComputeQueue::clear(void)
@@ -257,9 +264,8 @@ void AFK_3DVapourComputeQueue::clear(void)
 
     if (preReleaseDep) preReleaseDep->waitFor();
 
-    f.clear();
-    c.clear();
-    units.clear();
+    featuresIn.clear();
+    cubesIn.clear();
+    unitsIn.clear();
     shapeCells.clear();
 }
-

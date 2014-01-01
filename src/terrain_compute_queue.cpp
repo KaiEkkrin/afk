@@ -60,7 +60,8 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainComputeUnit& unit)
 /* AFK_TerrainComputeQueue implementation */
 
 AFK_TerrainComputeQueue::AFK_TerrainComputeQueue():
-    terrainKernel(0), surfaceKernel(0), yReduce(nullptr), postTerrainDep(nullptr)
+featuresIn(afk_core.computer), tilesIn(afk_core.computer), unitsIn(afk_core.computer),
+terrainKernel(0), surfaceKernel(0), yReduce(nullptr), postTerrainDep(nullptr)
 {
 }
 
@@ -85,20 +86,25 @@ AFK_TerrainComputeUnit AFK_TerrainComputeQueue::extend(const AFK_TerrainList& li
     /* Make sure the list is sensible */
     if (list.featureCount() != (list.tileCount() * lSizes.featureCountPerTile)) throw AFK_Exception("Insane terrain list found");
 
-    /* Make sure *WE* are sensible */
-    if (AFK_TerrainList::featureCount() != (AFK_TerrainList::tileCount() * lSizes.featureCountPerTile))
-        throw AFK_Exception("Insane self found");
-
+    /* Make a new unit */
     AFK_TerrainComputeUnit newUnit(
-        AFK_TerrainList::tileCount(),
+        tilesIn.getCount(),
         list.tileCount(),
         piece);
-    AFK_TerrainList::extend(list);
-    units.push_back(newUnit);
+
+    /* In goes the list contents */
+    featuresIn.extend(list.featureStart(), list.featureEnd());
+    tilesIn.extend(list.tileStart(), list.tileEnd());
+
+    /* ...and the units... */
+    unitsIn.extend(newUnit);
+
 	landscapeTiles.push_back(tile);
     return newUnit;
 }
 
+/* The below has bit rotted and will need work if I want to reactivate it */
+#if 0
 std::string AFK_TerrainComputeQueue::debugTerrain(const AFK_TerrainComputeUnit& unit, const AFK_LandscapeSizes& lSizes) const
 {
     std::ostringstream ss;
@@ -116,6 +122,7 @@ std::string AFK_TerrainComputeQueue::debugTerrain(const AFK_TerrainComputeUnit& 
 
     return ss.str();
 }
+#endif
 
 void AFK_TerrainComputeQueue::computeStart(
     AFK_Computer *computer,
@@ -127,7 +134,7 @@ void AFK_TerrainComputeQueue::computeStart(
     cl_int error;
 
     /* Check there's something to do */
-    size_t unitCount = units.size();
+    size_t unitCount = unitsIn.getCount();
     if (unitCount == 0) return;
 
     /* Make sure the compute stuff is initialised... */
@@ -151,9 +158,9 @@ void AFK_TerrainComputeQueue::computeStart(
     AFK_ComputeDependency preTerrainDep(computer);
 
     cl_mem terrainBufs[3] = {
-        featureInput.bufferData(f.data(), f.size() * sizeof(AFK_TerrainFeature), computer, noDep, preTerrainDep),
-        tileInput.bufferData(t.data(), t.size() * sizeof(AFK_TerrainTile), computer, noDep, preTerrainDep),
-        unitInput.bufferData(units.data(), units.size() * sizeof(AFK_TerrainComputeUnit), computer, noDep, preTerrainDep)
+        featuresIn.push(noDep, preTerrainDep),
+        tilesIn.push(noDep, preTerrainDep),
+        unitsIn.push(noDep, preTerrainDep),
     };
 
     /* Set up the rest of the terrain parameters */
@@ -229,7 +236,7 @@ void AFK_TerrainComputeQueue::computeFinish(unsigned int threadId, AFK_Jigsaw *j
 {
     std::unique_lock<std::mutex> lock(mut);
 
-    size_t unitCount = units.size();
+    size_t unitCount = unitsIn.getCount();
     if (unitCount == 0) return;
 
     /* Release the images. */
@@ -246,7 +253,7 @@ bool AFK_TerrainComputeQueue::empty(void)
 {
     std::unique_lock<std::mutex> lock(mut);
 
-    return units.empty();
+    return unitsIn.empty();
 }
 
 void AFK_TerrainComputeQueue::clear(void)
@@ -255,9 +262,8 @@ void AFK_TerrainComputeQueue::clear(void)
 
     if (postTerrainDep) postTerrainDep->waitFor();
 
-    f.clear();
-    t.clear();
-    units.clear();
+    featuresIn.clear();
+    tilesIn.clear();
+    unitsIn.clear();
 	landscapeTiles.clear();
 }
-

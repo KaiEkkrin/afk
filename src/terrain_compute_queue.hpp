@@ -27,7 +27,7 @@
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
-#include "compute_input.hpp"
+#include "compute_input_list.hpp"
 #include "computer.hpp"
 #include "core.hpp"
 #include "def.hpp"
@@ -70,16 +70,13 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainComputeUnit& unit);
 BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_TerrainComputeUnit>::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_TerrainComputeUnit>::value));
 
-class AFK_TerrainComputeQueue: protected AFK_TerrainList
+class AFK_TerrainComputeQueue
 {
 protected:
-    /* In a TerrainComputeQueue, the TerrainList members are
-     * actually a concatenated sequence of terrain features and
-     * tiles.  The following vector describes each unit of
-     * computation, allowing it to seek correctly within the
-     * other two lists.
-     */
-    std::vector<AFK_TerrainComputeUnit> units;
+    /* We input features, tiles and units in separate lists. */
+    AFK_ComputeInputList<AFK_TerrainFeature> featuresIn;
+    AFK_ComputeInputList<AFK_TerrainTile> tilesIn;
+    AFK_ComputeInputList<AFK_TerrainComputeUnit> unitsIn;
 
     /* Used for internal synchronization, because the various
      * cell evaluator threads will be hitting a single one
@@ -88,7 +85,6 @@ protected:
     std::mutex mut;
 
     /* Compute stuff. */
-    AFK_ComputeInput featureInput, tileInput, unitInput;
     cl_kernel terrainKernel, surfaceKernel;
     AFK_YReduce *yReduce;
     AFK_ComputeDependency *postTerrainDep;
@@ -110,7 +106,7 @@ public:
     AFK_TerrainComputeUnit extend(const AFK_TerrainList& list, const Vec2<int>& piece, const AFK_Tile& tile, const AFK_LandscapeSizes& lSizes);
 
     /* This prints lots of debug info about the given terrain unit. */
-    std::string debugTerrain(const AFK_TerrainComputeUnit& unit, const AFK_LandscapeSizes& lSizes) const;
+    //std::string debugTerrain(const AFK_TerrainComputeUnit& unit, const AFK_LandscapeSizes& lSizes) const;
 
     /* Computes the terrain.
      */

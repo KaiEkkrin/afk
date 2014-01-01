@@ -28,7 +28,7 @@
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
 #include "3d_solid.hpp"
-#include "compute_input.hpp"
+#include "compute_input_list.hpp"
 #include "computer.hpp"
 #include "core.hpp"
 #include "def.hpp"
@@ -90,15 +90,14 @@ std::ostream& operator<<(std::ostream& os, const AFK_3DVapourComputeUnit& unit);
 BOOST_STATIC_ASSERT((boost::has_trivial_assign<AFK_3DVapourComputeUnit>::value));
 BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_3DVapourComputeUnit>::value));
 
-class AFK_3DVapourComputeQueue: protected AFK_3DList
+class AFK_3DVapourComputeQueue
 {
 protected:
-    /* Describes each unit of computation in sequence. */
-    std::vector<AFK_3DVapourComputeUnit> units;
-
     std::mutex mut;
 
-    AFK_ComputeInput featureInput, cubeInput, unitInput;
+    AFK_ComputeInputList<AFK_3DVapourFeature> featuresIn;
+    AFK_ComputeInputList<AFK_3DVapourCube> cubesIn;
+    AFK_ComputeInputList<AFK_3DVapourComputeUnit> unitsIn;
     cl_kernel vapourFeatureKernel;
     cl_kernel vapourNormalKernel;
 

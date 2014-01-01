@@ -22,6 +22,7 @@
 
 #include "3d_edge_compute_queue.hpp"
 #include "compute_queue.hpp"
+#include "core.hpp"
 #include "debug.hpp"
 #include "exception.hpp"
 
@@ -56,7 +57,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_3DEdgeComputeUnit& unit)
 /* AFK_3DEdgeComputeQueue implementation */
 
 AFK_3DEdgeComputeQueue::AFK_3DEdgeComputeQueue():
-    edgeKernel(0), postEdgeDep(nullptr)
+unitsIn(afk_core.computer), edgeKernel(0), postEdgeDep(nullptr)
 {
 }
 
@@ -74,7 +75,7 @@ AFK_3DEdgeComputeUnit AFK_3DEdgeComputeQueue::append(
     AFK_3DEdgeComputeUnit newUnit(
         vapourJigsawPiece,
         edgeJigsawPiece);
-    units.push_back(newUnit);
+    unitsIn.extend(newUnit);
     return newUnit;
 }
 
@@ -87,7 +88,7 @@ void AFK_3DEdgeComputeQueue::computeStart(
     std::unique_lock<std::mutex> lock(mut);
 
     /* Check there's something to do */
-    size_t unitCount = units.size();
+    size_t unitCount = unitsIn.getCount();
     if (unitCount == 0) return;
 
     /* Make sure the compute stuff is initialised... */
@@ -102,8 +103,7 @@ void AFK_3DEdgeComputeQueue::computeStart(
     AFK_ComputeDependency noDep(computer);
     AFK_ComputeDependency preEdgeDep(computer);
     
-    cl_mem unitsBuf = unitInput.bufferData(
-        units.data(), units.size() * sizeof(AFK_3DEdgeComputeUnit), computer, noDep, preEdgeDep);
+    cl_mem unitsBuf = unitsIn.push(noDep, preEdgeDep);
 
     /* Set up the rest of the parameters */
     if (!postEdgeDep) postEdgeDep = new AFK_ComputeDependency(computer);
@@ -146,8 +146,8 @@ void AFK_3DEdgeComputeQueue::computeFinish(
     AFK_Jigsaw *vapourJigsaw,
     AFK_Jigsaw *edgeJigsaw)
 {
-    assert(postEdgeDep || units.size() == 0);
-    if (units.size() > 0)
+    assert(postEdgeDep || unitsIn.getCount() == 0);
+    if (unitsIn.getCount() > 0)
     {
         vapourJigsaw->releaseFromCl(0, *postEdgeDep);
         edgeJigsaw->releaseFromCl(0, *postEdgeDep);
@@ -158,7 +158,7 @@ bool AFK_3DEdgeComputeQueue::empty(void)
 {
     std::unique_lock<std::mutex> lock(mut);
 
-    return units.empty();
+    return unitsIn.empty();
 }
 
 void AFK_3DEdgeComputeQueue::clear(void)
@@ -166,6 +166,5 @@ void AFK_3DEdgeComputeQueue::clear(void)
     std::unique_lock<std::mutex> lock(mut);
 
     if (postEdgeDep) postEdgeDep->waitFor();
-    units.clear();
+    unitsIn.clear();
 }
-

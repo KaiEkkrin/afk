@@ -186,6 +186,7 @@ protected:
     std::shared_ptr<AFK_ComputeQueue> kernelQueue;
     std::shared_ptr<AFK_ComputeQueue> readQueue;
     std::shared_ptr<AFK_ComputeQueue> writeQueue;
+    std::shared_ptr<AFK_ComputeQueue> hostQueue;
 
     /* Helper functions */
     bool findClGlDevices(cl_platform_id platform);
@@ -255,6 +256,7 @@ public:
     std::shared_ptr<AFK_ComputeQueue> getKernelQueue(void) const { return kernelQueue; }
     std::shared_ptr<AFK_ComputeQueue> getReadQueue(void) const { return readQueue; }
     std::shared_ptr<AFK_ComputeQueue> getWriteQueue(void) const { return writeQueue; }
+    std::shared_ptr<AFK_ComputeQueue> getHostQueue(void) const { return hostQueue; }
 
     /* Finishes on all queues. */
     void finish(void);

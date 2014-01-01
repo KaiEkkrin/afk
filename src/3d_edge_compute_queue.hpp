@@ -27,7 +27,7 @@
 #include <boost/type_traits/has_trivial_assign.hpp>
 #include <boost/type_traits/has_trivial_destructor.hpp>
 
-#include "compute_input.hpp"
+#include "compute_input_list.hpp"
 #include "computer.hpp"
 #include "def.hpp"
 #include "jigsaw.hpp"
@@ -70,12 +70,9 @@ BOOST_STATIC_ASSERT((boost::has_trivial_destructor<AFK_3DEdgeComputeUnit>::value
 class AFK_3DEdgeComputeQueue
 {
 protected:
-    /* Describes each unit of computation in sequence. */
-    std::vector<AFK_3DEdgeComputeUnit> units;
-
     std::mutex mut;
 
-    AFK_ComputeInput unitInput;
+    AFK_ComputeInputList<AFK_3DEdgeComputeUnit> unitsIn;
     cl_kernel edgeKernel;
 
     /* The events to wait for before we can release the vapour

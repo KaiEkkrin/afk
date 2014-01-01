@@ -217,16 +217,6 @@ void AFK_3DList::extend(const AFK_3DList& list)
     extend<std::vector<AFK_3DVapourFeature>, std::vector<AFK_3DVapourCube> >(list.f, list.c);
 }
 
-size_t AFK_3DList::featureCount(void) const
-{
-    return f.size();
-}
-
-size_t AFK_3DList::cubeCount(void) const
-{
-    return c.size();
-}
-
 /* Only enable this if you want a very great deal of spam */
 #define PRINT_FEATURES 0
 

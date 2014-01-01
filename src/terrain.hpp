@@ -188,8 +188,12 @@ public:
         const volatile AFK_TerrainFeature *features,
         const volatile AFK_TerrainTile *tiles);
 
-    size_t featureCount(void) const;
-    size_t tileCount(void) const;
+    size_t featureCount(void) const { return f.size(); }
+    size_t tileCount(void) const { return t.size(); }
+    std::vector<AFK_TerrainFeature>::const_iterator featureStart(void) const { return f.cbegin(); }
+    std::vector<AFK_TerrainFeature>::const_iterator featureEnd(void) const { return f.cend(); }
+    std::vector<AFK_TerrainTile>::const_iterator tileStart(void) const { return t.cbegin(); }
+    std::vector<AFK_TerrainTile>::const_iterator tileEnd(void) const { return t.cend(); }
 };
 
 #endif /* _AFK_TERRAIN_H_ */

@@ -101,6 +101,78 @@ void AFK_ComputeQueue::acquireGlObjects(
         q, count, obj, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
 }
 
+void AFK_ComputeQueue::copyBuffer(
+    cl_mem srcBuf,
+    cl_mem dstBuf,
+    size_t size,
+    const AFK_ComputeDependency& preDep,
+    AFK_ComputeDependency& o_postDep)
+{
+    assert(commandSet & (AFK_CQ_READ_COMMAND_SET | AFK_CQ_WRITE_COMMAND_SET));
+    AFK_CLCHK(oclShim->EnqueueCopyBuffer()(
+        q, srcBuf, dstBuf, 0, 0, size, preDep.getEventCount(), preDep.getEvents(), o_postDep.addEvent()))
+}
+
+void AFK_ComputeQueue::copyImage(
+    cl_mem srcTex,
+    cl_mem dstTex,
+    const size_t origin[3],
+    const size_t region[3],
+    const AFK_ComputeDependency& preDep,
+    AFK_ComputeDependency& o_postDep)
+{
+    assert(commandSet & (AFK_CQ_READ_COMMAND_SET | AFK_CQ_WRITE_COMMAND_SET));
+    AFK_CLCHK(oclShim->EnqueueCopyImage()(
+        q, srcTex, dstTex, origin, origin, region, preDep.getEventCount(), preDep.getEvents(), o_postDep.addEvent()))
+}
+
+void *AFK_ComputeQueue::mapBuffer(
+    cl_mem buf,
+    cl_map_flags flags,
+    size_t size,
+    const AFK_ComputeDependency& preDep,
+    AFK_ComputeDependency& o_postDep)
+{
+    assert(commandSet & AFK_CQ_HOST_COMMAND_SET);
+    cl_int err;
+    void *mapped = oclShim->EnqueueMapBuffer()(
+        q, buf, blocking, flags, 0, size, preDep.getEventCount(), preDep.getEvents(), o_postDep.addEvent(), &err);
+    AFK_HANDLE_CL_ERROR(err);
+    return mapped;
+}
+
+void *AFK_ComputeQueue::mapImage(
+    cl_mem tex,
+    cl_map_flags flags,
+    const size_t origin[3],
+    const size_t region[3],
+    size_t *imageRowPitch,
+    size_t *imageSlicePitch,
+    const AFK_ComputeDependency& preDep,
+    AFK_ComputeDependency& o_postDep)
+{
+    assert(commandSet & AFK_CQ_HOST_COMMAND_SET);
+    cl_int err;
+    void *mapped = oclShim->EnqueueMapImage()(
+        q, tex, blocking, flags, origin, region, imageRowPitch, imageSlicePitch, preDep.getEventCount(), preDep.getEvents(), o_postDep.addEvent(), &err);
+    AFK_HANDLE_CL_ERROR(err);
+    return mapped;
+}
+
+void AFK_ComputeQueue::unmapObject(
+    cl_mem obj,
+    void *mapped,
+    const AFK_ComputeDependency& preDep,
+    AFK_ComputeDependency& o_postDep)
+{
+    assert(commandSet & AFK_CQ_HOST_COMMAND_SET);
+    cl_int err;
+    oclShim->EnqueueUnmapMemObject()(
+        q, obj, mapped, preDep.getEventCount(), preDep.getEvents(), o_postDep.addEvent(), &err);
+    AFK_HANDLE_CL_ERROR(err);
+}
+
+#if 0
 void AFK_ComputeQueue::readBuffer(
     cl_mem buf,
     size_t size,
@@ -125,6 +197,7 @@ void AFK_ComputeQueue::readImage(
     AFK_CLCHK(oclShim->EnqueueReadImage()(
         q, tex, blocking, origin, region, 0, 0, target, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
 }
+#endif
 
 void AFK_ComputeQueue::releaseGlObjects(
     cl_mem *obj,
@@ -137,6 +210,7 @@ void AFK_ComputeQueue::releaseGlObjects(
         q, count, obj, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
 }
 
+#if 0
 void AFK_ComputeQueue::writeBuffer(
     const void *source,
     cl_mem buf,
@@ -148,6 +222,7 @@ void AFK_ComputeQueue::writeBuffer(
     AFK_CLCHK(oclShim->EnqueueWriteBuffer()(
         q, buf, blocking, 0, size, source, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
 }
+#endif
 
 void AFK_ComputeQueue::finish(void)
 {
