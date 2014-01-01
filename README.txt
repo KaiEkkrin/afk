@@ -17,8 +17,7 @@ To build AFK you will currently need:
  - a C++11 compiler (G++ 4.8, MSVC++ 2013)
  - a modern OpenGL implementation (supporting OpenGL 4.0) and its development libraries
  - a modern OpenCL implementation (supporting OpenCL 1.1) and its development libraries
- - GLX
- - GLEW
+ - GLEW >=1.10.0 (get the latest from http://glew.sourceforge.net -- don't use the GLEW from the AMD APP SDK)
  - Boost >=1.5x (AFK currently links with boost_random, boost_regex,
    and maybe boost_system and boost_thread.  On Windows, see
    building-boost.txt

@@ -103,7 +103,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions);AFK_GL_DEBUG=1;AFK_WGL</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>..\..\boost\boost_1_55_0;..\..\glew-1.10.0\include;..\..\opencl-1.2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\boost\boost_1_55_0;..\..\glew-1.10.0\include;..\..\opencl-1.2;$(AMDAPPSDKROOT)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
@@ -112,7 +112,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>..\..\boost\boost_1_55_0\stage\lib;..\..\glew-1.10.0\lib\Release\x64</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\..\boost\boost_1_55_0\stage\lib;..\..\glew-1.10.0\lib\Release\x64;$(AMDAPPSDKROOT)\lib\x86_64</AdditionalLibraryDirectories>
       <AdditionalDependencies>OpenGL32.lib;glu32.lib;glew32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <CustomBuildStep>
@@ -157,7 +157,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions);AFK_WGL</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>..\..\boost\boost_1_55_0;..\..\glew-1.10.0\include;..\..\opencl-1.2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\boost\boost_1_55_0;..\..\glew-1.10.0\include;..\..\opencl-1.2;$(AMDAPPSDKROOT)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -169,7 +169,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>..\..\boost\boost_1_55_0\stage\lib;..\..\glew-1.10.0\lib\Release\x64</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\..\boost\boost_1_55_0\stage\lib;..\..\glew-1.10.0\lib\Release\x64;$(AMDAPPSDKROOT)\lib\x86_64</AdditionalLibraryDirectories>
       <AdditionalDependencies>OpenGL32.lib;glu32.lib;glew32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
