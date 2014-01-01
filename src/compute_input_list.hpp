@@ -173,7 +173,7 @@ public:
 
 #ifdef _WIN32
         /* Satisfy MSVC array checking */
-        std::copy(start, end, stdext::checked_array_iterator<T*>(hostMapped + extendOffset, count - extendOffset));
+        std::copy(start, end, stdext::checked_array_iterator<T*>(hostMapped, count) + extendOffset);
 #else
         std::copy(start, end, hostMapped + extendOffset);
 #endif
