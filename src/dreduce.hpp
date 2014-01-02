@@ -41,11 +41,13 @@ protected:
     cl_kernel dReduceKernel;
 
     /* Results */
-    cl_mem buf;
+    cl_mem deviceBuf;
+    cl_mem hostBuf;
     size_t bufSize;
     float *readback;
-    size_t readbackSize;
-    AFK_ComputeDependency readbackDep;
+    size_t readbackSize; /* in floats */
+    AFK_ComputeDependency readbackMappedDep;
+    AFK_ComputeDependency readbackUnmappedDep;
 
 public:
     AFK_DReduce(AFK_Computer *_computer);

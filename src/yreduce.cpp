@@ -26,7 +26,8 @@
 #include "yreduce.hpp"
 
 AFK_YReduce::AFK_YReduce(AFK_Computer *_computer):
-    computer(_computer), buf(0), bufSize(0), readback(nullptr), readbackSize(0), readbackDep(computer)
+    computer(_computer), deviceBuf(0), hostBuf(0), bufSize(0), readback(nullptr),
+    readbackMappedDep(_computer), readbackUnmappedDep(_computer)
 {
     if (!computer->findKernel("makeLandscapeYReduce", yReduceKernel))
         throw AFK_Exception("Cannot find Y-reduce kernel");
@@ -34,8 +35,8 @@ AFK_YReduce::AFK_YReduce(AFK_Computer *_computer):
 
 AFK_YReduce::~AFK_YReduce()
 {
-    if (buf) computer->oclShim.ReleaseMemObject()(buf);
-    if (readback) delete[] readback;
+    if (deviceBuf) computer->oclShim.ReleaseMemObject()(deviceBuf);
+    if (hostBuf) computer->oclShim.ReleaseMemObject()(hostBuf);
 }
 
 void AFK_YReduce::compute(
@@ -52,6 +53,7 @@ void AFK_YReduce::compute(
     cl_context ctxt = computer->getContext();
     auto kernelQueue = computer->getKernelQueue();
     auto readQueue = computer->getReadQueue();
+    auto hostQueue = computer->getHostQueue();
 
     /* The buffer needs to be big enough for 2 floats per
      * unit.
@@ -59,15 +61,25 @@ void AFK_YReduce::compute(
     size_t requiredSize = unitCount * 2 * sizeof(float);
     if (bufSize < requiredSize)
     {
-        if (buf)
-            AFK_CLCHK(computer->oclShim.ReleaseMemObject()(buf))
+        if (deviceBuf) AFK_CLCHK(computer->oclShim.ReleaseMemObject()(deviceBuf))
+        if (hostBuf) AFK_CLCHK(computer->oclShim.ReleaseMemObject()(hostBuf))
 
-        buf = computer->oclShim.CreateBuffer()(
-            ctxt, CL_MEM_WRITE_ONLY,
+        deviceBuf = computer->oclShim.CreateBuffer()(
+            ctxt,
+            CL_MEM_WRITE_ONLY,
             requiredSize,
             nullptr,
             &error);
         AFK_HANDLE_CL_ERROR(error);
+
+        hostBuf = computer->oclShim.CreateBuffer()(
+            ctxt,
+            CL_MEM_ALLOC_HOST_PTR,
+            requiredSize,
+            nullptr,
+            &error);
+        AFK_HANDLE_CL_ERROR(error);
+
         bufSize = requiredSize;
     }
 
@@ -75,7 +87,7 @@ void AFK_YReduce::compute(
     kernelQueue->kernelArg(sizeof(cl_mem), units);
     kernelQueue->kernelArg(sizeof(cl_mem), jigsawYDisp);
     kernelQueue->kernelArg(sizeof(cl_sampler), yDispSampler);
-    kernelQueue->kernelArg(sizeof(cl_mem), &buf);
+    kernelQueue->kernelArg(sizeof(cl_mem), &deviceBuf);
 
     size_t yReduceGlobalDim[2];
     yReduceGlobalDim[0] = (1uLL << lSizes.getReduceOrder());
@@ -87,15 +99,16 @@ void AFK_YReduce::compute(
 
     kernelQueue->kernel2D(yReduceGlobalDim, yReduceLocalDim, preDep, o_postDep);
 
-    size_t requiredReadbackSize = requiredSize / sizeof(float);
-    if (readbackSize < requiredReadbackSize)
-    {
-        if (readback) delete[] readback;
-        readback = new float[requiredReadbackSize];
-        readbackSize = requiredReadbackSize;
-    }
-
-    readQueue->readBuffer(buf, requiredSize, readback, o_postDep, readbackDep);
+    /* After the kernel has executed, enqueue a copy-back-and-map right away,
+     * so that readBack can wait for the map and have things ready.
+     * To be pedantic, I shouldn't copy until any leftover mapping is over:
+     */
+    AFK_ComputeDependency readbackCopiedDep(computer);
+    readbackUnmappedDep += o_postDep;
+    readQueue->copyBuffer(deviceBuf, hostBuf, requiredSize, readbackUnmappedDep, readbackCopiedDep);
+    readback = reinterpret_cast<float *>(
+        hostQueue->mapBuffer(hostBuf, CL_MAP_READ, requiredSize, readbackCopiedDep, readbackMappedDep));
+    readbackSize = requiredSize / sizeof(float);
 }
 
 void AFK_YReduce::readBack(
@@ -104,7 +117,7 @@ void AFK_YReduce::readBack(
     const std::vector<AFK_Tile>& landscapeTiles,
     AFK_LANDSCAPE_CACHE *cache)
 {
-    readbackDep.waitFor();
+    readbackMappedDep.waitFor();
 #if 0
     std::cout << "Computed y bounds: ";
     for (unsigned int i = 0; i < 4 && i < unitCount; ++i)
@@ -157,5 +170,10 @@ void AFK_YReduce::readBack(
 
         if (!allPushed) std::this_thread::yield();
     } while (!allPushed);
-}
 
+    /* And after all that, unmap the readback ready for the next pass */
+    auto hostQueue = computer->getHostQueue();
+    hostQueue->unmapObject(hostBuf, readback, readbackMappedDep, readbackUnmappedDep);
+    readback = nullptr;
+    readbackSize = 0;
+}

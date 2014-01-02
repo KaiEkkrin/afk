@@ -142,6 +142,7 @@ public:
         void *target,
         const AFK_ComputeDependency& preDep,
         AFK_ComputeDependency& postDep);
+#endif
 
     void readImage(
         cl_mem tex,
@@ -150,7 +151,6 @@ public:
         void *target,
         const AFK_ComputeDependency& preDep,
         AFK_ComputeDependency& postDep);
-#endif
 
     void releaseGlObjects(
         cl_mem *obj,

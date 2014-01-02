@@ -23,7 +23,8 @@
 /* AFK_DReduce implementation */
 
 AFK_DReduce::AFK_DReduce(AFK_Computer *_computer):
-    computer(_computer), buf(0), bufSize(0), readback(nullptr), readbackSize(0), readbackDep(computer)
+    computer(_computer), deviceBuf(0), hostBuf(0), bufSize(0), readback(nullptr), readbackSize(0),
+    readbackMappedDep(computer), readbackUnmappedDep(computer)
 {
     if (!computer->findKernel("makeShape3DVapourDReduce", dReduceKernel))
         throw AFK_Exception("Cannot find D-reduce kernel");
@@ -31,7 +32,8 @@ AFK_DReduce::AFK_DReduce(AFK_Computer *_computer):
 
 AFK_DReduce::~AFK_DReduce()
 {
-    if (buf) computer->oclShim.ReleaseMemObject()(buf);
+    if (deviceBuf) computer->oclShim.ReleaseMemObject()(deviceBuf);
+    if (hostBuf) computer->oclShim.ReleaseMemObject()(hostBuf);
     if (readback) delete[] readback;
 }
 
@@ -50,19 +52,30 @@ void AFK_DReduce::compute(
     cl_context ctxt = computer->getContext();
     auto kernelQueue = computer->getKernelQueue();
     auto readQueue = computer->getReadQueue();
+    auto hostQueue = computer->getHostQueue();
 
     size_t requiredSize = unitCount * 2 * sizeof(float);
     if (bufSize < requiredSize)
     {
-        if (buf)
-            AFK_CLCHK(computer->oclShim.ReleaseMemObject()(buf))
+        if (deviceBuf) AFK_CLCHK(computer->oclShim.ReleaseMemObject()(deviceBuf))
+        if (hostBuf) AFK_CLCHK(computer->oclShim.ReleaseMemObject()(hostBuf))
 
-        buf = computer->oclShim.CreateBuffer()(
-            ctxt, CL_MEM_WRITE_ONLY,
+        deviceBuf = computer->oclShim.CreateBuffer()(
+            ctxt,
+            CL_MEM_WRITE_ONLY,
             requiredSize,
             nullptr,
             &error);
         AFK_HANDLE_CL_ERROR(error);
+
+        hostBuf = computer->oclShim.CreateBuffer()(
+            ctxt,
+            CL_MEM_ALLOC_HOST_PTR,
+            requiredSize,
+            nullptr,
+            &error);
+        AFK_HANDLE_CL_ERROR(error);
+
         bufSize = requiredSize;
     }
 
@@ -74,7 +87,7 @@ void AFK_DReduce::compute(
     for (int vfI = 0; vfI < 4; ++vfI)
         kernelQueue->kernelArg(sizeof(cl_mem), &vapourJigsawsDensityMem[vfI]);
 
-    kernelQueue->kernelArg(sizeof(cl_mem), &buf);
+    kernelQueue->kernelArg(sizeof(cl_mem), &deviceBuf);
 
     size_t dReduceGlobalDim[3];
     dReduceGlobalDim[0] = unitCount;
@@ -86,15 +99,16 @@ void AFK_DReduce::compute(
 
     kernelQueue->kernel3D(dReduceGlobalDim, dReduceLocalDim, preDep, o_postDep);
 
-    size_t requiredReadbackSize = requiredSize / sizeof(float);
-    if (readbackSize < requiredReadbackSize)
-    {
-        if (readback) delete[] readback;
-        readback = new float[requiredReadbackSize];
-        readbackSize = requiredReadbackSize;
-    }
-
-    readQueue->readBuffer(buf, requiredSize, readback, o_postDep, readbackDep);
+    /* After the kernel has executed, enqueue a copy-back-and-map right away,
+    * so that readBack can wait for the map and have things ready.
+    * To be pedantic, I shouldn't copy until any leftover mapping is over:
+    */
+    AFK_ComputeDependency readbackCopiedDep(computer);
+    readbackUnmappedDep += o_postDep;
+    readQueue->copyBuffer(deviceBuf, hostBuf, requiredSize, readbackUnmappedDep, readbackCopiedDep);
+    readback = reinterpret_cast<float *>(
+        hostQueue->mapBuffer(hostBuf, CL_MAP_READ, requiredSize, readbackCopiedDep, readbackMappedDep));
+    readbackSize = requiredSize / sizeof(float);
 }
 
 void AFK_DReduce::readBack(
@@ -103,7 +117,7 @@ void AFK_DReduce::readBack(
     const std::vector<AFK_KeyedCell>& shapeCells,
     AFK_SHAPE_CELL_CACHE *cache)
 {
-    readbackDep.waitFor();
+    readbackMappedDep.waitFor();
 
     /* TODO: Here's that logic again, as in yreduce...
      * algorithm-ify?
@@ -144,5 +158,10 @@ void AFK_DReduce::readBack(
 
         if (!allPushed) std::this_thread::yield();
     } while (!allPushed);
-}
 
+    /* And after all that, unmap the readback ready for the next pass */
+    auto hostQueue = computer->getHostQueue();
+    hostQueue->unmapObject(hostBuf, readback, readbackMappedDep, readbackUnmappedDep);
+    readback = nullptr;
+    readbackSize = 0;
+}

@@ -83,7 +83,7 @@ protected:
         if (!hostMapped)
         {
             /* Enqueue a map command */
-            hostMapped = reinterpret_cast<T *>(
+            hostMapped = reinterpret_cast<T*>(
                 computer->getHostQueue()->mapBuffer(hostMem, CL_MAP_WRITE, getSize(), hostUnmappingReady, hostMappingReady));
         }
 
@@ -104,6 +104,8 @@ protected:
 
     void resizeMem(size_t newMinCount)
     {
+        size_t oldSize = getSize();
+
         while (count < newMinCount)
         {
             /* I'll try to grow it in a manner that doesn't just double,
@@ -114,13 +116,10 @@ protected:
             count = newCount;
         }
 
-        waitForUnmapped();
-        if (hostMem) AFK_CLCHK(computer->oclShim.ReleaseMemObject()(hostMem));
-        if (deviceMem) AFK_CLCHK(computer->oclShim.ReleaseMemObject()(deviceMem));
-
+        /* Make some new space */
         cl_context ctxt = computer->getContext();
         cl_int err;
-        hostMem = computer->oclShim.CreateBuffer()(
+        cl_mem newHostMem = computer->oclShim.CreateBuffer()(
             ctxt,
             CL_MEM_ALLOC_HOST_PTR,
             getSize(),
@@ -128,13 +127,44 @@ protected:
             &err);
         AFK_HANDLE_CL_ERROR(err);
 
-        deviceMem = computer->oclShim.CreateBuffer()(
+        cl_mem newDeviceMem = computer->oclShim.CreateBuffer()(
             ctxt,
             CL_MEM_READ_ONLY,
             getSize(),
             NULL,
             &err);
         AFK_HANDLE_CL_ERROR(err);
+
+        if (hostMem)
+        {
+            /* Map existing and new space and copy the current data */
+            waitForUnmapped();
+
+            T *oldHostMapped = reinterpret_cast<T*>(
+                computer->getHostQueue()->mapBuffer(hostMem, CL_MAP_READ, oldSize, hostUnmappingReady, hostMappingReady));
+
+            hostMapped = reinterpret_cast<T*>(
+                computer->getHostQueue()->mapBuffer(newHostMem, CL_MAP_WRITE, getSize(), hostUnmappingReady, hostMappingReady));
+
+            hostMappingReady.waitFor();
+#ifdef _WIN32
+            std::copy(
+                stdext::checked_array_iterator<T*>(oldHostMapped, lastCount),
+                stdext::checked_array_iterator<T*>(oldHostMapped, lastCount) + lastCount,
+                stdext::checked_array_iterator<T*>(hostMapped, count));
+#else
+            std::copy(oldHostMapped, oldHostMapped + lastCount, hostMapped);
+#endif
+
+            /* Finally delete the old space */
+            AFK_ComputeDependency oldUnmapped(computer);
+            computer->getHostQueue()->unmapObject(hostMem, oldHostMapped, hostMappingReady, oldUnmapped);
+            AFK_CLCHK(computer->oclShim.ReleaseMemObject()(hostMem));
+            AFK_CLCHK(computer->oclShim.ReleaseMemObject()(deviceMem));
+        }
+
+        hostMem = newHostMem;
+        deviceMem = newDeviceMem;
     }
 
 
@@ -164,12 +194,12 @@ public:
     template<typename TIterable>
     void extend(const TIterable& start, const TIterable& end)
     {
-        waitForMapped();
-        assert(hostMapped);
-
         size_t newCount = (end - start);
         size_t requiredCount = extendOffset + newCount;
         if (requiredCount > count) resizeMem(requiredCount);
+
+        waitForMapped();
+        assert(hostMapped);
 
 #ifdef _WIN32
         /* Satisfy MSVC array checking */

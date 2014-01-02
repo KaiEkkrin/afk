@@ -321,14 +321,13 @@ public:
         const cl_event *event_wait_list,
         cl_event *event);
 
-    AFK_OCL_FUNC(void *, EnqueueUnmapMemObject,
+    AFK_OCL_FUNC(cl_int, EnqueueUnmapMemObject,
         cl_command_queue command_queue,
         cl_mem memobj,
         void *mapped_ptr,
         cl_uint num_events_in_wait_list,
         const cl_event *event_wait_list,
-        cl_event *event,
-        cl_int *errcode_ret);
+        cl_event *event);
 
     AFK_OCL_FUNC(cl_int, EnqueueWriteBuffer,
         cl_command_queue command_queue,

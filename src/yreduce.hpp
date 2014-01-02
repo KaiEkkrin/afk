@@ -39,11 +39,13 @@ protected:
     cl_kernel yReduceKernel;
 
     /* The result buffers */
-    cl_mem buf;
+    cl_mem deviceBuf;
+    cl_mem hostBuf;
     size_t bufSize;
     float *readback;
     size_t readbackSize; /* in floats */
-    AFK_ComputeDependency readbackDep;
+    AFK_ComputeDependency readbackMappedDep;
+    AFK_ComputeDependency readbackUnmappedDep;
 
 public:
     AFK_YReduce(AFK_Computer *_computer);

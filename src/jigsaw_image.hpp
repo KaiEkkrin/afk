@@ -282,6 +282,12 @@ protected:
 
     /* These functions help to pull changed data from the CL
      * textures and push them to the GL.
+     * TODO: Should I try replacing the readImage() calls within the next
+     * functions with a mapImage() and a worker that does a memcpy() into
+     * the changeData array?
+     * (I can't use the worker to directly copy to the GL, because the
+     * GL context is only valid in one thread, and potential clashes, etc
+     * etc.)
      */
     void resizeChangeData(const std::vector<AFK_JigsawCuboid>& drawCuboids);
     void getClChangeData(

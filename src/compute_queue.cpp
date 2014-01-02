@@ -166,10 +166,8 @@ void AFK_ComputeQueue::unmapObject(
     AFK_ComputeDependency& o_postDep)
 {
     assert(commandSet & AFK_CQ_HOST_COMMAND_SET);
-    cl_int err;
-    oclShim->EnqueueUnmapMemObject()(
-        q, obj, mapped, preDep.getEventCount(), preDep.getEvents(), o_postDep.addEvent(), &err);
-    AFK_HANDLE_CL_ERROR(err);
+    AFK_CLCHK(oclShim->EnqueueUnmapMemObject()(
+        q, obj, mapped, preDep.getEventCount(), preDep.getEvents(), o_postDep.addEvent()))
 }
 
 #if 0
@@ -184,6 +182,7 @@ void AFK_ComputeQueue::readBuffer(
     AFK_CLCHK(oclShim->EnqueueReadBuffer()(
         q, buf, blocking, 0, size, target, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
 }
+#endif
 
 void AFK_ComputeQueue::readImage(
     cl_mem tex,
@@ -197,7 +196,6 @@ void AFK_ComputeQueue::readImage(
     AFK_CLCHK(oclShim->EnqueueReadImage()(
         q, tex, blocking, origin, region, 0, 0, target, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
 }
-#endif
 
 void AFK_ComputeQueue::releaseGlObjects(
     cl_mem *obj,

@@ -493,6 +493,7 @@ AFK_Computer::~AFK_Computer()
         kernelQueue.reset();
         readQueue.reset();
         writeQueue.reset();
+        hostQueue.reset();
 
         for (auto k : kernels)
             if (k.kernel) oclShim.ReleaseKernel()(k.kernel);
