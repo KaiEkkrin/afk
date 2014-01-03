@@ -48,12 +48,12 @@ void afk_handleDlError(const char *_file, const int _line);
     { \
     private: \
         void **handlePtr; \
-        OCLFUNC_##name oclFunc_##name; \
     public: \
         st_##name(void **_handlePtr): \
-            handlePtr(_handlePtr), oclFunc_##name(nullptr) {} \
+            handlePtr(_handlePtr) {} \
         OCLFUNC_##name operator()(void) \
         { \
+            static afk_thread_local OCLFUNC_##name oclFunc_##name = nullptr; \
             if (!oclFunc_##name) \
             { \
                 oclFunc_##name = (OCLFUNC_##name)dlsym(*handlePtr, "cl"#name); \
@@ -74,12 +74,12 @@ void afk_handleDlError(const char *_file, const int _line);
     { \
     private: \
         HMODULE *handlePtr; \
-        OCLFUNC_##name oclFunc_##name; \
     public: \
         st_##name(HMODULE *_handlePtr) : \
-            handlePtr(_handlePtr), oclFunc_##name(nullptr) {} \
+            handlePtr(_handlePtr) {} \
         OCLFUNC_##name operator()(void) \
         { \
+            static afk_thread_local OCLFUNC_##name oclFunc_##name = nullptr; \
             if (!oclFunc_##name) \
             { \
                 oclFunc_##name = (OCLFUNC_##name)GetProcAddress(*handlePtr, "cl"#name); \
