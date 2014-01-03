@@ -144,7 +144,7 @@ bool AFK_ClDeviceProperties::supportsExtension(const std::string& ext) const
     boost::tokenizer<boost::char_separator<char> > extTok(extensions, spcSep);
     for (auto testExt : extTok)
     {
-        //if (testExt == ext) return true;
+        if (testExt == ext) return true;
     }
 
     return false;
