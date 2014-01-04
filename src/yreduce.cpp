@@ -111,6 +111,7 @@ void AFK_YReduce::compute(
     readbackSize = requiredSize / sizeof(float);
 }
 
+// TODO: Do the readback call as a clSetEventCallback() -- neater.
 void AFK_YReduce::readBack(
     unsigned int threadId,
     size_t unitCount,
@@ -118,6 +119,9 @@ void AFK_YReduce::readBack(
     AFK_LANDSCAPE_CACHE *cache)
 {
     readbackMappedDep.waitFor();
+    readbackMappedDep.reset();
+    readbackUnmappedDep.reset();
+
 #if 0
     std::cout << "Computed y bounds: ";
     for (unsigned int i = 0; i < 4 && i < unitCount; ++i)

@@ -111,6 +111,7 @@ void AFK_DReduce::compute(
     readbackSize = requiredSize / sizeof(float);
 }
 
+// TODO: Do the readback call as a clSetEventCallback() -- neater.
 void AFK_DReduce::readBack(
     unsigned int threadId,
     size_t unitCount,
@@ -118,6 +119,8 @@ void AFK_DReduce::readBack(
     AFK_SHAPE_CELL_CACHE *cache)
 {
     readbackMappedDep.waitFor();
+    readbackMappedDep.reset();
+    readbackUnmappedDep.reset();
 
     /* TODO: Here's that logic again, as in yreduce...
      * algorithm-ify?

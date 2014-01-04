@@ -1089,9 +1089,14 @@ void AFK_JigsawImage::bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboi
 void AFK_JigsawImage::waitForAll(void)
 {
     assert(clUserCount == 0);
+
     preClDep.waitFor();
     postClDep.waitFor();
     changeDep.waitFor();
+
+    preClDep.reset();
+    postClDep.reset();
+    changeDep.reset();
+
     glUserCount = 0;
 }
-

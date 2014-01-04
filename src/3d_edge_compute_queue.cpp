@@ -165,6 +165,11 @@ void AFK_3DEdgeComputeQueue::clear(void)
 {
     std::unique_lock<std::mutex> lock(mut);
 
-    if (postEdgeDep) postEdgeDep->waitFor();
+    if (postEdgeDep)
+    {
+        postEdgeDep->waitFor();
+        postEdgeDep->reset();
+    }
+
     unitsIn.clear();
 }

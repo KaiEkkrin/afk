@@ -245,6 +245,10 @@ public:
         waitForUnmapped();
         pushFinished.waitFor();
 
+        hostMappingReady.reset();
+        hostUnmappingReady.reset();
+        pushFinished.reset();
+
         /* Reset to the beginning */
         extendOffset = 0;
         doingPush = false;

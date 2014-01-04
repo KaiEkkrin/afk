@@ -260,7 +260,11 @@ void AFK_TerrainComputeQueue::clear(void)
 {
     std::unique_lock<std::mutex> lock(mut);
 
-    if (postTerrainDep) postTerrainDep->waitFor();
+    if (postTerrainDep)
+    {
+        postTerrainDep->waitFor();
+        postTerrainDep->reset();
+    }
 
     featuresIn.clear();
     tilesIn.clear();

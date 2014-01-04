@@ -22,66 +22,177 @@
 
 #include "compute_dependency.hpp"
 
-void AFK_ComputeDependency::expandEvents(int newMaxEventCount)
+AFK_ComputeDependency::EventList::EventList(AFK_Computer *_computer, size_t maxEventCount):
+    eventCount(0),
+    computer(_computer)
+{
+    events = std::make_shared<std::vector<cl_event> >(maxEventCount, static_cast<cl_event>(0));
+}
+
+AFK_ComputeDependency::EventList::EventList(const EventList& _list):
+    events(_list.events),
+    eventCount(_list.eventCount),
+    computer(_list.computer)
+{
+    /* I need to retain a reference to all those events */
+    for (int i = 0; i < eventCount; ++i)
+    {
+        computer->oclShim.RetainEvent()(events->at(i));
+    }
+}
+
+AFK_ComputeDependency::EventList& AFK_ComputeDependency::EventList::operator=(const EventList& _list)
+{
+    /* This overwrites whatever was here already */
+    reset();
+
+    computer = _list.computer;
+    events = _list.events;
+    eventCount = _list.eventCount;
+
+    /* Again, I need to retain all those references */
+    for (int i = 0; i < eventCount; ++i)
+    {
+        computer->oclShim.RetainEvent()(events->at(i));
+    }
+
+    return *this;
+}
+
+AFK_ComputeDependency::EventList::EventList(EventList&& _list) :
+    events(std::move(_list.events)),
+    eventCount(_list.eventCount),
+    computer(_list.computer)
+{
+    /* I can just invalidate the old list, it won't
+    * do any releases on delete and all will be happy
+    */
+    _list.eventCount = -1;
+}
+
+AFK_ComputeDependency::EventList& AFK_ComputeDependency::EventList::operator=(EventList&& _list)
+{
+    /* This also overwrites whatever was here already */
+    reset();
+
+    computer = _list.computer;
+    events = std::move(_list.events);
+    eventCount = _list.eventCount;
+
+    /* Again, just invalidate the old list */
+    _list.eventCount = -1;
+
+    return *this;
+}
+
+AFK_ComputeDependency::EventList& AFK_ComputeDependency::EventList::operator+=(const EventList& _list)
+{
+    assert(valid());
+
+    /* There really ought to be room for both in the list */
+    assert((eventCount + _list.eventCount) <= static_cast<int>(events->size()));
+
+    /* I need to retain and copy each event in the other list */
+    for (int i = 0; i < _list.eventCount; ++i)
+    {
+        computer->oclShim.RetainEvent()(_list.events->at(i));
+        events->at(eventCount++) = _list.events->at(i);
+    }
+
+    return *this;
+}
+
+AFK_ComputeDependency::EventList::~EventList()
+{
+    reset();
+}
+
+cl_event *AFK_ComputeDependency::EventList::addEvent(void)
+{
+    assert(valid());
+
+    /* If there's room in the list... */
+    if (eventCount < static_cast<int>(events->size()))
+    {
+        return &events->at(eventCount++);
+    }
+    else return nullptr; /* the AFK_ComputeDependency will have to do an extend */
+}
+
+cl_uint AFK_ComputeDependency::EventList::getEventCount(void) const
+{
+    assert(valid());
+    return static_cast<cl_uint>(eventCount);
+}
+
+const cl_event *AFK_ComputeDependency::EventList::getEvents(void) const
+{
+    assert(valid());
+    return eventCount > 0 ? events->data() : nullptr;
+}
+
+void AFK_ComputeDependency::EventList::waitFor(void) const
+{
+    if (eventCount > 0)
+    {
+        AFK_CLCHK(computer->oclShim.WaitForEvents()(getEventCount(), getEvents()))
+    }
+}
+
+bool AFK_ComputeDependency::EventList::valid(void) const
+{
+    return (eventCount >= 0);
+}
+
+size_t AFK_ComputeDependency::EventList::getMaxEventCount(void) const
+{
+    return events->size();
+}
+
+void AFK_ComputeDependency::EventList::reset(void)
+{
+    for (int i = 0; i < eventCount; ++i)
+    {
+        computer->oclShim.ReleaseEvent()(events->at(i));
+        events->at(i) = 0;
+    }
+
+    eventCount = 0;
+}
+
+void AFK_ComputeDependency::expandEvents(size_t newMaxEventCount)
 {
     if (useEvents)
     {
-        /* Make a gravestone for my old, defunct self: */
-        AFK_ComputeDependency gravestone = std::move(*this);
+        /* Make a gravestone for my old, defunct event list: */
+        EventList gravestone(std::move(eventList));
 
-        /* Re-initialise myself */
-        events = std::make_shared<std::vector<cl_event> >(newMaxEventCount);
-        eventCount = gravestone.eventCount;
-        computer = gravestone.computer;
-        assert(useEvents);
+        /* Re-initialise my own event list as a larger one
+         * containing the old event list:
+         */
+        eventList = std::move(EventList(computer, newMaxEventCount));
+        eventList += gravestone;
 
         /* Stick that stone in the graveyard */
         graveyard.push_front(std::move(gravestone));
     }
 }
 
-void AFK_ComputeDependency::clearEvents(void)
-{
-    if (useEvents)
-    {
-        /* Release everything I had */
-        for (int i = 0; i < eventCount; ++i)
-        {
-            computer->oclShim.ReleaseEvent()(events->at(i));
-            events->at(i) = 0;
-        }
-
-        /* The graveyard gets released too */
-        graveyard.clear();
-    }
-}
-
 AFK_ComputeDependency::AFK_ComputeDependency(AFK_Computer *_computer):
-    eventCount(0),
+    eventList(_computer, AFK_CDEP_SMALLEST),
     computer(_computer),
     useEvents(_computer->getUseEvents())
 {
-    if (useEvents)
-    {
-        events = std::make_shared<std::vector<cl_event> >(AFK_CDEP_SMALLEST);
-    }
 }
 
 AFK_ComputeDependency::AFK_ComputeDependency(const AFK_ComputeDependency& _dep):
-    events(_dep.events),
-    eventCount(_dep.eventCount),
+    eventList(_dep.eventList),
     computer(_dep.computer),
     useEvents(_dep.useEvents)
 {
     if (useEvents)
     {
-        /* I need to retain all these events I just gained a reference to... */
-        for (int i = 0; i < eventCount; ++i)
-        {
-            computer->oclShim.RetainEvent()(events->at(i));
-        }
-
-        /* ...and I need to keep the graveyard, too */
+        /* I need to keep the graveyard, too */
         std::copy(_dep.graveyard.begin(), _dep.graveyard.end(), graveyard.begin());
     }
 }
@@ -90,21 +201,10 @@ AFK_ComputeDependency& AFK_ComputeDependency::operator=(const AFK_ComputeDepende
 {
     assert(_dep.useEvents == useEvents);
 
-    /* Assignment replaces whatever was here, of course */
-    clearEvents();
-
     computer = _dep.computer;
     if (useEvents)
     {
-        /* Copy and reference everything in _dep */
-        events = _dep.events;
-        eventCount = _dep.eventCount;
-
-        for (int i = 0; i < eventCount; ++i)
-        {
-            computer->oclShim.RetainEvent()(events->at(i));
-        }
-
+        eventList = _dep.eventList;
         std::copy(_dep.graveyard.begin(), _dep.graveyard.end(), graveyard.begin());
     }
 
@@ -112,18 +212,12 @@ AFK_ComputeDependency& AFK_ComputeDependency::operator=(const AFK_ComputeDepende
 }
 
 AFK_ComputeDependency::AFK_ComputeDependency(AFK_ComputeDependency&& _dep):
-    events(std::move(_dep.events)),
-    eventCount(_dep.eventCount),
+    eventList(std::move(_dep.eventList)),
     computer(_dep.computer),
     useEvents(_dep.useEvents)
 {
     if (useEvents)
     {
-        /* I can just invalidate the dependency, it won't
-         * do any releases on delete and all will be happy
-         */
-        _dep.eventCount = -1;
-
         /* ...and I can move the graveyard. */
         std::move(_dep.graveyard.begin(), _dep.graveyard.end(), graveyard.begin());
     }
@@ -133,18 +227,10 @@ AFK_ComputeDependency& AFK_ComputeDependency::operator=(AFK_ComputeDependency&& 
 {
     assert(_dep.useEvents == useEvents);
 
-    /* Like the other assignment operator: */
-    clearEvents();
-
     computer = _dep.computer;
     if (useEvents)
     {
-        events = std::move(_dep.events);
-        eventCount = _dep.eventCount;
-
-        /* Again, I can just invalidate _dep */
-        _dep.eventCount = -1;
-
+        eventList = std::move(_dep.eventList);
         std::move(_dep.graveyard.begin(), _dep.graveyard.end(), graveyard.begin());
     }
 
@@ -159,33 +245,23 @@ AFK_ComputeDependency& AFK_ComputeDependency::operator+=(const AFK_ComputeDepend
 
     if (useEvents)
     {
-        assert(eventCount >= 0);
-        assert(_dep.eventCount >= 0);
-
-        int combinedEventCount = eventCount + _dep.eventCount;
-        assert(combinedEventCount >= 0);
-        if (static_cast<size_t>(combinedEventCount) > events->size())
+        cl_uint combinedEventCount = getEventCount() + _dep.getEventCount();
+        if (static_cast<size_t>(combinedEventCount) > eventList.getMaxEventCount())
         {
             /* Try to hold to the doubling pattern, rather than
              * making a new array just big enough, which would no
              * doubt cause me to run out of space again right away
              */
-            int newMaxEventCount = events->size();
+            size_t newMaxEventCount = eventList.getMaxEventCount();
             while (newMaxEventCount < combinedEventCount) newMaxEventCount *= 2;
 
             expandEvents(newMaxEventCount);
         }
 
-        /* Retain the other events, and splice them in... */
-        for (int i = 0; i < _dep.eventCount; ++i)
-        {
-            computer->oclShim.RetainEvent()(_dep.events->at(i));
-            events->at(eventCount + i) = _dep.events->at(i);
-        }
+        /* Now, the append should work. */
+        eventList += _dep.eventList;
 
-        eventCount += _dep.eventCount;
-
-        /* ...and keep the other's graveyard */
+        /* ...Also keep the other's graveyard */
         graveyard.insert(graveyard.begin(), _dep.graveyard.begin(), _dep.graveyard.end());
     }
 
@@ -194,24 +270,21 @@ AFK_ComputeDependency& AFK_ComputeDependency::operator+=(const AFK_ComputeDepend
 
 AFK_ComputeDependency::~AFK_ComputeDependency()
 {
-    if (useEvents) clearEvents();
+    reset();
 }
 
 cl_event *AFK_ComputeDependency::addEvent(void)
 {
     if (useEvents)
     {
-        assert(eventCount >= 0 && static_cast<size_t>(eventCount) <= events->size());
-        if (static_cast<size_t>(eventCount) == events->size())
+        cl_event *newEvent;
+        while ((newEvent = eventList.addEvent()) == nullptr)
         {
-            /* Make some more space. */
-            expandEvents(events->size() * 2);
+            /* I need to expand that event list */
+            expandEvents(eventList.getMaxEventCount() * 2);
         }
 
-        assert(static_cast<size_t>(eventCount) < events->size());
-
-        /* Give back the next event. */
-        return &events->at(eventCount++);
+        return newEvent;
     }
     else return nullptr;
 }
@@ -220,8 +293,7 @@ cl_uint AFK_ComputeDependency::getEventCount(void) const
 {
     if (useEvents)
     {
-        assert(eventCount >= 0);
-        return static_cast<cl_uint>(eventCount);
+        return eventList.getEventCount();
     }
     else return 0;
 }
@@ -230,23 +302,27 @@ const cl_event *AFK_ComputeDependency::getEvents(void) const
 {
     if (useEvents)
     {
-        assert(eventCount >= 0);
-        return (eventCount > 0) ? events->data() : nullptr;
+        return eventList.getEvents();
     }
     else return nullptr;
 }
 
-void AFK_ComputeDependency::waitFor(void)
+void AFK_ComputeDependency::waitFor(void) const
 {
     if (useEvents)
     {
-        assert(eventCount >= 0);
-        if (eventCount > 0)
-        {
-            AFK_CLCHK(computer->oclShim.WaitForEvents()(getEventCount(), getEvents()))
-        }
-
-        clearEvents();
+        eventList.waitFor();
     }
 }
 
+void AFK_ComputeDependency::reset(void)
+{
+    if (useEvents)
+    {
+        /* Release everything I had */
+        eventList.reset();
+
+        /* The graveyard gets released too */
+        graveyard.clear();
+    }
+}

@@ -262,7 +262,11 @@ void AFK_3DVapourComputeQueue::clear(void)
 {
     std::unique_lock<std::mutex> lock(mut);
 
-    if (preReleaseDep) preReleaseDep->waitFor();
+    if (preReleaseDep)
+    {
+        preReleaseDep->waitFor();
+        preReleaseDep->reset();
+    }
 
     featuresIn.clear();
     cubesIn.clear();

@@ -34,6 +34,18 @@
  * It assumes it pertains to a single queue and a single host thread.
  */
 
+/* TODO: This doesn't work.  I don't truly understand why it doesn't work.
+ * Shouldn't the OpenCL be copying event lists that go into clEnqueue()
+ * functions anyway?  At any rate, when I enable eventing (and especially
+ * when I enable multiple queues) I get use-after-free bug-outs and similar.
+ * Could it be that I'm giving the OpenCL references to other things that
+ * stop being valid in between the time of enqueue and the time the
+ * implementation gets around to using them?  Seems likely.  But I thought
+ * I cleared all of those out, so I'm not sure what.
+ */
+
+class AFK_ComputeDependency;
+
 class AFK_ComputeDependency
 {
 protected:
@@ -48,21 +60,56 @@ protected:
      * old array(s) (but not before).
      */
 
-    /* The current event array is stored as a shared_ptr, so that
-     * the backing memory will survive being arbitrarily copied about.
-     * The cl_event container within is a vector because the size
-     * varies between arrays and because I want a contiguous-memory
-     * structure.
-     */
-    std::shared_ptr<std::vector<cl_event> > events;
+    class EventList
+    {
+    protected:
+        /* The current event array is stored as a shared_ptr, so that
+         * the backing memory will survive being arbitrarily copied about.
+         * The cl_event container within is a vector because the size
+         * varies between arrays and because I want a contiguous-memory
+         * structure.
+         */
+        std::shared_ptr<std::vector<cl_event> > events;
 
-    /* The events vector size is the maximum number of events it
-     * can store, so I store the current number of events here.
-     * I need to reallocate and copy whenever this hits maximum.
-     * A negative value means that this compute dependency has been
-     * invalidated and shouldn't be used again.
-     */
-    int eventCount;
+        /* The events vector size is the maximum number of events it
+         * can store, so I store the current number of events here.
+         * I need to reallocate and copy whenever this hits maximum.
+         * A negative value means that this compute dependency has been
+         * invalidated and shouldn't be used again.
+         */
+        int eventCount;
+
+        AFK_Computer *computer;
+
+    public:
+        EventList(AFK_Computer *_computer, size_t maxEventCount);
+
+        /* See AFK_ComputeDependency constructor descriptions. */
+        EventList(const EventList& _list);
+        EventList& operator=(const EventList& _list);
+
+        EventList(EventList&& _list);
+        EventList& operator=(EventList&& _list);
+
+        /* This function assumes there is room in the destination list
+         * for both
+         */
+        EventList& operator+=(const EventList& _list);
+
+        virtual ~EventList();
+
+        /* See descriptions on AFK_ComputeDependency */
+        cl_event *addEvent(void);
+        cl_uint getEventCount(void) const;
+        const cl_event *getEvents(void) const;
+        void waitFor(void) const;
+
+        bool valid(void) const;
+        size_t getMaxEventCount(void) const;
+        void reset(void);
+    };
+
+    EventList eventList;
 
     /* As dependencies outgrow their event arrays, they go into the
      * graveyard, here, and are overwritten by new ones with larger
@@ -71,7 +118,7 @@ protected:
      * the operator+= function (merge two dependencies, each of
      * which could have graveyards).
      */
-    std::deque<AFK_ComputeDependency> graveyard;
+    std::deque<EventList> graveyard;
 
     AFK_Computer *computer;
     const bool useEvents;
@@ -80,9 +127,7 @@ protected:
      * graveyard and re-makes it with the new event count,
      * below.
      */
-    void expandEvents(int newMaxEventCount);
-
-    void clearEvents(void);
+    void expandEvents(size_t newMaxEventCount);
 
 public:
     AFK_ComputeDependency(AFK_Computer *_computer);
@@ -115,8 +160,14 @@ public:
     cl_uint getEventCount(void) const;
     const cl_event *getEvents(void) const;
 
-    /* Handy wrapper -- wait for these events and clear them. */
-    void waitFor(void);
+    /* Handy wrapper -- wait for these events. */
+    void waitFor(void) const;
+
+    /* Resets the dependency, getting rid of all current events.
+     * *Don't call unless you're sure the queues are clear*
+     */
+    void reset(void);
+
 };
 
 #endif /* _AFK_COMPUTE_DEPENDENCY_H_ */
