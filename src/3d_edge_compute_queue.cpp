@@ -81,8 +81,10 @@ AFK_3DEdgeComputeUnit AFK_3DEdgeComputeQueue::append(
 
 void AFK_3DEdgeComputeQueue::computeStart(
     AFK_Computer *computer,
-    AFK_Jigsaw *vapourJigsaw,
-    AFK_Jigsaw *edgeJigsaw,
+    cl_mem vapourJigsawDensityMem,
+    cl_mem edgeJigsawOverlapMem,
+    const Vec2<int>& fake3D_size,
+    int fake3D_mult,
     const AFK_ShapeSizes& sSizes)
 {
     std::unique_lock<std::mutex> lock(mut);
@@ -109,11 +111,11 @@ void AFK_3DEdgeComputeQueue::computeStart(
     if (!postEdgeDep) postEdgeDep = new AFK_ComputeDependency(computer);
     assert(postEdgeDep->getEventCount() == 0);
 
-    vapourJigsaw->setupImages(computer);
-    edgeJigsaw->setupImages(computer);
+    //vapourJigsaw->setupImages(computer);
+    //edgeJigsaw->setupImages(computer);
 
-    cl_mem vapourJigsawDensityMem = vapourJigsaw->acquireForCl(0, preEdgeDep);
-    cl_mem edgeJigsawOverlapMem = edgeJigsaw->acquireForCl(0, preEdgeDep);
+    //cl_mem vapourJigsawDensityMem = vapourJigsaw->acquireForCl(0, preEdgeDep);
+    //cl_mem edgeJigsawOverlapMem = edgeJigsaw->acquireForCl(0, preEdgeDep);
 
     kernelQueue->kernel(edgeKernel);
     kernelQueue->kernelArg(sizeof(cl_mem), &vapourJigsawDensityMem);
@@ -124,8 +126,8 @@ void AFK_3DEdgeComputeQueue::computeStart(
      * If that changes the assert() in that module should remind
      * me to make suitable edits.
      */
-    Vec2<int> fake3D_size = vapourJigsaw->getFake3D_size(0);
-    int fake3D_mult = vapourJigsaw->getFake3D_mult(0);
+    //Vec2<int> fake3D_size = vapourJigsaw->getFake3D_size(0);
+    //int fake3D_mult = vapourJigsaw->getFake3D_mult(0);
     kernelQueue->kernelArg(sizeof(cl_int2), &fake3D_size.v[0]);
     kernelQueue->kernelArg(sizeof(cl_int), &fake3D_mult);
 
@@ -142,6 +144,7 @@ void AFK_3DEdgeComputeQueue::computeStart(
     kernelQueue->kernel3D(edgeGlobalDim, edgeLocalDim, preEdgeDep, *postEdgeDep);
 }
 
+#if 0
 void AFK_3DEdgeComputeQueue::computeFinish(
     AFK_Jigsaw *vapourJigsaw,
     AFK_Jigsaw *edgeJigsaw)
@@ -153,6 +156,7 @@ void AFK_3DEdgeComputeQueue::computeFinish(
         edgeJigsaw->releaseFromCl(0, *postEdgeDep);
     }
 }
+#endif
 
 bool AFK_3DEdgeComputeQueue::empty(void)
 {

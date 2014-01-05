@@ -144,11 +144,19 @@ public:
 
     void computeStart(
         AFK_Computer *computer,
-        AFK_JigsawCollection *vapourJigsaws,
+        cl_mem vapourJigsawsDensityMem[4],
+        cl_mem vapourJigsawsNormalMem[4],
+        size_t vapourJigsawsCount,
+        const Vec2<int>& fake3D_size,
+        int fake3D_mult,
+        const AFK_ComputeDependency& preDep,
+        AFK_ComputeDependency& o_postDep,
         const AFK_ShapeSizes& sSizes);
+
     void computeFinish(
         unsigned int threadId,
-        AFK_JigsawCollection *vapourJigsaws,
+        const AFK_ComputeDependency& preDep,
+        AFK_ComputeDependency& o_postDep,
         AFK_SHAPE_CELL_CACHE *cache);
 
     /* To be part of a Fair. */

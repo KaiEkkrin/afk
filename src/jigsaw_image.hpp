@@ -20,6 +20,7 @@
 
 #include "afk.hpp"
 
+#include <deque>
 #include <sstream>
 #include <vector>
 
@@ -264,8 +265,9 @@ protected:
 
     /* If bufferUsage is cl gl copied, this is the cuboid data I've
      * read back from the CL and that needs to go into the GL.
+     * Each element is one cuboid's worth of data.
      */
-    std::vector<uint8_t> changeData;
+    std::deque<std::vector<uint8_t> > changeData;
 
     /* This is the dependency to wait on before the change data is
      * ready.

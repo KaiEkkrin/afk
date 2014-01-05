@@ -93,12 +93,19 @@ public:
      */
     void computeStart(
         AFK_Computer *computer,
-        AFK_Jigsaw *vapourJigsaw,
-        AFK_Jigsaw *edgeJigsaw,
+        cl_mem vapourJigsawDensityMem,
+        cl_mem edgeJigsawOverlapMem,
+        const Vec2<int>& fake3D_size,
+        int fake3D_mult,
+        const AFK_ComputeDependency& preDep,
+        AFK_ComputeDependency& o_postDep,
         const AFK_ShapeSizes& sSizes);
+
+#if 0
     void computeFinish(
         AFK_Jigsaw *vapourJigsaw,
         AFK_Jigsaw *edgeJigsaw);
+#endif
 
     /* To be part of a Fair. */
     bool empty(void);

@@ -110,8 +110,21 @@ public:
 
     /* Computes the terrain.
      */
-    void computeStart(AFK_Computer *computer, AFK_Jigsaw *jigsaw, const AFK_LandscapeSizes& lSizes, const Vec3<float>& baseColour);
-    void computeFinish(unsigned int threadId, AFK_Jigsaw *jigsaw, AFK_LANDSCAPE_CACHE *cache);
+    void computeStart(
+        AFK_Computer *computer,
+        cl_mem jigsawYDispMem,
+        cl_mem jigsawColourMem,
+        cl_mem jigsawNormalMem,
+        const AFK_LandscapeSizes& lSizes,
+        const AFK_ComputeDependency& preDep,
+        AFK_ComputeDependency& o_postDep,
+        const Vec3<float>& baseColour);
+
+    void computeFinish(
+        unsigned int threadId,
+        const AFK_ComputeDependency& preDep,
+        AFK_ComputeDependency& o_postDep,
+        AFK_LANDSCAPE_CACHE *cache);
 
     bool empty(void);
 

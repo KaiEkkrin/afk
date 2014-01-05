@@ -126,7 +126,10 @@ std::string AFK_TerrainComputeQueue::debugTerrain(const AFK_TerrainComputeUnit& 
 
 void AFK_TerrainComputeQueue::computeStart(
     AFK_Computer *computer,
-    AFK_Jigsaw *jigsaw,
+    //AFK_Jigsaw *jigsaw,
+    cl_mem jigsawYDispMem,
+    cl_mem jigsawColourMem,
+    cl_mem jigsawNormalMem,
     const AFK_LandscapeSizes& lSizes,
     const Vec3<float>& baseColour)
 {
@@ -166,9 +169,9 @@ void AFK_TerrainComputeQueue::computeStart(
     /* Set up the rest of the terrain parameters */
     Vec4<float> baseColour4 = afk_vec4<float>(baseColour, 0.0f);
 
-    jigsaw->setupImages(computer);
-    cl_mem jigsawYDispMem = jigsaw->acquireForCl(0, preTerrainDep);
-    cl_mem jigsawColourMem = jigsaw->acquireForCl(1, preTerrainDep);
+    //jigsaw->setupImages(computer);
+    //cl_mem jigsawYDispMem = jigsaw->acquireForCl(0, preTerrainDep);
+    //cl_mem jigsawColourMem = jigsaw->acquireForCl(1, preTerrainDep);
 
     kernelQueue->kernel(terrainKernel);
     
@@ -196,7 +199,7 @@ void AFK_TerrainComputeQueue::computeStart(
         &error);
     AFK_HANDLE_CL_ERROR(error);
 
-    cl_mem jigsawNormalMem = jigsaw->acquireForCl(2, preSurfaceDep);
+    //cl_mem jigsawNormalMem = jigsaw->acquireForCl(2, preSurfaceDep);
 
     /* Now, I need to run the kernel to bake the surface normals.
      */
@@ -232,7 +235,7 @@ void AFK_TerrainComputeQueue::computeStart(
     AFK_CLCHK(computer->oclShim.ReleaseSampler()(jigsawYDispSampler))
 }
 
-void AFK_TerrainComputeQueue::computeFinish(unsigned int threadId, AFK_Jigsaw *jigsaw, AFK_LANDSCAPE_CACHE *cache)
+void AFK_TerrainComputeQueue::computeFinish(unsigned int threadId, /* AFK_Jigsaw *jigsaw, */ AFK_LANDSCAPE_CACHE *cache)
 {
     std::unique_lock<std::mutex> lock(mut);
 
@@ -241,9 +244,9 @@ void AFK_TerrainComputeQueue::computeFinish(unsigned int threadId, AFK_Jigsaw *j
 
     /* Release the images. */
     assert(postTerrainDep && yReduce);
-    jigsaw->releaseFromCl(0, *postTerrainDep);
-    jigsaw->releaseFromCl(1, *postTerrainDep);
-    jigsaw->releaseFromCl(2, *postTerrainDep);
+    //jigsaw->releaseFromCl(0, *postTerrainDep);
+    //jigsaw->releaseFromCl(1, *postTerrainDep);
+    //jigsaw->releaseFromCl(2, *postTerrainDep);
 
     /* Read back the Y reduce. */
     yReduce->readBack(threadId, unitCount, landscapeTiles, cache);

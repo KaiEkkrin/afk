@@ -146,8 +146,8 @@ public:
 
     void readImage(
         cl_mem tex,
-        size_t *origin,
-        size_t *region,
+        const size_t origin[3],
+        const size_t region[3],
         void *target,
         const AFK_ComputeDependency& preDep,
         AFK_ComputeDependency& postDep);

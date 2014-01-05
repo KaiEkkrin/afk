@@ -141,7 +141,12 @@ AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::addUnit(
 
 void AFK_3DVapourComputeQueue::computeStart(
     AFK_Computer *computer,
-    AFK_JigsawCollection *vapourJigsaws,
+    //AFK_JigsawCollection *vapourJigsaws,
+    cl_mem vapourJigsawsDensityMem[4],
+    cl_mem vapourJigsawsNormalMem[4],
+    size_t vapourJigsawsCount,
+    const Vec2<int>& fake3D_size,
+    int fake3D_mult,
     const AFK_ShapeSizes& sSizes)
 {
     std::unique_lock<std::mutex> lock(mut);
@@ -177,9 +182,9 @@ void AFK_3DVapourComputeQueue::computeStart(
 
     /* Set up the rest of the vapour parameters */
     cl_mem vapourJigsawsDensityMem[4];
-    Vec2<int> fake3D_size;
-    int fake3D_mult;
-    jpDCount = vapourJigsaws->acquireAllForCl(computer, 0, vapourJigsawsDensityMem, 4, fake3D_size, fake3D_mult, preVapourDep);
+    //Vec2<int> fake3D_size;
+    //int fake3D_mult;
+    //jpDCount = vapourJigsaws->acquireAllForCl(computer, 0, vapourJigsawsDensityMem, 4, fake3D_size, fake3D_mult, preVapourDep);
 
     kernelQueue->kernel(vapourFeatureKernel);
 
@@ -200,9 +205,9 @@ void AFK_3DVapourComputeQueue::computeStart(
     kernelQueue->kernel3D(vapourDim, nullptr, preVapourDep, preNormalDep);
 
     /* Next, compute the vapour normals. */
-    cl_mem vapourJigsawsNormalMem[4];
-    jpNCount = vapourJigsaws->acquireAllForCl(computer, 1, vapourJigsawsNormalMem, 4, fake3D_size, fake3D_mult, preNormalDep);
-    assert(jpNCount == jpDCount);
+    //cl_mem vapourJigsawsNormalMem[4];
+    //jpNCount = vapourJigsaws->acquireAllForCl(computer, 1, vapourJigsawsNormalMem, 4, fake3D_size, fake3D_mult, preNormalDep);
+    //assert(jpNCount == jpDCount);
 
     kernelQueue->kernel(vapourNormalKernel);
     kernelQueue->kernelArg(sizeof(cl_mem), &vapourBufs[2]);
@@ -234,7 +239,7 @@ void AFK_3DVapourComputeQueue::computeStart(
 #endif
 }
 
-void AFK_3DVapourComputeQueue::computeFinish(unsigned int threadId, AFK_JigsawCollection *vapourJigsaws, AFK_SHAPE_CELL_CACHE *cache)
+void AFK_3DVapourComputeQueue::computeFinish(unsigned int threadId, /* AFK_JigsawCollection *vapourJigsaws, */ AFK_SHAPE_CELL_CACHE *cache)
 {
     std::unique_lock<std::mutex> lock(mut);
 
@@ -242,8 +247,8 @@ void AFK_3DVapourComputeQueue::computeFinish(unsigned int threadId, AFK_JigsawCo
     if (unitCount == 0) return;
 
     assert(preReleaseDep && dReduce);
-    vapourJigsaws->releaseAllFromCl(0, jpDCount, *preReleaseDep);
-    vapourJigsaws->releaseAllFromCl(1, jpNCount, *preReleaseDep);
+    //vapourJigsaws->releaseAllFromCl(0, jpDCount, *preReleaseDep);
+    //vapourJigsaws->releaseAllFromCl(1, jpNCount, *preReleaseDep);
 
     /* Read back the D reduce. */
 #if DO_DREDUCE
