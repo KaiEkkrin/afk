@@ -255,27 +255,19 @@ protected:
     /* Descriptions of the format of this image. */
     const AFK_JigsawImageDescriptor desc;
 
-    /* Describes how many users have acquired this image for CL,
-     * what they need to wait for before they can use it, and what
-     * I need to wait for before I can release it from the CL.
-     */
-    unsigned int clUserCount;
-    AFK_ComputeDependency preClDep;
-    AFK_ComputeDependency postClDep;
-
     /* If bufferUsage is cl gl copied, this is the cuboid data I've
      * read back from the CL and that needs to go into the GL.
      * Each element is one cuboid's worth of data.
+     * I'm going to assume that there will only ever be one thing
+     * acquiring the jigsaw for the CL at once, and accept dependencies
+     * to control it.
      */
     std::deque<std::vector<uint8_t> > changeData;
 
     /* This is the dependency to wait on before the change data is
-     * ready.
+     * ready for copying to GL.
      */
     AFK_ComputeDependency changeDep;
-
-    /* ... And the number of GL users. */
-    unsigned int glUserCount;
 
     /* These functions initialise the images in various ways. */
     void initClImage(const Vec3<int>& _jigsawSize);
@@ -294,10 +286,12 @@ protected:
     void resizeChangeData(const std::vector<AFK_JigsawCuboid>& drawCuboids);
     void getClChangeData(
         const std::vector<AFK_JigsawCuboid>& drawCuboids,
-        std::shared_ptr<AFK_ComputeQueue> readQueue);
+        std::shared_ptr<AFK_ComputeQueue> readQueue,
+        const AFK_ComputeDependency& dep);
     void getClChangeDataFake3D(
         const std::vector<AFK_JigsawCuboid>& drawCuboids,
-        std::shared_ptr<AFK_ComputeQueue> readQueue);
+        std::shared_ptr<AFK_ComputeQueue> readQueue,
+        const AFK_ComputeDependency& dep);
     void putClChangeData(const std::vector<AFK_JigsawCuboid>& drawCuboids);
 
 public:

@@ -204,6 +204,6 @@ void afk_display(unsigned int threadId)
     /* Attempt to make sure everything is sorted out before flip, which might
      * invalidate stuff passed to the CL above
      */
-    afk_core.computer->finish();
+    //afk_core.computer->finish();
 }
 

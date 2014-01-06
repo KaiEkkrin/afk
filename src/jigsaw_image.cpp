@@ -787,7 +787,8 @@ void AFK_JigsawImage::resizeChangeData(const std::vector<AFK_JigsawCuboid>& draw
 
 void AFK_JigsawImage::getClChangeData(
     const std::vector<AFK_JigsawCuboid>& drawCuboids,
-    std::shared_ptr<AFK_ComputeQueue> readQueue)
+    std::shared_ptr<AFK_ComputeQueue> readQueue,
+    const AFK_ComputeDependency& dep)
 {
     resizeChangeData(drawCuboids);
 
@@ -816,14 +817,15 @@ void AFK_JigsawImage::getClChangeData(
 
         assert(changeDataIt->size() == cuboidSizeInBytes);
   
-        readQueue->readImage(clTex, origin, region, changeDataIt->data(), postClDep, changeDep);
+        readQueue->readImage(clTex, origin, region, changeDataIt->data(), dep, changeDep);
         ++changeDataIt;
     }
 }
 
 void AFK_JigsawImage::getClChangeDataFake3D(
     const std::vector<AFK_JigsawCuboid>& drawCuboids,
-    std::shared_ptr<AFK_ComputeQueue> readQueue)
+    std::shared_ptr<AFK_ComputeQueue> readQueue,
+    const AFK_ComputeDependency& dep)
 {
     /* I should be moving exactly the same amount of data as
      * if it were a real 3D image.
@@ -867,7 +869,7 @@ void AFK_JigsawImage::getClChangeDataFake3D(
                 region[1] = cuboid.size.v[1] * desc.pieceSize.v[1];
                 region[2] = 1;
 
-                readQueue->readImage(clTex, origin, region, changeDataIt->data() + changeDataOffset, postClDep, changeDep);
+                readQueue->readImage(clTex, origin, region, changeDataIt->data() + changeDataOffset, dep, changeDep);
                 changeDataOffset += cuboidSliceSizeInBytes;
             }
         }
@@ -934,11 +936,7 @@ AFK_JigsawImage::AFK_JigsawImage(
         glTex(0),
         clTex(0),
         desc(_desc),
-        clUserCount(0),
-        preClDep(_computer),
-        postClDep(_computer),
-        changeDep(_computer),
-        glUserCount(0)
+        changeDep(_computer)
 {
     switch (desc.bufferUsage)
     {
@@ -998,12 +996,6 @@ cl_mem AFK_JigsawImage::acquireForCl(AFK_ComputeDependency& o_dep)
 {
     auto readQueue = computer->getReadQueue();
 
-    /* I mustn't be doing this while there are outstanding dependencies
-     * from the last compute cycle.
-     */
-    assert(glUserCount == 0);
-    assert(postClDep.getEventCount() == 0);
-
     switch (desc.bufferUsage)
     {
     case AFK_JigsawBufferUsage::NO_IMAGE:
@@ -1016,16 +1008,13 @@ cl_mem AFK_JigsawImage::acquireForCl(AFK_ComputeDependency& o_dep)
         break;
 
     case AFK_JigsawBufferUsage::CL_GL_SHARED:
-        if (clUserCount == 0) /* First user */
         {
             AFK_ComputeDependency noDep(computer);
-            readQueue->acquireGlObjects(&clTex, 1, noDep, preClDep);
+            readQueue->acquireGlObjects(&clTex, 1, noDep, o_dep);
         }
-        o_dep += preClDep;
         break;
     }
 
-    ++clUserCount;
     return clTex;
 }
 
@@ -1033,42 +1022,36 @@ void AFK_JigsawImage::releaseFromCl(const std::vector<AFK_JigsawCuboid>& drawCub
 {
     auto readQueue = computer->getReadQueue();
 
-    postClDep += dep;
-    if (--clUserCount == 0)
+    switch (desc.bufferUsage)
     {
-        switch (desc.bufferUsage)
-        {
-        case AFK_JigsawBufferUsage::NO_IMAGE:
-        case AFK_JigsawBufferUsage::GL_ONLY:
-            throw AFK_Exception("Called releaseFrom() on jigsaw image without CL");
-        
-        case AFK_JigsawBufferUsage::CL_ONLY:
-            /* Nothing to do. */
-            break;
-        
-        case AFK_JigsawBufferUsage::CL_GL_COPIED:
-            /* Read back all the pieces, appending the data to `changeData'
-             * in order.
-             * So long as `bindTexture' writes them in the same order everything
-             * will be okay!
-             */
-            if (desc.fake3D.getUseFake3D())
-                getClChangeDataFake3D(drawCuboids, readQueue);
-            else
-                getClChangeData(drawCuboids, readQueue);
-            break;
-        
-        case AFK_JigsawBufferUsage::CL_GL_SHARED:
-            readQueue->releaseGlObjects(&clTex, 1, postClDep, changeDep);
-            break;
-        }
+    case AFK_JigsawBufferUsage::NO_IMAGE:
+    case AFK_JigsawBufferUsage::GL_ONLY:
+        throw AFK_Exception("Called releaseFrom() on jigsaw image without CL");
+
+    case AFK_JigsawBufferUsage::CL_ONLY:
+        /* Nothing to do. */
+        break;
+
+    case AFK_JigsawBufferUsage::CL_GL_COPIED:
+        /* Read back all the pieces, appending the data to `changeData'
+         * in order.
+         * So long as `bindTexture' writes them in the same order everything
+         * will be okay!
+         */
+        if (desc.fake3D.getUseFake3D())
+            getClChangeDataFake3D(drawCuboids, readQueue, dep);
+        else
+            getClChangeData(drawCuboids, readQueue, dep);
+        break;
+
+    case AFK_JigsawBufferUsage::CL_GL_SHARED:
+        readQueue->releaseGlObjects(&clTex, 1, dep, changeDep);
+        break;
     }
 }
 
 void AFK_JigsawImage::bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboids)
 {
-    assert(clUserCount == 0);
-
     switch (desc.bufferUsage)
     {
     case AFK_JigsawBufferUsage::NO_IMAGE:
@@ -1083,32 +1066,23 @@ void AFK_JigsawImage::bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboi
 
     case AFK_JigsawBufferUsage::CL_GL_COPIED:
     case AFK_JigsawBufferUsage::CL_GL_SHARED:
-        /* Wait for any sync-up to be finished. */
+        /* Wait for any sync-up to be finished. 
+         * TODO: Can I use cl_khr_gl_event to handle this with
+         * more finesse?
+         */
         changeDep.waitFor();
 
         glBindTexture(desc.getGlTarget(), glTex);
-        if (desc.bufferUsage == AFK_JigsawBufferUsage::CL_GL_COPIED &&
-            glUserCount == 0) /* First user gets the copy */
+        if (desc.bufferUsage == AFK_JigsawBufferUsage::CL_GL_COPIED)
         {
             putClChangeData(drawCuboids);
         }
         break;
     }
-
-    ++glUserCount;
 }
 
 void AFK_JigsawImage::waitForAll(void)
 {
-    assert(clUserCount == 0);
-
-    preClDep.waitFor();
-    postClDep.waitFor();
     changeDep.waitFor();
-
-    preClDep.reset();
-    postClDep.reset();
     changeDep.reset();
-
-    glUserCount = 0;
 }

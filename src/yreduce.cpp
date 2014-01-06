@@ -139,9 +139,7 @@ void AFK_YReduce::readBack(
      * it into a template algorithm?
      */
     bool allPushed = false;
-    std::vector<bool> pushed;
-    pushed.reserve(landscapeTiles.size());
-    for (size_t i = 0; i < landscapeTiles.size(); ++i) pushed.push_back(false);
+    std::vector<bool> pushed(landscapeTiles.size(), false);
 
     do
     {

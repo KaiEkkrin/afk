@@ -126,9 +126,7 @@ void AFK_DReduce::readBack(
      * algorithm-ify?
      */
     bool allPushed = false;
-    std::vector<bool> pushed;
-    pushed.reserve(shapeCells.size());
-    for (size_t i = 0; i < shapeCells.size(); ++i) pushed.push_back(false);
+    std::vector<bool> pushed(shapeCells.size(), false);
 
     do
     {

@@ -1048,6 +1048,9 @@ void AFK_World::doComputeTasks(unsigned int threadId)
     /* If I finalise stuff now, the y-reduce information will
      * be in the landscape tiles in time for the display
      * to edit out any cells I now know to be empty of terrain.
+     * ...TODO: I hope.  But it still splats, apparently in the
+     * yreduce: try disabling it or running it synchronously or
+     * some such.
      */
     for (unsigned int puzzle = 0; puzzle < terrainComputeQueues.size(); ++puzzle)
     {
