@@ -81,7 +81,6 @@ cubesIn(afk_core.computer),
 unitsIn(afk_core.computer),
 vapourFeatureKernel(0),
 vapourNormalKernel(0),
-preReleaseDep(nullptr),
 dReduce(nullptr)
 {
 }
@@ -89,7 +88,6 @@ dReduce(nullptr)
 AFK_3DVapourComputeQueue::~AFK_3DVapourComputeQueue()
 {
     if (dReduce) delete dReduce;
-    if (preReleaseDep) delete preReleaseDep;
 }
 
 void AFK_3DVapourComputeQueue::extend(
@@ -141,12 +139,13 @@ AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::addUnit(
 
 void AFK_3DVapourComputeQueue::computeStart(
     AFK_Computer *computer,
-    //AFK_JigsawCollection *vapourJigsaws,
     cl_mem vapourJigsawsDensityMem[4],
     cl_mem vapourJigsawsNormalMem[4],
     size_t vapourJigsawsCount,
     const Vec2<int>& fake3D_size,
     int fake3D_mult,
+    const AFK_ComputeDependency& preDep,
+    AFK_ComputeDependency& o_postDep,
     const AFK_ShapeSizes& sSizes)
 {
     std::unique_lock<std::mutex> lock(mut);
@@ -171,21 +170,15 @@ void AFK_3DVapourComputeQueue::computeStart(
     auto writeQueue = computer->getWriteQueue();
 
     /* Copy the vapour inputs to CL buffers. */
-    AFK_ComputeDependency noDep(computer);
     AFK_ComputeDependency preVapourDep(computer);
 
     cl_mem vapourBufs[3] = {
-        featuresIn.push(noDep, preVapourDep),
-        cubesIn.push(noDep, preVapourDep),
-        unitsIn.push(noDep, preVapourDep),
+        featuresIn.push(preDep, preVapourDep),
+        cubesIn.push(preDep, preVapourDep),
+        unitsIn.push(preDep, preVapourDep),
     };
 
     /* Set up the rest of the vapour parameters */
-    cl_mem vapourJigsawsDensityMem[4];
-    //Vec2<int> fake3D_size;
-    //int fake3D_mult;
-    //jpDCount = vapourJigsaws->acquireAllForCl(computer, 0, vapourJigsawsDensityMem, 4, fake3D_size, fake3D_mult, preVapourDep);
-
     kernelQueue->kernel(vapourFeatureKernel);
 
     for (int vbI = 0; vbI < 3; ++vbI)
@@ -205,10 +198,6 @@ void AFK_3DVapourComputeQueue::computeStart(
     kernelQueue->kernel3D(vapourDim, nullptr, preVapourDep, preNormalDep);
 
     /* Next, compute the vapour normals. */
-    //cl_mem vapourJigsawsNormalMem[4];
-    //jpNCount = vapourJigsaws->acquireAllForCl(computer, 1, vapourJigsawsNormalMem, 4, fake3D_size, fake3D_mult, preNormalDep);
-    //assert(jpNCount == jpDCount);
-
     kernelQueue->kernel(vapourNormalKernel);
     kernelQueue->kernelArg(sizeof(cl_mem), &vapourBufs[2]);
     kernelQueue->kernelArg(sizeof(cl_int2), &fake3D_size.v[0]);
@@ -220,9 +209,7 @@ void AFK_3DVapourComputeQueue::computeStart(
     for (int jpI = 0; jpI < 4; ++jpI)
         kernelQueue->kernelArg(sizeof(cl_mem), &vapourJigsawsNormalMem[jpI]);
 
-    if (!preReleaseDep) preReleaseDep = new AFK_ComputeDependency(computer);
-    assert(preReleaseDep->getEventCount() == 0);
-    kernelQueue->kernel3D(vapourDim, nullptr, preNormalDep, *preReleaseDep);
+    kernelQueue->kernel3D(vapourDim, nullptr, preNormalDep, o_postDep);
 
     /* While we're doing that, also enqueue the D reduce. */
     /* TODO Re-enable this later ... */
@@ -235,20 +222,20 @@ void AFK_3DVapourComputeQueue::computeStart(
         vapourJigsawsDensityMem,
         sSizes,
         preNormalDep,
-        *preReleaseDep);
+        o_postDep);
 #endif
 }
 
-void AFK_3DVapourComputeQueue::computeFinish(unsigned int threadId, /* AFK_JigsawCollection *vapourJigsaws, */ AFK_SHAPE_CELL_CACHE *cache)
+void AFK_3DVapourComputeQueue::computeFinish(
+    unsigned int threadId,
+    AFK_SHAPE_CELL_CACHE *cache)
 {
     std::unique_lock<std::mutex> lock(mut);
 
     size_t unitCount = unitsIn.getCount();
     if (unitCount == 0) return;
 
-    assert(preReleaseDep && dReduce);
-    //vapourJigsaws->releaseAllFromCl(0, jpDCount, *preReleaseDep);
-    //vapourJigsaws->releaseAllFromCl(1, jpNCount, *preReleaseDep);
+    assert(dReduce);
 
     /* Read back the D reduce. */
 #if DO_DREDUCE
@@ -266,12 +253,6 @@ bool AFK_3DVapourComputeQueue::empty(void)
 void AFK_3DVapourComputeQueue::clear(void)
 {
     std::unique_lock<std::mutex> lock(mut);
-
-    if (preReleaseDep)
-    {
-        preReleaseDep->waitFor();
-        preReleaseDep->reset();
-    }
 
     featuresIn.clear();
     cubesIn.clear();

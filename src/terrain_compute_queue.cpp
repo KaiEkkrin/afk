@@ -61,14 +61,13 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainComputeUnit& unit)
 
 AFK_TerrainComputeQueue::AFK_TerrainComputeQueue():
 featuresIn(afk_core.computer), tilesIn(afk_core.computer), unitsIn(afk_core.computer),
-terrainKernel(0), surfaceKernel(0), yReduce(nullptr), postTerrainDep(nullptr)
+terrainKernel(0), surfaceKernel(0), yReduce(nullptr)
 {
 }
 
 AFK_TerrainComputeQueue::~AFK_TerrainComputeQueue()
 {
     if (yReduce) delete yReduce;
-    if (postTerrainDep) delete postTerrainDep;
 }
 
 AFK_TerrainComputeUnit AFK_TerrainComputeQueue::extend(const AFK_TerrainList& list, const Vec2<int>& piece, const AFK_Tile& tile, const AFK_LandscapeSizes& lSizes)
@@ -126,11 +125,12 @@ std::string AFK_TerrainComputeQueue::debugTerrain(const AFK_TerrainComputeUnit& 
 
 void AFK_TerrainComputeQueue::computeStart(
     AFK_Computer *computer,
-    //AFK_Jigsaw *jigsaw,
     cl_mem jigsawYDispMem,
     cl_mem jigsawColourMem,
     cl_mem jigsawNormalMem,
     const AFK_LandscapeSizes& lSizes,
+    const AFK_ComputeDependency& preDep,
+    AFK_ComputeDependency& o_postDep,
     const Vec3<float>& baseColour)
 {
     std::unique_lock<std::mutex> lock(mut);
@@ -157,21 +157,16 @@ void AFK_TerrainComputeQueue::computeStart(
     auto writeQueue = computer->getWriteQueue();
 
     /* Copy the terrain inputs to CL buffers. */
-    AFK_ComputeDependency noDep(computer);
     AFK_ComputeDependency preTerrainDep(computer);
 
     cl_mem terrainBufs[3] = {
-        featuresIn.push(noDep, preTerrainDep),
-        tilesIn.push(noDep, preTerrainDep),
-        unitsIn.push(noDep, preTerrainDep),
+        featuresIn.push(preDep, preTerrainDep),
+        tilesIn.push(preDep, preTerrainDep),
+        unitsIn.push(preDep, preTerrainDep),
     };
 
     /* Set up the rest of the terrain parameters */
     Vec4<float> baseColour4 = afk_vec4<float>(baseColour, 0.0f);
-
-    //jigsaw->setupImages(computer);
-    //cl_mem jigsawYDispMem = jigsaw->acquireForCl(0, preTerrainDep);
-    //cl_mem jigsawColourMem = jigsaw->acquireForCl(1, preTerrainDep);
 
     kernelQueue->kernel(terrainKernel);
     
@@ -199,8 +194,6 @@ void AFK_TerrainComputeQueue::computeStart(
         &error);
     AFK_HANDLE_CL_ERROR(error);
 
-    //cl_mem jigsawNormalMem = jigsaw->acquireForCl(2, preSurfaceDep);
-
     /* Now, I need to run the kernel to bake the surface normals.
      */
     kernelQueue->kernel(surfaceKernel);
@@ -217,9 +210,7 @@ void AFK_TerrainComputeQueue::computeStart(
     surfaceLocalDim[0] = surfaceLocalDim[1] = lSizes.tDim - 1;
     surfaceLocalDim[2] = 1;
 
-    if (!postTerrainDep) postTerrainDep = new AFK_ComputeDependency(computer);
-    assert(postTerrainDep->getEventCount() == 0);
-    kernelQueue->kernel3D(surfaceGlobalDim, surfaceLocalDim, preSurfaceDep, *postTerrainDep);
+    kernelQueue->kernel3D(surfaceGlobalDim, surfaceLocalDim, preSurfaceDep, o_postDep);
 
     /* Finally, do the y reduce. */
     yReduce->compute(
@@ -229,24 +220,20 @@ void AFK_TerrainComputeQueue::computeStart(
         &jigsawYDispSampler,
         lSizes,
         preSurfaceDep,
-        *postTerrainDep);
+        o_postDep);
 
     /* Release the things */
     AFK_CLCHK(computer->oclShim.ReleaseSampler()(jigsawYDispSampler))
 }
 
-void AFK_TerrainComputeQueue::computeFinish(unsigned int threadId, /* AFK_Jigsaw *jigsaw, */ AFK_LANDSCAPE_CACHE *cache)
+void AFK_TerrainComputeQueue::computeFinish(
+    unsigned int threadId,
+    AFK_LANDSCAPE_CACHE *cache)
 {
     std::unique_lock<std::mutex> lock(mut);
 
     size_t unitCount = unitsIn.getCount();
     if (unitCount == 0) return;
-
-    /* Release the images. */
-    assert(postTerrainDep && yReduce);
-    //jigsaw->releaseFromCl(0, *postTerrainDep);
-    //jigsaw->releaseFromCl(1, *postTerrainDep);
-    //jigsaw->releaseFromCl(2, *postTerrainDep);
 
     /* Read back the Y reduce. */
     yReduce->readBack(threadId, unitCount, landscapeTiles, cache);
@@ -262,12 +249,6 @@ bool AFK_TerrainComputeQueue::empty(void)
 void AFK_TerrainComputeQueue::clear(void)
 {
     std::unique_lock<std::mutex> lock(mut);
-
-    if (postTerrainDep)
-    {
-        postTerrainDep->waitFor();
-        postTerrainDep->reset();
-    }
 
     featuresIn.clear();
     tilesIn.clear();

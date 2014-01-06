@@ -101,12 +101,6 @@ protected:
     cl_kernel vapourFeatureKernel;
     cl_kernel vapourNormalKernel;
 
-    /* The number of vapour density and normal jigsaws we acquired... */
-    int jpDCount, jpNCount;
-
-    /* ...and the events we need to wait for before releasing them */
-    AFK_ComputeDependency *preReleaseDep;
-
     AFK_DReduce *dReduce;
 
     /* Here we store the in-order list of source shape cell keys,
@@ -155,8 +149,6 @@ public:
 
     void computeFinish(
         unsigned int threadId,
-        const AFK_ComputeDependency& preDep,
-        AFK_ComputeDependency& o_postDep,
         AFK_SHAPE_CELL_CACHE *cache);
 
     /* To be part of a Fair. */

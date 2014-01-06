@@ -74,11 +74,6 @@ protected:
 
     AFK_ComputeInputList<AFK_3DEdgeComputeUnit> unitsIn;
     cl_kernel edgeKernel;
-
-    /* The events to wait for before we can release the vapour
-     * and edges
-     */
-    AFK_ComputeDependency *postEdgeDep;
     
 public:
     AFK_3DEdgeComputeQueue();
@@ -100,12 +95,6 @@ public:
         const AFK_ComputeDependency& preDep,
         AFK_ComputeDependency& o_postDep,
         const AFK_ShapeSizes& sSizes);
-
-#if 0
-    void computeFinish(
-        AFK_Jigsaw *vapourJigsaw,
-        AFK_Jigsaw *edgeJigsaw);
-#endif
 
     /* To be part of a Fair. */
     bool empty(void);

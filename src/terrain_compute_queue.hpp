@@ -87,7 +87,6 @@ protected:
     /* Compute stuff. */
     cl_kernel terrainKernel, surfaceKernel;
     AFK_YReduce *yReduce;
-    AFK_ComputeDependency *postTerrainDep;
 
     /* In this vector, we store the in-order list of source tiles
      * so that the yreduce module can feed the computed y bounds
@@ -122,8 +121,6 @@ public:
 
     void computeFinish(
         unsigned int threadId,
-        const AFK_ComputeDependency& preDep,
-        AFK_ComputeDependency& o_postDep,
         AFK_LANDSCAPE_CACHE *cache);
 
     bool empty(void);

@@ -20,7 +20,9 @@
 #include <cassert>
 #include <cfloat>
 #include <cmath>
+#include <map>
 #include <memory>
+#include <tuple>
 
 #include "core.hpp"
 #include "debug.hpp"
@@ -913,34 +915,132 @@ void AFK_World::doComputeTasks(unsigned int threadId)
      * directly interdicting the jigsaws from the update threads, the queue
      * flip is doing that.  This is more of a make-sure.)
      */
+    std::vector<AFK_ComputeDependency> terrainComputeDep(
+        terrainComputeQueues.size(), AFK_ComputeDependency(afk_core.computer));
     for (unsigned int puzzle = 0; puzzle < terrainComputeQueues.size(); ++puzzle)
     {
-        terrainComputeQueues.at(puzzle)->computeStart(afk_core.computer, landscapeJigsaws->getPuzzle(puzzle), lSizes, landscape_baseColour);
+        AFK_Jigsaw *jigsaw = landscapeJigsaws->getPuzzle(puzzle);
+        jigsaw->setupImages(afk_core.computer);
+
+        AFK_ComputeDependency memReady(afk_core.computer);
+        cl_mem jigsawYDispMem = jigsaw->acquireForCl(0, memReady);
+        cl_mem jigsawColourMem = jigsaw->acquireForCl(1, memReady);
+        cl_mem jigsawNormalMem = jigsaw->acquireForCl(2, memReady);
+
+        terrainComputeQueues.at(puzzle)->computeStart(
+            afk_core.computer,
+            jigsawYDispMem,
+            jigsawColourMem,
+            jigsawNormalMem,
+            lSizes,
+            memReady,
+            terrainComputeDep.at(puzzle),
+            landscape_baseColour);
     }
 
 #if AFK_RENDER_ENTITIES
     std::vector<std::shared_ptr<AFK_3DVapourComputeQueue> > vapourComputeQueues;
     vapourComputeFair.getDrawQueues(vapourComputeQueues);
     assert(vapourComputeQueues.size() <= 1);
-    if (vapourComputeQueues.size() == 1)
-        vapourComputeQueues.at(0)->computeStart(afk_core.computer, vapourJigsaws, sSizes);
 
     std::vector<std::shared_ptr<AFK_3DEdgeComputeQueue> > edgeComputeQueues;
     edgeComputeFair.getDrawQueues(edgeComputeQueues);
 
-    for (unsigned int i = 0; i < edgeComputeQueues.size(); ++i)
+    AFK_ComputeDependency vapourComputeDep(afk_core.computer);
+    int jpDensityCount, jpNormalCount;
+    Vec2<int> fake3D_size;
+    int fake3D_mult;
+
+    /* The edge computation queues are crossed (vapour x edge), but
+     * each computation depends on the right edges being loaded (and the
+     * vapours done of course, but they're all done together so that's
+     * easy).  Therefore, here I'm going to track 
+     * (overlap mem, memory dependency, compute dependency) in edge
+     * order.
+     */
+    std::map<unsigned int, std::tuple<cl_mem, AFK_ComputeDependency, AFK_ComputeDependency> > edgeTracking;
+
+    if (vapourComputeQueues.size() == 1)
     {
-        unsigned int vapourPuzzle, edgePuzzle;
-        entityFair2DIndex.get2D(i, vapourPuzzle, edgePuzzle);
-        AFK_Jigsaw *vapourJigsaw = vapourJigsaws->getPuzzle(vapourPuzzle);
-        AFK_Jigsaw *edgeJigsaw = edgeJigsaws->getPuzzle(edgePuzzle);
-        if (vapourJigsaw && edgeJigsaw)
+        AFK_ComputeDependency memReady(afk_core.computer);
+
+        // The acquireAllForCl() calls will call setupImages() to make sure
+        // jigsaw image areas have been allocated correctly.
+        cl_mem vapourJigsawsDensityMem[4];
+        jpDensityCount = vapourJigsaws->acquireAllForCl(
+            afk_core.computer,
+            0,
+            vapourJigsawsDensityMem,
+            4,
+            fake3D_size,
+            fake3D_mult,
+            memReady);
+
+        cl_mem vapourJigsawsNormalMem[4];
+        jpNormalCount = vapourJigsaws->acquireAllForCl(
+            afk_core.computer,
+            1,
+            vapourJigsawsNormalMem,
+            4,
+            fake3D_size,
+            fake3D_mult,
+            memReady);
+
+        assert(jpDensityCount == jpNormalCount);
+
+        vapourComputeQueues.at(0)->computeStart(
+            afk_core.computer,
+            vapourJigsawsDensityMem,
+            vapourJigsawsNormalMem,
+            jpDensityCount,
+            fake3D_size,
+            fake3D_mult,
+            memReady,
+            vapourComputeDep,
+            sSizes);
+
+        for (unsigned int i = 0; i < edgeComputeQueues.size(); ++i)
         {
-            edgeComputeQueues.at(i)->computeStart(
-                afk_core.computer,
-                vapourJigsaw,
-                edgeJigsaw,
-                sSizes);
+            unsigned int vapourPuzzle, edgePuzzle;
+            entityFair2DIndex.get2D(i, vapourPuzzle, edgePuzzle);
+
+            AFK_Jigsaw *edgeJigsaw = edgeJigsaws->getPuzzle(edgePuzzle);
+            if (edgeJigsaw && vapourPuzzle <= static_cast<unsigned int>(jpDensityCount))
+            {
+                auto edgeTrackIt = edgeTracking.find(edgePuzzle);
+                if (edgeTrackIt == edgeTracking.end())
+                {
+                    /* I need to setup this edge memory and the events. */
+                    AFK_ComputeDependency memReadyDep(afk_core.computer);
+                    AFK_ComputeDependency edgeComputeDep(afk_core.computer);
+
+                    edgeJigsaw->setupImages(afk_core.computer);
+
+                    cl_mem edgeJigsawOverlapMem = edgeJigsaw->acquireForCl(0, memReadyDep);
+                    edgeTrackIt = edgeTracking.insert(edgeTrackIt,
+                        std::pair<unsigned int, std::tuple<cl_mem, AFK_ComputeDependency, AFK_ComputeDependency> >(
+                        edgePuzzle, std::tuple<cl_mem, AFK_ComputeDependency, AFK_ComputeDependency>(
+                        edgeJigsawOverlapMem, memReadyDep, edgeComputeDep)));
+                }
+
+                /* I'm ready to do the edge compute if I've got the edge jigsaw
+                 * ready, and if the vapour compute is done (which will have readied
+                 * the density jigsaw).
+                 */
+                AFK_ComputeDependency readyForEdges(afk_core.computer);
+                readyForEdges += vapourComputeDep;
+                readyForEdges += std::get<1>(edgeTrackIt->second);
+
+                edgeComputeQueues.at(i)->computeStart(
+                    afk_core.computer,
+                    vapourJigsawsDensityMem[vapourPuzzle],
+                    std::get<0>(edgeTrackIt->second),
+                    fake3D_size,
+                    fake3D_mult,
+                    readyForEdges,
+                    std::get<2>(edgeTrackIt->second),
+                    sSizes);
+            }
         }
     }
 #endif
@@ -951,25 +1051,43 @@ void AFK_World::doComputeTasks(unsigned int threadId)
      */
     for (unsigned int puzzle = 0; puzzle < terrainComputeQueues.size(); ++puzzle)
     {
-        terrainComputeQueues.at(puzzle)->computeFinish(threadId, landscapeJigsaws->getPuzzle(puzzle), landscapeCache);
+        terrainComputeQueues.at(puzzle)->computeFinish(
+            threadId,
+            landscapeCache);
+
+        AFK_Jigsaw *jigsaw = landscapeJigsaws->getPuzzle(puzzle);
+        jigsaw->releaseFromCl(0, terrainComputeDep.at(puzzle));
+        jigsaw->releaseFromCl(1, terrainComputeDep.at(puzzle));
+        jigsaw->releaseFromCl(2, terrainComputeDep.at(puzzle));
     }
 
 #if AFK_RENDER_ENTITIES
     if (vapourComputeQueues.size() == 1)
-        vapourComputeQueues.at(0)->computeFinish(threadId, vapourJigsaws, shape.shapeCellCache);
-
-    for (unsigned int i = 0; i < edgeComputeQueues.size(); ++i)
     {
-        unsigned int vapourPuzzle, edgePuzzle;
-        entityFair2DIndex.get2D(i, vapourPuzzle, edgePuzzle);
-        AFK_Jigsaw *vapourJigsaw = vapourJigsaws->getPuzzle(vapourPuzzle);
-        AFK_Jigsaw *edgeJigsaw = edgeJigsaws->getPuzzle(edgePuzzle);
-        if (vapourJigsaw && edgeJigsaw)
+        vapourComputeQueues.at(0)->computeFinish(threadId, shape.shapeCellCache);
+
+        /* I can give up the jigsaw normals right away */
+        vapourJigsaws->releaseAllFromCl(
+            1,
+            jpNormalCount,
+            vapourComputeDep);
+
+        /* I can give up the edges as their computations finish,
+         * and the vapour density right at the end (that's easier than
+         * interleaving)
+         */
+        AFK_ComputeDependency allVapourFinished(afk_core.computer);
+        for (auto edgeTrack : edgeTracking)
         {
-            edgeComputeQueues.at(i)->computeFinish(
-                vapourJigsaw,
-                edgeJigsaw);
+            AFK_Jigsaw *edgeJigsaw = edgeJigsaws->getPuzzle(edgeTrack.first);
+            edgeJigsaw->releaseFromCl(0, std::get<2>(edgeTrack.second));
+            allVapourFinished += std::get<2>(edgeTrack.second);
         }
+
+        vapourJigsaws->releaseAllFromCl(
+            0,
+            jpDensityCount,
+            allVapourFinished);
     }
 #endif
 }

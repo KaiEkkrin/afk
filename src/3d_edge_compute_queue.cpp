@@ -57,13 +57,12 @@ std::ostream& operator<<(std::ostream& os, const AFK_3DEdgeComputeUnit& unit)
 /* AFK_3DEdgeComputeQueue implementation */
 
 AFK_3DEdgeComputeQueue::AFK_3DEdgeComputeQueue():
-unitsIn(afk_core.computer), edgeKernel(0), postEdgeDep(nullptr)
+unitsIn(afk_core.computer), edgeKernel(0)
 {
 }
 
 AFK_3DEdgeComputeQueue::~AFK_3DEdgeComputeQueue()
 {
-    if (postEdgeDep) delete postEdgeDep;
 }
 
 AFK_3DEdgeComputeUnit AFK_3DEdgeComputeQueue::append(
@@ -85,6 +84,8 @@ void AFK_3DEdgeComputeQueue::computeStart(
     cl_mem edgeJigsawOverlapMem,
     const Vec2<int>& fake3D_size,
     int fake3D_mult,
+    const AFK_ComputeDependency& preDep,
+    AFK_ComputeDependency& o_postDep,
     const AFK_ShapeSizes& sSizes)
 {
     std::unique_lock<std::mutex> lock(mut);
@@ -102,20 +103,8 @@ void AFK_3DEdgeComputeQueue::computeStart(
     auto writeQueue = computer->getWriteQueue();
 
     /* Copy the unit list to a CL buffer. */
-    AFK_ComputeDependency noDep(computer);
     AFK_ComputeDependency preEdgeDep(computer);
-    
-    cl_mem unitsBuf = unitsIn.push(noDep, preEdgeDep);
-
-    /* Set up the rest of the parameters */
-    if (!postEdgeDep) postEdgeDep = new AFK_ComputeDependency(computer);
-    assert(postEdgeDep->getEventCount() == 0);
-
-    //vapourJigsaw->setupImages(computer);
-    //edgeJigsaw->setupImages(computer);
-
-    //cl_mem vapourJigsawDensityMem = vapourJigsaw->acquireForCl(0, preEdgeDep);
-    //cl_mem edgeJigsawOverlapMem = edgeJigsaw->acquireForCl(0, preEdgeDep);
+    cl_mem unitsBuf = unitsIn.push(preDep, preEdgeDep);
 
     kernelQueue->kernel(edgeKernel);
     kernelQueue->kernelArg(sizeof(cl_mem), &vapourJigsawDensityMem);
@@ -126,8 +115,6 @@ void AFK_3DEdgeComputeQueue::computeStart(
      * If that changes the assert() in that module should remind
      * me to make suitable edits.
      */
-    //Vec2<int> fake3D_size = vapourJigsaw->getFake3D_size(0);
-    //int fake3D_mult = vapourJigsaw->getFake3D_mult(0);
     kernelQueue->kernelArg(sizeof(cl_int2), &fake3D_size.v[0]);
     kernelQueue->kernelArg(sizeof(cl_int), &fake3D_mult);
 
@@ -141,22 +128,8 @@ void AFK_3DEdgeComputeQueue::computeStart(
     edgeLocalDim[0] = 1;
     edgeLocalDim[1] = edgeLocalDim[2] = sSizes.eDim;
 
-    kernelQueue->kernel3D(edgeGlobalDim, edgeLocalDim, preEdgeDep, *postEdgeDep);
+    kernelQueue->kernel3D(edgeGlobalDim, edgeLocalDim, preEdgeDep, o_postDep);
 }
-
-#if 0
-void AFK_3DEdgeComputeQueue::computeFinish(
-    AFK_Jigsaw *vapourJigsaw,
-    AFK_Jigsaw *edgeJigsaw)
-{
-    assert(postEdgeDep || unitsIn.getCount() == 0);
-    if (unitsIn.getCount() > 0)
-    {
-        vapourJigsaw->releaseFromCl(0, *postEdgeDep);
-        edgeJigsaw->releaseFromCl(0, *postEdgeDep);
-    }
-}
-#endif
 
 bool AFK_3DEdgeComputeQueue::empty(void)
 {
@@ -168,12 +141,6 @@ bool AFK_3DEdgeComputeQueue::empty(void)
 void AFK_3DEdgeComputeQueue::clear(void)
 {
     std::unique_lock<std::mutex> lock(mut);
-
-    if (postEdgeDep)
-    {
-        postEdgeDep->waitFor();
-        postEdgeDep->reset();
-    }
 
     unitsIn.clear();
 }
