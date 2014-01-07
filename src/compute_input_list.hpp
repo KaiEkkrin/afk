@@ -222,14 +222,21 @@ public:
         /* Make sure we don't copy before being unmapped */
         hostUnmappingReady += preDep;
 
+        /* Make sure that something got written */
+        size_t extendOffsetInBytes = getExtendOffsetInBytes();
+        assert(extendOffsetInBytes > 0);
+
         computer->getWriteQueue()->copyBuffer(
-            hostMem, deviceMem, getExtendOffsetInBytes() /* total amount written */, hostUnmappingReady, o_postDep);
+            hostMem, deviceMem, extendOffsetInBytes /* total amount written */, hostUnmappingReady, o_postDep);
 
         /* Equally, we need to wait for that copy to be finished before we can
         * map again, and before we flip
         */
         hostUnmappingReady += o_postDep;
         pushFinished += o_postDep;
+
+        /* That resets the amount that was written */
+        extendOffset = 0;
 
         return deviceMem;
     }
@@ -246,7 +253,6 @@ public:
         pushFinished.waitFor();
 
         /* Reset to the beginning */
-        extendOffset = 0;
         doingPush = false;
     }
 };

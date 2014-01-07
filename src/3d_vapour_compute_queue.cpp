@@ -120,10 +120,9 @@ AFK_3DVapourComputeUnit AFK_3DVapourComputeQueue::addUnit(
     std::unique_lock<std::mutex> lock(mut);
 
     /* Sanity checks */
-    size_t existingCubeCount = cubesIn.getCount();
-    assert(cubeOffset >= 0 && cubeOffset < existingCubeCount);
+    assert(cubeOffset >= 0 && cubeOffset < cubesIn.getCount());
     assert(cubeCount > 0);
-    assert((cubeOffset + cubeCount) <= existingCubeCount);
+    assert((cubeOffset + cubeCount) <= cubesIn.getCount());
 
     AFK_3DVapourComputeUnit newUnit(
         location,
