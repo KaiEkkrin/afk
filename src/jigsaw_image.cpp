@@ -1084,5 +1084,4 @@ void AFK_JigsawImage::bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboi
 void AFK_JigsawImage::waitForAll(void)
 {
     changeDep.waitFor();
-    changeDep.reset();
 }

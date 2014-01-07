@@ -119,8 +119,6 @@ void AFK_DReduce::readBack(
     AFK_SHAPE_CELL_CACHE *cache)
 {
     readbackMappedDep.waitFor();
-    readbackMappedDep.reset();
-    readbackUnmappedDep.reset();
 
     /* TODO: Here's that logic again, as in yreduce...
      * algorithm-ify?

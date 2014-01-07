@@ -119,8 +119,6 @@ void AFK_YReduce::readBack(
     AFK_LANDSCAPE_CACHE *cache)
 {
     readbackMappedDep.waitFor();
-    readbackMappedDep.reset();
-    readbackUnmappedDep.reset();
 
 #if 0
     std::cout << "Computed y bounds: ";

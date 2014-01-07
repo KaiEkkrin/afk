@@ -213,6 +213,7 @@ void AFK_TerrainComputeQueue::computeStart(
     kernelQueue->kernel3D(surfaceGlobalDim, surfaceLocalDim, preSurfaceDep, o_postDep);
 
     /* Finally, do the y reduce. */
+#if 0
     yReduce->compute(
         unitCount,
         &terrainBufs[2],
@@ -221,6 +222,7 @@ void AFK_TerrainComputeQueue::computeStart(
         lSizes,
         preSurfaceDep,
         o_postDep);
+#endif
 
     /* Release the things */
     AFK_CLCHK(computer->oclShim.ReleaseSampler()(jigsawYDispSampler))
@@ -236,7 +238,9 @@ void AFK_TerrainComputeQueue::computeFinish(
     if (unitCount == 0) return;
 
     /* Read back the Y reduce. */
+#if 0
     yReduce->readBack(threadId, unitCount, landscapeTiles, cache);
+#endif
 }
 
 bool AFK_TerrainComputeQueue::empty(void)
