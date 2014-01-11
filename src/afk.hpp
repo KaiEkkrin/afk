@@ -95,7 +95,13 @@
 /* Set this to 0 to stop AFK from rendering entities (which are
  * a lot more buggy than the terrain, I think).  Or nonzero to enable
  * them.
+ * For now, I'm going to avoid entities on Win32, because there are
+ * too many bugs. :/
  */
+#ifdef _WIN32
 #define AFK_RENDER_ENTITIES 0
+#else
+#define AFK_RENDER_ENTITIES 1
+#endif
 
 #endif /* _AFK_AFK_H_ */
