@@ -213,8 +213,6 @@ void AFK_3DVapourComputeQueue::computeStart(
     kernelQueue->kernel3D(vapourDim, nullptr, preNormalDep, *preReleaseDep);
 
     /* While we're doing that, also enqueue the D reduce. */
-    /* TODO Re-enable this later ... */
-#if DO_DREDUCE
     dReduce->compute(
         unitCount,
         &vapourBufs[2],
@@ -224,7 +222,6 @@ void AFK_3DVapourComputeQueue::computeStart(
         sSizes,
         preNormalDep,
         *preReleaseDep);
-#endif
 }
 
 void AFK_3DVapourComputeQueue::computeFinish(unsigned int threadId, AFK_JigsawCollection *vapourJigsaws, AFK_SHAPE_CELL_CACHE *cache)
@@ -239,9 +236,7 @@ void AFK_3DVapourComputeQueue::computeFinish(unsigned int threadId, AFK_JigsawCo
     vapourJigsaws->releaseAllFromCl(1, jpNCount, *preReleaseDep);
 
     /* Read back the D reduce. */
-#if DO_DREDUCE
     dReduce->readBack(threadId, unitCount, shapeCells, cache);
-#endif
 }
 
 bool AFK_3DVapourComputeQueue::empty(void)
