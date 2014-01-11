@@ -50,6 +50,13 @@
 <li>Generated world detail is cached in the lockless hash map structure <code>AFK_Polymer</code>.  I created this structure rather than using <code>std::unordered_map</code> with a lock because each frame, the world enumeration needs to do a very large number of concurrent lookups.  In this situation, my custom structure's benefit (I measured a 10x higher lookup rate vs. <code>std::unordered_map</code> with a lock on an 8-thread system) outweighs its drawback (it occasionally generates more than one value for the same key).</li>
 </ul><p>The small blue chevron that serves as "protagonist" right now is a cheat, because I encoded its geometry by hand.  I'll remove it as soon as I can generate a random shape that fits its place nicely.</p>
 
+<hr><p>11 January 2014</p>
+
+<h3>
+<a name="windows-merge-etc" class="anchor" href="#windows-merge-etc"><span class="octicon octicon-link"></span></a>Windows merge, etc.</h3>
+
+<p>Getting a new job has meant I can't do so much to AFK these days, but I'm still going.  I've merged Windows support even though it's incomplete: shape render is turned off right now, because it crashes.  I've also discovered Nvidia's OpenCL implementation is always synchronous, which means my attempt at making correct asynchronous OpenCL calls didn't work even though I thought it did.  Asynchronous is currently disabled by default pending fixes...</p>
+
 <hr><p>18 November 2013</p>
 
 <h3>
