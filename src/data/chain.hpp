@@ -18,10 +18,9 @@
 #ifndef _AFK_DATA_CHAIN_H_
 #define _AFK_DATA_CHAIN_H_
 
+#include <atomic>
 #include <cassert>
 #include <memory>
-
-#include <boost/atomic.hpp>
 
 #include "data.hpp"
 
@@ -49,7 +48,7 @@ class AFK_Chain
 protected:
     std::shared_ptr<LinkFactory> linkFactory;
     Link *const link; /* TODO make this a shared_ptr ? */
-    boost::atomic<AFK_Chain*> chain;
+    std::atomic<AFK_Chain*> chain;
 
     /* Hack: To avoid multiple allocations (the factory might be slow)
      * upon a contended chain extend, we swap in the placeholder pointer
@@ -119,6 +118,16 @@ public:
             AFK_Chain *ch = next();
             if (ch) return ch->at(index - 1);
             else return nullptr;
+        }
+    }
+
+    Link *lengthen(unsigned int index) afk_noexcept
+    {
+        if (index == 0) return link;
+        else
+        {
+            AFK_Chain *ch = extend();
+            return ch->lengthen(index - 1);
         }
     }
 };

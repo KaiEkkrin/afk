@@ -318,6 +318,9 @@
     <ClInclude Include="src\compute_input.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\data\chain_link_test.hpp">
+      <Filter>Header Files\data</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\compute\fake3d.cl">
@@ -594,6 +597,9 @@
     </ClCompile>
     <ClCompile Include="src\compute_input.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\data\chain_link_test.cpp">
+      <Filter>Source Files\data</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

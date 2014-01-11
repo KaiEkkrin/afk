@@ -22,6 +22,7 @@
 
 #include "async/async_test.hpp"
 #include "data/cache_test.hpp"
+#include "data/chain_link_test.hpp"
 #include "hash_test.hpp"
 #include "rng/boost_taus88.hpp"
 #include "rng/rng_test.hpp"
@@ -34,6 +35,7 @@
 
 #define TEST_ASYNC 0
 #define TEST_CACHE 0
+#define TEST_CHAIN_LINK 0
 #define TEST_HASH 0
 #define TEST_JIGSAW_FAKE3D 0
 #define TEST_RNGS 0
@@ -69,24 +71,34 @@ int main(int argc, char **argv)
 
 #if TEST_ASYNC
     test_async();
+    std::cin.ignore();
 #endif
 
 #if TEST_CACHE
     test_cache();
+    std::cin.ignore();
+#endif
+
+#if TEST_CHAIN_LINK
+    afk_testChainLink();
+    std::cin.ignore();
 #endif
 
 #if TEST_HASH
     test_rotate();
     test_tileHash();
     test_cellHash();
+    std::cin.ignore();
 #endif
 
 #if TEST_JIGSAW_FAKE3D
     test_jigsawFake3D();
+    std::cin.ignore();
 #endif
 
 #if TEST_SUBSTRATE
     test_substrate();
+    std::cin.ignore();
 #endif
 
     try
@@ -101,6 +113,7 @@ int main(int argc, char **argv)
 		 */
 #if TEST_RNGS
     	test_rngs();
+        std::cin.ignore();
 #endif
 
         std::cout << "AFK initalising graphics" << std::endl;

@@ -198,6 +198,7 @@
     <ClInclude Include="src\data\cache.hpp" />
     <ClInclude Include="src\data\cache_test.hpp" />
     <ClInclude Include="src\data\chain.hpp" />
+    <ClInclude Include="src\data\chain_link_test.hpp" />
     <ClInclude Include="src\data\claimable.hpp" />
     <ClInclude Include="src\data\claimable_locked.hpp" />
     <ClInclude Include="src\data\claimable_volatile.hpp" />
@@ -306,6 +307,7 @@
     <ClCompile Include="src\core.cpp" />
     <ClCompile Include="src\data\cache_test.cpp" />
     <ClCompile Include="src\data\chain.cpp" />
+    <ClCompile Include="src\data\chain_link_test.cpp" />
     <ClCompile Include="src\data\fair.cpp" />
     <ClCompile Include="src\data\frame.cpp" />
     <ClCompile Include="src\data\polymer_cache.cpp" />
