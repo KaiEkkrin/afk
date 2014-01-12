@@ -1,0 +1,10 @@
+Chain link test 40000 iterations, 24 threads.  Simple deque/mutex chain.
+
+ o Guinevere (i7 2600K, Ubuntu)
+   - Volatile claimable: 0 fails, 16.9 seconds
+   - Locked claimable: 0 fails, 4.3 seconds
+
+ o Lancelot (i7 4770K, Windows)
+   - Volatile claimable:
+   - Locked claimable:
+

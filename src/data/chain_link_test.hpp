@@ -76,7 +76,7 @@ public:
 std::ostream& operator<<(std::ostream& os, const AFK_ChainLinkTestLink& link);
 
 #if AFK_CLTL_LOCKED_CLAIMABLE
-typedef AFK_LockedCLaimable<AFK_ChainLinkTestLink> AFK_ClaimableChainLinkTestLink;
+typedef AFK_LockedClaimable<AFK_ChainLinkTestLink> AFK_ClaimableChainLinkTestLink;
 #else
 typedef AFK_VolatileClaimable<AFK_ChainLinkTestLink> AFK_ClaimableChainLinkTestLink;
 #endif

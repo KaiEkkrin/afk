@@ -135,7 +135,7 @@ void afk_testChainLink(void)
     int64_t rngSeed = (static_cast<int64_t>(rdev()) |
         (static_cast<int64_t>(rdev())) << 32);
 
-    const int iterations = 100000;
+    const int iterations = 40000;
     const int maxChainLength = sqrt(iterations);
     const int threads = 24;
 
