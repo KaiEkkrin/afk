@@ -20,6 +20,7 @@
 
 #include <boost/thread.hpp>
 
+#include "claimable.hpp"
 #include "data.hpp"
 
 /* This defines the same interface as Claimable, but using boost
