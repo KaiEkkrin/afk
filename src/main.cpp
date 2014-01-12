@@ -35,7 +35,7 @@
 
 #define TEST_ASYNC 0
 #define TEST_CACHE 0
-#define TEST_CHAIN_LINK 0
+#define TEST_CHAIN_LINK 1
 #define TEST_HASH 0
 #define TEST_JIGSAW_FAKE3D 0
 #define TEST_RNGS 0

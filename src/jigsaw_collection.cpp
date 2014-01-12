@@ -53,7 +53,7 @@ AFK_JigsawCollection::AFK_JigsawCollection(
     unsigned int _maxPuzzles):
         maxPuzzles(_maxPuzzles)
 {
-    assert(maxPuzzles == 0 || maxPuzzles >= (int)_e.getPuzzleCount());
+    assert(maxPuzzles == 0 || maxPuzzles >= _e.getPuzzleCount());
 
     std::vector<AFK_JigsawImageDescriptor> desc;
     for (auto d = _e.beginDescriptors(); d != _e.endDescriptors(); ++d)

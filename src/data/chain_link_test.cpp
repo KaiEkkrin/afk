@@ -22,6 +22,7 @@
 #include <boost/random/random_device.hpp>
 
 #include "chain_link_test.hpp"
+#include "../clock.hpp"
 #include "../rng/boost_taus88.hpp"
 
 AFK_ChainLinkTestLink::AFK_ChainLinkTestLink() :
@@ -126,8 +127,6 @@ void afk_testChainLink_worker(int threadId, int64_t rngSeed, int iterations, int
             linkClaim.get().test(index);
         }
     }
-
-    std::cout << std::endl;
 }
 
 void afk_testChainLink(void)
@@ -136,16 +135,20 @@ void afk_testChainLink(void)
     int64_t rngSeed = (static_cast<int64_t>(rdev()) |
         (static_cast<int64_t>(rdev())) << 32);
 
-    const int iterations = 100;
-    const int maxChainLength = 10;
+    const int iterations = 100000;
+    const int maxChainLength = sqrt(iterations);
+    const int threads = 24;
 
     std::shared_ptr<AFK_BasicLinkFactory<AFK_ClaimableChainLinkTestLink> > linkFactory =
         std::make_shared<AFK_BasicLinkFactory<AFK_ClaimableChainLinkTestLink> >();
     AFK_ChainLinkTestChain *testChain = new AFK_ChainLinkTestChain(linkFactory);
 
-    /* 24 workers should be a reasonable number, right? :P */
     std::deque<std::thread> workers;
-    for (int i = 0; i < 2; ++i)
+
+    afk_clock::time_point startTime, endTime;
+    startTime = afk_clock::now();
+    assert(threads < 31);
+    for (int i = 0; i < threads; ++i)
     {
         workers.push_back(std::thread(
             afk_testChainLink_worker,
@@ -161,6 +164,8 @@ void afk_testChainLink(void)
     {
         workerIt->join();
     }
+
+    endTime = afk_clock::now();
 
     /* Verify that whole thing */
     int index = 0;
@@ -184,6 +189,10 @@ void afk_testChainLink(void)
         ++index;
     });
 
+    afk_duration_mfl timeTaken = std::chrono::duration_cast<afk_duration_mfl>(endTime - startTime);
+    std::cout << "Chain link test (" << iterations << " iterations, " << maxChainLength << " max chain length, " << threads << " threads) finished in " << timeTaken.count() << " millis" << std::endl;
+
     delete testChain;
-    std::cout << "Chain link test finished with " << iterations << "iterations, " << fails << " fails." << std::endl;
+    std::cout << "Chain link test finished with " << iterations << " iterations, " << fails << " fails." << std::endl;
 }
+
