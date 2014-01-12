@@ -177,25 +177,24 @@ public:
         mut.unlock();
     }
 
-    AFK_LockedClaimable() afk_noexcept: obj()
+    AFK_LockedClaimable() afk_noexcept
     {
         boost::unique_lock<boost::upgrade_mutex> lock(mut);
+        obj = std::move(T());
     }
 
-    AFK_LockedClaimable(const AFK_LockedClaimable&& _claimable) afk_noexcept
+    AFK_LockedClaimable(const AFK_LockedClaimable&& _claimable) afk_noexcept:
+        mut(std::move(_claimable.mut))
     {
-        boost::unique_lock<boost::upgrade_mutex> lock1(_claimable.mut);
-        boost::unique_lock<boost::upgrade_mutex> lock2(mut);
-
-        obj = _claimable.obj;
+        boost::unique_lock<boost::upgrade_mutex> lock(mut);
+        obj = std::move(_claimable.obj);
     }
 
     AFK_LockedClaimable& operator=(const AFK_LockedClaimable&& _claimable) afk_noexcept
     {
-        boost::unique_lock<boost::upgrade_mutex> lock1(_claimable.mut);
-        boost::unique_lock<boost::upgrade_mutex> lock2(mut);
-
-        obj = _claimable.obj;
+        mut = std::move(_claimable.mut);
+        boost::unique_lock<boost::upgrade_mutex> lock(mut);
+        obj = std::move(_claimable.obj);
         return *this;
     }
 

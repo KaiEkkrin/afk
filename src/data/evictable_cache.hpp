@@ -40,12 +40,11 @@
 #endif
 
 #ifdef _WIN32
-/* ... However, locked claimable also seems to be unstable.  I'm deeply
- * suspicious of those mutexes, and don't know how to debug them --
- * they're complicated and obscure; so I'm going to prefer the volatile
- * claimable for now.  Maybe I can optimise it by pushing the RNG down
- * into the OpenCL and by rewriting afk_grabShared() / afk_returnShared()
- * in assembler?
+/* So: LockedClaimable itself works fine, but right now, because it makes
+ * a mutex for every object we run out of mutexes and crash horribly
+ * (it's not valid to have more than a million or so.)
+ * The obvious TODO here, if I want to keep using LockedClaimable (and I
+ * think I do) is to build a lock pool for it.
  */
 #define AFK_EC_LOCKED_CLAIMABLE 0
 #endif
