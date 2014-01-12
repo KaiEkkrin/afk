@@ -35,7 +35,7 @@
 
 #define TEST_ASYNC 0
 #define TEST_CACHE 0
-#define TEST_CHAIN_LINK 1
+#define TEST_CHAIN_LINK 0
 #define TEST_HASH 0
 #define TEST_JIGSAW_FAKE3D 0
 #define TEST_RNGS 0
@@ -80,7 +80,16 @@ int main(int argc, char **argv)
 #endif
 
 #if TEST_CHAIN_LINK
-    afk_testChainLink();
+    /* Edit iteration count here. */
+    const int chainLinkTestIterations = 100;
+    int chainLinkTestFails = 0;
+    for (int i = 0; i < chainLinkTestIterations; ++i)
+    {
+        chainLinkTestFails += afk_testChainLink();
+        std::cout << "Current total fails: " << chainLinkTestFails << std::endl;
+    }
+
+    std::cout << "Completed " << chainLinkTestIterations << " of the chain link test; " << chainLinkTestFails << " fails." << std::endl;
     std::cin.ignore();
 #endif
 

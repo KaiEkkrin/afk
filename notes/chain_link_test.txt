@@ -5,6 +5,15 @@ Chain link test 40000 iterations, 24 threads.  Simple deque/mutex chain.
    - Locked claimable: 0 fails, 4.3 seconds
 
  o Lancelot (i7 4770K, Windows)
-   - Volatile claimable:
-   - Locked claimable:
+   - Volatile claimable: 0 fails, 17.0 seconds
+   - Locked claimable: 0 fails, 9.0 seconds
+
+I'm still deeply suspicious of the LockedClaimable in particular, so I'm going
+to leave this to soak for a while to see whether any bugs come out, and after
+that I should try implementing the obvious lock pool (rather than dynamically
+created mutex objects) to see what effect it has.
+
+Soak tests (100 loops of the above):
+
+ o Guinevere (i7 2600K, Windows)
 

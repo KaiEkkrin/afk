@@ -55,7 +55,7 @@
  */
 
 #define AFK_CLTL_QUOTIENT_COUNT 6
-#define AFK_CLTL_LOCKED_CLAIMABLE 0
+#define AFK_CLTL_LOCKED_CLAIMABLE 1
 
 class AFK_ChainLinkTestLink
 {
@@ -85,7 +85,7 @@ typedef AFK_Chain<AFK_ClaimableChainLinkTestLink> AFK_ChainLinkTestChain;
 
 void afk_testChainLink_worker(int threadId, int64_t rngSeed, int iterations, int maxChainLength, AFK_ChainLinkTestChain *testChain);
 
-void afk_testChainLink(void);
+/* Returns the number of failures seen. */
+int afk_testChainLink(void);
 
 #endif /* _AFK_DATA_CHAIN_LINK_TEST_H_ */
-

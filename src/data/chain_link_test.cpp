@@ -129,14 +129,14 @@ void afk_testChainLink_worker(int threadId, int64_t rngSeed, int iterations, int
     }
 }
 
-void afk_testChainLink(void)
+int afk_testChainLink()
 {
     boost::random::random_device rdev;
     int64_t rngSeed = (static_cast<int64_t>(rdev()) |
         (static_cast<int64_t>(rdev())) << 32);
 
     const int iterations = 40000;
-    const int maxChainLength = sqrt(iterations);
+    const int maxChainLength = static_cast<int>(sqrt(iterations));
     const int threads = 24;
 
     std::shared_ptr<AFK_BasicLinkFactory<AFK_ClaimableChainLinkTestLink> > linkFactory =
@@ -172,17 +172,17 @@ void afk_testChainLink(void)
     int fails = 0;
     testChain->foreach([&index, &fails](std::shared_ptr<AFK_ClaimableChainLinkTestLink> link)
     {
-        std::cout << "verify test chain link: index " << index << ": ";
+        //std::cout << "verify test chain link: index " << index << ": ";
 
         auto claim = link->claim(1, AFK_CL_SPIN);
-        std::cout << claim.getShared();
+        //std::cout << claim.getShared();
         if (claim.getShared().verify(index))
         {
-            std::cout << " (verify ok)" << std::endl;
+            //std::cout << " (verify ok)" << std::endl;
         }
         else
         {
-            std::cout << " (verify FAILED)" << std::endl;
+            //std::cout << " (verify FAILED)" << std::endl;
             ++fails;
         }
 
@@ -194,5 +194,6 @@ void afk_testChainLink(void)
 
     delete testChain;
     std::cout << "Chain link test finished with " << iterations << " iterations, " << fails << " fails." << std::endl;
-}
 
+    return fails;
+}
