@@ -16,4 +16,11 @@ created mutex objects) to see what effect it has.
 Soak tests (100 loops of the above):
 
  o Guinevere (i7 2600K, Windows)
+   - Volatile claimable: 0 fails
+   - Locked claimable: 0 fails
+
+Okay.  Next, let's try redefining the Fair in terms of the Chain, and making
+Jigsaw, JigsawImage, and the compute queues separately LockedClaimables.  The
+goal here is to have no stray, unmanaged mutexes of dynamically created
+objects.  Then, I can see how I'm doing.
 

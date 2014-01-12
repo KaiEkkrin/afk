@@ -55,7 +55,7 @@
  */
 
 #define AFK_CLTL_QUOTIENT_COUNT 6
-#define AFK_CLTL_LOCKED_CLAIMABLE 1
+#define AFK_CLTL_LOCKED_CLAIMABLE 0
 
 class AFK_ChainLinkTestLink
 {
