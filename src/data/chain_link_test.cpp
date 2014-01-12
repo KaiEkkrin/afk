@@ -27,9 +27,9 @@
 AFK_ChainLinkTestLink::AFK_ChainLinkTestLink() :
 rnum(0), usageCount(0)
 {
-    for (int i = 0; i < AFK_CLTL_FACTOR_COUNT; ++i)
+    for (int i = 0; i < AFK_CLTL_QUOTIENT_COUNT; ++i)
     {
-        factors[i] = 0;
+        quotients[i] = 0;
     }
 }
 
@@ -48,30 +48,16 @@ void AFK_ChainLinkTestLink::test(int index)
         /* Yes, this special case is the same as the uninitialised case.
          * It's okay, it'll be rare
          */
-        for (int i = 0; i < AFK_CLTL_FACTOR_COUNT; ++i)
+        for (int i = 0; i < AFK_CLTL_QUOTIENT_COUNT; ++i)
         {
-            factors[i] = 0;
+            quotients[i] = 0;
         }
     }
     else
     {
-        uint32_t tryDiv = 1;
-        for (int i = 0; i < AFK_CLTL_FACTOR_COUNT; ++i)
+        for (int i = 0; i < AFK_CLTL_QUOTIENT_COUNT; ++i)
         {
-            if (tryDiv >= rnum)
-            {
-                /* This is never going to produce any more even factors,
-                 * just propagate the last number
-                 */
-                factors[i] = (i == 0 ? 1 : factors[i - 1]);
-            }
-            else
-            {
-                while ((rnum % tryDiv) != 0) ++tryDiv;
-                factors[i] = rnum / tryDiv;
-            }
-
-            ++tryDiv;
+            quotients[i] = rnum / (i + 2);
         }
     }
 }
@@ -84,9 +70,9 @@ bool AFK_ChainLinkTestLink::verify(int index) const
     {
         /* Unused, expect all zeroes. */
         ok = (rnum == 0);
-        for (int i = 0; i < AFK_CLTL_FACTOR_COUNT; ++i)
+        for (int i = 0; i < AFK_CLTL_QUOTIENT_COUNT; ++i)
         {
-            ok &= (factors[i] == 0);
+            ok &= (quotients[i] == 0);
         }
     }
     else
@@ -101,9 +87,9 @@ bool AFK_ChainLinkTestLink::verify(int index) const
         }
 
         ok = (rnum == expectedRNum);
-        for (int i = 0; i < AFK_CLTL_FACTOR_COUNT; ++i)
+        for (int i = 0; i < AFK_CLTL_QUOTIENT_COUNT; ++i)
         {
-            ok &= ((rnum % factors[i]) == 0);
+            ok &= (quotients[i] == rnum / (i + 2));
         }
     }
 
@@ -113,9 +99,9 @@ bool AFK_ChainLinkTestLink::verify(int index) const
 std::ostream& operator<<(std::ostream& os, const AFK_ChainLinkTestLink& link)
 {
     os << "Link(rnum=" << link.rnum << ", usageCount=" << link.usageCount << ",";
-    for (int i = 0; i < AFK_CLTL_FACTOR_COUNT; ++i)
+    for (int i = 0; i < AFK_CLTL_QUOTIENT_COUNT; ++i)
     {
-        os << "factors[" << i << "]=" << link.factors[i] << ", ";
+        os << "quotients[" << i << "]=" << link.quotients[i] << ", ";
     }
 
     os << ")";
@@ -134,11 +120,10 @@ void afk_testChainLink_worker(int threadId, int64_t rngSeed, int iterations, int
         int index = static_cast<int>(
             fmod(rng.frand() * fMaxChainLength, longestChainWanted));
 
-        AFK_ClaimableChainLinkTestLink *link = testChain->lengthen(index);
+        auto link = testChain->lengthen(index);
         {
             auto linkClaim = link->claim(threadId, AFK_CL_SPIN);
             linkClaim.get().test(index);
-            std::cout << threadId;
         }
     }
 
@@ -151,42 +136,40 @@ void afk_testChainLink(void)
     int64_t rngSeed = (static_cast<int64_t>(rdev()) |
         (static_cast<int64_t>(rdev())) << 32);
 
-    const int iterations = 10;
-    const int maxChainLength = 3;
+    const int iterations = 100;
+    const int maxChainLength = 10;
 
     std::shared_ptr<AFK_BasicLinkFactory<AFK_ClaimableChainLinkTestLink> > linkFactory =
         std::make_shared<AFK_BasicLinkFactory<AFK_ClaimableChainLinkTestLink> >();
     AFK_ChainLinkTestChain *testChain = new AFK_ChainLinkTestChain(linkFactory);
 
     /* 24 workers should be a reasonable number, right? :P */
-    std::deque<std::thread*> workers;
+    std::deque<std::thread> workers;
     for (int i = 0; i < 2; ++i)
     {
-        std::thread *worker = new std::thread(
+        workers.push_back(std::thread(
             afk_testChainLink_worker,
             i + 1,
             rngSeed,
             iterations,
             maxChainLength,
             testChain
-            );
-        workers.push_back(worker);
+            ));
     }
 
-    for (auto worker : workers)
+    for (auto workerIt = workers.begin(); workerIt != workers.end(); ++workerIt)
     {
-        worker->join();
-        delete worker;
+        workerIt->join();
     }
 
     /* Verify that whole thing */
     int index = 0;
     int fails = 0;
-    for (AFK_ChainLinkTestChain *chain = testChain; chain; chain = chain->next())
+    testChain->foreach([&index, &fails](std::shared_ptr<AFK_ClaimableChainLinkTestLink> link)
     {
         std::cout << "verify test chain link: index " << index << ": ";
-        
-        auto claim = chain->get()->claim(1, AFK_CL_SPIN);
+
+        auto claim = link->claim(1, AFK_CL_SPIN);
         std::cout << claim.getShared();
         if (claim.getShared().verify(index))
         {
@@ -199,7 +182,7 @@ void afk_testChainLink(void)
         }
 
         ++index;
-    }
+    });
 
     delete testChain;
     std::cout << "Chain link test finished with " << iterations << "iterations, " << fails << " fails." << std::endl;

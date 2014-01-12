@@ -18,119 +18,74 @@
 #ifndef _AFK_DATA_CHAIN_H_
 #define _AFK_DATA_CHAIN_H_
 
-#include <atomic>
-#include <cassert>
+
+#include <deque>
+#include <functional>
 #include <memory>
+#include <mutex>
 
 #include "data.hpp"
 
-/* A Chain is a simple single-linked list of atomic pointers.  It
- * provides lockless access at the expense of occasionally bumping the
- * list length a bit much!
+/* A Chain is a simple dynamically-growing linked list of pointers to
+ * things.
+ * The user needs to provide concurrency control for the things themselves.
+ * TODO: Change the Fair to be a flipping pair of these, I think.
  */
 
 template<typename Link>
 class AFK_BasicLinkFactory
 {
 public:
-    Link *operator()() const
+    std::shared_ptr<Link> operator()() const
     {
-        return new Link();
+        return std::make_shared<Link>();
     }
 };
-
-/* The placeholder (see below). */
-extern int placeholderBase;
 
 template<typename Link, typename LinkFactory = AFK_BasicLinkFactory<Link> >
 class AFK_Chain
 {
 protected:
-    std::shared_ptr<LinkFactory> linkFactory;
-    Link *const link; /* TODO make this a shared_ptr ? */
-    std::atomic<AFK_Chain*> chain;
+    mutable std::mutex mut;
 
-    /* Hack: To avoid multiple allocations (the factory might be slow)
-     * upon a contended chain extend, we swap in the placeholder pointer
-     * first.
-     * This pointer totally does not point to a real Link.
-     */
-    AFK_Chain *placeholder;
+    std::shared_ptr<LinkFactory> linkFactory;
+    std::deque<std::shared_ptr<Link> > chain;
 
 public:
-    AFK_Chain(std::shared_ptr<LinkFactory> _linkFactory):
-        linkFactory(_linkFactory), link((*_linkFactory)()), chain(nullptr)
+    AFK_Chain(std::shared_ptr<LinkFactory> _linkFactory, unsigned int startingCount = 0):
+        linkFactory(_linkFactory)
     {
-        placeholder = reinterpret_cast<AFK_Chain*>(&placeholderBase);
+        std::unique_lock<std::mutex> lock(mut);
+
+        for (unsigned int s = 0; s < startingCount; ++s)
+            chain.push_back((*linkFactory)());
     }
 
-    virtual ~AFK_Chain()
+    std::shared_ptr<Link> at(unsigned int index) const
     {
-        AFK_Chain *ch = chain.exchange(nullptr);
-        if (ch && ch != placeholder) delete ch;
-        delete link;
+        std::unique_lock<std::mutex> lock(mut);
+
+        return (index < chain.size() ? chain.at(index) : std::shared_ptr<Link>());
     }
 
-    Link *get(void) const afk_noexcept
+    std::shared_ptr<Link> lengthen(unsigned int index)
     {
-        return link;
+        std::unique_lock<std::mutex> lock(mut);
+
+        while (chain.size() <= index) chain.push_back((*linkFactory)());
+        return chain.at(index);
     }
 
-    AFK_Chain *next(void) const afk_noexcept
+    // Convenient, but holds on to the lock while the function is called,
+    // so don't use this for stuff that takes a long time!
+    template<typename Function>
+    void foreach(Function function, unsigned int startIndex = 0)
     {
-        AFK_Chain *nextChain;
-        do
-        {
-            nextChain = chain.load();
-        } while (nextChain == placeholder);
-        return nextChain;
-    }
+        std::unique_lock<std::mutex> lock(mut);
 
-    /* Extends an end-of-chain by one link, returning next.
-     */
-    AFK_Chain *extend(void)
-    {
-        AFK_Chain *ch = next();
-        if (ch)
-        {
-            return ch;
-        }
-        else
-        {
-            /* Avoid proliferation, as above. */
-            AFK_Chain *expected = nullptr;
-            if (chain.compare_exchange_strong(expected, placeholder))
-            {
-                /* I won the toss, make the real new chain. */
-                AFK_Chain *newChain = new AFK_Chain(linkFactory);
-                while (!chain.compare_exchange_strong(placeholder, newChain));
-                return newChain;
-            }
-            else return extend();
-        }
-    }
-
-    Link *at(unsigned int index) const afk_noexcept
-    {
-        if (index == 0) return link;
-        else
-        {
-            AFK_Chain *ch = next();
-            if (ch) return ch->at(index - 1);
-            else return nullptr;
-        }
-    }
-
-    Link *lengthen(unsigned int index) afk_noexcept
-    {
-        if (index == 0) return link;
-        else
-        {
-            AFK_Chain *ch = extend();
-            return ch->lengthen(index - 1);
-        }
+        for (auto it = chain.begin() + startIndex; it != chain.end(); ++it)
+            function(*it);
     }
 };
 
 #endif /* _AFK_DATA_CHAIN_H_ */
-
