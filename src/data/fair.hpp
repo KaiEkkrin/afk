@@ -19,8 +19,11 @@
 #define _AFK_DATA_FAIR_H_
 
 #include <memory>
-#include <mutex>
 #include <vector>
+
+#include <boost/atomic.hpp>
+
+#include "chain.hpp"
 
 /* A "Fair" is a collection of queues (clearly).
  * It maintains a mirrored set of queues, one for the update
@@ -36,14 +39,16 @@ template<typename QueueType>
 class AFK_Fair
 {
 protected:
-    std::vector<std::shared_ptr<QueueType> > queues;
-    unsigned int updateInc; /* 0 or 1 */
-    unsigned int drawInc; /* The opposite */
+    AFK_Chain<QueueType> queues[2];
 
-    std::mutex mut; /* I'm afraid so */
+    /* This atomic controls which queue is which, by indicating
+     * the current update queue; the draw queue is the other
+     * one.
+     */
+    boost::atomic_uint updateQ;
 
 public:
-    AFK_Fair(): updateInc(0), drawInc(1) {}
+    AFK_Fair() : updateQ(0) {}
 
     /* Call this when you're an evaluator thread.  This method
      * gives you a pointer to the queue you should use.
@@ -51,39 +56,30 @@ public:
     std::shared_ptr<QueueType> getUpdateQueue(
         unsigned int q)
     {
-        std::unique_lock<std::mutex> lock(mut);
-
-        unsigned int qIndex = q * 2 + updateInc;
-        /* Pad the queues up to the next multiple of 2 */
-        unsigned int qCount = qIndex + (2 - (qIndex % 2));
-        while (queues.size() < qCount)
-        {
-            std::shared_ptr<QueueType> newQ = std::make_shared<QueueType>();
-            queues.push_back(newQ);
-        }
-
-        return queues[qIndex];
+        return queues[updateQ.load()].lengthen(q);
     }
 
-    /* Fills out the supplied vector with all the draw queues. */
+    /* Fills out the supplied vector with all the draw queues.
+     * TODO: can I make this better?  It seems silly to do this
+     * copy; can I do the draw itself within a foreach()?
+     */
     void getDrawQueues(std::vector<std::shared_ptr<QueueType> >& o_drawQueues)
     {
-        std::unique_lock<std::mutex> lock(mut);
-
-        o_drawQueues.reserve(queues.size() / 2);
-        for (unsigned int dI = drawInc; dI < queues.size(); dI += 2)
-            o_drawQueues.push_back(queues[dI]);
+        queues[1 - updateQ.load()].foreach([&o_drawQueues](std::shared_ptr<QueueType>& queue)
+        {
+            o_drawQueues.push_back(queue);
+        });
     }
         
     void flipQueues(void)
     {
-        std::unique_lock<std::mutex> lock(mut);
+        updateQ.fetch_xor(1);
 
-        updateInc = (updateInc == 0 ? 1 : 0);
-        drawInc = (drawInc == 0 ? 1 : 0);
-
-        for (unsigned int uI = updateInc; uI < queues.size(); uI += 2)
-            queues[uI]->clear();
+        /* Clear the update queue afresh. */
+        queues[updateQ.load()].foreach([](std::shared_ptr<QueueType>& queue)
+        {
+            queue->clear();
+        });
     }
 };
 

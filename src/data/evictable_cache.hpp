@@ -45,6 +45,11 @@
  * (it's not valid to have more than a million or so.)
  * The obvious TODO here, if I want to keep using LockedClaimable (and I
  * think I do) is to build a lock pool for it.
+ * ...The trouble with an AFK lock pool, however, is the potential added
+ * vulnerability to deadlocking; what order will locks for different LoD
+ * cells appear in the pool?  Therefore, for that reason, I'd rather keep
+ * the volatile stuff and optimise my use of it (do several LoDs at once;
+ * have a faster copy operation, etc).
  */
 #define AFK_EC_LOCKED_CLAIMABLE 0
 #endif

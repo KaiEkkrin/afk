@@ -52,6 +52,12 @@ protected:
     std::deque<std::shared_ptr<Link> > chain;
 
 public:
+    AFK_Chain()
+    {
+        std::unique_lock<std::mutex> lock(mut);
+        linkFactory = std::make_shared<LinkFactory>();
+    }
+
     AFK_Chain(std::shared_ptr<LinkFactory> _linkFactory, unsigned int startingCount = 0):
         linkFactory(_linkFactory)
     {
