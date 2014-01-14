@@ -301,6 +301,10 @@ public:
         void *param_value,
         size_t *param_value_size_ret);
 
+    AFK_OCL_FUNC(void *, GetExtensionFunctionAddressForPlatform,
+        cl_platform_id platform,
+        const char *funcname);
+
     AFK_OCL_FUNC(cl_int, GetPlatformIDs,
         cl_uint num_entries,
         cl_platform_id *platforms,
@@ -356,5 +360,44 @@ public:
         const cl_event *event_list);
 };
 
-#endif /* _AFK_OCL_SHIM_H_ */
+#define AFK_OCL_PLATFORM_EXTENSION_FUNC(rettype, name, ...) \
+    typedef rettype(*OCLPLATEXTFUNC_##name)(__VA_ARGS__); \
+    class st_##name \
+    { \
+    private: \
+        cl_platform_id *platformPtr; \
+        AFK_OclShim **oclShimPtr; \
+        OCLPLATEXTFUNC_##name oclPlatExtFunc_##name; \
+    public: \
+        st_##name(cl_platform_id *_platformPtr, AFK_OclShim **_oclShimPtr) : \
+        platformPtr(_platformPtr), oclShimPtr(_oclShimPtr), oclPlatExtFunc_##name(nullptr) {} \
+        OCLPLATEXTFUNC_##name operator()(void) \
+        { \
+            if (!oclPlatExtFunc_##name) \
+            { \
+                oclPlatExtFunc_##name = (OCLPLATEXTFUNC_##name)(*oclShimPtr)->GetExtensionFunctionAddressForPlatform()(*platformPtr, "cl"#name); \
+                if (!oclPlatExtFunc_##name) AFK_HANDLE_DL_ERROR; \
+            } \
+            return oclPlatExtFunc_##name; \
+        } \
+    }; \
+    st_##name name = st_##name(&platformId, &oclShim)
 
+class AFK_OclPlatformExtensionShim
+{
+protected:
+    cl_platform_id platformId;
+    AFK_OclShim *oclShim;
+
+public:
+    AFK_OclPlatformExtensionShim(cl_platform_id _platformId, AFK_OclShim *_oclShim);
+
+    AFK_OCL_PLATFORM_EXTENSION_FUNC(cl_int, GetGLContextInfoKHR,
+        const cl_context_properties *properties,
+        cl_gl_context_info param_name,
+        size_t param_value_size,
+        void *param_value,
+        size_t *param_value_size_ret);
+};
+
+#endif /* _AFK_OCL_SHIM_H_ */

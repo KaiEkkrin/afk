@@ -92,4 +92,9 @@ AFK_OclShim::~AFK_OclShim()
     if (handle) FreeLibrary(handle);
 }
 
+AFK_OclPlatformExtensionShim::AFK_OclPlatformExtensionShim(cl_platform_id _platformId, AFK_OclShim *_oclShim) :
+platformId(_platformId), oclShim(_oclShim)
+{
+}
+
 #endif /* AFK_WGL */

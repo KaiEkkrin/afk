@@ -167,12 +167,13 @@ protected:
     cl_platform_id platform;
     AFK_ClPlatformProperties *platformProps;
     bool platformIsAMD;
+    bool clGlSharing;
     bool useEvents;
 
     /* The IDs of the devices that I'm using.
      */
     cl_device_id *devices;
-    unsigned int devicesSize;
+    cl_uint devicesSize;
 
     AFK_ClDeviceProperties *firstDeviceProps;
 
@@ -182,7 +183,6 @@ protected:
     size_t stillBuilding;
 
     cl_context ctxt;
-    //cl_command_queue q;
     std::shared_ptr<AFK_ComputeQueue> kernelQueue;
     std::shared_ptr<AFK_ComputeQueue> readQueue;
     std::shared_ptr<AFK_ComputeQueue> writeQueue;
@@ -199,6 +199,7 @@ public:
      * (Abstract away from all those event lists, etc.)
      */
     AFK_OclShim oclShim;
+    AFK_OclPlatformExtensionShim *oclPlatformExtensionShim;
 
     AFK_Computer(const AFK_Config *config);
     virtual ~AFK_Computer();

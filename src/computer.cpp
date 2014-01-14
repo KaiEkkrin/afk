@@ -232,8 +232,11 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
     platformIsAMD = (strstr(platformName, "AMD") != NULL);
 
     if (platformIsAMD) std::cout << "AMD platform detected!" << std::endl;
-    std::cout << "Finding cl_gl devices for platform " << platformName << std::endl;
+    std::cout << "Finding OpenCL devices for platform " << platformName << std::endl;
     delete[] platformName;
+
+    if (oclPlatformExtensionShim) delete oclPlatformExtensionShim;
+    oclPlatformExtensionShim = new AFK_OclPlatformExtensionShim(platform, &oclShim);
 
 #if AFK_GLX
     Display *dpy = glXGetCurrentDisplay();
@@ -249,20 +252,34 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
 
 #if AFK_WGL
     cl_context_properties clGlProperties[] = {
-        CL_GL_CONTEXT_KHR, firstOf<HGLRC, cl_context_properties>(wglGetCurrentContext()),
-        CL_WGL_HDC_KHR, firstOf<HDC, cl_context_properties>(wglGetCurrentDC()),
+        CL_GL_CONTEXT_KHR, (cl_context_properties)wglGetCurrentContext(),
+        CL_WGL_HDC_KHR, (cl_context_properties)wglGetCurrentDC(),
         CL_CONTEXT_PLATFORM, (cl_context_properties)platform,
         0
     };
 #endif
 
-    AFK_CLCHK(oclShim.GetDeviceIDs()(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &devicesSize))
+    if (clGlSharing)
+    {
+        devicesSize = 1;
+        devices = new cl_device_id[devicesSize];
+        AFK_CLCHK(oclPlatformExtensionShim->GetGLContextInfoKHR()(clGlProperties, CL_CURRENT_DEVICE_FOR_GL_CONTEXT_KHR, sizeof(cl_device_id), devices, NULL))
+        std::cout << "Found a supported cl_gl device." << std::endl;
+    }
+    else
+    {
+        AFK_CLCHK(oclShim.GetDeviceIDs()(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &devicesSize))
+
+        if (devicesSize > 0)
+        {
+            devices = new cl_device_id[devicesSize];
+            AFK_CLCHK(oclShim.GetDeviceIDs()(platform, CL_DEVICE_TYPE_GPU, devicesSize, devices, &devicesSize))
+            std::cout << "Found " << devicesSize << " supported OpenCL devices. " << std::endl;
+        }
+    }
+
     if (devicesSize > 0)
     {
-        devices = new cl_device_id[devicesSize];
-        AFK_CLCHK(oclShim.GetDeviceIDs()(platform, CL_DEVICE_TYPE_GPU, devicesSize, devices, &devicesSize))
-
-        std::cout << "Found " << devicesSize << " GPU devices. " << std::endl;
 
         char *deviceName;
         size_t deviceNameSize;
@@ -278,7 +295,7 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
         std::cout << "Device properties: " << std::endl << *firstDeviceProps;
 
         cl_int error;
-        ctxt = oclShim.CreateContext()(clGlProperties, devicesSize, devices, NULL, NULL, &error);
+        ctxt = oclShim.CreateContext()(clGlProperties, static_cast<cl_uint>(devicesSize), devices, NULL, NULL, &error);
         AFK_HANDLE_CL_ERROR(error);
         return true;
     }
@@ -354,7 +371,7 @@ void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<AF
         std::cout << "AFK: Passing compiler arguments: " << argsStr << std::endl;
     error = oclShim.BuildProgram()(
         p->program,
-        devicesSize,
+        static_cast<cl_uint>(devicesSize),
         devices,
         argsStr.size() > 0 ? argsStr.c_str() : NULL,
         afk_programBuiltNotify,
@@ -397,6 +414,7 @@ void AFK_Computer::printBuildLog(std::ostream& s, const AFK_ClProgram& p, cl_dev
 AFK_Computer::AFK_Computer(const AFK_Config *config):
     platform(0),
     platformProps(NULL),
+    clGlSharing(config->clGlSharing),
     useEvents(config->clUseEvents),
     devices(NULL),
     devicesSize(0),
@@ -405,7 +423,8 @@ AFK_Computer::AFK_Computer(const AFK_Config *config):
     kernelQueue(nullptr),
     readQueue(nullptr),
     writeQueue(nullptr),
-    oclShim(config)
+    oclShim(config),
+    oclPlatformExtensionShim(nullptr)
 {
     cl_platform_id *platforms;
     unsigned int platformCount;
@@ -477,6 +496,8 @@ AFK_Computer::AFK_Computer(const AFK_Config *config):
 
 AFK_Computer::~AFK_Computer()
 {
+    if (oclPlatformExtensionShim) delete oclPlatformExtensionShim;
+
     if (devices)
     {
         kernelQueue.reset();
