@@ -27,6 +27,7 @@
 #include <CL/cl.h>
 #include <GL/glew.h>
 #include <CL/cl_gl.h>
+#include <CL/cl_gl_ext.h>
 
 #ifdef AFK_GLX
 #include <X11/Xlib.h>
