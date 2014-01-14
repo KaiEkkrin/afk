@@ -700,6 +700,8 @@ void AFK_JigsawImage::initGlImage(const Vec3<int>& _jigsawSize)
     }
 
     AFK_GLCHK("AFK_JigSaw texStorage")
+
+    glBindTexture(texTarget, 0);
     free(zeroBuf);
 }
 
@@ -710,7 +712,13 @@ void AFK_JigsawImage::initClImageFromGlImage(const Vec3<int>& _jigsawSize)
     cl_context ctxt = computer->getContext();
 
     GLuint texTarget = desc.getGlTarget();
-    glBindTexture(texTarget, glTex);
+    //glBindTexture(texTarget, glTex);
+    // TODO: The AMD GaussianNoiseGL example has working cl-gl sharing
+    // of a texture.  Try studying that and tweaking all the things I'm
+    // doing differently.  In particular, try removing the (slightly
+    // redundant) use of VAOs in the world, and making sure I specify
+    // all parameters of my texture fully at all times (and don't have
+    // it bound when I do cl_gl operations).
 
 #ifdef CL_VERSION_1_2
     if (computer->testVersion(1, 2))
