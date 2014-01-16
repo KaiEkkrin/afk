@@ -22,7 +22,7 @@
 
 #include "config_option.hpp"
 
-#define AFK_CONFIG_FIELD(type, name, defaultValue) AFK_ConfigOption<##type> name = AFK_ConfigOption<##type>(#name, &options, defaultValue)
+#define AFK_CONFIG_FIELD(type, name, defaultValue) AFK_ConfigOption< type > name = AFK_ConfigOption< type >(#name, &options, defaultValue)
 
 /* Describes the AFK configuration. */
 
