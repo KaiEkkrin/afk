@@ -49,6 +49,12 @@
     <Filter Include="Source Files\win32">
       <UniqueIdentifier>{0861c2fe-4355-424e-99a0-6d979c173a03}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\ui">
+      <UniqueIdentifier>{61d0d80d-cfd7-47fe-a6b7-959f63369d1b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ui">
+      <UniqueIdentifier>{c5aad038-afeb-41d2-aa9d-fb4327891433}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
@@ -320,6 +326,12 @@
     </ClInclude>
     <ClInclude Include="src\data\chain_link_test.hpp">
       <Filter>Header Files\data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\config_option.hpp">
+      <Filter>Header Files\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\config_settings.hpp">
+      <Filter>Header Files\ui</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -600,6 +612,12 @@
     </ClCompile>
     <ClCompile Include="src\data\chain_link_test.cpp">
       <Filter>Source Files\data</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\config_option.cpp">
+      <Filter>Source Files\ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\config_settings.cpp">
+      <Filter>Source Files\ui</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
