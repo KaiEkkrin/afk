@@ -257,6 +257,7 @@
     <ClInclude Include="src\tile.hpp" />
     <ClInclude Include="src\ui\config_option.hpp" />
     <ClInclude Include="src\ui\config_settings.hpp" />
+    <ClInclude Include="src\ui\controls.hpp" />
     <ClInclude Include="src\vapour_cell.hpp" />
     <ClInclude Include="src\visible_cell.hpp" />
     <ClInclude Include="src\win32\arglist.hpp" />
@@ -357,6 +358,7 @@
     <ClCompile Include="src\tile.cpp" />
     <ClCompile Include="src\ui\config_option.cpp" />
     <ClCompile Include="src\ui\config_settings.cpp" />
+    <ClCompile Include="src\ui\controls.cpp" />
     <ClCompile Include="src\vapour_cell.cpp" />
     <ClCompile Include="src\visible_cell.cpp" />
     <ClCompile Include="src\win32\arglist.cpp" />

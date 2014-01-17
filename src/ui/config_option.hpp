@@ -124,6 +124,8 @@ public:
 
         return hasMatched;
     }
+
+    virtual void save(std::ostream& os) const = 0;
 };
 
 /* A basic single-value configuration option of any value type.
@@ -164,7 +166,7 @@ public:
     /* The inevitable getter. */
     const T& get(void) const { return field; }
 
-    void save(std::ostream& os) const
+    void save(std::ostream& os) const override
     {
         os << name << "=" << boost::lexical_cast<std::string, T>(field) << std::endl;
     }
@@ -240,7 +242,7 @@ public:
     /* The inevitable getter. */
     const bool& get(void) const { return field; }
 
-    void save(std::ostream& os) const
+    void save(std::ostream& os) const override
     {
         if (field)
         {
