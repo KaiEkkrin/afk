@@ -21,6 +21,7 @@
 #include <list>
 
 #include "config_option.hpp"
+#include "controls.hpp"
 
 #define AFK_CONFIG_FIELD(type, name, defaultValue) AFK_ConfigOption< type > name = AFK_ConfigOption< type >(#name, &options, defaultValue)
 
@@ -29,9 +30,27 @@
 class AFK_ConfigSettings
 {
 protected:
+    /* For easy iteration (initialisation, loading, saving). */
     std::list<AFK_ConfigOptionBase *> options;
 
-    AFK_CONFIG_FIELD(int64_t,       masterSeed,                 -1ll);
+    /* This option wants to be hidden, not-saved, and also needs some logic to
+     * start it up (where should the configuration go?  OS dependent)
+     */
+    AFK_ConfigOption<std::string> *configFile;
+
+    /* These are simply no-saves. */
+    AFK_ConfigOption<bool> saveOnQuit = AFK_ConfigOption<bool>("saveOnQuit", &options, true, true);
+
+    void loadConfigFromFile(void);
+
+public:
+    /* All the configuration is public so that values can be accessed conveniently.
+     * They're also non-constant, because some (e.g. the keyboard mapping) have
+     * non-const accessors.
+     * BE CAREFUL, don't mess up the settings object itself
+     */
+
+    AFK_CONFIG_FIELD(int64_t, masterSeed, -1ll);
 
     // Graphics settings
 
@@ -86,11 +105,18 @@ protected:
     AFK_CONFIG_FIELD(unsigned int,  shape_skeletonMaxSize,      24);
     AFK_CONFIG_FIELD(float,         shape_edgeThreshold,        0.03f);
 
-public:
+    // Controls
+
+    AFK_KeyboardControls *keyboardControls;
+    AFK_MouseControls *mouseControls;
+    AFK_MouseAxisControls *mouseAxisControls;
+
     AFK_ConfigSettings();
+    virtual ~AFK_ConfigSettings();
 
     bool parseCmdLine(int *argcp, char **argv);
-    bool parseFile(char **buf, size_t bufSize);
+    bool parseConfigFile(void);
+    bool saveConfigFile(void) const;
 };
 
 #endif /* _AFK_UI_CONFIG_SETTINGS_H_ */

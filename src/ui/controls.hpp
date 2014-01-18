@@ -31,53 +31,54 @@
 * joystick?  Wow, joysticks.  I should get a modern one.
 */
 
+/* Low-number controls index bits in the control bit field (above).
+* High-number controls (which wouldn't affect the bit field) include
+* axes.
+*/
 #define AFK_TEST_BIT(field, bit) ((field) & (1uLL<<(bit)))
 #define AFK_SET_BIT(field, bit) ((field) |= (1uLL<<(bit)))
 #define AFK_CLEAR_BIT(field, bit) ((field) &= ~(1uLL<<(bit)))
 
-enum AFK_Controls
+#define AFK_CONTROL_AXIS_BIT (1<<28)
+
+enum class AFK_Control : int
 {
-    CTRL_NONE,
-    CTRL_MOUSE_CAPTURE,
-    CTRL_PITCH_UP,
-    CTRL_PITCH_DOWN,
-    CTRL_YAW_RIGHT,
-    CTRL_YAW_LEFT,
-    CTRL_ROLL_RIGHT,
-    CTRL_ROLL_LEFT,
-    CTRL_THRUST_FORWARD,
-    CTRL_THRUST_BACKWARD,
-    CTRL_THRUST_RIGHT,
-    CTRL_THRUST_LEFT,
-    CTRL_THRUST_UP,
-    CTRL_THRUST_DOWN,
-    CTRL_PRIMARY_FIRE,
-    CTRL_SECONDARY_FIRE,
-    CTRL_FULLSCREEN
+    NONE = 0,
+    MOUSE_CAPTURE = 1,
+    PITCH_UP = 2,
+    PITCH_DOWN = 3,
+    YAW_RIGHT = 4,
+    YAW_LEFT = 5,
+    ROLL_RIGHT = 6,
+    ROLL_LEFT = 7,
+    THRUST_FORWARD = 8,
+    THRUST_BACKWARD = 9,
+    THRUST_RIGHT = 10,
+    THRUST_LEFT = 11,
+    THRUST_UP = 12,
+    THRUST_DOWN = 13,
+    PRIMARY_FIRE = 14,
+    SECONDARY_FIRE = 15,
+    FULLSCREEN = 16,
+    AXIS_PITCH = (AFK_CONTROL_AXIS_BIT & 1),
+    AXIS_YAW = (AFK_CONTROL_AXIS_BIT & 2),
+    AXIS_ROLL = (AFK_CONTROL_AXIS_BIT & 3)
 };
 
-#define AFK_IS_TOGGLE(bit) ((bit) == CTRL_MOUSE_CAPTURE || (bit) == CTRL_FULLSCREEN)
+#define AFK_IS_TOGGLE(bit) ((bit) == AFK_Control::MOUSE_CAPTURE || (bit) == AFK_Control::FULLSCREEN)
 
-enum AFK_Control_Axes
+enum class AFK_MouseAxis : int
 {
-    CTRL_AXIS_NONE,
-    CTRL_AXIS_PITCH,
-    CTRL_AXIS_YAW,
-    CTRL_AXIS_ROLL
+    X = 1,
+    Y = 2
 };
 
-enum AFK_Mouse_Axes
+enum class AFK_InputType : int
 {
-    MOUSE_AXIS_X,
-    MOUSE_AXIS_Y
-};
-
-enum AFK_Input_Types
-{
-    INPUT_TYPE_KEYBOARD,
-    INPUT_TYPE_MOUSE,
-    INPUT_TYPE_MOUSE_AXIS,
-    INPUT_TYPE_NONE,
+    NONE = 0,
+    KEYBOARD = 1,
+    MOUSE = 2,
+    MOUSE_AXIS = 3
 };
 
 /* This is where the defaults go.
@@ -89,14 +90,45 @@ enum AFK_Input_Types
  */
 struct AFK_DefaultControl
 {
-    enum AFK_Controls       control;
+    AFK_Control             control;
     std::string             name;
-    AFK_Input_Types         defaultType;
+    AFK_InputType           defaultType;
     std::string             defaultValue;
 
     AFK_ConfigOptionName getName(void) const { return AFK_ConfigOptionName(name); }
 };
 extern std::list<struct AFK_DefaultControl> afk_defaultControls;
+
+/* A general way of configuring controls. */
+class AFK_ConfigOptionControl : public AFK_ConfigOptionBase
+{
+protected:
+    const AFK_InputType inputType;
+
+    /* Used to track state while parsing. */
+    AFK_Control matchedControl;
+
+    /* Call from subclass constructors that override map().  Can't call from the
+     * default constructor, because the subclass instance doesn't exist yet
+     */
+    void setupDefaultMapping(void);
+
+    /* Utility for the save() functions. */
+    std::string spellingOf(AFK_Control control) const;
+
+    virtual void saveInternal(std::ostream& os) const = 0;
+
+public:
+    AFK_ConfigOptionControl(const std::string& _name, AFK_InputType _inputType, std::list<AFK_ConfigOptionBase *> *options);
+
+    /* Maps a string input of this type to the control.  Returns false if
+     * the string isn't valid or it otherwise can't use it
+     */
+    virtual bool map(const std::string& input, AFK_Control control) = 0;
+
+    bool nameMatches(std::function<std::string(void)>& getArg, std::function<void(void)>& nextArg) override;
+    bool matched(std::function<std::string(void)>& getArg, std::function<void(void)>& nextArg) override;
+};
 
 /* The keyboard mapping is built as a single string that
 * we search for the key, and a matchingly indexed list
@@ -104,67 +136,60 @@ extern std::list<struct AFK_DefaultControl> afk_defaultControls;
 * Because really, there are few enough keys mapped that
 * doing a full search each time should be no trouble.
 */
-class AFK_KeyboardControls : public AFK_ConfigOptionBase
+class AFK_KeyboardControls : public AFK_ConfigOptionControl
 {
 protected:
     /* These are used to build the mapping. */
     std::list<char> keyList;
-    std::list<enum AFK_Controls> controlList;
+    std::list<AFK_Control> controlList;
 
     /* This is the "live mapping". */
     std::string keys;
-    std::vector<enum AFK_Controls> controls;
+    std::vector<AFK_Control> controls;
     bool upToDate = false;
 
-    bool replaceInList(char key, enum AFK_Controls control);
-    void appendToList(char key, enum AFK_Controls control);
+    bool replaceInList(char key, AFK_Control control);
+    void appendToList(char key, AFK_Control control);
     void updateMapping(void);
 
-    /* Some state tracking when parsing arguments. */
-    enum AFK_Controls matchedControl;
+    void saveInternal(std::ostream& os) const override;
 
 public:
     AFK_KeyboardControls(std::list<AFK_ConfigOptionBase *> *options);
 
-    bool nameMatches(std::function<std::string(void)>& getArg, std::function<void(void)>& nextArg) override;
-    bool matched(std::function<std::string(void)>& getArg, std::function<void(void)>& nextArg) override;
-
-    void map(const std::string& keys, enum AFK_Controls control);
+    bool map(const std::string& keys, AFK_Control control) override;
     
-    enum AFK_Controls operator[](const std::string& key);
-
-    void save(std::ostream& os) const override;
+    AFK_Control operator[](const std::string& key);
 };
 
-class AFK_MouseControls : public AFK_ConfigOptionBase
+class AFK_MouseControls : public AFK_ConfigOptionControl
 {
 protected:
-    std::map<int, enum AFK_Controls> mapping;
+    std::map<int, AFK_Control> mapping;
+
+    void saveInternal(std::ostream& os) const override;
 
 public:
     AFK_MouseControls(std::list<AFK_ConfigOptionBase *> *options);
-    
-    bool matched(std::function<std::string(void)>& getArg, std::function<void(void)>& nextArg) override;
 
-    enum AFK_Controls operator[](int button) const;
+    bool map(const std::string& keys, AFK_Control control) override;
 
-    void save(std::ostream& os) const override;
+    AFK_Control operator[](int button) const;
 };
 
-class AFK_MouseAxisControls : public AFK_ConfigOptionBase
+class AFK_MouseAxisControls : public AFK_ConfigOptionControl
 {
 protected:
-    std::map<enum AFK_Control_Axes, enum AFK_Controls> mapping;
+    std::map<AFK_MouseAxis, AFK_Control> mapping;
+
+    void saveInternal(std::ostream& os) const override;
 
 public:
     AFK_MouseAxisControls(std::list<AFK_ConfigOptionBase *> *options);
 
-    bool matched(std::function<std::string(void)>& getArg, std::function<void(void)>& nextArg) override;
+    bool map(const std::string& keys, AFK_Control control) override;
 
-    enum AFK_Controls operator[](enum AFK_Control_Axes axis) const;
-
-    void save(std::ostream& os) const override;
+    AFK_Control operator[](AFK_MouseAxis axis) const;
 };
 
 #endif /* _AFK_UI_CONTROLS_H_ */
-

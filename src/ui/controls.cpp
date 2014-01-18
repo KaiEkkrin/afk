@@ -15,37 +15,110 @@
 * along with this program.  If not, see [http://www.gnu.org/licenses/].
 */
 
+#include <cassert>
 #include <sstream>
 
 #include "controls.hpp"
 
 /* Defaults. */
 std::list<struct AFK_DefaultControl> afk_defaultControls = {
-    {   CTRL_THRUST_FORWARD,    "thrustForward",    INPUT_TYPE_KEYBOARD,    "wW"    },
-    {   CTRL_THRUST_BACKWARD,   "thrustBackward",   INPUT_TYPE_KEYBOARD,    "sS"    },
-    {   CTRL_THRUST_RIGHT,      "thrustRight",      INPUT_TYPE_KEYBOARD,    "dD"    },
-    {   CTRL_THRUST_LEFT,       "thrustLeft",       INPUT_TYPE_KEYBOARD,    "aA"    },
-    {   CTRL_THRUST_UP,         "thrustUp",         INPUT_TYPE_KEYBOARD,    "rR"    },
-    {   CTRL_THRUST_DOWN,       "thrustDown",       INPUT_TYPE_KEYBOARD,    "fF"    },
-    {   CTRL_PITCH_UP,          "pitchUp",          INPUT_TYPE_NONE,        ""      },
-    {   CTRL_PITCH_DOWN,        "pitchDown",        INPUT_TYPE_NONE,        ""      },
-    {   CTRL_ROLL_RIGHT,        "rollRight",        INPUT_TYPE_NONE,        ""      },
-    {   CTRL_ROLL_LEFT,         "rollLeft",         INPUT_TYPE_NONE,        ""      },
-    {   CTRL_YAW_RIGHT,         "yawRight",         INPUT_TYPE_KEYBOARD,    "eE"    },
-    {   CTRL_YAW_LEFT,          "yawLeft",          INPUT_TYPE_KEYBOARD,    "qQ"    },
-//    {   CTRL_AXIS_PITCH,        "pitchAxis",        INPUT_TYPE_MOUSE_AXIS,  "X"     },
- //   {   CTRL_AXIS_ROLL,         "rollAxis",         INPUT_TYPE_MOUSE_AXIS,  "Y"     },
-  //  {   CTRL_AXIS_YAW,          "yawAxis",          INPUT_TYPE_NONE,        ""      }, /* TODO sort out treatment of axes */
-    {   CTRL_PRIMARY_FIRE,      "primaryFire",      INPUT_TYPE_MOUSE,       "1"     },
-    {   CTRL_SECONDARY_FIRE,    "secondaryFire",    INPUT_TYPE_MOUSE,       "3"     },
-    {   CTRL_MOUSE_CAPTURE,     "mouseCapture",     INPUT_TYPE_KEYBOARD,    "mM"    },
-    {   CTRL_MOUSE_CAPTURE,     "mouseCapture",     INPUT_TYPE_MOUSE,       "2"     },
-    {   CTRL_FULLSCREEN,        "fullscreen",       INPUT_TYPE_KEYBOARD,    "0)"    }, /* TODO separate control type for control keys f11 etc? */
+    {   AFK_Control::THRUST_FORWARD,    "thrustForward",    AFK_InputType::KEYBOARD,    "wW"    },
+    {   AFK_Control::THRUST_BACKWARD,   "thrustBackward",   AFK_InputType::KEYBOARD,    "sS"    },
+    {   AFK_Control::THRUST_RIGHT,      "thrustRight",      AFK_InputType::KEYBOARD,    "dD"    },
+    {   AFK_Control::THRUST_LEFT,       "thrustLeft",       AFK_InputType::KEYBOARD,    "aA"    },
+    {   AFK_Control::THRUST_UP,         "thrustUp",         AFK_InputType::KEYBOARD,    "rR"    },
+    {   AFK_Control::THRUST_DOWN,       "thrustDown",       AFK_InputType::KEYBOARD,    "fF"    },
+    {   AFK_Control::PITCH_UP,          "pitchUp",          AFK_InputType::NONE,        ""      },
+    {   AFK_Control::PITCH_DOWN,        "pitchDown",        AFK_InputType::NONE,        ""      },
+    {   AFK_Control::ROLL_RIGHT,        "rollRight",        AFK_InputType::NONE,        ""      },
+    {   AFK_Control::ROLL_LEFT,         "rollLeft",         AFK_InputType::NONE,        ""      },
+    {   AFK_Control::YAW_RIGHT,         "yawRight",         AFK_InputType::KEYBOARD,    "eE"    },
+    {   AFK_Control::YAW_LEFT,          "yawLeft",          AFK_InputType::KEYBOARD,    "qQ"    },
+    {   AFK_Control::AXIS_PITCH,        "pitchAxis",        AFK_InputType::MOUSE_AXIS,  "X"     },
+    {   AFK_Control::AXIS_ROLL,         "rollAxis",         AFK_InputType::MOUSE_AXIS,  "Y"     },
+    {   AFK_Control::AXIS_YAW,          "yawAxis",          AFK_InputType::NONE,        ""      },
+    {   AFK_Control::PRIMARY_FIRE,      "primaryFire",      AFK_InputType::MOUSE,       "1"     },
+    {   AFK_Control::SECONDARY_FIRE,    "secondaryFire",    AFK_InputType::MOUSE,       "3"     },
+    {   AFK_Control::MOUSE_CAPTURE,     "mouseCapture",     AFK_InputType::KEYBOARD,    "mM"    },
+    {   AFK_Control::MOUSE_CAPTURE,     "mouseCapture",     AFK_InputType::MOUSE,       "2"     },
+    {   AFK_Control::FULLSCREEN,        "fullscreen",       AFK_InputType::KEYBOARD,    "0)"    }, /* TODO separate control type for control keys f11 etc? */
 };
 
-/* AFK_KeyboardControls implementation.  WIP -- disabled for now */
+/* AFK_ConfigOptionControl implementation */
 
-bool AFK_KeyboardControls::replaceInList(char key, enum AFK_Controls control)
+void AFK_ConfigOptionControl::setupDefaultMapping(void)
+{
+    /* Map the relevant controls from the default control list. */
+    for (auto d : afk_defaultControls)
+    {
+        if (d.defaultType == inputType)
+        {
+            map(d.defaultValue, d.control);
+        }
+    }
+}
+
+std::string AFK_ConfigOptionControl::spellingOf(AFK_Control control) const
+{
+    /* Iterating through the entire default controls list to find the spelling
+     * is not very efficient, but the save() operation isn't time critical,
+     * so I don't think I care.
+     */
+    for (auto d : afk_defaultControls)
+    {
+        if (d.control == control && d.defaultType == inputType)
+        {
+            return *(name.spellingsBegin()) + *(d.getName().spellingsBegin());
+        }
+    }
+
+    /* We really shouldn't ever get here */
+    assert(false);
+    return "UNRECOGNIZED";
+}
+
+AFK_ConfigOptionControl::AFK_ConfigOptionControl(const std::string& _name, AFK_InputType _inputType, std::list<AFK_ConfigOptionBase *> *options) :
+AFK_ConfigOptionBase(_name, options),
+inputType(_inputType)
+{
+}
+
+bool AFK_ConfigOptionControl::nameMatches(std::function<std::string(void)>& getArg, std::function<void(void)>& nextArg)
+{
+    /* Rather than matching the whole spelling here, I instead
+    * look for the spelling of the base name at the start, followed
+    * by the spelling of a valid control name
+    */
+    std::string arg = getArg();
+    size_t baseNameLength;
+    if (name.subMatches(arg, 0, baseNameLength))
+    {
+        for (auto d : afk_defaultControls)
+        {
+            size_t controlNameLength;
+            if (d.getName().subMatches(arg, baseNameLength, controlNameLength) &&
+                (baseNameLength + controlNameLength) == arg.size())
+            {
+                nextArg();
+                matchedControl = d.control;
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool AFK_ConfigOptionControl::matched(std::function<std::string(void)>& getArg, std::function<void(void)>& nextArg)
+{
+    map(getArg(), matchedControl);
+    nextArg();
+    return true;
+}
+
+/* AFK_KeyboardControls implementation. */
+
+bool AFK_KeyboardControls::replaceInList(char key, AFK_Control control)
 {
     auto keyIt = keyList.begin();
     auto controlIt = controlList.begin();
@@ -66,7 +139,7 @@ bool AFK_KeyboardControls::replaceInList(char key, enum AFK_Controls control)
     return false;
 }
 
-void AFK_KeyboardControls::appendToList(char key, enum AFK_Controls control)
+void AFK_KeyboardControls::appendToList(char key, AFK_Control control)
 {
     keyList.push_back(key);
     controlList.push_back(control);
@@ -84,74 +157,130 @@ void AFK_KeyboardControls::updateMapping(void)
     upToDate = true;
 }
 
-AFK_KeyboardControls::AFK_KeyboardControls(std::list<AFK_ConfigOptionBase *> *options):
-AFK_ConfigOptionBase("Keyboard", options)
+void AFK_KeyboardControls::saveInternal(std::ostream& os) const
 {
-    /* Map the keyboard controls from the default control list. */
-    for (auto d : afk_defaultControls)
+    assert(keyList.size() == controlList.size());
+    auto keyListIt = keyList.begin();
+    auto controlListIt = controlList.begin();
+    while (keyListIt != keyList.end())
     {
-        if (d.defaultType == INPUT_TYPE_KEYBOARD)
-        {
-            map(d.defaultValue, d.control);
-        }
+        os << spellingOf(*controlListIt) << "=" << *keyListIt << std::endl;
     }
 }
 
-void AFK_KeyboardControls::map(const std::string& keys, enum AFK_Controls control)
+AFK_KeyboardControls::AFK_KeyboardControls(std::list<AFK_ConfigOptionBase *> *options):
+AFK_ConfigOptionControl("Keyboard", AFK_InputType::KEYBOARD, options)
 {
-    for (char key : keys)
+    setupDefaultMapping();
+}
+
+bool AFK_KeyboardControls::map(const std::string& input, AFK_Control control)
+{
+    if ((static_cast<int>(control) & AFK_CONTROL_AXIS_BIT) == 0) return false;
+    for (char key : input)
     {
         if (!replaceInList(key, control)) appendToList(key, control);
     }
 
     upToDate = false;
-}
-
-bool AFK_KeyboardControls::nameMatches(std::function<std::string(void)>& getArg, std::function<void(void)>& nextArg)
-{
-    /* Rather than matching the whole spelling here, I instead
-     * look for the spelling of "Keyboard" at the start, followed
-     * by the spelling of a valid control name
-     */
-    std::string arg = getArg();
-    size_t keyboardLength;
-    if (name.subMatches(arg, 0, keyboardLength))
-    {
-        for (auto d : afk_defaultControls)
-        {
-            size_t keyLength;
-            if (d.getName().subMatches(arg, keyboardLength, keyLength) &&
-                (keyboardLength + keyLength) == arg.size())
-            {
-                nextArg();
-                matchedControl = d.control;
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
-bool AFK_KeyboardControls::matched(std::function<std::string(void)>& getArg, std::function<void(void)>& nextArg)
-{
-    map(getArg(), matchedControl);
-    nextArg();
     return true;
 }
 
-enum AFK_Controls AFK_KeyboardControls::operator[](const std::string& key)
+AFK_Control AFK_KeyboardControls::operator[](const std::string& key)
 {
     if (!upToDate) updateMapping();
     size_t pos = keys.find(key);
     if (pos != std::string::npos)
         return controls[pos];
     else
-        return CTRL_NONE;
+        return AFK_Control::NONE;
 }
 
-void AFK_KeyboardControls::save(std::ostream& os) const
+/* AFK_MouseControls implementation. */
+
+void AFK_MouseControls::saveInternal(std::ostream& os) const
 {
-    /* TODO. */
+    for (auto m : mapping)
+    {
+        os << spellingOf(m.second) << "=" << boost::lexical_cast<std::string, int>(m.first) << std::endl;
+    }
 }
 
+AFK_MouseControls::AFK_MouseControls(std::list<AFK_ConfigOptionBase *> *options) :
+AFK_ConfigOptionControl("Mouse", AFK_InputType::MOUSE, options)
+{
+    setupDefaultMapping();
+}
+
+bool AFK_MouseControls::map(const std::string& input, AFK_Control control)
+{
+    try
+    {
+        mapping[boost::lexical_cast<int>(input)] = control;
+        return true;
+    }
+    catch (boost::bad_lexical_cast)
+    {
+        return false;
+    }
+}
+
+AFK_Control AFK_MouseControls::operator[](int button) const
+{
+    return mapping.at(button);
+}
+
+/* AFK_MouseAxisControls implementation. */
+
+void AFK_MouseAxisControls::saveInternal(std::ostream& os) const
+{
+    for (auto m : mapping)
+    {
+        os << spellingOf(m.second) << "=";
+        switch (m.first)
+        {
+        case AFK_MouseAxis::X:
+            os << "X" << std::endl;
+            break;
+
+        case AFK_MouseAxis::Y:
+            os << "Y" << std::endl;
+            break;
+
+        default:
+            /* This really shouldn't happen */
+            assert(false);
+            os << "UNRECOGNIZED" << std::endl;
+            break;
+        }
+    }
+}
+
+AFK_MouseAxisControls::AFK_MouseAxisControls(std::list<AFK_ConfigOptionBase *> *options) :
+AFK_ConfigOptionControl("MouseAxis", AFK_InputType::MOUSE_AXIS, options)
+{
+    setupDefaultMapping();
+}
+
+bool AFK_MouseAxisControls::map(const std::string& input, AFK_Control control)
+{
+    if (toupper(input[0]) == 'X')
+    {
+        mapping[AFK_MouseAxis::X] = control;
+        return true;
+    }
+    else if (toupper(input[0]) == 'Y')
+    {
+        mapping[AFK_MouseAxis::Y] = control;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+AFK_Control AFK_MouseAxisControls::operator[](AFK_MouseAxis axis) const
+{
+    return mapping.at(axis);
+}

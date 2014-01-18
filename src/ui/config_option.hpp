@@ -38,7 +38,9 @@ protected:
 public:
     AFK_ConfigOptionName(const std::string& _name);
 
-    const std::string& getName(void) const;
+    const std::string& getName(void) const { return name; }
+    std::list<std::string>::const_iterator spellingsBegin(void) const { return spellings.cbegin(); }
+    std::list<std::string>::const_iterator spellingsEnd(void) const { return spellings.cend(); }
 
     virtual bool matches(const std::string& arg);
     virtual bool subMatches(const std::string& arg, size_t start, size_t& o_matchedLength);
@@ -54,6 +56,11 @@ class AFK_ConfigOptionBase
 protected:
     AFK_ConfigOptionName name;
     bool noSave;
+
+    /* Implement this to do the save -- stops subclasses from needing to
+     * worry about the noSave flag
+     */
+    virtual void saveInternal(std::ostream& os) const = 0;
 
 public:
     AFK_ConfigOptionBase(const std::string& _name, std::list<AFK_ConfigOptionBase *> *options, bool _noSave = false);
@@ -128,7 +135,7 @@ public:
         return hasMatched;
     }
 
-    virtual void save(std::ostream& os) const = 0;
+    void save(std::ostream& os) const;
 };
 
 /* A basic single-value configuration option of any value type.
@@ -138,6 +145,11 @@ class AFK_ConfigOption : public AFK_ConfigOptionBase
 {
 protected:
     T field;
+
+    void saveInternal(std::ostream& os) const override
+    {
+        os << name << "=" << boost::lexical_cast<std::string, T>(field) << std::endl;
+    }
 
 public:
     AFK_ConfigOption(const std::string& _name, std::list<AFK_ConfigOptionBase *> *options, const T& defaultValue, bool _noSave = false) :
@@ -166,13 +178,9 @@ public:
         field = value;
     }
 
-    /* The inevitable getter. */
+    /* The inevitable getters. */
+    operator T(void) const { return field; }
     const T& get(void) const { return field; }
-
-    void save(std::ostream& os) const override
-    {
-        os << name << "=" << boost::lexical_cast<std::string, T>(field) << std::endl;
-    }
 };
 
 /* A specialisation for boolean options.  Allows --thing (sets to true) and
@@ -198,6 +206,18 @@ protected:
         antiNameSS << toupper(_name[0]);
         antiNameSS << _name.substr(1, _name.size() - 1);
         return antiNameSS.str();
+    }
+
+    void saveInternal(std::ostream& os) const override
+    {
+        if (field)
+        {
+            os << name << std::endl;
+        }
+        else
+        {
+            os << antiName << std::endl;
+        }
     }
 
 public:
@@ -242,20 +262,9 @@ public:
         field = value;
     }
 
-    /* The inevitable getter. */
+    /* The inevitable getters. */
+    operator bool(void) const { return field; }
     const bool& get(void) const { return field; }
-
-    void save(std::ostream& os) const override
-    {
-        if (field)
-        {
-            os << name << std::endl;
-        }
-        else
-        {
-            os << antiName << std::endl;
-        }
-    }
 };
 
 #endif /* _AFK_UI_CONFIG_OPTION_H_*/

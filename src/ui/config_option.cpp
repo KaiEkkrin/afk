@@ -45,11 +45,6 @@ AFK_ConfigOptionName::AFK_ConfigOptionName(const std::string& _name):
     spellings.push_back(cmdlineSS.str());
 }
 
-const std::string& AFK_ConfigOptionName::getName(void) const
-{
-    return name;
-}
-
 bool AFK_ConfigOptionName::matches(const std::string& arg)
 {
     for (auto spelling : spellings)
@@ -98,4 +93,9 @@ bool AFK_ConfigOptionBase::nameMatches(std::function<std::string(void)>& getArg,
     }
 
     return false;
+}
+
+void AFK_ConfigOptionBase::save(std::ostream& os) const
+{
+    if (!noSave) saveInternal(os);
 }

@@ -15,6 +15,7 @@
 * along with this program.  If not, see [http://www.gnu.org/licenses/].
 */
 
+#include <fstream>
 #include <iostream>
 
 #include <boost/tokenizer.hpp>
@@ -23,9 +24,100 @@
 
 /* AFK_ConfigSettings implementation */
 
+void AFK_ConfigSettings::loadConfigFromFile(void)
+{
+    std::ifstream cf;
+    try
+    {
+        cf.open(configFile->get(), std::ios::in);
+        std::string line;
+        int lineNum = 0;
+
+        /* We separate the lines by "=" and ";".
+        * TODO: Handle ";" differently -- use it as a comment character
+        */
+        boost::char_separator<char> configSep("=;");
+
+        while (std::getline(cf, line))
+        {
+            boost::tokenizer<boost::char_separator<char> > lineTok(line, configSep);
+            auto lineIt = lineTok.begin();
+            auto lineEnd = lineTok.end();
+
+            /* I'm going to assume there is just one option per line.
+             */
+            bool lineParsed = false;
+            for (auto option : options)
+            {
+                if (option->parseFileLine(lineIt, lineEnd))
+                {
+                    lineParsed = true;
+                    break;
+                }
+            }
+
+            if (!lineParsed)
+            {
+                /* If the line isn't empty, complain */
+                if (boost::algorithm::trim_copy(line).size() > 0)
+                {
+                    std::cout << "AFK load settings: Parse error at line " << lineNum << ": " << line << std::endl;
+                }
+            }
+
+            ++lineNum;
+        }
+
+        cf.close();
+        std::cout << "AFK: Loaded configuration from " << configFile->get() << std::endl;
+    }
+    catch (std::ios_base::failure& failure)
+    {
+        std::cout << "AFK: Failed to load configuration from " << configFile->get() << ": " << failure.what() << std::endl;
+    }
+}
+
 AFK_ConfigSettings::AFK_ConfigSettings()
 {
-    // TODO.
+    /* TODO: The config file should default to a dot-path on GNU
+     * (".afk/afk.config") or a location in the user's documents
+     * directory on Windows ("afk/afk.config") but for now I'm just
+     * going to use the CWD to test.
+     */
+    configFile = new AFK_ConfigOption<std::string>("ConfigFile", &options, "afk.config", true);
+
+    keyboardControls = new AFK_KeyboardControls(&options);
+    mouseControls = new AFK_MouseControls(&options);
+    mouseAxisControls = new AFK_MouseAxisControls(&options);
+
+    /* Load configuration from file right away.  Any command line arguments
+     * will be parsed later and override this.
+     */
+    loadConfigFromFile();
+}
+
+AFK_ConfigSettings::~AFK_ConfigSettings()
+{
+    if (saveOnQuit)
+    {
+        /* TODO: Move the old config file out of the way, etc. */
+        std::ofstream cf;
+        try
+        {
+            cf.open(configFile->get(), std::ios::out | std::ios::trunc);
+            for (auto option : options)
+            {
+                option->save(cf);
+            }
+
+            cf.close();
+            std::cout << "AFK: Saved configuration to " << configFile->get() << std::endl;
+        }
+        catch (std::ios_base::failure& failure)
+        {
+            std::cout << "AFK: Failed to save configuration to " << configFile->get() << ": " << failure.what() << std::endl;
+        }
+    }
 }
 
 bool AFK_ConfigSettings::parseCmdLine(int *argcp, char **argv)
@@ -52,28 +144,3 @@ bool AFK_ConfigSettings::parseCmdLine(int *argcp, char **argv)
     return true;
 }
 
-bool AFK_ConfigSettings::parseFile(char **buf, size_t bufSize)
-{
-    /* I want to split config files by = and ; */
-    boost::char_separator<char> configSep("=;");
-
-    /* That config file came in line by line */
-    for (size_t lineI = 0; lineI < bufSize; ++lineI)
-    {
-        std::string line(buf[lineI]);
-        boost::tokenizer<boost::char_separator<char> > lineTok(line, configSep);
-        auto lineIt = lineTok.begin();
-        auto lineEnd = lineTok.end();
-
-        /* This time, I'm going to assume only one option per line,
-         * and just ignore it if it doesn't parse (assume a comment,
-         * etc)
-         */
-        for (auto option : options)
-        {
-            if (option->parseFileLine(lineIt, lineEnd)) break;
-        }
-    }
-
-    return true;
-}
