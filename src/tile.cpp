@@ -51,10 +51,10 @@ bool AFK_Tile::operator!=(const AFK_Tile& _tile) const
 
 AFK_RNG_Value AFK_Tile::rngSeed() const
 {
-    size_t hash = hash_value(*this);
+    int64_t hash = static_cast<int64_t>(hash_value(*this));
     AFK_RNG_Value seed;
-    seed.v.ull[0] = (hash ^ afk_core.settings.masterSeedLow);
-    seed.v.ull[1] = (hash ^ afk_core.settings.masterSeedHigh);
+    seed.v.ll[0] = (hash ^ afk_core.settings.masterSeedLow);
+    seed.v.ll[1] = (hash ^ afk_core.settings.masterSeedHigh);
     return seed;
 }
 

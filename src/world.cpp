@@ -1019,7 +1019,7 @@ void AFK_World::display(
     glUniformMatrix4fv(entity_projectionTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
     glUniform2fv(entity_windowSizeLocation, 1, &windowSize.v[0]);
     glUniform3fv(entity_skyColourLocation, 1, &afk_core.skyColour.v[0]);
-    glUniform1f(entity_farClipDistanceLocation, afk_core.config->zFar);
+    glUniform1f(entity_farClipDistanceLocation, afk_core.settings.zFar);
     AFK_GLCHK("shape uniforms")
 
     glBindVertexArray(edgeShapeBaseArray);

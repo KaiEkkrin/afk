@@ -251,18 +251,18 @@ void AFK_Core::configure(int *argcp, char **argv)
         boost::random_device rdev;
         if (settings.masterSeedHigh == -1)
         {
-            settings.masterSeedHigh = (static_cast<uint64_t>(rdev()) | (static_cast<uint64_t>(rdev()) << 32));
+            settings.masterSeedHigh = (static_cast<int64_t>(rdev()) | (static_cast<int64_t>(rdev()) << 32));
         }
 
         if (settings.masterSeedLow == -1)
         {
-            settings.masterSeedLow = (static_cast<uint64_t>(rdev()) | (static_cast<uint64_t>(rdev()) << 32));
+            settings.masterSeedLow = (static_cast<int64_t>(rdev()) | (static_cast<int64_t>(rdev()) << 32));
         }
     }
 
     AFK_RNG_Value rSeed;
-    rSeed.v.ull[0] = settings.masterSeedLow;
-    rSeed.v.ull[1] = settings.masterSeedHigh;
+    rSeed.v.ll[0] = settings.masterSeedLow;
+    rSeed.v.ll[1] = settings.masterSeedHigh;
     rng->seed(rSeed);
 
     /* Startup state of the protagonist. */

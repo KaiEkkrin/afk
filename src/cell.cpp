@@ -52,10 +52,10 @@ AFK_RNG_Value AFK_Cell::rngSeed() const
 
 AFK_RNG_Value AFK_Cell::rngSeed(size_t combinant) const
 {
-    size_t hash = combinant;
+    int64_t hash = static_cast<int64_t>(combinant);
     AFK_RNG_Value seed;
-    seed.v.ull[0] = (hash ^ afk_core.settings.masterSeedLow);
-    seed.v.ull[1] = (hash ^ afk_core.settings.masterSeedHigh);
+    seed.v.ll[0] = (hash ^ afk_core.settings.masterSeedLow);
+    seed.v.ll[1] = (hash ^ afk_core.settings.masterSeedHigh);
     return seed;
 }
 

@@ -54,8 +54,8 @@ public:
      * BE CAREFUL, don't mess up the settings object itself
      */
 
-    AFK_CONFIG_FIELD_NOSAVE(uint64_t, masterSeedLow, -1ll);
-    AFK_CONFIG_FIELD_NOSAVE(uint64_t, masterSeedHigh, -1ll);
+    AFK_CONFIG_FIELD_NOSAVE(int64_t, masterSeedLow, -1ll);
+    AFK_CONFIG_FIELD_NOSAVE(int64_t, masterSeedHigh, -1ll);
     AFK_CONFIG_FIELD_NOSAVE(unsigned int, concurrency, std::thread::hardware_concurrency() + 1);
 
     // Graphics settings

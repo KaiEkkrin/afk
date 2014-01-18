@@ -40,7 +40,7 @@ AFK_OclShim::AFK_OclShim(const AFK_ConfigSettings& settings):
     if (settings.clLibDir.get().size() > 0)
     {
         std::stringstream ss;
-        ss << config->clLibDir.get() << "/libOpenCL.so";
+        ss << settings.clLibDir.get() << "/libOpenCL.so";
         handle = dlopen(ss.str().c_str(), RTLD_LAZY);
     }
     else
