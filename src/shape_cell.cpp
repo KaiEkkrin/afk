@@ -35,8 +35,8 @@ Vec4<float> AFK_ShapeCell::getBaseColour(int64_t key) const
     AFK_Boost_Taus88_RNG rng;
 
     AFK_RNG_Value shapeSeed(
-        afk_core.config->masterSeed.v.ll[0],
-        afk_core.config->masterSeed.v.ll[1],
+        afk_core.settings.masterSeedLow,
+        afk_core.settings.masterSeedHigh,
         key * 0x0013001300130013ll);
     rng.seed(shapeSeed);
     return afk_vec4<float>(

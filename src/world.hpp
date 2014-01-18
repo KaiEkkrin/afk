@@ -34,7 +34,6 @@
 #include "cell.hpp"
 #include "clock.hpp"
 #include "computer.hpp"
-#include "config.hpp"
 #include "core.hpp"
 #include "data/evictable_cache.hpp"
 #include "data/fair.hpp"
@@ -52,6 +51,7 @@
 #include "terrain_base_tile.hpp"
 #include "terrain_compute_queue.hpp"
 #include "tile.hpp"
+#include "ui/config_settings.hpp"
 #include "work.hpp"
 #include "world_cell.hpp"
 
@@ -282,7 +282,7 @@ public:
 
 
     AFK_World(
-        const AFK_Config *config,
+        const AFK_ConfigSettings& settings,
         AFK_Computer *computer,
         AFK_ThreadAllocation& threadAlloc,
         float _maxDistance,

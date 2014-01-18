@@ -172,7 +172,7 @@ void afk_display(unsigned int threadId)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glEnable(GL_DEPTH_TEST);
-    glDepthRangef(afk_core.config->zNear, afk_core.config->zFar);
+    glDepthRangef(afk_core.settings.zNear, afk_core.settings.zFar);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glEnable(GL_PROGRAM_POINT_SIZE);

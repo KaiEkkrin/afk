@@ -22,8 +22,7 @@
 
 #include "compute_dependency.hpp"
 #include "ocl_shim.hpp"
-
-class AFK_Config;
+#include "ui/config_settings.hpp"
 
 /* This module wraps OpenCL command queues with conveniently shaped
  * methods.
@@ -60,7 +59,7 @@ public:
         AFK_OclShim *_oclShim,
         cl_context& _ctxt,
         cl_device_id device,
-        const AFK_Config *config,
+        const AFK_ConfigSettings& settings,
         unsigned int _commandSet);
     virtual ~AFK_ComputeQueue();
 

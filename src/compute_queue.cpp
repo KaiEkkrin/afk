@@ -21,7 +21,7 @@
 
 #include "compute_queue.hpp"
 #include "computer.hpp"
-#include "config.hpp"
+#include "ui/config_settings.hpp"
 
 /* AFK_ComputeQueue implementation */
 
@@ -29,15 +29,15 @@ AFK_ComputeQueue::AFK_ComputeQueue(
     AFK_OclShim *_oclShim,
     cl_context& _ctxt,
     cl_device_id device,
-    const AFK_Config *config,
+    const AFK_ConfigSettings& settings,
     unsigned int _commandSet):
-        oclShim(_oclShim), ctxt(_ctxt), blocking(config->clSyncReadWrite ? CL_TRUE : CL_FALSE), commandSet(_commandSet), k(0), kernelArgCount(0)
+        oclShim(_oclShim), ctxt(_ctxt), blocking(settings.clSyncReadWrite ? CL_TRUE : CL_FALSE), commandSet(_commandSet), k(0), kernelArgCount(0)
 {
     cl_int error;
     q = oclShim->CreateCommandQueue()(
         ctxt,
         device,
-        config->clOutOfOrder ? CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE : 0,
+        settings.clOutOfOrder ? CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE : 0,
         &error);
     AFK_HANDLE_CL_ERROR(error);
 }

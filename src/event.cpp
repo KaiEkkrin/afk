@@ -17,28 +17,29 @@
 
 #include "afk.hpp"
 
-#include "config.hpp"
 #include "core.hpp"
 #include "debug.hpp"
 #include "display.hpp"
 #include "event.hpp"
+#include "ui/config_settings.hpp"
 
 #define DEBUG_CONTROLS 0
 
-static void displaceAxis(enum AFK_Control_Axes axis, float displacement)
+static void displaceAxis(AFK_Control axis, float displacement)
 {
+    assert((static_cast<int>(axis)& AFK_CONTROL_AXIS_BIT) != 0);
     switch (axis)
     {
-    case CTRL_AXIS_PITCH:
-        afk_core.axisDisplacement.v[0] += (displacement * afk_core.config->getAxisInversion(axis));
+    case AFK_Control::AXIS_PITCH:
+        afk_core.axisDisplacement.v[0] += (displacement * afk_core.settings.getAxisInversion(axis));
         break;
 
-    case CTRL_AXIS_YAW:
-        afk_core.axisDisplacement.v[1] += (displacement * afk_core.config->getAxisInversion(axis));
+    case AFK_Control::AXIS_YAW:
+        afk_core.axisDisplacement.v[1] += (displacement * afk_core.settings.getAxisInversion(axis));
         break;
 
-    case CTRL_AXIS_ROLL:
-        afk_core.axisDisplacement.v[2] += (displacement * afk_core.config->getAxisInversion(axis));
+    case AFK_Control::AXIS_ROLL:
+        afk_core.axisDisplacement.v[2] += (displacement * afk_core.settings.getAxisInversion(axis));
         break;
 
     default:
@@ -46,26 +47,26 @@ static void displaceAxis(enum AFK_Control_Axes axis, float displacement)
     }
 }
 
-static void enableControl(enum AFK_Controls control)
+static void enableControl(AFK_Control control)
 {
-    if (AFK_IS_TOGGLE(control))
-        AFK_TEST_BIT(afk_core.controlsEnabled, control) ?
-            AFK_CLEAR_BIT(afk_core.controlsEnabled, control) :
-            AFK_SET_BIT(afk_core.controlsEnabled, control);
+    if (AFK_CONTROL_IS_TOGGLE(control))
+        AFK_TEST_CONTROL_BIT(afk_core.controlsEnabled, control) ?
+            AFK_CLEAR_CONTROL_BIT(afk_core.controlsEnabled, control) :
+            AFK_SET_CONTROL_BIT(afk_core.controlsEnabled, control);
     else
-        AFK_SET_BIT(afk_core.controlsEnabled, control);
+        AFK_SET_CONTROL_BIT(afk_core.controlsEnabled, control);
 
     switch (control)
     {
-    case CTRL_MOUSE_CAPTURE:
-        if (AFK_TEST_BIT(afk_core.controlsEnabled, control))
+    case AFK_Control::MOUSE_CAPTURE:
+        if (AFK_TEST_CONTROL_BIT(afk_core.controlsEnabled, control))
             afk_core.window->capturePointer();
         else
             afk_core.window->letGoOfPointer();
         break;
 
-    case CTRL_FULLSCREEN:
-        if (AFK_TEST_BIT(afk_core.controlsEnabled, control))
+    case AFK_Control::FULLSCREEN:
+        if (AFK_TEST_CONTROL_BIT(afk_core.controlsEnabled, control))
             afk_core.window->switchToFullScreen();
         else
             afk_core.window->switchAwayFromFullScreen();
@@ -78,14 +79,14 @@ static void enableControl(enum AFK_Controls control)
     }
 }
 
-static void disableControl(enum AFK_Controls control)
+static void disableControl(AFK_Control control)
 {
-    if (!AFK_IS_TOGGLE(control)) AFK_CLEAR_BIT(afk_core.controlsEnabled, control);
-    if (control == CTRL_MOUSE_CAPTURE)
+    if (!AFK_CONTROL_IS_TOGGLE(control)) AFK_CLEAR_CONTROL_BIT(afk_core.controlsEnabled, control);
+    if (control == AFK_Control::MOUSE_CAPTURE)
     {
         /* Reset the relevant axes. */
-        displaceAxis(afk_core.config->mouseAxisMapping[MOUSE_AXIS_X], 0.0f);
-        displaceAxis(afk_core.config->mouseAxisMapping[MOUSE_AXIS_Y], 0.0f);
+        displaceAxis(afk_core.settings.mouseAxisControls[AFK_MouseAxis::X], 0.0f);
+        displaceAxis(afk_core.settings.mouseAxisControls[AFK_MouseAxis::Y], 0.0f);
     }
 }
 
@@ -94,7 +95,7 @@ void afk_keyboard(const std::string& key)
 #if DEBUG_CONTROLS
     AFK_DEBUG_PRINTL("keyboard down: " << key)
 #endif
-    enableControl(afk_core.config->keyboardMapping.find(key));
+    enableControl(afk_core.settings.keyboardControls.get(key));
 }
 
 void afk_keyboardUp(const std::string& key)
@@ -102,7 +103,7 @@ void afk_keyboardUp(const std::string& key)
 #if DEBUG_CONTROLS
     AFK_DEBUG_PRINTL("keyboard up: " << key)
 #endif
-    disableControl(afk_core.config->keyboardMapping.find(key));
+    disableControl(afk_core.settings.keyboardControls.get(key));
 }
 
 void afk_mouse(unsigned int button)
@@ -110,7 +111,7 @@ void afk_mouse(unsigned int button)
 #if DEBUG_CONTROLS
     AFK_DEBUG_PRINTL("mouse down: " << std::dec << button)
 #endif
-    enableControl(afk_core.config->mouseMapping[button]);
+    enableControl(afk_core.settings.mouseControls[button]);
 }
 
 void afk_mouseUp(unsigned int button)
@@ -118,17 +119,17 @@ void afk_mouseUp(unsigned int button)
 #if DEBUG_CONTROLS
     AFK_DEBUG_PRINTL("mouse up: " << std::dec << button)
 #endif
-    disableControl(afk_core.config->mouseMapping[button]);
+    disableControl(afk_core.settings.mouseControls[button]);
 }
 
 void afk_motion(int x, int y)
 {
-    if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_MOUSE_CAPTURE))
+    if (AFK_TEST_CONTROL_BIT(afk_core.controlsEnabled, AFK_Control::MOUSE_CAPTURE))
     {
-        displaceAxis(afk_core.config->mouseAxisMapping[MOUSE_AXIS_X],
-            afk_core.config->mouseAxisSensitivity * (float)x);
-        displaceAxis(afk_core.config->mouseAxisMapping[MOUSE_AXIS_Y],
-            afk_core.config->mouseAxisSensitivity * (float)y);
+        displaceAxis(afk_core.settings.mouseAxisControls[AFK_MouseAxis::X],
+            afk_core.settings.mouseAxisSensitivity * static_cast<float>(x));
+        displaceAxis(afk_core.settings.mouseAxisControls[AFK_MouseAxis::Y],
+            afk_core.settings.mouseAxisSensitivity * static_cast<float>(y));
     }
 }
 

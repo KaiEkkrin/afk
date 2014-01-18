@@ -19,11 +19,13 @@
 #define _AFK_UI_CONFIG_SETTINGS_H_
 
 #include <list>
+#include <thread>
 
 #include "config_option.hpp"
 #include "controls.hpp"
 
 #define AFK_CONFIG_FIELD(type, name, defaultValue) AFK_ConfigOption< type > name = AFK_ConfigOption< type >(#name, &options, defaultValue)
+#define AFK_CONFIG_FIELD_NOSAVE(type, name, defaultValue) AFK_ConfigOption< type > name = AFK_ConfigOption< type >(#name, &options, defaultValue, true)
 
 /* Describes the AFK configuration. */
 
@@ -38,8 +40,10 @@ protected:
      */
     AFK_ConfigOption<std::string> *configFile;
 
-    /* These are simply no-saves. */
-    AFK_ConfigOption<bool> saveOnQuit = AFK_ConfigOption<bool>("saveOnQuit", &options, true, true);
+    /* Nobody else needs to know about this */
+    AFK_CONFIG_FIELD_NOSAVE(bool,   saveOnQuit,                 false);
+
+    // TODO: Add a special "help" option that prints all the other options and quits!
 
     void loadConfigFromFile(void);
 
@@ -50,7 +54,9 @@ public:
      * BE CAREFUL, don't mess up the settings object itself
      */
 
-    AFK_CONFIG_FIELD(int64_t, masterSeed, -1ll);
+    AFK_CONFIG_FIELD_NOSAVE(uint64_t, masterSeedLow, -1ll);
+    AFK_CONFIG_FIELD_NOSAVE(uint64_t, masterSeedHigh, -1ll);
+    AFK_CONFIG_FIELD_NOSAVE(unsigned int, concurrency, std::thread::hardware_concurrency() + 1);
 
     // Graphics settings
 
@@ -67,7 +73,9 @@ public:
     AFK_CONFIG_FIELD(float,         rotateButtonSensitivity,    0.01f);
     AFK_CONFIG_FIELD(float,         thrustButtonSensitivity,    0.001f);
     AFK_CONFIG_FIELD(float,         mouseAxisSensitivity,       0.001f);
-    AFK_CONFIG_FIELD(uint64_t,      axisInversionMap,           0); // TODO set bits
+    AFK_CONFIG_FIELD(bool,          pitchAxisInverted,          true);
+    AFK_CONFIG_FIELD(bool,          rollAxisInverted,           false);
+    AFK_CONFIG_FIELD(bool,          yawAxisInverted,            false);
 
     // TODO: In here goes an AFK_CONFIG_FIELD(AFK_KeyboardMapping, ...) that configures the keyboard mapping in the same way -- I'll want a new specialisation of AFK_ConfigOption :)
 
@@ -76,10 +84,10 @@ public:
     AFK_CONFIG_FIELD(float,         targetFrameTimeMillis,      16.5f);
     AFK_CONFIG_FIELD(unsigned int,  framesPerCalibration,       8);
     AFK_CONFIG_FIELD(bool,          vsync,                      true);
-    AFK_CONFIG_FIELD(unsigned int,  concurrency,                0); // TODO configure in the constructor
 
     // Compute settings
 
+    AFK_CONFIG_FIELD(std::string,   clLibDir,                   "");
     AFK_CONFIG_FIELD(std::string,   clProgramsDir,              "compute");
     AFK_CONFIG_FIELD(bool,          clGlSharing,                false);
     AFK_CONFIG_FIELD(bool,          clSeparateQueues,           true); // requires clUseEvents
@@ -107,9 +115,11 @@ public:
 
     // Controls
 
-    AFK_KeyboardControls *keyboardControls;
-    AFK_MouseControls *mouseControls;
-    AFK_MouseAxisControls *mouseAxisControls;
+    AFK_KeyboardControls keyboardControls = AFK_KeyboardControls(&options);
+    AFK_MouseControls mouseControls = AFK_MouseControls(&options);
+    AFK_MouseAxisControls mouseAxisControls = AFK_MouseAxisControls(&options);
+
+    float getAxisInversion(AFK_Control axis) const;
 
     AFK_ConfigSettings();
     virtual ~AFK_ConfigSettings();

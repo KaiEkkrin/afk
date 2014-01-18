@@ -456,7 +456,7 @@ bool AFK_Shape::generateClaimedShapeCell(
 }
 
 AFK_Shape::AFK_Shape(
-    const AFK_Config *config,
+    const AFK_ConfigSettings& settings,
     AFK_ThreadAllocation& threadAlloc,
     size_t shapeCacheSize)
 {
@@ -464,7 +464,7 @@ AFK_Shape::AFK_Shape(
      * here.
      */
     size_t shapeCellCacheEntries = shapeCacheSize /
-        (2 * config->shape_skeletonMaxSize * 6 * SQUARE(afk_shapePointSubdivisionFactor));
+        (2 * settings.shape_skeletonMaxSize * 6 * SQUARE(afk_shapePointSubdivisionFactor));
     shapeCellCache = new AFK_SHAPE_CELL_CACHE(
         4,
         AFK_HashKeyedCell(),
@@ -472,7 +472,7 @@ AFK_Shape::AFK_Shape(
         threadAlloc.getNewId());
 
     size_t vapourCellCacheEntries = shapeCacheSize /
-        (2 * config->shape_skeletonMaxSize * CUBE(afk_shapePointSubdivisionFactor));
+        (2 * settings.shape_skeletonMaxSize * CUBE(afk_shapePointSubdivisionFactor));
     vapourCellCache = new AFK_VAPOUR_CELL_CACHE(
         4,
         AFK_HashKeyedCell(),

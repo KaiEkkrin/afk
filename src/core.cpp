@@ -19,9 +19,10 @@
 
 #include <cmath>
 
+#include <boost/random/random_device.hpp>
+
 #include "camera.hpp"
 #include "computer.hpp"
-#include "config.hpp"
 #include "core.hpp"
 #include "debug.hpp"
 #include "def.hpp"
@@ -66,31 +67,31 @@ void afk_idle(void)
     float frameInterval;
     if (afk_core.detailAdjuster->getFrameInterval(frameInterval))
     {
-        if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_THRUST_RIGHT))
-            afk_core.velocity.v[0] += afk_core.config->thrustButtonSensitivity * frameInterval;
-        if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_THRUST_LEFT))
-            afk_core.velocity.v[0] -= afk_core.config->thrustButtonSensitivity * frameInterval;
-        if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_THRUST_UP))
-            afk_core.velocity.v[1] += afk_core.config->thrustButtonSensitivity * frameInterval;
-        if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_THRUST_DOWN))
-            afk_core.velocity.v[1] -= afk_core.config->thrustButtonSensitivity * frameInterval;
-        if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_THRUST_FORWARD))
-            afk_core.velocity.v[2] += afk_core.config->thrustButtonSensitivity * frameInterval;
-        if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_THRUST_BACKWARD))
-            afk_core.velocity.v[2] -= afk_core.config->thrustButtonSensitivity * frameInterval;
+        if (AFK_TEST_CONTROL_BIT(afk_core.controlsEnabled, AFK_Control::THRUST_RIGHT))
+            afk_core.velocity.v[0] += afk_core.settings.thrustButtonSensitivity * frameInterval;
+        if (AFK_TEST_CONTROL_BIT(afk_core.controlsEnabled, AFK_Control::THRUST_LEFT))
+            afk_core.velocity.v[0] -= afk_core.settings.thrustButtonSensitivity * frameInterval;
+        if (AFK_TEST_CONTROL_BIT(afk_core.controlsEnabled, AFK_Control::THRUST_UP))
+            afk_core.velocity.v[1] += afk_core.settings.thrustButtonSensitivity * frameInterval;
+        if (AFK_TEST_CONTROL_BIT(afk_core.controlsEnabled, AFK_Control::THRUST_DOWN))
+            afk_core.velocity.v[1] -= afk_core.settings.thrustButtonSensitivity * frameInterval;
+        if (AFK_TEST_CONTROL_BIT(afk_core.controlsEnabled, AFK_Control::THRUST_FORWARD))
+            afk_core.velocity.v[2] += afk_core.settings.thrustButtonSensitivity * frameInterval;
+        if (AFK_TEST_CONTROL_BIT(afk_core.controlsEnabled, AFK_Control::THRUST_BACKWARD))
+            afk_core.velocity.v[2] -= afk_core.settings.thrustButtonSensitivity * frameInterval;
         
-        if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_PITCH_UP))
-            afk_core.axisDisplacement.v[0] += afk_core.config->rotateButtonSensitivity * frameInterval * afk_core.config->getAxisInversion(CTRL_AXIS_PITCH);
-        if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_PITCH_DOWN))
-            afk_core.axisDisplacement.v[0] -= afk_core.config->rotateButtonSensitivity * frameInterval * afk_core.config->getAxisInversion(CTRL_AXIS_PITCH);
-        if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_YAW_RIGHT))
-            afk_core.axisDisplacement.v[1] += afk_core.config->rotateButtonSensitivity * frameInterval * afk_core.config->getAxisInversion(CTRL_AXIS_YAW);
-        if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_YAW_LEFT))
-            afk_core.axisDisplacement.v[1] -= afk_core.config->rotateButtonSensitivity * frameInterval * afk_core.config->getAxisInversion(CTRL_AXIS_YAW);
-        if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_ROLL_RIGHT))
-            afk_core.axisDisplacement.v[2] += afk_core.config->rotateButtonSensitivity * frameInterval * afk_core.config->getAxisInversion(CTRL_AXIS_ROLL);
-        if (AFK_TEST_BIT(afk_core.controlsEnabled, CTRL_ROLL_LEFT))
-            afk_core.axisDisplacement.v[2] -= afk_core.config->rotateButtonSensitivity * frameInterval * afk_core.config->getAxisInversion(CTRL_AXIS_ROLL);
+        if (AFK_TEST_CONTROL_BIT(afk_core.controlsEnabled, AFK_Control::PITCH_UP))
+            afk_core.axisDisplacement.v[0] += afk_core.settings.rotateButtonSensitivity * frameInterval * afk_core.settings.getAxisInversion(AFK_Control::AXIS_PITCH);
+        if (AFK_TEST_CONTROL_BIT(afk_core.controlsEnabled, AFK_Control::PITCH_DOWN))
+            afk_core.axisDisplacement.v[0] -= afk_core.settings.rotateButtonSensitivity * frameInterval * afk_core.settings.getAxisInversion(AFK_Control::AXIS_PITCH);
+        if (AFK_TEST_CONTROL_BIT(afk_core.controlsEnabled, AFK_Control::YAW_RIGHT))
+            afk_core.axisDisplacement.v[1] += afk_core.settings.rotateButtonSensitivity * frameInterval * afk_core.settings.getAxisInversion(AFK_Control::AXIS_YAW);
+        if (AFK_TEST_CONTROL_BIT(afk_core.controlsEnabled, AFK_Control::YAW_LEFT))
+            afk_core.axisDisplacement.v[1] -= afk_core.settings.rotateButtonSensitivity * frameInterval * afk_core.settings.getAxisInversion(AFK_Control::AXIS_YAW);
+        if (AFK_TEST_CONTROL_BIT(afk_core.controlsEnabled, AFK_Control::ROLL_RIGHT))
+            afk_core.axisDisplacement.v[2] += afk_core.settings.rotateButtonSensitivity * frameInterval * afk_core.settings.getAxisInversion(AFK_Control::AXIS_ROLL);
+        if (AFK_TEST_CONTROL_BIT(afk_core.controlsEnabled, AFK_Control::ROLL_LEFT))
+            afk_core.axisDisplacement.v[2] -= afk_core.settings.rotateButtonSensitivity * frameInterval * afk_core.settings.getAxisInversion(AFK_Control::AXIS_ROLL);
         
         afk_core.camera.driveAndUpdateProjection(
             afk_core.velocity * frameInterval, afk_core.axisDisplacement);
@@ -195,7 +196,6 @@ AFK_Core::AFK_Core():
     computingUpdateDelayed(false),
     detailAdjuster(nullptr),
     glGarbageBufs(1000),
-    config(nullptr),
     computer(nullptr),
     window(nullptr),
     rng(nullptr),
@@ -216,7 +216,6 @@ AFK_Core::~AFK_Core()
     if (computer) delete computer; /* Should close CL contexts */
     if (detailAdjuster) delete detailAdjuster;
     if (window) delete window; /* Should close GL contexts */
-    if (config) delete config;
 
     std::cout << "AFK: Core destroyed" << std::endl;
 }
@@ -237,10 +236,34 @@ void AFK_Core::configure(int *argcp, char **argv)
     std::cout << "AFK: Using clock with apparent tick interval: " << tickInterval.count() << " millis" << std::endl;
     assert(tickInterval.count() < 0.1f);
 
-    config = new AFK_Config(argcp, argv);
+    if (!settings.parseCmdLine(argcp, argv))
+    {
+        throw AFK_Exception("Failed to parse command line");
+    }
 
     rng = new AFK_Boost_Taus88_RNG();
-    rng->seed(config->masterSeed);
+
+    /* The special value -1 means no seed has been supplied, so I need to make one.
+     * And of course, the seed comes in two 64-bit parts:
+     */
+    if (settings.masterSeedHigh == -1 || settings.masterSeedLow == -1)
+    {
+        boost::random_device rdev;
+        if (settings.masterSeedHigh == -1)
+        {
+            settings.masterSeedHigh = (static_cast<uint64_t>(rdev()) | (static_cast<uint64_t>(rdev()) << 32));
+        }
+
+        if (settings.masterSeedLow == -1)
+        {
+            settings.masterSeedLow = (static_cast<uint64_t>(rdev()) | (static_cast<uint64_t>(rdev()) << 32));
+        }
+    }
+
+    AFK_RNG_Value rSeed;
+    rSeed.v.ull[0] = settings.masterSeedLow;
+    rSeed.v.ull[1] = settings.masterSeedHigh;
+    rng->seed(rSeed);
 
     /* Startup state of the protagonist. */
     velocity            = afk_vec3<float>(0.0f, 0.0f, 0.0f);
@@ -269,31 +292,31 @@ void AFK_Core::configure(int *argcp, char **argv)
 void AFK_Core::initGraphics(void)
 {
 #ifdef AFK_GLX
-    window = new AFK_WindowGlx(config->windowWidth, config->windowHeight, config->vsync);
+    window = new AFK_WindowGlx(settings.windowWidth, settings.windowHeight, settings.vsync);
 #endif
 
 #ifdef AFK_WGL
-    window = new AFK_WindowWgl(config->windowWidth, config->windowHeight, config->vsync);
+    window = new AFK_WindowWgl(settings.windowWidth, settings.windowHeight, settings.vsync);
 #endif
 }
 
 void AFK_Core::loop(void)
 {
     /* Shader setup. */
-    afk_loadShaders(config);
+    afk_loadShaders(settings);
 
     computingFrame.increment();
 
     /* World setup. */
-    computer = new AFK_Computer(config);
-    computer->loadPrograms(config);
+    computer = new AFK_Computer(settings);
+    computer->loadPrograms(settings);
 
 #if JIGSAW_TEST
     afk_testJigsaw(computer, config);
 #endif
 
     /* I'll want this when I start running. */
-    detailAdjuster = new AFK_DetailAdjuster(config);
+    detailAdjuster = new AFK_DetailAdjuster(settings);
 
     /* Now that I've set that stuff up, find out how much memory
      * I have to play with ...
@@ -303,10 +326,10 @@ void AFK_Core::loop(void)
     std::cout << " (" << clGlMaxAllocSize / (1024 * 1024) << "MB) global memory" << std::endl;
 
     /* Initialise the starting objects. */
-    float worldMaxDistance = config->zFar / 2.0f;
+    float worldMaxDistance = settings.zFar / 2.0f;
 
     world = new AFK_World(
-        config,
+        settings,
         computer,
         threadAlloc,
         worldMaxDistance,   /* maxDistance -- zFar must be a lot bigger or things will vanish */

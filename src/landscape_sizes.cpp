@@ -19,8 +19,8 @@
 #include "landscape_sizes.hpp"
 
 
-AFK_LandscapeSizes::AFK_LandscapeSizes(const AFK_Config *config):
-    subdivisionFactor(config->subdivisionFactor),
+AFK_LandscapeSizes::AFK_LandscapeSizes(const AFK_ConfigSettings& settings):
+    subdivisionFactor(settings.subdivisionFactor),
     pointSubdivisionFactor(afk_terrainPointSubdivisionFactor),
     vDim(afk_terrainPointSubdivisionFactor + 1), /* one extra vertex along the top and right sides to join with the adjacent tile */
     iDim(afk_terrainPointSubdivisionFactor),

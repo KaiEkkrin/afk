@@ -47,14 +47,16 @@ bool AFK_Cell::operator!=(const AFK_Cell& _cell) const
 
 AFK_RNG_Value AFK_Cell::rngSeed() const
 {
-    size_t hash = hash_value(*this);
-    return AFK_RNG_Value(hash) ^ afk_core.config->masterSeed;
+    return rngSeed(hash_value(*this));
 }
 
 AFK_RNG_Value AFK_Cell::rngSeed(size_t combinant) const
 {
     size_t hash = combinant;
-    return AFK_RNG_Value(afk_hash_swizzle(hash, hash_value(*this))) ^ afk_core.config->masterSeed;
+    AFK_RNG_Value seed;
+    seed.v.ull[0] = (hash ^ afk_core.settings.masterSeedLow);
+    seed.v.ull[1] = (hash ^ afk_core.settings.masterSeedHigh);
+    return seed;
 }
 
 unsigned int AFK_Cell::subdivide(

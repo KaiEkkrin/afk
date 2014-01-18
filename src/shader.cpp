@@ -126,18 +126,18 @@ static void loadShaderFromFiles(
     delete[] sourceLengthsInt;
 }
 
-void afk_loadShaders(const AFK_Config *config)
+void afk_loadShaders(const AFK_ConfigSettings& settings)
 {
     std::ostringstream errStream;
 
     /* We chdir() into the shaders directory to load this stuff, so save
      * out the previous directory to go back to afterwards. */
     
-    if (!afk_pushDir(config->shadersDir, errStream))
+    if (!afk_pushDir(settings.shadersDir, errStream))
         throw AFK_Exception("AFK_Shader: Unable to switch to shaders dir: " + errStream.str());
 
     /* For the shape shaders, I want to apply a filter: */
-    AFK_ShapeSizes sSizes(config);
+    AFK_ShapeSizes sSizes(settings);
     AFK_FileFilter shapeFilter = {
         "\\bVDIM\\b",                       boost::lexical_cast<std::string>(sSizes.vDim),
         "\\bEDIM\\b",                       boost::lexical_cast<std::string>(sSizes.eDim),

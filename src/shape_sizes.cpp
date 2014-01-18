@@ -31,21 +31,21 @@
 
 
 AFK_ShapeSizes::AFK_ShapeSizes(
-    const AFK_Config *config):
-    subdivisionFactor(config->subdivisionFactor),
-    entitySubdivisionFactor(config->entitySubdivisionFactor),
+    const AFK_ConfigSettings& settings):
+    subdivisionFactor(settings.subdivisionFactor),
+    entitySubdivisionFactor(settings.entitySubdivisionFactor),
     pointSubdivisionFactor(afk_shapePointSubdivisionFactor),
     vDim(afk_shapePointSubdivisionFactor),
     eDim(afk_shapePointSubdivisionFactor + 1), /* one extra vertex along the top and right sides to join with the adjacent tile */
     tDim(afk_shapePointSubdivisionFactor + 3),
     iDim(afk_shapePointSubdivisionFactor),
     featureCountPerCube(afk_shapeFeatureCountPerCube),
-    skeletonMaxSize(config->shape_skeletonMaxSize),
+    skeletonMaxSize(settings.shape_skeletonMaxSize),
     skeletonFlagGridDim(afk_shapeSkeletonFlagGridDim),
     skeletonBushiness(1.0f / 4.0f),
     featureMaxSize(1.0f / (2.0f * (float)afk_shapeSkeletonFlagGridDim)),
-    featureMinSize(1.0f / (2.0f * (float)afk_shapeSkeletonFlagGridDim * (float)config->subdivisionFactor)),
-    edgeThreshold(config->shape_edgeThreshold)
+    featureMinSize(1.0f / (2.0f * (float)afk_shapeSkeletonFlagGridDim * (float)settings.subdivisionFactor)),
+    edgeThreshold(settings.shape_edgeThreshold)
 {
     for (reduceOrder = 1; (1u << reduceOrder) < tDim; ++reduceOrder);
 

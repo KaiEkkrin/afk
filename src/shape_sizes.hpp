@@ -18,8 +18,8 @@
 #ifndef _AFK_SHAPE_SIZES_H_
 #define _AFK_SHAPE_SIZES_H_
 
-#include "config.hpp"
 #include "def.hpp"
+#include "ui/config_settings.hpp"
 
 /* Hardwired ones to support fixed-size structures in the code: */
 const unsigned int afk_shapePointSubdivisionFactor      = 6;
@@ -62,7 +62,7 @@ public:
                                  * layerBitness size each) packed into the channels of the overlap texels.
                                  */
 
-    AFK_ShapeSizes(const AFK_Config *config);
+    AFK_ShapeSizes(const AFK_ConfigSettings& settings);
 
     unsigned int getReduceOrder(void) const { return reduceOrder; }
 };

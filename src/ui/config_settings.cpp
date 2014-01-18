@@ -77,6 +77,25 @@ void AFK_ConfigSettings::loadConfigFromFile(void)
     }
 }
 
+float AFK_ConfigSettings::getAxisInversion(AFK_Control axis) const
+{
+    assert((static_cast<int>(axis) & AFK_CONTROL_AXIS_BIT) != 0);
+    switch (axis)
+    {
+    case AFK_Control::AXIS_PITCH:
+        return pitchAxisInverted ? -1.0f : 1.0f;
+
+    case AFK_Control::AXIS_ROLL:
+        return rollAxisInverted ? -1.0f : 1.0f;
+
+    case AFK_Control::AXIS_YAW:
+        return yawAxisInverted ? -1.0f : 1.0f;
+
+    default:
+        return 0.0f;
+    }
+}
+
 AFK_ConfigSettings::AFK_ConfigSettings()
 {
     /* TODO: The config file should default to a dot-path on GNU
@@ -84,11 +103,7 @@ AFK_ConfigSettings::AFK_ConfigSettings()
      * directory on Windows ("afk/afk.config") but for now I'm just
      * going to use the CWD to test.
      */
-    configFile = new AFK_ConfigOption<std::string>("ConfigFile", &options, "afk.config", true);
-
-    keyboardControls = new AFK_KeyboardControls(&options);
-    mouseControls = new AFK_MouseControls(&options);
-    mouseAxisControls = new AFK_MouseAxisControls(&options);
+    configFile = new AFK_ConfigOption<std::string>("configFile", &options, "afk.config", true);
 
     /* Load configuration from file right away.  Any command line arguments
      * will be parsed later and override this.
@@ -122,7 +137,7 @@ AFK_ConfigSettings::~AFK_ConfigSettings()
 
 bool AFK_ConfigSettings::parseCmdLine(int *argcp, char **argv)
 {
-    char **argvHere = argv;
+    char **argvHere = argv + 1; /* skip process name */
     char **argvEnd = argv + *argcp;
     while (argvHere < argvEnd)
     {
@@ -143,4 +158,3 @@ bool AFK_ConfigSettings::parseCmdLine(int *argcp, char **argv)
     *argcp = 0; // ??
     return true;
 }
-

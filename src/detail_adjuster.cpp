@@ -29,19 +29,19 @@
 
 /* AFK_DetailAdjuster implementation */
 
-AFK_DetailAdjuster::AFK_DetailAdjuster(const AFK_Config *config):
-    frameTimeTarget(config->targetFrameTimeMillis),
+AFK_DetailAdjuster::AFK_DetailAdjuster(const AFK_ConfigSettings& settings):
+    frameTimeTarget(settings.targetFrameTimeMillis),
     wiggle(0.9f),
-    detailPitchMax(config->maxDetailPitch),
-    detailPitchMin(config->minDetailPitch),
+    detailPitchMax(settings.maxDetailPitch),
+    detailPitchMin(settings.minDetailPitch),
     errorPerDeviation(240.0f), /* magic */
-    stickiness(config->detailPitchStickiness),
+    stickiness(settings.detailPitchStickiness),
     haveFirstMeasurement(false),
     haveLastFrameTime(false),
-    detailPitch(config->startingDetailPitch),
-    lastDetailPitch(config->startingDetailPitch),
-    logLastDetailPitch(log(config->startingDetailPitch)),
-    deviation(config->framesPerCalibration, 0.0f)
+    detailPitch(settings.startingDetailPitch),
+    lastDetailPitch(settings.startingDetailPitch),
+    logLastDetailPitch(log(settings.startingDetailPitch)),
+    deviation(settings.framesPerCalibration, 0.0f)
 {
 }
 

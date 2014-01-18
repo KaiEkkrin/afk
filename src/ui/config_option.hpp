@@ -28,6 +28,7 @@
 
 #include "../exception.hpp"
 
+
 /* How to name config options. */
 class AFK_ConfigOptionName
 {
@@ -173,6 +174,7 @@ public:
     }
 
     /* To be used when I get in-program UI */
+    T& operator=(const T& value) { field = value; return field; }
     void set(const T& value)
     {
         field = value;
@@ -202,8 +204,8 @@ protected:
     std::string makeAntiName(const std::string& _name) const
     {
         std::ostringstream antiNameSS;
-        antiNameSS << "No";
-        antiNameSS << toupper(_name[0]);
+        antiNameSS << "no";
+        antiNameSS << static_cast<char>(toupper(_name[0]));
         antiNameSS << _name.substr(1, _name.size() - 1);
         return antiNameSS.str();
     }
@@ -257,6 +259,7 @@ public:
     }
 
     /* To be used when I get in-program UI */
+    bool operator=(bool value) { field = value; return field; }
     void set(const bool& value)
     {
         field = value;

@@ -517,7 +517,7 @@ bool AFK_World::generateClaimedWorldCell(
 }
 
 AFK_World::AFK_World(
-    const AFK_Config *config,
+    const AFK_ConfigSettings& settings,
     AFK_Computer *computer,
     AFK_ThreadAllocation& threadAlloc,
     float _maxDistance,
@@ -525,21 +525,21 @@ AFK_World::AFK_World(
     size_t tileCacheSize,
     size_t shapeCacheSize,
     AFK_RNG *setupRng):
-        startingDetailPitch         (config->startingDetailPitch),
-        maxDetailPitch              (config->maxDetailPitch),
-        shape                       (config, threadAlloc, shapeCacheSize),
+        startingDetailPitch         (settings.startingDetailPitch),
+        maxDetailPitch              (settings.maxDetailPitch),
+        shape                       (settings, threadAlloc, shapeCacheSize),
         entityFair2DIndex           (AFK_MAX_VAPOUR),
         maxDistance                 (_maxDistance),
-        subdivisionFactor           (config->subdivisionFactor),
-        minCellSize                 (config->minCellSize),
-        lSizes                      (config),
-        sSizes                      (config),
-        entitySparseness            (config->entitySparseness)
+        subdivisionFactor           (settings.subdivisionFactor),
+        minCellSize                 (settings.minCellSize),
+        lSizes                      (settings),
+        sSizes                      (settings),
+        entitySparseness            (settings.entitySparseness)
 
 {
     /* Declare the jigsaw images and decide how big things can be. */
     Vec3<int> tpSize = afk_vec3<int>((int)lSizes.tDim, (int)lSizes.tDim, 1);
-    AFK_JigsawBufferUsage tBu = config->clGlSharing ?
+    AFK_JigsawBufferUsage tBu = settings.clGlSharing ?
         AFK_JigsawBufferUsage::CL_GL_SHARED : AFK_JigsawBufferUsage::CL_GL_COPIED;
 
     Vec3<int> vpSize = afk_vec3<int>((int)sSizes.tDim, (int)sSizes.tDim, (int)sSizes.tDim);
@@ -554,11 +554,11 @@ AFK_World::AFK_World(
      * because of the need to convert it to proper 3D
      * for the GL.
      */
-    AFK_JigsawBufferUsage vBu = (config->clGlSharing && !computer->useFake3DImages(config) ?
+    AFK_JigsawBufferUsage vBu = (settings.clGlSharing && !computer->useFake3DImages(settings) ?
         AFK_JigsawBufferUsage::CL_GL_SHARED : AFK_JigsawBufferUsage::CL_GL_COPIED);
 
     /* Packed 8-bit signed doesn't seem to work with cl_gl sharing */
-    AFK_JigsawFormat normalFormat = config->clGlSharing ?
+    AFK_JigsawFormat normalFormat = settings.clGlSharing ?
         AFK_JigsawFormat::FLOAT32_4 : AFK_JigsawFormat::FLOAT8_SNORM_4;
 
     AFK_JigsawMemoryAllocation jigsawAlloc(
@@ -623,9 +623,9 @@ AFK_World::AFK_World(
                 1,
                 2.0f)
         },
-        config->concurrency,
-        computer->useFake3DImages(config),
-        config->jigsawUsageFactor,
+        settings.concurrency,
+        computer->useFake3DImages(settings),
+        settings.jigsawUsageFactor,
         computer->getFirstDeviceProps());
 
     /* Set up the caches and generator gang. */
@@ -659,7 +659,7 @@ AFK_World::AFK_World(
     //unsigned int shapeCacheEntries = shapeCacheSize / (32 * SQUARE(sSizes.eDim) * 6 + 16 * CUBE(sSizes.tDim));
 
     genGang = new AFK_AsyncGang<union AFK_WorldWorkParam, bool, struct AFK_WorldWorkThreadLocal, afk_worldGenerationFinishedFunc>(
-        100, threadAlloc, config->concurrency);
+        100, threadAlloc, settings.concurrency);
     volumeLeftToEnumerate.store(0);
 
     std::cout << "AFK_World: Configuring landscape jigsaws with: " << jigsawAlloc.at(0) << std::endl;
@@ -985,7 +985,7 @@ void AFK_World::display(
     landscape_shaderLight->setupLight(globalLight);
     glUniformMatrix4fv(landscape_clipTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
     glUniform3fv(landscape_skyColourLocation, 1, &afk_core.skyColour.v[0]);
-    glUniform1f(landscape_farClipDistanceLocation, afk_core.config->zFar);
+    glUniform1f(landscape_farClipDistanceLocation, afk_core.settings.zFar);
     AFK_GLCHK("landscape uniforms")
 
     glBindVertexArray(landscapeTileArray);

@@ -30,7 +30,7 @@
 
 void afk_testJigsaw(
     AFK_Computer *computer,
-    const AFK_Config *config)
+    const AFK_ConfigSettings& settings)
 {
     boost::random::random_device rdev;
     srand(rdev());
@@ -62,8 +62,8 @@ void afk_testJigsaw(
                 4,
                 1.0f),
         },
-        config->concurrency,
-        computer->useFake3DImages(config),
+        settings.concurrency,
+        computer->useFake3DImages(settings),
         1.0f,
         computer->getFirstDeviceProps());
 
@@ -79,7 +79,7 @@ void afk_testJigsaw(
 
     for (int i = 0; i < testIterations; ++i)
     {
-        int piecesThisFrame = rand() % (config->concurrency * testAllocation.at(0).getPieceCount() / 4);
+        int piecesThisFrame = rand() % (settings.concurrency * testAllocation.at(0).getPieceCount() / 4);
         std::cout << "Test frame " << frame << ": Getting " << piecesThisFrame << " pieces" << std::endl;
 
         /* Here, I map each piece that I've drawn to its timestamp. */

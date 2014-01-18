@@ -35,37 +35,37 @@
 * High-number controls (which wouldn't affect the bit field) include
 * axes.
 */
-#define AFK_TEST_BIT(field, bit) ((field) & (1uLL<<(bit)))
-#define AFK_SET_BIT(field, bit) ((field) |= (1uLL<<(bit)))
-#define AFK_CLEAR_BIT(field, bit) ((field) &= ~(1uLL<<(bit)))
+#define AFK_TEST_CONTROL_BIT(field, bit) ((field) & (1uLL<<(static_cast<int>(bit))))
+#define AFK_SET_CONTROL_BIT(field, bit) ((field) |= (1uLL<<(static_cast<int>(bit))))
+#define AFK_CLEAR_CONTROL_BIT(field, bit) ((field) &= ~(1uLL<<(static_cast<int>(bit))))
 
-#define AFK_CONTROL_AXIS_BIT (1<<28)
+#define AFK_CONTROL_AXIS_BIT 0x100
 
 enum class AFK_Control : int
 {
-    NONE = 0,
-    MOUSE_CAPTURE = 1,
-    PITCH_UP = 2,
-    PITCH_DOWN = 3,
-    YAW_RIGHT = 4,
-    YAW_LEFT = 5,
-    ROLL_RIGHT = 6,
-    ROLL_LEFT = 7,
-    THRUST_FORWARD = 8,
-    THRUST_BACKWARD = 9,
-    THRUST_RIGHT = 10,
-    THRUST_LEFT = 11,
-    THRUST_UP = 12,
-    THRUST_DOWN = 13,
-    PRIMARY_FIRE = 14,
-    SECONDARY_FIRE = 15,
-    FULLSCREEN = 16,
-    AXIS_PITCH = (AFK_CONTROL_AXIS_BIT & 1),
-    AXIS_YAW = (AFK_CONTROL_AXIS_BIT & 2),
-    AXIS_ROLL = (AFK_CONTROL_AXIS_BIT & 3)
+    NONE = 0x0,
+    MOUSE_CAPTURE = 0x1,
+    PITCH_UP = 0x2,
+    PITCH_DOWN = 0x3,
+    YAW_RIGHT = 0x4,
+    YAW_LEFT = 0x5,
+    ROLL_RIGHT = 0x6,
+    ROLL_LEFT = 0x7,
+    THRUST_FORWARD = 0x8,
+    THRUST_BACKWARD = 0x9,
+    THRUST_RIGHT = 0xa,
+    THRUST_LEFT = 0xb,
+    THRUST_UP = 0xc,
+    THRUST_DOWN = 0xd,
+    PRIMARY_FIRE = 0xe,
+    SECONDARY_FIRE = 0xf,
+    FULLSCREEN = 0x10,
+    AXIS_PITCH = 0x100,
+    AXIS_YAW = 0x101,
+    AXIS_ROLL = 0x102
 };
 
-#define AFK_IS_TOGGLE(bit) ((bit) == AFK_Control::MOUSE_CAPTURE || (bit) == AFK_Control::FULLSCREEN)
+#define AFK_CONTROL_IS_TOGGLE(bit) ((bit) == AFK_Control::MOUSE_CAPTURE || (bit) == AFK_Control::FULLSCREEN)
 
 enum class AFK_MouseAxis : int
 {
@@ -97,7 +97,8 @@ struct AFK_DefaultControl
 
     AFK_ConfigOptionName getName(void) const { return AFK_ConfigOptionName(name); }
 };
-extern std::list<struct AFK_DefaultControl> afk_defaultControls;
+
+std::list<struct AFK_DefaultControl>& afk_getDefaultControls(void);
 
 /* A general way of configuring controls. */
 class AFK_ConfigOptionControl : public AFK_ConfigOptionBase
@@ -159,7 +160,8 @@ public:
 
     bool map(const std::string& keys, AFK_Control control) override;
     
-    AFK_Control operator[](const std::string& key);
+    // TODO: At some point I'll want a setter (too intricate for an operator[] )
+    AFK_Control get(const std::string& key);
 };
 
 class AFK_MouseControls : public AFK_ConfigOptionControl
@@ -174,7 +176,7 @@ public:
 
     bool map(const std::string& keys, AFK_Control control) override;
 
-    AFK_Control operator[](int button) const;
+    AFK_Control& operator[](int button);
 };
 
 class AFK_MouseAxisControls : public AFK_ConfigOptionControl
@@ -189,7 +191,7 @@ public:
 
     bool map(const std::string& keys, AFK_Control control) override;
 
-    AFK_Control operator[](AFK_MouseAxis axis) const;
+    AFK_Control& operator[](AFK_MouseAxis axis);
 };
 
 #endif /* _AFK_UI_CONTROLS_H_ */

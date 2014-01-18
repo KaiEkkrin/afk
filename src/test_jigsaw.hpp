@@ -21,9 +21,9 @@
 #include "afk.hpp"
 
 #include "computer.hpp"
-#include "config.hpp"
+#include "ui/config_settings.hpp"
 
-void afk_testJigsaw(AFK_Computer *computer, const AFK_Config *config);
+void afk_testJigsaw(AFK_Computer *computer, const AFK_ConfigSettings& settings);
 
 #endif /* _AFK_TEST_JIGSAW_H_ */
 

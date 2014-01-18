@@ -102,7 +102,7 @@ protected:
 
 public:
     AFK_Shape(
-        const AFK_Config *config,
+        const AFK_ConfigSettings& settings,
         AFK_ThreadAllocation& threadAlloc,
         size_t shapeCacheSize);
     virtual ~AFK_Shape();

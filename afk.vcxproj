@@ -193,7 +193,6 @@
     <ClInclude Include="src\compute_dependency.hpp" />
     <ClInclude Include="src\compute_input.hpp" />
     <ClInclude Include="src\compute_queue.hpp" />
-    <ClInclude Include="src\config.hpp" />
     <ClInclude Include="src\core.hpp" />
     <ClInclude Include="src\data\cache.hpp" />
     <ClInclude Include="src\data\cache_test.hpp" />
@@ -306,7 +305,6 @@
     <ClCompile Include="src\compute_dependency.cpp" />
     <ClCompile Include="src\compute_input.cpp" />
     <ClCompile Include="src\compute_queue.cpp" />
-    <ClCompile Include="src\config.cpp" />
     <ClCompile Include="src\core.cpp" />
     <ClCompile Include="src\data\cache_test.cpp" />
     <ClCompile Include="src\data\chain.cpp" />

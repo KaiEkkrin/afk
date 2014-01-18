@@ -30,7 +30,6 @@
 #include "camera.hpp"
 #include "clock.hpp"
 #include "computer.hpp"
-#include "config.hpp"
 #include "data/claimable.hpp"
 #include "data/evictable_cache.hpp"
 #include "data/frame.hpp"
@@ -38,6 +37,7 @@
 #include "detail_adjuster.hpp"
 #include "display.hpp"
 #include "light.hpp"
+#include "ui/config_settings.hpp"
 #include "window.hpp"
 
 
@@ -46,7 +46,6 @@
  * named classes
  */
 class AFK_Camera;
-class AFK_Config;
 class AFK_Computer;
 class AFK_RNG;
 class AFK_World;
@@ -78,7 +77,7 @@ protected:
 
 public:
     /* General things. */
-    AFK_Config          *config;
+    AFK_ConfigSettings  settings;
     AFK_Computer        *computer;
     unsigned int        masterThreadId;
     AFK_ThreadAllocation    threadAlloc;

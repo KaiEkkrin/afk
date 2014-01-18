@@ -24,7 +24,7 @@
 #include <string>
 #include <vector>
 
-#include "config.hpp"
+#include "ui/config_settings.hpp"
 
 /* This is a list of all the shaders that I know about.
  * To ask for particular shaders to be compiled into a
@@ -61,7 +61,7 @@ std::vector<AFK_ShaderSpec> afk_declareShaderSpec(AFK_ShaderSpec first, ...);
 /* Loads all the known shaders from disk and compiles them
  * individually.
  */
-void afk_loadShaders(const AFK_Config *config);
+void afk_loadShaders(const AFK_ConfigSettings& settings);
 
 class AFK_ShaderProgram
 {

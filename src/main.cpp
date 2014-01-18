@@ -57,6 +57,7 @@ int APIENTRY WinMain(
     LPSTR       lpCmdLine,
     int         nCmdShow)
 {
+    // TODO: I've somehow broken this console with the config_settings change (nothing is being output) :-(
     AFK_WinConsole winConsole;
     AFK_ArgList argList;
     int argc = argList.getArgc();
@@ -115,7 +116,7 @@ int main(int argc, char **argv)
         std::cout << "AFK configuring" << std::endl;
         afk_core.configure(&argc, argv);
 
-        std::cout << "AFK Using master seed: " << afk_core.config->masterSeed << std::endl;
+        std::cout << "AFK Using master seed: " << afk_core.settings.masterSeedLow << " " << afk_core.settings.masterSeedHigh << std::endl;
 
 		/* The RNG test needs to go here after that master seed has
 		 * been initialised, because it'll refer to it.

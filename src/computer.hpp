@@ -28,10 +28,10 @@
 #include <string>
 #include <vector>
 
-#include "config.hpp"
 #include "def.hpp"
 #include "exception.hpp"
 #include "ocl_shim.hpp"
+#include "ui/config_settings.hpp"
 
 class AFK_ComputeQueue;
 class AFK_Computer;
@@ -189,7 +189,7 @@ protected:
 
     /* Helper functions */
     bool findClGlDevices(cl_platform_id platform);
-    void loadProgramFromFiles(const AFK_Config *config, std::vector<AFK_ClProgram>::iterator& p);
+    void loadProgramFromFiles(const AFK_ConfigSettings& settings, std::vector<AFK_ClProgram>::iterator& p);
     void programBuilt(void);
     void waitForBuild(void);
     void printBuildLog(std::ostream& os, const AFK_ClProgram& p, cl_device_id device);
@@ -201,13 +201,13 @@ public:
     AFK_OclShim oclShim;
     AFK_OclPlatformExtensionShim *oclPlatformExtensionShim;
 
-    AFK_Computer(const AFK_Config *config);
+    AFK_Computer(const AFK_ConfigSettings& settings);
     virtual ~AFK_Computer();
 
     /* Loads all CL programs from disk.  Call before doing
      * anything else.
      */
-    void loadPrograms(const AFK_Config *config);
+    void loadPrograms(const AFK_ConfigSettings& settings);
 
     /* Returns the first device's detected properties. */
     const AFK_ClDeviceProperties& getFirstDeviceProps(void) const;
@@ -231,7 +231,7 @@ public:
     /* Returns true if we should use fake 3D images,
      * else false.
      */
-    bool useFake3DImages(const AFK_Config *config) const;
+    bool useFake3DImages(const AFK_ConfigSettings& settings) const;
 
     /* For fetching fixed-size device properties. */
     template<typename PropType>

@@ -21,14 +21,14 @@
 #include <cmath>
 
 #include "camera.hpp"
-#include "config.hpp"
 #include "core.hpp"
+#include "ui/config_settings.hpp"
 
 void AFK_Camera::updateProjection(void)
 {
     /* Magic perspective projection. */
-    zNear = afk_core.config->zNear;
-    zFar = afk_core.config->zFar;
+    zNear = afk_core.settings.zNear;
+    zFar = afk_core.settings.zFar;
     float zRange = zNear - zFar;
     
     Mat4<float> projectMatrix = afk_mat4<float>(
@@ -76,7 +76,7 @@ void AFK_Camera::setWindowDimensions(int width, int height)
     /* If we're setting up a window, this stuff must be
      * valid by now
      */
-    tanHalfFov = tanf((afk_core.config->fov / 2.0f) * (float)M_PI / 180.0f);
+    tanHalfFov = tanf((afk_core.settings.fov / 2.0f) * (float)M_PI / 180.0f);
     ar = ((float)windowWidth) / ((float)windowHeight);
 
     windowSize = afk_vec2<float>((float)windowWidth, (float)windowHeight);

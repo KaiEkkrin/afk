@@ -21,8 +21,8 @@
 #include "afk.hpp"
 
 #include "clock.hpp"
-#include "config.hpp"
 #include "data/moving_average.hpp"
+#include "ui/config_settings.hpp"
 
 /* This module is a new place to implement AFK's dynamic detail
  * adjustment system.
@@ -76,7 +76,7 @@ protected:
     AFK_MovingAverage<float> deviation;
 
 public:
-    AFK_DetailAdjuster(const AFK_Config *config);
+    AFK_DetailAdjuster(const AFK_ConfigSettings& settings);
     virtual ~AFK_DetailAdjuster();
 
     /* Call these functions to tell the detail adjuster to take a

@@ -302,7 +302,7 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
     else return false;
 }
 
-void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<AFK_ClProgram>::iterator& p)
+void AFK_Computer::loadProgramFromFiles(const AFK_ConfigSettings& settings, std::vector<AFK_ClProgram>::iterator& p)
 {
     char **sources;
     size_t *sourceLengths;
@@ -332,8 +332,8 @@ void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<AF
 
     /* Compiler arguments here... */
     std::ostringstream args;
-    AFK_LandscapeSizes lSizes(config);
-    AFK_ShapeSizes sSizes(config);
+    AFK_LandscapeSizes lSizes(settings);
+    AFK_ShapeSizes sSizes(settings);
 
     if (boost::starts_with(p->programName, "landscape_"))
     {
@@ -358,7 +358,7 @@ void AFK_Computer::loadProgramFromFiles(const AFK_Config *config, std::vector<AF
         args << "-D REDUCE_ORDER="              << sSizes.getReduceOrder()       << " ";
         args << "-D LAYERS="                    << sSizes.layers                 << " ";
         args << "-D LAYER_BITNESS="             << sSizes.layerBitness           << " ";
-        if (useFake3DImages(config))
+        if (useFake3DImages(settings))
             args << "-D AFK_FAKE3D=1 ";
         else
             args << "-D AFK_FAKE3D=0 ";
@@ -411,11 +411,11 @@ void AFK_Computer::printBuildLog(std::ostream& s, const AFK_ClProgram& p, cl_dev
     delete[] buildLog;
 }
 
-AFK_Computer::AFK_Computer(const AFK_Config *config):
+AFK_Computer::AFK_Computer(const AFK_ConfigSettings& settings):
     platform(0),
     platformProps(NULL),
-    clGlSharing(config->clGlSharing),
-    useEvents(config->clUseEvents),
+    clGlSharing(settings.clGlSharing),
+    useEvents(settings.clUseEvents),
     devices(NULL),
     devicesSize(0),
     firstDeviceProps(NULL),
@@ -423,7 +423,7 @@ AFK_Computer::AFK_Computer(const AFK_Config *config):
     kernelQueue(nullptr),
     readQueue(nullptr),
     writeQueue(nullptr),
-    oclShim(config),
+    oclShim(settings),
     oclPlatformExtensionShim(nullptr)
 {
     cl_platform_id *platforms;
@@ -476,20 +476,20 @@ AFK_Computer::AFK_Computer(const AFK_Config *config):
     if (!devices) throw AFK_Exception("No cl_gl devices found");
 
     /* Make my compute queues. */
-    if (config->clSeparateQueues)
+    if (settings.clSeparateQueues)
     {
         kernelQueue = std::make_shared<AFK_ComputeQueue>(
-            &oclShim, ctxt, devices[0], config, AFK_CQ_KERNEL_COMMAND_SET);
+            &oclShim, ctxt, devices[0], settings, AFK_CQ_KERNEL_COMMAND_SET);
         readQueue = std::make_shared<AFK_ComputeQueue>(
-            &oclShim, ctxt, devices[0], config, AFK_CQ_READ_COMMAND_SET);
+            &oclShim, ctxt, devices[0], settings, AFK_CQ_READ_COMMAND_SET);
         writeQueue = std::make_shared<AFK_ComputeQueue>(
-            &oclShim, ctxt, devices[0], config, AFK_CQ_WRITE_COMMAND_SET);
+            &oclShim, ctxt, devices[0], settings, AFK_CQ_WRITE_COMMAND_SET);
     }
     else
     {
         kernelQueue = readQueue = writeQueue =
             std::make_shared<AFK_ComputeQueue>(
-                &oclShim, ctxt, devices[0], config,
+                &oclShim, ctxt, devices[0], settings,
                 AFK_CQ_KERNEL_COMMAND_SET | AFK_CQ_READ_COMMAND_SET | AFK_CQ_WRITE_COMMAND_SET);
     }
 }
@@ -519,19 +519,19 @@ AFK_Computer::~AFK_Computer()
     if (platformProps) delete platformProps;
 }
 
-void AFK_Computer::loadPrograms(const AFK_Config *config)
+void AFK_Computer::loadPrograms(const AFK_ConfigSettings& settings)
 {
     cl_int error;
     std::ostringstream errStream;
 
     /* Swap to the right directory. */
-    if (!afk_pushDir(config->clProgramsDir, errStream))
+    if (!afk_pushDir(settings.clProgramsDir, errStream))
         throw AFK_Exception("AFK_Computer: Unable to switch to programs dir: " + errStream.str());
 
     /* Load all the programs I know about. */
     stillBuilding = programs.size();
     for (auto pIt = programs.begin(); pIt != programs.end(); ++pIt)
-        loadProgramFromFiles(config, pIt);
+        loadProgramFromFiles(settings, pIt);
     waitForBuild();
     for (auto p : programs)
         for (size_t dI = 0; dI < devicesSize; ++dI)
@@ -585,9 +585,9 @@ bool AFK_Computer::testVersion(unsigned int majorVersion, unsigned int minorVers
         (platformProps->majorVersion == majorVersion && platformProps->minorVersion >= minorVersion));
 }
 
-bool AFK_Computer::useFake3DImages(const AFK_Config *config) const
+bool AFK_Computer::useFake3DImages(const AFK_ConfigSettings& settings) const
 {
-    return (config->forceFake3DImages ||
+    return (settings.forceFake3DImages ||
         !firstDeviceProps->supportsExtension("cl_khr_3d_image_writes"));
 }
 

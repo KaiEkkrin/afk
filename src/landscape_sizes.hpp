@@ -18,7 +18,7 @@
 #ifndef _AFK_LANDSCAPE_SIZES_H_
 #define _AFK_LANDSCAPE_SIZES_H_
 
-#include "config.hpp"
+#include "ui/config_settings.hpp"
 
 /* Some of these will be hardwired, to support fixed-size structures
  * within the code:
@@ -48,7 +48,7 @@ public:
     const unsigned int tSize; /* Size of a jigsaw piece in bytes */
     const unsigned int featureCountPerTile; /* Number of terrain features per tile */
 
-    AFK_LandscapeSizes(const AFK_Config *config);
+    AFK_LandscapeSizes(const AFK_ConfigSettings& settings);
 
     unsigned int getReduceOrder(void) const { return reduceOrder; }
 };

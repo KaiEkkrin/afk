@@ -18,7 +18,7 @@
 #include "afk.hpp"
 
 #include <cassert>
-#include <sstream>
+#include <iostream>
 
 #include "ocl_shim.hpp"
 
@@ -34,13 +34,13 @@ void afk_handleDlError(const char *_file, const int _line)
     }
 }
 
-AFK_OclShim::AFK_OclShim(const AFK_Config *config):
+AFK_OclShim::AFK_OclShim(const AFK_ConfigSettings& settings):
     handle(nullptr)
 {
-    if (config->clLibDir)
+    if (settings.clLibDir.get().size() > 0)
     {
         std::stringstream ss;
-        ss << config->clLibDir << "/libOpenCL.so";
+        ss << config->clLibDir.get() << "/libOpenCL.so";
         handle = dlopen(ss.str().c_str(), RTLD_LAZY);
     }
     else
@@ -70,13 +70,13 @@ void afk_handleDlError(const char *_file, const int _line)
     }
 }
 
-AFK_OclShim::AFK_OclShim(const AFK_Config *config) :
+AFK_OclShim::AFK_OclShim(const AFK_ConfigSettings& settings) :
 handle(0)
 {
-    if (config->clLibDir)
+    if (settings.clLibDir.get().size() > 0)
     {
         std::stringstream ss;
-        ss << config->clLibDir << "\\OpenCL.dll";
+        ss << settings.clLibDir.get() << "\\OpenCL.dll";
         handle = LoadLibraryA(ss.str().c_str());
     }
     else

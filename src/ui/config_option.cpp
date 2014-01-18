@@ -28,17 +28,17 @@ AFK_ConfigOptionName::AFK_ConfigOptionName(const std::string& _name):
      * field name
      */
     std::string spelling1 = _name;
-    spelling1[0] = toupper(spelling1[0]);
+    spelling1[0] = static_cast<char>(toupper(spelling1[0]));
     spellings.push_back(spelling1);
 
     /* The command-line switch is made by adding `-' to the front,
      * and replacing uppercase characters with `-<lowercase>'.
      */
     std::ostringstream cmdlineSS;
-    cmdlineSS << "-";
+    cmdlineSS << "--";
     for (char c : name)
     {
-        if (isupper(c)) cmdlineSS << "-" << tolower(c);
+        if (isupper(c)) cmdlineSS << "-" << static_cast<char>(tolower(c));
         else cmdlineSS << c;
     }
 

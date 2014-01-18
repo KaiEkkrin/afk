@@ -20,7 +20,7 @@
 
 #include "afk.hpp"
 
-#include "config.hpp"
+#include "ui/config_settings.hpp"
 
 /* This module is responsible for dynamically loading the OpenCL
  * library and identifying its functions.
@@ -104,7 +104,7 @@ protected:
 #endif
 
 public:
-    AFK_OclShim(const AFK_Config *config);
+    AFK_OclShim(const AFK_ConfigSettings& settings);
     virtual ~AFK_OclShim();
 
     /* There follow the functions in the dynamic OpenCL library --
