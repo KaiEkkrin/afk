@@ -90,9 +90,11 @@ enum AFK_Input_Types
 struct AFK_DefaultControl
 {
     enum AFK_Controls       control;
-    AFK_ConfigOptionName    name;
+    std::string             name;
     AFK_Input_Types         defaultType;
     std::string             defaultValue;
+
+    AFK_ConfigOptionName getName(void) const { return AFK_ConfigOptionName(name); }
 };
 extern std::list<struct AFK_DefaultControl> afk_defaultControls;
 

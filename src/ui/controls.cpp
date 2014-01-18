@@ -21,26 +21,26 @@
 
 /* Defaults. */
 std::list<struct AFK_DefaultControl> afk_defaultControls = {
-    {   CTRL_THRUST_FORWARD,    AFK_ConfigOptionName("thrustForward"),    INPUT_TYPE_KEYBOARD,    "wW"    },
-    {   CTRL_THRUST_BACKWARD,   AFK_ConfigOptionName("thrustBackward"),   INPUT_TYPE_KEYBOARD,    "sS"    },
-    {   CTRL_THRUST_RIGHT,      AFK_ConfigOptionName("thrustRight"),      INPUT_TYPE_KEYBOARD,    "dD"    },
-    {   CTRL_THRUST_LEFT,       AFK_ConfigOptionName("thrustLeft"),       INPUT_TYPE_KEYBOARD,    "aA"    },
-    {   CTRL_THRUST_UP,         AFK_ConfigOptionName("thrustUp"),         INPUT_TYPE_KEYBOARD,    "rR"    },
-    {   CTRL_THRUST_DOWN,       AFK_ConfigOptionName("thrustDown"),       INPUT_TYPE_KEYBOARD,    "fF"    },
-    {   CTRL_PITCH_UP,          AFK_ConfigOptionName("pitchUp"),          INPUT_TYPE_NONE,        ""      },
-    {   CTRL_PITCH_DOWN,        AFK_ConfigOptionName("pitchDown"),        INPUT_TYPE_NONE,        ""      },
-    {   CTRL_ROLL_RIGHT,        AFK_ConfigOptionName("rollRight"),        INPUT_TYPE_NONE,        ""      },
-    {   CTRL_ROLL_LEFT,         AFK_ConfigOptionName("rollLeft"),         INPUT_TYPE_NONE,        ""      },
-    {   CTRL_YAW_RIGHT,         AFK_ConfigOptionName("yawRight"),         INPUT_TYPE_KEYBOARD,    "eE"    },
-    {   CTRL_YAW_LEFT,          AFK_ConfigOptionName("yawLeft"),          INPUT_TYPE_KEYBOARD,    "qQ"    },
-//    {   CTRL_AXIS_PITCH,        AFK_ConfigOptionName("pitchAxis"),        INPUT_TYPE_MOUSE_AXIS,  "X"     },
- //   {   CTRL_AXIS_ROLL,         AFK_ConfigOptionName("rollAxis"),         INPUT_TYPE_MOUSE_AXIS,  "Y"     },
-  //  {   CTRL_AXIS_YAW,          AFK_ConfigOptionName("yawAxis"),          INPUT_TYPE_NONE,        ""      }, /* TODO sort out treatment of axes */
-    {   CTRL_PRIMARY_FIRE,      AFK_ConfigOptionName("primaryFire"),      INPUT_TYPE_MOUSE,       "1"     },
-    {   CTRL_SECONDARY_FIRE,    AFK_ConfigOptionName("secondaryFire"),    INPUT_TYPE_MOUSE,       "3"     },
-    {   CTRL_MOUSE_CAPTURE,     AFK_ConfigOptionName("mouseCapture"),     INPUT_TYPE_KEYBOARD,    "mM"    },
-    {   CTRL_MOUSE_CAPTURE,     AFK_ConfigOptionName("mouseCapture"),     INPUT_TYPE_MOUSE,       "2"     },
-    {   CTRL_FULLSCREEN,        AFK_ConfigOptionName("fullscreen"),       INPUT_TYPE_KEYBOARD,    "0)"    }, /* TODO separate control type for control keys f11 etc? */
+    {   CTRL_THRUST_FORWARD,    "thrustForward",    INPUT_TYPE_KEYBOARD,    "wW"    },
+    {   CTRL_THRUST_BACKWARD,   "thrustBackward",   INPUT_TYPE_KEYBOARD,    "sS"    },
+    {   CTRL_THRUST_RIGHT,      "thrustRight",      INPUT_TYPE_KEYBOARD,    "dD"    },
+    {   CTRL_THRUST_LEFT,       "thrustLeft",       INPUT_TYPE_KEYBOARD,    "aA"    },
+    {   CTRL_THRUST_UP,         "thrustUp",         INPUT_TYPE_KEYBOARD,    "rR"    },
+    {   CTRL_THRUST_DOWN,       "thrustDown",       INPUT_TYPE_KEYBOARD,    "fF"    },
+    {   CTRL_PITCH_UP,          "pitchUp",          INPUT_TYPE_NONE,        ""      },
+    {   CTRL_PITCH_DOWN,        "pitchDown",        INPUT_TYPE_NONE,        ""      },
+    {   CTRL_ROLL_RIGHT,        "rollRight",        INPUT_TYPE_NONE,        ""      },
+    {   CTRL_ROLL_LEFT,         "rollLeft",         INPUT_TYPE_NONE,        ""      },
+    {   CTRL_YAW_RIGHT,         "yawRight",         INPUT_TYPE_KEYBOARD,    "eE"    },
+    {   CTRL_YAW_LEFT,          "yawLeft",          INPUT_TYPE_KEYBOARD,    "qQ"    },
+//    {   CTRL_AXIS_PITCH,        "pitchAxis",        INPUT_TYPE_MOUSE_AXIS,  "X"     },
+ //   {   CTRL_AXIS_ROLL,         "rollAxis",         INPUT_TYPE_MOUSE_AXIS,  "Y"     },
+  //  {   CTRL_AXIS_YAW,          "yawAxis",          INPUT_TYPE_NONE,        ""      }, /* TODO sort out treatment of axes */
+    {   CTRL_PRIMARY_FIRE,      "primaryFire",      INPUT_TYPE_MOUSE,       "1"     },
+    {   CTRL_SECONDARY_FIRE,    "secondaryFire",    INPUT_TYPE_MOUSE,       "3"     },
+    {   CTRL_MOUSE_CAPTURE,     "mouseCapture",     INPUT_TYPE_KEYBOARD,    "mM"    },
+    {   CTRL_MOUSE_CAPTURE,     "mouseCapture",     INPUT_TYPE_MOUSE,       "2"     },
+    {   CTRL_FULLSCREEN,        "fullscreen",       INPUT_TYPE_KEYBOARD,    "0)"    }, /* TODO separate control type for control keys f11 etc? */
 };
 
 /* AFK_KeyboardControls implementation.  WIP -- disabled for now */
@@ -120,7 +120,7 @@ bool AFK_KeyboardControls::nameMatches(std::function<std::string(void)>& getArg,
         for (auto d : afk_defaultControls)
         {
             size_t keyLength;
-            if (d.name.subMatches(arg, keyboardLength, keyLength) &&
+            if (d.getName().subMatches(arg, keyboardLength, keyLength) &&
                 (keyboardLength + keyLength) == arg.size())
             {
                 nextArg();
