@@ -26,7 +26,6 @@
 /* New controls replacing what's in the old config module.  WIP --
  * disabled for now.
  */
-#if 0
 
 /* TODO Wouldn't it be great to support gamepads?  And a
 * joystick?  Wow, joysticks.  I should get a modern one.
@@ -73,6 +72,30 @@ enum AFK_Mouse_Axes
     MOUSE_AXIS_Y
 };
 
+enum AFK_Input_Types
+{
+    INPUT_TYPE_KEYBOARD,
+    INPUT_TYPE_MOUSE,
+    INPUT_TYPE_MOUSE_AXIS,
+    INPUT_TYPE_NONE,
+};
+
+/* This is where the defaults go.
+ * Each control can actually be mapped to any input type;
+ * the one listed here is the default.
+ * To have several defaults of different types, list it several times; to have
+ * no default, list an empty value along with
+ * INPUT_TYPE_NONE.
+ */
+struct AFK_DefaultControl
+{
+    enum AFK_Controls       control;
+    AFK_ConfigOptionName    name;
+    AFK_Input_Types         defaultType;
+    std::string             defaultValue;
+};
+extern std::list<struct AFK_DefaultControl> afk_defaultControls;
+
 /* The keyboard mapping is built as a single string that
 * we search for the key, and a matchingly indexed list
 * of the controls.
@@ -95,9 +118,13 @@ protected:
     void appendToList(char key, enum AFK_Controls control);
     void updateMapping(void);
 
+    /* Some state tracking when parsing arguments. */
+    enum AFK_Controls matchedControl;
+
 public:
     AFK_KeyboardControls(std::list<AFK_ConfigOptionBase *> *options);
 
+    bool nameMatches(std::function<std::string(void)>& getArg, std::function<void(void)>& nextArg) override;
     bool matched(std::function<std::string(void)>& getArg, std::function<void(void)>& nextArg) override;
 
     void map(const std::string& keys, enum AFK_Controls control);
@@ -136,6 +163,6 @@ public:
 
     void save(std::ostream& os) const override;
 };
-#endif
+
 #endif /* _AFK_UI_CONTROLS_H_ */
 

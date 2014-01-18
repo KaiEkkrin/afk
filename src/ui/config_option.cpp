@@ -45,11 +45,31 @@ AFK_ConfigOptionName::AFK_ConfigOptionName(const std::string& _name):
     spellings.push_back(cmdlineSS.str());
 }
 
+const std::string& AFK_ConfigOptionName::getName(void) const
+{
+    return name;
+}
+
 bool AFK_ConfigOptionName::matches(const std::string& arg)
 {
     for (auto spelling : spellings)
     {
         if (arg == spelling) return true;
+    }
+
+    return false;
+}
+
+bool AFK_ConfigOptionName::subMatches(const std::string& arg, size_t start, size_t& o_matchedLength)
+{
+    for (auto spelling : spellings)
+    {
+        if (spelling.size() <= (arg.size() - start) &&
+            arg.compare(start, spelling.size(), spelling) == 0)
+        {
+            o_matchedLength = spelling.size();
+            return true;
+        }
     }
 
     return false;

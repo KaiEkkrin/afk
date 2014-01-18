@@ -38,7 +38,10 @@ protected:
 public:
     AFK_ConfigOptionName(const std::string& _name);
 
+    const std::string& getName(void) const;
+
     virtual bool matches(const std::string& arg);
+    virtual bool subMatches(const std::string& arg, size_t start, size_t& o_matchedLength);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_ConfigOptionName& optionName);
 };
