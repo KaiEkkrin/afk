@@ -35,6 +35,8 @@ protected:
 public:
     AFK_WinConsole();
     virtual ~AFK_WinConsole();
+
+    void resync();
 };
 
 #endif /* _WIN32 */

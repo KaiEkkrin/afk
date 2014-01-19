@@ -231,3 +231,41 @@ finished:
     return success;
 }
 
+bool afk_writeFileContents(
+    const std::string& filename,
+    const char *buf,
+    size_t bufSize,
+    std::ostream& io_errStream)
+{
+    FILE *f = nullptr;
+    bool success = false;
+
+#ifdef _WIN32
+    errno_t openErr = fopen_s(&f, filename.c_str(), "wb");
+    if (openErr != 0)
+    {
+        io_errStream << "Failed to open " << filename << ": " << afk_strerror(openErr);
+        goto finished;
+    }
+#else
+    f = fopen(filename.c_str(), "wb");
+    if (!f)
+    {
+        io_errStream << "Failed to open " << filename << ": " << afk_strerror(errno);
+        goto finished;
+    }
+#endif
+
+    if (fwrite(buf, 1, bufSize, f) != bufSize)
+    {
+        io_errStream << "Failed to write to " << filename << ": " << afk_strerror(errno);
+        goto finished;
+    }
+
+    success = true;
+
+finished:
+
+    if (f) fclose(f);
+    return success;
+}

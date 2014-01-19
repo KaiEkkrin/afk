@@ -15,37 +15,41 @@
 * along with this program.  If not, see [http://www.gnu.org/licenses/].
 */
 
-#include <fstream>
 #include <iostream>
 
 #include <boost/tokenizer.hpp>
 
 #include "config_settings.hpp"
+#include "../file/readfile.hpp"
 
 /* AFK_ConfigSettings implementation */
 
 void AFK_ConfigSettings::loadConfigFromFile(void)
 {
-    std::ifstream cf;
-    try
+    char *data = nullptr;
+    size_t dataSize = 0;
+
+    if (afk_readFileContents(configFile->get(), &data, &dataSize, std::cerr))
     {
-        cf.open(configFile->get(), std::ios::in);
-        std::string line;
-        int lineNum = 0;
+        std::string dataStr(data, dataSize);
+
+        boost::char_separator<char> lineSep("\r\n");
+        boost::tokenizer<boost::char_separator<char> > fileTok(dataStr, lineSep);
 
         /* We separate the lines by "=" and ";".
         * TODO: Handle ";" differently -- use it as a comment character
         */
         boost::char_separator<char> configSep("=;");
+        int lineNum = 0;
 
-        while (std::getline(cf, line))
+        for (auto line : fileTok)
         {
             boost::tokenizer<boost::char_separator<char> > lineTok(line, configSep);
             auto lineIt = lineTok.begin();
             auto lineEnd = lineTok.end();
 
             /* I'm going to assume there is just one option per line.
-             */
+            */
             bool lineParsed = false;
             for (auto option : options)
             {
@@ -61,19 +65,15 @@ void AFK_ConfigSettings::loadConfigFromFile(void)
                 /* If the line isn't empty, complain */
                 if (boost::algorithm::trim_copy(line).size() > 0)
                 {
-                    std::cout << "AFK load settings: Parse error at line " << lineNum << ": " << line << std::endl;
+                    std::cerr << "AFK load settings: Parse error at line " << lineNum << ": " << line << std::endl;
                 }
             }
 
             ++lineNum;
         }
 
-        cf.close();
+        free(data);
         std::cout << "AFK: Loaded configuration from " << configFile->get() << std::endl;
-    }
-    catch (std::ios_base::failure& failure)
-    {
-        std::cout << "AFK: Failed to load configuration from " << configFile->get() << ": " << failure.what() << std::endl;
     }
 }
 
@@ -116,21 +116,16 @@ AFK_ConfigSettings::~AFK_ConfigSettings()
     if (saveOnQuit)
     {
         /* TODO: Move the old config file out of the way, etc. */
-        std::ofstream cf;
-        try
+        std::ostringstream ss;
+        for (auto option : options)
         {
-            cf.open(configFile->get(), std::ios::out | std::ios::trunc);
-            for (auto option : options)
-            {
-                option->save(cf);
-            }
-
-            cf.close();
-            std::cout << "AFK: Saved configuration to " << configFile->get() << std::endl;
+            option->save(ss);
         }
-        catch (std::ios_base::failure& failure)
+
+        std::string sstr = ss.str();
+        if (afk_writeFileContents(configFile->get(), sstr.c_str(), sstr.size(), std::cerr))
         {
-            std::cout << "AFK: Failed to save configuration to " << configFile->get() << ": " << failure.what() << std::endl;
+            std::cout << "AFK: Saved configuration to " << configFile->get() << std::endl;
         }
     }
 }

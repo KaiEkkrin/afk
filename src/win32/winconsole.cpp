@@ -32,15 +32,7 @@ outf(nullptr), errf(nullptr)
     }
     else
     {
-        /* Reopen the standard streams to these magic Windows names */
-        freopen_s(&outf, "CONOUT$", "w", stdout);
-        freopen_s(&errf, "CONOUT$", "w", stderr);
-
-        /* Sync up C++ I/O objects */
-        std::ios::sync_with_stdio();
-
-        /* Confirm it's working */
-        std::cout << "AFK: Started Windows console" << std::endl;
+        resync();
     }
 }
 
@@ -50,6 +42,19 @@ AFK_WinConsole::~AFK_WinConsole()
      * other stuff will run later and try to print, and things will
      * splat ...
      */
+}
+
+void AFK_WinConsole::resync()
+{
+    /* Reopen the standard streams to these magic Windows names */
+    freopen_s(&outf, "CONOUT$", "w", stdout);
+    freopen_s(&errf, "CONOUT$", "w", stderr);
+
+    /* Sync up C++ I/O objects */
+    std::ios::sync_with_stdio();
+
+    /* Confirm it's working */
+    std::cout << "AFK: Sync'd with Windows console" << std::endl;
 }
 
 #endif /* _WIN32 */

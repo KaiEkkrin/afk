@@ -47,6 +47,12 @@ bool afk_pushDir(const std::string& path, std::ostream& io_errStream);
  */
 bool afk_popDir(std::ostream& io_errStream);
 
+/* These next functions are implemented using C I/O, not C++.  It looks
+ * like I'm stuck with that right now: the trick for redirecting the C++
+ * standard streams to a Windows console breaks if I use C++ file I/O.
+ * I can change this when I make a GUI.
+ */
+
 /* Reads the entire contents of a file as binary, allocating the memory
  * to store it and returning it.
  * Fills out `o_buf' and `o_bufSize' with the results.
@@ -57,6 +63,13 @@ bool afk_readFileContents(
     const std::string& filename,
     char **o_buf,
     size_t *o_bufSize,
+    std::ostream& io_errStream);
+
+/* Similarly, writes a file out, overwriting whatever was already there. */
+bool afk_writeFileContents(
+    const std::string& filename,
+    const char *buf,
+    size_t bufSize,
     std::ostream& io_errStream);
 
 #endif /* _AFK_FILE_READFILE_H_ */
