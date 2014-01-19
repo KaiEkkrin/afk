@@ -149,7 +149,8 @@ protected:
 
     void saveInternal(std::ostream& os) const override
     {
-        os << name << "=" << boost::lexical_cast<std::string, T>(field) << std::endl;
+        std::string strField = boost::lexical_cast<std::string, T>(field);
+        if (strField.size() > 0) os << name << "=" << strField << std::endl;
     }
 
 public:

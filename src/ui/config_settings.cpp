@@ -20,6 +20,7 @@
 #include <boost/tokenizer.hpp>
 
 #include "config_settings.hpp"
+#include "../exception.hpp"
 #include "../file/readfile.hpp"
 
 /* AFK_ConfigSettings implementation */
@@ -65,7 +66,9 @@ void AFK_ConfigSettings::loadConfigFromFile(void)
                 /* If the line isn't empty, complain */
                 if (boost::algorithm::trim_copy(line).size() > 0)
                 {
-                    std::cerr << "AFK load settings: Parse error at line " << lineNum << ": " << line << std::endl;
+                    std::ostringstream ss;
+                    ss << "AFK load settings: Parse error at line " << lineNum << ": " << line;
+                    throw AFK_Exception(ss.str());
                 }
             }
 
