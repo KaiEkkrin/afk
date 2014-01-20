@@ -18,6 +18,7 @@
 #include <cstdlib>
 
 #include "rng.hpp"
+#include "../file/logstream.hpp"
 
 
 /* RNG_Value stuff. */
@@ -142,6 +143,6 @@ void AFK_RNG_Test::contribute(const AFK_RNG_Value& seed)
 void AFK_RNG_Test::printResults(void) const
 {
     for (unsigned int d = 0; d < divisions+1; ++d)
-        std::cout << (stride * (float)d) << " - " << (stride * (float)(d + 1)) << ": " << stats[d] << std::endl;
+        afk_out << (stride * (float)d) << " - " << (stride * (float)(d + 1)) << ": " << stats[d] << std::endl;
 }
 

@@ -46,8 +46,8 @@ extern std::mutex debugSpamMut;
         std::unique_lock<std::mutex> guard(debugSpamMut); \
         afk_clock::time_point debugTime = \
             afk_clock::now(); \
-        std::cout << "in thread " << std::this_thread::get_id() << " at " << debugTime.time_since_epoch().count() << ": "; \
-        std::cout << chain << std::endl; \
+        afk_out << "in thread " << std::this_thread::get_id() << " at " << debugTime.time_since_epoch().count() << ": "; \
+        afk_out << chain << std::endl; \
     }
 
 #define ASYNC_CONTROL_DEBUG(chain) \
@@ -55,9 +55,9 @@ extern std::mutex debugSpamMut;
         std::unique_lock<std::mutex> guard(debugSpamMut); \
         afk_clock::time_point debugTime = \
             afk_clock::now(); \
-        std::cout << "control " << this << " in thread "; \
-        std::cout << std::this_thread::get_id() << " at " << debugTime.time_since_epoch().count() << ": "; \
-        std::cout << chain << std::endl; \
+        afk_out << "control " << this << " in thread "; \
+        afk_out << std::this_thread::get_id() << " at " << debugTime.time_since_epoch().count() << ": "; \
+        afk_out << chain << std::endl; \
     }
 
 #else
@@ -227,7 +227,7 @@ void afk_asyncWorker(
         controls.worker_waitForFinished(id);
 
 #if ASYNC_WORKER_DEBUG
-        std::cout << "X";
+        afk_out << "X";
 #endif
 
         /* At this point, everyone has finished.

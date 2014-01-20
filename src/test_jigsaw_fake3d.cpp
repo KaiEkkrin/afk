@@ -22,6 +22,7 @@
 
 #include <boost/random/random_device.hpp>
 
+#include "file/logstream.hpp"
 #include "jigsaw_collection.hpp"
 #include "rng/boost_taus88.hpp"
 
@@ -31,20 +32,20 @@ static void tryConvert(
 {
     Vec2<int> realCoord = testFake.fake3DTo2D(_fakeCoord);
     Vec3<int> convertedCoord = testFake.fake3DFrom2D(realCoord);
-    if (convertedCoord != _fakeCoord) std::cout << "FAILED: ";
+    if (convertedCoord != _fakeCoord) afk_out << "FAILED: ";
 
     Vec3<int> realSize = testFake.get2DSize();
     if (realCoord.v[0] >= realSize.v[0] || realCoord.v[1] >= realSize.v[1] || realSize.v[2] != 1)
-        std::cout << "FAILED: ";
+        afk_out << "FAILED: ";
 
-    std::cout << _fakeCoord << " -> " << realCoord << " -> " << convertedCoord << std::endl;
+    afk_out << _fakeCoord << " -> " << realCoord << " -> " << convertedCoord << std::endl;
 }
 
 static void tryOneJigsaw(const Vec3<int>& testSize, AFK_RNG& rng)
 {
     AFK_JigsawFake3DDescriptor testFake(true, testSize);
     Vec3<int> realSize = testFake.get2DSize();
-    std::cout << "Testing fake 3D jigsaw: " << testSize << " (Real size: " << realSize << ")" << std::endl;
+    afk_out << "Testing fake 3D jigsaw: " << testSize << " (Real size: " << realSize << ")" << std::endl;
 
     Vec3<int> testZero = afk_vec3<int>(0, 0, 0);
     Vec3<int> testOneX = afk_vec3<int>(1, 0, 0);
@@ -68,7 +69,7 @@ static void tryOneJigsaw(const Vec3<int>& testSize, AFK_RNG& rng)
         tryConvert(testVal, testFake);
     }
 
-    std::cout << std::endl;
+    afk_out << std::endl;
 }
 
 void test_jigsawFake3D(void)

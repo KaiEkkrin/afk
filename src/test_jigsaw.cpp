@@ -25,6 +25,7 @@
 #include "computer.hpp"
 #include "data/frame.hpp"
 #include "def.hpp"
+#include "file/logstream.hpp"
 #include "exception.hpp"
 #include "jigsaw_collection.hpp"
 
@@ -80,7 +81,7 @@ void afk_testJigsaw(
     for (int i = 0; i < testIterations; ++i)
     {
         int piecesThisFrame = rand() % (settings.concurrency * testAllocation.at(0).getPieceCount() / 4);
-        std::cout << "Test frame " << frame << ": Getting " << piecesThisFrame << " pieces" << std::endl;
+        afk_out << "Test frame " << frame << ": Getting " << piecesThisFrame << " pieces" << std::endl;
 
         /* Here, I map each piece that I've drawn to its timestamp. */
         boost::unordered_map<AFK_JigsawPiece, AFK_Frame> piecesMap;
@@ -93,7 +94,7 @@ void afk_testJigsaw(
                 AFK_Frame pieceFrame;
     
                 testCollection.grab(0, &jigsawPiece, &pieceFrame, 1);
-                std::cout << "Grabbed piece " << jigsawPiece << " with frame " << pieceFrame << std::endl;
+                afk_out << "Grabbed piece " << jigsawPiece << " with frame " << pieceFrame << std::endl;
 
                 auto existing = piecesMap.find(jigsawPiece);
                 if (existing != piecesMap.end()) assert(existing->second != pieceFrame);
@@ -105,7 +106,7 @@ void afk_testJigsaw(
             if (e.getMessage() == "Jigsaw ran out of room")
             {
                 /* I'll forgive this. */
-                std::cout << "Out of room -- OK -- continuing" << std::endl;
+                afk_out << "Out of room -- OK -- continuing" << std::endl;
             }
             else
             {
@@ -115,9 +116,9 @@ void afk_testJigsaw(
 
         frame.increment();
         testCollection.flip(frame);
-        testCollection.printStats(std::cout, "Test jigsaw");
+        testCollection.printStats(afk_out, "Test jigsaw");
     }
 
-    std::cout << "Jigsaw test completed" << std::endl;
+    afk_out << "Jigsaw test completed" << std::endl;
 }
 

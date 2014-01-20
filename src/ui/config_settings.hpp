@@ -126,8 +126,7 @@ public:
     virtual ~AFK_ConfigSettings();
 
     bool parseCmdLine(int *argcp, char **argv);
-    bool parseConfigFile(void);
-    bool saveConfigFile(void) const;
+    void saveTo(std::ostream& os) const;
 };
 
 #endif /* _AFK_UI_CONFIG_SETTINGS_H_ */

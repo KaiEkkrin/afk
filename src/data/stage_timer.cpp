@@ -18,6 +18,7 @@
 #include <iostream>
 #include <sstream>
 
+#include "../file/logstream.hpp"
 #include "stage_timer.hpp"
 
 AFK_StageTimer::AFK_StageTimer(const std::string& _timerName, const std::vector<std::string>& _stageNames, int _printFrequency):
@@ -68,12 +69,12 @@ void AFK_StageTimer::restart(void)
             totalTime += timesIt->get();
         }
 
-        std::cout << "  " << timerName << " stage timer: " << std::endl;
+        afk_out << "  " << timerName << " stage timer: " << std::endl;
         for (unsigned int i = 0; i < stageNames.size(); ++i)
         {
             int64_t timeInMicros = timesInMicros[i].get();
             int64_t timePercent = 100 * timeInMicros / totalTime;
-            std::cout << "    " << stageNames[i] << ": " << timeInMicros << " micros (" << timePercent << "% total)" << std::endl;
+            afk_out << "    " << stageNames[i] << ": " << timeInMicros << " micros (" << timePercent << "% total)" << std::endl;
         }
 
         roundsSincePrint = 0;

@@ -29,6 +29,7 @@
 #include "display.hpp"
 #include "event.hpp"
 #include "exception.hpp"
+#include "file/logstream.hpp"
 #include "rng/boost_taus88.hpp"
 #include "rng/rng.hpp"
 #include "test_jigsaw.hpp"
@@ -217,7 +218,7 @@ AFK_Core::~AFK_Core()
     if (detailAdjuster) delete detailAdjuster;
     if (window) delete window; /* Should close GL contexts */
 
-    std::cout << "AFK: Core destroyed" << std::endl;
+    afk_out << "AFK: Core destroyed" << std::endl;
 }
 
 void AFK_Core::configure(int *argcp, char **argv)
@@ -233,7 +234,7 @@ void AFK_Core::configure(int *argcp, char **argv)
     }
 
     afk_duration_mfl tickInterval = std::chrono::duration_cast<afk_duration_mfl>(intervalTestEnd - intervalTestStart);
-    std::cout << "AFK: Using clock with apparent tick interval: " << tickInterval.count() << " millis" << std::endl;
+    afk_out << "AFK: Using clock with apparent tick interval: " << tickInterval.count() << " millis" << std::endl;
     assert(tickInterval.count() < 0.1f);
 
     if (!settings.parseCmdLine(argcp, argv))
@@ -322,8 +323,8 @@ void AFK_Core::loop(void)
      * I have to play with ...
      */
     size_t clGlMaxAllocSize = computer->getFirstDeviceProps().maxMemAllocSize;
-    std::cout << "AFK: Using GPU with " << std::dec << clGlMaxAllocSize << " bytes available to cl_gl";
-    std::cout << " (" << clGlMaxAllocSize / (1024 * 1024) << "MB) global memory" << std::endl;
+    afk_out << "AFK: Using GPU with " << std::dec << clGlMaxAllocSize << " bytes available to cl_gl";
+    afk_out << " (" << clGlMaxAllocSize / (1024 * 1024) << "MB) global memory" << std::endl;
 
     /* Initialise the starting objects. */
     float worldMaxDistance = settings.zFar / 2.0f;
@@ -376,10 +377,10 @@ void AFK_Core::checkpoint(const afk_clock::time_point& now, bool definitely)
     {
         lastCheckpoint = now;
 
-        std::cout << "AFK: Checkpoint" << std::endl;
-        std::cout << "AFK: Since last checkpoint: " << std::dec << renderingFrame - frameAtLastCheckpoint << " frames";
+        afk_out << "AFK: Checkpoint" << std::endl;
+        afk_out << "AFK: Since last checkpoint: " << std::dec << renderingFrame - frameAtLastCheckpoint << " frames";
         float fps = (float)(renderingFrame - frameAtLastCheckpoint) * 1000.0f / sinceLastCheckpoint.count();
-        std::cout << " (" << fps << " frames/second)" << std::endl;
+        afk_out << " (" << fps << " frames/second)" << std::endl;
 
         assert(detailAdjuster);
         detailAdjuster->checkpoint(sinceLastCheckpoint);
@@ -393,11 +394,11 @@ void AFK_Core::checkpoint(const afk_clock::time_point& now, bool definitely)
          */
         if (!definitely)
         {
-            world->printCacheStats(std::cout, "Cache");
-            world->printJigsawStats(std::cout, "Jigsaw");
+            world->printCacheStats(afk_out, "Cache");
+            world->printJigsawStats(afk_out, "Jigsaw");
         }
 
-        std::cout << occasionalPrints.str();
+        afk_out << occasionalPrints.str();
 
         frameAtLastCheckpoint = renderingFrame;
     }

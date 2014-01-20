@@ -27,6 +27,7 @@
 #include "display.hpp"
 #include "event.hpp"
 #include "exception.hpp"
+#include "file/logstream.hpp"
 #include "window_wgl.hpp"
 
 /* This global will map HWNDs to AFK_WindowWgl instances, so that I can call
@@ -259,7 +260,7 @@ void AFK_WindowWgl::windowCreated(void)
         throw AFK_Exception(ss.str());
     }
 
-    std::cout << "AFK_WindowWgl: Initialised WGL render context" << std::endl;
+    afk_out << "AFK_WindowWgl: Initialised WGL render context" << std::endl;
 }
 
 void AFK_WindowWgl::windowDeleted(void)

@@ -21,6 +21,7 @@
 
 #include "config_settings.hpp"
 #include "../exception.hpp"
+#include "../file/logstream.hpp"
 #include "../file/readfile.hpp"
 
 /* AFK_ConfigSettings implementation */
@@ -30,7 +31,7 @@ void AFK_ConfigSettings::loadConfigFromFile(void)
     char *data = nullptr;
     size_t dataSize = 0;
 
-    if (afk_readFileContents(configFile->get(), &data, &dataSize, std::cerr))
+    if (afk_readFileContents(configFile->get(), &data, &dataSize, afk_out))
     {
         std::string dataStr(data, dataSize);
 
@@ -76,7 +77,6 @@ void AFK_ConfigSettings::loadConfigFromFile(void)
         }
 
         free(data);
-        std::cout << "AFK: Loaded configuration from " << configFile->get() << std::endl;
     }
 }
 
@@ -120,15 +120,12 @@ AFK_ConfigSettings::~AFK_ConfigSettings()
     {
         /* TODO: Move the old config file out of the way, etc. */
         std::ostringstream ss;
-        for (auto option : options)
-        {
-            option->save(ss);
-        }
+        saveTo(ss);
 
         std::string sstr = ss.str();
-        if (afk_writeFileContents(configFile->get(), sstr.c_str(), sstr.size(), std::cerr))
+        if (afk_writeFileContents(configFile->get(), sstr.c_str(), sstr.size(), afk_out))
         {
-            std::cout << "AFK: Saved configuration to " << configFile->get() << std::endl;
+            afk_out << "AFK: Saved configuration to " << configFile->get() << std::endl;
         }
     }
 }
@@ -148,11 +145,19 @@ bool AFK_ConfigSettings::parseCmdLine(int *argcp, char **argv)
 
         if (!matched)
         {
-            std::cerr << "AFK_ConfigSettings::parseCmdLine : Unmatched option: " << *argvHere << std::endl;
+            afk_out << "AFK_ConfigSettings::parseCmdLine : Unmatched option: " << *argvHere << std::endl;
             return false;
         }
     }
 
     *argcp = 0; // ??
     return true;
+}
+
+void AFK_ConfigSettings::saveTo(std::ostream& os) const
+{
+    for (auto option : options)
+    {
+        option->save(os);
+    }
 }

@@ -25,6 +25,7 @@
 
 #include "debug.hpp"
 #include "detail_adjuster.hpp"
+#include "file/logstream.hpp"
 
 
 /* AFK_DetailAdjuster implementation */
@@ -146,6 +147,6 @@ float AFK_DetailAdjuster::getDetailPitch(void)
 
 void AFK_DetailAdjuster::checkpoint(const afk_duration_mfl& sinceLastCheckpoint)
 {
-    std::cout << "AFK Detail Adjuster: detail pitch: " << getDetailPitch() << std::endl;
+    afk_out << "AFK Detail Adjuster: detail pitch: " << getDetailPitch() << std::endl;
 }
 

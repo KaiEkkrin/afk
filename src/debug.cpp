@@ -19,12 +19,13 @@
 #include <thread>
 
 #include "debug.hpp"
+#include "file/logstream.hpp"
 
 std::mutex coutMut;
 
 void afk_debugPrint(const std::string& s)
 {
     std::unique_lock<std::mutex> lock(coutMut);
-    std::cout << std::this_thread::get_id() << ": " << s;
+    afk_out << std::this_thread::get_id() << ": " << s;
 }
 

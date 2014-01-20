@@ -24,6 +24,7 @@
 #include "thread_allocation.hpp"
 #include "work_queue.hpp"
 #include "../clock.hpp"
+#include "../file/logstream.hpp"
 
 
 /* --- async test --- */
@@ -100,7 +101,7 @@ bool primeFilter(
     AFK_WorkQueue<struct primeFilterParam, bool, struct primeFilterThreadLocal>& queue)
 {
     /* optional verbose debug */
-    //std::cout << param.start << "+" << param.step << " ";
+    //afk_out << param.start << "+" << param.step << " ";
 
     for (unsigned int factor = param.start; factor < threadLocal.max; factor += param.step)
     {
@@ -140,7 +141,7 @@ void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<
         enqueued[i].store(false);
     }
 
-    std::cout << "Testing prime number filter with " << concurrency << " threads ..." << std::endl;
+    afk_out << "Testing prime number filter with " << concurrency << " threads ..." << std::endl;
 
     startTime = afk_clock::now();
 
@@ -164,8 +165,8 @@ void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<
         std::future<bool> finished = primeFilterGang.start(tl); 
 
         finished.wait();
-        std::cout << std::endl << std::endl;
-        std::cout << "Finished with " << finished.get() << std::endl;
+        afk_out << std::endl << std::endl;
+        afk_out << "Finished with " << finished.get() << std::endl;
 
         /* Obligatory sanity check */
         assert(primeFilterGang.noQueuedWork());
@@ -173,7 +174,7 @@ void test_pnFilter(unsigned int concurrency, unsigned int primeMax, std::vector<
 
     endTime = afk_clock::now();
     afk_duration_mfl timeTaken = std::chrono::duration_cast<afk_duration_mfl>(endTime - startTime);
-    std::cout << concurrency << " threads finished after " << timeTaken.count() << " millis" << std::endl;
+    afk_out << concurrency << " threads finished after " << timeTaken.count() << " millis" << std::endl;
 
     for (unsigned int i = 0; i < primeMax; ++i)
         if (factors[i] == 1)
@@ -187,14 +188,14 @@ void check_result(std::vector<unsigned int>& primes1, std::vector<unsigned int>&
 {
     unsigned int i;
 
-    std::cout << "First thirty primes: ";
+    afk_out << "First thirty primes: ";
     for (i = 0; i < 30; ++i)
-        std::cout << primes2[i] << " ";
-    std::cout << std::endl;
+        afk_out << primes2[i] << " ";
+    afk_out << std::endl;
 
     if (primes1.size() != primes2.size())
     {
-        std::cout << "LISTS DIFFER IN SIZE: " << primes1.size() << " vs " << primes2.size() << std::endl;
+        afk_out << "LISTS DIFFER IN SIZE: " << primes1.size() << " vs " << primes2.size() << std::endl;
     }
     else
     {
@@ -202,13 +203,13 @@ void check_result(std::vector<unsigned int>& primes1, std::vector<unsigned int>&
         {
             if (primes1[i] != primes2[i])
             {
-                std::cout << "ENTRIES AT " << i << " DIFFER: " << primes1[i] << " vs " << primes2[i] << std::endl;
+                afk_out << "ENTRIES AT " << i << " DIFFER: " << primes1[i] << " vs " << primes2[i] << std::endl;
                 break;
             }
         }
 
         if (i == primes1.size())
-            std::cout << "Lists are the same" << std::endl;
+            afk_out << "Lists are the same" << std::endl;
     }  
 }
 
@@ -218,26 +219,26 @@ void test_async(void)
     unsigned int primeMax = 50000;
 
     test_pnFilter(1, primeMax, primes[0]);
-    std::cout << std::endl;
+    afk_out << std::endl;
 
     test_pnFilter(2, primeMax, primes[1]);
     check_result(primes[0], primes[1]);
-    std::cout << std::endl;
+    afk_out << std::endl;
 
     test_pnFilter(4, primeMax, primes[2]);
     check_result(primes[0], primes[2]);
-    std::cout << std::endl;
+    afk_out << std::endl;
 
     test_pnFilter(std::thread::hardware_concurrency(), primeMax, primes[3]);
     check_result(primes[0], primes[3]);
-    std::cout << std::endl;
+    afk_out << std::endl;
 
     test_pnFilter(std::thread::hardware_concurrency() * 2, primeMax, primes[4]);
     check_result(primes[0], primes[4]);
-    std::cout << std::endl;
+    afk_out << std::endl;
 
     test_pnFilter(std::thread::hardware_concurrency() * 4, primeMax, primes[5]);
     check_result(primes[0], primes[5]);
-    std::cout << std::endl;
+    afk_out << std::endl;
 }
 

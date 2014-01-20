@@ -106,13 +106,13 @@ void AFK_YReduce::readBack(
 {
     readbackDep.waitFor();
 #if 0
-    std::cout << "Computed y bounds: ";
+    afk_out << "Computed y bounds: ";
     for (unsigned int i = 0; i < 4 && i < unitCount; ++i)
     {
-        if (i > 0) std::cout << ", ";
-        std::cout << "(" << readback[i * 2] << ", " << readback[i * 2 + 1] << ")";
+        if (i > 0) afk_out << ", ";
+        afk_out << "(" << readback[i * 2] << ", " << readback[i * 2 + 1] << ")";
     }
-    std::cout << std::endl;
+    afk_out << std::endl;
 #endif
 
     /* Push all those tile bounds into the cache, so long as an

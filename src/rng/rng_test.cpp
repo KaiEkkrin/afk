@@ -28,6 +28,7 @@
 #include "../afk.hpp"
 #include "../cell.hpp"
 #include "../clock.hpp"
+#include "../file/logstream.hpp"
 
 
 /* TODO Add a test that tweaks each coord in an AFK_Cell in
@@ -41,7 +42,7 @@ static void evaluate_rng(AFK_RNG& rng, const std::string& name, const AFK_Cell* 
 {
     AFK_RNG_Test rng_test(&rng, 20, 1000);
 
-    std::cout << "Testing RNG: " << name << std::endl;
+    afk_out << "Testing RNG: " << name << std::endl;
 
     /* The first 10 test cells are used for the contribution test. */   
     unsigned int i;
@@ -54,7 +55,7 @@ static void evaluate_rng(AFK_RNG& rng, const std::string& name, const AFK_Cell* 
      * to fill many many floats ?
      */
 
-    std::cout << "Performance test: trying " << (testCellCount / 2) - i << " cells taking " << randsPerCell << " randoms each" << std::endl;
+    afk_out << "Performance test: trying " << (testCellCount / 2) - i << " cells taking " << randsPerCell << " randoms each" << std::endl;
 
     float smallestValue = 1.0f, largestValue = 0.0f;
     float *manyFloats = new float[randsPerCell];
@@ -74,10 +75,10 @@ static void evaluate_rng(AFK_RNG& rng, const std::string& name, const AFK_Cell* 
     afk_duration_mfl timeTaken = std::chrono::duration_cast<afk_duration_mfl>(
         ptestEndTime - ptestStartTime);
 
-    std::cout << "Test took " << timeTaken.count() << " millis with " << name << std::endl;
-    std::cout << "Smallest value: " << smallestValue << std::endl;
-    std::cout << "Largest value: " << largestValue << std::endl;
-    std::cout << "Random float from the set: " << sampleFloat << std::endl;
+    afk_out << "Test took " << timeTaken.count() << " millis with " << name << std::endl;
+    afk_out << "Smallest value: " << smallestValue << std::endl;
+    afk_out << "Largest value: " << largestValue << std::endl;
+    afk_out << "Random float from the set: " << sampleFloat << std::endl;
 
     delete[] sampleFloats;
     delete[] manyFloats;
@@ -105,7 +106,7 @@ static void evaluate_rng(AFK_RNG& rng, const std::string& name, const AFK_Cell* 
     ptestEndTime = afk_clock::now();
     timeTaken = std::chrono::duration_cast<afk_duration_mfl>(
         ptestEndTime - ptestStartTime);
-    std::cout << "Hit count test took " << timeTaken.count() << " millis with " << name << std::endl;
+    afk_out << "Hit count test took " << timeTaken.count() << " millis with " << name << std::endl;
 
     /* Do the analysis. */
     for (int j = 0; j < 4; ++j)
@@ -117,7 +118,7 @@ static void evaluate_rng(AFK_RNG& rng, const std::string& name, const AFK_Cell* 
 
         sortedHitCounts.sort(std::greater<unsigned int>());
 
-        std::cout << "Hit counts (byte " << j << "): ";
+        afk_out << "Hit counts (byte " << j << "): ";
 
         unsigned int lastHitCount = 0;
         unsigned int lastHitCountTimes = 0;
@@ -138,7 +139,7 @@ static void evaluate_rng(AFK_RNG& rng, const std::string& name, const AFK_Cell* 
                  */
                 if (lastHitCountTimes > 0)
                 {
-                    std::cout << lastHitCount << " (" << lastHitCountTimes << " times), ";
+                    afk_out << lastHitCount << " (" << lastHitCountTimes << " times), ";
                 }
 
                 /* Set the last hit count to the current
@@ -153,7 +154,7 @@ static void evaluate_rng(AFK_RNG& rng, const std::string& name, const AFK_Cell* 
         /* Print the final hit count */
         if (lastHitCountTimes > 0)
         {
-            std::cout << lastHitCount << " (" << lastHitCountTimes << " times)" << std::endl;
+            afk_out << lastHitCount << " (" << lastHitCountTimes << " times)" << std::endl;
         }
     }
 }

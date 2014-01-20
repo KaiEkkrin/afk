@@ -244,7 +244,7 @@ public:
         cl_int error = oclShim.GetDeviceInfo()(device, paramName, sizeof(PropType), field, 0);
         if (error != CL_SUCCESS)
         {
-            std::cout << "getClDeviceInfoFixed: Couldn't get property for param " << std::dec << paramName << ": " << error << std::endl;
+            afk_out << "getClDeviceInfoFixed: Couldn't get property for param " << std::dec << paramName << ": " << error << std::endl;
             *field = failValue;
         }
     }

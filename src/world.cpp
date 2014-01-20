@@ -25,6 +25,7 @@
 #include "core.hpp"
 #include "debug.hpp"
 #include "exception.hpp"
+#include "file/logstream.hpp"
 #include "landscape_tile.hpp"
 #include "rng/boost_taus88.hpp"
 #include "rng/rng.hpp"
@@ -662,21 +663,21 @@ AFK_World::AFK_World(
         100, threadAlloc, settings.concurrency);
     volumeLeftToEnumerate.store(0);
 
-    std::cout << "AFK_World: Configuring landscape jigsaws with: " << jigsawAlloc.at(0) << std::endl;
+    afk_out << "AFK_World: Configuring landscape jigsaws with: " << jigsawAlloc.at(0) << std::endl;
     landscapeJigsaws = new AFK_JigsawCollection(
         computer,
         jigsawAlloc.at(0),
         computer->getFirstDeviceProps(),
         0);
 
-    std::cout << "AFK_World: Configuring vapour jigsaws with: " << jigsawAlloc.at(1) << std::endl;
+    afk_out << "AFK_World: Configuring vapour jigsaws with: " << jigsawAlloc.at(1) << std::endl;
     vapourJigsaws = new AFK_JigsawCollection(
         computer,
         jigsawAlloc.at(1),
         computer->getFirstDeviceProps(),
         AFK_MAX_VAPOUR);
 
-    std::cout << "AFK_World: Configuring edge jigsaws with: " << jigsawAlloc.at(2) << std::endl;
+    afk_out << "AFK_World: Configuring edge jigsaws with: " << jigsawAlloc.at(2) << std::endl;
     edgeJigsaws = new AFK_JigsawCollection(
         computer,
         jigsawAlloc.at(2),
@@ -1056,7 +1057,7 @@ static float toRatePerSecond(uint64_t quantity, const afk_duration_mfl& interval
     return (float)quantity * 1000.0f / interval.count();
 }
 
-#define PRINT_RATE_AND_RESET(s, v) std::cout << s << toRatePerSecond((v).exchange(0), timeSinceLastCheckpoint) << "/second" << std::endl;
+#define PRINT_RATE_AND_RESET(s, v) afk_out << s << toRatePerSecond((v).exchange(0), timeSinceLastCheckpoint) << "/second" << std::endl;
 #endif
 
 void AFK_World::checkpoint(afk_duration_mfl& timeSinceLastCheckpoint)
@@ -1077,7 +1078,7 @@ void AFK_World::checkpoint(afk_duration_mfl& timeSinceLastCheckpoint)
     PRINT_RATE_AND_RESET("Shape edges computed:         ", shapeEdgesComputed)
     PRINT_RATE_AND_RESET("Separate vapours computed:    ", separateVapoursComputed)
     PRINT_RATE_AND_RESET("Dependencies followed:        ", dependenciesFollowed)
-    std::cout <<         "Cumulative thread escapes:    " << threadEscapes.load() << std::endl;
+    afk_out <<         "Cumulative thread escapes:    " << threadEscapes.load() << std::endl;
 #endif
 }
 

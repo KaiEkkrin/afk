@@ -15,8 +15,6 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
-#include "readfile.hpp"
-
 #include <cassert>
 #include <cerrno>
 #include <cstdio>
@@ -25,6 +23,9 @@
 #include <sstream>
 
 #include <stack>
+
+#include "logstream.hpp"
+#include "readfile.hpp"
 
 
 #ifdef __GNUC__
@@ -77,7 +78,7 @@ char *afk_getCWD(void)
     assert(cwdLength > 0);
     if (cwdLength == 0)
     {
-        std::cerr << "Failed to get current directory" << std::endl;
+        afk_out << "Failed to get current directory" << std::endl;
         exit(1);
     }
 
@@ -86,7 +87,7 @@ char *afk_getCWD(void)
     assert(cwdLength > 0);
     if (cwdLength == 0)
     {
-        std::cerr << "Failed to get current directory" << std::endl;
+        afk_out << "Failed to get current directory" << std::endl;
         exit(1);
     }
 

@@ -25,6 +25,7 @@
 #include <iostream>
 
 #include "clock.hpp"
+#include "file/logstream.hpp"
 
 #ifdef AFK_GLX
 
@@ -36,7 +37,7 @@ afk_clock::time_point afk_clock::now()
     if (result != 0)
     {
         /* This is fatal (and shouldn't happen.) */
-        std::cerr << "afk_clock: error getting time: " << strerror(errno) << std::endl;
+        afk_out << "afk_clock: error getting time: " << strerror(errno) << std::endl;
         assert(false);
         exit(result);
     }
@@ -60,7 +61,7 @@ afk_clock::time_point afk_clock::now()
         if (!QueryPerformanceFrequency(&frequency))
         {
             /* This is fatal, and shouldn't happen. */
-            std::cerr << "afk_clock: error querying performance frequency: " << GetLastError();
+            afk_out << "afk_clock: error querying performance frequency: " << GetLastError();
             assert(false);
             exit(1);
         }
@@ -72,7 +73,7 @@ afk_clock::time_point afk_clock::now()
     if (!QueryPerformanceCounter(&counter))
     {
         /* This is also fatal, and shouldn't happen. */
-        std::cerr << "afk_clock: error querying performance counter: " << GetLastError();
+        afk_out << "afk_clock: error querying performance counter: " << GetLastError();
         assert(false);
         exit(1);
     }

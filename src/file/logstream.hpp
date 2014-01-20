@@ -23,7 +23,10 @@
 #include <ostream>
 #include <streambuf>
 
-#define AFK_LOGSTREAM_BUF_SIZE 256
+/* TODO: The streambuf seems to be surprisingly dumb, and splat when
+ * more than this gets thrown at it at once (!)
+ */
+#define AFK_LOGSTREAM_BUF_SIZE 4096
 
 /* The AFK log looks like a std::ostream, but can log to a file, too;
  * configure that with setLogFile().

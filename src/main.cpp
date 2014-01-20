@@ -58,7 +58,6 @@ int APIENTRY WinMain(
     LPSTR       lpCmdLine,
     int         nCmdShow)
 {
-    // TODO: I've somehow broken this console with the config_settings change (nothing is being output) :-(
     AFK_WinConsole winConsole;
     AFK_ArgList argList;
     int argc = argList.getArgc();
@@ -88,10 +87,10 @@ int main(int argc, char **argv)
     for (int i = 0; i < chainLinkTestIterations; ++i)
     {
         chainLinkTestFails += afk_testChainLink();
-        std::cout << "Current total fails: " << chainLinkTestFails << std::endl;
+        afk_out << "Current total fails: " << chainLinkTestFails << std::endl;
     }
 
-    std::cout << "Completed " << chainLinkTestIterations << " of the chain link test; " << chainLinkTestFails << " fails." << std::endl;
+    afk_out << "Completed " << chainLinkTestIterations << " of the chain link test; " << chainLinkTestFails << " fails." << std::endl;
     std::cin.ignore();
 #endif
 
@@ -122,9 +121,9 @@ int main(int argc, char **argv)
 
         /* TODO: Write out whole configuration.  I think it would be useful. */
 
-        afk_out << "AFK Using master seed: " << afk_core.settings.masterSeedLow << " " << afk_core.settings.masterSeedHigh << std::endl;
-        /* TODO remove debug */
-        //afk_out << std::flush;
+        afk_out << "AFK: Using starting configuration: " << std::endl << std::endl;
+        afk_core.settings.saveTo(afk_out);
+        afk_out << std::endl;
 
 		/* The RNG test needs to go here after that master seed has
 		 * been initialised, because it'll refer to it.
@@ -151,4 +150,3 @@ int main(int argc, char **argv)
     afk_out << "AFK exiting" << std::endl;
     return retcode;
 }
-

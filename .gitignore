@@ -171,3 +171,9 @@ src/gprof-helper/gprof-helper.so
 
 # CodeXL workspaces (they're user specific)
 *.cxl
+
+# =========================
+# AFK's own stuff
+# =========================
+afk.config
+

@@ -30,6 +30,7 @@
 #include "polymer_cache.hpp"
 #include "../async/async.hpp"
 #include "../clock.hpp"
+#include "../file/logstream.hpp"
 #include "../rng/hash.hpp"
 
 struct expensivelyHashInt
@@ -143,17 +144,17 @@ void test_cache(void)
     endTime = afk_clock::now();
     assert(gang.noQueuedWork());
     timeTaken = std::chrono::duration_cast<afk_duration_mfl>(endTime - startTime);
-    std::cout << "Map cache finished after " << timeTaken.count() << " millis" << std::endl;
+    afk_out << "Map cache finished after " << timeTaken.count() << " millis" << std::endl;
 
     for (int t = 0; t < 32; ++t)
     {
-        std::cout << t << " -> " << mapCache.get(1, t)->v << "; ";
+        afk_out << t << " -> " << mapCache.get(1, t)->v << "; ";
     }
-    std::cout << std::endl;
+    afk_out << std::endl;
 
-    //std::cout << "MAP CACHE: " << std::endl;
-    //mapCache.printEverything(std::cout);
-    //std::cout << std::endl;
+    //afk_out << "MAP CACHE: " << std::endl;
+    //mapCache.printEverything(afk_out);
+    //afk_out << std::endl;
 
     /* Now let's try it again with the polymer cache */
     std::function<size_t (const int&)> hashFunc = expensivelyHashInt();
@@ -174,22 +175,22 @@ void test_cache(void)
     endTime = afk_clock::now();
     assert(gang.noQueuedWork());
     timeTaken = std::chrono::duration_cast<afk_duration_mfl>(endTime - startTime);
-    std::cout << "Polymer cache finished after " << timeTaken.count() << " millis" << std::endl;
-    polymerCache.printStats(std::cout, "Polymer stats");
+    afk_out << "Polymer cache finished after " << timeTaken.count() << " millis" << std::endl;
+    polymerCache.printStats(afk_out, "Polymer stats");
 
     for (t = 0; t < 32; ++t)
     {
-        std::cout << t << " -> " << polymerCache.get(1, t)->v << "; ";
+        afk_out << t << " -> " << polymerCache.get(1, t)->v << "; ";
     }
-    std::cout << std::endl;
+    afk_out << std::endl;
 
     for (unsigned int i = 0; i < CACHE_TEST_THREAD_COUNT; ++i)
     {
         delete items[i].param.rng;
     }
 
-    //std::cout << "POLYMER CACHE: " << std::endl;
-    //polymerCache.printEverything(std::cout);
-    //std::cout << std::endl;
+    //afk_out << "POLYMER CACHE: " << std::endl;
+    //polymerCache.printEverything(afk_out);
+    //afk_out << std::endl;
 }
 

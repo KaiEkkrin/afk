@@ -28,6 +28,7 @@
 #include "display.hpp"
 #include "exception.hpp"
 #include "file/filter.hpp"
+#include "file/logstream.hpp"
 #include "file/readfile.hpp"
 #include "shader.hpp"
 #include "shape_sizes.hpp"
@@ -83,7 +84,7 @@ static void loadShaderFromFiles(
 
     for (size_t i = 0; i < sourceCount; ++i)
     {
-        std::cout << "AFK: Loading file for shader " << s->shaderName << "( type " << s->shaderType << "): " << s->filenames[i] << std::endl;
+        afk_out << "AFK: Loading file for shader " << s->shaderName << "( type " << s->shaderType << "): " << s->filenames[i] << std::endl;
 
         if (!afk_readFileContents(s->filenames[i], &sources[i], &sourceLengths[i], errStream))
             throw AFK_Exception("AFK_Shader: " + errStream.str());
@@ -94,7 +95,7 @@ static void loadShaderFromFiles(
         if (boost::starts_with(s->shaderName, f.first))
         {
             const AFK_FileFilter& filter = *(f.second);
-            std::cout << "AFK: Shader " << s->shaderName << ": Applying filter: " << filter << std::endl;
+            afk_out << "AFK: Shader " << s->shaderName << ": Applying filter: " << filter << std::endl;
             filter.filter(sourceCount, sources, sourceLengths);
         }
     }

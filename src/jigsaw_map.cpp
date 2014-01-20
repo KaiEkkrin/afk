@@ -177,7 +177,7 @@ AFK_JigsawMap::AFK_JigsawMap(const Vec3<int>& _jigsawSize):
                     getPlaceSizeToUse(c, 1),
                     getPlaceSizeToUse(s, 2));
 
-                //std::cout << "AFK_JigsawMap: Making place at location " << location << ", size " << size << std::endl;
+                //afk_out << "AFK_JigsawMap: Making place at location " << location << ", size " << size << std::endl;
                 AFK_JigsawCuboid cuboid(location, size);
                 places[s][c][r] = AFK_JigsawPlace(cuboid);
 
@@ -247,7 +247,7 @@ bool AFK_JigsawMap::grab(Vec3<int>& o_piece, AFK_Frame *o_timestamp)
             assert(success);
 
             /* Make it the currently updating place */
-            //std::cout << "Using new place: " << *newPlace << std::endl;
+            //afk_out << "Using new place: " << *newPlace << std::endl;
             updating.push_back(newPlace);
             cleared.pop_front();
 

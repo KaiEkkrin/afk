@@ -23,6 +23,7 @@
 
 #include "chain_link_test.hpp"
 #include "../clock.hpp"
+#include "../file/logstream.hpp"
 #include "../rng/boost_taus88.hpp"
 
 AFK_ChainLinkTestLink::AFK_ChainLinkTestLink() :
@@ -172,17 +173,17 @@ int afk_testChainLink()
     int fails = 0;
     testChain->foreach([&index, &fails](std::shared_ptr<AFK_ClaimableChainLinkTestLink> link)
     {
-        //std::cout << "verify test chain link: index " << index << ": ";
+        //afk_out << "verify test chain link: index " << index << ": ";
 
         auto claim = link->claim(1, AFK_CL_SPIN);
-        //std::cout << claim.getShared();
+        //afk_out << claim.getShared();
         if (claim.getShared().verify(index))
         {
-            //std::cout << " (verify ok)" << std::endl;
+            //afk_out << " (verify ok)" << std::endl;
         }
         else
         {
-            //std::cout << " (verify FAILED)" << std::endl;
+            //afk_out << " (verify FAILED)" << std::endl;
             ++fails;
         }
 
@@ -190,10 +191,10 @@ int afk_testChainLink()
     });
 
     afk_duration_mfl timeTaken = std::chrono::duration_cast<afk_duration_mfl>(endTime - startTime);
-    std::cout << "Chain link test (" << iterations << " iterations, " << maxChainLength << " max chain length, " << threads << " threads) finished in " << timeTaken.count() << " millis" << std::endl;
+    afk_out << "Chain link test (" << iterations << " iterations, " << maxChainLength << " max chain length, " << threads << " threads) finished in " << timeTaken.count() << " millis" << std::endl;
 
     delete testChain;
-    std::cout << "Chain link test finished with " << iterations << " iterations, " << fails << " fails." << std::endl;
+    afk_out << "Chain link test finished with " << iterations << " iterations, " << fails << " fails." << std::endl;
 
     return fails;
 }

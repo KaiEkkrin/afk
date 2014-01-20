@@ -24,6 +24,7 @@
 #include "compute_queue.hpp"
 #include "computer.hpp"
 #include "exception.hpp"
+#include "file/logstream.hpp"
 #include "file/readfile.hpp"
 #include "landscape_sizes.hpp"
 #include "shape_sizes.hpp"
@@ -44,7 +45,7 @@ void afk_handleClError(cl_int error, const char *_file, const int _line)
     if (error != CL_SUCCESS)
     {
 #if 1
-        std::cerr << "AFK_Computer: Error " << std::dec << error << " occurred at " << _file << ":" << _line << std::endl;
+        afk_out << "AFK_Computer: Error " << std::dec << error << " occurred at " << _file << ":" << _line << std::endl;
         assert(error == CL_SUCCESS);
 #else
         std::ostringstream ss;
@@ -108,7 +109,7 @@ AFK_ClDeviceProperties::AFK_ClDeviceProperties(AFK_Computer *computer, cl_device
         cl_int error = computer->oclShim.GetDeviceInfo()(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, maxWorkItemDimensions * sizeof(size_t), maxWorkItemSizes, NULL);
         if (error != CL_SUCCESS)
         {
-            std::cout << "Couldn't get max work item sizes: " << error << std::endl;
+            afk_out << "Couldn't get max work item sizes: " << error << std::endl;
             memset(maxWorkItemSizes, 0, maxWorkItemDimensions * sizeof(size_t));
         }
     }
@@ -129,7 +130,7 @@ AFK_ClDeviceProperties::AFK_ClDeviceProperties(AFK_Computer *computer, cl_device
     }
     if (error != CL_SUCCESS)
     {
-        std::cout << "Couldn't get extensions: " << error << std::endl;
+        afk_out << "Couldn't get extensions: " << error << std::endl;
     }
 }
 
@@ -231,8 +232,8 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
 
     platformIsAMD = (strstr(platformName, "AMD") != NULL);
 
-    if (platformIsAMD) std::cout << "AMD platform detected!" << std::endl;
-    std::cout << "Finding OpenCL devices for platform " << platformName << std::endl;
+    if (platformIsAMD) afk_out << "AMD platform detected!" << std::endl;
+    afk_out << "Finding OpenCL devices for platform " << platformName << std::endl;
     delete[] platformName;
 
     if (oclPlatformExtensionShim) delete oclPlatformExtensionShim;
@@ -264,7 +265,7 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
         devicesSize = 1;
         devices = new cl_device_id[devicesSize];
         AFK_CLCHK(oclPlatformExtensionShim->GetGLContextInfoKHR()(clGlProperties, CL_CURRENT_DEVICE_FOR_GL_CONTEXT_KHR, sizeof(cl_device_id), devices, NULL))
-        std::cout << "Found a supported cl_gl device." << std::endl;
+        afk_out << "Found a supported cl_gl device." << std::endl;
     }
     else
     {
@@ -274,7 +275,7 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
         {
             devices = new cl_device_id[devicesSize];
             AFK_CLCHK(oclShim.GetDeviceIDs()(platform, CL_DEVICE_TYPE_GPU, devicesSize, devices, &devicesSize))
-            std::cout << "Found " << devicesSize << " supported OpenCL devices. " << std::endl;
+            afk_out << "Found " << devicesSize << " supported OpenCL devices. " << std::endl;
         }
     }
 
@@ -287,12 +288,12 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
         AFK_CLCHK(oclShim.GetDeviceInfo()(devices[0], CL_DEVICE_NAME, 0, NULL, &deviceNameSize))
         deviceName = new char[deviceNameSize];
         AFK_CLCHK(oclShim.GetDeviceInfo()(devices[0], CL_DEVICE_NAME, deviceNameSize, deviceName, &deviceNameSize))
-        std::cout << "First device is a " << deviceName << std::endl;
+        afk_out << "First device is a " << deviceName << std::endl;
 
         delete[] deviceName;
 
         firstDeviceProps = new AFK_ClDeviceProperties(this, devices[0]);
-        std::cout << "Device properties: " << std::endl << *firstDeviceProps;
+        afk_out << "Device properties: " << std::endl << *firstDeviceProps;
 
         cl_int error;
         ctxt = oclShim.CreateContext()(clGlProperties, static_cast<cl_uint>(devicesSize), devices, NULL, NULL, &error);
@@ -317,7 +318,7 @@ void AFK_Computer::loadProgramFromFiles(const AFK_ConfigSettings& settings, std:
 
     for (size_t s = 0; s < sourceCount; ++s)
     {
-        std::cout << "AFK: Loading file for CL program " << p->programName << ": " << p->filenames[s] << std::endl;
+        afk_out << "AFK: Loading file for CL program " << p->programName << ": " << p->filenames[s] << std::endl;
 
         if (!afk_readFileContents(p->filenames[s], &sources[s], &sourceLengths[s], errStream))
             throw AFK_Exception("AFK_Computer: " + errStream.str());
@@ -368,7 +369,7 @@ void AFK_Computer::loadProgramFromFiles(const AFK_ConfigSettings& settings, std:
 
     std::string argsStr = args.str();
     if (argsStr.size() > 0)
-        std::cout << "AFK: Passing compiler arguments: " << argsStr << std::endl;
+        afk_out << "AFK: Passing compiler arguments: " << argsStr << std::endl;
     error = oclShim.BuildProgram()(
         p->program,
         static_cast<cl_uint>(devicesSize),
@@ -458,7 +459,7 @@ AFK_Computer::AFK_Computer(const AFK_ConfigSettings& settings):
     if (!platforms) throw AFK_Exception("Unable to allocate memory to inspect OpenCL platforms");
     AFK_CLCHK(oclShim.GetPlatformIDs()(platformCount, platforms, &platformCount))
 
-    std::cout << "AFK: Found " << platformCount << " OpenCL platforms" << std::endl;
+    afk_out << "AFK: Found " << platformCount << " OpenCL platforms" << std::endl;
 
     for (unsigned int pI = 0; pI < platformCount; ++pI)
     {
@@ -466,7 +467,7 @@ AFK_Computer::AFK_Computer(const AFK_ConfigSettings& settings):
         {
             platform = platforms[pI];
             platformProps = new AFK_ClPlatformProperties(this, platform);
-            std::cout << "AFK: Using OpenCL platform version " << platformProps->majorVersion << "." << platformProps->minorVersion << std::endl;
+            afk_out << "AFK: Using OpenCL platform version " << platformProps->majorVersion << "." << platformProps->minorVersion << std::endl;
             break;
         }
     }
@@ -535,7 +536,7 @@ void AFK_Computer::loadPrograms(const AFK_ConfigSettings& settings)
     waitForBuild();
     for (auto p : programs)
         for (size_t dI = 0; dI < devicesSize; ++dI)
-            printBuildLog(std::cout, p, devices[dI]);
+            printBuildLog(afk_out, p, devices[dI]);
 
     /* ...and all the kernels... */
     for (auto kIt = kernels.begin(); kIt != kernels.end(); ++kIt)
