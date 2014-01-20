@@ -31,7 +31,8 @@ void AFK_ConfigSettings::loadConfigFromFile(void)
     char *data = nullptr;
     size_t dataSize = 0;
 
-    if (afk_readFileContents(configFile->get(), &data, &dataSize, afk_out))
+    std::ostringstream errorSS;
+    if (afk_readFileContents(configFile->get(), &data, &dataSize, errorSS))
     {
         std::string dataStr(data, dataSize);
 
@@ -67,9 +68,8 @@ void AFK_ConfigSettings::loadConfigFromFile(void)
                 /* If the line isn't empty, complain */
                 if (boost::algorithm::trim_copy(line).size() > 0)
                 {
-                    std::ostringstream ss;
-                    ss << "AFK load settings: Parse error at line " << lineNum << ": " << line;
-                    throw AFK_Exception(ss.str());
+                    errorSS << "AFK load settings: Parse error at line " << lineNum << ": " << line;
+                    throw AFK_Exception(errorSS.str());
                 }
             }
 
@@ -78,6 +78,8 @@ void AFK_ConfigSettings::loadConfigFromFile(void)
 
         free(data);
     }
+
+    /* TODO: report no-such-file errors etc? */
 }
 
 float AFK_ConfigSettings::getAxisInversion(AFK_Control axis) const

@@ -18,8 +18,14 @@
 #ifndef _AFK_FILE_READFILE_H_
 #define _AFK_FILE_READFILE_H_
 
+#include <cerrno>
 #include <iostream>
 #include <string>
+
+/* Blegh */
+#ifdef __GNUC__
+typedef int errno_t;
+#endif
 
 /* Stringifies a C runtime error. */
 std::string afk_strerror(errno_t e);

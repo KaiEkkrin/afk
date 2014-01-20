@@ -57,10 +57,10 @@ bool AFK_LogStream::openLogFile(const std::string& logFile)
         return false;
     }
 #else
-    f = fopen(filename.c_str(), "wb");
+    f = fopen(logFile.c_str(), "w");
     if (!f)
     {
-        *this << "AFK_LogStream: Failed to open " << filename << ": " << afk_strerror(errno);
+        *this << "AFK_LogStream: Failed to open " << logFile << ": " << afk_strerror(errno);
         return false;
     }
 #endif
@@ -81,16 +81,16 @@ void AFK_LogStream::closeLogFile(void)
 
 bool AFK_LogStream::doWrite(const char *start, const char *end)
 {
-    ptrdiff_t size = end - start;
+    std::ptrdiff_t size = end - start;
     assert(size >= 0);
 
     bool success = true;
     if (size > 0)
     {
-        success &= (fwrite(start, 1, size, stdout) == size);
+        success &= (fwrite(start, 1, size, stdout) == static_cast<size_t>(size));
         if (f)
         {
-            success &= (fwrite(start, 1, size, f) == size);
+            success &= (fwrite(start, 1, size, f) == static_cast<size_t>(size));
         }
     }
 

@@ -30,6 +30,7 @@
 
 #include "def.hpp"
 #include "exception.hpp"
+#include "file/logstream.hpp"
 #include "ocl_shim.hpp"
 #include "ui/config_settings.hpp"
 

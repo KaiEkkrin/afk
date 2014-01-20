@@ -22,7 +22,6 @@
 #include <iostream>
 
 #include "exception.hpp"
-#include "file/logstream.hpp"
 
 #ifdef __GNUC__
 /* TODO: Right now this backtrace is completely unreadable and useless :(
@@ -84,13 +83,6 @@ AFK_Exception::~AFK_Exception() throw()
 
 const char *AFK_Exception::what() const throw()
 {
-    /* If this function is called, chances are I'll want to read
-     * the backtrace.
-     */
-    afk_out << "what() called on exception with backtrace: " << std::endl;
-    printBacktrace();
-    afk_out << std::endl;
-
     return message.c_str();
 }
 

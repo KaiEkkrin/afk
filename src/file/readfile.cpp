@@ -16,7 +16,6 @@
  */
 
 #include <cassert>
-#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
