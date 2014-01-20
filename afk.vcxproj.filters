@@ -333,6 +333,9 @@
     <ClInclude Include="src\ui\controls.hpp">
       <Filter>Header Files\ui</Filter>
     </ClInclude>
+    <ClInclude Include="src\file\logstream.hpp">
+      <Filter>Header Files\file</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\compute\fake3d.cl">
@@ -618,6 +621,9 @@
     </ClCompile>
     <ClCompile Include="src\ui\controls.cpp">
       <Filter>Source Files\ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\file\logstream.cpp">
+      <Filter>Source Files\file</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

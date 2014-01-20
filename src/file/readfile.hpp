@@ -21,6 +21,9 @@
 #include <iostream>
 #include <string>
 
+/* Stringifies a C runtime error. */
+std::string afk_strerror(errno_t e);
+
 /* Gets the current working directory. (Yes, this is platform specific!)
  * This function allocates memory for its return value which you need
  * to free with free() after use.

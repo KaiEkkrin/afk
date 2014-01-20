@@ -50,11 +50,12 @@ void AFK_WinConsole::resync()
     freopen_s(&outf, "CONOUT$", "w", stdout);
     freopen_s(&errf, "CONOUT$", "w", stderr);
 
-    /* Sync up C++ I/O objects */
-    std::ios::sync_with_stdio();
-
-    /* Confirm it's working */
-    std::cout << "AFK: Sync'd with Windows console" << std::endl;
+    /* Sync up C++ I/O objects...
+     * Except this doesn't appear to work, or isn't sufficient, in the
+     * presence of various file I/O (especially the configuration file),
+     * which is part of the motivation behind the logstream module.
+     */
+    //std::ios::sync_with_stdio();
 }
 
 #endif /* _WIN32 */

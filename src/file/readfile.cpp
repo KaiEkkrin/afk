@@ -30,7 +30,7 @@
 #ifdef __GNUC__
 #include <unistd.h>
 
-static std::string afk_strerror(int e)
+std::string afk_strerror(int e)
 {
     return std::string(strerror(e));
 }
@@ -55,7 +55,7 @@ void afk_printCWDError(std::ostream& io_errStream)
 #ifdef _WIN32
 #include <Windows.h>
 
-static std::string afk_strerror(errno_t e)
+std::string afk_strerror(errno_t e)
 {
     static __declspec(thread) char errbuf[256];
     errno_t s = strerror_s<256>(errbuf, e);

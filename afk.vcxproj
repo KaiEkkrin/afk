@@ -224,6 +224,7 @@
     <ClInclude Include="src\event.hpp" />
     <ClInclude Include="src\exception.hpp" />
     <ClInclude Include="src\file\filter.hpp" />
+    <ClInclude Include="src\file\logstream.hpp" />
     <ClInclude Include="src\file\readfile.hpp" />
     <ClInclude Include="src\hash_test.hpp" />
     <ClInclude Include="src\jigsaw.hpp" />
@@ -323,6 +324,7 @@
     <ClCompile Include="src\event.cpp" />
     <ClCompile Include="src\exception.cpp" />
     <ClCompile Include="src\file\filter.cpp" />
+    <ClCompile Include="src\file\logstream.cpp" />
     <ClCompile Include="src\file\readfile.cpp" />
     <ClCompile Include="src\hash_test.cpp" />
     <ClCompile Include="src\jigsaw.cpp" />

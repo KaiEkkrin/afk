@@ -23,6 +23,7 @@
 #include "async/async_test.hpp"
 #include "data/cache_test.hpp"
 #include "data/chain_link_test.hpp"
+#include "file/logstream.hpp"
 #include "hash_test.hpp"
 #include "rng/boost_taus88.hpp"
 #include "rng/rng_test.hpp"
@@ -113,10 +114,17 @@ int main(int argc, char **argv)
 
     try
     {
-        std::cout << "AFK configuring" << std::endl;
         afk_core.configure(&argc, argv);
 
-        std::cout << "AFK Using master seed: " << afk_core.settings.masterSeedLow << " " << afk_core.settings.masterSeedHigh << std::endl;
+        /* First things first, set up the log file: */
+        std::string logFile = afk_core.settings.logFile;
+        if (logFile.size() > 0) afk_out.setLogFile(logFile);
+
+        /* TODO: Write out whole configuration.  I think it would be useful. */
+
+        afk_out << "AFK Using master seed: " << afk_core.settings.masterSeedLow << " " << afk_core.settings.masterSeedHigh << std::endl;
+        /* TODO remove debug */
+        //afk_out << std::flush;
 
 		/* The RNG test needs to go here after that master seed has
 		 * been initialised, because it'll refer to it.
@@ -126,21 +134,21 @@ int main(int argc, char **argv)
         std::cin.ignore();
 #endif
 
-        std::cout << "AFK initalising graphics" << std::endl;
+        afk_out << "AFK initalising graphics" << std::endl;
         afk_core.initGraphics();
 
-        std::cout << "AFK starting loop" << std::endl;
+        afk_out << "AFK starting loop" << std::endl;
         afk_core.loop();
     }
     catch (AFK_Exception& e)
     {
         retcode = 1;
-        std::cerr << "AFK Error: " << e.what() << std::endl;
+        afk_out << "AFK Error: " << e.what() << std::endl;
         afk_clock::time_point now = afk_clock::now();
         afk_core.checkpoint(now, true);
     }
 
-    std::cout << "AFK exiting" << std::endl;
+    afk_out << "AFK exiting" << std::endl;
     return retcode;
 }
 
