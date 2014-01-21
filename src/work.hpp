@@ -121,7 +121,6 @@ union AFK_WorldWorkParam
     {
         AFK_KeyedCell cell;
         Mat4<float> transformation;
-        Vec3<float> viewerLocation;
         unsigned int flags;
 
 #if AFK_SHAPE_ENUM_DEBUG
