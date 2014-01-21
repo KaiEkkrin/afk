@@ -94,20 +94,14 @@ void AFK_EntityDisplayQueue::draw(
 
     glActiveTexture(GL_TEXTURE0);
     vapourJigsaw->bindTexture(0);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glUniform1i(jigsawDensityTexSamplerLocation, 0);
 
     glActiveTexture(GL_TEXTURE1);
     vapourJigsaw->bindTexture(1);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glUniform1i(jigsawNormalTexSamplerLocation, 1);
 
     glActiveTexture(GL_TEXTURE2);
     edgeJigsaw->bindTexture(0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glUniform1i(jigsawOverlapTexSamplerLocation, 2);
     
     /* Set up the entity display texbuf. */
@@ -131,6 +125,10 @@ void AFK_EntityDisplayQueue::draw(
 #endif
 
     baseShape->draw(instanceCount);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindTexture(GL_TEXTURE_3D, 0);
+    glBindTexture(GL_TEXTURE_BUFFER, 0);
 }
 
 bool AFK_EntityDisplayQueue::empty(void)

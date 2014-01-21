@@ -58,7 +58,8 @@ void afk_testJigsaw(
                         afk_vec3<int>(9, 9, 1),
                         AFK_JigsawFormat::FLOAT32_4,
                         AFK_JigsawDimensions::TWO,
-                        AFK_JigsawBufferUsage::CL_ONLY)
+                        AFK_JigsawBufferUsage::CL_ONLY,
+                        GL_NEAREST)
                 },
                 4,
                 1.0f),

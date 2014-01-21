@@ -267,11 +267,13 @@ AFK_JigsawImageDescriptor::AFK_JigsawImageDescriptor(
     const Vec3<int>& _pieceSize,
     AFK_JigsawFormat _format,
     AFK_JigsawDimensions _dimensions,
-    AFK_JigsawBufferUsage _bufferUsage):
+    AFK_JigsawBufferUsage _bufferUsage,
+    GLint _filter):
         pieceSize(_pieceSize),
         format(_format),
         dimensions(_dimensions),
-        bufferUsage(_bufferUsage)
+        bufferUsage(_bufferUsage),
+        filter(_filter)
 {
 }
 
@@ -281,7 +283,8 @@ AFK_JigsawImageDescriptor::AFK_JigsawImageDescriptor(
         format(_desc.format),
         dimensions(_desc.dimensions),
         bufferUsage(_desc.bufferUsage),
-        fake3D(_desc.fake3D)
+        fake3D(_desc.fake3D),
+        filter(_desc.filter)
 {
 }
 
@@ -293,6 +296,7 @@ AFK_JigsawImageDescriptor& AFK_JigsawImageDescriptor::operator=(
     dimensions      = _desc.dimensions;
     bufferUsage     = _desc.bufferUsage;
     fake3D          = _desc.fake3D;
+    filter          = _desc.filter;
     return *this;
 }
 
@@ -317,6 +321,7 @@ bool AFK_JigsawImageDescriptor::isJigsawSizeOK(
     GLuint glProxyTex;
     glGenTextures(1, &glProxyTex);
     glBindTexture(proxyTexTarget, glProxyTex);
+    setGlFilterParameters();
     switch (dimensions)
     {
     case AFK_JigsawDimensions::TWO:
@@ -381,6 +386,12 @@ cl_mem_object_type AFK_JigsawImageDescriptor::getClObjectType(void) const
 {
     return (dimensions == AFK_JigsawDimensions::THREE && !fake3D.getUseFake3D() ?
         CL_MEM_OBJECT_IMAGE3D : CL_MEM_OBJECT_IMAGE2D);
+}
+
+void AFK_JigsawImageDescriptor::setGlFilterParameters(void) const
+{
+    glTexParameteri(getGlTarget(), GL_TEXTURE_MIN_FILTER, filter);
+    glTexParameteri(getGlTarget(), GL_TEXTURE_MAG_FILTER, filter);
 }
 
 GLuint AFK_JigsawImageDescriptor::getGlTarget(void) const
@@ -655,6 +666,7 @@ void AFK_JigsawImage::initGlImage(const Vec3<int>& _jigsawSize)
     GLuint texTarget = desc.getGlTarget();
     glGenTextures(1, &glTex);
     glBindTexture(texTarget, glTex);
+    desc.setGlFilterParameters();
 
     /* Switching away from using glTexStorage2D() here because
      * it requires a more recent GLEW, which is inconvenient in
@@ -761,6 +773,7 @@ void AFK_JigsawImage::initClImageFromGlImage(const Vec3<int>& _jigsawSize)
         }
     }
 
+    //glBindTexture(texTarget, 0);
     AFK_HANDLE_CL_ERROR(error);
 }
 
@@ -1075,6 +1088,7 @@ void AFK_JigsawImage::bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboi
         /* I shouldn't have any change events to worry about. */
         assert(changeDep.getEventCount() == 0);
         glBindTexture(desc.getGlTarget(), glTex);
+        desc.setGlFilterParameters();
         break;
 
     case AFK_JigsawBufferUsage::CL_GL_COPIED:
@@ -1083,6 +1097,7 @@ void AFK_JigsawImage::bindTexture(const std::vector<AFK_JigsawCuboid>& drawCuboi
         changeDep.waitFor();
 
         glBindTexture(desc.getGlTarget(), glTex);
+        desc.setGlFilterParameters();
         if (desc.bufferUsage == AFK_JigsawBufferUsage::CL_GL_COPIED &&
             glUserCount == 0) /* First user gets the copy */
         {

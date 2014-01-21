@@ -571,19 +571,22 @@ AFK_World::AFK_World(
                         tpSize,
                         AFK_JigsawFormat::FLOAT32,
                         AFK_JigsawDimensions::TWO,
-                        tBu
+                        tBu,
+                        GL_NEAREST
                     ),
                     AFK_JigsawImageDescriptor( /* Colour */
                         tpSize,
                         AFK_JigsawFormat::FLOAT8_UNORM_4,
                         AFK_JigsawDimensions::TWO,
-                        tBu
+                        tBu,
+                        GL_LINEAR
                     ),
                     AFK_JigsawImageDescriptor( /* Normal */
                         tpSize,
                         normalFormat,
                         AFK_JigsawDimensions::TWO,
-                        tBu
+                        tBu,
+                        GL_LINEAR
                     ),
                 },    
                 2,
@@ -597,13 +600,15 @@ AFK_World::AFK_World(
                         vpSize,
                         AFK_JigsawFormat::FLOAT32_4,
                         AFK_JigsawDimensions::THREE,
-                        vBu
+                        vBu,
+                        GL_LINEAR
                     ),
                     AFK_JigsawImageDescriptor( /* Normal */
                         vpSize,
                         normalFormat,
                         AFK_JigsawDimensions::THREE,
-                        vBu
+                        vBu,
+                        GL_LINEAR
                     )
                 },
                 1, /* TODO: Might want to try the same by-LoD caching trick as with the landscape;
@@ -618,7 +623,8 @@ AFK_World::AFK_World(
                         epSize,
                         AFK_JigsawFormat::UINT32_2,
                         AFK_JigsawDimensions::TWO,
-                        tBu
+                        tBu,
+                        GL_NEAREST
                     )
                 },
                 1,

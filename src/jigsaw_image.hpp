@@ -135,6 +135,7 @@ public:
     AFK_JigsawDimensions dimensions;
     AFK_JigsawBufferUsage bufferUsage;
     AFK_JigsawFake3DDescriptor fake3D;
+    GLint filter;
 
     /* TODO: I wanted to use an initializer list here, but I get
      * compile errors all over the shop :(
@@ -143,7 +144,8 @@ public:
         const Vec3<int>& _pieceSize,
         AFK_JigsawFormat _format,
         AFK_JigsawDimensions _dimensions,
-        AFK_JigsawBufferUsage _bufferUsage);
+        AFK_JigsawBufferUsage _bufferUsage,
+        GLint _filter);
 
     AFK_JigsawImageDescriptor(const AFK_JigsawImageDescriptor& _desc);
     AFK_JigsawImageDescriptor& operator=(const AFK_JigsawImageDescriptor& _desc);
@@ -156,6 +158,9 @@ public:
 
     /* Enables fake 3D. */
     void setUseFake3D(const Vec3<int>& _jigsawSize);
+
+    /* Configures the filter with the GL. */
+    void setGlFilterParameters(void) const;
 
     cl_mem_object_type getClObjectType(void) const;
     GLuint getGlTarget(void) const;

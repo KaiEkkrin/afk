@@ -153,22 +153,16 @@ void AFK_LandscapeDisplayQueue::draw(
     /* The first texture is the jigsaw Y-displacement */
     glActiveTexture(GL_TEXTURE0);
     jigsaw->bindTexture(0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glUniform1i(jigsawYDispTexSamplerLocation, 0);
 
     /* The second texture is the jigsaw colour */
     glActiveTexture(GL_TEXTURE1);
     jigsaw->bindTexture(1);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glUniform1i(jigsawColourTexSamplerLocation, 1);
 
     /* The third texture is the jigsaw normal */
     glActiveTexture(GL_TEXTURE2);
     jigsaw->bindTexture(2);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glUniform1i(jigsawNormalTexSamplerLocation, 2);
 
     /* The fourth texture is the landscape display texbuf,
@@ -200,6 +194,9 @@ void AFK_LandscapeDisplayQueue::draw(
 #endif
 
     baseTile->draw(instanceCount);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindTexture(GL_TEXTURE_BUFFER, 0);
 }
 
 bool AFK_LandscapeDisplayQueue::empty(void)
