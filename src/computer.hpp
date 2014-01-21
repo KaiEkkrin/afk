@@ -168,7 +168,6 @@ protected:
     cl_platform_id platform;
     AFK_ClPlatformProperties *platformProps;
     bool platformIsAMD;
-    bool clGlSharing;
     bool useEvents;
 
     /* The IDs of the devices that I'm using.
@@ -189,7 +188,7 @@ protected:
     std::shared_ptr<AFK_ComputeQueue> writeQueue;
 
     /* Helper functions */
-    bool findClGlDevices(cl_platform_id platform);
+    bool findClGlDevices(AFK_ConfigSettings& settings, cl_platform_id platform);
     void loadProgramFromFiles(const AFK_ConfigSettings& settings, std::vector<AFK_ClProgram>::iterator& p);
     void programBuilt(void);
     void waitForBuild(void);
@@ -202,7 +201,10 @@ public:
     AFK_OclShim oclShim;
     AFK_OclPlatformExtensionShim *oclPlatformExtensionShim;
 
-    AFK_Computer(const AFK_ConfigSettings& settings);
+    /* This class will actually edit the settings to disable cl-gl
+     * sharing if it doesn't work.
+     */
+    AFK_Computer(AFK_ConfigSettings& settings);
     virtual ~AFK_Computer();
 
     /* Loads all CL programs from disk.  Call before doing

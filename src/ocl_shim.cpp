@@ -17,10 +17,9 @@
 
 #include "afk.hpp"
 
-#include <cassert>
 #include <iostream>
 
-#include "file/logstream.hpp"
+#include "exception.hpp"
 #include "ocl_shim.hpp"
 
 #ifdef AFK_GLX
@@ -30,8 +29,9 @@ void afk_handleDlError(const char *_file, const int _line)
     char *error = dlerror();
     if (error != NULL)
     {
-        afk_out << "AFK_OclShim: Error " << error << " occurred at " << _file << ":" << _line << std::endl;
-        assert(error == NULL);
+        std::ostringstream errSS;
+        errSS << "AFK_OclShim: Error " << error << " occurred at " << _file << ":" << _line << std::endl;
+        throw AFK_Exception(errSS.str());
     }
 }
 
@@ -66,8 +66,9 @@ void afk_handleDlError(const char *_file, const int _line)
     DWORD lastError = GetLastError();
     if (lastError)
     {
-        afk_out << "AFK_OclShim: Error " << lastError << " occurred at " << _file << ":" << _line << std::endl;
-        assert(lastError == 0);
+        std::ostringstream errSS;
+        errSS << "AFK_OclShim: Error " << error << " occurred at " << _file << ":" << _line << std::endl;
+        throw AFK_Exception(errSS.str());
     }
 }
 

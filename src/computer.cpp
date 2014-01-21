@@ -215,7 +215,7 @@ DestType firstOf(SourceType s)
     return u.d[0];
 }
 
-bool AFK_Computer::findClGlDevices(cl_platform_id platform)
+bool AFK_Computer::findClGlDevices(AFK_ConfigSettings& settings, cl_platform_id platform)
 {
     char *platformName;
     size_t platformNameSize;
@@ -260,14 +260,26 @@ bool AFK_Computer::findClGlDevices(cl_platform_id platform)
     };
 #endif
 
-    if (clGlSharing)
+    if (settings.clGlSharing)
     {
         devicesSize = 1;
         devices = new cl_device_id[devicesSize];
-        AFK_CLCHK(oclPlatformExtensionShim->GetGLContextInfoKHR()(clGlProperties, CL_CURRENT_DEVICE_FOR_GL_CONTEXT_KHR, sizeof(cl_device_id), devices, NULL))
-        afk_out << "Found a supported cl_gl device." << std::endl;
+
+        try
+        {
+            AFK_CLCHK(oclPlatformExtensionShim->GetGLContextInfoKHR()(clGlProperties, CL_CURRENT_DEVICE_FOR_GL_CONTEXT_KHR, sizeof(cl_device_id), devices, NULL))
+            afk_out << "Found a supported cl_gl device." << std::endl;
+        }
+        catch (AFK_Exception&)
+        {
+            afk_out << "Platform doesn't appear to support cl_gl, falling back." << std::endl;
+            delete[] devices;
+            devices = nullptr;
+            settings.clGlSharing.set(false);
+        }
     }
-    else
+
+    if (!settings.clGlSharing)
     {
         AFK_CLCHK(oclShim.GetDeviceIDs()(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &devicesSize))
 
@@ -412,10 +424,9 @@ void AFK_Computer::printBuildLog(std::ostream& s, const AFK_ClProgram& p, cl_dev
     delete[] buildLog;
 }
 
-AFK_Computer::AFK_Computer(const AFK_ConfigSettings& settings):
+AFK_Computer::AFK_Computer(AFK_ConfigSettings& settings):
     platform(0),
     platformProps(NULL),
-    clGlSharing(settings.clGlSharing),
     useEvents(settings.clUseEvents),
     devices(NULL),
     devicesSize(0),
@@ -463,7 +474,7 @@ AFK_Computer::AFK_Computer(const AFK_ConfigSettings& settings):
 
     for (unsigned int pI = 0; pI < platformCount; ++pI)
     {
-        if (findClGlDevices(platforms[pI]))
+        if (findClGlDevices(settings, platforms[pI]))
         {
             platform = platforms[pI];
             platformProps = new AFK_ClPlatformProperties(this, platform);
