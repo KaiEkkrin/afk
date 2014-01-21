@@ -61,7 +61,7 @@ public:
 
     // Graphics settings
 
-    AFK_CONFIG_FIELD(std::string,   shadersDir,                 "shaders");
+    AFK_CONFIG_FIELD(std::string,   shadersDir,                 "src/shaders");
     AFK_CONFIG_FIELD(float,         fov,                        90.0f);
     AFK_CONFIG_FIELD(float,         zNear,                      0.5f);
     AFK_CONFIG_FIELD(float,         zFar,                       (float)(1 << 20));
@@ -89,8 +89,8 @@ public:
     // Compute settings
 
     AFK_CONFIG_FIELD(std::string,   clLibDir,                   "");
-    AFK_CONFIG_FIELD(std::string,   clProgramsDir,              "compute");
-    AFK_CONFIG_FIELD(bool,          clGlSharing,                false);
+    AFK_CONFIG_FIELD(std::string,   clProgramsDir,              "src/compute");
+    AFK_CONFIG_FIELD(bool,          clGlSharing,                true);
     AFK_CONFIG_FIELD(bool,          clSeparateQueues,           true); // requires clUseEvents
     AFK_CONFIG_FIELD(bool,          clOutOfOrder,               false);
     AFK_CONFIG_FIELD(bool,          clSyncReadWrite,            false);
