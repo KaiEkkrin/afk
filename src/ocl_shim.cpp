@@ -67,7 +67,7 @@ void afk_handleDlError(const char *_file, const int _line)
     if (lastError)
     {
         std::ostringstream errSS;
-        errSS << "AFK_OclShim: Error " << error << " occurred at " << _file << ":" << _line << std::endl;
+        errSS << "AFK_OclShim: Error " << lastError << " occurred at " << _file << ":" << _line << std::endl;
         throw AFK_Exception(errSS.str());
     }
 }
