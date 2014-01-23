@@ -704,6 +704,7 @@ AFK_World::AFK_World(
     landscape_skyColourLocation = glGetUniformLocation(landscape_shaderProgram->program, "SkyColour");
     landscape_farClipDistanceLocation = glGetUniformLocation(landscape_shaderProgram->program, "FarClipDistance");
 
+#if AFK_RENDER_ENTITIES
     entity_shaderProgram = new AFK_ShaderProgram();
     *entity_shaderProgram << "shape_fragment" << "shape_geometry" << "shape_vertex";
     entity_shaderProgram->Link();
@@ -713,6 +714,7 @@ AFK_World::AFK_World(
     entity_windowSizeLocation = glGetUniformLocation(entity_shaderProgram->program, "WindowSize");
     entity_skyColourLocation = glGetUniformLocation(entity_shaderProgram->program, "SkyColour");
     entity_farClipDistanceLocation = glGetUniformLocation(entity_shaderProgram->program, "FarClipDistance");
+#endif /* AFK_RENDER_ENTITIES */
 
     glGenVertexArrays(1, &landscapeTileArray);
     glBindVertexArray(landscapeTileArray);
@@ -723,6 +725,7 @@ AFK_World::AFK_World(
     glBindVertexArray(0);
     landscapeTerrainBase->teardownGL();
 
+#if AFK_RENDER_ENTITIES
     glGenVertexArrays(1, &edgeShapeBaseArray);
     glBindVertexArray(edgeShapeBaseArray);
     edgeShapeBase = new AFK_3DEdgeShapeBase(sSizes);
@@ -730,6 +733,7 @@ AFK_World::AFK_World(
 
     glBindVertexArray(0);
     edgeShapeBase->teardownGL();
+#endif /* AFK_RENDER_ENTITIES */
 
     /* Make the base colour for the landscape here */
     landscape_baseColour = afk_vec3<float>(
@@ -770,11 +774,13 @@ AFK_World::~AFK_World()
     delete landscape_shaderProgram;
     delete landscape_shaderLight;
 
+#if AFK_RENDER_ENTITIES
     delete entity_shaderProgram;
     delete entity_shaderLight;
 
     delete edgeShapeBase;
     glDeleteVertexArrays(1, &edgeShapeBaseArray);
+#endif /* AFK_RENDER_ENTITIES */
 
     delete landscapeTerrainBase;
     glDeleteVertexArrays(1, &landscapeTileArray);
@@ -1075,6 +1081,7 @@ void AFK_World::checkpoint(afk_duration_mfl& timeSinceLastCheckpoint)
     PRINT_RATE_AND_RESET("Tiles resumed:                ", tilesResumed)
     PRINT_RATE_AND_RESET("Tiles computed:               ", tilesComputed)
     PRINT_RATE_AND_RESET("Tiles recomputed after sweep: ", tilesRecomputedAfterSweep)
+#if AFK_RENDER_ENTITIES
     PRINT_RATE_AND_RESET("Entities queued:              ", entitiesQueued)
     PRINT_RATE_AND_RESET("Entities moved:               ", entitiesMoved)
     PRINT_RATE_AND_RESET("Shape cells found invisible:  ", shapeCellsInvisible)
@@ -1083,6 +1090,7 @@ void AFK_World::checkpoint(afk_duration_mfl& timeSinceLastCheckpoint)
     PRINT_RATE_AND_RESET("Shape vapours computed:       ", shapeVapoursComputed)
     PRINT_RATE_AND_RESET("Shape edges computed:         ", shapeEdgesComputed)
     PRINT_RATE_AND_RESET("Separate vapours computed:    ", separateVapoursComputed)
+#endif /* AFK_RENDER_ENTITIES */
     PRINT_RATE_AND_RESET("Dependencies followed:        ", dependenciesFollowed)
     afk_out <<         "Cumulative thread escapes:    " << threadEscapes.load() << std::endl;
 #endif

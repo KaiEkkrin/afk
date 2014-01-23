@@ -120,8 +120,15 @@ int main(int argc, char **argv)
         std::string logFile = afk_core.settings.logFile;
         if (logFile.size() > 0) afk_out.setLogFile(logFile);
 
-        /* TODO: Write out whole configuration.  I think it would be useful. */
-
+        /* Banner. */
+        afk_out << "AFK v0.2.1-test" << std::endl;
+        afk_out << "Copyright (C) 2013-2014, Alex Holloway" << std::endl;
+        afk_out << "This program is free software.  You should have found a copy of its" << std::endl;
+        afk_out << "source code near this binary, or if you obtained it from GitHub, you" << std::endl;
+        afk_out << "can check out the sources at https://github.com/KaiEkkrin/afk/ ." << std::endl;
+        afk_out << std::endl;
+        
+        /* Printing the configuration is useful. */
         afk_out << "AFK: Using starting configuration: " << std::endl << std::endl;
         afk_core.settings.saveTo(afk_out);
         afk_out << std::endl;
