@@ -50,6 +50,19 @@
 <li>Generated world detail is cached in the lockless hash map structure <code>AFK_Polymer</code>.  I created this structure rather than using <code>std::unordered_map</code> with a lock because each frame, the world enumeration needs to do a very large number of concurrent lookups.  In this situation, my custom structure's benefit (I measured a 10x higher lookup rate vs. <code>std::unordered_map</code> with a lock on an 8-thread system) outweighs its drawback (it occasionally generates more than one value for the same key).</li>
 </ul><p>The small blue chevron that serves as "protagonist" right now is a cheat, because I encoded its geometry by hand.  I'll remove it as soon as I can generate a random shape that fits its place nicely.</p>
 
+<hr><p>23 January 2014</p>
+
+<h3>
+<a name="v021-test-release" class="anchor" href="#v021-test-release"><span class="octicon octicon-link"></span></a>v0.2.1-test release</h3>
+
+<p>I've released a Windows build of AFK here: <a href="https://github.com/KaiEkkrin/afk/releases/tag/v0.2.1-test">https://github.com/KaiEkkrin/afk/releases/tag/v0.2.1-test</a></p>
+
+<p>Shape render is still turned off; I don't want to keep the current shape system anyway, and I'll probably rewrite it extensively before releasing a build with it enabled.</p>
+
+<p>I'm interested to see how well AFK does on other computers.  If anything goes wrong (or even if it doesn't!) send me the file that gets written when you run it with "--log-file log.txt".  If the level of detail drops to a minimum and stays there, try encouraging it to work harder by increasing the frame time target, e.g. with "--target-frame-time-millis 24.0".</p>
+
+<p>And yes, it's sub-optimal in many ways that I know about already (and no doubt some that I don't) :).</p>
+
 <hr><p>11 January 2014</p>
 
 <h3>
