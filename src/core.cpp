@@ -216,9 +216,11 @@ AFK_Core::~AFK_Core()
 
     if (computer) delete computer; /* Should close CL contexts */
     if (detailAdjuster) delete detailAdjuster;
-    if (window) delete window; /* Should close GL contexts */
-
-    afk_out << "AFK: Core destroyed" << std::endl;
+    if (window)
+    {
+        afk_out << "AFK: Destroying window" << std::endl;
+        delete window; /* Should close GL contexts */
+    }
 }
 
 void AFK_Core::configure(int *argcp, char **argv)

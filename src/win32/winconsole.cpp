@@ -47,6 +47,7 @@ AFK_WinConsole::~AFK_WinConsole()
 void AFK_WinConsole::resync()
 {
     /* Reopen the standard streams to these magic Windows names */
+    freopen_s(&outf, "CONIN$", "r", stdin);
     freopen_s(&outf, "CONOUT$", "w", stdout);
     freopen_s(&errf, "CONOUT$", "w", stderr);
 

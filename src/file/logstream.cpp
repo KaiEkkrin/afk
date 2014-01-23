@@ -118,3 +118,8 @@ bool AFK_LogStream::setLogFile(const std::string& logFile)
 }
 
 AFK_LogStream afk_out;
+
+void afk_waitForKeyPress(void)
+{
+    getchar();
+}

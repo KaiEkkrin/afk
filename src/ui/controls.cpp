@@ -86,8 +86,8 @@ std::string AFK_ConfigOptionControl::spellingOf(AFK_Control control) const
     return "UNRECOGNIZED";
 }
 
-AFK_ConfigOptionControl::AFK_ConfigOptionControl(const std::string& _name, AFK_InputType _inputType, std::list<AFK_ConfigOptionBase *> *options) :
-AFK_ConfigOptionBase(_name, options),
+AFK_ConfigOptionControl::AFK_ConfigOptionControl(const std::string& _name, const std::string& _help, AFK_InputType _inputType, std::list<AFK_ConfigOptionBase *> *_options) :
+AFK_ConfigOptionBase(_name, _help, _options),
 inputType(_inputType)
 {
 }
@@ -123,6 +123,24 @@ bool AFK_ConfigOptionControl::matched(std::function<std::string(void)>& getArg, 
     map(getArg(), matchedControl);
     nextArg();
     return true;
+}
+
+void AFK_ConfigOptionControl::printHelp(std::ostream& os) const
+{
+    for (auto d : afk_getDefaultControls())
+    {
+        /* This clause should avoid some confusion and reduce the console spam; I'm sure
+         * people will realise it's possible to chop and change what controls what!
+         */
+        if (d.defaultType == inputType)
+        {
+            printPaddedHelpLine(
+                os,
+                name.getCmdLineSpelling() + d.getName().getCmdLineSpelling() + " <binding>",
+                "",
+                "for " + d.getName().getFileSpelling() + " (" + d.defaultValue + ")");
+        }
+    }
 }
 
 /* AFK_KeyboardControls implementation. */
@@ -178,7 +196,7 @@ void AFK_KeyboardControls::saveInternal(std::ostream& os) const
 }
 
 AFK_KeyboardControls::AFK_KeyboardControls(std::list<AFK_ConfigOptionBase *> *options):
-AFK_ConfigOptionControl("keyboard", AFK_InputType::KEYBOARD, options)
+AFK_ConfigOptionControl("keyboard", "Keyboard control", AFK_InputType::KEYBOARD, options)
 {
     setupDefaultMapping();
 }
@@ -218,7 +236,7 @@ void AFK_MouseControls::saveInternal(std::ostream& os) const
 }
 
 AFK_MouseControls::AFK_MouseControls(std::list<AFK_ConfigOptionBase *> *options) :
-AFK_ConfigOptionControl("mouse", AFK_InputType::MOUSE, options)
+AFK_ConfigOptionControl("mouse", "Mouse control", AFK_InputType::MOUSE, options)
 {
     setupDefaultMapping();
 }
@@ -268,7 +286,7 @@ void AFK_MouseAxisControls::saveInternal(std::ostream& os) const
 }
 
 AFK_MouseAxisControls::AFK_MouseAxisControls(std::list<AFK_ConfigOptionBase *> *options) :
-AFK_ConfigOptionControl("mouseAxis", AFK_InputType::MOUSE_AXIS, options)
+AFK_ConfigOptionControl("mouseAxis", "Mouse axis control", AFK_InputType::MOUSE_AXIS, options)
 {
     setupDefaultMapping();
 }

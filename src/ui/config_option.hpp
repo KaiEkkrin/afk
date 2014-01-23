@@ -43,6 +43,9 @@ public:
     std::list<std::string>::const_iterator spellingsBegin(void) const { return spellings.cbegin(); }
     std::list<std::string>::const_iterator spellingsEnd(void) const { return spellings.cend(); }
 
+    const std::string& getFileSpelling(void) const;
+    const std::string& getCmdLineSpelling(void) const;
+
     virtual bool matches(const std::string& arg);
     virtual bool subMatches(const std::string& arg, size_t start, size_t& o_matchedLength);
 
@@ -56,6 +59,7 @@ class AFK_ConfigOptionBase
 {
 protected:
     AFK_ConfigOptionName name;
+    const std::string help;
     bool noSave;
 
     /* Implement this to do the save -- stops subclasses from needing to
@@ -63,8 +67,11 @@ protected:
      */
     virtual void saveInternal(std::ostream& os) const = 0;
 
+    /* So everything doesn't need to know about the help padding */
+    void printPaddedHelpLine(std::ostream& os, const std::string& subject, const std::string& prefix, const std::string& annotation) const;
+
 public:
-    AFK_ConfigOptionBase(const std::string& _name, std::list<AFK_ConfigOptionBase *> *options, bool _noSave = false);
+    AFK_ConfigOptionBase(const std::string& _name, const std::string& _help, std::list<AFK_ConfigOptionBase *> *options, bool _noSave = false);
 
     /* Check the name matches.
      * In this function, we abstract away the concept that
@@ -137,6 +144,8 @@ public:
     }
 
     void save(std::ostream& os) const;
+
+    virtual void printHelp(std::ostream& os) const = 0;
 };
 
 /* A basic single-value configuration option of any value type.
@@ -154,8 +163,8 @@ protected:
     }
 
 public:
-    AFK_ConfigOption(const std::string& _name, std::list<AFK_ConfigOptionBase *> *options, const T& defaultValue, bool _noSave = false) :
-        AFK_ConfigOptionBase(_name, options, _noSave),
+    AFK_ConfigOption(const std::string& _name, const std::string& _help, std::list<AFK_ConfigOptionBase *> *options, const T& defaultValue, bool _noSave = false) :
+        AFK_ConfigOptionBase(_name, _help, options, _noSave),
         field(defaultValue)
     {
     }
@@ -184,6 +193,14 @@ public:
     /* The inevitable getters. */
     operator T(void) const { return field; }
     const T& get(void) const { return field; }
+
+    void printHelp(std::ostream& os) const override
+    {
+        /* I want to include a stringified current value as a suggestion /
+         * indication of default (some fields are very not obvious!)
+         */
+        printPaddedHelpLine(os, name.getCmdLineSpelling() + " <value>", "", "(" + boost::lexical_cast<std::string, T>(field) + ")");
+    }
 };
 
 /* A specialisation for boolean options.  Allows --thing (sets to true) and
@@ -224,8 +241,8 @@ protected:
     }
 
 public:
-    AFK_ConfigOption(const std::string& _name, std::list<AFK_ConfigOptionBase *> *options, const bool& defaultValue, bool _noSave = false) :
-        AFK_ConfigOptionBase(_name, options, _noSave),
+    AFK_ConfigOption(const std::string& _name, const std::string& _help, std::list<AFK_ConfigOptionBase *> *options, const bool& defaultValue, bool _noSave = false) :
+        AFK_ConfigOptionBase(_name, _help, options, _noSave),
         antiName(makeAntiName(_name)),
         field(defaultValue)
     {
@@ -269,6 +286,15 @@ public:
     /* The inevitable getters. */
     operator bool(void) const { return field; }
     const bool& get(void) const { return field; }
+
+    void printHelp(std::ostream& os) const override
+    {
+        /* I want to indicate that this option has an anti-option */
+        std::string cmdLineSpelling = name.getCmdLineSpelling();
+        assert(cmdLineSpelling.substr(0, 2) == "--");
+        std::string cmdLineWithAnti = "-[-no]" + cmdLineSpelling.substr(1, cmdLineSpelling.size() - 1);
+        printPaddedHelpLine(os, cmdLineWithAnti, "[Don't] ", field ? "(enabled)" : "(disabled)");
+    }
 };
 
 #endif /* _AFK_UI_CONFIG_OPTION_H_*/

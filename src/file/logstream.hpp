@@ -64,4 +64,9 @@ public:
 /* Here's the thing to use in place of std::cout / std::cerr, then. */
 extern AFK_LogStream afk_out;
 
+/* TODO: If I make a no-console version, disable this / return right away or something;
+ * I can snoop afk_out to find out whether we have a console output
+ */
+void afk_waitForKeyPress(void);
+
 #endif /* _AFK_UI_LOGSTREAM_H_ */

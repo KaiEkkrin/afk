@@ -15,6 +15,8 @@
 * along with this program.  If not, see [http://www.gnu.org/licenses/].
 */
 
+#include <iomanip>
+
 #include "config_option.hpp"
 
 /* AFK_ConfigOptionName implementation */
@@ -42,7 +44,21 @@ AFK_ConfigOptionName::AFK_ConfigOptionName(const std::string& _name):
         else cmdlineSS << c;
     }
 
+    /* If you add any more spellings to the list, getCmdLineSpelling()
+     * below will need changing!
+     */
+
     spellings.push_back(cmdlineSS.str());
+}
+
+const std::string& AFK_ConfigOptionName::getFileSpelling(void) const
+{
+    return spellings.front();
+}
+
+const std::string& AFK_ConfigOptionName::getCmdLineSpelling(void) const
+{
+    return spellings.back();
 }
 
 bool AFK_ConfigOptionName::matches(const std::string& arg)
@@ -77,8 +93,14 @@ std::ostream& operator<<(std::ostream& os, const AFK_ConfigOptionName& optionNam
 
 /* AFK_ConfigOptionBase implementation */
 
-AFK_ConfigOptionBase::AFK_ConfigOptionBase(const std::string& _name, std::list<AFK_ConfigOptionBase *> *options, bool _noSave) :
+void AFK_ConfigOptionBase::printPaddedHelpLine(std::ostream& os, const std::string& subject, const std::string& prefix, const std::string& annotation) const
+{
+    os << std::setw(40) << subject << ": " << prefix << help << " " << annotation << std::endl;
+}
+
+AFK_ConfigOptionBase::AFK_ConfigOptionBase(const std::string& _name, const std::string& _help, std::list<AFK_ConfigOptionBase *> *options, bool _noSave) :
     name(_name),
+    help(_help),
     noSave(_noSave)
 {
     if (options) options->push_back(this);

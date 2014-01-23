@@ -108,7 +108,7 @@ AFK_ConfigSettings::AFK_ConfigSettings()
      * directory on Windows ("afk/afk.config") but for now I'm just
      * going to use the CWD to test.
      */
-    configFile = new AFK_ConfigOption<std::string>("configFile", &options, "afk.config", true);
+    configFile = new AFK_ConfigOption<std::string>("configFile", "Configuration file", &options, "afk.config", true);
 
     /* Load configuration from file right away.  Any command line arguments
      * will be parsed later and override this.
@@ -147,7 +147,8 @@ bool AFK_ConfigSettings::parseCmdLine(int *argcp, char **argv)
 
         if (!matched)
         {
-            afk_out << "AFK_ConfigSettings::parseCmdLine : Unmatched option: " << *argvHere << std::endl;
+            afk_out << "AFK_ConfigSettings::parseCmdLine : Unmatched option after : " << *(argvHere - 1) << " (try --help )" << std::endl;
+            afk_waitForKeyPress();
             return false;
         }
     }

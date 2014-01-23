@@ -72,12 +72,12 @@ int main(int argc, char **argv)
 
 #if TEST_ASYNC
     test_async();
-    std::cin.ignore();
+    afk_waitForKeyPress();
 #endif
 
 #if TEST_CACHE
     test_cache();
-    std::cin.ignore();
+    afk_waitForKeyPress();
 #endif
 
 #if TEST_CHAIN_LINK
@@ -91,26 +91,27 @@ int main(int argc, char **argv)
     }
 
     afk_out << "Completed " << chainLinkTestIterations << " of the chain link test; " << chainLinkTestFails << " fails." << std::endl;
-    std::cin.ignore();
+    afk_waitForKeyPress();
 #endif
 
 #if TEST_HASH
     test_rotate();
     test_tileHash();
     test_cellHash();
-    std::cin.ignore();
+    afk_waitForKeyPress();
 #endif
 
 #if TEST_JIGSAW_FAKE3D
     test_jigsawFake3D();
-    std::cin.ignore();
+    afk_waitForKeyPress();
 #endif
 
 #if TEST_SUBSTRATE
     test_substrate();
-    std::cin.ignore();
+    afk_waitForKeyPress();
 #endif
 
+    bool hitLoop = false;
     try
     {
         afk_core.configure(&argc, argv);
@@ -130,12 +131,13 @@ int main(int argc, char **argv)
 		 */
 #if TEST_RNGS
     	test_rngs();
-        std::cin.ignore();
+        afk_waitForKeyPress();
 #endif
 
         afk_out << "AFK initalising graphics" << std::endl;
         afk_core.initGraphics();
 
+        hitLoop = true;
         afk_out << "AFK starting loop" << std::endl;
         afk_core.loop();
     }
@@ -143,8 +145,15 @@ int main(int argc, char **argv)
     {
         retcode = 1;
         afk_out << "AFK Error: " << e.what() << std::endl;
-        afk_clock::time_point now = afk_clock::now();
-        afk_core.checkpoint(now, true);
+
+        if (hitLoop)
+        {
+            /* Printing a checkpoint right at the end could be useful for
+             * diagnosis.
+             */
+            afk_clock::time_point now = afk_clock::now();
+            afk_core.checkpoint(now, true);
+        }
     }
 
     afk_out << "AFK exiting" << std::endl;

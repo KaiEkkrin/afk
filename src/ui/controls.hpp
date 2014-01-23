@@ -120,7 +120,7 @@ protected:
     virtual void saveInternal(std::ostream& os) const = 0;
 
 public:
-    AFK_ConfigOptionControl(const std::string& _name, AFK_InputType _inputType, std::list<AFK_ConfigOptionBase *> *options);
+    AFK_ConfigOptionControl(const std::string& _name, const std::string& _help, AFK_InputType _inputType, std::list<AFK_ConfigOptionBase *> *_options);
 
     /* Maps a string input of this type to the control.  Returns false if
      * the string isn't valid or it otherwise can't use it
@@ -129,6 +129,8 @@ public:
 
     bool nameMatches(std::function<std::string(void)>& getArg, std::function<void(void)>& nextArg) override;
     bool matched(std::function<std::string(void)>& getArg, std::function<void(void)>& nextArg) override;
+
+    void printHelp(std::ostream& os) const override;
 };
 
 /* The keyboard mapping is built as a single string that
