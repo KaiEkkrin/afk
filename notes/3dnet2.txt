@@ -1,0 +1,38 @@
+3dnet2
+======
+
+This branch replaces 3dnet, which didn't get off the ground because I was busy with other things.
+
+This is a replacement shape render that roughly follows the drawn concept in my Google Keep:
+ o Vapour densities and normals, and the d-reduce, are performed as they are in the current design.
+ o The edge kernel is dropped.  The normal kernel (which is already inspecting a point and all adjacent ones) changes
+   to do edge flagging as well (use the 4th component of the normal), so that the swarm render (below) needs to take only one sample.
+ o Instead, a "swarm render" renders each non-dreduced cluster of vapour points directly into a jigsawed "swarm texture".
+   We instance a (shape_pointSubdivisionFactor**3) cube of gl_points in order to do this.  Each texture can be quite
+   small (play with).  A geometry shader culls all points that aren't front facing on an edge.  The swarm texture's
+   texel values are vapour texture co-ordinates.
+ o Renders into the swarm texture *can be* cached, keyed by (viewer distance, viewer angle) vectors, but I think for
+   the first stage I shouldn't do this
+ o The shapes are composed into the final frame by instancing one actual cube for each shape cube.  The cube's backward
+   facing faces are culled (if possible), and the others are tessellated (to shape_pointSubdivisionFactor or maybe some
+   multiple thereof on a side).  The swarm texture is sampled, vertex locations corrected to the ones provided by the
+   vapour, and shading set to the vapour colour of course.  (I could try nearest sampling in the geometry shader, or
+   even linear sampling in the fragment shader, for either or both of those).
+ o Further-away shapes (with only the coarsest level of detail showing) should get a lower tessellation factor.
+ o Distant shapes should be rendered as one single point for each cube with an averaged colour.  I can change the
+   dreduce kernel to produce a colour average along with everything else.
+
+A sensible order to implement this in might be:
+ (1) Excise the edge kernel and the current shape render.  Make sure the three vapour kernels compute successfully
+     (on Windows, they don't as of the time of writing).
+ (2) Build the colour reduce and do the single-point-per-cube render for distant shapes.
+ (3) Build the final shape cube and render that for non-distant shapes, as a blank (with the appropriate colour).
+ (4) Do the tessellation for the shape cube, and render that with a geometry shader setting debug colours of
+     (red, green, blue) for the three vertices of each triangle in the order presented, to verify that I'm splitting
+     the patches in the way I want.
+ (5) Build the swarm render.  I've never used a GL-only jigsaw as a render target before and I bet this goes wrong
+     (it needs to be a perspective render, with the fragment shader then doing a post-transform on each pixel to
+     move it into its appropriate jigsaw tile).  I might need to come up with a debug option that displays individual
+     jigsaw tiles somehow...  And I can play with nearest vs. linear sampling of the source vapour (linear could have
+     some interesting, and maybe good, results).
+
