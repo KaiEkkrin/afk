@@ -40,9 +40,6 @@ protected:
 
     HDC deviceContext;
 
-    /* TODO: Am I about to run into the AMD problem with being unable to
-     * make more than one context, like with the AMD GLX implementation?
-     */
     HGLRC initialContext;
     HGLRC renderContext;
 

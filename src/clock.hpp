@@ -37,10 +37,5 @@ public:
 
 typedef std::chrono::duration<float, std::ratio<1, 1000> > afk_duration_mfl;
 
-/* TODO: On Windows, the Visual Studio implementation of high_resolution_timer
- * is broken, and this will be slow and imprecise.
- * See http://stackoverflow.com/questions/13263277/difference-between-stdsystem-clock-and-stdsteady-clock
- */
-
 #endif /* _AFK_CLOCK_H_ */
 
