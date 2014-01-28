@@ -137,6 +137,7 @@ void AFK_3DVapourComputeQueue::computeStart(
     AFK_JigsawCollection *vapourJigsaws,
     const AFK_ShapeSizes& sSizes)
 {
+    /* TODO: Progressively re-activate this and the next method and debug. */
     std::unique_lock<std::mutex> lock(mut);
 
     /* Check there's something to do */
@@ -157,6 +158,10 @@ void AFK_3DVapourComputeQueue::computeStart(
 
     auto kernelQueue = computer->getKernelQueue();
     auto writeQueue = computer->getWriteQueue();
+
+    /* Make sure the end dependency is a thing */
+    if (!preReleaseDep) preReleaseDep = new AFK_ComputeDependency(computer);
+    assert(preReleaseDep->getEventCount() == 0);
 
     /* Copy the vapour inputs to CL buffers. */
     AFK_ComputeDependency noDep(computer);
@@ -192,6 +197,8 @@ void AFK_3DVapourComputeQueue::computeStart(
     AFK_ComputeDependency preNormalDep(computer);
     kernelQueue->kernel3D(vapourDim, nullptr, preVapourDep, preNormalDep);
 
+#if 0
+
     /* Next, compute the vapour normals. */
     cl_mem vapourJigsawsNormalMem[4];
     jpNCount = vapourJigsaws->acquireAllForCl(computer, 1, vapourJigsawsNormalMem, 4, fake3D_size, fake3D_mult, preNormalDep);
@@ -208,8 +215,6 @@ void AFK_3DVapourComputeQueue::computeStart(
     for (int jpI = 0; jpI < 4; ++jpI)
         kernelQueue->kernelArg(sizeof(cl_mem), &vapourJigsawsNormalMem[jpI]);
 
-    if (!preReleaseDep) preReleaseDep = new AFK_ComputeDependency(computer);
-    assert(preReleaseDep->getEventCount() == 0);
     kernelQueue->kernel3D(vapourDim, nullptr, preNormalDep, *preReleaseDep);
 
     /* While we're doing that, also enqueue the D reduce. */
@@ -222,6 +227,9 @@ void AFK_3DVapourComputeQueue::computeStart(
         sSizes,
         preNormalDep,
         *preReleaseDep);
+#else
+    *preReleaseDep += preVapourDep;
+#endif
 }
 
 void AFK_3DVapourComputeQueue::computeFinish(unsigned int threadId, AFK_JigsawCollection *vapourJigsaws, AFK_SHAPE_CELL_CACHE *cache)
@@ -233,10 +241,12 @@ void AFK_3DVapourComputeQueue::computeFinish(unsigned int threadId, AFK_JigsawCo
 
     assert(preReleaseDep && dReduce);
     vapourJigsaws->releaseAllFromCl(0, jpDCount, *preReleaseDep);
+#if 0
     vapourJigsaws->releaseAllFromCl(1, jpNCount, *preReleaseDep);
 
     /* Read back the D reduce. */
     dReduce->readBack(threadId, unitCount, shapeCells, cache);
+#endif
 }
 
 bool AFK_3DVapourComputeQueue::empty(void)

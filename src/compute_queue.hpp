@@ -85,6 +85,11 @@ public:
         const AFK_ComputeDependency& preDep,
         AFK_ComputeDependency& postDep);
 
+    /* For debugging, really.  Resets the little state machine handled by
+     * the kernel*() methods above without running a kernel at all.
+     */
+    void cancelKernel(void);
+
     void acquireGlObjects(
         cl_mem *obj,
         cl_uint count,

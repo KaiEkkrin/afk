@@ -386,7 +386,7 @@ void AFK_Computer::loadProgramFromFiles(const AFK_ConfigSettings& settings, std:
         p->program,
         static_cast<cl_uint>(devicesSize),
         devices,
-        argsStr.size() > 0 ? argsStr.c_str() : NULL,
+        argsStr.size() > 0 ? argsStr.c_str() : nullptr,
         afk_programBuiltNotify,
         this);
 
@@ -441,28 +441,27 @@ AFK_Computer::AFK_Computer(AFK_ConfigSettings& settings):
     cl_platform_id *platforms;
     unsigned int platformCount;
 
+    /* TODO Commenting out the edge kernel for now, which takes a long time to
+     * build and which I definitely want to replace.
+     */
     programs = {
         AFK_ClProgram("landscape_surface", { "landscape_surface.cl" }),
         AFK_ClProgram("landscape_terrain", { "landscape_terrain.cl" }),
         AFK_ClProgram("landscape_yreduce", { "landscape_yreduce.cl" }),
-#if AFK_RENDER_ENTITIES
-        AFK_ClProgram("shape_3dedge", { "fake3d.cl", "shape_3dedge.cl" }),
+        //AFK_ClProgram("shape_3dedge", { "fake3d.cl", "shape_3dedge.cl" }),
         AFK_ClProgram("shape_3dvapour_dreduce", { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_dreduce.cl" }),
         AFK_ClProgram("shape_3dvapour_feature", { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_feature.cl" }),
         AFK_ClProgram("shape_3dvapour_normal", { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_normal.cl" })
-#endif
     };
 
     kernels = {
         AFK_ClKernel("landscape_surface", "makeLandscapeSurface"),
         AFK_ClKernel("landscape_terrain", "makeLandscapeTerrain"),
         AFK_ClKernel("landscape_yreduce", "makeLandscapeYReduce"),
-#if AFK_RENDER_ENTITIES
-        AFK_ClKernel("shape_3dedge", "makeShape3DEdge"),
+        //AFK_ClKernel("shape_3dedge", "makeShape3DEdge"),
         AFK_ClKernel("shape_3dvapour_dreduce", "makeShape3DVapourDReduce"),
         AFK_ClKernel("shape_3dvapour_feature", "makeShape3DVapourFeature"),
         AFK_ClKernel("shape_3dvapour_normal", "makeShape3DVapourNormal")
-#endif
     };
 
     AFK_CLCHK(oclShim.GetPlatformIDs()(0, NULL, &platformCount))

@@ -90,6 +90,13 @@ void AFK_ComputeQueue::kernel3D(
     k = 0;
 }
 
+void AFK_ComputeQueue::cancelKernel(void)
+{
+    assert(commandSet & AFK_CQ_KERNEL_COMMAND_SET);
+    assert(k);
+    k = 0;
+}
+
 void AFK_ComputeQueue::acquireGlObjects(
     cl_mem *obj,
     cl_uint count,

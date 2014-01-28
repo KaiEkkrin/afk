@@ -53,7 +53,6 @@ std::vector<AFK_ShaderSpec> shaders = {
     AFK_ShaderSpec(GL_VERTEX_SHADER, "landscape_vertex", { "landscape_vertex.glsl" }),
     AFK_ShaderSpec(GL_FRAGMENT_SHADER, "protagonist_fragment", { "protagonist_fragment.glsl" }),
     AFK_ShaderSpec(GL_VERTEX_SHADER, "protagonist_vertex", { "protagonist_vertex.glsl" }),
-#if AFK_RENDER_ENTITIES
     AFK_ShaderSpec(GL_FRAGMENT_SHADER, "shape_fragment", { "shape_fragment.glsl" }),
 #if RENDER_SHAPE_AS_POINTS
     AFK_ShaderSpec(GL_GEOMETRY_SHADER, "shape_geometry", { "shape_geometry_base.glsl", "shape_geometry_edgepoint.glsl" }),
@@ -61,7 +60,6 @@ std::vector<AFK_ShaderSpec> shaders = {
     AFK_ShaderSpec(GL_GEOMETRY_SHADER, "shape_geometry", {"shape_geometry_base.glsl", "shape_geometry_tri.glsl"}),
 #endif
     AFK_ShaderSpec(GL_VERTEX_SHADER, "shape_vertex", { "shape_vertex.glsl" }),
-#endif /* AFK_RENDER_ENTITIES */
 };
 
 

@@ -140,6 +140,7 @@ __kernel void makeShape3DVapourFeature(
     __write_only AFK_IMAGE3D vapour2,
     __write_only AFK_IMAGE3D vapour3)
 {
+#if 0
     /* We're necessarily going to operate across the
      * three dimensions of a cube.
      * The first dimension should be multiplied up by
@@ -215,5 +216,6 @@ __kernel void makeShape3DVapourFeature(
         write_imagef(vapour3, afk_make3DJigsawCoord(units[unitOffset].vapourPiece * TDIM, vapourPieceCoord, fake3D_size, fake3D_mult), vc);
         break;
     }
+#endif
 }
 
