@@ -29,6 +29,8 @@ struct AFK_3DVapourComputeUnit
     int cubeCount;
 };
 
+#if 0
+
 __constant sampler_t vapourSampler = CLK_NORMALIZED_COORDS_FALSE |
     CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
 
@@ -63,4 +65,6 @@ float4 readVapourPoint(
         return (float4)(0.0f, 0.0f, 0.0f, 0.0f);
     }
 }
+
+#endif
 

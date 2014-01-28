@@ -26,6 +26,7 @@
  * It requires fake3d and shape_3dvapour.
  */
 
+#if 0
 
 /* The vapour texture's texels are (red, green, blue,
  * density).
@@ -55,10 +56,14 @@ enum AFK_3DVapourFeatureOffset
     AFK_3DVF_WEIGHT = 7
 };
 
+#endif
+
 struct AFK_3DVapourFeature
 {
     unsigned char f[8];
 };
+
+#if 0
 
 void compute3DVapourFeature(
     float3 vl,
@@ -100,10 +105,14 @@ void compute3DVapourFeature(
     }
 }
 
+#endif
+
 struct AFK_3DVapourCube
 {
     float4 coord; /* x, y, z, scale */
 };
+
+#if 0
 
 __constant float reboundPoint = 100.0f;
 __constant float maxDensity = 2.0f * THRESHOLD * FEATURE_COUNT_PER_CUBE;
@@ -129,6 +138,8 @@ void transformCubeToCube(
     transformLocationToLocation(vl, vc, fromCoord, toCoord);
 }
 
+#endif
+
 __kernel void makeShape3DVapourFeature(
     __global const struct AFK_3DVapourFeature *features,
     __global const struct AFK_3DVapourCube *cubes,
@@ -140,7 +151,6 @@ __kernel void makeShape3DVapourFeature(
     __write_only AFK_IMAGE3D vapour2,
     __write_only AFK_IMAGE3D vapour3)
 {
-#if 0
     /* We're necessarily going to operate across the
      * three dimensions of a cube.
      * The first dimension should be multiplied up by
@@ -151,6 +161,7 @@ __kernel void makeShape3DVapourFeature(
     const int ydim = get_global_id(1);
     const int zdim = get_global_id(2);
 
+#if 0
     /* Initialise the base points. */
     float3 vl = (float3)(
         (float)(xdim - 1) / (float)POINT_SUBDIVISION_FACTOR, 
