@@ -29,8 +29,6 @@ struct AFK_3DVapourComputeUnit
     int cubeCount;
 };
 
-#if 0
-
 __constant sampler_t vapourSampler = CLK_NORMALIZED_COORDS_FALSE |
     CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
 
@@ -45,6 +43,8 @@ float4 readVapourPoint(
     int unitOffset,
     int4 pieceCoord)
 {
+    /* TODO Enabling this stops CodeXL from being able to build the program for debugging */
+#if 1
     int4 myVapourPiece = units[unitOffset].vapourPiece;
     switch (myVapourPiece.w) /* This identifies the jigsaw */
     {
@@ -64,7 +64,8 @@ float4 readVapourPoint(
         /* This really oughtn't to happen, of course... */
         return (float4)(0.0f, 0.0f, 0.0f, 0.0f);
     }
-}
-
+#else
+    return (float4)(0.0f, 0.0f, 0.0f, 0.0f);
 #endif
+}
 

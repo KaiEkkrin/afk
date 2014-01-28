@@ -189,10 +189,10 @@ protected:
 
     /* Helper functions */
     bool findClGlDevices(AFK_ConfigSettings& settings, cl_platform_id platform);
-    void loadProgramFromFiles(const AFK_ConfigSettings& settings, std::vector<AFK_ClProgram>::iterator& p);
+    bool loadProgramFromFiles(const AFK_ConfigSettings& settings, std::vector<AFK_ClProgram>::iterator& p);
     void programBuilt(void);
     void waitForBuild(void);
-    void printBuildLog(std::ostream& os, const AFK_ClProgram& p, cl_device_id device);
+    bool printBuildLog(std::ostream& os, const AFK_ClProgram& p, cl_device_id device);
 public:
     /* TODO: Make this protected, and make a cleaner wrapper around the
      * OpenCL functions for the rest of AFK to use.

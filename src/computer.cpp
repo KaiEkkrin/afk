@@ -315,7 +315,7 @@ bool AFK_Computer::findClGlDevices(AFK_ConfigSettings& settings, cl_platform_id 
     else return false;
 }
 
-void AFK_Computer::loadProgramFromFiles(const AFK_ConfigSettings& settings, std::vector<AFK_ClProgram>::iterator& p)
+bool AFK_Computer::loadProgramFromFiles(const AFK_ConfigSettings& settings, std::vector<AFK_ClProgram>::iterator& p)
 {
     char **sources;
     size_t *sourceLengths;
@@ -390,7 +390,12 @@ void AFK_Computer::loadProgramFromFiles(const AFK_ConfigSettings& settings, std:
         afk_programBuiltNotify,
         this);
 
-    AFK_HANDLE_CL_ERROR(error);
+    if (error != CL_SUCCESS)
+    {
+        afk_out << "AFK: Got error " << error << " from build; running the other builds before quit" << std::endl;
+        return false;
+    }
+    else return true;
 }
 
 void AFK_Computer::programBuilt(void)
@@ -409,19 +414,34 @@ void AFK_Computer::waitForBuild(void)
     }
 }
 
-void AFK_Computer::printBuildLog(std::ostream& s, const AFK_ClProgram& p, cl_device_id device)
+bool AFK_Computer::printBuildLog(std::ostream& s, const AFK_ClProgram& p, cl_device_id device)
 {
+    cl_int error;
     char *buildLog;
     size_t buildLogSize;
 
-    AFK_CLCHK(oclShim.GetProgramBuildInfo()(p.program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &buildLogSize))
-    buildLog = new char[buildLogSize+1];
-    AFK_CLCHK(oclShim.GetProgramBuildInfo()(p.program, device, CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, NULL))
-    buildLog[buildLogSize] = '\0'; /* paranoia */
+    error = oclShim.GetProgramBuildInfo()(p.program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &buildLogSize);
+    if (error == CL_SUCCESS)
+    {
+        buildLog = new char[buildLogSize + 1];
+        error = oclShim.GetProgramBuildInfo()(p.program, device, CL_PROGRAM_BUILD_LOG, buildLogSize, buildLog, NULL);
+        buildLog[buildLogSize] = '\0'; /* paranoia */
 
-    s << "--- Build log for " << p.programName << " ---" << std::endl;
-    s << buildLog << std::endl << std::endl;
-    delete[] buildLog;
+        if (error == CL_SUCCESS)
+        {
+            s << "--- Build log for " << p.programName << " ---" << std::endl;
+            s << buildLog << std::endl << std::endl;
+        }
+
+        delete[] buildLog;
+    }
+
+    if (error != CL_SUCCESS)
+    {
+        afk_out << "AFK: Got error " << error << " trying to print build log; checking other builds before quit" << std::endl;
+        return false;
+    }
+    else return true;
 }
 
 AFK_Computer::AFK_Computer(AFK_ConfigSettings& settings):
@@ -540,13 +560,19 @@ void AFK_Computer::loadPrograms(const AFK_ConfigSettings& settings)
         throw AFK_Exception("AFK_Computer: Unable to switch to programs dir: " + errStream.str());
 
     /* Load all the programs I know about. */
+    bool programsLoadedSuccessfully = true;
     stillBuilding = programs.size();
     for (auto pIt = programs.begin(); pIt != programs.end(); ++pIt)
-        loadProgramFromFiles(settings, pIt);
+        programsLoadedSuccessfully &= loadProgramFromFiles(settings, pIt);
     waitForBuild();
     for (auto p : programs)
         for (size_t dI = 0; dI < devicesSize; ++dI)
-            printBuildLog(afk_out, p, devices[dI]);
+            programsLoadedSuccessfully &= printBuildLog(afk_out, p, devices[dI]);
+
+    /* If any of that stuff failed, quit now -- I didn't before, so that all relevant
+     * logs could be printed.
+     */
+    if (!programsLoadedSuccessfully) throw AFK_Exception("Programs didn't load successfully (error should be logged)");
 
     /* ...and all the kernels... */
     for (auto kIt = kernels.begin(); kIt != kernels.end(); ++kIt)
