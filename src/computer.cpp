@@ -377,7 +377,8 @@ bool AFK_Computer::loadProgramFromFiles(const AFK_ConfigSettings& settings, std:
             args << "-D AFK_FAKE3D=0 ";
     }
 
-    args << "-cl-mad-enable -cl-strict-aliasing -Werror";
+    if (settings.clOptDisable) args << "-cl-opt-disable ";
+    args << "-cl-mad-enable -cl-strict-aliasing -Werror ";
 
     std::string argsStr = args.str();
     if (argsStr.size() > 0)
