@@ -158,26 +158,44 @@ __kernel void makeShape3DVapourFeature(
     /* Initialise this point's vapour numbers. */
     float4 vc = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
 
+    int cubeOffset = units[unitOffset].cubeOffset;
+    int cubeCount = units[unitOffset].cubeCount;
+
     /* Transform into the space of the first cube. */
+    // DEBUGGING: We don't crash up to here ...
+    // ...but this function makes the debugger hang indefinitely :/
     transformLocationToLocation(&vl, &vc, units[unitOffset].location,
-        cubes[units[unitOffset].cubeOffset].coord);
+        cubes[cubeOffset].coord);
 
     /* Compute the number field by 
      * iterating across all of the cubes and features.
      */
     int i;
-    for (i = units[unitOffset].cubeOffset; i < (units[unitOffset].cubeOffset + units[unitOffset].cubeCount); ++i)
+
+    // TODO: Enabling the below loop in any way crashes the driver
+#if 0
+    // TODO: Can "cubeCount" ever end up as 0?  That would definitely crash things
+    for (i = cubeOffset; i < (cubeOffset + cubeCount); ++i)
     {
-        if (i > units[unitOffset].cubeOffset)
+#if 0
+        if (i > cubeOffset)
         {
             transformCubeToCube(&vl, &vc, cubes, i-1, i);
         }
+#endif
 
+#if 0
         for (int j = i * FEATURE_COUNT_PER_CUBE; j < ((i + 1) * FEATURE_COUNT_PER_CUBE); ++j)
         {
             compute3DVapourFeature(vl, &vc, features, j);
         }
+#endif
     }
+#endif
+
+#if 1
+    i = cubeOffset + 1 + cubeCount - cubeCount;
+#endif
 
     /* Transform out of the space of the last cube. */
     transformLocationToLocation(&vl, &vc, cubes[i-1].coord, units[unitOffset].location);
