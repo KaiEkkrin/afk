@@ -92,7 +92,11 @@ public:
 
     AFK_CONFIG_FIELD(std::string,   clLibDir,                   "Broken, do not use",                       "");
     AFK_CONFIG_FIELD(std::string,   clProgramsDir,              "Location of OpenCL sources",               "src/compute");
+#ifdef _DEBUG
+    AFK_CONFIG_FIELD(bool,          clOptDisable,               "Disable OpenCL optimisation",              true);
+#else
     AFK_CONFIG_FIELD(bool,          clOptDisable,               "Disable OpenCL optimisation",              false);
+#endif
     AFK_CONFIG_FIELD(bool,          clGlSharing,                "Use cl-gl sharing if supported",           true);
     AFK_CONFIG_FIELD(bool,          clSeparateQueues,           "Use multiple OpenCL queues",               true); // requires clUseEvents
     AFK_CONFIG_FIELD(bool,          clOutOfOrder,               "Use out-of-order OpenCL queues",           false);

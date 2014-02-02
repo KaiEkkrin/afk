@@ -21,7 +21,7 @@ extra_ldflags = []
 extra_libs = []
 
 if GetOption('dbg'):
-    extra_ccflags += ['-g', '-DAFK_GL_DEBUG=1']
+    extra_ccflags += ['-g', '-D_DEBUG', '-DAFK_GL_DEBUG=1']
     variant_dir = 'build/debug'
 elif GetOption('odbg'):
     extra_ccflags += ['-O3', '-g', '-DAFK_GL_DEBUG=1']
