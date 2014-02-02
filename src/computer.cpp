@@ -462,6 +462,11 @@ AFK_Computer::AFK_Computer(AFK_ConfigSettings& settings):
     cl_platform_id *platforms;
     unsigned int platformCount;
 
+    /* It looks like in order to get a correct debug build (no CL optimisation),
+     * kernels that share functions ought to all be built together in the same
+     * program.
+     */
+
     /* TODO Commenting out the edge kernel for now, which takes a long time to
      * build and which I definitely want to replace.
      */
@@ -470,9 +475,13 @@ AFK_Computer::AFK_Computer(AFK_ConfigSettings& settings):
         AFK_ClProgram("landscape_terrain", { "landscape_terrain.cl" }),
         AFK_ClProgram("landscape_yreduce", { "landscape_yreduce.cl" }),
         //AFK_ClProgram("shape_3dedge", { "fake3d.cl", "shape_3dedge.cl" }),
-        //AFK_ClProgram("shape_3dvapour_dreduce", { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_dreduce.cl" }),
-        AFK_ClProgram("shape_3dvapour_feature", { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_feature.cl" }),
-        //AFK_ClProgram("shape_3dvapour_normal", { "fake3d.cl", "shape_3dvapour.cl", "shape_3dvapour_normal.cl" })
+        AFK_ClProgram("shape_3dvapour", {
+            "fake3d.cl",
+            "shape_3dvapour.cl",
+            "shape_3dvapour_dreduce.cl",
+            "shape_3dvapour_feature.cl",
+            "shape_3dvapour_normal.cl"
+        }),
     };
 
     kernels = {
@@ -480,9 +489,9 @@ AFK_Computer::AFK_Computer(AFK_ConfigSettings& settings):
         AFK_ClKernel("landscape_terrain", "makeLandscapeTerrain"),
         AFK_ClKernel("landscape_yreduce", "makeLandscapeYReduce"),
         //AFK_ClKernel("shape_3dedge", "makeShape3DEdge"),
-        //AFK_ClKernel("shape_3dvapour_dreduce", "makeShape3DVapourDReduce"),
-        AFK_ClKernel("shape_3dvapour_feature", "makeShape3DVapourFeature"),
-        //AFK_ClKernel("shape_3dvapour_normal", "makeShape3DVapourNormal")
+        AFK_ClKernel("shape_3dvapour", "makeShape3DVapourDReduce"),
+        AFK_ClKernel("shape_3dvapour", "makeShape3DVapourFeature"),
+        AFK_ClKernel("shape_3dvapour", "makeShape3DVapourNormal"),
     };
 
     AFK_CLCHK(oclShim.GetPlatformIDs()(0, NULL, &platformCount))

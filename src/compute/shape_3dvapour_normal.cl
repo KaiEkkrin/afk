@@ -21,39 +21,6 @@
  * It requires fake3d and shape_3dvapour.
  */
 
-void writeVapourPoint(
-    __write_only AFK_IMAGE3D vapourNormal0,
-    __write_only AFK_IMAGE3D vapourNormal1,
-    __write_only AFK_IMAGE3D vapourNormal2,
-    __write_only AFK_IMAGE3D vapourNormal3,
-    const int2 fake3D_size,
-    const int fake3D_mult,
-    __global const struct AFK_3DVapourComputeUnit *units,
-    int unitOffset,
-    int4 pieceCoord,
-    float4 normal)
-{
-    int4 myVapourPiece = units[unitOffset].vapourPiece;
-    switch (myVapourPiece.w)
-    {
-    case 0:
-        write_imagef(vapourNormal0, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult), normal);
-        break;
-
-    case 1:
-        write_imagef(vapourNormal1, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult), normal);
-        break;
-
-    case 2:
-        write_imagef(vapourNormal2, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult), normal);
-        break;
-
-    default:
-        write_imagef(vapourNormal3, afk_make3DJigsawCoord(myVapourPiece * TDIM, pieceCoord, fake3D_size, fake3D_mult), normal);
-        break;
-    }
-}
-
 /* This function decides whether a coord component is
  * within this work unit's cube.
  */
