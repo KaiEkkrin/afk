@@ -73,7 +73,7 @@ public:
     /* Values stored in order as defined by the
      * AFK_TerrainFeatureOffset enum.
      */
-    uint8_t f[8];
+    cl_uchar f[8];
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_TerrainFeature& feature);
 };
@@ -99,9 +99,9 @@ protected:
      * OpenCL, which seems worthwhile, since I don't
      * directly compute on `tileCoord'
      */
-    float               tileX;
-    float               tileZ;
-    float               tileScale;
+    cl_float            tileX;
+    cl_float            tileZ;
+    cl_float            tileScale;
 
 public:
     float getTileScale(void) const;

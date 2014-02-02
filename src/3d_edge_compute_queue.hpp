@@ -39,25 +39,21 @@
 
 #define AFK_3DECU_VPCOUNT 7
 
-#ifdef _WIN32
-_declspec(align(16))
-#endif
 class AFK_3DEdgeComputeUnit
 {
 public:
-    Vec4<int> vapourPiece;
-    Vec2<int> edgePiece;
+    cl_int4 vapourPiece;
+    cl_int2 edgePiece;
+
+    /* See 3d_vapour_compute_queue. */
+    cl_int2 padding;
 
     AFK_3DEdgeComputeUnit(
         const AFK_JigsawPiece& _vapourJigsawPiece,
         const AFK_JigsawPiece& _edgeJigsawPiece);
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_3DEdgeComputeUnit& unit);
-}
-#ifdef __GNUC__
-__attribute__((aligned(16)))
-#endif
-;
+};
 
 std::ostream& operator<<(std::ostream& os, const AFK_3DEdgeComputeUnit& unit);
 

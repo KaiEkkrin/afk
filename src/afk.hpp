@@ -45,15 +45,6 @@
 
 /* Work around some compiler differences... */
 
-#ifndef afk_align
-#ifdef __GNUC__
-#define afk_align(v) __attribute__((aligned(v)))
-#endif
-#ifdef _WIN32
-#define afk_align(v) __declspec(align(v))
-#endif
-#endif /* afk_align */
-
 #ifndef afk_strdup
 #ifdef _WIN32
 #define afk_strdup _strdup

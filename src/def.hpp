@@ -18,6 +18,8 @@
 #ifndef _AFK_DEF_H_
 #define _AFK_DEF_H_
 
+#include "afk.hpp"
+
 #include <cmath>
 #include <iomanip>
 #include <sstream>
@@ -70,6 +72,22 @@ public:
         r.v[0] = v[0] * f; r.v[1] = v[1] * f;
         return r;
     }
+
+    operator cl_float2(void) const
+    {
+        cl_float2 f;
+        f.s[0] = static_cast<float>(v[0]);
+        f.s[1] = static_cast<float>(v[1]);
+        return f;
+    }
+
+    operator cl_int2(void) const
+    {
+        cl_int2 i;
+        i.s[0] = static_cast<int>(v[0]);
+        i.s[1] = static_cast<int>(v[1]);
+        return i;
+    }
 };
 
 template<typename F>
@@ -85,6 +103,14 @@ Vec2<F> afk_vec2(F e0, F e1)
 {
     Vec2<F> v;
     v.v[0] = e0; v.v[1] = e1;
+    return v;
+}
+
+template<typename F, typename cl_F>
+Vec2<F> afk_vec2(cl_F f)
+{
+    Vec2<F> v;
+    v.v[0] = f.s[0]; v.v[1] = f.s[1];
     return v;
 }
 
@@ -223,6 +249,26 @@ public:
         r.v[3] = v[3];
         return r;
     }
+
+    operator cl_float4(void) const
+    {
+        cl_float4 f;
+        f.s[0] = static_cast<float>(v[0]);
+        f.s[1] = static_cast<float>(v[1]);
+        f.s[2] = static_cast<float>(v[2]);
+        f.s[3] = 0.0f;
+        return f;
+    }
+
+    operator cl_int4(void) const
+    {
+        cl_int4 i;
+        i.s[0] = static_cast<int>(v[0]);
+        i.s[1] = static_cast<int>(v[1]);
+        i.s[2] = static_cast<int>(v[2]);
+        i.s[3] = 0;
+        return i;
+    }
 };
 
 template<typename F>
@@ -238,6 +284,14 @@ Vec3<F> afk_vec3(F e0, F e1, F e2)
 {
     Vec3<F> v;
     v.v[0] = e0; v.v[1] = e1; v.v[2] = e2; v.v[3] = 0;
+    return v;
+}
+
+template<typename F, typename cl_F>
+Vec3<F> afk_vec3(cl_F f)
+{
+    Vec3<F> v;
+    v.v[0] = f.s[0]; v.v[1] = f.s[1]; v.v[2] = f.s[2]; v.v[3] = 0;
     return v;
 }
 
@@ -285,6 +339,26 @@ public:
         r.v[0] = v[0] / f; r.v[1] = v[1] / f; r.v[2] = v[2] / f; r.v[3] = v[3] / f;
         return r;
     }
+
+    operator cl_float4(void) const
+    {
+        cl_float4 f;
+        f.s[0] = static_cast<float>(v[0]);
+        f.s[1] = static_cast<float>(v[1]);
+        f.s[2] = static_cast<float>(v[2]);
+        f.s[3] = static_cast<float>(v[3]);
+        return f;
+    }
+
+    operator cl_int4(void) const
+    {
+        cl_int4 i;
+        i.s[0] = static_cast<int>(v[0]);
+        i.s[1] = static_cast<int>(v[1]);
+        i.s[2] = static_cast<int>(v[2]);
+        i.s[3] = static_cast<int>(v[3]);
+        return i;
+    }
 };
 
 template<typename F>
@@ -308,6 +382,14 @@ Vec4<F> afk_vec4(const Vec3<F>& o, F e3)
 {
     Vec4<F> v;
     v.v[0] = o.v[0]; v.v[1] = o.v[1]; v.v[2] = o.v[2]; v.v[3] = e3;
+    return v;
+}
+
+template<typename F, typename cl_F>
+Vec4<F> afk_vec4(cl_F f)
+{
+    Vec4<F> v;
+    v.v[0] = f.s[0]; v.v[1] = f.s[1]; v.v[2] = f.s[2]; v.v[3] = f.s[3];
     return v;
 }
 

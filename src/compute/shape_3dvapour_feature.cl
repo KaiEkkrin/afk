@@ -173,7 +173,7 @@ __kernel void makeShape3DVapourFeature(
     int i;
 
     // TODO: Enabling the below loop in any way crashes the driver
-#if 0
+#if 1
     // TODO: Can "cubeCount" ever end up as 0?  That would definitely crash things
     for (i = cubeOffset; i < (cubeOffset + cubeCount); ++i)
     {

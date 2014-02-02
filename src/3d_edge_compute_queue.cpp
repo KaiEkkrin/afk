@@ -41,13 +41,15 @@ AFK_3DEdgeComputeUnit::AFK_3DEdgeComputeUnit(
 	edgePiece = afk_vec2<int>(
 		_edgeJigsawPiece.u,
 		_edgeJigsawPiece.v);
+
+    padding = afk_vec2<int>(0, 0);
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_3DEdgeComputeUnit& unit)
 {
     os << "(SCU: ";
-    os << "vapourPiece=" << unit.vapourPiece;
-    os << ", edgePiece=" << unit.edgePiece;
+    os << "vapourPiece=" << afk_vec4<int, cl_int4>(unit.vapourPiece);
+    os << ", edgePiece=" << afk_vec2<int, cl_int2>(unit.edgePiece);
     os << ")";
     return os;
 }

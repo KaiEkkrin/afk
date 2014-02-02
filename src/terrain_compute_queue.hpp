@@ -50,9 +50,9 @@
 class AFK_TerrainComputeUnit
 {
 public:
-    int tileOffset;
-    int tileCount;
-    Vec2<int> piece;
+    cl_int tileOffset;
+    cl_int tileCount;
+    cl_int2 piece;
 
     AFK_TerrainComputeUnit(
         size_t _tileOffset,

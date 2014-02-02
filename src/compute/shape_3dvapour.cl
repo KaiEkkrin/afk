@@ -27,6 +27,7 @@ struct AFK_3DVapourComputeUnit
     int adjacency; /* TODO: Once thought I'd want this but now unused -- needs removing. */
     int cubeOffset;
     int cubeCount;
+    int padding;
 };
 
 __constant sampler_t vapourSampler = CLK_NORMALIZED_COORDS_FALSE |

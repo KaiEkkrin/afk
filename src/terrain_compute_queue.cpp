@@ -51,7 +51,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_TerrainComputeUnit& unit)
     os << "(TCU: ";
     os << "tileOffset=" << std::dec << unit.tileOffset;
     os << ", tileCount=" << std::dec << unit.tileCount;
-    os << ", piece=" << std::dec << unit.piece;
+    os << ", piece=" << std::dec << afk_vec2<int, cl_int2>(unit.piece);
     os << ")";
     return os;
 }

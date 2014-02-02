@@ -44,7 +44,8 @@ AFK_3DVapourComputeUnit::AFK_3DVapourComputeUnit(
         baseColour(_baseColour),
         adjacencies(_adjacencies),
         cubeOffset(_cubeOffset),
-        cubeCount(_cubeCount)
+        cubeCount(_cubeCount),
+        padding(0)
 {
 	vapourPiece = afk_vec4<int>(
 		_vapourJigsawPiece.u,
@@ -61,12 +62,12 @@ bool AFK_3DVapourComputeUnit::uninitialised(void) const
 std::ostream& operator<<(std::ostream& os, const AFK_3DVapourComputeUnit& unit)
 {
     os << "(SCU: ";
-    os << "location=" << std::dec << unit.location;
-    os << ", baseColour=" << std::dec << unit.baseColour;
+    os << "location=" << std::dec << afk_vec4<float, cl_float4>(unit.location);
+    os << ", baseColour=" << std::dec << afk_vec4<float, cl_float4>(unit.baseColour);
     os << ", adjacencies=" << std::hex << unit.adjacencies;
     os << ", cubeOffset=" << std::dec << unit.cubeOffset;
     os << ", cubeCount=" << std::dec << unit.cubeCount;
-    os << ", vapourPiece=" << std::dec << unit.vapourPiece;
+    os << ", vapourPiece=" << std::dec << afk_vec4<int, cl_int4>(unit.vapourPiece);
     os << ")";
     return os;
 }

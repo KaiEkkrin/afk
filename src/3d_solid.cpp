@@ -25,10 +25,10 @@
 
 std::ostream& operator<<(std::ostream& os, const AFK_3DVapourFeature& feature)
 {
-    return os << "3DVapourFeature(" <<
-        "Location=(" << (int)feature.f[AFK_3DVF_X] << ", " << (int)feature.f[AFK_3DVF_Y] << ", " << (int)feature.f[AFK_3DVF_Z] << "), " <<
-        "Colour=(" << (int)feature.f[AFK_3DVF_R] << ", " << (int)feature.f[AFK_3DVF_G] << ", " << (int)feature.f[AFK_3DVF_B] << "), " <<
-        "Weight=" << (int)feature.f[AFK_3DVF_WEIGHT] << ", Range=" << (int)feature.f[AFK_3DVF_RANGE];
+    return os << "3DVapourFeature(" << std::dec <<
+        "Location=(" << feature.f[AFK_3DVF_X] << ", " << feature.f[AFK_3DVF_Y] << ", " << feature.f[AFK_3DVF_Z] << "), " <<
+        "Colour=(" << feature.f[AFK_3DVF_R] << ", " << feature.f[AFK_3DVF_G] << ", " << feature.f[AFK_3DVF_B] << "), " <<
+        "Weight=" << feature.f[AFK_3DVF_WEIGHT] << ", Range=" << feature.f[AFK_3DVF_RANGE];
 }
 
 /* AFK_3DVapourCube implementation. */
@@ -121,7 +121,7 @@ bool AFK_3DVapourCube::addRandomFeatureAtAdjacencyBit(
     /* Non-location values can be arbitrary... */
     for (; j < 7; ++j)
     {
-        feature.f[j] = (uint8_t)(rng.frand() * 256.0f);
+        feature.f[j] = static_cast<cl_uchar>(rng.frand() * 256.0f);
     }
 
     /* ...except for the weight.
@@ -202,7 +202,7 @@ bool AFK_3DVapourCube::addRandomFeature(
 
 Vec4<float> AFK_3DVapourCube::getCubeCoord(void) const
 {
-    return coord;
+    return afk_vec4<float, cl_float4>(coord);
 }
 
 std::ostream& operator<<(std::ostream& os, const AFK_3DVapourCube& cube)

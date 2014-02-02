@@ -45,13 +45,11 @@ class AFK_3DVapourComputeUnit
 {
 public:
     /* Displacement and scale compared to the base cube. */
-    Vec4<float> location;
+    cl_float4 location;
+    cl_float4 baseColour;
+    cl_int4 vapourPiece; /* a vec4 because OpenCL wants one to access a 3D texture */
 
-    Vec4<float> baseColour;
-
-    Vec4<int> vapourPiece; /* a vec4 because OpenCL wants one to access a 3D texture */
-
-    int adjacencies; /* Bitmask: for faces 0-5 inclusive,
+    cl_int adjacencies; /* Bitmask: for faces 0-5 inclusive,
                       * whether or not the skeleton continues
                       * from that adjacent face.
                       */
@@ -65,8 +63,14 @@ public:
      * feed back stats on how many of the features were within range,
      * to find out how much optimisation is possible here.
      */
-    int cubeOffset;
-    int cubeCount;
+    cl_int cubeOffset;
+    cl_int cubeCount;
+
+    /* KLUDGE: It seems that none of the MSVC alignment options, or the cl_*
+     * types, manage to pad this structure correctly.  Include an extra
+     * int to make sure it's padded to a multiple of 16 bytes.
+     */
+    cl_int padding;
 
     AFK_3DVapourComputeUnit();
     AFK_3DVapourComputeUnit(
@@ -80,7 +84,7 @@ public:
     bool uninitialised(void) const;
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_3DVapourComputeUnit& unit);
-} afk_align(16);
+};
 
 std::ostream& operator<<(std::ostream& os, const AFK_3DVapourComputeUnit& unit);
 

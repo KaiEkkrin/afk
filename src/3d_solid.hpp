@@ -51,7 +51,7 @@ enum AFK_3DVapourFeatureOffset
 class AFK_3DVapourFeature
 {
 public:
-    uint8_t f[8];
+    cl_uchar f[8];
 
     friend std::ostream& operator<<(std::ostream& os, const AFK_3DVapourFeature& feature);
 };
@@ -60,7 +60,7 @@ std::ostream& operator<<(std::ostream& os, const AFK_3DVapourFeature& feature);
 class AFK_3DVapourCube
 {
 protected:
-    Vec4<float> coord;
+    cl_float4 coord;
 
     /* Worker functions for `make'. */
     bool addRandomFeatureAtAdjacencyBit(

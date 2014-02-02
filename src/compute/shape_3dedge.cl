@@ -33,6 +33,7 @@ struct AFK_3DEdgeComputeUnit
 {
     int4 vapourPiece; /* Contains 1 texel adjacency on all sides */
     int2 edgePiece; /* Points to a 3x2 grid of face textures */
+    int2 padding;
 };
 
 enum AFK_ShapeFace
