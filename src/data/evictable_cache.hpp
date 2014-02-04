@@ -25,9 +25,12 @@
 #include <thread>
 
 #include "cache.hpp"
+#include "claimable_locked.hpp"
+#include "claimable_volatile.hpp"
 #include "data.hpp"
 #include "frame.hpp"
 #include "polymer.hpp"
+#include "watched_claimable.hpp"
 
 /* TODO: Interestingly enough, on Linux, volatile claimable seems to be
  * better, but on Windows, locked claimable is.  The opposite of what
@@ -55,18 +58,15 @@
 #endif
 
 #if AFK_EC_LOCKED_CLAIMABLE
-#include "claimable_locked.hpp"
 #define AFK_EVICTABLE_CLAIMABLE_TYPE(Value) AFK_LockedClaimable<Value>
 #define AFK_EVICTABLE_INPLACE_CLAIM_TYPE(Value) AFK_LockedClaim<Value>
 #define AFK_EVICTABLE_CLAIM_TYPE(Value) AFK_LockedClaim<Value>
 #else
-#include "claimable_volatile.hpp"
 #define AFK_EVICTABLE_CLAIMABLE_TYPE(Value) AFK_VolatileClaimable<Value>
 #define AFK_EVICTABLE_INPLACE_CLAIM_TYPE(Value) AFK_VolatileInplaceClaim<Value>
 #define AFK_EVICTABLE_CLAIM_TYPE(Value) AFK_VolatileClaim<Value>
 #endif
 
-#include "watched_claimable.hpp"
 
 /* An evictable cache is a polymer cache that can run an
  * eviction thread to remove old entries.  (It's not actually
@@ -133,84 +133,116 @@ protected:
     class EvictableChainFactory
     {
     protected:
-        /* There will be concurrent access to this object, it needs
-         * to be guarded
-         */
-        std::mutex mut;
-
-        /* We create new chains in a different thread in advance so
-         * as to not stall the workers.
-         */
-        std::thread *th;
-        std::promise<PolymerChain*> *rp;
-        std::future<PolymerChain*> result;
-
-        void kickoff(void)
+        class Maker
         {
-            rp = new std::promise<PolymerChain*>();
-            th = new std::thread(
-                &AFK_EvictableCache<Key, Value, Hasher, unassigned, hashBits, framesBeforeEviction, getComputingFrame, debug>::EvictableChainFactory::worker,
-                this);
-            result = rp->get_future();
-        }
-
-        PolymerChain *touchdown(void)
-        {
-            assert(result.valid());
-            result.wait();
-            PolymerChain *newChain = result.get();
-
-            /* Clean things up, call kickoff() again to start the
-             * next one
+        protected:
+            /* We create new chains in a different thread in advance so
+             * as to not stall the workers.
              */
-            th->join();
-            delete th; th = nullptr;
-            delete rp; rp = nullptr;
+            std::thread *th;
+            std::promise<PolymerChain*> *rp;
+            std::future<PolymerChain*> result;
 
-            return newChain;
-        }
-
-        void worker(void) afk_noexcept
-        {
-            PolymerChain *newChain = new PolymerChain();
-            for (size_t slot = 0; slot < CHAIN_SIZE; ++slot)
+            void ensureStopped(void)
             {
-                unsigned int threadId = 1; /* doesn't matter, no contention yet */
-                Key key;
-                EvictableValue *value;
+                if (th)
+                {
+                    th->join();
+                    delete th;
+                    th = nullptr;
+                }
 
-                /* Make sure to sanity check this stuff.  The polymer needs
-                 * to be initialising its monomer keys properly
-                 */
-                bool gotIt = newChain->atSlot(threadId, slot, true, &key, &value);
-                assert(gotIt && key == unassigned);
-                if (gotIt) value->claimable.claim(threadId, AFK_CL_LOOP).get() = Value();
+                if (rp)
+                {
+                    delete rp;
+                    rp = nullptr;
+                }
+            }
+        
+        public:
+            Maker(): th(nullptr), rp(nullptr) {}
+            Maker(Maker&& _m): th(_m.th), rp(_m.rp), result(std::move(_m.result)) {}
+            Maker& operator=(Maker&& _m)
+            {
+                th = _m.th;
+                rp = _m.rp;
+                result = std::move(_m.result);
+                return *this;
             }
 
-            rp->set_value(newChain);
-        }
+            virtual ~Maker() { ensureStopped(); }
+
+            void kickoff(void)
+            {
+                ensureStopped();
+                rp = new std::promise<PolymerChain*>();
+                th = new std::thread(
+                    &AFK_EvictableCache<Key, Value, Hasher, unassigned, hashBits, framesBeforeEviction, getComputingFrame, debug>::EvictableChainFactory::Maker::worker,
+                    this);
+                result = rp->get_future();
+            }
+        
+            PolymerChain *touchdown(void)
+            {
+                assert(result.valid());
+                result.wait();
+                return result.get();
+            }
+        
+            void worker(void) afk_noexcept
+            {
+                PolymerChain *newChain = new PolymerChain();
+                for (size_t slot = 0; slot < CHAIN_SIZE; ++slot)
+                {
+                    unsigned int threadId = 1; /* doesn't matter, no contention yet */
+                    Key key;
+                    EvictableValue *value;
+        
+                    /* Make sure to sanity check this stuff.  The polymer needs
+                     * to be initialising its monomer keys properly
+                     */
+                    bool gotIt = newChain->atSlot(threadId, slot, true, &key, &value);
+                    assert(gotIt && key == unassigned);
+                    if (gotIt) value->claimable.claim(threadId, AFK_CL_LOOP).get() = Value();
+                }
+        
+                rp->set_value(newChain);
+            }
+        };
+
+        AFK_LockedClaimable<Maker> maker;
 
     public:
         EvictableChainFactory()
         {
             /* Kick off the task right away so there is a chain in reserve asap */
-            kickoff();
+            auto makerClaim = maker.claim(1, AFK_CL_BLOCK);
+            assert(makerClaim.isValid());
+            makerClaim.get().kickoff();
         }
 
-        virtual ~EvictableChainFactory()
-        {
-            std::unique_lock<std::mutex> lock(mut);
-            touchdown();
-        }
+        virtual ~EvictableChainFactory() {}
 
-        PolymerChain *operator()()
+        PolymerChain *make(unsigned int threadId)
         {
-            std::unique_lock<std::mutex> lock(mut);
-            PolymerChain *newChain = touchdown();
+            auto makerClaim = maker.claim(threadId, 0);
+            if (makerClaim.isValid())
+            {
+                PolymerChain *newChain = makerClaim.get().touchdown();
 
-            /* Start making the next one right away so it's in reserve */
-            kickoff();
-            return newChain;
+                /* Start making the next one right away so it's in reserve */
+                makerClaim.get().kickoff();
+
+                return newChain;
+            }
+            else
+            {
+                /* This signals to the polymer that another chain probably got
+                 * added by another thread; try again from start.
+                 */
+                std::this_thread::yield();
+                return nullptr;
+            }
         }
     };
 

@@ -245,7 +245,7 @@ template<
 class AFK_BasePolymerChainFactory
 {
 public:
-    AFK_PolymerChain<KeyType, ValueType, unassigned, hashBits, debug> *operator()() const
+    AFK_PolymerChain<KeyType, ValueType, unassigned, hashBits, debug> *make(unsigned int threadId) const
     {
         return new AFK_PolymerChain<KeyType, ValueType, unassigned, hashBits, debug>();
     }
@@ -303,15 +303,23 @@ protected:
 #endif
     }
 
-    /* Adds a new chain, returning a pointer to it. */
-    PolymerChain *addChain()
+    /* Maybe adds a new chain, returning a pointer to it.
+     * If it doesn't add a new one it returns the start pointer
+     * for you to try again (a different thread will have added
+     * one)
+     */
+    PolymerChain *addChain(unsigned int threadId)
     {
         /* TODO Make this have prepared one already (in a different
          * thread), because making a new chain is slow
          */
-        PolymerChain *newChain = chainFactory();
-        chains->extend(newChain, 0);
-        return newChain;
+        PolymerChain *newChain = chainFactory.make(threadId);
+        if (newChain)
+        {
+            chains->extend(newChain, 0);
+            return newChain;
+        }
+        else return chains;
     }
 
     /* Retrieves an existing monomer. */
@@ -355,7 +363,7 @@ protected:
             if (!inserted)
             {
                 /* Add a new chain for it */
-                startChain = addChain();
+                startChain = addChain(threadId);
                 //stats.getContentionAndReset();
             }
         }
@@ -366,7 +374,7 @@ public:
         targetContention (_targetContention), hasher (_hasher)
     {
         /* Start off with just one chain. */
-        chains = chainFactory();
+        chains = chainFactory.make(1);
     }
 
     virtual ~AFK_Polymer()
