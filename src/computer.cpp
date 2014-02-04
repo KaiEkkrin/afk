@@ -192,29 +192,6 @@ void afk_programBuiltNotify(cl_program program, void *user_data)
     ((AFK_Computer *)user_data)->programBuilt();
 }
 
-/* This helper is used to cram ostensibly-64 bit pointer types from GLX
- * into the 32-bit fields that they actually fit into without causing
- * compiler warnings.
- * Squick.
- */
-template<typename SourceType, typename DestType>
-DestType firstOf(SourceType s)
-{
-    union
-    {
-        SourceType      s;
-        DestType        d[sizeof(SourceType) / sizeof(DestType)];
-    } u;
-    u.s = s;
-
-    if ((sizeof(DestType) * 2) <= sizeof(SourceType))
-    {
-        assert(u.d[1] == 0);
-    }
-
-    return u.d[0];
-}
-
 bool AFK_Computer::findClGlDevices(AFK_ConfigSettings& settings, cl_platform_id platform)
 {
     char *platformName;
@@ -240,12 +217,9 @@ bool AFK_Computer::findClGlDevices(AFK_ConfigSettings& settings, cl_platform_id 
     oclPlatformExtensionShim = new AFK_OclPlatformExtensionShim(platform, &oclShim);
 
 #if AFK_GLX
-    Display *dpy = glXGetCurrentDisplay();
-    GLXContext glxCtx = glXGetCurrentContext();
-
     cl_context_properties clGlProperties[] = {
-        CL_GL_CONTEXT_KHR,      firstOf<GLXContext, cl_context_properties>(glxCtx),
-        CL_GLX_DISPLAY_KHR,     firstOf<Display *, cl_context_properties>(dpy),
+        CL_GL_CONTEXT_KHR,      (cl_context_properties)glXGetCurrentContext(),
+        CL_GLX_DISPLAY_KHR,     (cl_context_properties)glXGetCurrentDisplay(),
         CL_CONTEXT_PLATFORM,    (cl_context_properties)platform,
         0
     }; 
