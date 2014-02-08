@@ -20,47 +20,23 @@
 #include "logstream.hpp"
 #include "readfile.hpp"
 
-/* AFK_LogStream implementation */
 
-int AFK_LogStream::overflow(int ch)
-{
-    bool success = false;
+/* AFK_LogBacking implementation */
 
-    if (ch != std::streambuf::traits_type::eof())
-    {
-        success = doWrite(pbase(), pptr());
-        if (success)
-        {
-            char last = static_cast<char>(ch);
-            success &= doWrite(&last, (&last) + 1);
-        }
-    }
-
-    return success ? ch : std::streambuf::traits_type::eof();
-}
-
-int AFK_LogStream::sync(void)
-{
-    return doWrite(pbase(), pptr()) ? 0 : -1;
-}
-
-bool AFK_LogStream::openLogFile(const std::string& logFile)
+bool AFK_LogBacking::openLogFile(const std::string& logFile)
 {
 #ifdef _WIN32
     errno_t openErr = fopen_s(&f, logFile.c_str(), "w");
     if (openErr != 0)
     {
-        /* Okay so this looks funny.  But the message has a reasonable
-         * chance of ending up somewhere sensible
-         */
-        *this << "AFK_LogStream: Failed to open " << logFile << ": " << afk_strerror(openErr);
+        /* TODO: A bit unfriendly, this */
         return false;
     }
 #else
     f = fopen(logFile.c_str(), "w");
     if (!f)
     {
-        *this << "AFK_LogStream: Failed to open " << logFile << ": " << afk_strerror(errno);
+        /* TODO: A bit unfriendly, this */
         return false;
     }
 #endif
@@ -68,10 +44,8 @@ bool AFK_LogStream::openLogFile(const std::string& logFile)
     return true;
 }
 
-void AFK_LogStream::closeLogFile(void)
+void AFK_LogBacking::closeLogFile(void)
 {
-    sync(); /* and hope */
-
     if (f)
     {
         fclose(f);
@@ -79,7 +53,19 @@ void AFK_LogStream::closeLogFile(void)
     }
 }
 
-bool AFK_LogStream::doWrite(const char *start, const char *end)
+AFK_LogBacking::AFK_LogBacking() : f(nullptr) {}
+AFK_LogBacking::~AFK_LogBacking()
+{
+    closeLogFile();
+}
+
+bool AFK_LogBacking::setLogFile(const std::string& logFile)
+{
+    closeLogFile();
+    return openLogFile(logFile);
+}
+
+int AFK_LogBacking::doWrite(const char *start, const char *end)
 {
     std::ptrdiff_t size = end - start;
     assert(size >= 0);
@@ -94,27 +80,62 @@ bool AFK_LogStream::doWrite(const char *start, const char *end)
         }
     }
 
-    pbump(static_cast<int>(-size));
-    return success;
+    return (success ? static_cast<int>(-size) : 0);
+}
+
+
+/* AFK_LogStream implementation */
+
+int AFK_LogStream::overflow(int ch)
+{
+    bool success = false;
+
+    if (ch != std::streambuf::traits_type::eof())
+    {
+        std::unique_lock<std::mutex> lock(backingMut);
+
+        int bump = backing.doWrite(pbase(), pptr());
+        if (bump != 0)
+        {
+            char last = static_cast<char>(ch);
+            int lastBump = backing.doWrite(&last, (&last) + 1);
+            if (lastBump != 0) success = true;
+            if (success) pbump(bump + lastBump);
+        }
+    }
+
+    return success ? ch : std::streambuf::traits_type::eof();
+}
+
+int AFK_LogStream::sync(void)
+{
+    std::unique_lock<std::mutex> lock(backingMut);
+    int bump = backing.doWrite(pbase(), pptr());
+    if (bump != 0)
+    {
+        pbump(bump);
+        return 0;
+    }
+    else return -1;
 }
 
 AFK_LogStream::AFK_LogStream():
 std::streambuf(),
 std::ostream(this),
-f(nullptr)
+backing()
 {
     setp(buf.data(), buf.data() + buf.size());
 }
 
 AFK_LogStream::~AFK_LogStream()
 {
-    closeLogFile();
+    sync();
 }
 
 bool AFK_LogStream::setLogFile(const std::string& logFile)
 {
-    closeLogFile();
-    return openLogFile(logFile);
+    std::unique_lock<std::mutex> lock(backingMut);
+    return backing.setLogFile(logFile);
 }
 
 AFK_LogStream afk_out;

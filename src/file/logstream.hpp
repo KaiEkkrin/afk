@@ -20,6 +20,8 @@
 
 #include <array>
 #include <cstdio>
+#include <exception>
+#include <mutex>
 #include <ostream>
 #include <streambuf>
 
@@ -28,36 +30,61 @@
  */
 #define AFK_LOGSTREAM_BUF_SIZE 4096
 
-/* The AFK log looks like a std::ostream, but can log to a file, too;
- * configure that with setLogFile().
+/* This is the backing stuff for the AFK log stream.  It should be
+ * unique.  It's not thread safe, that needs to be managed by the
+ * things that refer to it.
+ */
+class AFK_LogBacking
+{
+protected:
+    /* If we're tee'ing to a file, here is its handle.
+    * Yes, we're using C I/O here.  The reason for this is the
+    * Windows console plays havoc with C++ I/O, especially if
+    * opening files as well.  The C I/O implementation just
+    * seems more reliable.
+    */
+    FILE *f;
+
+    /* my own innards */
+    bool openLogFile(const std::string& logFile);
+    void closeLogFile(void);
+
+public:
+    AFK_LogBacking();
+    virtual ~AFK_LogBacking();
+
+    bool setLogFile(const std::string& logFile);
+
+    /* Returns the amount to pbump() for, or 0 on failure. */
+    int doWrite(const char *start, const char *end);
+};
+
+/* The AFK log looks like a std::ostream, but logs to the console or
+ * tee's to a file too, bypasses the problems I have with the C++ output
+ * streams on Windows, and is internally thread safe (which isn't the
+ * same as externally thread safe due to all the operator<< overloads that
+ * I can't replace; I wish C++ had real polymorphism! Anyway, you'll still
+ * need a lock for sane concurrent access, but it shouldn't puke if you
+ * don't, it just may interleave your strings.)
  */
 class AFK_LogStream : public std::streambuf, public std::ostream
 {
 protected:
+    AFK_LogBacking backing;
+    std::mutex backingMut;
+
     /* We buffer a little bit of data here. */
     std::array<char, AFK_LOGSTREAM_BUF_SIZE> buf;
-
-    /* If we're tee'ing to a file, here is its handle.
-     * Yes, we're using C I/O here.  The reason for this is the
-     * Windows console plays havoc with C++ I/O, especially if
-     * opening files as well.  The C I/O implementation just
-     * seems more reliable.
-     */
-    FILE *f;
 
     /* streambuf implementation: */
     int overflow(int ch) override;
     int sync(void) override;
 
-    /* my own innards */
-    bool openLogFile(const std::string& logFile);
-    void closeLogFile(void);
-    bool doWrite(const char *start, const char *end);
-
 public:
     AFK_LogStream();
     virtual ~AFK_LogStream();
 
+    /* Calling this sets the log file for any backing. */
     bool setLogFile(const std::string& logFile);
 };
 

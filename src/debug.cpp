@@ -28,4 +28,3 @@ void afk_debugPrint(const std::string& s)
     std::unique_lock<std::mutex> lock(coutMut);
     afk_out << std::this_thread::get_id() << ": " << s;
 }
-
