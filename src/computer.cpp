@@ -441,14 +441,10 @@ AFK_Computer::AFK_Computer(AFK_ConfigSettings& settings):
      * program.
      */
 
-    /* TODO Commenting out the edge kernel for now, which takes a long time to
-     * build and which I definitely want to replace.
-     */
     programs = {
         AFK_ClProgram("landscape_surface", { "landscape_surface.cl" }),
         AFK_ClProgram("landscape_terrain", { "landscape_terrain.cl" }),
         AFK_ClProgram("landscape_yreduce", { "landscape_yreduce.cl" }),
-        //AFK_ClProgram("shape_3dedge", { "fake3d.cl", "shape_3dedge.cl" }),
         AFK_ClProgram("shape_3dvapour", {
             "fake3d.cl",
             "shape_3dvapour.cl",
@@ -462,7 +458,6 @@ AFK_Computer::AFK_Computer(AFK_ConfigSettings& settings):
         AFK_ClKernel("landscape_surface", "makeLandscapeSurface"),
         AFK_ClKernel("landscape_terrain", "makeLandscapeTerrain"),
         AFK_ClKernel("landscape_yreduce", "makeLandscapeYReduce"),
-        //AFK_ClKernel("shape_3dedge", "makeShape3DEdge"),
         AFK_ClKernel("shape_3dvapour", "makeShape3DVapourDReduce"),
         AFK_ClKernel("shape_3dvapour", "makeShape3DVapourFeature"),
         AFK_ClKernel("shape_3dvapour", "makeShape3DVapourNormal"),

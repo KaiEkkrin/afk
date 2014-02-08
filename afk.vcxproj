@@ -177,7 +177,6 @@
     <Text Include="README.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\3d_edge_compute_queue.hpp" />
     <ClInclude Include="src\3d_edge_shape_base.hpp" />
     <ClInclude Include="src\3d_solid.hpp" />
     <ClInclude Include="src\3d_vapour_compute_queue.hpp" />
@@ -293,7 +292,6 @@
     <None Include="src\shaders\shape_vertex.glsl" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\3d_edge_compute_queue.cpp" />
     <ClCompile Include="src\3d_edge_shape_base.cpp" />
     <ClCompile Include="src\3d_solid.cpp" />
     <ClCompile Include="src\3d_vapour_compute_queue.cpp" />

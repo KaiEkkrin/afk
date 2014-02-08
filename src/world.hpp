@@ -25,7 +25,6 @@
 
 #include <boost/atomic.hpp>
 
-#include "3d_edge_compute_queue.hpp"
 #include "3d_edge_shape_base.hpp"
 #include "3d_vapour_compute_queue.hpp"
 #include "async/async.hpp"
@@ -114,7 +113,6 @@ protected:
     boost::atomic_uint_fast64_t shapeCellsReducedOut;
     boost::atomic_uint_fast64_t shapeCellsResumed;
     boost::atomic_uint_fast64_t shapeVapoursComputed;
-    boost::atomic_uint_fast64_t shapeEdgesComputed;
 
     /* ... and this by that little vapour descriptor worker */
     boost::atomic_uint_fast64_t separateVapoursComputed;
@@ -182,21 +180,17 @@ protected:
 
     /* These jigsaws form the computed shape artwork. */
     AFK_JigsawCollection *vapourJigsaws;
-    AFK_JigsawCollection *edgeJigsaws;
 
     /* For when I'm making new shapes, the vapour and edge
      * computation fairs.
      */
     AFK_Fair<AFK_3DVapourComputeQueue> vapourComputeFair;
-    AFK_Fair<AFK_3DEdgeComputeQueue> edgeComputeFair;
-
-    /* Edge computation and entity display are across
-     * (vapour x edge).
-     */
-    AFK_Fair2DIndex entityFair2DIndex;
 #define AFK_MAX_VAPOUR 4
 
-    /* The basic shape geometry. */
+    /* The basic shape geometry.
+     * TODO: Presently, I want to change this for the swarm
+     * shape, and then the tessellated net shape!
+     */
     GLuint edgeShapeBaseArray;
     AFK_3DEdgeShapeBase *edgeShapeBase;
 
@@ -303,21 +297,6 @@ public:
     /* Call when we're about to start a new frame. */
     void flipRenderQueues(const AFK_Frame& newFrame);
 
-    /* TODO: I'm moving the detail pitch calculation out to the
-     * DetailAdjuster object ...
-     */
-#if 0
-    /* For changing the level of detail.  Values >1 decrease
-     * it.  Values <1 increase it.
-     * I'm not entirely sure what the correlation between the
-     * detail pitch and the amount of processing power required
-     * is, but I expect it's in the neighbourhood of
-     * (1 / detailPitch ** 2) ...
-     */
-    void alterDetail(float adjustment);
-
-    float getLandscapeDetailPitch(void) const;
-#endif
     float getEntityDetailPitch(float landscapeDetailPitch) const;
 
     /* This function drives the cell generating worker to
@@ -370,4 +349,3 @@ public:
 };
 
 #endif /* _AFK_WORLD_H_ */
-

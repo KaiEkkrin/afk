@@ -22,7 +22,6 @@
 
 #include <sstream>
 
-#include "3d_edge_compute_queue.hpp"
 #include "3d_solid.hpp"
 #include "3d_vapour_compute_queue.hpp"
 #include "data/claimable.hpp"
@@ -62,13 +61,11 @@ protected:
     AFK_JigsawPiece vapourJigsawPiece;
     AFK_Frame vapourJigsawPieceTimestamp;
 
-    /* ...and edge information */
-    AFK_JigsawPiece edgeJigsawPiece;
-    AFK_Frame edgeJigsawPieceTimestamp;
-
     /* These are this cell's computed min and max densities. */
     float minDensity;
     float maxDensity;
+
+    /* TODO: Place the cell's reduced colour here. */
 
     Vec4<float> getBaseColour(int64_t key) const;
 
@@ -76,7 +73,6 @@ public:
     AFK_ShapeCell();
 
     bool hasVapour(AFK_JigsawCollection *vapourJigsaws) const;
-    bool hasEdges(AFK_JigsawCollection *edgeJigsaws) const;
 
     float getDMin() const { return minDensity; }
     float getDMax() const { return maxDensity; }
@@ -112,30 +108,6 @@ public:
         const AFK_ShapeSizes& sSizes,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair);
-
-    /* This function fills out `missingCells' with the missing 
-     * cells that it needs for vapour adjacency information if it can't find
-     * all the necessary.
-     * You should compute those and resume.
-     */
-    void enqueueEdgeComputeUnit(
-        unsigned int threadId,
-        AFK_SHAPE_CELL_CACHE *cache,
-        AFK_JigsawCollection *vapourJigsaws,
-        AFK_JigsawCollection *edgeJigsaws,
-        AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
-        const AFK_Fair2DIndex& entityFair2DIndex);
-
-    /* Enqueues an edge display unit for this cell's edge.
-     * TODO: A pure vapour render too would be fab!
-     */
-    void enqueueEdgeDisplayUnit(
-        const Mat4<float>& worldTransform,
-        const AFK_KeyedCell& cell,
-        AFK_JigsawCollection *vapourJigsaws,
-        AFK_JigsawCollection *edgeJigsaws,
-        AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair,
-        const AFK_Fair2DIndex& entityFair2DIndex) const;
 
     /* Updates this cell's density information (call from
      * dreduce)

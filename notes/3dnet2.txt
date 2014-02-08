@@ -26,6 +26,7 @@ A sensible order to implement this in might be:
  (1) Excise the edge kernel and the current shape render.  Make sure the three vapour kernels compute successfully
      (on Windows, they don't as of the time of writing).
  (2) Build the colour reduce and do the single-point-per-cube render for distant shapes.
+ (2.5) (Optional) Build a swarm render that renders directly to the final frame, to test it.
  (3) Build the final shape cube and render that for non-distant shapes, as a blank (with the appropriate colour).
  (4) Do the tessellation for the shape cube, and render that with a geometry shader setting debug colours of
      (red, green, blue) for the three vertices of each triangle in the order presented, to verify that I'm splitting

@@ -529,7 +529,6 @@ AFK_World::AFK_World(
         startingDetailPitch         (settings.startingDetailPitch),
         maxDetailPitch              (settings.maxDetailPitch),
         shape                       (settings, threadAlloc, shapeCacheSize),
-        entityFair2DIndex           (AFK_MAX_VAPOUR),
         maxDistance                 (_maxDistance),
         subdivisionFactor           (settings.subdivisionFactor),
         minCellSize                 (settings.minCellSize),
@@ -614,20 +613,6 @@ AFK_World::AFK_World(
                 1, /* TODO: Might want to try the same by-LoD caching trick as with the landscape;
                     * try counting recomputes in the vapour first
                     */
-                2.0f),
-
-            /* 2: Edges */
-            AFK_JigsawMemoryAllocation::Entry(
-                {
-                    AFK_JigsawImageDescriptor( /* Overlap */
-                        epSize,
-                        AFK_JigsawFormat::UINT32_2,
-                        AFK_JigsawDimensions::TWO,
-                        tBu,
-                        GL_NEAREST
-                    )
-                },
-                1,
                 2.0f)
         },
         settings.concurrency,
@@ -682,13 +667,6 @@ AFK_World::AFK_World(
         jigsawAlloc.at(1),
         computer->getFirstDeviceProps(),
         AFK_MAX_VAPOUR);
-
-    afk_out << "AFK_World: Configuring edge jigsaws with: " << jigsawAlloc.at(2) << std::endl;
-    edgeJigsaws = new AFK_JigsawCollection(
-        computer,
-        jigsawAlloc.at(2),
-        computer->getFirstDeviceProps(),
-        0);
 
     /* Set up the jigsaws (which need to be aware of which thread IDs
      * the gang is using).
@@ -748,7 +726,6 @@ AFK_World::AFK_World(
     shapeCellsReducedOut.store(0);
     shapeCellsResumed.store(0);
     shapeVapoursComputed.store(0);
-    shapeEdgesComputed.store(0);
     threadEscapes.store(0);
 }
 
@@ -764,7 +741,6 @@ AFK_World::~AFK_World()
     delete landscapeCache;
     delete worldCache;
 
-    if (edgeJigsaws) delete edgeJigsaws;
     if (vapourJigsaws) delete vapourJigsaws;
 
     delete landscape_shaderProgram;
@@ -815,10 +791,8 @@ void AFK_World::flipRenderQueues(const AFK_Frame& newFrame)
     landscapeJigsaws->flip(newFrame);
 
     vapourComputeFair.flipQueues();
-    edgeComputeFair.flipQueues();
     entityDisplayFair.flipQueues();
     vapourJigsaws->flip(newFrame);
-    edgeJigsaws->flip(newFrame);
 }
 
 #if 0
@@ -931,30 +905,6 @@ void AFK_World::doComputeTasks(unsigned int threadId)
     if (vapourComputeQueues.size() == 1)
         vapourComputeQueues.at(0)->computeStart(afk_core.computer, vapourJigsaws, sSizes);
 
-    /* Do the edges.
-     * TODO Replace with new 3dnet stuff
-     */
-#if 0
-    std::vector<std::shared_ptr<AFK_3DEdgeComputeQueue> > edgeComputeQueues;
-    edgeComputeFair.getDrawQueues(edgeComputeQueues);
-
-    for (unsigned int i = 0; i < edgeComputeQueues.size(); ++i)
-    {
-        unsigned int vapourPuzzle, edgePuzzle;
-        entityFair2DIndex.get2D(i, vapourPuzzle, edgePuzzle);
-        AFK_Jigsaw *vapourJigsaw = vapourJigsaws->getPuzzle(vapourPuzzle);
-        AFK_Jigsaw *edgeJigsaw = edgeJigsaws->getPuzzle(edgePuzzle);
-        if (vapourJigsaw && edgeJigsaw)
-        {
-            edgeComputeQueues.at(i)->computeStart(
-                afk_core.computer,
-                vapourJigsaw,
-                edgeJigsaw,
-                sSizes);
-        }
-    }
-#endif
-
     /* If I finalise stuff now, the y-reduce information will
      * be in the landscape tiles in time for the display
      * to edit out any cells I now know to be empty of terrain.
@@ -966,25 +916,6 @@ void AFK_World::doComputeTasks(unsigned int threadId)
 
     if (vapourComputeQueues.size() == 1)
         vapourComputeQueues.at(0)->computeFinish(threadId, vapourJigsaws, shape.shapeCellCache);
-
-    /* Finalise the edges.
-     * TODO Replace with new 3D net stuff
-     */
-#if 0
-    for (unsigned int i = 0; i < edgeComputeQueues.size(); ++i)
-    {
-        unsigned int vapourPuzzle, edgePuzzle;
-        entityFair2DIndex.get2D(i, vapourPuzzle, edgePuzzle);
-        AFK_Jigsaw *vapourJigsaw = vapourJigsaws->getPuzzle(vapourPuzzle);
-        AFK_Jigsaw *edgeJigsaw = edgeJigsaws->getPuzzle(edgePuzzle);
-        if (vapourJigsaw && edgeJigsaw)
-        {
-            edgeComputeQueues.at(i)->computeFinish(
-                vapourJigsaw,
-                edgeJigsaw);
-        }
-    }
-#endif
 }
 
 void AFK_World::display(
@@ -1088,7 +1019,6 @@ void AFK_World::checkpoint(afk_duration_mfl& timeSinceLastCheckpoint)
     PRINT_RATE_AND_RESET("Shape cells reduced out:      ", shapeCellsReducedOut)
     PRINT_RATE_AND_RESET("Shape cells resumed:          ", shapeCellsResumed)
     PRINT_RATE_AND_RESET("Shape vapours computed:       ", shapeVapoursComputed)
-    PRINT_RATE_AND_RESET("Shape edges computed:         ", shapeEdgesComputed)
     PRINT_RATE_AND_RESET("Separate vapours computed:    ", separateVapoursComputed)
     PRINT_RATE_AND_RESET("Dependencies followed:        ", dependenciesFollowed)
     afk_out <<         "Cumulative thread escapes:    " << threadEscapes.load() << std::endl;

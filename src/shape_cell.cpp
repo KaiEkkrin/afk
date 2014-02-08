@@ -55,13 +55,6 @@ bool AFK_ShapeCell::hasVapour(AFK_JigsawCollection *vapourJigsaws) const
     return jigsaw->getTimestamp(vapourJigsawPiece) == vapourJigsawPieceTimestamp;
 }
 
-bool AFK_ShapeCell::hasEdges(AFK_JigsawCollection *edgeJigsaws) const
-{
-    if (!edgeJigsawPiece) return false;
-    AFK_Jigsaw *jigsaw = edgeJigsaws->getPuzzle(edgeJigsawPiece);
-    return jigsaw->getTimestamp(edgeJigsawPiece) == edgeJigsawPieceTimestamp;
-}
-
 #define SHAPE_COMPUTE_DEBUG 0
 
 void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
@@ -128,57 +121,6 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
         cell);
 }
 
-void AFK_ShapeCell::enqueueEdgeComputeUnit(
-    unsigned int threadId,
-    AFK_SHAPE_CELL_CACHE *cache,
-    AFK_JigsawCollection *vapourJigsaws,
-    AFK_JigsawCollection *edgeJigsaws,
-    AFK_Fair<AFK_3DEdgeComputeQueue>& edgeComputeFair,
-    const AFK_Fair2DIndex& entityFair2DIndex)
-{
-    edgeJigsaws->grab(0, &edgeJigsawPiece, &edgeJigsawPieceTimestamp, 1);
-
-    std::shared_ptr<AFK_3DEdgeComputeQueue> edgeComputeQueue =
-        edgeComputeFair.getUpdateQueue(
-            entityFair2DIndex.get1D(vapourJigsawPiece.puzzle, edgeJigsawPiece.puzzle));
-
-#if SHAPE_COMPUTE_DEBUG
-     AFK_DEBUG_PRINTL("Computing edges: vapour jigsaw piece " << vapourJigsawPiece << ", edge jigsaw piece " << edgeJigsawPiece)
-#endif
-
-     edgeComputeQueue->append(vapourJigsawPiece, edgeJigsawPiece);
-}
-
-#define SHAPE_DISPLAY_DEBUG 0
-
-void AFK_ShapeCell::enqueueEdgeDisplayUnit(
-    const Mat4<float>& worldTransform,
-    const AFK_KeyedCell& cell,
-    AFK_JigsawCollection *vapourJigsaws,
-    AFK_JigsawCollection *edgeJigsaws,
-    AFK_Fair<AFK_EntityDisplayQueue>& entityDisplayFair,
-    const AFK_Fair2DIndex& entityFair2DIndex) const
-{
-    /* TODO Deal with multiple vapour jigsaws in this queue.
-     * I think I'll want to decide I'm fed up with handling
-     * vapour0 vapour1 vapour2 vapour3 everywhere, etc,
-     * and go back to an interleaved queue (but I should have
-     * a better scheme than the current one!)
-     */
-    unsigned int index = entityFair2DIndex.get1D(vapourJigsawPiece.puzzle, edgeJigsawPiece.puzzle);
-
-    Vec4<float> hgCoord = cell.toHomogeneous(SHAPE_CELL_WORLD_SCALE);
-#if SHAPE_DISPLAY_DEBUG
-    AFK_DEBUG_PRINTL("Displaying shape at hgCoord " << hgCoord << " with vapour jigsaw piece " << vapourJigsawPiece << ", edge jigsaw piece " << edgeJigsawPiece)
-#endif
-    entityDisplayFair.getUpdateQueue(index)->add(
-        AFK_EntityDisplayUnit(
-            worldTransform,
-            hgCoord,
-            vapourJigsaws->getPuzzle(vapourJigsawPiece)->getTexCoordSTR(vapourJigsawPiece),
-            edgeJigsaws->getPuzzle(edgeJigsawPiece)->getTexCoordST(edgeJigsawPiece)));
-}
-
 void AFK_ShapeCell::setDMinMax(float _minDensity, float _maxDensity)
 {
     minDensity = _minDensity;
@@ -193,7 +135,6 @@ std::ostream& operator<<(std::ostream& os, const AFK_ShapeCell& shapeCell)
 {
     os << "Shape cell";
     os << " (Vapour piece: " << shapeCell.vapourJigsawPiece << ")";
-    os << " (Edge piece: " << shapeCell.edgeJigsawPiece << ")";
     return os;
 }
 

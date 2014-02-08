@@ -137,7 +137,7 @@ bool afk_generateEntity(
 
 /* The shape worker */
 
-#define VISIBLE_CELL_DEBUG 0
+#define VISIBLE_CELL_DEBUG 1
 
 #if VISIBLE_CELL_DEBUG
 #define DEBUG_VISIBLE_CELL(message) AFK_DEBUG_PRINTL("cell " << cell << ": visible cell " << visibleCell << ": " << message)
@@ -361,12 +361,11 @@ bool AFK_Shape::generateClaimedShapeCell(
     AFK_World *world                        = afk_core.world;
 
     AFK_JigsawCollection *vapourJigsaws     = world->vapourJigsaws;
-    AFK_JigsawCollection *edgeJigsaws       = world->edgeJigsaws;
 
     bool success = false;
 
     /* Check whether we have rendered vapour here.  If we don't,
-     * we need to make that first.
+     * we need to make that.
      */
     if (!shapeCellClaim.getShared().hasVapour(vapourJigsaws))
     {
@@ -389,6 +388,8 @@ bool AFK_Shape::generateClaimedShapeCell(
 #if AFK_SHAPE_ENUM_DEBUG
                 AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << ": enqueueing existing vapour with " << cubeCount << " cubes from " << cubeOffset << ", from " << vc)
 #endif
+                    /* As below, now that I no longer compute edges, this is a success condition! */
+                success = true;
             }
             else
             {
@@ -408,49 +409,21 @@ bool AFK_Shape::generateClaimedShapeCell(
 #if AFK_SHAPE_ENUM_DEBUG
                         AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << ": generated new vapour with " << list.cubeCount() << " cubes at " << vc)
 #endif
+
+                        /* Now that I no longer compute edges, for now, reaching this
+                         * stage indicates success!
+                         */
+                        success = true;
                     }
                 }
             }
         }
     }
 
-    /* Try to get this shape cell set up and enqueued.
+    /* TODO: Add in enqueueing of the new 3dnet2 display stuff and
+     * all those good things, and remove the success conditions
+     * above
      */
-    if (!shapeCellClaim.getShared().hasEdges(edgeJigsaws))
-    {
-        /* I need to generate stuff for this cell -- which means I need
-         * to upgrade my claim.
-         */
-        if (shapeCellClaim.upgrade())
-        {
-            /* The vapour descriptor must be there already. */
-            assert(vapourCellClaim.getShared().hasDescriptor());
-
-            if (shapeCellClaim.get().hasVapour(vapourJigsaws))
-            {
-                shapeCellClaim.get().enqueueEdgeComputeUnit(
-                    threadId, shapeCellCache, vapourJigsaws, edgeJigsaws, world->edgeComputeFair, world->entityFair2DIndex);
-                world->shapeEdgesComputed.fetch_add(1);
-
-#if AFK_SHAPE_ENUM_DEBUG
-                AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << ": generated edges from vapour at " << vc)
-#endif
-            }
-        }
-    }
-
-    if (shapeCellClaim.getShared().hasVapour(vapourJigsaws) &&
-        shapeCellClaim.getShared().hasEdges(edgeJigsaws))
-    {
-        shapeCellClaim.getShared().enqueueEdgeDisplayUnit(
-            worldTransform,
-            cell,
-            vapourJigsaws,
-            edgeJigsaws,
-            world->entityDisplayFair,
-            world->entityFair2DIndex);
-        success = true;
-    }
 
     return success;
 }
