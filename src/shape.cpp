@@ -137,7 +137,7 @@ bool afk_generateEntity(
 
 /* The shape worker */
 
-#define VISIBLE_CELL_DEBUG 1
+#define VISIBLE_CELL_DEBUG 0
 
 #if VISIBLE_CELL_DEBUG
 #define DEBUG_VISIBLE_CELL(message) AFK_DEBUG_PRINTL("cell " << cell << ": visible cell " << visibleCell << ": " << message)
@@ -418,6 +418,11 @@ bool AFK_Shape::generateClaimedShapeCell(
                 }
             }
         }
+    }
+    else
+    {
+        /* For now, all done!*/
+        success = true;
     }
 
     /* TODO: Add in enqueueing of the new 3dnet2 display stuff and
