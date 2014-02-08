@@ -150,14 +150,12 @@ void AFK_3DVapourComputeQueue::computeStart(
         if (!computer->findKernel("makeShape3DVapourFeature", vapourFeatureKernel))
             throw AFK_Exception("Cannot find 3D vapour feature kernel");
 
-#if 0
     if (!vapourNormalKernel)
         if (!computer->findKernel("makeShape3DVapourNormal", vapourNormalKernel))
             throw AFK_Exception("Cannot find 3D vapour normal kernel");
 
     if (!dReduce)
         dReduce = new AFK_DReduce(computer);
-#endif
 
     auto kernelQueue = computer->getKernelQueue();
     auto writeQueue = computer->getWriteQueue();
@@ -200,8 +198,6 @@ void AFK_3DVapourComputeQueue::computeStart(
     AFK_ComputeDependency preNormalDep(computer);
     kernelQueue->kernel3D(vapourDim, nullptr, preVapourDep, preNormalDep);
 
-#if 0
-
     /* Next, compute the vapour normals. */
     cl_mem vapourJigsawsNormalMem[4];
     jpNCount = vapourJigsaws->acquireAllForCl(computer, 1, vapourJigsawsNormalMem, 4, fake3D_size, fake3D_mult, preNormalDep);
@@ -230,9 +226,6 @@ void AFK_3DVapourComputeQueue::computeStart(
         sSizes,
         preNormalDep,
         *preReleaseDep);
-#else
-    *preReleaseDep += preVapourDep;
-#endif
 }
 
 void AFK_3DVapourComputeQueue::computeFinish(unsigned int threadId, AFK_JigsawCollection *vapourJigsaws, AFK_SHAPE_CELL_CACHE *cache)
@@ -244,13 +237,11 @@ void AFK_3DVapourComputeQueue::computeFinish(unsigned int threadId, AFK_JigsawCo
 
     assert(preReleaseDep);
     vapourJigsaws->releaseAllFromCl(0, jpDCount, *preReleaseDep);
-#if 0
     vapourJigsaws->releaseAllFromCl(1, jpNCount, *preReleaseDep);
 
     /* Read back the D reduce. */
     assert(dReduce);
     dReduce->readBack(threadId, unitCount, shapeCells, cache);
-#endif
 }
 
 bool AFK_3DVapourComputeQueue::empty(void)
