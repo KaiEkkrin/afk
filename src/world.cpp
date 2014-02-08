@@ -544,12 +544,6 @@ AFK_World::AFK_World(
 
     Vec3<int> vpSize = afk_vec3<int>((int)sSizes.tDim, (int)sSizes.tDim, (int)sSizes.tDim);
 
-    /* Each edge piece will have 3 faces horizontally by 2 vertically to
-     * cram the 6 faces together in a better manner than stringing them
-     * in a line.
-     */
-    Vec3<int> epSize = afk_vec3<int>(sSizes.eDim * 3, sSizes.eDim * 2, 1);
-
     /* I can't use cl_gl sharing along with fake 3D,
      * because of the need to convert it to proper 3D
      * for the GL.
