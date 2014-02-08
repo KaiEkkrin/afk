@@ -22,20 +22,21 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <thread>
 
 void afk_debugPrint(const std::string& s);
 
 #define AFK_DEBUG_PRINT(expr) \
     { \
         std::ostringstream ss; \
-        ss << expr; \
+        ss << std::this_thread::get_id() << ": " << expr; \
         afk_debugPrint(ss.str()); \
     }
 
 #define AFK_DEBUG_PRINTL(expr) \
     { \
         std::ostringstream ss; \
-        ss << expr << std::endl; \
+        ss << std::this_thread::get_id() << ": " << expr << std::endl; \
         afk_debugPrint(ss.str()); \
     }
 

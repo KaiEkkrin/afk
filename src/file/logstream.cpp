@@ -53,10 +53,15 @@ void AFK_LogBacking::closeLogFile(void)
     }
 }
 
-AFK_LogBacking::AFK_LogBacking() : f(nullptr) {}
+AFK_LogBacking::AFK_LogBacking() : console(true), f(nullptr) {}
 AFK_LogBacking::~AFK_LogBacking()
 {
     closeLogFile();
+}
+
+void AFK_LogBacking::setConsole(bool _console)
+{
+    console = _console;
 }
 
 bool AFK_LogBacking::setLogFile(const std::string& logFile)
@@ -73,7 +78,11 @@ int AFK_LogBacking::doWrite(const char *start, const char *end)
     bool success = true;
     if (size > 0)
     {
-        success &= (fwrite(start, 1, size, stdout) == static_cast<size_t>(size));
+        if (console)
+        {
+            success &= (fwrite(start, 1, size, stdout) == static_cast<size_t>(size));
+        }
+
         if (f)
         {
             success &= (fwrite(start, 1, size, f) == static_cast<size_t>(size));
@@ -92,13 +101,13 @@ int AFK_LogStream::overflow(int ch)
 
     if (ch != std::streambuf::traits_type::eof())
     {
-        std::unique_lock<std::mutex> lock(backingMut);
+        std::unique_lock<std::mutex> lock(afk_logBackingMut);
 
-        int bump = backing.doWrite(pbase(), pptr());
+        int bump = afk_logBacking.doWrite(pbase(), pptr());
         if (bump != 0)
         {
             char last = static_cast<char>(ch);
-            int lastBump = backing.doWrite(&last, (&last) + 1);
+            int lastBump = afk_logBacking.doWrite(&last, (&last) + 1);
             if (lastBump != 0) success = true;
             if (success) pbump(bump + lastBump);
         }
@@ -109,8 +118,8 @@ int AFK_LogStream::overflow(int ch)
 
 int AFK_LogStream::sync(void)
 {
-    std::unique_lock<std::mutex> lock(backingMut);
-    int bump = backing.doWrite(pbase(), pptr());
+    std::unique_lock<std::mutex> lock(afk_logBackingMut);
+    int bump = afk_logBacking.doWrite(pbase(), pptr());
     if (bump != 0)
     {
         pbump(bump);
@@ -121,8 +130,7 @@ int AFK_LogStream::sync(void)
 
 AFK_LogStream::AFK_LogStream():
 std::streambuf(),
-std::ostream(this),
-backing()
+std::ostream(this)
 {
     setp(buf.data(), buf.data() + buf.size());
 }
@@ -132,12 +140,8 @@ AFK_LogStream::~AFK_LogStream()
     sync();
 }
 
-bool AFK_LogStream::setLogFile(const std::string& logFile)
-{
-    std::unique_lock<std::mutex> lock(backingMut);
-    return backing.setLogFile(logFile);
-}
-
+AFK_LogBacking afk_logBacking;
+std::mutex afk_logBackingMut;
 AFK_LogStream afk_out;
 
 void afk_waitForKeyPress(void)

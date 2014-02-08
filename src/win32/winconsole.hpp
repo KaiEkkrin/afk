@@ -36,6 +36,7 @@ public:
     AFK_WinConsole();
     virtual ~AFK_WinConsole();
 
+    void open();
     void resync();
 };
 

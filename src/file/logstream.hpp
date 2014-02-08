@@ -37,6 +37,9 @@
 class AFK_LogBacking
 {
 protected:
+    /* True if we're logging to the console, else false. */
+    bool console;
+
     /* If we're tee'ing to a file, here is its handle.
     * Yes, we're using C I/O here.  The reason for this is the
     * Windows console plays havoc with C++ I/O, especially if
@@ -53,6 +56,7 @@ public:
     AFK_LogBacking();
     virtual ~AFK_LogBacking();
 
+    void setConsole(bool _console);
     bool setLogFile(const std::string& logFile);
 
     /* Returns the amount to pbump() for, or 0 on failure. */
@@ -60,19 +64,12 @@ public:
 };
 
 /* The AFK log looks like a std::ostream, but logs to the console or
- * tee's to a file too, bypasses the problems I have with the C++ output
- * streams on Windows, and is internally thread safe (which isn't the
- * same as externally thread safe due to all the operator<< overloads that
- * I can't replace; I wish C++ had real polymorphism! Anyway, you'll still
- * need a lock for sane concurrent access, but it shouldn't puke if you
- * don't, it just may interleave your strings.)
+ * tee's to a file too, bypassing the problems I have with the C++ output
+ * streams on Windows.
  */
 class AFK_LogStream : public std::streambuf, public std::ostream
 {
 protected:
-    AFK_LogBacking backing;
-    std::mutex backingMut;
-
     /* We buffer a little bit of data here. */
     std::array<char, AFK_LOGSTREAM_BUF_SIZE> buf;
 
@@ -83,12 +80,20 @@ protected:
 public:
     AFK_LogStream();
     virtual ~AFK_LogStream();
-
-    /* Calling this sets the log file for any backing. */
-    bool setLogFile(const std::string& logFile);
 };
 
-/* Here's the thing to use in place of std::cout / std::cerr, then. */
+/* Here's the global log backing and its mutex: */
+extern AFK_LogBacking afk_logBacking;
+extern std::mutex afk_logBackingMut;
+
+/* Here's a thing to use in place of std::cout / std::cerr.
+ * TODO: Right now, this is horribly thread unsafe in a way I can't fix easily
+ * (because I'd need to change all the operator<< functions for all the types;
+ * eww, C++ polymorphism fail).  A workaround would be to create thread local
+ * versions, but that would be messy because thread local objects can't have
+ * constructors or destructors!  For now, use this only from the main thread,
+ * and use the log backing directly (see the `debug' module) from other threads.
+ */
 extern AFK_LogStream afk_out;
 
 /* TODO: If I make a no-console version, disable this / return right away or something;

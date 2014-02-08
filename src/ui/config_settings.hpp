@@ -42,11 +42,10 @@ protected:
     AFK_ConfigOption<std::string> *configFile;
 
     /* Nobody else needs to know about these */
-    AFK_CONFIG_FIELD_NOSAVE(bool,   saveOnQuit,                 "Save configuration on quit",                 false);
+    AFK_CONFIG_FIELD_NOSAVE(bool,   saveOnQuit,                 "Save configuration on quit",               false);
     AFK_ConfigOptionHelp help = AFK_ConfigOptionHelp(&options);
 
     // TODO: Add a special "help" option that prints all the other options and quits!
-
     void loadConfigFromFile(void);
 
 public:
@@ -59,6 +58,7 @@ public:
     AFK_CONFIG_FIELD_NOSAVE(int64_t, masterSeedLow,             "Low part of master seed (64 bits)",        -1ll);
     AFK_CONFIG_FIELD_NOSAVE(int64_t, masterSeedHigh,            "High part of master seed (64 bits)",       -1ll);
     AFK_CONFIG_FIELD_NOSAVE(unsigned int, concurrency,          "Number of worker threads",                 std::thread::hardware_concurrency() + 1);
+    AFK_CONFIG_FIELD_NOSAVE(bool,    console,                   "Log to console",                           true);
     AFK_CONFIG_FIELD_NOSAVE(std::string, logFile,               "Log file",                                 "");
 
     // Graphics settings

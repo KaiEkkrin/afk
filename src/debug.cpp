@@ -15,16 +15,16 @@
  * along with this program.  If not, see [http://www.gnu.org/licenses/].
  */
 
-#include <mutex>
 #include <thread>
 
 #include "debug.hpp"
 #include "file/logstream.hpp"
 
-std::mutex coutMut;
-
 void afk_debugPrint(const std::string& s)
 {
-    std::unique_lock<std::mutex> lock(coutMut);
-    afk_out << std::this_thread::get_id() << ": " << s;
+    const char *start = s.c_str();
+    const char *end = start + s.size();
+
+    std::unique_lock<std::mutex> lock(afk_logBackingMut);
+    afk_logBacking.doWrite(start, end);
 }

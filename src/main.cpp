@@ -62,6 +62,8 @@ int APIENTRY WinMain(
     AFK_ArgList argList;
     int argc = argList.getArgc();
     char **argv = argList.getArgv();
+
+    winConsole.open();
 #endif /* _WIN32 */
 
 #ifdef __GNUC__
@@ -116,9 +118,9 @@ int main(int argc, char **argv)
     {
         afk_core.configure(&argc, argv);
 
-        /* First things first, set up the log file: */
+        /* First things first, set up the logging: */
         std::string logFile = afk_core.settings.logFile;
-        if (logFile.size() > 0) afk_out.setLogFile(logFile);
+        if (logFile.size() > 0) afk_logBacking.setLogFile(logFile);
 
         /* Banner. */
         afk_out << "AFK v0.2.1-test" << std::endl;
@@ -127,7 +129,10 @@ int main(int argc, char **argv)
         afk_out << "source code near this binary, or if you obtained it from GitHub, you" << std::endl;
         afk_out << "can check out the sources at https://github.com/KaiEkkrin/afk/ ." << std::endl;
         afk_out << std::endl;
-        
+
+        /* If we're not set to log to console, that's all we'll print to it */
+        afk_logBacking.setConsole(afk_core.settings.console);
+
         /* Printing the configuration is useful. */
         afk_out << "AFK: Using starting configuration: " << std::endl << std::endl;
         afk_core.settings.saveTo(afk_out);

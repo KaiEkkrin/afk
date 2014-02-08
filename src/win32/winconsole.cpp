@@ -25,6 +25,18 @@
 AFK_WinConsole::AFK_WinConsole():
 outf(nullptr), errf(nullptr)
 {
+}
+
+AFK_WinConsole::~AFK_WinConsole()
+{
+    /* TODO: I could close stuff here, but I fear the destructors for
+     * other stuff will run later and try to print, and things will
+     * splat ...
+     */
+}
+
+void AFK_WinConsole::open()
+{
     if (!AllocConsole())
     {
         /* That really ought to succeed. */
@@ -34,14 +46,6 @@ outf(nullptr), errf(nullptr)
     {
         resync();
     }
-}
-
-AFK_WinConsole::~AFK_WinConsole()
-{
-    /* TODO: I could close stuff here, but I fear the destructors for
-     * other stuff will run later and try to print, and things will
-     * splat ...
-     */
 }
 
 void AFK_WinConsole::resync()
