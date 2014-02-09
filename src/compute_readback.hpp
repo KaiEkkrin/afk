@@ -99,7 +99,7 @@ public:
      */
     void enqueueReadback(const AFK_ComputeDependency& preDep)
     {
-        computer->getReadQueue()->readBuffer(buf, readback.size(), readback.data(), preDep, *readbackDep);
+        computer->getReadQueue()->readBuffer(buf, readback.size() * sizeof(T), readback.data(), preDep, *readbackDep);
     }
 
     /* Does the readback, and calls the supplied function for

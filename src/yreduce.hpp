@@ -23,8 +23,9 @@
 #include <vector>
 
 #include "compute_dependency.hpp"
-#include "computer.hpp"
+#include "compute_readback.hpp"
 #include "core.hpp"
+#include "def.hpp"
 #include "landscape_sizes.hpp"
 #include "tile.hpp"
 
@@ -38,12 +39,7 @@ protected:
     AFK_Computer *computer;
     cl_kernel yReduceKernel;
 
-    /* The result buffers */
-    cl_mem buf;
-    size_t bufSize;
-    float *readback;
-    size_t readbackSize; /* in floats */
-    AFK_ComputeDependency readbackDep;
+    AFK_ComputeReadback<Vec2<float> > yRb;
 
 public:
     AFK_YReduce(AFK_Computer *_computer);
@@ -60,7 +56,6 @@ public:
 
     void readBack(
         unsigned int threadId,
-        size_t unitCount,
         const std::vector<AFK_Tile>& landscapeTiles,
         AFK_LANDSCAPE_CACHE *cache);
 };

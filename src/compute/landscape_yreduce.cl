@@ -32,7 +32,7 @@ __kernel void makeLandscapeYReduce(
     __global const struct AFK_TerrainComputeUnit *units,
     __read_only image2d_t jigsawYDisp,
     sampler_t yDispSampler,
-    __global float *yBounds /* 2 consecutive values per unit: (lower, upper) */
+    __global float2 *yBounds /* (lower, upper) */
     )
 {
     const int zdim = get_local_id(0);
@@ -81,8 +81,7 @@ __kernel void makeLandscapeYReduce(
     barrier(CLK_LOCAL_MEM_FENCE);
     if (zdim == 0)
     {
-        yBounds[2 * unitOffset] = yLower[0];
-        yBounds[2 * unitOffset + 1] = yUpper[0];
+        yBounds[unitOffset] = (float2)(yLower[0], yUpper[0]);
     }
 }
 

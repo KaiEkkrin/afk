@@ -44,7 +44,6 @@ void AFK_DReduce::compute(
     AFK_ComputeDependency& o_postDep)
 {
     auto kernelQueue = computer->getKernelQueue();
-    auto readQueue = computer->getReadQueue();
 
     kernelQueue->kernel(dReduceKernel);
     kernelQueue->kernelArg(sizeof(cl_mem), units);

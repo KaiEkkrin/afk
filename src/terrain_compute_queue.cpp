@@ -239,7 +239,7 @@ void AFK_TerrainComputeQueue::computeFinish(unsigned int threadId, AFK_Jigsaw *j
     jigsaw->releaseFromCl(2, *postTerrainDep);
 
     /* Read back the Y reduce. */
-    yReduce->readBack(threadId, unitCount, landscapeTiles, cache);
+    yReduce->readBack(threadId, landscapeTiles, cache);
 }
 
 bool AFK_TerrainComputeQueue::empty(void)
