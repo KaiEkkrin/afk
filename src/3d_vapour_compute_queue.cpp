@@ -138,12 +138,12 @@ void AFK_3DVapourComputeQueue::computeStart(
     AFK_JigsawCollection *vapourJigsaws,
     const AFK_ShapeSizes& sSizes)
 {
-    /* TODO: Progressively re-activate this and the next method and debug. */
     std::unique_lock<std::mutex> lock(mut);
 
     /* Check there's something to do */
     size_t unitCount = units.size();
     if (unitCount == 0) return;
+    assert(shapeCells.size() == unitCount);
 
     /* Make sure the compute stuff is initialised... */
     if (!vapourFeatureKernel)
@@ -231,6 +231,7 @@ void AFK_3DVapourComputeQueue::computeStart(
 void AFK_3DVapourComputeQueue::computeFinish(unsigned int threadId, AFK_JigsawCollection *vapourJigsaws, AFK_SHAPE_CELL_CACHE *cache)
 {
     std::unique_lock<std::mutex> lock(mut);
+    if (units.size() == 0) return;
 
     assert(preReleaseDep);
     vapourJigsaws->releaseAllFromCl(0, jpDCount, *preReleaseDep);

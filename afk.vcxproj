@@ -192,6 +192,7 @@
     <ClInclude Include="src\compute_dependency.hpp" />
     <ClInclude Include="src\compute_input.hpp" />
     <ClInclude Include="src\compute_queue.hpp" />
+    <ClInclude Include="src\compute_readback.hpp" />
     <ClInclude Include="src\core.hpp" />
     <ClInclude Include="src\data\cache.hpp" />
     <ClInclude Include="src\data\cache_test.hpp" />

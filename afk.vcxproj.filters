@@ -336,6 +336,9 @@
     <ClInclude Include="src\ui\help_option.hpp">
       <Filter>Header Files\ui</Filter>
     </ClInclude>
+    <ClInclude Include="src\compute_readback.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\compute\fake3d.cl">

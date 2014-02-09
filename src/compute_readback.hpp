@@ -61,11 +61,12 @@ public:
     }
 
     /* Makes sure the buffer is the right size and in a state to
-     * pass to a kernel, and returns it.
+     * pass to a kernel, and returns a pointer to it.
      */
-    cl_mem readyForKernel(AFK_Computer *_computer, size_t count)
+    cl_mem *readyForKernel(AFK_Computer *_computer, size_t count)
     {
         assert(!computer || computer == _computer);
+        assert(count > 0);
         computer = _computer;
         
         size_t requiredSize = count * sizeof(T);
@@ -90,7 +91,7 @@ public:
         if (!readbackDep) readbackDep = new AFK_ComputeDependency(computer);
         else readbackDep->waitFor();
 
-        return buf;
+        return &buf;
     }
 
     /* Call this after you've enqueued the kernel, with the
@@ -132,6 +133,7 @@ public:
             if (insist && !allSucceeded) std::this_thread::yield();
         } while (insist && !allSucceeded);
 
+        readback.clear();
         return allSucceeded;
     }
 };
