@@ -232,16 +232,13 @@ void AFK_3DVapourComputeQueue::computeFinish(unsigned int threadId, AFK_JigsawCo
 {
     std::unique_lock<std::mutex> lock(mut);
 
-    size_t unitCount = units.size();
-    if (unitCount == 0) return;
-
     assert(preReleaseDep);
     vapourJigsaws->releaseAllFromCl(0, jpDCount, *preReleaseDep);
     vapourJigsaws->releaseAllFromCl(1, jpNCount, *preReleaseDep);
 
     /* Read back the D reduce. */
     assert(dReduce);
-    dReduce->readBack(threadId, unitCount, shapeCells, cache);
+    dReduce->readBack(threadId, shapeCells, cache);
 }
 
 bool AFK_3DVapourComputeQueue::empty(void)

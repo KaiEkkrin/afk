@@ -23,7 +23,7 @@
 /* AFK_DReduce implementation */
 
 AFK_DReduce::AFK_DReduce(AFK_Computer *_computer):
-    computer(_computer), buf(0), bufSize(0), readback(nullptr), readbackSize(0), readbackDep(computer)
+    computer(_computer)
 {
     if (!computer->findKernel("makeShape3DVapourDReduce", dReduceKernel))
         throw AFK_Exception("Cannot find D-reduce kernel");
@@ -31,8 +31,6 @@ AFK_DReduce::AFK_DReduce(AFK_Computer *_computer):
 
 AFK_DReduce::~AFK_DReduce()
 {
-    if (buf) computer->oclShim.ReleaseMemObject()(buf);
-    if (readback) delete[] readback;
 }
 
 void AFK_DReduce::compute(
@@ -45,25 +43,8 @@ void AFK_DReduce::compute(
     const AFK_ComputeDependency& preDep,
     AFK_ComputeDependency& o_postDep)
 {
-    cl_int error;
-
-    cl_context ctxt = computer->getContext();
     auto kernelQueue = computer->getKernelQueue();
     auto readQueue = computer->getReadQueue();
-
-    size_t requiredSize = unitCount * 2 * sizeof(float);
-    if (bufSize < requiredSize)
-    {
-        if (buf) AFK_CLCHK(computer->oclShim.ReleaseMemObject()(buf));
-
-        buf = computer->oclShim.CreateBuffer()(
-            ctxt, CL_MEM_WRITE_ONLY,
-            requiredSize,
-            nullptr,
-            &error);
-        AFK_HANDLE_CL_ERROR(error);
-        bufSize = requiredSize;
-    }
 
     kernelQueue->kernel(dReduceKernel);
     kernelQueue->kernelArg(sizeof(cl_mem), units);
@@ -73,7 +54,8 @@ void AFK_DReduce::compute(
     for (int vfI = 0; vfI < 4; ++vfI)
         kernelQueue->kernelArg(sizeof(cl_mem), &vapourJigsawsDensityMem[vfI]);
 
-    kernelQueue->kernelArg(sizeof(cl_mem), &buf);
+    kernelQueue->kernelArg(sizeof(cl_mem), densityRb.readyForKernel(computer, unitCount));
+    kernelQueue->kernelArg(sizeof(cl_mem), colourRb.readyForKernel(computer, unitCount));
 
     size_t dReduceGlobalDim[3];
     dReduceGlobalDim[0] = unitCount;
@@ -85,63 +67,48 @@ void AFK_DReduce::compute(
 
     kernelQueue->kernel3D(dReduceGlobalDim, dReduceLocalDim, preDep, o_postDep);
 
-    size_t requiredReadbackSize = requiredSize / sizeof(float);
-    if (readbackSize < requiredReadbackSize)
-    {
-        if (readback) delete[] readback;
-        readback = new float[requiredReadbackSize];
-        readbackSize = requiredReadbackSize;
-    }
-
-    readQueue->readBuffer(buf, requiredSize, readback, o_postDep, readbackDep);
+    densityRb.enqueueReadback(o_postDep);
+    colourRb.enqueueReadback(o_postDep);
 }
 
 void AFK_DReduce::readBack(
     unsigned int threadId,
-    size_t unitCount,
     const std::vector<AFK_KeyedCell>& shapeCells,
     AFK_SHAPE_CELL_CACHE *cache)
 {
-    readbackDep.waitFor();
-
-    /* TODO: Here's that logic again, as in yreduce...
-     * algorithm-ify?
-     */
-    bool allPushed = false;
-    std::vector<bool> pushed;
-    pushed.reserve(shapeCells.size());
-    for (size_t i = 0; i < shapeCells.size(); ++i) pushed.push_back(false);
-
-    do
+    densityRb.readbackFinish([threadId, shapeCells, cache](size_t i, const Vec2<float>& dMinMax)
     {
-        allPushed = true;
-        for (size_t i = 0; i < shapeCells.size(); ++i)
+        auto entry = cache->get(threadId, shapeCells[i]);
+        if (entry)
         {
-            if (pushed[i]) continue;
-
-            auto entry = cache->get(threadId, shapeCells[i]);
-            if (entry)
+            auto claim = entry->claimable.claim(threadId, 0);
+            if (claim.isValid())
             {
-                auto claim = entry->claimable.claim(threadId, 0);
-                if (claim.isValid())
-                {
-                    claim.get().setDMinMax(readback[i * 2], readback[i * 2 + 1]);
-                    pushed[i] = true;
-                }
-                else
-                {
-                    /* Want to retry */
-                    allPushed = false;
-                }
+                claim.get().setDMinMax(dMinMax.v[0], dMinMax.v[1]);
+                return true;
             }
-            else
-            {
-                /* Ignore, no entry any more */
-                pushed[i] = true;
-            }
+            else return false;
         }
+        else return true; /* nothing to do */
+    }, true);
 
-        if (!allPushed) std::this_thread::yield();
-    } while (!allPushed);
+    colourRb.readbackFinish([threadId, shapeCells, cache](size_t i, const Vec4<uint8_t>& colour)
+    {
+        auto entry = cache->get(threadId, shapeCells[i]);
+        if (entry)
+        {
+            auto claim = entry->claimable.claim(threadId, 0);
+            if (claim.isValid())
+            {
+                claim.get().setAvgColour(afk_vec3<float>(
+                    static_cast<float>(colour.v[0]) / 256.0f,
+                    static_cast<float>(colour.v[1]) / 256.0f,
+                    static_cast<float>(colour.v[2]) / 256.0f));
+                return true;
+            }
+            else return false;
+        }
+        else return true; /* nothing to do */
+    }, true);
 }
 

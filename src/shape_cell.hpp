@@ -65,7 +65,8 @@ protected:
     float minDensity;
     float maxDensity;
 
-    /* TODO: Place the cell's reduced colour here. */
+    /* ...and the cell's computed average colour. */
+    Vec3<float> avgColour;
 
     Vec4<float> getBaseColour(int64_t key) const;
 
@@ -76,6 +77,7 @@ public:
 
     float getDMin() const { return minDensity; }
     float getDMax() const { return maxDensity; }
+    const Vec3<float>& getAvgColour() const { return avgColour; }
 
     /* Enqueues the compute units.  Both these functions overwrite
      * the relevant jigsaw pieces with new ones.
@@ -113,6 +115,9 @@ public:
      * dreduce)
      */
     void setDMinMax(float _minDensity, float _maxDensity);
+
+    /* Likewise for the average colour. */
+    void setAvgColour(const Vec3<float>& _avgColour);
 
     /* For handling claiming and eviction. */
     void evict(void);

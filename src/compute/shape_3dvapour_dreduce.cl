@@ -38,7 +38,8 @@ __kernel void makeShape3DVapourDReduce(
     __read_only AFK_IMAGE3D vapourFeature1,
     __read_only AFK_IMAGE3D vapourFeature2,
     __read_only AFK_IMAGE3D vapourFeature3,
-    __global float *vapourBounds /* 2 consecutive values per unit: (min, max). */
+    __global float2 *vapourBounds, /* min, max */
+    __global uchar4 *colourAvg /* red, green, blue, unused */
     )
 {
     const int unitOffset = get_global_id(0);
@@ -47,12 +48,14 @@ __kernel void makeShape3DVapourDReduce(
 
     __local float dMin[1<<REDUCE_ORDER][1<<REDUCE_ORDER];
     __local float dMax[1<<REDUCE_ORDER][1<<REDUCE_ORDER];
+    __local float4 col[1<<REDUCE_ORDER][1<<REDUCE_ORDER];
 
     /* Initialise those (y, z) arrays, and iterate across the
      * x dimensions where relevant
      */
     dMin[ydim][zdim] = FLT_MAX;
     dMax[ydim][zdim] = FLT_MIN;
+    col[ydim][zdim] = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
 
     if (ydim < TDIM && zdim < TDIM)
     {
@@ -63,6 +66,8 @@ __kernel void makeShape3DVapourDReduce(
 
             if (vapourPoint.w < dMin[ydim][zdim]) dMin[ydim][zdim] = vapourPoint.w;
             if (vapourPoint.w > dMax[ydim][zdim]) dMax[ydim][zdim] = vapourPoint.w;
+
+            col[ydim][zdim] += vapourPoint;
         }
     }
 
@@ -80,6 +85,7 @@ __kernel void makeShape3DVapourDReduce(
             if (dMax[ydim+(1<<yred)][zdim] > dMax[ydim][zdim])
                 dMax[ydim][zdim] = dMax[ydim+(1<<yred)][zdim];
             
+            col[ydim][zdim] += col[ydim+(1<<yred)][zdim];
         }
     }
 
@@ -97,14 +103,22 @@ __kernel void makeShape3DVapourDReduce(
             if (dMax[0][zdim+(1<<zred)] > dMax[0][zdim])
                 dMax[0][zdim] = dMax[0][zdim+(1<<zred)];
             
+            col[0][zdim] += col[0][zdim+(1<<zred)];
         }
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
     if (ydim == 0 && zdim == 0)
     {
-        vapourBounds[2 * unitOffset] = dMin[0][0];
-        vapourBounds[2 * unitOffset + 1] = dMax[0][0];
+        vapourBounds[unitOffset] = (float2)(dMin[0][0], dMax[0][0]);
+        
+        float4 colAvg = normalize((float4)(
+            col[0][0].x, col[0][0].y, col[0][0].z, 0.0f));
+        colourAvg[unitOffset] = (uchar4)(
+            (uchar)(colAvg.x * 256.0f),
+            (uchar)(colAvg.y * 256.0f),
+            (uchar)(colAvg.z * 256.0f),
+            0);
     }
 }
 

@@ -127,6 +127,11 @@ void AFK_ShapeCell::setDMinMax(float _minDensity, float _maxDensity)
     maxDensity = _maxDensity;
 }
 
+void AFK_ShapeCell::setAvgColour(const Vec3<float>& _avgColour)
+{
+    avgColour = _avgColour;
+}
+
 void AFK_ShapeCell::evict(void)
 {
 }

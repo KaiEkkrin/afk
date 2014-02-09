@@ -21,8 +21,9 @@
 #include "afk.hpp"
 
 #include "compute_dependency.hpp"
-#include "computer.hpp"
+#include "compute_readback.hpp"
 #include "core.hpp"
+#include "def.hpp"
 #include "keyed_cell.hpp"
 #include "shape_sizes.hpp"
 
@@ -41,11 +42,8 @@ protected:
     cl_kernel dReduceKernel;
 
     /* Results */
-    cl_mem buf;
-    size_t bufSize;
-    float *readback;
-    size_t readbackSize;
-    AFK_ComputeDependency readbackDep;
+    AFK_ComputeReadback<Vec2<float> > densityRb;
+    AFK_ComputeReadback<Vec4<uint8_t> > colourRb;
 
 public:
     AFK_DReduce(AFK_Computer *_computer);
@@ -63,7 +61,6 @@ public:
 
     void readBack(
         unsigned int threadId,
-        size_t unitCount,
         const std::vector<AFK_KeyedCell>& shapeCells,
         AFK_SHAPE_CELL_CACHE *cache);
 };
