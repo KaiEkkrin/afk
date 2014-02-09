@@ -93,7 +93,7 @@ static void disableControl(AFK_Control control)
 void afk_keyboard(const std::string& key)
 {
 #if DEBUG_CONTROLS
-    AFK_DEBUG_PRINTL("keyboard down: " << key)
+    AFK_DEBUG_PRINTL("keyboard down: " << key);
 #endif
     enableControl(afk_core.settings.keyboardControls.get(key));
 }
@@ -101,7 +101,7 @@ void afk_keyboard(const std::string& key)
 void afk_keyboardUp(const std::string& key)
 {
 #if DEBUG_CONTROLS
-    AFK_DEBUG_PRINTL("keyboard up: " << key)
+    AFK_DEBUG_PRINTL("keyboard up: " << key);
 #endif
     disableControl(afk_core.settings.keyboardControls.get(key));
 }
@@ -109,7 +109,7 @@ void afk_keyboardUp(const std::string& key)
 void afk_mouse(unsigned int button)
 {
 #if DEBUG_CONTROLS
-    AFK_DEBUG_PRINTL("mouse down: " << std::dec << button)
+    AFK_DEBUG_PRINTL("mouse down: " << std::dec << button);
 #endif
     enableControl(afk_core.settings.mouseControls[button]);
 }
@@ -117,7 +117,7 @@ void afk_mouse(unsigned int button)
 void afk_mouseUp(unsigned int button)
 {
 #if DEBUG_CONTROLS
-    AFK_DEBUG_PRINTL("mouse up: " << std::dec << button)
+    AFK_DEBUG_PRINTL("mouse up: " << std::dec << button);
 #endif
     disableControl(afk_core.settings.mouseControls[button]);
 }

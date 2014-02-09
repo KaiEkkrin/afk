@@ -175,10 +175,10 @@ bool afk_generateShapeCells(
     if (!someVisible)
     {
 #if AFK_SHAPE_ENUM_DEBUG
-        AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " invisible")
+        AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " invisible");
 #endif
 
-        DEBUG_VISIBLE_CELL("invisible")
+        DEBUG_VISIBLE_CELL("invisible");
         world->shapeCellsInvisible.fetch_add(1);
     }
     else
@@ -241,20 +241,20 @@ bool afk_generateShapeCells(
                                 if (!shape.generateClaimedShapeCell(
                                     threadId, vc, cell, vapourCellClaim, shapeCellClaim, worldTransform))
                                 {
-                                    DEBUG_VISIBLE_CELL("needs resume")
+                                    DEBUG_VISIBLE_CELL("needs resume");
                                     needsResume = true;
                                 }
                                 else
                                 {
-                                    DEBUG_VISIBLE_CELL("generated")
+                                    DEBUG_VISIBLE_CELL("generated");
 #if AFK_SHAPE_ENUM_DEBUG
-                                    AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " generated")
+                                    AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " generated");
 #endif
                                 }
                             }
                             else
                             {
-                                DEBUG_VISIBLE_CELL("recursing into subcells")
+                                DEBUG_VISIBLE_CELL("recursing into subcells");
         
                                 /* I can drop this before adding to the queue */
                                 shapeCellClaim.release();
@@ -278,7 +278,7 @@ bool afk_generateShapeCells(
                                     queue.push(subcellItem);
              
 #if AFK_SHAPE_ENUM_DEBUG
-                                    AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " recursed")
+                                    AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " recursed");
 #endif
                                 }
                         
@@ -287,27 +287,27 @@ bool afk_generateShapeCells(
                         }
                         else
                         {
-                            DEBUG_VISIBLE_CELL("empty or solid")
+                            DEBUG_VISIBLE_CELL("empty or solid");
                             world->shapeCellsReducedOut.fetch_add(1);
                         }
                     }
                     else
                     {
-                        DEBUG_VISIBLE_CELL("can't claim shape cell")
+                        DEBUG_VISIBLE_CELL("can't claim shape cell");
                         needsResume = true;
                     }
                 }
                 else
                 {
-                    DEBUG_VISIBLE_CELL("outside skeleton")
+                    DEBUG_VISIBLE_CELL("outside skeleton");
 #if AFK_SHAPE_ENUM_DEBUG
-                    AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " outsideskeleton")
+                    AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " outsideskeleton");
 #endif
                 }
             }
             else
             {
-                DEBUG_VISIBLE_CELL("needs resume at top level")
+                DEBUG_VISIBLE_CELL("needs resume at top level");
                 needsResume = true;
             }
         }
@@ -386,7 +386,7 @@ bool AFK_Shape::generateClaimedShapeCell(
                 world->shapeVapoursComputed.fetch_add(1);
 
 #if AFK_SHAPE_ENUM_DEBUG
-                AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << ": enqueueing existing vapour with " << cubeCount << " cubes from " << cubeOffset << ", from " << vc)
+                AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << ": enqueueing existing vapour with " << cubeCount << " cubes from " << cubeOffset << ", from " << vc);
 #endif
                     /* As below, now that I no longer compute edges, this is a success condition! */
                 success = true;
@@ -407,7 +407,7 @@ bool AFK_Shape::generateClaimedShapeCell(
                         vapourCell.enqueued(cubeOffset, cubeCount);
                         world->shapeVapoursComputed.fetch_add(1);
 #if AFK_SHAPE_ENUM_DEBUG
-                        AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << ": generated new vapour with " << list.cubeCount() << " cubes at " << vc)
+                        AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << ": generated new vapour with " << list.cubeCount() << " cubes at " << vc);
 #endif
 
                         /* Now that I no longer compute edges, for now, reaching this

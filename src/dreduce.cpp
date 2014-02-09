@@ -54,8 +54,7 @@ void AFK_DReduce::compute(
     size_t requiredSize = unitCount * 2 * sizeof(float);
     if (bufSize < requiredSize)
     {
-        if (buf)
-            AFK_CLCHK(computer->oclShim.ReleaseMemObject()(buf))
+        if (buf) AFK_CLCHK(computer->oclShim.ReleaseMemObject()(buf));
 
         buf = computer->oclShim.CreateBuffer()(
             ctxt, CL_MEM_WRITE_ONLY,

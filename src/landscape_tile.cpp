@@ -114,7 +114,7 @@ void AFK_LandscapeTile::makeTerrainDescriptor(
 
         assert(featureIt == terrainFeatures.end());
 
-        AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("makeTerrainDescriptor(): generated terrain for " << tile << " (terrain tiles " << AFK_InnerDebug<TileArray>(&terrainTiles) << ")")
+        AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("makeTerrainDescriptor(): generated terrain for " << tile << " (terrain tiles " << AFK_InnerDebug<TileArray>(&terrainTiles) << ")");
 
         haveTerrainDescriptor = true;
     }
@@ -129,7 +129,7 @@ void AFK_LandscapeTile::buildTerrainList(
     AFK_LANDSCAPE_CACHE *cache,
     std::vector<AFK_Tile>& missing) const
 {
-    AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): adding local terrain for " << tile << " (terrain tiles " << AFK_InnerDebug<TileArray>(&terrainTiles) << ")")
+    AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): adding local terrain for " << tile << " (terrain tiles " << AFK_InnerDebug<TileArray>(&terrainTiles) << ")");
 
     /* Add the local terrain tiles to the list,
      * but only if there aren't any missing already
@@ -145,7 +145,7 @@ void AFK_LandscapeTile::buildTerrainList(
         /* Find the parent tile in the cache. */
         AFK_Tile parentTile = thisTile.parent(subdivisionFactor);
 
-        AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): looking for terrain for " << parentTile)
+        AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): looking for terrain for " << parentTile);
 
         auto parentLandscapeTileClaim = cache->getAndClaimInplace(threadId, parentTile, AFK_CL_LOOP | AFK_CL_SHARED);
         if (parentLandscapeTileClaim.isValid())
@@ -158,7 +158,7 @@ void AFK_LandscapeTile::buildTerrainList(
             /* That tile is missing.  Continue looking for
              * higher level tiles anyway.
              */
-            AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): tile " << parentTile << " missing")
+            AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): tile " << parentTile << " missing");
             missing.push_back(parentTile);
             thisTile = parentTile;
         }
@@ -174,7 +174,7 @@ void AFK_LandscapeTile::buildTerrainList(
     AFK_LANDSCAPE_CACHE *cache,
     std::vector<AFK_Tile>& missing) const volatile
 {
-    AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): adding local terrain for volatile tile " << tile)
+    AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): adding local terrain for volatile tile " << tile);
 
     if (missing.empty())
         list.extendInplaceTiles(
@@ -188,7 +188,7 @@ void AFK_LandscapeTile::buildTerrainList(
     {
         AFK_Tile parentTile = tile.parent(subdivisionFactor);
 
-        AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): looking for terrain for " << parentTile)
+        AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): looking for terrain for " << parentTile);
 
         auto parentLandscapeTileClaim = cache->getAndClaimInplace(threadId, parentTile, AFK_CL_LOOP | AFK_CL_SHARED);
         if (parentLandscapeTileClaim.isValid())
@@ -201,7 +201,7 @@ void AFK_LandscapeTile::buildTerrainList(
             /* That tile is missing.  Continue looking for
              * higher level tiles anyway.
              */
-            AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): tile " << parentTile << " missing")
+            AFK_DEBUG_PRINTL_LANDSCAPE_BUILD("buildTerrainList(): tile " << parentTile << " missing");
             missing.push_back(parentTile);
             thisTile = parentTile;
         }
@@ -225,7 +225,7 @@ enum AFK_LandscapeTileArtworkState AFK_LandscapeTile::artworkState(
 #if 0
     if (rowTimestamp != jigsawPieceTimestamp)
     {
-        AFK_DEBUG_PRINTL("Tile " << terrainTiles[0].getTileCoord() << ": timestamp expired (Old piece: " << jigsawPiece << ")")
+        AFK_DEBUG_PRINTL("Tile " << terrainTiles[0].getTileCoord() << ": timestamp expired (Old piece: " << jigsawPiece << ")");
     }
 #endif
 
@@ -247,7 +247,7 @@ void AFK_LandscapeTile::setYBounds(float _yBoundLower, float _yBoundUpper)
      * has been computed now.
      */
 #if 0
-        AFK_DEBUG_PRINTL("Tile " << terrainTiles[0].getTileCoord() << ": new y-bounds appeared: " << yBoundLower << ", " << yBoundUpper)
+        AFK_DEBUG_PRINTL("Tile " << terrainTiles[0].getTileCoord() << ": new y-bounds appeared: " << yBoundLower << ", " << yBoundUpper);
 #endif
     }
 }

@@ -60,7 +60,7 @@
 
 #if AFK_DEBUG_POLYMER
 #include "../debug.hpp"
-#define AFK_DEBUG_PRINTL_POLYMER(expr) if (debug) { AFK_DEBUG_PRINTL(expr) }
+#define AFK_DEBUG_PRINTL_POLYMER(expr) if (debug) AFK_DEBUG_PRINTL(expr)
 #else
 #define AFK_DEBUG_PRINTL_POLYMER(expr)
 #endif
@@ -142,7 +142,7 @@ public:
         size_t offset = chainOffset(hops, baseHash);
         if (chain[offset].get(threadId, key, o_valuePtr))
         {
-            AFK_DEBUG_PRINTL_POLYMER("key " << key << " found at offset " << offset << " (hops " << hops << ", baseHash " << baseHash << ", chain " << index)
+            AFK_DEBUG_PRINTL_POLYMER("key " << key << " found at offset " << offset << " (hops " << hops << ", baseHash " << baseHash << ", chain " << index);
             return true;
         }
         else return false;
@@ -157,7 +157,7 @@ public:
         size_t offset = chainOffset(hops, baseHash);
         if (chain[offset].insert(threadId, key, o_valuePtr))
         {
-            AFK_DEBUG_PRINTL_POLYMER("key " << key << " inserted at offset " << offset << " (hops " << hops << ", baseHash " << baseHash << ", chain " << index)
+            AFK_DEBUG_PRINTL_POLYMER("key " << key << " inserted at offset " << offset << " (hops " << hops << ", baseHash " << baseHash << ", chain " << index);
             return true;
         }
         else return false;
@@ -216,7 +216,7 @@ public:
         {
             if (chain[slot].erase(threadId, key))
             {
-                AFK_DEBUG_PRINTL_POLYMER("key " << key << " erased at slot " << slot << ", chain " << index)
+                AFK_DEBUG_PRINTL_POLYMER("key " << key << " erased at slot " << slot << ", chain " << index);
                 return true;
             }
             else return false;

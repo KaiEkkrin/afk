@@ -222,7 +222,7 @@ void AFK_TerrainComputeQueue::computeStart(
         *postTerrainDep);
 
     /* Release the things */
-    AFK_CLCHK(computer->oclShim.ReleaseSampler()(jigsawYDispSampler))
+    AFK_CLCHK(computer->oclShim.ReleaseSampler()(jigsawYDispSampler));
 }
 
 void AFK_TerrainComputeQueue::computeFinish(unsigned int threadId, AFK_Jigsaw *jigsaw, AFK_LANDSCAPE_CACHE *cache)

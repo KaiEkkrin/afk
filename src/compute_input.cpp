@@ -36,7 +36,7 @@ AFK_ComputeInput::~AFK_ComputeInput()
     if (buf)
     {
         assert(computer);
-        AFK_CLCHK(computer->oclShim.ReleaseMemObject()(buf))
+        AFK_CLCHK(computer->oclShim.ReleaseMemObject()(buf));
     }
 }
 
@@ -53,7 +53,7 @@ cl_mem AFK_ComputeInput::bufferData(
     if (buf && size < _size)
     {
         /* I'm going to need to make a new, bigger buffer. */
-        AFK_CLCHK(computer->oclShim.ReleaseMemObject()(buf))
+        AFK_CLCHK(computer->oclShim.ReleaseMemObject()(buf));
         buf = 0;
     }
 

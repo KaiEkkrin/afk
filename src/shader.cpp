@@ -106,7 +106,7 @@ static void loadShaderFromFiles(
         sourceLengthsInt[i] = (GLint)sourceLengths[i];
 
     s->obj = glCreateShader(s->shaderType);
-    if (!s->obj) AFK_GLCHK("Create shader")
+    if (!s->obj) AFK_GLCHK("Create shader");
 
     glShaderSource(s->obj, static_cast<GLsizei>(sourceCount), (const GLchar **)sources, sourceLengthsInt);
     glCompileShader(s->obj);

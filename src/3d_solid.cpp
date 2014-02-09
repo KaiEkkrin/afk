@@ -108,7 +108,7 @@ bool AFK_3DVapourCube::addRandomFeatureAtAdjacencyBit(
         if (coordMin.v[i] != coordMax.v[i]) ++diffs;
     }
     dbgs << " (" << diffs << " differences)";
-    AFK_DEBUG_PRINTL(dbgs.str())
+    AFK_DEBUG_PRINTL(dbgs.str());
 #endif
 
     /* Finally!  I've got the possible locations.  Fill out the feature. */

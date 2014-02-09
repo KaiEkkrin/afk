@@ -63,9 +63,9 @@ void afk_handleClError(cl_int error, const char *_file, const int _line)
 AFK_ClPlatformProperties::AFK_ClPlatformProperties(AFK_Computer *computer, cl_platform_id platform):
     versionStr(nullptr)
 {
-    AFK_CLCHK(computer->oclShim.GetPlatformInfo()(platform, CL_PLATFORM_VERSION, 0, NULL, &versionStrSize))
+    AFK_CLCHK(computer->oclShim.GetPlatformInfo()(platform, CL_PLATFORM_VERSION, 0, NULL, &versionStrSize));
     versionStr = new char[versionStrSize];
-    AFK_CLCHK(computer->oclShim.GetPlatformInfo()(platform, CL_PLATFORM_VERSION, versionStrSize, versionStr, &versionStrSize))
+    AFK_CLCHK(computer->oclShim.GetPlatformInfo()(platform, CL_PLATFORM_VERSION, versionStrSize, versionStr, &versionStrSize));
 
 #ifdef _WIN32
     if (sscanf_s(versionStr, "OpenCL %d.%d", &majorVersion, &minorVersion) != 2)
@@ -200,12 +200,12 @@ bool AFK_Computer::findClGlDevices(AFK_ConfigSettings& settings, cl_platform_id 
     AFK_CLCHK(oclShim.GetPlatformInfo()(
         platform,
         CL_PLATFORM_NAME,
-        0, NULL, &platformNameSize))
+        0, NULL, &platformNameSize));
     platformName = new char[platformNameSize];
     AFK_CLCHK(oclShim.GetPlatformInfo()(
         platform,
         CL_PLATFORM_NAME,
-        platformNameSize, platformName, &platformNameSize))
+        platformNameSize, platformName, &platformNameSize));
 
     platformIsAMD = (strstr(platformName, "AMD") != NULL);
 
@@ -241,7 +241,7 @@ bool AFK_Computer::findClGlDevices(AFK_ConfigSettings& settings, cl_platform_id 
 
         try
         {
-            AFK_CLCHK(oclPlatformExtensionShim->GetGLContextInfoKHR()(clGlProperties, CL_CURRENT_DEVICE_FOR_GL_CONTEXT_KHR, sizeof(cl_device_id), devices, NULL))
+            AFK_CLCHK(oclPlatformExtensionShim->GetGLContextInfoKHR()(clGlProperties, CL_CURRENT_DEVICE_FOR_GL_CONTEXT_KHR, sizeof(cl_device_id), devices, NULL));
             afk_out << "Found a supported cl_gl device." << std::endl;
         }
         catch (AFK_Exception&)
@@ -255,12 +255,12 @@ bool AFK_Computer::findClGlDevices(AFK_ConfigSettings& settings, cl_platform_id 
 
     if (!settings.clGlSharing)
     {
-        AFK_CLCHK(oclShim.GetDeviceIDs()(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &devicesSize))
+        AFK_CLCHK(oclShim.GetDeviceIDs()(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &devicesSize));
 
         if (devicesSize > 0)
         {
             devices = new cl_device_id[devicesSize];
-            AFK_CLCHK(oclShim.GetDeviceIDs()(platform, CL_DEVICE_TYPE_GPU, devicesSize, devices, &devicesSize))
+            AFK_CLCHK(oclShim.GetDeviceIDs()(platform, CL_DEVICE_TYPE_GPU, devicesSize, devices, &devicesSize));
             afk_out << "Found " << devicesSize << " supported OpenCL devices. " << std::endl;
         }
     }
@@ -271,9 +271,9 @@ bool AFK_Computer::findClGlDevices(AFK_ConfigSettings& settings, cl_platform_id 
         char *deviceName;
         size_t deviceNameSize;
 
-        AFK_CLCHK(oclShim.GetDeviceInfo()(devices[0], CL_DEVICE_NAME, 0, NULL, &deviceNameSize))
+        AFK_CLCHK(oclShim.GetDeviceInfo()(devices[0], CL_DEVICE_NAME, 0, NULL, &deviceNameSize));
         deviceName = new char[deviceNameSize];
-        AFK_CLCHK(oclShim.GetDeviceInfo()(devices[0], CL_DEVICE_NAME, deviceNameSize, deviceName, &deviceNameSize))
+        AFK_CLCHK(oclShim.GetDeviceInfo()(devices[0], CL_DEVICE_NAME, deviceNameSize, deviceName, &deviceNameSize));
         afk_out << "First device is a " << deviceName << std::endl;
 
         delete[] deviceName;
@@ -463,10 +463,10 @@ AFK_Computer::AFK_Computer(AFK_ConfigSettings& settings):
         AFK_ClKernel("shape_3dvapour", "makeShape3DVapourNormal"),
     };
 
-    AFK_CLCHK(oclShim.GetPlatformIDs()(0, NULL, &platformCount))
+    AFK_CLCHK(oclShim.GetPlatformIDs()(0, NULL, &platformCount));
     platforms = (cl_platform_id *)malloc(sizeof(cl_platform_id) * platformCount);
     if (!platforms) throw AFK_Exception("Unable to allocate memory to inspect OpenCL platforms");
-    AFK_CLCHK(oclShim.GetPlatformIDs()(platformCount, platforms, &platformCount))
+    AFK_CLCHK(oclShim.GetPlatformIDs()(platformCount, platforms, &platformCount));
 
     afk_out << "AFK: Found " << platformCount << " OpenCL platforms" << std::endl;
 

@@ -68,13 +68,13 @@ public:
     AFK_LockedClaim(AFK_LockedClaim&& _claim) afk_noexcept:
         claimable(_claim.claimable), status(_claim.status)
     {
-        AFK_DEBUG_PRINTL_CLAIMABLE("copy moving inplace claim for " << std::hex << claimable << ": " << obj)
+        AFK_DEBUG_PRINTL_CLAIMABLE("copy moving inplace claim for " << std::hex << claimable << ": " << obj);
         _claim.status   = AFK_LockedClaimStatus::Released;
     }
 
     AFK_LockedClaim& operator=(AFK_LockedClaim&& _claim) afk_noexcept
     {
-        AFK_DEBUG_PRINTL_CLAIMABLE("assign moving inplace claim for " << std::hex << claimable << ": " << obj)
+        AFK_DEBUG_PRINTL_CLAIMABLE("assign moving inplace claim for " << std::hex << claimable << ": " << obj);
 
         claimable       = _claim.claimable;
         status          = _claim.status;
@@ -84,7 +84,7 @@ public:
 
     virtual ~AFK_LockedClaim() afk_noexcept
     {
-        AFK_DEBUG_PRINTL_CLAIMABLE("destructing inplace claim for " << std::hex << claimable << ": " << obj << "(released: " << status == AFK_LockedClaimStatus::Released << ")")
+        AFK_DEBUG_PRINTL_CLAIMABLE("destructing inplace claim for " << std::hex << claimable << ": " << obj << "(released: " << status == AFK_LockedClaimStatus::Released << ")");
         if (status != AFK_LockedClaimStatus::Released) release();
     }
 

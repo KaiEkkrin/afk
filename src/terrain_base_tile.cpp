@@ -109,7 +109,7 @@ void AFK_TerrainBaseTile::initGL()
 void AFK_TerrainBaseTile::draw(size_t instanceCount) const
 {
     glDrawElementsInstanced(GL_TRIANGLE_STRIP, static_cast<GLsizei>(indices.size()), GL_UNSIGNED_SHORT, 0, static_cast<GLsizei>(instanceCount));
-    AFK_GLCHK("terrain draw")
+    AFK_GLCHK("terrain draw");
 }
 
 void AFK_TerrainBaseTile::teardownGL(void) const

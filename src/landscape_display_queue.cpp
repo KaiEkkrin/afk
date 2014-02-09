@@ -186,7 +186,7 @@ void AFK_LandscapeDisplayQueue::draw(
         GL_TEXTURE_BUFFER,
         GL_RGBA32F,
         buf);
-    AFK_GLCHK("landscape display queue texBuffer")
+    AFK_GLCHK("landscape display queue texBuffer");
     glUniform1i(displayTBOSamplerLocation, 3);
 
 #if AFK_GL_DEBUG

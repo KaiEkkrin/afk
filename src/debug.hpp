@@ -27,18 +27,18 @@
 void afk_debugPrint(const std::string& s);
 
 #define AFK_DEBUG_PRINT(expr) \
-    { \
+    do { \
         std::ostringstream ss; \
         ss << std::this_thread::get_id() << ": " << expr; \
         afk_debugPrint(ss.str()); \
-    }
+    } while(0)
 
 #define AFK_DEBUG_PRINTL(expr) \
-    { \
+    do { \
         std::ostringstream ss; \
         ss << std::this_thread::get_id() << ": " << expr << std::endl; \
         afk_debugPrint(ss.str()); \
-    }
+    } while(0)
 
 template<typename T, size_t innerBytes = 16>
 class AFK_InnerDebug

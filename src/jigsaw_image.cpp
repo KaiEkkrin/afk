@@ -711,7 +711,7 @@ void AFK_JigsawImage::initGlImage(const Vec3<int>& _jigsawSize)
         throw AFK_Exception("Unrecognised texTarget");
     }
 
-    AFK_GLCHK("AFK_JigSaw texStorage")
+    AFK_GLCHK("AFK_JigSaw texStorage");
 
     glBindTexture(texTarget, 0);
     free(zeroBuf);

@@ -25,7 +25,7 @@ void AFK_ComputeDependency::clearEvents(void)
 {
     for (auto ev : e)
     {
-        AFK_CLCHK(computer->oclShim.ReleaseEvent()(ev))
+        AFK_CLCHK(computer->oclShim.ReleaseEvent()(ev));
     }
     e.clear();
 }
@@ -35,7 +35,7 @@ void AFK_ComputeDependency::copyEvents(const std::vector<cl_event>& _e)
     e.reserve(e.size() + _e.size());
     for (auto ev : _e)
     {
-        AFK_CLCHK(computer->oclShim.RetainEvent()(ev))
+        AFK_CLCHK(computer->oclShim.RetainEvent()(ev));
         e.push_back(ev);
     }
 }
@@ -110,7 +110,7 @@ void AFK_ComputeDependency::waitFor(void)
 {
     if (useEvents && e.size() > 0)
     {
-        AFK_CLCHK(computer->oclShim.WaitForEvents()(static_cast<cl_uint>(e.size()), &e[0]))
+        AFK_CLCHK(computer->oclShim.WaitForEvents()(static_cast<cl_uint>(e.size()), &e[0]));
         clearEvents();
     }
 }

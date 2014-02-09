@@ -29,7 +29,7 @@
 
 
 #define AFK_GLCHK(message) \
-    { \
+    do { \
         GLenum glErr = glGetError(); \
         if (glErr != GL_NO_ERROR) \
         { \
@@ -37,7 +37,7 @@
             ss << "AFK: Got GL error from " << message << ": " << gluErrorString(glErr); \
             throw AFK_Exception(ss.str()); \
         } \
-    }
+    } while(0)
 
 
 /* Describes the layout of a vertex for the protagonist

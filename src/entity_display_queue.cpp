@@ -117,7 +117,7 @@ void AFK_EntityDisplayQueue::draw(
         GL_TEXTURE_BUFFER,
         GL_RGBA32F,
         buf);
-    AFK_GLCHK("entity display queue texBuffer")
+    AFK_GLCHK("entity display queue texBuffer");
     glUniform1i(displayTBOSamplerLocation, 3);
 
 #if AFK_GL_DEBUG

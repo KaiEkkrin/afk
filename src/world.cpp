@@ -217,7 +217,7 @@ bool AFK_World::generateLandscapeArtwork(
         tile.coord.v[2] >= 256 ? 0 : 1,
         landscapeJigsaws);
 #if DEBUG_JIGSAW_ASSOCIATION
-    AFK_DEBUG_PRINTL("Compute: " << tile << " -> " << jigsawPiece)
+    AFK_DEBUG_PRINTL("Compute: " << tile << " -> " << jigsawPiece);
 #endif
 
     /* Now, I need to enqueue the terrain list and the
@@ -228,8 +228,8 @@ bool AFK_World::generateLandscapeArtwork(
 #if DEBUG_TERRAIN_COMPUTE_QUEUE
     AFK_TerrainComputeUnit unit = computeQueue->extend(
         terrainList, piece2D, tile, lSizes);
-    AFK_DEBUG_PRINTL("Pushed to queue for " << tile << ": " << unit << ": " << std::endl)
-    //AFK_DEBUG_PRINTL(computeQueue->debugTerrain(unit, lSizes))
+    AFK_DEBUG_PRINTL("Pushed to queue for " << tile << ": " << unit << ": " << std::endl);
+    //AFK_DEBUG_PRINTL(computeQueue->debugTerrain(unit, lSizes));
 #else
     computeQueue->extend(terrainList, piece2D, tile, lSizes);
 #endif
@@ -245,7 +245,7 @@ void AFK_World::displayLandscapeTile(
     unsigned int threadId)
 {
 #if DEBUG_JIGSAW_ASSOCIATION
-    AFK_DEBUG_PRINTL("Display: " << tile << " (" << landscapeTile << ")")
+    AFK_DEBUG_PRINTL("Display: " << tile << " (" << landscapeTile << ")");
 #endif
     assert(landscapeTile.artworkState(landscapeJigsaws) == AFK_LANDSCAPE_TILE_HAS_ARTWORK);
 
@@ -262,7 +262,7 @@ void AFK_World::displayLandscapeTile(
     if (reallyDisplayThisTile)
     {
 #if DEBUG_JIGSAW_ASSOCIATION
-        AFK_DEBUG_PRINTL("Display: " << tile << " -> " << landscapeTile << " -> " << unit)
+        AFK_DEBUG_PRINTL("Display: " << tile << " -> " << landscapeTile << " -> " << unit);
 #endif
         std::shared_ptr<AFK_LandscapeDisplayQueue> ldq =
             landscapeDisplayFair.getUpdateQueue(jigsawPiece.puzzle);
@@ -473,7 +473,7 @@ bool AFK_World::generateClaimedWorldCell(
 #if AFK_SHAPE_ENUM_DEBUG
                     shapeCellItem.param.shape.asedWorldCell     = cell;
                     shapeCellItem.param.shape.asedCounter       = eI;
-                    AFK_DEBUG_PRINTL("ASED: Enqueued entity: worldCell=" << cell << ", entity counter=" << eI)
+                    AFK_DEBUG_PRINTL("ASED: Enqueued entity: worldCell=" << cell << ", entity counter=" << eI);
 #endif
         
                     shapeCellItem.param.shape.dependency        = nullptr;
@@ -924,10 +924,10 @@ void AFK_World::display(
     glUniformMatrix4fv(landscape_clipTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
     glUniform3fv(landscape_skyColourLocation, 1, &afk_core.skyColour.v[0]);
     glUniform1f(landscape_farClipDistanceLocation, afk_core.settings.zFar);
-    AFK_GLCHK("landscape uniforms")
+    AFK_GLCHK("landscape uniforms");
 
     glBindVertexArray(landscapeTileArray);
-    AFK_GLCHK("landscape bindVertexArray")
+    AFK_GLCHK("landscape bindVertexArray");
 
 
     /* Now that I've set that up, make the texture that describes
@@ -959,10 +959,10 @@ void AFK_World::display(
     glUniform2fv(entity_windowSizeLocation, 1, &windowSize.v[0]);
     glUniform3fv(entity_skyColourLocation, 1, &afk_core.skyColour.v[0]);
     glUniform1f(entity_farClipDistanceLocation, afk_core.settings.zFar);
-    AFK_GLCHK("shape uniforms")
+    AFK_GLCHK("shape uniforms");
 
     glBindVertexArray(edgeShapeBaseArray);
-    AFK_GLCHK("edge shape bindVertexArray")
+    AFK_GLCHK("edge shape bindVertexArray");
 
     std::vector<std::shared_ptr<AFK_EntityDisplayQueue> > entityDrawQueues;
     entityDisplayFair.getDrawQueues(entityDrawQueues);

@@ -75,14 +75,14 @@ public:
     AFK_VolatileInplaceClaim(AFK_VolatileInplaceClaim&& _claim) afk_noexcept:
         threadId(_claim.threadId), claimable(_claim.claimable), shared(_claim.shared), released(_claim.released)
     {
-        AFK_DEBUG_PRINTL_CLAIMABLE("copy moving inplace claim for " << std::hex << claimable << ": " << obj)
+        AFK_DEBUG_PRINTL_CLAIMABLE("copy moving inplace claim for " << std::hex << claimable << ": " << obj);
         _claim.released = true;
     }
 
     /* ...likewise... */
     AFK_VolatileInplaceClaim& operator=(AFK_VolatileInplaceClaim&& _claim) afk_noexcept
     {
-        AFK_DEBUG_PRINTL_CLAIMABLE("assign moving inplace claim for " << std::hex << claimable << ": " << obj)
+        AFK_DEBUG_PRINTL_CLAIMABLE("assign moving inplace claim for " << std::hex << claimable << ": " << obj);
 
         threadId        = _claim.threadId;
         claimable       = _claim.claimable;
@@ -94,7 +94,7 @@ public:
 
     virtual ~AFK_VolatileInplaceClaim() afk_noexcept
     {
-        AFK_DEBUG_PRINTL_CLAIMABLE("destructing inplace claim for " << std::hex << claimable << ": " << obj << "(released: " << released << ")")
+        AFK_DEBUG_PRINTL_CLAIMABLE("destructing inplace claim for " << std::hex << claimable << ": " << obj << "(released: " << released << ")");
         if (!released) release();
     }
 
@@ -212,7 +212,7 @@ public:
      */ 
     AFK_VolatileClaim(AFK_VolatileClaim&& _claim) afk_noexcept
     {
-        AFK_DEBUG_PRINTL_CLAIMABLE("copy moving claim for " << std::hex << claimable << ": " << obj)
+        AFK_DEBUG_PRINTL_CLAIMABLE("copy moving claim for " << std::hex << claimable << ": " << obj);
 
         inplace.threadId    = _claim.inplace.threadId;
         inplace.claimable   = _claim.inplace.claimable;
@@ -225,7 +225,7 @@ public:
     /* ...likewise... */
     AFK_VolatileClaim& operator=(AFK_VolatileClaim&& _claim) afk_noexcept
     {
-        AFK_DEBUG_PRINTL_CLAIMABLE("assign moving claim for " << std::hex << claimable << ": " << obj)
+        AFK_DEBUG_PRINTL_CLAIMABLE("assign moving claim for " << std::hex << claimable << ": " << obj);
 
         inplace.threadId    = _claim.inplace.threadId;
         inplace.claimable   = _claim.inplace.claimable;
@@ -238,7 +238,7 @@ public:
 
     virtual ~AFK_VolatileClaim() afk_noexcept
     {
-        AFK_DEBUG_PRINTL_CLAIMABLE("destructing claim for " << std::hex << claimable << ": " << obj << "(released: " << released << ")")
+        AFK_DEBUG_PRINTL_CLAIMABLE("destructing claim for " << std::hex << claimable << ": " << obj << "(released: " << released << ")");
         if (!inplace.released) release();
     }
 

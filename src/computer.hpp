@@ -70,10 +70,10 @@ public:
 void afk_handleClError(cl_int error, const char *_file, const int _line);
 
 #define AFK_CLCHK(call) \
-    { \
+    do { \
         cl_int error = call; \
         if (error != CL_SUCCESS) afk_handleClError(error, __FILE__, __LINE__); \
-    }
+    } while (0)
 
 #define AFK_HANDLE_CL_ERROR(error) afk_handleClError(error, __FILE__, __LINE__)
 

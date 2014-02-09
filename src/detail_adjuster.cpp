@@ -28,6 +28,16 @@
 #include "file/logstream.hpp"
 
 
+#define AFK_DEBUG_DETAIL_ADJUSTER 0
+
+#if AFK_DEBUG_DETAIL_ADJUSTER
+#define AFK_DEBUG_PRINT_DA(expr) AFK_DEBUG_PRINT(expr)
+#define AFK_DEBUG_PRINTL_DA(expr) AFK_DEBUG_PRINTL(expr)
+#else
+#define AFK_DEBUG_PRINT_DA(expr)
+#define AFK_DEBUG_PRINTL_DA(expr)
+#endif
+
 /* AFK_DetailAdjuster implementation */
 
 AFK_DetailAdjuster::AFK_DetailAdjuster(const AFK_ConfigSettings& settings):
@@ -63,7 +73,7 @@ void AFK_DetailAdjuster::startOfFrame(void)
 
         float boundedError = std::max<float>(std::min<float>(deviation.get() / errorPerDeviation, 1.0f), -1.0f);
         float detailFactor = -(1.0f / (boundedError / 2.0f - 1.0f)); /* between 0.5 and 2 */
-        //AFK_DEBUG_PRINTL("Detail factor: " << detailFactor)
+        AFK_DEBUG_PRINTL_DA("Detail factor: " << detailFactor);
         detailPitch = std::max<float>(std::min<float>(detailPitch * detailFactor, detailPitchMax), detailPitchMin);
     }
 
@@ -133,14 +143,14 @@ float AFK_DetailAdjuster::getDetailPitch(void)
     float logDetailPitch = log(detailPitch);
     if (fabs(logDetailPitch - logLastDetailPitch) > stickiness)
     {
-        //AFK_DEBUG_PRINTL("detail pitch " << detailPitch << "; using new")
+        AFK_DEBUG_PRINTL_DA("detail pitch " << detailPitch << "; using new");
         lastDetailPitch = detailPitch;
         logLastDetailPitch = logDetailPitch;
         return detailPitch;
     }
     else
     {
-        //AFK_DEBUG_PRINTL("detail pitch " << detailPitch << ": using last, " << lastDetailPitch)
+        AFK_DEBUG_PRINTL_DA("detail pitch " << detailPitch << ": using last, " << lastDetailPitch);
         return lastDetailPitch;
     }
 }

@@ -159,7 +159,7 @@ void afk_idle(void)
             afk_core.computingUpdateDelayed = false;
 
 #if FRAME_NUMBER_DEBUG || AFK_SHAPE_ENUM_DEBUG
-            AFK_DEBUG_PRINTL("Now computing frame " << afk_core.computingFrame)
+            AFK_DEBUG_PRINTL("Now computing frame " << afk_core.computingFrame);
 #endif
         
             break;

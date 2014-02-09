@@ -102,7 +102,7 @@ void AFK_3DEdgeShapeBase::draw(size_t instanceCount) const
         GL_UNSIGNED_SHORT,
         0,
         static_cast<GLsizei>(instanceCount));
-    AFK_GLCHK("3d edge shape draw")
+    AFK_GLCHK("3d edge shape draw");
 }
 
 void AFK_3DEdgeShapeBase::teardownGL(void) const

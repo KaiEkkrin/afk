@@ -61,7 +61,7 @@ void AFK_ComputeQueue::kernelArg(
 {
     assert(commandSet & AFK_CQ_KERNEL_COMMAND_SET);
     assert(k);
-    AFK_CLCHK(oclShim->SetKernelArg()(k, kernelArgCount++, size, arg))
+    AFK_CLCHK(oclShim->SetKernelArg()(k, kernelArgCount++, size, arg));
 }
 
 void AFK_ComputeQueue::kernel2D(
@@ -73,7 +73,7 @@ void AFK_ComputeQueue::kernel2D(
     assert(commandSet & AFK_CQ_KERNEL_COMMAND_SET);
     assert(k);
     AFK_CLCHK(oclShim->EnqueueNDRangeKernel()(
-        q, k, 2, nullptr, globalDim, localDim, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
+        q, k, 2, nullptr, globalDim, localDim, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()));
     k = 0;
 }
 
@@ -86,7 +86,7 @@ void AFK_ComputeQueue::kernel3D(
     assert(commandSet & AFK_CQ_KERNEL_COMMAND_SET);
     assert(k);
     AFK_CLCHK(oclShim->EnqueueNDRangeKernel()(
-        q, k, 3, nullptr, globalDim, localDim, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
+        q, k, 3, nullptr, globalDim, localDim, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()));
     k = 0;
 }
 
@@ -105,7 +105,7 @@ void AFK_ComputeQueue::acquireGlObjects(
 {
     assert(commandSet & AFK_CQ_READ_COMMAND_SET);
     AFK_CLCHK(oclShim->EnqueueAcquireGLObjects()(
-        q, count, obj, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
+        q, count, obj, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()));
 }
 
 void AFK_ComputeQueue::readBuffer(
@@ -117,7 +117,7 @@ void AFK_ComputeQueue::readBuffer(
 {
     assert(commandSet & AFK_CQ_READ_COMMAND_SET);
     AFK_CLCHK(oclShim->EnqueueReadBuffer()(
-        q, buf, blocking, 0, size, target, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
+        q, buf, blocking, 0, size, target, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()));
 }
 
 void AFK_ComputeQueue::readImage(
@@ -130,7 +130,7 @@ void AFK_ComputeQueue::readImage(
 {
     assert(commandSet & AFK_CQ_READ_COMMAND_SET);
     AFK_CLCHK(oclShim->EnqueueReadImage()(
-        q, tex, blocking, origin, region, 0, 0, target, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
+        q, tex, blocking, origin, region, 0, 0, target, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()));
 }
 
 void AFK_ComputeQueue::releaseGlObjects(
@@ -141,7 +141,7 @@ void AFK_ComputeQueue::releaseGlObjects(
 {
     assert(commandSet & AFK_CQ_READ_COMMAND_SET);
     AFK_CLCHK(oclShim->EnqueueReleaseGLObjects()(
-        q, count, obj, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
+        q, count, obj, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()));
 }
 
 void AFK_ComputeQueue::writeBuffer(
@@ -153,10 +153,10 @@ void AFK_ComputeQueue::writeBuffer(
 {
     assert(commandSet & AFK_CQ_WRITE_COMMAND_SET);
     AFK_CLCHK(oclShim->EnqueueWriteBuffer()(
-        q, buf, blocking, 0, size, source, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()))
+        q, buf, blocking, 0, size, source, preDep.getEventCount(), preDep.getEvents(), postDep.addEvent()));
 }
 
 void AFK_ComputeQueue::finish(void)
 {
-    AFK_CLCHK(oclShim->Finish()(q))
+    AFK_CLCHK(oclShim->Finish()(q));
 }

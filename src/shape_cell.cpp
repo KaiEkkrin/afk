@@ -78,7 +78,7 @@ void AFK_ShapeCell::enqueueVapourComputeUnitWithNewVapour(
         vapourComputeFair.getUpdateQueue(0);
 
 #if SHAPE_COMPUTE_DEBUG
-    AFK_DEBUG_PRINTL("Shape cell : Computing new vapour: vapour jigsaw piece " << vapourJigsawPiece)
+    AFK_DEBUG_PRINTL("Shape cell : Computing new vapour: vapour jigsaw piece " << vapourJigsawPiece);
 #endif
 
     vapourComputeQueue->extend(list, o_cubeOffset, o_cubeCount);
@@ -108,7 +108,7 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
         vapourComputeFair.getUpdateQueue(0);
 
 #if SHAPE_COMPUTE_DEBUG
-    AFK_DEBUG_PRINTL("Shape cell : Computing existing vapour with cube offset " << cubeOffset << ", cube count " << cubeCount << ": vapour jigsaw piece " << vapourJigsawPiece)
+    AFK_DEBUG_PRINTL("Shape cell : Computing existing vapour with cube offset " << cubeOffset << ", cube count " << cubeCount << ": vapour jigsaw piece " << vapourJigsawPiece);
 #endif
 
     vapourComputeQueue->addUnit(
