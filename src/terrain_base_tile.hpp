@@ -30,16 +30,16 @@
 
 /* The terrain basis contains (vertex location, tile coord). */
 
-/* TODO Move the VAO currently in world so that it's owned by
- * this module instead?
- * (Surely makes more sense)
- */
 #ifdef _WIN32
 _declspec(align(16))
 #endif
 class AFK_TerrainBaseTileVertex
 {
 public:
+    /* TODO: I believe that `tileCoord' remains the same for every vertex in
+     * a tile, and properly ought to be part of the draw texbuf, instead --
+     * indeed, is it not already?
+     */
     Vec3<float> location;
     Vec2<float> tileCoord;
 

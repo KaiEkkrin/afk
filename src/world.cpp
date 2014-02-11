@@ -676,6 +676,10 @@ AFK_World::AFK_World(
     landscape_skyColourLocation = glGetUniformLocation(landscape_shaderProgram->program, "SkyColour");
     landscape_farClipDistanceLocation = glGetUniformLocation(landscape_shaderProgram->program, "FarClipDistance");
 
+    /* TODO: Change these out for distant, swarm, and net.  Maybe even push responsibility
+     * for the shader programs into the base shapes; it would relieve a bit of load on
+     * the world object
+     */
     entity_shaderProgram = new AFK_ShaderProgram();
     *entity_shaderProgram << "shape_fragment" << "shape_geometry" << "shape_vertex";
     entity_shaderProgram->Link();
@@ -695,13 +699,21 @@ AFK_World::AFK_World(
     glBindVertexArray(0);
     landscapeTerrainBase->teardownGL();
 
-    glGenVertexArrays(1, &edgeShapeBaseArray);
-    glBindVertexArray(edgeShapeBaseArray);
-    edgeShapeBase = new AFK_3DEdgeShapeBase(sSizes);
-    edgeShapeBase->initGL();
+    glGenVertexArrays(1, &distantShapeBaseArray);
+    glBindVertexArray(distantShapeBaseArray);
+    distantShapeBase = new AFK_3DDistantShapeBase(sSizes);
+    distantShapeBase->initGL();
 
     glBindVertexArray(0);
-    edgeShapeBase->teardownGL();
+    distantShapeBase->teardownGL();
+
+    glGenVertexArrays(1, &swarmShapeBaseArray);
+    glBindVertexArray(swarmShapeBaseArray);
+    swarmShapeBase = new AFK_3DSwarmShapeBase(sSizes);
+    swarmShapeBase->initGL();
+
+    glBindVertexArray(0);
+    swarmShapeBase->teardownGL();
 
     /* Make the base colour for the landscape here */
     landscape_baseColour = afk_vec3<float>(
@@ -743,8 +755,11 @@ AFK_World::~AFK_World()
     delete entity_shaderProgram;
     delete entity_shaderLight;
 
-    delete edgeShapeBase;
-    glDeleteVertexArrays(1, &edgeShapeBaseArray);
+    delete swarmShapeBase;
+    glDeleteVertexArrays(1, &swarmShapeBaseArray);
+
+    delete distantShapeBase;
+    glDeleteVertexArrays(1, &distantShapeBaseArray);
 
     delete landscapeTerrainBase;
     glDeleteVertexArrays(1, &landscapeTileArray);
@@ -928,7 +943,6 @@ void AFK_World::display(
 
     glBindVertexArray(landscapeTileArray);
     AFK_GLCHK("landscape bindVertexArray");
-
 
     /* Now that I've set that up, make the texture that describes
      * where the tiles are in space ...

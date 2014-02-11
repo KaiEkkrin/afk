@@ -45,13 +45,17 @@
  * shader can transform into a triangle_strip for proper rendering.
  */
 
+/* TODO: This class is deprecated in the 3dnet2 branch, and should go away
+ * once I've successfully replaced it with 3d_distant_shape_base,
+ * 3d_swarm_shape_base and 3d_net_shape_base.
+ */
+
 class AFK_3DEdgeShapeBase
 {
 protected:
     std::vector<Vec2<float> > vertices;
     std::vector<unsigned short> indices;
 
-    GLuint vertexArray;
     GLuint *bufs;
 
 public:

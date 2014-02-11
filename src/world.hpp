@@ -25,7 +25,8 @@
 
 #include <boost/atomic.hpp>
 
-#include "3d_edge_shape_base.hpp"
+#include "3d_distant_shape_base.hpp"
+#include "3d_swarm_shape_base.hpp"
 #include "3d_vapour_compute_queue.hpp"
 #include "async/async.hpp"
 #include "async/work_queue.hpp"
@@ -187,12 +188,12 @@ protected:
     AFK_Fair<AFK_3DVapourComputeQueue> vapourComputeFair;
 #define AFK_MAX_VAPOUR 4
 
-    /* The basic shape geometry.
-     * TODO: Presently, I want to change this for the swarm
-     * shape, and then the tessellated net shape!
-     */
-    GLuint edgeShapeBaseArray;
-    AFK_3DEdgeShapeBase *edgeShapeBase;
+    /* The basic shape geometries. */
+    GLuint distantShapeBaseArray;
+    AFK_3DDistantShapeBase *distantShapeBase;
+
+    GLuint swarmShapeBaseArray;
+    AFK_3DSwarmShapeBase *swarmShapeBase;
 
     /* The cell generating gang */
     AFK_AsyncGang<union AFK_WorldWorkParam, bool, struct AFK_WorldWorkThreadLocal, afk_worldGenerationFinishedFunc> *genGang;

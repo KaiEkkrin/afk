@@ -177,8 +177,10 @@
     <Text Include="README.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\3d_distant_shape_base.hpp" />
     <ClInclude Include="src\3d_edge_shape_base.hpp" />
     <ClInclude Include="src\3d_solid.hpp" />
+    <ClInclude Include="src\3d_swarm_shape_base.hpp" />
     <ClInclude Include="src\3d_vapour_compute_queue.hpp" />
     <ClInclude Include="src\afk.hpp" />
     <ClInclude Include="src\async\async.hpp" />
@@ -293,8 +295,10 @@
     <None Include="src\shaders\shape_vertex.glsl" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\3d_distant_shape_base.cpp" />
     <ClCompile Include="src\3d_edge_shape_base.cpp" />
     <ClCompile Include="src\3d_solid.cpp" />
+    <ClCompile Include="src\3d_swarm_shape_base.cpp" />
     <ClCompile Include="src\3d_vapour_compute_queue.cpp" />
     <ClCompile Include="src\async\async.cpp" />
     <ClCompile Include="src\async\async_test.cpp" />
