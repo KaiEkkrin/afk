@@ -17,6 +17,8 @@
 
 #include "afk.hpp"
 
+#include <cassert>
+
 #include "display.hpp"
 #include "terrain_base_tile.hpp"
 
@@ -53,19 +55,24 @@ AFK_TerrainBaseTile::AFK_TerrainBaseTile(const AFK_LandscapeSizes& lSizes):
         }
     }
     
-    for (unsigned short x = 0; x < lSizes.pointSubdivisionFactor; ++x)
+    for (unsigned int x = 0; x < lSizes.pointSubdivisionFactor; ++x)
     {
-        for (unsigned short z = 0; z < lSizes.pointSubdivisionFactor; ++z)
+        for (unsigned int z = 0; z < lSizes.pointSubdivisionFactor; ++z)
         {
-            unsigned short i_r1c1 = x * lSizes.vDim + z;
-            unsigned short i_r2c1 = (x + 1) * lSizes.vDim + z;
-            unsigned short i_r1c2 = x * lSizes.vDim + (z + 1);
-            unsigned short i_r2c2 = (x + 1) * lSizes.vDim + (z + 1);
+            unsigned int i_r1c1 = x * lSizes.vDim + z;
+            unsigned int i_r2c1 = (x + 1) * lSizes.vDim + z;
+            unsigned int i_r1c2 = x * lSizes.vDim + (z + 1);
+            unsigned int i_r2c2 = (x + 1) * lSizes.vDim + (z + 1);
 
-            indices.push_back(i_r1c1);
-            indices.push_back(i_r1c2);
-            indices.push_back(i_r2c1);
-            indices.push_back(i_r2c2);
+            assert(i_r1c1 < USHRT_MAX);
+            assert(i_r2c1 < USHRT_MAX);
+            assert(i_r1c2 < USHRT_MAX);
+            assert(i_r2c2 < USHRT_MAX);
+
+            indices.push_back(static_cast<unsigned short>(i_r1c1));
+            indices.push_back(static_cast<unsigned short>(i_r1c2));
+            indices.push_back(static_cast<unsigned short>(i_r2c1));
+            indices.push_back(static_cast<unsigned short>(i_r2c2));
             indices.push_back(RESTART_INDEX);
         }
     }

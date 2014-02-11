@@ -17,22 +17,45 @@
 
 #include "afk.hpp"
 
+#include <cassert>
+
 #include "3d_swarm_shape_base.hpp"
 #include "display.hpp"
 
-AFK_3DSwarmShapeBase::AFK_3DSwarmShapeBase(const AFK_ShapeSizes& sSizes) :
-buf(0)
+static unsigned short getIndexForPoint(unsigned int x, unsigned int y, unsigned int z, const AFK_ShapeSizes& sSizes)
 {
+    unsigned int idx = (x * SQUARE(sSizes.eDim) + y * sSizes.eDim + z);
+    assert(idx <= USHRT_MAX);
+    return static_cast<unsigned short>(idx);
+}
+
+AFK_3DSwarmShapeBase::AFK_3DSwarmShapeBase(const AFK_ShapeSizes& sSizes):
+bufs(nullptr)
+{
+    for (unsigned int x = 0; x < sSizes.eDim; ++x)
+    {
+        for (unsigned int y = 0; y < sSizes.eDim; ++y)
+        {
+            for (unsigned int z = 0; z < sSizes.eDim; ++z)
+            {
+                vertices.push_back(afk_vec3<float>(
+                    (float)x / (float)sSizes.pointSubdivisionFactor,
+                    (float)y / (float)sSizes.pointSubdivisionFactor,
+                    (float)z / (float)sSizes.pointSubdivisionFactor));
+            }
+        }
+    }
+
     for (unsigned int x = 0; x < sSizes.pointSubdivisionFactor; ++x)
     {
         for (unsigned int y = 0; y < sSizes.pointSubdivisionFactor; ++y)
         {
             for (unsigned int z = 0; z < sSizes.pointSubdivisionFactor; ++z)
             {
-                vertices.push_back(afk_vec3<float>(
-                    (float)x / (float)sSizes.eDim,
-                    (float)y / (float)sSizes.eDim,
-                    (float)z / (float)sSizes.eDim));
+                indices.push_back(getIndexForPoint(x, y, z, sSizes));
+                indices.push_back(getIndexForPoint(x + 1, y, z, sSizes));
+                indices.push_back(getIndexForPoint(x, y + 1, z, sSizes));
+                indices.push_back(getIndexForPoint(x, y, z + 1, sSizes));
             }
         }
     }
@@ -40,20 +63,28 @@ buf(0)
 
 AFK_3DSwarmShapeBase::~AFK_3DSwarmShapeBase()
 {
-    if (buf) glDeleteBuffers(1, &buf);
+    if (bufs)
+    {
+        glDeleteBuffers(2, bufs);
+    }
 }
 
 void AFK_3DSwarmShapeBase::initGL(void)
 {
-    bool needBufferPush = (buf == 0);
+    bool needBufferPush = (bufs == nullptr);
     if (needBufferPush)
     {
-        glGenBuffers(1, &buf);
+        bufs = new GLuint[2];
+        glGenBuffers(2, bufs);
     }
 
-    glBindBuffer(GL_ARRAY_BUFFER, buf);
+    glBindBuffer(GL_ARRAY_BUFFER, bufs[0]);
     if (needBufferPush)
         glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vec3<float>), vertices.data(), GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bufs[1]);
+    if (needBufferPush)
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned short), indices.data(), GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vec3<float>), 0);
@@ -61,7 +92,7 @@ void AFK_3DSwarmShapeBase::initGL(void)
 
 void AFK_3DSwarmShapeBase::draw(size_t instanceCount) const
 {
-    glDrawArraysInstanced(GL_POINTS, 0, static_cast<GLsizei>(vertices.size()), static_cast<GLsizei>(instanceCount));
+    glDrawElementsInstanced(GL_LINES_ADJACENCY, static_cast<GLsizei>(indices.size()), GL_UNSIGNED_SHORT, 0, static_cast<GLsizei>(instanceCount));
     AFK_GLCHK("3D swarm shape draw");
 }
 

@@ -33,6 +33,9 @@
 #include "shader.hpp"
 #include "shape_sizes.hpp"
 
+/* TODO: Remove this, and activate the new distant, swarm, net shaders --
+ * starting to add them below.
+ */
 #define RENDER_SHAPE_AS_POINTS 1
 
 AFK_ShaderSpec::AFK_ShaderSpec(
@@ -60,6 +63,12 @@ std::vector<AFK_ShaderSpec> shaders = {
     AFK_ShaderSpec(GL_GEOMETRY_SHADER, "shape_geometry", {"shape_geometry_base.glsl", "shape_geometry_tri.glsl"}),
 #endif
     AFK_ShaderSpec(GL_VERTEX_SHADER, "shape_vertex", { "shape_vertex.glsl" }),
+#if 0
+    AFK_ShaderSpec(GL_GEOMETRY_SHADER, "distant_shape_geometry", { "shape_point_size.glsl", "distant_shape_geometry.glsl" }),
+    AFK_ShaderSpec(GL_VERTEX_SHADER, "distant_shape_vertex", { "distant_shape_vertex.glsl" }),
+    AFK_ShaderSpec(GL_GEOMETRY_SHADER, "swarm_shape_geometry", { "shape_point_size.glsl", "swarm_shape_geometry.glsl" }),
+    AFK_ShaderSpec(GL_VERTEX_SHADER, "swarm_shape_vertex", { "swarm_shape_vertex.glsl" }),
+#endif
 };
 
 
