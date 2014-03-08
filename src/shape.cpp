@@ -182,9 +182,10 @@ bool afk_generateShapeCells(
     }
     else
     {
+        float detailPitch = world->getEntityDetailPitch(threadLocal.detailPitch);
         bool display = (
             cell.c.coord.v[3] == 1 || visibleCell.testDetailPitch(
-                world->getEntityDetailPitch(threadLocal.detailPitch), camera, viewerLocation));
+                detailPitch, camera, viewerLocation));
 
         /* Always build the vapour descriptor, because other cells
          * will need it.
@@ -249,6 +250,8 @@ bool afk_generateShapeCells(
 #if AFK_SHAPE_ENUM_DEBUG
                                     AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << " of entity: worldCell=" << param.shape.asedWorldCell << ", entity counter=" << param.shape.asedCounter << " generated");
 #endif
+                                    shape.displayClaimedShapeCell(
+                                        cell, visibleCell, shapeCellClaim, worldTransform, camera, viewerLocation, detailPitch);
                                 }
                             }
                             else
@@ -387,7 +390,6 @@ bool AFK_Shape::generateClaimedShapeCell(
 #if AFK_SHAPE_ENUM_DEBUG
                 AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << ": enqueueing existing vapour with " << cubeCount << " cubes from " << cubeOffset << ", from " << vc);
 #endif
-                    /* As below, now that I no longer compute edges, this is a success condition! */
                 success = true;
             }
             else
@@ -408,10 +410,6 @@ bool AFK_Shape::generateClaimedShapeCell(
 #if AFK_SHAPE_ENUM_DEBUG
                         AFK_DEBUG_PRINTL("ASED: Shape cell " << cell << ": generated new vapour with " << list.cubeCount() << " cubes at " << vc);
 #endif
-
-                        /* Now that I no longer compute edges, for now, reaching this
-                         * stage indicates success!
-                         */
                         success = true;
                     }
                 }
@@ -420,16 +418,49 @@ bool AFK_Shape::generateClaimedShapeCell(
     }
     else
     {
-        /* For now, all done!*/
         success = true;
     }
 
-    /* TODO: Add in enqueueing of the new 3dnet2 display stuff and
-     * all those good things, and remove the success conditions
-     * above
-     */
-
     return success;
+}
+
+void AFK_Shape::displayClaimedShapeCell(
+    const AFK_KeyedCell& cell,
+    const AFK_VisibleCell& visibleCell,
+    AFK_SHAPE_CELL_CACHE::Claim& shapeCellClaim,
+    const Mat4<float>& worldTransform,
+    const AFK_Camera& camera,
+    const Vec3<float>& viewerLocation,
+    float detailPitch)
+{
+    AFK_World *world = afk_core.world;
+
+    AFK_JigsawCollection *vapourJigsaws = world->vapourJigsaws;
+
+    if (shapeCellClaim.getShared().hasVapour(vapourJigsaws))
+    {
+        if (cell.c.coord.v[3] == SHAPE_CELL_MAX_DISTANCE && visibleCell.testDetailPitch(
+            detailPitch / static_cast<float>(afk_shapePointSubdivisionFactor), camera, viewerLocation))
+        {
+            /* This is a distant shape and should use the distant shape shader. */
+            shapeCellClaim.getShared().enqueueDistantDisplayUnit(
+                worldTransform,
+                cell,
+                world->distantShapeDisplayFair);
+        }
+        else
+        {
+            /* This shape should use the swarm shader.
+             * TODO: After going through the swarm shader, I need to put it through
+             * the net shader too, after I've built that!
+             */
+            shapeCellClaim.getShared().enqueueSwarmDisplayUnit(
+                worldTransform,
+                cell,
+                vapourJigsaws,
+                world->swarmShapeDisplayFair);
+        }
+    }
 }
 
 AFK_Shape::AFK_Shape(

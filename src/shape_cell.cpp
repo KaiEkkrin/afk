@@ -121,6 +121,41 @@ void AFK_ShapeCell::enqueueVapourComputeUnitFromExistingVapour(
         cell);
 }
 
+void AFK_ShapeCell::enqueueDistantDisplayUnit(
+    const Mat4<float>& worldTransform,
+    const AFK_KeyedCell& cell,
+    AFK_Fair<AFK_DistantShapeDisplayQueue>& distantShapeDisplayFair) const
+{
+    Vec4<float> hgCoord = cell.toHomogeneous(SHAPE_CELL_WORLD_SCALE);
+#if SHAPE_DISPLAY_DEBUG
+    AFK_DEBUG_PRINTL("Displaying distant shape at hgCoord " << hgCoord << " with colour " << avgColour);
+#endif
+
+    distantShapeDisplayFair.getUpdateQueue(0)->add(
+        AFK_DistantShapeDisplayUnit(
+            worldTransform,
+            hgCoord,
+            avgColour));
+}
+
+void AFK_ShapeCell::enqueueSwarmDisplayUnit(
+    const Mat4<float>& worldTransform,
+    const AFK_KeyedCell& cell,
+    AFK_JigsawCollection *vapourJigsaws,
+    AFK_Fair<AFK_SwarmShapeDisplayQueue>& swarmShapeDisplayFair) const
+{
+    Vec4<float> hgCoord = cell.toHomogeneous(SHAPE_CELL_WORLD_SCALE);
+#if SHAPE_DISPLAY_DEBUG
+    AFK_DEBUG_PRINTL("Displaying swarm shape at hgCoord " << hgCoord << " with vapour jigsaw piece " << vapourJigsawPiece);
+#endif
+
+    swarmShapeDisplayFair.getUpdateQueue(vapourJigsawPiece.puzzle)->add(
+        AFK_SwarmShapeDisplayUnit(
+            worldTransform,
+            hgCoord,
+            vapourJigsaws->getPuzzle(vapourJigsawPiece.puzzle)->getTexCoordSTR(vapourJigsawPiece)));
+}
+
 void AFK_ShapeCell::setDMinMax(float _minDensity, float _maxDensity)
 {
     minDensity = _minDensity;

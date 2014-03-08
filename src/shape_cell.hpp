@@ -29,9 +29,11 @@
 #include "data/fair.hpp"
 #include "data/frame.hpp"
 #include "def.hpp"
+#include "distant_shape_display_queue.hpp"
 #include "jigsaw_collection.hpp"
 #include "keyed_cell.hpp"
 #include "shape_sizes.hpp"
+#include "swarm_shape_display_queue.hpp"
 
 
 /* A ShapeCell has an artificial max distance set really
@@ -109,6 +111,18 @@ public:
         const AFK_ShapeSizes& sSizes,
         AFK_JigsawCollection *vapourJigsaws,
         AFK_Fair<AFK_3DVapourComputeQueue>& vapourComputeFair);
+
+    /* Enqueues the shape cell for display by various means. */
+    void enqueueDistantDisplayUnit(
+        const Mat4<float>& worldTransform,
+        const AFK_KeyedCell& cell,
+        AFK_Fair<AFK_DistantShapeDisplayQueue>& distantShapeDisplayFair) const;
+
+    void enqueueSwarmDisplayUnit(
+        const Mat4<float>& worldTransform,
+        const AFK_KeyedCell& cell,
+        AFK_JigsawCollection* vapourJigsaws,
+        AFK_Fair<AFK_SwarmShapeDisplayQueue>& swarmShapeDisplayFair) const;
 
     /* Updates this cell's density information (call from
      * dreduce)

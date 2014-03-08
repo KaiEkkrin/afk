@@ -91,6 +91,16 @@ protected:
         AFK_SHAPE_CELL_CACHE::Claim& shapeCellClaim,
         const Mat4<float>& worldTransform);
 
+    /* Enqueues the display of a shape cell. */
+    void displayClaimedShapeCell(
+        const AFK_KeyedCell& cell,
+        const AFK_VisibleCell& visibleCell,
+        AFK_SHAPE_CELL_CACHE::Claim& shapeCellClaim,
+        const Mat4<float>& worldTransform,
+        const AFK_Camera& camera,
+        const Vec3<float>& viewerLocation,
+        float detailPitch);
+
     /* TODO: Try to move the shape-dependent stuff out of
      * `world' into here, so that I can stop sending along
      * the world pointer.
