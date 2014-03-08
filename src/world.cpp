@@ -284,6 +284,33 @@ void AFK_World::generateStartingEntity(
     worldCell.addStartingEntity(threadId, shapeKey, sSizes, rng);
 }
 
+void AFK_World::processEntity(
+    AFK_Entity& entity,
+    unsigned int threadId,
+    AFK_WorldWorkQueue& queue)
+{
+    if (entity.notProcessedYet(afk_core.computingFrame))
+    {
+        /* Account for this shape in the volume left to enumerate */
+        volumeLeftToEnumerate.fetch_add(CUBE(SHAPE_CELL_MAX_DISTANCE));
+
+        /* Make sure everything I need in that shape
+        * has been computed ...
+        */
+        AFK_WorldWorkQueue::WorkItem shapeCellItem;
+        shapeCellItem.func = afk_generateEntity;
+        shapeCellItem.param.shape.cell = afk_keyedCell(afk_vec4<int64_t>(
+            0, 0, 0, SHAPE_CELL_MAX_DISTANCE), entity.shapeKey);
+        shapeCellItem.param.shape.transformation = entity.getTransformation();
+        shapeCellItem.param.shape.flags = 0;
+
+        shapeCellItem.param.shape.dependency = nullptr;
+        queue.push(shapeCellItem);
+
+        entitiesQueued.fetch_add(1);
+    }
+}
+
 bool AFK_World::generateClaimedWorldCell(
     AFK_WORLD_CACHE::Claim& claim,
     unsigned int threadId,
@@ -454,33 +481,13 @@ bool AFK_World::generateClaimedWorldCell(
         
             for (int eI = 0; eI < worldCell.getEntityCount(); ++eI)
             {
-                AFK_Entity& e = worldCell.getEntityAt(eI);
-                if (e.notProcessedYet(afk_core.computingFrame))
-                {
-                    /* Account for this shape in the volume left to enumerate */
-                    volumeLeftToEnumerate.fetch_add(CUBE(SHAPE_CELL_MAX_DISTANCE));
+                processEntity(worldCell.getEntityAt(eI), threadId, queue);
 
-                    /* Make sure everything I need in that shape
-                     * has been computed ...
-                     */
-                    AFK_WorldWorkQueue::WorkItem shapeCellItem;
-                    shapeCellItem.func                          = afk_generateEntity;
-                    shapeCellItem.param.shape.cell              = afk_keyedCell(afk_vec4<int64_t>(
-                                                                    0, 0, 0, SHAPE_CELL_MAX_DISTANCE), e.shapeKey);
-                    shapeCellItem.param.shape.transformation    = e.getTransformation();
-                    shapeCellItem.param.shape.flags             = 0;
-        
 #if AFK_SHAPE_ENUM_DEBUG
-                    shapeCellItem.param.shape.asedWorldCell     = cell;
-                    shapeCellItem.param.shape.asedCounter       = eI;
-                    AFK_DEBUG_PRINTL("ASED: Enqueued entity: worldCell=" << cell << ", entity counter=" << eI);
+                shapeCellItem.param.shape.asedWorldCell = cell;
+                shapeCellItem.param.shape.asedCounter = eI;
+                AFK_DEBUG_PRINTL("ASED: Enqueued entity: worldCell=" << cell << ", entity counter=" << eI);
 #endif
-        
-                    shapeCellItem.param.shape.dependency        = nullptr;
-                    queue.push(shapeCellItem);
-            
-                    entitiesQueued.fetch_add(1);
-                }
             }
         }
 

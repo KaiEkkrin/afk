@@ -244,6 +244,12 @@ protected:
         unsigned int threadId,
         AFK_RNG& rng);
 
+    /* Processes an entity. */
+    void processEntity(
+        AFK_Entity& entity,
+        unsigned int threadId,
+        AFK_WorldWorkQueue& queue);
+
     /* Generates this world cell, as necessary. */
     bool generateClaimedWorldCell(
         AFK_WORLD_CACHE::Claim& claim,
