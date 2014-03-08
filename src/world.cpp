@@ -676,19 +676,29 @@ AFK_World::AFK_World(
     landscape_skyColourLocation = glGetUniformLocation(landscape_shaderProgram->program, "SkyColour");
     landscape_farClipDistanceLocation = glGetUniformLocation(landscape_shaderProgram->program, "FarClipDistance");
 
-    /* TODO: Change these out for distant, swarm, and net.  Maybe even push responsibility
-     * for the shader programs into the base shapes; it would relieve a bit of load on
-     * the world object
+    /* TODO: Maybe push responsibility for the shader programs into the base shape?
+     * It would lighten the world object
      */
-    entity_shaderProgram = new AFK_ShaderProgram();
-    *entity_shaderProgram << "shape_fragment" << "shape_geometry" << "shape_vertex";
-    entity_shaderProgram->Link();
+    distantShape_shaderProgram = new AFK_ShaderProgram();
+    *distantShape_shaderProgram << "shape_fragment" << "distant_shape_geometry" << "distant_shape_vertex";
+    distantShape_shaderProgram->Link();
 
-    entity_shaderLight = new AFK_ShaderLight(entity_shaderProgram->program);
-    entity_projectionTransformLocation = glGetUniformLocation(entity_shaderProgram->program, "ProjectionTransform");
-    entity_windowSizeLocation = glGetUniformLocation(entity_shaderProgram->program, "WindowSize");
-    entity_skyColourLocation = glGetUniformLocation(entity_shaderProgram->program, "SkyColour");
-    entity_farClipDistanceLocation = glGetUniformLocation(entity_shaderProgram->program, "FarClipDistance");
+    distantShape_shaderLight = new AFK_ShaderLight(distantShape_shaderProgram->program);
+    distantShape_projectionTransformLocation = glGetUniformLocation(distantShape_shaderProgram->program, "ProjectionTransform");
+    distantShape_windowSizeLocation = glGetUniformLocation(distantShape_shaderProgram->program, "WindowSize");
+    distantShape_skyColourLocation = glGetUniformLocation(distantShape_shaderProgram->program, "SkyColour");
+    distantShape_farClipDistanceLocation = glGetUniformLocation(distantShape_shaderProgram->program, "FarClipDistance");
+
+    swarmShape_shaderProgram = new AFK_ShaderProgram();
+    *swarmShape_shaderProgram << "shape_fragment" << "swarm_shape_geometry" << "swarm_shape_vertex";
+    swarmShape_shaderProgram->Link();
+
+    swarmShape_shaderLight = new AFK_ShaderLight(swarmShape_shaderProgram->program);
+    swarmShape_projectionTransformLocation = glGetUniformLocation(swarmShape_shaderProgram->program, "ProjectionTransform");
+    swarmShape_windowSizeLocation = glGetUniformLocation(swarmShape_shaderProgram->program, "WindowSize");
+    swarmShape_edgeThresholdLocation = glGetUniformLocation(swarmShape_shaderProgram->program, "EdgeThreshold");
+    swarmShape_skyColourLocation = glGetUniformLocation(swarmShape_shaderProgram->program, "SkyColour");
+    swarmShape_farClipDistanceLocation = glGetUniformLocation(swarmShape_shaderProgram->program, "FarClipDistance");
 
     glGenVertexArrays(1, &landscapeTileArray);
     glBindVertexArray(landscapeTileArray);
@@ -752,8 +762,11 @@ AFK_World::~AFK_World()
     delete landscape_shaderProgram;
     delete landscape_shaderLight;
 
-    delete entity_shaderProgram;
-    delete entity_shaderLight;
+    delete distantShape_shaderProgram;
+    delete distantShape_shaderLight;
+
+    delete swarmShape_shaderProgram;
+    delete swarmShape_shaderLight;
 
     delete swarmShapeBase;
     glDeleteVertexArrays(1, &swarmShapeBaseArray);
@@ -800,7 +813,8 @@ void AFK_World::flipRenderQueues(const AFK_Frame& newFrame)
     landscapeJigsaws->flip(newFrame);
 
     vapourComputeFair.flipQueues();
-    entityDisplayFair.flipQueues();
+    distantShapeDisplayFair.flipQueues();
+    swarmShapeDisplayFair.flipQueues();
     vapourJigsaws->flip(newFrame);
 }
 
@@ -953,51 +967,73 @@ void AFK_World::display(
     /* Those queues are in puzzle order. */
     for (unsigned int puzzle = 0; puzzle < landscapeDrawQueues.size(); ++puzzle)
     {
-        landscapeDrawQueues.at(puzzle)->draw(
-            threadId,
-            landscape_shaderProgram,
-            landscapeJigsaws->getPuzzle(puzzle),
-            landscapeCache,
-            landscapeTerrainBase,
-            lSizes);
+        AFK_Jigsaw *landscapeJigsaw = landscapeJigsaws->getPuzzle(puzzle);
+        if (landscapeJigsaw)
+        {
+            landscapeDrawQueues.at(puzzle)->draw(
+                threadId,
+                landscape_shaderProgram,
+                landscapeJigsaw,
+                landscapeCache,
+                landscapeTerrainBase,
+                lSizes);
+        }
     }
 
     glBindVertexArray(0);
 
-    /* Render the shapes */
-    /* TODO Fix fix fix */
-#if 0
-    glUseProgram(entity_shaderProgram->program);
-    entity_shaderLight->setupLight(globalLight);
-    glUniformMatrix4fv(entity_projectionTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
-    glUniform2fv(entity_windowSizeLocation, 1, &windowSize.v[0]);
-    glUniform3fv(entity_skyColourLocation, 1, &afk_core.skyColour.v[0]);
-    glUniform1f(entity_farClipDistanceLocation, afk_core.settings.zFar);
-    AFK_GLCHK("shape uniforms");
+    /* Render the shapes (similarly) */
+    glUseProgram(distantShape_shaderProgram->program);
+    distantShape_shaderLight->setupLight(globalLight);
+    glUniformMatrix4fv(distantShape_projectionTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
+    glUniform2fv(distantShape_windowSizeLocation, 1, &windowSize.v[0]);
+    glUniform3fv(distantShape_skyColourLocation, 1, &afk_core.skyColour.v[0]);
+    glUniform1f(distantShape_farClipDistanceLocation, afk_core.settings.zFar);
+    AFK_GLCHK("distant shape uniforms");
 
-    glBindVertexArray(edgeShapeBaseArray);
-    AFK_GLCHK("edge shape bindVertexArray");
+    glBindVertexArray(distantShapeBaseArray);
+    AFK_GLCHK("distant shape bindVertexArray");
 
-    std::vector<std::shared_ptr<AFK_EntityDisplayQueue> > entityDrawQueues;
-    entityDisplayFair.getDrawQueues(entityDrawQueues);
+    std::vector<std::shared_ptr<AFK_DistantShapeDisplayQueue> > distantShapeDrawQueues;
+    distantShapeDisplayFair.getDrawQueues(distantShapeDrawQueues);
 
-    for (unsigned int i = 0; i < entityDrawQueues.size(); ++i)
+    for (auto qIt = distantShapeDrawQueues.begin(); qIt != distantShapeDrawQueues.end(); ++qIt)
     {
-        unsigned int vapourPuzzle, edgePuzzle;
-        entityFair2DIndex.get2D(i, vapourPuzzle, edgePuzzle);
-        AFK_Jigsaw *vapourJigsaw = vapourJigsaws->getPuzzle(vapourPuzzle);
-        AFK_Jigsaw *edgeJigsaw = edgeJigsaws->getPuzzle(edgePuzzle);
-        if (vapourJigsaw && edgeJigsaw)
+        (*qIt)->draw(
+            distantShape_shaderProgram,
+            distantShapeBase,
+            sSizes);
+    }
+
+    glBindVertexArray(0);
+
+    glUseProgram(swarmShape_shaderProgram->program);
+    swarmShape_shaderLight->setupLight(globalLight);
+    glUniformMatrix4fv(swarmShape_projectionTransformLocation, 1, GL_TRUE, &projection.m[0][0]);
+    glUniform2fv(swarmShape_windowSizeLocation, 1, &windowSize.v[0]);
+    glUniform1f(swarmShape_edgeThresholdLocation, afk_core.settings.shape_edgeThreshold);
+    glUniform3fv(swarmShape_skyColourLocation, 1, &afk_core.skyColour.v[0]);
+    glUniform1f(swarmShape_farClipDistanceLocation, afk_core.settings.zFar);
+    AFK_GLCHK("swarm shape uniforms");
+
+    glBindVertexArray(swarmShapeBaseArray);
+    AFK_GLCHK("swarm shape bindVertexArray");
+
+    std::vector<std::shared_ptr<AFK_SwarmShapeDisplayQueue> > swarmShapeDrawQueues;
+    swarmShapeDisplayFair.getDrawQueues(swarmShapeDrawQueues);
+
+    for (unsigned int i = 0; i < swarmShapeDrawQueues.size(); ++i)
+    {
+        AFK_Jigsaw *vapourJigsaw = vapourJigsaws->getPuzzle(i);
+        if (vapourJigsaw)
         {
-           entityDrawQueues.at(i)->draw(
-               entity_shaderProgram,
-               vapourJigsaw,
-               edgeJigsaw,
-               edgeShapeBase,
-               sSizes);
+            swarmShapeDrawQueues.at(i)->draw(
+                swarmShape_shaderProgram,
+                vapourJigsaw,
+                swarmShapeBase,
+                sSizes);
         }
     }
-#endif
 
     glBindVertexArray(0);
 }

@@ -220,9 +220,9 @@
     <ClInclude Include="src\def.hpp" />
     <ClInclude Include="src\detail_adjuster.hpp" />
     <ClInclude Include="src\display.hpp" />
+    <ClInclude Include="src\distant_shape_display_queue.hpp" />
     <ClInclude Include="src\dreduce.hpp" />
     <ClInclude Include="src\entity.hpp" />
-    <ClInclude Include="src\entity_display_queue.hpp" />
     <ClInclude Include="src\event.hpp" />
     <ClInclude Include="src\exception.hpp" />
     <ClInclude Include="src\file\filter.hpp" />
@@ -251,6 +251,7 @@
     <ClInclude Include="src\shape_cell.hpp" />
     <ClInclude Include="src\shape_sizes.hpp" />
     <ClInclude Include="src\skeleton.hpp" />
+    <ClInclude Include="src\swarm_shape_display_queue.hpp" />
     <ClInclude Include="src\terrain.hpp" />
     <ClInclude Include="src\terrain_base_tile.hpp" />
     <ClInclude Include="src\terrain_compute_queue.hpp" />
@@ -322,9 +323,9 @@
     <ClCompile Include="src\debug.cpp" />
     <ClCompile Include="src\detail_adjuster.cpp" />
     <ClCompile Include="src\display.cpp" />
+    <ClCompile Include="src\distant_shape_display_queue.cpp" />
     <ClCompile Include="src\dreduce.cpp" />
     <ClCompile Include="src\entity.cpp" />
-    <ClCompile Include="src\entity_display_queue.cpp" />
     <ClCompile Include="src\event.cpp" />
     <ClCompile Include="src\exception.cpp" />
     <ClCompile Include="src\file\filter.cpp" />
@@ -354,6 +355,7 @@
     <ClCompile Include="src\shape_cell.cpp" />
     <ClCompile Include="src\shape_sizes.cpp" />
     <ClCompile Include="src\skeleton.cpp" />
+    <ClCompile Include="src\swarm_shape_display_queue.cpp" />
     <ClCompile Include="src\terrain.cpp" />
     <ClCompile Include="src\terrain_base_tile.cpp" />
     <ClCompile Include="src\terrain_compute_queue.cpp" />

@@ -32,7 +32,6 @@
 #include "data/claimable.hpp"
 #include "data/evictable_cache.hpp"
 #include "data/fair.hpp"
-#include "entity_display_queue.hpp"
 #include "object.hpp"
 #include "jigsaw_collection.hpp"
 #include "shape_cell.hpp"

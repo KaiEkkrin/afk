@@ -40,12 +40,13 @@ uniform sampler3D JigsawFeatureTex;
 uniform samplerBuffer DisplayTBO;
 
 // This is the size of an individual jigsaw piece
-// in (s, t) co-ordinates.
-uniform vec2 JigsawPiecePitch;
+// in (s, t, r) co-ordinates.
+uniform vec3 JigsawPiecePitch;
 
 out VertexData
 {
-    vec4 feature; (r, g, b, density)
+    vec4 feature; // (r, g, b, density)
+    int instanceId;
 } outData;
 
 void main()
@@ -67,9 +68,10 @@ void main()
     // The cell coord will be in homogeneous co-ordinates, rigged so
     // that the unit size is the size of one cell
     gl_Position = (ProjectionTransform * WorldTransform) *
-        (cellCoord + vec4(TexCoord, 0.0))
+        (cellCoord + vec4(TexCoord, 0.0));
 
     vec3 jigsawCoord = jigsawPieceCoord + (JigsawPiecePitch * TexCoord.xyz);
     outData.feature = textureLod(JigsawFeatureTex, jigsawCoord, 0);
+    outData.instanceId = gl_InstanceID;
 }
 

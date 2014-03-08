@@ -24,7 +24,6 @@
 #include "core.hpp"
 #include "debug.hpp"
 #include "def.hpp"
-#include "entity_display_queue.hpp"
 #include "jigsaw.hpp"
 #include "shape.hpp"
 #include "vapour_cell.hpp"

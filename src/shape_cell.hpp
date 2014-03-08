@@ -29,7 +29,6 @@
 #include "data/fair.hpp"
 #include "data/frame.hpp"
 #include "def.hpp"
-#include "entity_display_queue.hpp"
 #include "jigsaw_collection.hpp"
 #include "keyed_cell.hpp"
 #include "shape_sizes.hpp"

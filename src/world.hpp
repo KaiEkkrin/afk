@@ -40,14 +40,15 @@
 #include "data/moving_average.hpp"
 #include "data/stage_timer.hpp"
 #include "def.hpp"
+#include "distant_shape_display_queue.hpp"
 #include "entity.hpp"
-#include "entity_display_queue.hpp"
 #include "jigsaw_collection.hpp"
 #include "landscape_display_queue.hpp"
 #include "landscape_tile.hpp"
 #include "rng/rng.hpp"
 #include "shader.hpp"
 #include "shape.hpp"
+#include "swarm_shape_display_queue.hpp"
 #include "terrain_base_tile.hpp"
 #include "terrain_compute_queue.hpp"
 #include "tile.hpp"
@@ -131,12 +132,20 @@ protected:
     Vec3<float> landscape_baseColour;
 
     /* Entity shader details. */
-    AFK_ShaderProgram *entity_shaderProgram;
-    AFK_ShaderLight *entity_shaderLight;
-    GLuint entity_projectionTransformLocation;
-    GLuint entity_windowSizeLocation;
-    GLuint entity_skyColourLocation;
-    GLuint entity_farClipDistanceLocation;
+    AFK_ShaderProgram *distantShape_shaderProgram;
+    AFK_ShaderLight *distantShape_shaderLight;
+    GLuint distantShape_projectionTransformLocation;
+    GLuint distantShape_windowSizeLocation;
+    GLuint distantShape_skyColourLocation;
+    GLuint distantShape_farClipDistanceLocation;
+
+    AFK_ShaderProgram *swarmShape_shaderProgram;
+    AFK_ShaderLight *swarmShape_shaderLight;
+    GLuint swarmShape_projectionTransformLocation;
+    GLuint swarmShape_windowSizeLocation;
+    GLuint swarmShape_edgeThresholdLocation;
+    GLuint swarmShape_skyColourLocation;
+    GLuint swarmShape_farClipDistanceLocation;
 
     /* The cache of world cells we're tracking.
      */
@@ -174,10 +183,9 @@ protected:
      */
     AFK_Shape shape;
 
-    /* The entity render fair -- a queue of Entities to
-     * display onscreen.
-     */
-    AFK_Fair<AFK_EntityDisplayQueue> entityDisplayFair;
+    /* The entities to display onscreen -- as above */
+    AFK_Fair<AFK_DistantShapeDisplayQueue> distantShapeDisplayFair;
+    AFK_Fair<AFK_SwarmShapeDisplayQueue> swarmShapeDisplayFair;
 
     /* These jigsaws form the computed shape artwork. */
     AFK_JigsawCollection *vapourJigsaws;

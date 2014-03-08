@@ -20,8 +20,6 @@
 // stray outside the view to avoid distorted point sizes here.
 // Requires shape_point_size.glsl.
 
-#version 400
-
 layout (points) in;
 layout (points) out;
 layout (max_vertices = 1) out;

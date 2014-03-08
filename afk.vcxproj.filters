@@ -96,9 +96,6 @@
     <ClInclude Include="src\entity.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\entity_display_queue.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\event.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -345,6 +342,12 @@
     <ClInclude Include="src\3d_swarm_shape_base.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\distant_shape_display_queue.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\swarm_shape_display_queue.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\compute\fake3d.cl">
@@ -434,9 +437,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\entity.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\entity_display_queue.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\event.cpp">
@@ -638,6 +638,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\3d_swarm_shape_base.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\distant_shape_display_queue.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\swarm_shape_display_queue.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

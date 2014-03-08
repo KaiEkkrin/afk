@@ -21,8 +21,6 @@
 // rest.
 // Requires shape_point_size.glsl.
 
-#version 400
-
 layout (lines_adjacency) in;
 layout (points) out;
 layout (max_vertices = 1) out;
@@ -30,6 +28,7 @@ layout (max_vertices = 1) out;
 in VertexData
 {
     vec4 feature;
+    int instanceId;
 } inData[];
 
 out GeometryData
@@ -37,6 +36,10 @@ out GeometryData
     vec3 colour;
     vec3 normal;
 } outData;
+
+// I'm going to need to read this again to get the world transform so
+// I can calculate a normal
+uniform samplerBuffer DisplayTBO;
 
 uniform float EdgeThreshold;
 
@@ -57,20 +60,32 @@ void main()
             inData[3].feature.w < EdgeThreshold);
     }
 
-    if (edge && withinView(gl_in[0].gl_Position)
+    if (edge && withinView(gl_in[0].gl_Position))
     {
         gl_Position = gl_in[0].gl_Position;
 
         outData.colour = inData[0].feature.xyz;
 
+        vec4 WTRow1 = texelFetch(DisplayTBO, inData[0].instanceId * 6);
+        vec4 WTRow2 = texelFetch(DisplayTBO, inData[0].instanceId * 6 + 1);
+        vec4 WTRow3 = texelFetch(DisplayTBO, inData[0].instanceId * 6 + 2);
+        vec4 WTRow4 = texelFetch(DisplayTBO, inData[0].instanceId * 6 + 3);
+        
+        mat4 WorldTransform = mat4(
+            vec4(WTRow1.x, WTRow2.x, WTRow3.x, WTRow4.x),
+            vec4(WTRow1.y, WTRow2.y, WTRow3.y, WTRow4.y),
+            vec4(WTRow1.z, WTRow2.z, WTRow3.z, WTRow4.z),
+            vec4(WTRow1.w, WTRow2.w, WTRow3.w, WTRow4.w));
+
         /* Remember, (1, 2, 3) are (x, y, z).
          * Create a normal by biasing each axis by the amount of edge swing involved
          */
-        vec3 normal = vec3(
+        vec4 normal = vec4(
             inData[0].feature.w - inData[1].feature.w,
             inData[0].feature.w - inData[2].feature.w,
-            inData[0].feature.w - inData[3].feature.w);
-        outData.normal = WorldTransform * normal;
+            inData[0].feature.w - inData[3].feature.w,
+            1.0);
+        outData.normal = (WorldTransform * normal).xyz;
 
         // Work out how big to make the point by checking how far away the
         // adjacent points would appear:
